@@ -65,26 +65,40 @@ func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentB
 		return full
 	}
 
+	// safePixel reads a pixel without panicking if the buffer is smaller than
+	// expected (e.g. tImageSize was wrong). Out-of-bounds reads return bgByte.
+	const bgByte = byte(0) // used only for bounds-guard before bgLevel is known
+	safeGet := func(idx int) byte {
+		if idx < 0 || idx >= len(pixels) {
+			return bgByte
+		}
+		return pixels[idx]
+	}
+
 	// --- 1. background level from four corner patches ---
+	// Corner patches are always pure scanner transport background regardless of
+	// cheque placement, so their average gives us a reliable reference level.
 	patch := 20
-	if patch > width/4    { patch = width / 4 }
+	if patch > width/4      { patch = width / 4 }
 	if patch > fullHeight/4 { patch = fullHeight / 4 }
-	if patch < 1           { patch = 1 }
+	if patch < 1             { patch = 1 }
 	var sum int64
 	n := int64(patch * patch * 4)
 	for row := 0; row < patch; row++ {
 		for col := 0; col < patch; col++ {
-			sum += int64(pixels[row*srcStride+col])
-			sum += int64(pixels[row*srcStride+(width-1-col)])
-			sum += int64(pixels[(fullHeight-1-row)*srcStride+col])
-			sum += int64(pixels[(fullHeight-1-row)*srcStride+(width-1-col)])
+			sum += int64(safeGet(row*srcStride + col))
+			sum += int64(safeGet(row*srcStride + (width - 1 - col)))
+			sum += int64(safeGet((fullHeight-1-row)*srcStride + col))
+			sum += int64(safeGet((fullHeight-1-row)*srcStride + (width - 1 - col)))
 		}
 	}
 	bgLevel := int(sum / n)
 
 	// --- 2 & 3. scan rows; only use "wide" rows for bounds ---
-	const tolerance  = 25
-	const minSpanFrac = 2 // row content span must be > width/minSpanFrac (50%)
+	const tolerance   = 25
+	// A row must have content spanning > width/minSpanFrac pixels to be counted.
+	// 4 means 25 % — lenient enough for cheques that don't fill the transport path.
+	const minSpanFrac = 4
 
 	top    := fullHeight // sentinel
 	left   := width
@@ -96,7 +110,7 @@ func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentB
 		rowLeft  := -1
 		rowRight := -1
 		for x := 0; x < width; x++ {
-			v := int(pixels[rowBase+x])
+			v := int(safeGet(rowBase + x))
 			if v < bgLevel-tolerance || v > bgLevel+tolerance {
 				if rowLeft < 0 { rowLeft = x }
 				rowRight = x
@@ -107,10 +121,10 @@ func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentB
 		}
 		span := rowRight - rowLeft
 		if span <= width/minSpanFrac {
-			// Thin content (alignment mark, edge noise) — skip for left/right/top/bottom.
+			// Thin content (alignment mark, edge noise) — skip for boundary calc.
 			continue
 		}
-		// Wide row → definitely the cheque body.
+		// Wide row → counts toward the bounding box.
 		if y < top    { top = y }
 		if y > bottom { bottom = y }
 		if rowLeft  < left  { left  = rowLeft }
@@ -125,10 +139,10 @@ func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentB
 
 	// --- 4. add 30-px safety margin ---
 	const margin = 30
-	if top    > margin           { top    -= margin } else { top    = 0 }
-	if left   > margin           { left   -= margin } else { left   = 0 }
-	if bottom < fullHeight-1-margin { bottom += margin } else { bottom = fullHeight - 1 }
-	if right  < width-1-margin   { right  += margin } else { right  = width - 1 }
+	if top    > margin               { top    -= margin } else { top    = 0 }
+	if left   > margin               { left   -= margin } else { left   = 0 }
+	if bottom < fullHeight-1-margin  { bottom += margin } else { bottom = fullHeight - 1 }
+	if right  < width-1-margin       { right  += margin } else { right  = width - 1 }
 
 	return ContentBounds{Top: top, Left: left, Bottom: bottom, Right: right, BGLevel: bgLevel}
 }
@@ -201,10 +215,15 @@ func writeBinaryTIFF(pixels []byte, srcStride int, b ContentBounds, dpi int) []b
 	}
 	dstStride := (w + 7) / 8
 	imgData := make([]byte, dstStride*h)
+	plen := len(pixels)
 	for y := 0; y < h; y++ {
 		srcRow := (b.Top + y) * srcStride
 		for x := 0; x < w; x++ {
-			if pixels[srcRow+(b.Left+x)] >= 128 {
+			idx := srcRow + b.Left + x
+			if idx >= plen {
+				break // treat out-of-bounds pixels as background (bit stays 0)
+			}
+			if pixels[idx] >= 128 {
 				imgData[y*dstStride+x/8] |= 0x80 >> uint(x%8)
 			}
 		}
@@ -223,9 +242,18 @@ func writeGrayscaleTIFF(pixels []byte, srcStride int, b ContentBounds, dpi int) 
 		return nil
 	}
 	imgData := make([]byte, w*h)
+	plen := len(pixels)
 	for y := 0; y < h; y++ {
 		srcRow := (b.Top + y) * srcStride
-		copy(imgData[y*w:], pixels[srcRow+b.Left:srcRow+b.Left+w])
+		start := srcRow + b.Left
+		end   := start + w
+		if start >= plen {
+			break // no more pixel data; remaining rows stay as 0 (black)
+		}
+		if end > plen {
+			end = plen // partial row — copy what we have, rest stays 0
+		}
+		copy(imgData[y*w:], pixels[start:end])
 	}
 	return tiffBuild(8, 1, imgData, w, h, dpi)
 }
