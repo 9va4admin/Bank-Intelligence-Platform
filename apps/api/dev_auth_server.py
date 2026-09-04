@@ -574,36 +574,36 @@ CREATE TABLE IF NOT EXISTS config.bank_config (
 -- Use this to bootstrap any bank deployment, then create bank-specific users.
 INSERT INTO platform.local_auth_accounts
     (user_id, bank_id, entity_type, entity_id, username, display_name,
-     password_hash, role, permission_level, bank_type, clearing_zones, totp_enrolled)
+     password_hash, role, clearing_zones, totp_enrolled)
 VALUES
   -- ASTRA platform super admin — saraswat-coop
   ('usr-astra-sc', 'saraswat-coop', 'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
-   'platform_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+   'platform_admin', ARRAY['ALL'], false),
   -- ASTRA platform super admin — federal-bank
   ('usr-astra-fb', 'federal-bank',  'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
-   'platform_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+   'platform_admin', ARRAY['ALL'], false),
   -- Bank-specific dev accounts
   ('usr-admin', 'saraswat-coop', 'sb',  'saraswat-coop', 'admin', 'Anita Rao',
    '$argon2id$v=19$m=65536,t=3,p=4$RpL0cwR5KMqXDBHoxOYL4w$uimuuZjif2n7t8HwlOU2zEgV9euZTCsRASVNaAgj29I',
-   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+   'bank_it_admin', ARRAY['ALL'], false),
   ('usr-ops',   'saraswat-coop', 'sb',  'saraswat-coop', 'ops',   'Sunil Mehta',
    '$argon2id$v=19$m=65536,t=3,p=4$OjmmP/u5VC/orNBhlNSRyA$ULGjkdbrZLs9FUVAY6mOvmN+wtW0whA/CCb0xKIk0iY',
-   'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
+   'ops_manager', ARRAY['ALL'], false),
   ('usr-smb',   'smb-mh-vasavi', 'smb', 'smb-mh-vasavi', 'smb',   'Vasavi Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$WVVrBi7dk2K+WI79D05Njg$Bw6eRjYKWAsrdKrFs5hxvuGzOxr7SNc8mP2RGkagZBQ',
-   'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false),
+   'smb_admin',   ARRAY['MUMBAI'], false),
   -- Federal Bank dev accounts (VITE_BANK_ID=federal-bank)
   ('usr-fed-admin', 'federal-bank', 'sb', 'federal-bank', 'fed-admin', 'Priya Nair',
    '$argon2id$v=19$m=65536,t=3,p=4$kK58+XyJeeIklEpC1NLC+w$CmP7ooYe5Y543B6b9saNynLswlK3wleMbWdQfQqW5hs',
-   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+   'bank_it_admin', ARRAY['ALL'], false),
   ('usr-fed-ops',   'federal-bank', 'sb', 'federal-bank', 'fed-ops',   'Rajan Thomas',
    '$argon2id$v=19$m=65536,t=3,p=4$FkNrtPVfTrlvql8PzoKckw$+AL7/zFDK9RP3dQ+kEdtcuB3/i/a1fJgYvR+K10c4Bs',
-   'ops_manager',   'EDIT',  'SB', ARRAY['ALL'], false),
+   'ops_manager',   ARRAY['ALL'], false),
   ('usr-fed-rev',   'federal-bank', 'sb', 'federal-bank', 'fed-reviewer', 'Meena Pillai',
    '$argon2id$v=19$m=65536,t=3,p=4$IbaUYWuuMX6kkl8SwhEQpg$AQ6DEwZIhJSUCZIdW2tZyg+p3Zxra4ze1sVMotIhgyA',
-   'ops_reviewer',  'READ',  'SB', ARRAY['ALL'], false)
+   'ops_reviewer',  ARRAY['ALL'], false)
 ON CONFLICT (username, bank_id) DO NOTHING;
 
 -- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load
@@ -716,7 +716,7 @@ def build_app() -> FastAPI:
                 port=15433,
                 user="yugabyte",
                 password="yugabyte",
-                database="yugabyte",
+                database="astra",
                 min_size=2,
                 max_size=10,
                 command_timeout=30,
