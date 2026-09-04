@@ -186,8 +186,12 @@ async def lifespan(app: FastAPI):
     # --- Temporal client ---
     try:
         from temporalio.client import Client as TemporalClient
+        from shared.temporal.converter import pydantic_data_converter
         temporal_host = await config_service.get_secret("temporal.host")
-        app.state.temporal_client = await TemporalClient.connect(temporal_host)
+        app.state.temporal_client = await TemporalClient.connect(
+            temporal_host,
+            data_converter=pydantic_data_converter,
+        )
         log.info("api_gateway.temporal_connected", host=temporal_host)
     except Exception as exc:
         log.error("api_gateway.temporal_failed", error=str(exc))
