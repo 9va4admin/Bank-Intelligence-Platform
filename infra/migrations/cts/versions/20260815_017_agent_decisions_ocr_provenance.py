@@ -24,7 +24,7 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "agent_decisions",
-        sa.Column("ocr_engines_used", JSONB, nullable=True, server_default="'[]'::jsonb"),
+        sa.Column("ocr_engines_used", JSONB, nullable=True, server_default=sa.text("'[]'::jsonb")),
         schema="cts",
     )
     op.add_column(
