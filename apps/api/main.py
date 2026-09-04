@@ -104,8 +104,10 @@ async def lifespan(app: FastAPI):
         kafka_servers = await config_service.get_secret("kafka.bootstrap_servers")
         app.state.kafka_producer_cts = KafkaEventProducer(
             bootstrap_servers=kafka_servers,
+            bank_id=config_service.bank_id,
             module="cts",
         )
+        app.state.kafka_producer_cts.connect()
         log.info("api_gateway.kafka_cts_producer_ready")
     except Exception as exc:
         log.error("api_gateway.kafka_cts_producer_failed", error=str(exc))
