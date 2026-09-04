@@ -18,7 +18,6 @@ from typing import Optional
 import structlog
 
 from shared.config.config_service import ConfigService
-from shared.config.config_service import config_service as _global_config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.observability.otel_setup import configure_otel
 from shared.temporal.converter import pydantic_data_converter
@@ -378,13 +377,6 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     if config_service is None:
         config_service = ConfigService()
         await config_service.initialise()
-
-    # Ensure the module-level singleton is also initialised so NO_DI_ACTIVITIES
-    # (e.g. validate_cts2010) that import it directly via
-    # `from shared.config.config_service import config_service` can call
-    # config_service.get_cts_config() without hitting _assert_ready().
-    if not _global_config_service._ready:
-        await _global_config_service.initialise()
 
     # temporal.address and temporal.namespace are Layer 2 (Helm-injected
     # deployment topology) — synchronous get_platform(), no DB round-trip.

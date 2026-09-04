@@ -26,6 +26,15 @@ _TIER_DEFAULTS = {
 
 _VALID_TIERS = ("standard", "high_value", "very_high")
 
+# Old workflow history may have stored queue-suffix forms instead of canonical tier names.
+# This map allows both functions to normalise on entry so replayed workflows don't crash.
+_LEGACY_TIER_ALIASES: dict[str, str] = {
+    "highvalue":  "high_value",
+    "veryhigh":   "very_high",
+    "high-value": "high_value",
+    "very-high":  "very_high",
+}
+
 _TASK_QUEUE_SUFFIXES = {
     "standard":   "standard",
     "high_value": "high-value",
@@ -76,6 +85,7 @@ def task_queue_for_tier(bank_id: str, tier: str) -> str:
     Raises:
         ValueError: if tier is not one of the three valid tiers
     """
+    tier = _LEGACY_TIER_ALIASES.get(tier, tier)
     if tier not in _VALID_TIERS:
         raise ValueError(
             f"Unknown queue tier {tier!r}. Valid tiers: {_VALID_TIERS}"
@@ -101,6 +111,7 @@ def humanreview_task_queue_for_tier(bank_id: str, tier: str) -> str:
     Raises:
         ValueError: if tier is not one of the three valid tiers
     """
+    tier = _LEGACY_TIER_ALIASES.get(tier, tier)
     if tier not in _VALID_TIERS:
         raise ValueError(
             f"Unknown queue tier {tier!r}. Valid tiers: {_VALID_TIERS}"

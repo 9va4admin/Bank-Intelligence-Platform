@@ -882,7 +882,7 @@ async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
         from shared.config.config_service import config_service
         if not config_service._ready:
             await config_service.initialise()
-        dsn = await config_service.get("db.cts.dsn")
+        dsn = await config_service.get_secret("db.cts.dsn")
 
         import asyncpg
         try:

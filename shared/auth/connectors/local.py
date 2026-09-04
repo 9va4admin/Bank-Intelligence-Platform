@@ -142,7 +142,7 @@ class YugabyteDBLocalAuthConnector(LocalAuthConnector):
 
     _COLS = (
         "user_id, bank_id, entity_type, entity_id, username, display_name, "
-        "password_hash, role, permission_level, bank_type, clearing_zones, "
+        "password_hash, role, clearing_zones, "
         "is_active, failed_attempts, locked_until, email, phone"
     )
 

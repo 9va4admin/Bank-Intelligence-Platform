@@ -44,12 +44,20 @@ class AuthConnectorFactory:
         return connector
 
     def _build_connector(self, entity_type: str, entity_id: str) -> AuthConnector:
-        full_config = self._config_service.get("auth")
-        if not full_config or "auth" not in full_config:
-            raise AuthConnectorConfigError(
-                f"auth config missing for bank_id='{self.bank_id}'. "
-                f"Add 'auth:' section to Helm Layer 2 values."
+        # config_service.get() is async; in dev/POC, Layer 2 Helm values are not wired
+        # so the auth config is unavailable — fall back to local auth directly.
+        raw_auth_config = getattr(self._config_service, "_auth_config_cache", None)
+        if raw_auth_config is None:
+            log.info(
+                "auth.factory.no_auth_config_fallback_to_local",
+                bank_id=self.bank_id, entity_type=entity_type,
+                note="No sync auth config available; defaulting to local DB auth",
             )
+            return self._build_local(entity_type, entity_id)
+
+        full_config = raw_auth_config
+        if not full_config or "auth" not in full_config:
+            return self._build_local(entity_type, entity_id)
 
         auth_root: dict = full_config["auth"]
 
@@ -59,9 +67,7 @@ class AuthConnectorFactory:
             entity_cfg = auth_root.get(entity_type, {})
 
         if not entity_cfg:
-            raise AuthConnectorConfigError(
-                f"No auth config for entity_type='{entity_type}' in bank '{self.bank_id}'."
-            )
+            return self._build_local(entity_type, entity_id)
 
         integration_enabled: bool = entity_cfg.get("integration_enabled", False)
         integration_type: str = entity_cfg.get("integration_type", "local")
