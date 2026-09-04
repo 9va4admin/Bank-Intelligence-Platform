@@ -263,7 +263,7 @@ export default function CTSScanner() {
     scanned:   { lag: 0, rate: 0 },
     sealed:    { lag: 0, rate: 0 },
     submitted: { lag: 0, rate: 0 },
-  } : null)
+  } : {})
 
   // Right panel tab
   const [rightTab, setRightTab] = useState('audit') // 'audit' | 'lots' | 'taxonomy'
