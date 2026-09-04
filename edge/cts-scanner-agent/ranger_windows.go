@@ -302,6 +302,7 @@ import "C"
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -853,33 +854,30 @@ func (t *CanonTransport) rawPixels(img *C.CEIIMAGEINFO) (pixels []byte, srcStrid
 	return
 }
 
-// saveImageToBytes encodes a scanner image as an uncompressed 8-bpp TIFF with
-// the black scanner-transport border auto-cropped from the bottom.
-//
-// This replaces the former CsdSaveImageEx path: we already have the raw pixel
-// bytes via rawPixels(), so writing the TIFF in pure Go is simpler and lets us
-// crop in the same pass without any extra CSD call.
+// saveImageToBytes saves a scanner image as a TIFF using CsdSaveImageEx.
+// LZW compression for grayscale, CCITT G4 for binary — Canon SDK handles it.
 func (t *CanonTransport) saveImageToBytes(img *C.CEIIMAGEINFO) ([]byte, error) {
-	pixels, srcStride, width, height, dpi, err := t.rawPixels(img)
+	tmp, err := os.CreateTemp("", "astra-scan-*.tif")
 	if err != nil {
-		return nil, fmt.Errorf("saveImageToBytes: %w", err)
+		return nil, fmt.Errorf("create temp file: %w", err)
 	}
-	b := findContentBounds(pixels, srcStride, width, height)
-	t.logger.Info("image crop (GR)",
-		"full", fmt.Sprintf("%dx%d", width, height),
-		"crop", fmt.Sprintf("%dx%d", b.CroppedWidth(), b.CroppedHeight()),
-		"top", b.Top, "left", b.Left, "bottom", b.Bottom, "right", b.Right,
-		"bg_level", b.BGLevel)
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
 
-	data := writeGrayscaleTIFF(pixels, srcStride, b, dpi)
-	if len(data) == 0 {
-		return nil, fmt.Errorf("writeGrayscaleTIFF empty output: bounds %+v", b)
+	cPath := C.CString(tmpPath)
+	defer C.free(unsafe.Pointer(cPath))
+
+	if ret := C.astra_save_tiff(img, cPath); int32(ret) != csdOK {
+		return nil, fmt.Errorf("CsdSaveImageEx: code %d", int32(ret))
 	}
-	return data, nil
+	return os.ReadFile(tmpPath)
 }
 
-// saveImageToBytesBW thresholds a scanner image to 1-bpp and encodes it as an
-// uncompressed 1-bpp TIFF with all four sides auto-cropped.
+// saveImageToBytesBW thresholds a grayscale (8-bpp) scanner image to 1-bpp
+// and returns it as an uncompressed TIFF.  CsdSaveImageEx rejects a buffer we
+// have modified ourselves, so we do the threshold in pure Go instead.
+// For images that are already 1-bpp the SDK path is used directly.
 func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
 	if img.lBps != 8 {
 		return t.saveImageToBytes(img)
@@ -888,16 +886,11 @@ func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("saveImageToBytesBW: %w", err)
 	}
-	b := findContentBounds(pixels, srcStride, width, height)
-	t.logger.Info("image crop (BW)",
-		"full", fmt.Sprintf("%dx%d", width, height),
-		"crop", fmt.Sprintf("%dx%d", b.CroppedWidth(), b.CroppedHeight()),
-		"top", b.Top, "left", b.Left, "bottom", b.Bottom, "right", b.Right,
-		"bg_level", b.BGLevel)
-
+	// Use full image bounds — no crop, matching the GR image dimensions.
+	b := ContentBounds{Top: 0, Left: 0, Bottom: height - 1, Right: width - 1}
 	data := writeBinaryTIFF(pixels, srcStride, b, dpi)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("writeBinaryTIFF empty output: bounds %+v", b)
+		return nil, fmt.Errorf("writeBinaryTIFF empty output")
 	}
 	return data, nil
 }
