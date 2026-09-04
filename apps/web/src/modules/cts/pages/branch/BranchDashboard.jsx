@@ -278,7 +278,7 @@ export default function BranchDashboard() {
           <div className={`rounded-lg border p-4 ${th.card}`}>
             <p className={`text-sm font-medium ${th.heading}`}>EEH Status</p>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {eehHealth.status} · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping.slice(11, 16)}
+              {eehHealth.status} · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping?.slice(11, 16) ?? '—'}
             </p>
           </div>
         </div>
