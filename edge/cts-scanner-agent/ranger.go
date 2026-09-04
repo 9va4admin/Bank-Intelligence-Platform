@@ -29,8 +29,9 @@ var (
 
 // ScannedItem is the normalised output from one cheque pass through the scanner.
 type ScannedItem struct {
-	FrontImage []byte // TIFF Group 4, 200 dpi — CTS-2010 compliant
-	RearImage  []byte // TIFF Group 4, 200 dpi — CTS-2010 compliant
+	FrontImage   []byte // grayscale 8-bit LZW TIFF — saved as {MICR}_F_GR.tif
+	FrontImageBW []byte // binary 1-bit CCITT G4 TIFF derived by thresholding FrontImage — saved as {MICR}_F_BW.tif
+	RearImage    []byte // binary 1-bit CCITT G4 TIFF — saved as {MICR}_B_BW.tif
 	FrontDPI   int
 	RearDPI    int
 	// FrontFileSizeKB and RearFileSizeKB are derived from image byte length.

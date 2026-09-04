@@ -215,11 +215,11 @@ func (c *ASTRAClient) setHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "astra-cts-scanner-agent/1.0")
 }
 
-// saveImagesLocally writes front, rear, UV TIFF images and raw MICR data to
-// a scanned/ folder next to the exe for immediate local visibility.
+// saveImagesLocally writes all three TIFF images, UV image, and raw MICR data
+// to a scanned/ folder next to the exe for immediate local visibility.
 // Called before upload so files exist even if the ASTRA API is unreachable.
 // File names use the MICR cheque number as prefix: {MICR_NO}_F_GR.tif etc.
-func saveImagesLocally(scanID string, front, rear, uv []byte, micrRaw string) {
+func saveImagesLocally(scanID string, front, frontBW, rear, uv []byte, micrRaw string) {
 	dir := localScannedDir(scanID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		slog.Warn("local image save: mkdir failed", "dir", dir, "error", err)
@@ -237,8 +237,9 @@ func saveImagesLocally(scanID string, front, rear, uv []byte, micrRaw string) {
 		}
 	}
 	pfx := micrFilePrefix(micrRaw)
-	write(pfx+"_F_GR.tif", front) // front face grayscale  — NPCI CTS-2010
-	write(pfx+"_B_BW.tif", rear)  // rear face binary       — NPCI CTS-2010
+	write(pfx+"_F_GR.tif", front)   // front grayscale 8-bit LZW   — NPCI CTS-2010
+	write(pfx+"_F_BW.tif", frontBW) // front binary 1-bit CCITT G4 — derived by threshold
+	write(pfx+"_B_BW.tif", rear)    // rear  binary 1-bit CCITT G4 — NPCI CTS-2010
 	write("uv.tif", uv)
 	if micrRaw != "" {
 		write("micr.txt", []byte(micrRaw))
@@ -308,7 +309,7 @@ func processScannedItem(
 	chequeNumber string,
 ) (*ScanSubmitResponse, error) {
 	// Step 0 — save locally so images and MICR are visible regardless of upload outcome
-	saveImagesLocally(scanID, item.FrontImage, item.RearImage, item.UVImage, item.MICRRaw)
+	saveImagesLocally(scanID, item.FrontImage, item.FrontImageBW, item.RearImage, item.UVImage, item.MICRRaw)
 
 	uploadCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
