@@ -1721,7 +1721,7 @@ class ScanUploadURLResponse(BaseModel):
 async def request_scan_upload_urls(
     body: ScanUploadURLRequest,
     request: Request,
-    bank_id: str = Depends(get_current_bank_id),
+    bank_id: str = Depends(get_bank_id_scanner_or_user),
 ) -> ScanUploadURLResponse:
     """
     Provision presigned MinIO PUT URLs for scanner agent image upload.
@@ -1747,15 +1747,15 @@ async def request_scan_upload_urls(
     expires_at = int(time.time()) + _UPLOAD_URL_EXPIRY_SECONDS
     expiry_td  = _td(seconds=_UPLOAD_URL_EXPIRY_SECONDS)
 
-    minio_client = getattr(request.app.state, "minio_client", None)
-    if minio_client is not None:
+    minio_store = getattr(request.app.state, "minio_store", None)
+    if minio_store is not None:
         try:
-            front_url = minio_client.presigned_put_object(
-                _CTS_IMAGES_BUCKET, front_key, expires=expiry_td)
-            rear_url  = minio_client.presigned_put_object(
-                _CTS_IMAGES_BUCKET, rear_key,  expires=expiry_td)
-            uv_url    = minio_client.presigned_put_object(
-                _CTS_IMAGES_BUCKET, uv_key, expires=expiry_td) if body.include_uv else None
+            front_url = await minio_store.presigned_put_url(
+                _CTS_IMAGES_BUCKET, front_key, expiry_seconds=_UPLOAD_URL_EXPIRY_SECONDS)
+            rear_url  = await minio_store.presigned_put_url(
+                _CTS_IMAGES_BUCKET, rear_key,  expiry_seconds=_UPLOAD_URL_EXPIRY_SECONDS)
+            uv_url    = await minio_store.presigned_put_url(
+                _CTS_IMAGES_BUCKET, uv_key, expiry_seconds=_UPLOAD_URL_EXPIRY_SECONDS) if body.include_uv else None
         except Exception as exc:
             log.error("cts.upload_url.minio_error", scan_id=body.scan_id, bank_id=bank_id, error=str(exc))
             raise HTTPException(

@@ -72,3 +72,9 @@ class MinioObjectStore:
             self._client.presigned_get_object,
             bucket_name, object_key, timedelta(seconds=expiry_seconds),
         )
+
+    async def presigned_put_url(self, bucket_name: str, object_key: str, expiry_seconds: int = 300) -> str:
+        return await asyncio.to_thread(
+            self._client.presigned_put_object,
+            bucket_name, object_key, timedelta(seconds=expiry_seconds),
+        )
