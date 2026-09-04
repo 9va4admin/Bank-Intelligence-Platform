@@ -10,6 +10,7 @@ Routes:
 All routes require JWT auth (bank_id extracted from token claim).
 No business logic — delegates to Temporal workflow client.
 """
+import hashlib
 import re
 import time
 from datetime import date, datetime, timezone
@@ -25,7 +26,7 @@ def _safe_temporal_param(value: str, field: str) -> str:
     return value
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
@@ -74,6 +75,42 @@ async def get_current_user_context(
 async def get_current_bank_id(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> str:
+    return ctx.bank_id
+
+
+async def get_bank_id_scanner_or_user(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> str:
+    """Accept scanner machine bearer token OR user session cookie.
+
+    The edge scanner agent (edge/cts-scanner-agent/) authenticates with a
+    machine bearer token stored in token.dat — it has no user session. This
+    dependency lets scanner-facing endpoints accept both auth methods so the
+    same API serves both the scanner agent and the browser UI.
+
+    Priority: scanner machine token first → user session fallback.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        incoming_token = authorization[7:].strip()
+        incoming_hash = hashlib.sha256(incoming_token.encode()).hexdigest()
+        db_pool = getattr(request.app.state, "db_pool_cts", None)
+        if db_pool is not None:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT bank_id FROM cts.scanner_tokens "
+                        "WHERE token_hash = $1 AND revoked = false",
+                        incoming_hash,
+                    )
+                if row is not None:
+                    log.info("cts.scanner_auth.ok", bank_id=row["bank_id"])
+                    return row["bank_id"]
+            except Exception as exc:
+                log.warning("cts.scanner_auth.db_error", error=str(exc))
+    # Fallback: require a valid browser session (sync dependency — not awaited)
+    from apps.api.dependencies import require_user_context as _require_ctx
+    ctx: UserContext = _require_ctx(request)
     return ctx.bank_id
 
 
@@ -1802,7 +1839,7 @@ async def submit_outward_scan(
     body: OutwardScanSubmitRequest,
     request: Request,
     response: Response,
-    bank_id: str = Depends(get_current_bank_id),
+    bank_id: str = Depends(get_bank_id_scanner_or_user),
 ) -> OutwardScanSubmitResponse:
     """
     Accept a scanned outward instrument from the local scanner agent.
@@ -4077,7 +4114,7 @@ class ScanSessionLogResponse(BaseModel):
 async def report_outward_scan_event(
     body: OutwardScanEventRequest,
     request: Request,
-    bank_id: str = Depends(get_current_bank_id),
+    bank_id: str = Depends(get_bank_id_scanner_or_user),
 ) -> OutwardScanEventResponse:
     """
     Called by the edge scanner agent for non-submit scan outcomes:
