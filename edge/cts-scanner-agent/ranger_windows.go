@@ -245,6 +245,57 @@ static INT32 astra_save_tiff(CEIIMAGEINFO *img, const char *path) {
     fi.nJpegQuality = 0;
     return g_CsdSaveImageEx(img, &fi, path);
 }
+
+// astra_save_tiff_bw: threshold a grayscale (8 bpp) image in-memory to 1 bpp
+// and save as a CCITT Group 4 / MMR TIFF — the CTS-2010 binary format.
+//
+// Thresholding rule: pixel >= 128 → white (bit=1, MSB-first per TIFF spec),
+//                   pixel <  128 → black (bit=0).
+//
+// If the source image is already 1 bpp, the function delegates to astra_save_tiff.
+// Row stride of the source is derived from tImageSize/lHeight to handle any
+// padding the scanner driver may have added.
+static INT32 astra_save_tiff_bw(CEIIMAGEINFO *orig, const char *path) {
+    if (orig->lBps != 8) {
+        return astra_save_tiff(orig, path); // already binary or unsupported depth
+    }
+
+    long width     = orig->lWidth;
+    long height    = orig->lHeight;
+    long srcStride = (orig->tImageSize > 0 && height > 0)
+                     ? (long)(orig->tImageSize / height)
+                     : width; // bytes per source row (may include padding)
+    long dstStride = (width + 7) / 8; // bytes per 1-bpp destination row (no padding)
+    long dstSize   = dstStride * height;
+
+    BYTE *bwBuf = (BYTE *)calloc((size_t)dstSize, 1);
+    if (!bwBuf) return -98;
+
+    BYTE *src = orig->lpImage;
+    for (long y = 0; y < height; y++) {
+        for (long x = 0; x < width; x++) {
+            if (src[y * srcStride + x] >= 128) {
+                bwBuf[y * dstStride + x / 8] |= (BYTE)(0x80u >> (x % 8));
+            }
+        }
+    }
+
+    CEIIMAGEINFO bwImg  = *orig;
+    bwImg.lBps          = 1;
+    bwImg.lpImage       = bwBuf;
+    bwImg.tImageSize    = (size_t)dstSize;
+
+    CEIIMAGEFILEINFO fi;
+    fi.cbSize       = sizeof(fi);
+    fi.nFileType    = CSD_TIFF_FILE;
+    fi.nCompType    = CSD_COMP_MMR;
+    fi.nPage        = -1;
+    fi.nJpegQuality = 0;
+
+    INT32 ret = g_CsdSaveImageEx(&bwImg, &fi, path);
+    free(bwBuf);
+    return ret;
+}
 */
 import "C"
 
@@ -488,14 +539,15 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 // as a clean session end and exits the scan loop.
 func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 	var (
-		frontImg  C.CEIIMAGEINFO
-		hasFront  bool   // front image held in frontImg (not yet released)
-		hasRear   bool   // front+rear saved to TIFF; waiting for UV page
-		micrRaw   string
-		frontDPI  int
-		rearDPI   int
-		frontTIFF []byte
-		rearTIFF  []byte
+		frontImg    C.CEIIMAGEINFO
+		hasFront    bool   // front image held in frontImg (not yet released)
+		hasRear     bool   // front+rear saved to TIFF; waiting for UV page
+		micrRaw     string
+		frontDPI    int
+		rearDPI     int
+		frontTIFF   []byte // grayscale — {MICR}_F_GR.tif
+		frontBWTIFF []byte // binary thresholded — {MICR}_F_BW.tif
+		rearTIFF    []byte // binary — {MICR}_B_BW.tif
 	)
 
 	// releaseFront releases the front CEIIMAGEINFO buffer and resets hasFront.
@@ -551,25 +603,35 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 
 			case hasFront && !hasRear:
 				// Pass 2 — rear side.
+				// Save front in two formats before releasing the buffer:
+				//   grayscale (LZW)   → frontTIFF   → {MICR}_F_GR.tif
+				//   binary threshold  → frontBWTIFF → {MICR}_F_BW.tif
+				// Save rear as binary (threshold same way) → {MICR}_B_BW.tif
 				rearDPI = int(img.lXResolution)
 
 				var err error
-				frontTIFF, err = t.saveImageToBytes(&frontImg)
+				frontTIFF, err = t.saveImageToBytes(&frontImg) // grayscale, LZW
+				if err != nil {
+					releaseFront()
+					C.astra_release_image(&img)
+					return nil, fmt.Errorf("save front grayscale: %w", err)
+				}
+				frontBWTIFF, err = t.saveImageToBytesBW(&frontImg) // binary, CCITT G4
 				releaseFront()
 				if err != nil {
-					C.astra_release_image(&img)
-					return nil, fmt.Errorf("save front image: %w", err)
+					// Non-fatal: F_BW is derived; GR is the authoritative image.
+					t.logger.Warn("front binary threshold failed — F_BW omitted", "error", err)
 				}
 
-				rearTIFF, err = t.saveImageToBytes(&img)
+				rearTIFF, err = t.saveImageToBytesBW(&img) // rear binary, CCITT G4
 				C.astra_release_image(&img)
 				if err != nil {
-					return nil, fmt.Errorf("save rear image: %w", err)
+					return nil, fmt.Errorf("save rear binary: %w", err)
 				}
 
 				if !t.cfg.EnableUVScan {
 					// No UV lamp — assemble and return now.
-					return t.assembleItem(frontTIFF, rearTIFF, nil, frontDPI, rearDPI, micrRaw), nil
+					return t.assembleItem(frontTIFF, frontBWTIFF, rearTIFF, nil, frontDPI, rearDPI, micrRaw), nil
 				}
 				// UV enabled: stay in the loop to receive the UV page.
 				hasRear = true
@@ -583,9 +645,9 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 					// UV save failed — return item without UV rather than failing the cheque.
 					// The workflow will route to human review (security feature check skipped).
 					t.logger.Warn("save UV image failed — submitting without UV", "error", err)
-					return t.assembleItem(frontTIFF, rearTIFF, nil, frontDPI, rearDPI, micrRaw), nil
+					return t.assembleItem(frontTIFF, frontBWTIFF, rearTIFF, nil, frontDPI, rearDPI, micrRaw), nil
 				}
-				return t.assembleItem(frontTIFF, rearTIFF, uvTIFF, frontDPI, rearDPI, micrRaw), nil
+				return t.assembleItem(frontTIFF, frontBWTIFF, rearTIFF, uvTIFF, frontDPI, rearDPI, micrRaw), nil
 			}
 
 		case csdDoubleFeed:
@@ -659,18 +721,20 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 }
 
 // assembleItem constructs a ScannedItem from the captured image buffers.
+// frontBWTIFF may be nil if binary thresholding failed (non-fatal).
 // uvTIFF may be nil when the scanner is a non-UV model or UV capture failed.
-func (t *CanonTransport) assembleItem(frontTIFF, rearTIFF, uvTIFF []byte, frontDPI, rearDPI int, micrRaw string) *ScannedItem {
+func (t *CanonTransport) assembleItem(frontTIFF, frontBWTIFF, rearTIFF, uvTIFF []byte, frontDPI, rearDPI int, micrRaw string) *ScannedItem {
 	return &ScannedItem{
 		FrontImage:       frontTIFF,
+		FrontImageBW:     frontBWTIFF,
 		RearImage:        rearTIFF,
 		UVImage:          uvTIFF,
 		FrontDPI:         frontDPI,
 		RearDPI:          rearDPI,
 		FrontFileSizeKB:  float64(len(frontTIFF)) / 1024.0,
 		RearFileSizeKB:   float64(len(rearTIFF)) / 1024.0,
-		FrontColourDepth: 1,
-		RearColourDepth:  1,
+		FrontColourDepth: 8, // grayscale scan mode
+		RearColourDepth:  1, // binary after threshold
 		MICRRaw:          micrRaw,
 		ImprinterStamped: t.cfg.EnableImprinter,
 	}
@@ -719,6 +783,36 @@ func (t *CanonTransport) readMICR() string {
 		return ""
 	}
 	return C.GoStringN(&buf[0], C.int(micrLen))
+}
+
+// saveImageToBytesBW thresholds an 8-bit grayscale image to 1-bpp binary and
+// saves it as a CCITT Group 4 TIFF via astra_save_tiff_bw.
+// Pixels >= 128 → white; pixels < 128 → black.
+// The thresholding is done in C (see astra_save_tiff_bw in the CGO preamble).
+func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
+	tmp, err := os.CreateTemp("", "astra-scan-bw-*.tiff")
+	if err != nil {
+		return nil, fmt.Errorf("create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
+
+	cPath := C.CString(tmpPath)
+	defer C.free(unsafe.Pointer(cPath))
+
+	if ret := C.astra_save_tiff_bw(img, cPath); int32(ret) != csdOK {
+		return nil, fmt.Errorf("astra_save_tiff_bw error %d", ret)
+	}
+
+	data, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return nil, fmt.Errorf("read temp BW TIFF: %w", err)
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("astra_save_tiff_bw produced empty TIFF")
+	}
+	return data, nil
 }
 
 // saveImageToBytes compresses the raw pixel buffer in img to TIFF Group 4
