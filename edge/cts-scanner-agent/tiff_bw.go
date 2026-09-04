@@ -33,39 +33,68 @@ import (
 )
 
 // findContentHeight scans from the bottom row upward and returns the 1-based
-// row count of the last row that contains meaningful image content.
+// row count of the last row that contains meaningful image content, along with
+// the detected background level (for logging).
 //
 //   pixels     — raw 8-bpp bytes from C.GoBytes; len = srcStride * fullHeight.
 //   srcStride  — actual bytes per row including any scanner padding.
 //   width      — logical pixels per row (no padding).
-//   fullHeight — total rows captured (including black scanner-transport area).
+//   fullHeight — total rows captured (including scanner-transport area).
 //
-// A row is "content" when ≥5 % of its pixels are brighter than 15.
-// A 20-pixel margin is added so the very bottom edge of the cheque is kept.
-func findContentHeight(pixels []byte, srcStride, width, fullHeight int) int {
+// Strategy — adaptive background detection:
+//   1. Average the last 30 rows → that is the background level (works whether
+//      the transport area is bright-white or pitch-black, scanner-dependent).
+//   2. A row is "content" when ≥10 % of its pixels deviate from bgLevel by
+//      more than 25 counts in either direction.
+//   3. A 30-pixel safety margin is added below the detected boundary.
+//
+// Returns (contentH, bgLevel).
+func findContentHeight(pixels []byte, srcStride, width, fullHeight int) (contentH, bgLevel int) {
 	if len(pixels) == 0 || fullHeight <= 0 || width <= 0 || srcStride <= 0 {
-		return fullHeight
+		return fullHeight, 0
 	}
-	minPixels := width / 20 // 5 % threshold
+
+	// --- step 1: measure background level from the bottom 30 rows ---
+	sampleRows := 30
+	if sampleRows > fullHeight/4 { // never use more than 25 % of image
+		sampleRows = fullHeight / 4
+	}
+	if sampleRows < 1 {
+		sampleRows = 1
+	}
+	var sum int64
+	for y := fullHeight - sampleRows; y < fullHeight; y++ {
+		for x := 0; x < width; x++ {
+			sum += int64(pixels[y*srcStride+x])
+		}
+	}
+	bgLevel = int(sum / int64(sampleRows*width))
+
+	// --- step 2: scan upward for the last row that differs from bg ---
+	const tolerance = 25         // pixel deviation to be "not background"
+	minPixels := width / 10      // 10 % of row must differ
 	if minPixels < 1 {
 		minPixels = 1
 	}
+
 	for y := fullHeight - 1; y >= 0; y-- {
-		light := 0
+		diffCount := 0
 		for x := 0; x < width; x++ {
-			if pixels[y*srcStride+x] > 15 {
-				light++
-				if light >= minPixels {
-					h := y + 1 + 20 // 20-px safety margin
-					if h > fullHeight {
-						h = fullHeight
+			v := int(pixels[y*srcStride+x])
+			if v < bgLevel-tolerance || v > bgLevel+tolerance {
+				diffCount++
+				if diffCount >= minPixels {
+					contentH = y + 1 + 30 // 30-px safety margin
+					if contentH > fullHeight {
+						contentH = fullHeight
 					}
-					return h
+					return
 				}
 			}
 		}
 	}
-	return fullHeight // entire image is content (no detectable black border)
+	contentH = fullHeight // no background detected — keep everything
+	return
 }
 
 // tiffBuild encodes image data as an uncompressed little-endian TIFF (11 tags).

@@ -816,9 +816,10 @@ func (t *CanonTransport) saveImageToBytes(img *C.CEIIMAGEINFO) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("saveImageToBytes: %w", err)
 	}
-	contentH := findContentHeight(pixels, srcStride, width, height)
-	t.logger.Debug("grayscale crop", "full_h", height, "content_h", contentH,
-		"cropped_px", height-contentH)
+	contentH, bgLevel := findContentHeight(pixels, srcStride, width, height)
+	t.logger.Info("image crop (GR)",
+		"full_h", height, "content_h", contentH, "cropped_rows", height-contentH,
+		"bg_level", bgLevel, "width", width, "stride", srcStride)
 
 	data := writeGrayscaleTIFF(pixels, srcStride, width, contentH, dpi)
 	if len(data) == 0 {
@@ -831,16 +832,16 @@ func (t *CanonTransport) saveImageToBytes(img *C.CEIIMAGEINFO) ([]byte, error) {
 // uncompressed 1-bpp TIFF with the black scanner-transport border auto-cropped.
 func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
 	if img.lBps != 8 {
-		// Already binary — use the grayscale path (returns as-is, still cropped).
 		return t.saveImageToBytes(img)
 	}
 	pixels, srcStride, width, height, dpi, err := t.rawPixels(img)
 	if err != nil {
 		return nil, fmt.Errorf("saveImageToBytesBW: %w", err)
 	}
-	contentH := findContentHeight(pixels, srcStride, width, height)
-	t.logger.Debug("binary crop", "full_h", height, "content_h", contentH,
-		"cropped_px", height-contentH)
+	contentH, bgLevel := findContentHeight(pixels, srcStride, width, height)
+	t.logger.Info("image crop (BW)",
+		"full_h", height, "content_h", contentH, "cropped_rows", height-contentH,
+		"bg_level", bgLevel, "width", width, "stride", srcStride)
 
 	data := writeBinaryTIFF(pixels, srcStride, width, contentH, dpi)
 	if len(data) == 0 {
