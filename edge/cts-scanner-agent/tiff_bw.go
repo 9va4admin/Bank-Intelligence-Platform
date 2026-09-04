@@ -1,116 +1,167 @@
 package main
 
-// tiff_bw.go — minimal uncompressed 1-bpp TIFF encoder (pure Go, no CGO).
+// tiff_bw.go — pure-Go TIFF encoders + black-border auto-crop.
 //
-// Used to derive the {MICR}_F_BW.tif binary front image from the grayscale
-// front scan (CTS-2010 supplementary binary image).  We cannot reuse
-// CsdSaveImageEx for this because the Canon DLL validates that lpImage points
-// to a buffer it allocated internally — passing a calloc'd threshold buffer
-// causes the call to fail.  Writing the TIFF ourselves sidesteps that
-// restriction and avoids a temp-file round-trip.
+// Three exported functions:
 //
-// TIFF layout (little-endian):
-//   offset  0: 8-byte header  (magic + IFD offset)
-//   offset  8: IFD            (2 + N×12 + 4 bytes)
-//   offset  8+IFD: image data (1bpp, MSB-first, rows padded to byte boundary)
-//   after image data: XResolution rational (8 bytes)
-//   after that:       YResolution rational (8 bytes)
+//   findContentHeight — scans from the bottom row upward to find where the
+//     cheque ends; used to discard the black scanner-transport area below it.
+//
+//   writeBinaryTIFF  — threshold 8bpp → 1bpp, write uncompressed 1-bpp TIFF.
+//     Used for {MICR}_F_BW.tif and {MICR}_B_BW.tif.
+//
+//   writeGrayscaleTIFF — copy cropped rows, write uncompressed 8bpp TIFF.
+//     Used for {MICR}_F_GR.tif.  Replaces the CsdSaveImageEx path so the
+//     grayscale image is also auto-cropped from the same raw pixel data.
+//
+// Why bypass CsdSaveImageEx for grayscale?
+//   CSDP_LENGTH = CSDP_MAXLENGTH forces the DLL to capture the full transport
+//   path (≈200 mm) every time; there is no per-image crop API.  We get the raw
+//   8-bpp buffer via C.GoBytes anyway, so writing the TIFF ourselves costs
+//   nothing extra and lets us drop the blank rows in one pass.
+//
+// TIFF layout (little-endian, 11 tags, same structure for both encoders):
+//   offset  0 : 8-byte header  (II + 42 + IFD offset)
+//   offset  8 : IFD            (2 + 11×12 + 4 = 138 bytes)
+//   offset 146 : image data    (raw rows, Compression=1 uncompressed)
+//   after data : XResolution rational (8 bytes)
+//   after that : YResolution rational (8 bytes)
 
 import (
 	"bytes"
 	"encoding/binary"
 )
 
-// writeBinaryTIFF thresholds an 8-bpp grayscale pixel buffer to 1-bpp and
-// encodes it as an uncompressed TIFF (Compression=1).
+// findContentHeight scans from the bottom row upward and returns the 1-based
+// row count of the last row that contains meaningful image content.
 //
-// pixels    — raw 8-bpp bytes, row-major. Row stride = len(pixels)/height
-//             (the scanner driver may add padding bytes per row).
-// width, height — image dimensions in pixels.
-// dpi       — scan resolution; written to XResolution / YResolution tags.
+//   pixels     — raw 8-bpp bytes from C.GoBytes; len = srcStride * fullHeight.
+//   srcStride  — actual bytes per row including any scanner padding.
+//   width      — logical pixels per row (no padding).
+//   fullHeight — total rows captured (including black scanner-transport area).
 //
-// Thresholding rule: pixel >= 128 → white (bit=1, MSB-first), else black.
-func writeBinaryTIFF(pixels []byte, width, height, dpi int) []byte {
-	if len(pixels) == 0 || width <= 0 || height <= 0 {
+// A row is "content" when ≥5 % of its pixels are brighter than 15.
+// A 20-pixel margin is added so the very bottom edge of the cheque is kept.
+func findContentHeight(pixels []byte, srcStride, width, fullHeight int) int {
+	if len(pixels) == 0 || fullHeight <= 0 || width <= 0 || srcStride <= 0 {
+		return fullHeight
+	}
+	minPixels := width / 20 // 5 % threshold
+	if minPixels < 1 {
+		minPixels = 1
+	}
+	for y := fullHeight - 1; y >= 0; y-- {
+		light := 0
+		for x := 0; x < width; x++ {
+			if pixels[y*srcStride+x] > 15 {
+				light++
+				if light >= minPixels {
+					h := y + 1 + 20 // 20-px safety margin
+					if h > fullHeight {
+						h = fullHeight
+					}
+					return h
+				}
+			}
+		}
+	}
+	return fullHeight // entire image is content (no detectable black border)
+}
+
+// tiffBuild encodes image data as an uncompressed little-endian TIFF (11 tags).
+//
+//   bps          — bits per sample: 1 or 8.
+//   photometric  — 0 = WhiteIsZero (for 1bpp), 1 = BlackIsZero (for 8bpp).
+//   imgData      — packed pixel bytes: 1bpp → dstStride×h, 8bpp → width×h.
+//   width, height — dimensions of imgData in pixels.
+//   dpi           — written to XResolution / YResolution tags.
+func tiffBuild(bps, photometric uint16, imgData []byte, width, height, dpi int) []byte {
+	const (
+		numTags = 11
+		ifdSize = 2 + numTags*12 + 4 // 138
+		hdrSize = 8
+	)
+	imgOffset  := uint32(hdrSize + ifdSize) // 146
+	imgSize    := uint32(len(imgData))
+	xResOffset := imgOffset + imgSize
+	yResOffset := xResOffset + 8
+
+	var buf bytes.Buffer
+	le := binary.LittleEndian
+
+	p16 := func(v uint16) { var b [2]byte; le.PutUint16(b[:], v); buf.Write(b[:]) }
+	p32 := func(v uint32) { var b [4]byte; le.PutUint32(b[:], v); buf.Write(b[:]) }
+	tag := func(id, typ uint16, count, val uint32) { p16(id); p16(typ); p32(count); p32(val) }
+
+	const (
+		SHORT    = uint16(3)
+		LONG     = uint16(4)
+		RATIONAL = uint16(5)
+	)
+
+	// Header
+	buf.Write([]byte{0x49, 0x49}) // 'II' = little-endian
+	p16(42)
+	p32(uint32(hdrSize)) // IFD at offset 8
+
+	// IFD — tags in ascending numeric order (TIFF 6.0 requirement)
+	p16(numTags)
+	tag(256, LONG,     1, uint32(width))
+	tag(257, LONG,     1, uint32(height))
+	tag(258, SHORT,    1, uint32(bps))
+	tag(259, SHORT,    1, 1)                  // Compression = 1 (uncompressed)
+	tag(262, SHORT,    1, uint32(photometric))
+	tag(273, LONG,     1, imgOffset)
+	tag(278, LONG,     1, uint32(height))     // RowsPerStrip = height (single strip)
+	tag(279, LONG,     1, imgSize)
+	tag(282, RATIONAL, 1, xResOffset)
+	tag(283, RATIONAL, 1, yResOffset)
+	tag(296, SHORT,    1, 2)                  // ResolutionUnit = inch
+	p32(0)                                    // NextIFD = 0 (last IFD)
+
+	buf.Write(imgData)
+
+	p32(uint32(dpi)); p32(1) // XResolution = dpi/1
+	p32(uint32(dpi)); p32(1) // YResolution = dpi/1
+
+	return buf.Bytes()
+}
+
+// writeBinaryTIFF thresholds an 8-bpp buffer to 1-bpp and encodes it as an
+// uncompressed TIFF.  Pass contentHeight from findContentHeight to crop the
+// black scanner-transport border; srcStride is the full-image bytes per row.
+//
+// Threshold: pixel >= 128 → white (bit=1, MSB-first).
+// PhotometricInterpretation = 0 (WhiteIsZero): bit=1 displays as white. ✓
+func writeBinaryTIFF(pixels []byte, srcStride, width, contentHeight, dpi int) []byte {
+	if len(pixels) == 0 || width <= 0 || contentHeight <= 0 || srcStride <= 0 {
 		return nil
 	}
-
-	// --- threshold: 8bpp → 1bpp -------------------------------------------------
-	srcStride := len(pixels) / height // actual bytes per row (may include padding)
-	dstStride := (width + 7) / 8     // bytes per 1bpp row, no padding
-	imgData := make([]byte, dstStride*height)
-	for y := 0; y < height; y++ {
+	dstStride := (width + 7) / 8
+	imgData := make([]byte, dstStride*contentHeight)
+	for y := 0; y < contentHeight; y++ {
 		for x := 0; x < width; x++ {
 			if pixels[y*srcStride+x] >= 128 {
 				imgData[y*dstStride+x/8] |= 0x80 >> uint(x%8)
 			}
 		}
 	}
+	return tiffBuild(1, 0, imgData, width, contentHeight, dpi)
+}
 
-	// --- TIFF layout ------------------------------------------------------------
-	// IFD size: 2 (count) + 11 entries × 12 bytes + 4 (next-IFD offset) = 138
-	const (
-		numTags = 11
-		ifdSize = 2 + numTags*12 + 4
-		hdrSize = 8
-	)
-	imgOffset  := uint32(hdrSize + ifdSize)     // image data starts here
-	imgSize    := uint32(len(imgData))
-	xResOffset := imgOffset + imgSize            // XResolution rational
-	yResOffset := xResOffset + 8                 // YResolution rational
-
-	var buf bytes.Buffer
-	le := binary.LittleEndian
-
-	put16 := func(v uint16) {
-		var b [2]byte
-		le.PutUint16(b[:], v)
-		buf.Write(b[:])
+// writeGrayscaleTIFF copies the content rows of an 8-bpp buffer and encodes
+// them as an uncompressed 8-bpp TIFF.  Pass contentHeight from findContentHeight
+// to crop the black scanner-transport border; srcStride is the full-image
+// bytes per row (scanner may pad each row beyond the logical width).
+//
+// PhotometricInterpretation = 1 (BlackIsZero): 0=black ink, 255=white paper. ✓
+func writeGrayscaleTIFF(pixels []byte, srcStride, width, contentHeight, dpi int) []byte {
+	if len(pixels) == 0 || width <= 0 || contentHeight <= 0 || srcStride <= 0 {
+		return nil
 	}
-	put32 := func(v uint32) {
-		var b [4]byte
-		le.PutUint32(b[:], v)
-		buf.Write(b[:])
+	imgData := make([]byte, width*contentHeight)
+	for y := 0; y < contentHeight; y++ {
+		copy(imgData[y*width:], pixels[y*srcStride:y*srcStride+width])
 	}
-	// IFD entry: tag (SHORT) + type (SHORT) + count (LONG) + value/offset (LONG)
-	entry := func(tag, typ uint16, count, val uint32) {
-		put16(tag)
-		put16(typ)
-		put32(count)
-		put32(val)
-	}
-	const (
-		tSHORT    = uint16(3)
-		tLONG     = uint16(4)
-		tRATIONAL = uint16(5)
-	)
-
-	// TIFF header (little-endian byte order marker + version + IFD offset)
-	buf.Write([]byte{0x49, 0x49}) // 'II' = little-endian
-	put16(42)                      // TIFF version
-	put32(uint32(hdrSize))         // IFD starts immediately after header
-
-	// IFD — tags must be in ascending numeric order (TIFF spec 6.0)
-	put16(numTags)
-	entry(256, tLONG,     1, uint32(width))      // ImageWidth
-	entry(257, tLONG,     1, uint32(height))     // ImageLength
-	entry(258, tSHORT,    1, 1)                  // BitsPerSample = 1
-	entry(259, tSHORT,    1, 1)                  // Compression = 1 (uncompressed)
-	entry(262, tSHORT,    1, 0)                  // PhotometricInterpretation = 0 (WhiteIsZero)
-	entry(273, tLONG,     1, imgOffset)          // StripOffsets
-	entry(278, tLONG,     1, uint32(height))     // RowsPerStrip (single strip)
-	entry(279, tLONG,     1, imgSize)            // StripByteCounts
-	entry(282, tRATIONAL, 1, xResOffset)        // XResolution
-	entry(283, tRATIONAL, 1, yResOffset)        // YResolution
-	entry(296, tSHORT,    1, 2)                  // ResolutionUnit = 2 (inch)
-	put32(0) // NextIFD = 0 (last IFD)
-
-	// Image data
-	buf.Write(imgData)
-
-	// RATIONAL values: numerator (uint32) / denominator (uint32)
-	put32(uint32(dpi)); put32(1) // XResolution = dpi/1
-	put32(uint32(dpi)); put32(1) // YResolution = dpi/1
-
-	return buf.Bytes()
+	return tiffBuild(8, 1, imgData, width, contentHeight, dpi)
 }
