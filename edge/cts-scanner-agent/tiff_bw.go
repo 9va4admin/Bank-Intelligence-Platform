@@ -1,113 +1,153 @@
 package main
 
-// tiff_bw.go — pure-Go TIFF encoders + black-border auto-crop.
+// tiff_bw.go — pure-Go TIFF encoders + 4-sided black-border auto-crop.
 //
-// Three exported functions:
+// Public API:
 //
-//   findContentHeight — scans from the bottom row upward to find where the
-//     cheque ends; used to discard the black scanner-transport area below it.
+//   findContentBounds — determines the tight bounding box of the cheque
+//     by sampling the four corners to learn the scanner's background level,
+//     then scanning every row and column for content pixels.  Returns a
+//     ContentBounds with a configurable margin added on all four sides.
 //
-//   writeBinaryTIFF  — threshold 8bpp → 1bpp, write uncompressed 1-bpp TIFF.
-//     Used for {MICR}_F_BW.tif and {MICR}_B_BW.tif.
+//   writeBinaryTIFF  — threshold 8bpp → 1bpp, write uncompressed 1-bpp TIFF
+//     for the cropped region.  {MICR}_F_BW.tif / {MICR}_B_BW.tif.
 //
 //   writeGrayscaleTIFF — copy cropped rows, write uncompressed 8bpp TIFF.
-//     Used for {MICR}_F_GR.tif.  Replaces the CsdSaveImageEx path so the
-//     grayscale image is also auto-cropped from the same raw pixel data.
+//     {MICR}_F_GR.tif.
 //
-// Why bypass CsdSaveImageEx for grayscale?
-//   CSDP_LENGTH = CSDP_MAXLENGTH forces the DLL to capture the full transport
-//   path (≈200 mm) every time; there is no per-image crop API.  We get the raw
-//   8-bpp buffer via C.GoBytes anyway, so writing the TIFF ourselves costs
-//   nothing extra and lets us drop the blank rows in one pass.
-//
-// TIFF layout (little-endian, 11 tags, same structure for both encoders):
-//   offset  0 : 8-byte header  (II + 42 + IFD offset)
-//   offset  8 : IFD            (2 + 11×12 + 4 = 138 bytes)
-//   offset 146 : image data    (raw rows, Compression=1 uncompressed)
-//   after data : XResolution rational (8 bytes)
-//   after that : YResolution rational (8 bytes)
+// Why 4-sided crop?
+//   CSDP_WIDTH = MAXWIDTH and CSDP_LENGTH = MAXLENGTH cause the scanner to
+//   capture the full transport-path area in both directions.  The cheque
+//   sits inside that area with black (or bright-white, scanner-dependent)
+//   background on all four sides — not just the bottom.
 
 import (
 	"bytes"
 	"encoding/binary"
 )
 
-// findContentHeight scans from the bottom row upward and returns the 1-based
-// row count of the last row that contains meaningful image content, along with
-// the detected background level (for logging).
+// ContentBounds is the bounding box of the cheque content within the raw scan.
+// All coordinates are in pixels, inclusive.  After adding margins, the
+// cropped region is [Top:Bottom+1, Left:Right+1].
+type ContentBounds struct {
+	Top, Left, Bottom, Right int
+	BGLevel                  int // measured background level (0–255); logged for diagnostics
+}
+
+// CroppedWidth returns the pixel width of the cropped region.
+func (b ContentBounds) CroppedWidth() int { return b.Right - b.Left + 1 }
+
+// CroppedHeight returns the pixel height of the cropped region.
+func (b ContentBounds) CroppedHeight() int { return b.Bottom - b.Top + 1 }
+
+// findContentBounds detects the tight bounding box of the cheque within the
+// raw scan buffer using an adaptive background-level measurement.
 //
-//   pixels     — raw 8-bpp bytes from C.GoBytes; len = srcStride * fullHeight.
-//   srcStride  — actual bytes per row including any scanner padding.
+//   pixels     — raw 8-bpp bytes from C.GoBytes (len = srcStride × fullHeight).
+//   srcStride  — bytes per row including scanner padding.
 //   width      — logical pixels per row (no padding).
-//   fullHeight — total rows captured (including scanner-transport area).
+//   fullHeight — total captured rows.
 //
-// Strategy — adaptive background detection:
-//   1. Average the last 30 rows → that is the background level (works whether
-//      the transport area is bright-white or pitch-black, scanner-dependent).
-//   2. A row is "content" when ≥10 % of its pixels deviate from bgLevel by
-//      more than 25 counts in either direction.
-//   3. A 30-pixel safety margin is added below the detected boundary.
-//
-// Returns (contentH, bgLevel).
-func findContentHeight(pixels []byte, srcStride, width, fullHeight int) (contentH, bgLevel int) {
-	if len(pixels) == 0 || fullHeight <= 0 || width <= 0 || srcStride <= 0 {
-		return fullHeight, 0
+// Algorithm:
+//  1. Average a 20×20-px patch from each of the four corners — those patches
+//     are always pure scanner background regardless of cheque placement.
+//  2. Any pixel that deviates from bgLevel by more than tolerance (25) is
+//     "content".
+//  3. Scan all rows and columns to find the extreme content coordinates.
+//  4. Add a 30-px safety margin on every side so the cheque edge is not clipped.
+func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentBounds {
+	full := ContentBounds{Top: 0, Left: 0, Bottom: fullHeight - 1, Right: width - 1}
+	if len(pixels) == 0 || srcStride <= 0 || width <= 0 || fullHeight <= 0 {
+		return full
 	}
 
-	// --- step 1: measure background level from the bottom 30 rows ---
-	sampleRows := 30
-	if sampleRows > fullHeight/4 { // never use more than 25 % of image
-		sampleRows = fullHeight / 4
+	// --- 1. measure background level from four corner patches ---
+	patch := 20
+	if patch > width/4 {
+		patch = width / 4
 	}
-	if sampleRows < 1 {
-		sampleRows = 1
+	if patch > fullHeight/4 {
+		patch = fullHeight / 4
+	}
+	if patch < 1 {
+		patch = 1
 	}
 	var sum int64
-	for y := fullHeight - sampleRows; y < fullHeight; y++ {
-		for x := 0; x < width; x++ {
-			sum += int64(pixels[y*srcStride+x])
+	n := int64(patch * patch * 4)
+	for row := 0; row < patch; row++ {
+		for col := 0; col < patch; col++ {
+			sum += int64(pixels[row*srcStride+col])                                     // top-left
+			sum += int64(pixels[row*srcStride+(width-1-col)])                           // top-right
+			sum += int64(pixels[(fullHeight-1-row)*srcStride+col])                     // bottom-left
+			sum += int64(pixels[(fullHeight-1-row)*srcStride+(width-1-col)])           // bottom-right
 		}
 	}
-	bgLevel = int(sum / int64(sampleRows*width))
+	bgLevel := int(sum / n)
 
-	// --- step 2: scan upward for the last row that differs from bg ---
-	const tolerance = 25         // pixel deviation to be "not background"
-	minPixels := width / 10      // 10 % of row must differ
-	if minPixels < 1 {
-		minPixels = 1
-	}
+	// --- 2. scan for content bounding box ---
+	const tolerance = 25
+	top    := fullHeight // sentinel: no content found yet
+	left   := width
+	bottom := -1
+	right  := -1
 
-	for y := fullHeight - 1; y >= 0; y-- {
-		diffCount := 0
+	for y := 0; y < fullHeight; y++ {
+		rowBase := y * srcStride
 		for x := 0; x < width; x++ {
-			v := int(pixels[y*srcStride+x])
+			v := int(pixels[rowBase+x])
 			if v < bgLevel-tolerance || v > bgLevel+tolerance {
-				diffCount++
-				if diffCount >= minPixels {
-					contentH = y + 1 + 30 // 30-px safety margin
-					if contentH > fullHeight {
-						contentH = fullHeight
-					}
-					return
-				}
+				// content pixel
+				if y < top    { top = y }
+				if y > bottom { bottom = y }
+				if x < left   { left = x }
+				if x > right  { right = x }
 			}
 		}
 	}
-	contentH = fullHeight // no background detected — keep everything
-	return
+
+	// No content found at all — return full image
+	if bottom < 0 {
+		full.BGLevel = bgLevel
+		return full
+	}
+
+	// --- 3. add 30-px safety margin on all sides ---
+	const margin = 30
+	if top > margin {
+		top -= margin
+	} else {
+		top = 0
+	}
+	if left > margin {
+		left -= margin
+	} else {
+		left = 0
+	}
+	if bottom < fullHeight-1-margin {
+		bottom += margin
+	} else {
+		bottom = fullHeight - 1
+	}
+	if right < width-1-margin {
+		right += margin
+	} else {
+		right = width - 1
+	}
+
+	return ContentBounds{Top: top, Left: left, Bottom: bottom, Right: right, BGLevel: bgLevel}
 }
 
 // tiffBuild encodes image data as an uncompressed little-endian TIFF (11 tags).
 //
-//   bps          — bits per sample: 1 or 8.
-//   photometric  — 0 = WhiteIsZero (for 1bpp), 1 = BlackIsZero (for 8bpp).
-//   imgData      — packed pixel bytes: 1bpp → dstStride×h, 8bpp → width×h.
-//   width, height — dimensions of imgData in pixels.
-//   dpi           — written to XResolution / YResolution tags.
-func tiffBuild(bps, photometric uint16, imgData []byte, width, height, dpi int) []byte {
+//   bps         — bits per sample: 1 or 8.
+//   photometric — 0 = WhiteIsZero (1bpp), 1 = BlackIsZero (8bpp grayscale).
+//   imgData     — packed pixel bytes for the cropped region.
+//   w, h        — width and height of imgData in pixels.
+//   dpi         — written to XResolution / YResolution.
+func tiffBuild(bps, photometric uint16, imgData []byte, w, h, dpi int) []byte {
 	const (
 		numTags = 11
-		ifdSize = 2 + numTags*12 + 4 // 138
+		ifdSize = 2 + numTags*12 + 4 // 138 bytes
 		hdrSize = 8
 	)
 	imgOffset  := uint32(hdrSize + ifdSize) // 146
@@ -128,69 +168,68 @@ func tiffBuild(bps, photometric uint16, imgData []byte, width, height, dpi int) 
 		RATIONAL = uint16(5)
 	)
 
-	// Header
 	buf.Write([]byte{0x49, 0x49}) // 'II' = little-endian
 	p16(42)
-	p32(uint32(hdrSize)) // IFD at offset 8
+	p32(uint32(hdrSize))
 
-	// IFD — tags in ascending numeric order (TIFF 6.0 requirement)
 	p16(numTags)
-	tag(256, LONG,     1, uint32(width))
-	tag(257, LONG,     1, uint32(height))
+	tag(256, LONG,     1, uint32(w))
+	tag(257, LONG,     1, uint32(h))
 	tag(258, SHORT,    1, uint32(bps))
-	tag(259, SHORT,    1, 1)                  // Compression = 1 (uncompressed)
+	tag(259, SHORT,    1, 1)                   // Compression = 1 (uncompressed)
 	tag(262, SHORT,    1, uint32(photometric))
 	tag(273, LONG,     1, imgOffset)
-	tag(278, LONG,     1, uint32(height))     // RowsPerStrip = height (single strip)
+	tag(278, LONG,     1, uint32(h))           // RowsPerStrip = h (single strip)
 	tag(279, LONG,     1, imgSize)
 	tag(282, RATIONAL, 1, xResOffset)
 	tag(283, RATIONAL, 1, yResOffset)
-	tag(296, SHORT,    1, 2)                  // ResolutionUnit = inch
-	p32(0)                                    // NextIFD = 0 (last IFD)
+	tag(296, SHORT,    1, 2)                   // ResolutionUnit = inch
+	p32(0)                                     // NextIFD = 0
 
 	buf.Write(imgData)
-
 	p32(uint32(dpi)); p32(1) // XResolution = dpi/1
 	p32(uint32(dpi)); p32(1) // YResolution = dpi/1
-
 	return buf.Bytes()
 }
 
-// writeBinaryTIFF thresholds an 8-bpp buffer to 1-bpp and encodes it as an
-// uncompressed TIFF.  Pass contentHeight from findContentHeight to crop the
-// black scanner-transport border; srcStride is the full-image bytes per row.
+// writeBinaryTIFF thresholds the cropped region of an 8-bpp pixel buffer to
+// 1-bpp and encodes it as an uncompressed TIFF.
 //
 // Threshold: pixel >= 128 → white (bit=1, MSB-first).
 // PhotometricInterpretation = 0 (WhiteIsZero): bit=1 displays as white. ✓
-func writeBinaryTIFF(pixels []byte, srcStride, width, contentHeight, dpi int) []byte {
-	if len(pixels) == 0 || width <= 0 || contentHeight <= 0 || srcStride <= 0 {
+func writeBinaryTIFF(pixels []byte, srcStride int, b ContentBounds, dpi int) []byte {
+	w := b.CroppedWidth()
+	h := b.CroppedHeight()
+	if len(pixels) == 0 || w <= 0 || h <= 0 {
 		return nil
 	}
-	dstStride := (width + 7) / 8
-	imgData := make([]byte, dstStride*contentHeight)
-	for y := 0; y < contentHeight; y++ {
-		for x := 0; x < width; x++ {
-			if pixels[y*srcStride+x] >= 128 {
+	dstStride := (w + 7) / 8
+	imgData := make([]byte, dstStride*h)
+	for y := 0; y < h; y++ {
+		srcRow := (b.Top + y) * srcStride
+		for x := 0; x < w; x++ {
+			if pixels[srcRow+(b.Left+x)] >= 128 {
 				imgData[y*dstStride+x/8] |= 0x80 >> uint(x%8)
 			}
 		}
 	}
-	return tiffBuild(1, 0, imgData, width, contentHeight, dpi)
+	return tiffBuild(1, 0, imgData, w, h, dpi)
 }
 
-// writeGrayscaleTIFF copies the content rows of an 8-bpp buffer and encodes
-// them as an uncompressed 8-bpp TIFF.  Pass contentHeight from findContentHeight
-// to crop the black scanner-transport border; srcStride is the full-image
-// bytes per row (scanner may pad each row beyond the logical width).
+// writeGrayscaleTIFF copies the cropped region of an 8-bpp pixel buffer and
+// encodes it as an uncompressed 8-bpp TIFF.
 //
 // PhotometricInterpretation = 1 (BlackIsZero): 0=black ink, 255=white paper. ✓
-func writeGrayscaleTIFF(pixels []byte, srcStride, width, contentHeight, dpi int) []byte {
-	if len(pixels) == 0 || width <= 0 || contentHeight <= 0 || srcStride <= 0 {
+func writeGrayscaleTIFF(pixels []byte, srcStride int, b ContentBounds, dpi int) []byte {
+	w := b.CroppedWidth()
+	h := b.CroppedHeight()
+	if len(pixels) == 0 || w <= 0 || h <= 0 {
 		return nil
 	}
-	imgData := make([]byte, width*contentHeight)
-	for y := 0; y < contentHeight; y++ {
-		copy(imgData[y*width:], pixels[y*srcStride:y*srcStride+width])
+	imgData := make([]byte, w*h)
+	for y := 0; y < h; y++ {
+		srcRow := (b.Top + y) * srcStride
+		copy(imgData[y*w:], pixels[srcRow+b.Left:srcRow+b.Left+w])
 	}
-	return tiffBuild(8, 1, imgData, width, contentHeight, dpi)
+	return tiffBuild(8, 1, imgData, w, h, dpi)
 }

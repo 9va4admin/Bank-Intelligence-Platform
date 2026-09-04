@@ -816,20 +816,22 @@ func (t *CanonTransport) saveImageToBytes(img *C.CEIIMAGEINFO) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("saveImageToBytes: %w", err)
 	}
-	contentH, bgLevel := findContentHeight(pixels, srcStride, width, height)
+	b := findContentBounds(pixels, srcStride, width, height)
 	t.logger.Info("image crop (GR)",
-		"full_h", height, "content_h", contentH, "cropped_rows", height-contentH,
-		"bg_level", bgLevel, "width", width, "stride", srcStride)
+		"full", fmt.Sprintf("%dx%d", width, height),
+		"crop", fmt.Sprintf("%dx%d", b.CroppedWidth(), b.CroppedHeight()),
+		"top", b.Top, "left", b.Left, "bottom", b.Bottom, "right", b.Right,
+		"bg_level", b.BGLevel)
 
-	data := writeGrayscaleTIFF(pixels, srcStride, width, contentH, dpi)
+	data := writeGrayscaleTIFF(pixels, srcStride, b, dpi)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("writeGrayscaleTIFF produced empty output for %dx%d image", width, contentH)
+		return nil, fmt.Errorf("writeGrayscaleTIFF empty output: bounds %+v", b)
 	}
 	return data, nil
 }
 
 // saveImageToBytesBW thresholds a scanner image to 1-bpp and encodes it as an
-// uncompressed 1-bpp TIFF with the black scanner-transport border auto-cropped.
+// uncompressed 1-bpp TIFF with all four sides auto-cropped.
 func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
 	if img.lBps != 8 {
 		return t.saveImageToBytes(img)
@@ -838,14 +840,16 @@ func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("saveImageToBytesBW: %w", err)
 	}
-	contentH, bgLevel := findContentHeight(pixels, srcStride, width, height)
+	b := findContentBounds(pixels, srcStride, width, height)
 	t.logger.Info("image crop (BW)",
-		"full_h", height, "content_h", contentH, "cropped_rows", height-contentH,
-		"bg_level", bgLevel, "width", width, "stride", srcStride)
+		"full", fmt.Sprintf("%dx%d", width, height),
+		"crop", fmt.Sprintf("%dx%d", b.CroppedWidth(), b.CroppedHeight()),
+		"top", b.Top, "left", b.Left, "bottom", b.Bottom, "right", b.Right,
+		"bg_level", b.BGLevel)
 
-	data := writeBinaryTIFF(pixels, srcStride, width, contentH, dpi)
+	data := writeBinaryTIFF(pixels, srcStride, b, dpi)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("writeBinaryTIFF produced empty output for %dx%d image", width, contentH)
+		return nil, fmt.Errorf("writeBinaryTIFF empty output: bounds %+v", b)
 	}
 	return data, nil
 }
