@@ -302,7 +302,6 @@ import "C"
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -785,71 +784,67 @@ func (t *CanonTransport) readMICR() string {
 	return C.GoStringN(&buf[0], C.int(micrLen))
 }
 
-// saveImageToBytesBW copies raw pixel bytes from the C-allocated scanner buffer
-// into Go, thresholds to 1-bpp (pixel >= 128 → white, MSB-first), and encodes
-// an uncompressed 1-bpp TIFF using the pure-Go encoder in tiff_bw.go.
-//
-// We intentionally avoid CsdSaveImageEx here: the Canon DLL validates that
-// lpImage points to a DLL-allocated buffer and rejects any CEIIMAGEINFO whose
-// lpImage was replaced with a calloc'd threshold buffer.  Generating the TIFF
-// ourselves sidesteps that constraint and eliminates the temp-file round-trip.
-func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
-	if img.lBps != 8 {
-		// Already binary or unsupported depth — delegate to the standard DLL saver.
-		return t.saveImageToBytes(img)
-	}
-
-	width   := int(img.lWidth)
-	height  := int(img.lHeight)
-	dpi     := int(img.lXResolution)
+// rawPixels copies the scanner's C-allocated image buffer into a Go slice and
+// returns the slice plus the computed row stride.
+// Safe to call before astra_release_image; C.GoBytes makes its own allocation.
+func (t *CanonTransport) rawPixels(img *C.CEIIMAGEINFO) (pixels []byte, srcStride, width, height, dpi int, err error) {
+	width   = int(img.lWidth)
+	height  = int(img.lHeight)
+	dpi     = int(img.lXResolution)
 	imgSize := int(img.tImageSize)
 
 	if imgSize <= 0 || width <= 0 || height <= 0 {
-		return nil, fmt.Errorf("invalid image dimensions: %dx%d size=%d", width, height, imgSize)
+		err = fmt.Errorf("invalid image dimensions %dx%d size=%d", width, height, imgSize)
+		return
 	}
 	if dpi <= 0 {
 		dpi = t.cfg.ScanDPI
 	}
-
-	// Copy raw pixel bytes out of C-managed memory into a Go slice.
-	// C.GoBytes makes a single allocation — safe to use after astra_release_image.
-	pixels := C.GoBytes(unsafe.Pointer(img.lpImage), C.int(imgSize))
-
-	tiffData := writeBinaryTIFF(pixels, width, height, dpi)
-	if len(tiffData) == 0 {
-		return nil, fmt.Errorf("writeBinaryTIFF produced empty output for %dx%d image", width, height)
-	}
-	return tiffData, nil
+	pixels    = C.GoBytes(unsafe.Pointer(img.lpImage), C.int(imgSize))
+	srcStride = imgSize / height
+	return
 }
 
-// saveImageToBytes compresses the raw pixel buffer in img to TIFF Group 4
-// via CsdSaveImageEx, reads the resulting file into memory, and deletes the temp file.
+// saveImageToBytes encodes a scanner image as an uncompressed 8-bpp TIFF with
+// the black scanner-transport border auto-cropped from the bottom.
 //
-// We use a temp file rather than an in-memory buffer because the CSD API only
-// exposes file-based image export (CsdSaveImageEx writes to a path).
+// This replaces the former CsdSaveImageEx path: we already have the raw pixel
+// bytes via rawPixels(), so writing the TIFF in pure Go is simpler and lets us
+// crop in the same pass without any extra CSD call.
 func (t *CanonTransport) saveImageToBytes(img *C.CEIIMAGEINFO) ([]byte, error) {
-	// Create a temp file to receive the TIFF output.
-	tmp, err := os.CreateTemp("", "astra-scan-*.tiff")
+	pixels, srcStride, width, height, dpi, err := t.rawPixels(img)
 	if err != nil {
-		return nil, fmt.Errorf("create temp file: %w", err)
+		return nil, fmt.Errorf("saveImageToBytes: %w", err)
 	}
-	tmpPath := tmp.Name()
-	tmp.Close() // CsdSaveImageEx opens and writes the file itself
-	defer os.Remove(tmpPath)
+	contentH := findContentHeight(pixels, srcStride, width, height)
+	t.logger.Debug("grayscale crop", "full_h", height, "content_h", contentH,
+		"cropped_px", height-contentH)
 
-	cPath := C.CString(tmpPath)
-	defer C.free(unsafe.Pointer(cPath))
-
-	if ret := C.astra_save_tiff(img, cPath); int32(ret) != csdOK {
-		return nil, fmt.Errorf("CsdSaveImageEx error %d", ret)
-	}
-
-	data, err := os.ReadFile(tmpPath)
-	if err != nil {
-		return nil, fmt.Errorf("read temp TIFF: %w", err)
-	}
+	data := writeGrayscaleTIFF(pixels, srcStride, width, contentH, dpi)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("CsdSaveImageEx produced empty TIFF file")
+		return nil, fmt.Errorf("writeGrayscaleTIFF produced empty output for %dx%d image", width, contentH)
+	}
+	return data, nil
+}
+
+// saveImageToBytesBW thresholds a scanner image to 1-bpp and encodes it as an
+// uncompressed 1-bpp TIFF with the black scanner-transport border auto-cropped.
+func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
+	if img.lBps != 8 {
+		// Already binary — use the grayscale path (returns as-is, still cropped).
+		return t.saveImageToBytes(img)
+	}
+	pixels, srcStride, width, height, dpi, err := t.rawPixels(img)
+	if err != nil {
+		return nil, fmt.Errorf("saveImageToBytesBW: %w", err)
+	}
+	contentH := findContentHeight(pixels, srcStride, width, height)
+	t.logger.Debug("binary crop", "full_h", height, "content_h", contentH,
+		"cropped_px", height-contentH)
+
+	data := writeBinaryTIFF(pixels, srcStride, width, contentH, dpi)
+	if len(data) == 0 {
+		return nil, fmt.Errorf("writeBinaryTIFF produced empty output for %dx%d image", width, contentH)
 	}
 	return data, nil
 }
