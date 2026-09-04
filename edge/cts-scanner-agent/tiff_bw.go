@@ -75,19 +75,23 @@ func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentB
 		return pixels[idx]
 	}
 
-	// --- 1. background level from four corner patches ---
-	// Corner patches are always pure scanner transport background regardless of
-	// cheque placement, so their average gives us a reliable reference level.
+	// --- 1. background level from BOTTOM corners only ---
+	// The Canon CR-120 feeds cheques from the top — the cheque always occupies
+	// the top portion of the captured area and the bottom portion is always pure
+	// scanner transport background (black).  Averaging all four corners would
+	// mix cheque paper (white ~255) with transport background (black ~0) and
+	// produce bgLevel≈128, causing both the cheque and the transport to be
+	// classified as "content" and making the crop a no-op.
+	// Using only the bottom two corners gives bgLevel≈0 (pure transport), so
+	// anything significantly brighter (the cheque paper) is correctly detected.
 	patch := 20
 	if patch > width/4      { patch = width / 4 }
 	if patch > fullHeight/4 { patch = fullHeight / 4 }
 	if patch < 1             { patch = 1 }
 	var sum int64
-	n := int64(patch * patch * 4)
+	n := int64(patch * patch * 2) // two corners only
 	for row := 0; row < patch; row++ {
 		for col := 0; col < patch; col++ {
-			sum += int64(safeGet(row*srcStride + col))
-			sum += int64(safeGet(row*srcStride + (width - 1 - col)))
 			sum += int64(safeGet((fullHeight-1-row)*srcStride + col))
 			sum += int64(safeGet((fullHeight-1-row)*srcStride + (width - 1 - col)))
 		}
