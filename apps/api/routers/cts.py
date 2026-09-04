@@ -4978,14 +4978,14 @@ async def get_outward_human_review_queue(
     try:
         rows = await db.fetch(
             """
-            SELECT instrument_id, cheque_number, account_display, payee_display,
-                   amount_range, status, fraud_score, ocr_confidence,
-                   review_reason, received_at::text, branch_id, lot_id
-            FROM cts.cheque_instruments
+            SELECT instrument_id, scan_id AS cheque_number, NULL::text AS account_display,
+                   payee_display, amount_range, outcome AS status, NULL::float AS fraud_score,
+                   NULL::float AS ocr_confidence, reject_reason AS review_reason,
+                   scanned_at::text AS received_at, branch_id, lot_id
+            FROM cts.outward_scan_events
             WHERE bank_id = $1
-              AND direction = 'OUTWARD'
-              AND status IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'STP_RETURN')
-            ORDER BY received_at ASC
+              AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED')
+            ORDER BY scanned_at ASC
             LIMIT $2
             """,
             bank_id, limit,

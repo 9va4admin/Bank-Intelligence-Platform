@@ -89,6 +89,8 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
         from shared.config.config_service import config_service  # avoid circular at module load
+        if not config_service._ready:
+            await config_service.initialise()
 
         cts_cfg = await config_service.get_cts_config(inp.bank_id)
         rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
@@ -878,6 +880,8 @@ async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
         from shared.config.config_service import config_service
+        if not config_service._ready:
+            await config_service.initialise()
         dsn = await config_service.get("db.cts.dsn")
 
         import asyncpg
