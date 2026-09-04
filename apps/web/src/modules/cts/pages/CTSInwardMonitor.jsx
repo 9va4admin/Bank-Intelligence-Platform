@@ -425,7 +425,6 @@ export default function CTSInwardMonitor() {
               zoomOnScroll
               minZoom={0.35}
               maxZoom={1.5}
-              proOptions={{ hideAttribution: true }}
               style={{ width: '100%', height: '100%', background: th.flow }}
             >
               <Background
