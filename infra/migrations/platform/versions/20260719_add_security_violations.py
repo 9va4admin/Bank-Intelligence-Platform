@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260719_p_secviol"
-down_revision = "20260717_add_totp_enrolled"
+down_revision = "20260717_totp_enrolled"
 branch_labels = None
 depends_on = None
 
