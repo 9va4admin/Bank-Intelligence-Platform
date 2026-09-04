@@ -791,17 +791,65 @@ func (t *CanonTransport) rawPixels(img *C.CEIIMAGEINFO) (pixels []byte, srcStrid
 	width   = int(img.lWidth)
 	height  = int(img.lHeight)
 	dpi     = int(img.lXResolution)
+	bps     := int(img.lBps)
 	imgSize := int(img.tImageSize)
 
-	if imgSize <= 0 || width <= 0 || height <= 0 {
-		err = fmt.Errorf("invalid image dimensions %dx%d size=%d", width, height, imgSize)
+	// Log every CEIIMAGEINFO field so we can diagnose scanner behaviour without
+	// guessing. These lines appear once per scan page in the agent log.
+	t.logger.Info("CEIIMAGEINFO fields",
+		"width", width, "height", height,
+		"bps", bps, "spp", int(img.lSpp),
+		"xres", int(img.lXResolution), "yres", int(img.lYResolution),
+		"tImageSize", imgSize,
+		"cbSize", int(img.cbSize),
+		"xpos", int(img.lXpos), "ypos", int(img.lYpos),
+		"lSync", int(img.lSync),
+	)
+
+	if width <= 0 || height <= 0 {
+		err = fmt.Errorf("invalid image dimensions %dx%d", width, height)
 		return
 	}
 	if dpi <= 0 {
 		dpi = t.cfg.ScanDPI
 	}
+
+	// bpsBytes: bytes per pixel for stride estimation. For 1-bpp binary images
+	// the raw buffer uses 1 byte per pixel (the DLL unpacks bits to bytes in the
+	// buffer even when lBps=1 — common Canon CSD behaviour).
+	bpsBytes := bps / 8
+	if bpsBytes < 1 {
+		bpsBytes = 1
+	}
+
+	if imgSize <= 0 {
+		// tImageSize not populated by this driver version — estimate from geometry.
+		// Assume 1 byte per pixel (unpacked), no row padding.
+		imgSize = width * height * bpsBytes
+		t.logger.Warn("tImageSize=0: estimating from width×height×bpsBytes",
+			"estimated_imgSize", imgSize, "bpsBytes", bpsBytes)
+	}
+
 	pixels    = C.GoBytes(unsafe.Pointer(img.lpImage), C.int(imgSize))
 	srcStride = imgSize / height
+
+	// srcStride must be at least width×bpsBytes. If tImageSize is smaller than
+	// expected (e.g. driver reports compressed size instead of raw size), the
+	// computed stride will be too small and every row will be mis-aligned.
+	// In that case, override with the unpadded width stride and re-copy only
+	// the bytes we actually have safely.
+	minStride := width * bpsBytes
+	if srcStride < minStride {
+		t.logger.Warn("computed srcStride < expected min — overriding",
+			"computed", srcStride, "override", minStride,
+			"imgSize", imgSize, "height", height)
+		srcStride = minStride
+	}
+
+	t.logger.Info("rawPixels result",
+		"imgSize", imgSize, "srcStride", srcStride,
+		"pixels_len", len(pixels),
+		"expected_unpadded", width*height*bpsBytes)
 	return
 }
 
