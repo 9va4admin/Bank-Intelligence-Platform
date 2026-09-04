@@ -785,34 +785,41 @@ func (t *CanonTransport) readMICR() string {
 	return C.GoStringN(&buf[0], C.int(micrLen))
 }
 
-// saveImageToBytesBW thresholds an 8-bit grayscale image to 1-bpp binary and
-// saves it as a CCITT Group 4 TIFF via astra_save_tiff_bw.
-// Pixels >= 128 → white; pixels < 128 → black.
-// The thresholding is done in C (see astra_save_tiff_bw in the CGO preamble).
+// saveImageToBytesBW copies raw pixel bytes from the C-allocated scanner buffer
+// into Go, thresholds to 1-bpp (pixel >= 128 → white, MSB-first), and encodes
+// an uncompressed 1-bpp TIFF using the pure-Go encoder in tiff_bw.go.
+//
+// We intentionally avoid CsdSaveImageEx here: the Canon DLL validates that
+// lpImage points to a DLL-allocated buffer and rejects any CEIIMAGEINFO whose
+// lpImage was replaced with a calloc'd threshold buffer.  Generating the TIFF
+// ourselves sidesteps that constraint and eliminates the temp-file round-trip.
 func (t *CanonTransport) saveImageToBytesBW(img *C.CEIIMAGEINFO) ([]byte, error) {
-	tmp, err := os.CreateTemp("", "astra-scan-bw-*.tiff")
-	if err != nil {
-		return nil, fmt.Errorf("create temp file: %w", err)
-	}
-	tmpPath := tmp.Name()
-	tmp.Close()
-	defer os.Remove(tmpPath)
-
-	cPath := C.CString(tmpPath)
-	defer C.free(unsafe.Pointer(cPath))
-
-	if ret := C.astra_save_tiff_bw(img, cPath); int32(ret) != csdOK {
-		return nil, fmt.Errorf("astra_save_tiff_bw error %d", ret)
+	if img.lBps != 8 {
+		// Already binary or unsupported depth — delegate to the standard DLL saver.
+		return t.saveImageToBytes(img)
 	}
 
-	data, err := os.ReadFile(tmpPath)
-	if err != nil {
-		return nil, fmt.Errorf("read temp BW TIFF: %w", err)
+	width   := int(img.lWidth)
+	height  := int(img.lHeight)
+	dpi     := int(img.lXResolution)
+	imgSize := int(img.tImageSize)
+
+	if imgSize <= 0 || width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("invalid image dimensions: %dx%d size=%d", width, height, imgSize)
 	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("astra_save_tiff_bw produced empty TIFF")
+	if dpi <= 0 {
+		dpi = t.cfg.ScanDPI
 	}
-	return data, nil
+
+	// Copy raw pixel bytes out of C-managed memory into a Go slice.
+	// C.GoBytes makes a single allocation — safe to use after astra_release_image.
+	pixels := C.GoBytes(unsafe.Pointer(img.lpImage), C.int(imgSize))
+
+	tiffData := writeBinaryTIFF(pixels, width, height, dpi)
+	if len(tiffData) == 0 {
+		return nil, fmt.Errorf("writeBinaryTIFF produced empty output for %dx%d image", width, height)
+	}
+	return tiffData, nil
 }
 
 // saveImageToBytes compresses the raw pixel buffer in img to TIFF Group 4
