@@ -422,7 +422,10 @@ export default function CTSOutwardQueue() {
         received_at: i.received_at,
         ocr_fields: {},
       })))
-      setRejected(items.filter(i => i.outcome === 'STP_RETURN' || i.outcome === 'MISMATCH_HELD').map(i => ({
+      setRejected(items.filter(i =>
+        i.outcome === 'STP_RETURN' || i.outcome === 'MISMATCH_HELD' ||
+        i.outcome === 'CTS_REJECTED' || i.outcome === 'WORKFLOW_ERROR'
+      ).map(i => ({
         instrument_id: i.instrument_id,
         cheque_no: i.cheque_number,
         amount: i.amount_range,
@@ -506,7 +509,7 @@ export default function CTSOutwardQueue() {
         <div className={`w-96 shrink-0 border-r ${th.divider} flex flex-col`}>
           {/* Tabs */}
           <div className={`flex gap-1 px-3 pt-3 border-b ${th.divider} pb-2`}>
-            {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'STP Rejected', rejectedQueue.length], ['stp_success', 'STP Success', successQueue.length]].map(([key, label, count]) => (
+            {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'Rejected', rejectedQueue.length], ['stp_success', 'STP Success', successQueue.length]].map(([key, label, count]) => (
               <button
                 key={key}
                 onClick={() => { setTab(key); setSelected(null) }}
