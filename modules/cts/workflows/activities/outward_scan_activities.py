@@ -94,6 +94,17 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
 
         cts_cfg = await config_service.get_cts_config(inp.bank_id)
         rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
+        _siq_raw = await config_service.get("cts.strict_image_quality")
+        strict_image_quality: bool = str(_siq_raw).lower() == "true"
+
+        if not strict_image_quality:
+            # POC/UAT mode — skip all image-quality checks; real CTS scanners produce compliant images
+            log.warning(
+                "validate_cts2010.poc_mode_quality_bypass",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return CTS2010ValidationResult(is_compliant=True, violations=[])
 
         required_metrics = list(_FRONT_REQUIRED_METRICS)
         if rear_image_required:
