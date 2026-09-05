@@ -8125,8 +8125,7 @@ async def get_outward_pipeline(
     try:
         rows = await db.fetch(
             """SELECT instrument_id, scan_id, payee_display, amount_range, outcome,
-                      lot_id, branch_id, iqa_fail_reason, ocr_confidence, reject_reason,
-                      scanned_at
+                      lot_id, branch_id, reject_reason, scanned_at
                FROM cts.outward_scan_events
                WHERE bank_id = $1
                ORDER BY scanned_at DESC
@@ -8145,8 +8144,8 @@ async def get_outward_pipeline(
             amount=r["amount_range"] or "—",
             lot=r["lot_id"],
             session_deadline=None,
-            ocr_conf=r["ocr_confidence"],
-            iqa_fail=bool(r["iqa_fail_reason"]),
+            ocr_conf=None,
+            iqa_fail=bool(r["reject_reason"]),
             cts_violation=(r["outcome"] == "CTS_REJECTED"),
             amount_mismatch=(r["outcome"] == "MISMATCH_HELD"),
             scanner=r["branch_id"],
