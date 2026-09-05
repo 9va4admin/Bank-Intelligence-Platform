@@ -76,14 +76,14 @@ SEED_ACCOUNTS: dict[str, dict] = {
     },
     # ── Bank-specific dev accounts ─────────────────────────────────────────────
     "admin": {
-        "user_id": "usr-admin", "password": "Admin@Astra2026!",
+        "user_id": "usr-admin", "password": "astra-dev-admin",
         "display_name": "Anita Rao", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
         "clearing_zones": ["ALL"],
     },
     "ops": {
-        "user_id": "usr-ops", "password": "Ops@Astra2026!",
+        "user_id": "usr-ops", "password": "astra-dev-ops",
         "display_name": "Sunil Mehta", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
