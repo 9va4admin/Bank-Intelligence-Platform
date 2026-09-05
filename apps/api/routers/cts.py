@@ -8068,3 +8068,89 @@ async def get_iqa_results(
         for r in rows
     ]
     return IQAResultsResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+# ---------------------------------------------------------------------------
+# Outward Pipeline Monitor — swimlane stage snapshot
+# ---------------------------------------------------------------------------
+
+class OutwardPipelineInstrument(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    stage: str
+    drawee: str
+    amount: str
+    lot: Optional[str]
+    session_deadline: Optional[str]
+    ocr_conf: Optional[float]
+    iqa_fail: bool
+    cts_violation: bool
+    amount_mismatch: bool
+    scanner: Optional[str]
+
+
+class OutwardPipelineResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    instruments: list[OutwardPipelineInstrument]
+
+
+# Maps outward_scan_events.outcome → pipeline stage shown in the React Flow swimlane
+_OUTCOME_TO_STAGE: dict[str, str] = {
+    "SCANNED":       "SCANNED",
+    "IQA_FAIL":      "IQA",
+    "IQA_PASS":      "IQA",
+    "AI_EXTRACTED":  "AI_EXTRACTED",
+    "PKI_SIGNED":    "PKI_SIGNED",
+    "LOT_ASSIGNED":  "LOT",
+    "ENDORSED":      "ENDORSED",
+    "NGCH_FILED":    "NGCH",
+    "STP_CONFIRMED": "NGCH",
+    "HUMAN_REVIEW":  "AI_EXTRACTED",
+    "MISMATCH_HELD": "AI_EXTRACTED",
+    "CTS_REJECTED":  "IQA",
+    "STP_RETURN":    "IQA",
+}
+
+
+@router_v1.get("/outward/pipeline", response_model=OutwardPipelineResponse)
+async def get_outward_pipeline(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> OutwardPipelineResponse:
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return OutwardPipelineResponse(bank_id=bank_id, instruments=[])
+    try:
+        rows = await db.fetch(
+            """SELECT instrument_id, scan_id, payee_display, amount_range, outcome,
+                      lot_id, branch_id, iqa_fail_reason, ocr_confidence, reject_reason,
+                      scanned_at
+               FROM cts.outward_scan_events
+               WHERE bank_id = $1
+               ORDER BY scanned_at DESC
+               LIMIT 200""",
+            bank_id,
+        )
+    except Exception as exc:
+        log.error("cts.outward_pipeline.query_failed", bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+
+    instruments = [
+        OutwardPipelineInstrument(
+            id=r["instrument_id"],
+            stage=_OUTCOME_TO_STAGE.get(r["outcome"] or "", "SCANNED"),
+            drawee="—",
+            amount=r["amount_range"] or "—",
+            lot=r["lot_id"],
+            session_deadline=None,
+            ocr_conf=r["ocr_confidence"],
+            iqa_fail=bool(r["iqa_fail_reason"]),
+            cts_violation=(r["outcome"] == "CTS_REJECTED"),
+            amount_mismatch=(r["outcome"] == "MISMATCH_HELD"),
+            scanner=r["branch_id"],
+        )
+        for r in rows
+    ]
+    return OutwardPipelineResponse(bank_id=bank_id, instruments=instruments)
