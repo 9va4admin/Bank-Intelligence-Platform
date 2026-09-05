@@ -239,7 +239,8 @@ Start-Sleep 2   # give API a moment to bind before worker connects
 
 Write-Info "Opening CTS Worker window ..."
 Start-ServiceWindow -Title "ASTRA — CTS Worker" -Command @"
-python -m modules.cts.worker
+`$env:TEMPORAL_ADDRESS = `$env:ASTRA_SECRET_TEMPORAL_HOST
+python -m modules.cts.worker --bank-id $BankId
 "@
 
 Write-Info "Opening Frontend window  (Vite :5173) ..."

@@ -189,6 +189,13 @@ async def login(
         )
 
     _set_session_cookie(response, result.interim_session)
+    if result.outcome == LoginOutcome.DEV_BYPASS:
+        # Full session already issued — signal frontend to skip MFA step.
+        return LoginResponse(
+            outcome=result.outcome.value,
+            requires="none",
+            csrf_token=result.interim_session.csrf_token,
+        )
     requires = "mfa_code" if result.outcome == LoginOutcome.MFA_REQUIRED else "mfa_enrollment"
     return LoginResponse(
         outcome=result.outcome.value,
