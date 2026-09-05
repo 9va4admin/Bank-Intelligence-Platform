@@ -193,6 +193,7 @@ layer3:
     # Rear image (back of cheque) is NOT mandatory by default — blank reverse is normal practice.
     # Banks that endorse or stamp the reverse may set this to "true" to enforce rear quality checks.
     rear_image_required: "false"                 # Layer 3: hot-reload; "true" enables rear DPI/IQA checks
+    strict_image_quality: "true"                # Layer 3: "false" skips DPI/colour/IQA/MICR checks — use only in POC/UAT
 
   vault:
     error_files:
