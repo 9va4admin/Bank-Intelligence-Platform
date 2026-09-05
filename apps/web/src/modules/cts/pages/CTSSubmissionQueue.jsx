@@ -600,7 +600,9 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
   useEffect(() => {
     if (!isInward && liveOutward.length > 0 && liveOutward !== prevLiveRef.current) {
       prevLiveRef.current = liveOutward
-      const adapted = liveOutward.map(adaptQueueItem)
+      // Submission Queue only shows items ready for NGCH — exclude definitively rejected instruments
+      const submittable = liveOutward.filter(i => i.status !== 'CTS_REJECTED' && i.status !== 'STP_RETURN')
+      const adapted = submittable.map(adaptQueueItem)
       setInstruments(adapted)
       setSelected(prev => adapted.find(i => i.instrument_id === prev) ? prev : adapted[0]?.instrument_id ?? null)
     }
