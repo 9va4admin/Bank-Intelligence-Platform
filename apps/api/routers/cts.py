@@ -7762,56 +7762,37 @@ async def get_outward_decisions(
     if outcome:
         outcome_filter = [o.strip() for o in outcome.split(",") if o.strip()]
 
+    # Query cts.outward_scan_events — the single authoritative table for all
+    # outward scan results. The previous cts.agent_decisions JOIN cts.cheque_instruments
+    # always returned empty because outward scan workflows never insert into
+    # cheque_instruments (that table is populated by the inward processing workflow).
     try:
         if outcome_filter:
             rows = await db.fetch(
                 """
-                SELECT d.instrument_id::text,
-                       d.decision,
-                       d.decision_reason,
-                       d.fraud_score,
-                       ci.account_last4,
-                       ci.drawee_ifsc,
-                       ci.lot_number,
-                       d.processing_started_at::text
-                FROM cts.agent_decisions d
-                LEFT JOIN cts.cheque_instruments ci
-                       ON ci.instrument_id = d.instrument_id
-                      AND ci.bank_id = d.bank_id
-                WHERE d.bank_id = $1
-                  AND ci.direction = 'OUTWARD'
-                  AND d.decision = ANY($2)
-                  AND d.processing_started_at > NOW() - INTERVAL '24 hours'
-                ORDER BY d.processing_started_at DESC
+                SELECT instrument_id, scan_id, payee_display, amount_range,
+                       outcome, lot_id, branch_id, reject_reason, scanned_at::text
+                FROM cts.outward_scan_events
+                WHERE bank_id = $1
+                  AND outcome = ANY($2)
+                  AND scanned_at > NOW() - INTERVAL '24 hours'
+                ORDER BY scanned_at DESC
                 LIMIT $3
                 """,
-                bank_id,
-                outcome_filter,
-                limit,
+                bank_id, outcome_filter, limit,
             )
         else:
             rows = await db.fetch(
                 """
-                SELECT d.instrument_id::text,
-                       d.decision,
-                       d.decision_reason,
-                       d.fraud_score,
-                       ci.account_last4,
-                       ci.drawee_ifsc,
-                       ci.lot_number,
-                       d.processing_started_at::text
-                FROM cts.agent_decisions d
-                LEFT JOIN cts.cheque_instruments ci
-                       ON ci.instrument_id = d.instrument_id
-                      AND ci.bank_id = d.bank_id
-                WHERE d.bank_id = $1
-                  AND ci.direction = 'OUTWARD'
-                  AND d.processing_started_at > NOW() - INTERVAL '24 hours'
-                ORDER BY d.processing_started_at DESC
+                SELECT instrument_id, scan_id, payee_display, amount_range,
+                       outcome, lot_id, branch_id, reject_reason, scanned_at::text
+                FROM cts.outward_scan_events
+                WHERE bank_id = $1
+                  AND scanned_at > NOW() - INTERVAL '24 hours'
+                ORDER BY scanned_at DESC
                 LIMIT $2
                 """,
-                bank_id,
-                limit,
+                bank_id, limit,
             )
     except Exception as exc:
         log.warning("cts.outward_decisions.query_failed", bank_id=bank_id, error=str(exc))
@@ -7820,14 +7801,14 @@ async def get_outward_decisions(
     items = [
         OutwardDecisionItem(
             instrument_id=r["instrument_id"],
-            decision=r["decision"],
-            decision_reason=r["decision_reason"],
-            fraud_score=round(r["fraud_score"], 4) if r["fraud_score"] is not None else None,
-            account_last4=r["account_last4"],
-            amount_bucket=None,
-            drawee_ifsc=r["drawee_ifsc"],
-            lot_number=r["lot_number"],
-            processing_started_at=r["processing_started_at"],
+            decision=r["outcome"],
+            decision_reason=r["reject_reason"],
+            fraud_score=None,
+            account_last4=None,
+            amount_bucket=r["amount_range"],
+            drawee_ifsc=None,
+            lot_number=r["lot_id"],
+            processing_started_at=r["scanned_at"],
         )
         for r in rows
     ]
