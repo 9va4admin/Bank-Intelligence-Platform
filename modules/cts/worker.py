@@ -534,7 +534,11 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 for t in ("standard", "high_value", "very_high")
             ],
         )
-        await shutdown_event.wait()
+        # asyncio.Event.wait() can be cancelled by Temporal's Rust-bridge task
+        # dispatch on Windows SelectorEventLoop when live workflows are present.
+        # Poll in short sleeps instead — functionally equivalent, avoids the issue.
+        while not shutdown_event.is_set():
+            await asyncio.sleep(0.5)
 
         if trigger is not None:
             trigger.stop()
@@ -549,9 +553,16 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
 
 def main() -> None:
     import argparse
+    import sys
     parser = argparse.ArgumentParser(description="ASTRA CTS Temporal Worker")
     parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
     args = parser.parse_args()
+
+    # Temporal's Rust core (temporalio.bridge) requires SelectorEventLoop on Windows.
+    # ProactorEventLoop (Windows default) breaks the long-polling gRPC calls so the
+    # worker connects but never actually polls any task queue.
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     asyncio.run(run_worker(bank_id=args.bank_id))
 

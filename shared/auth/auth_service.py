@@ -34,12 +34,13 @@ log = structlog.get_logger()
 class LoginOutcome(str, Enum):
     MFA_REQUIRED = "MFA_REQUIRED"                        # enrolled — supply a TOTP code
     MFA_ENROLLMENT_REQUIRED = "MFA_ENROLLMENT_REQUIRED"  # first login — enrol then confirm
+    DEV_BYPASS = "DEV_BYPASS"                            # dev-only: MFA skipped, full session issued
 
 
 class LoginResult(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     outcome: LoginOutcome
-    interim_session: IssuedSession   # always mfa_authenticated=False
+    interim_session: IssuedSession   # mfa_authenticated=False normally; True only on DEV_BYPASS
 
 
 class AccountEnrollmentStore(Protocol):
@@ -70,6 +71,7 @@ class AuthService:
         account_store: AccountEnrollmentStore,
         connector=None,            # single AuthConnector — backward-compat / tests
         connector_factory=None,    # AuthConnectorFactory — production path
+        dev_mode: bool = False,    # when True, password alone → full session (never in prod)
     ) -> None:
         if connector is None and connector_factory is None:
             raise ValueError("either connector or connector_factory must be provided")
@@ -78,6 +80,7 @@ class AuthService:
         self._mfa = mfa
         self._session = session_service
         self._accounts = account_store
+        self._dev_mode = dev_mode
 
     # -- stage 1: password -------------------------------------------------- #
 
@@ -104,6 +107,18 @@ class AuthService:
         identity: ASTRAIdentity = await connector.authenticate(
             LocalCredentials(username=username, password=password, bank_id=bank_id)
         )
+
+        # Dev bypass: skip MFA entirely and issue a full session immediately.
+        # Never active in production — dev_mode is wired from ASTRA_ENV at startup.
+        if self._dev_mode:
+            full = self._issue_from_identity(identity, mfa_authenticated=True)
+            log.warning(
+                "auth.login.dev_bypass",
+                user_id=identity.user_id, bank_id=identity.bank_id,
+                msg="MFA skipped — ASTRA_ENV=development",
+            )
+            return LoginResult(outcome=LoginOutcome.DEV_BYPASS, interim_session=full)
+
         enrolled = await self._accounts.is_totp_enrolled(identity.user_id)
         interim = self._issue_from_identity(identity, mfa_authenticated=False)
         outcome = (

@@ -243,11 +243,14 @@ async def lifespan(app: FastAPI):
 
         _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
 
+        import os as _os
+        _dev_mode = (_os.environ.get("ASTRA_ENV", "production") == "development")
         app.state.auth_service = AuthService(
             connector_factory=_connector_factory,
             mfa=_mfa,
             session_service=app.state.session_service,
             account_store=_enrollment_store,
+            dev_mode=_dev_mode,
         )
         log.info("api_gateway.auth_service_ready", bank_id=_bank_id)
     except Exception as exc:
