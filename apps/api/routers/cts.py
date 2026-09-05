@@ -4984,7 +4984,7 @@ async def get_outward_human_review_queue(
                    scanned_at::text AS received_at, branch_id, lot_id
             FROM cts.outward_scan_events
             WHERE bank_id = $1
-              AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED')
+              AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR')
             ORDER BY scanned_at ASC
             LIMIT $2
             """,
@@ -8110,6 +8110,7 @@ _OUTCOME_TO_STAGE: dict[str, str] = {
     "MISMATCH_HELD": "AI_EXTRACTED",
     "CTS_REJECTED":  "IQA",
     "STP_RETURN":    "IQA",
+    "WORKFLOW_ERROR": "IQA",
 }
 
 

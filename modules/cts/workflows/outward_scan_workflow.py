@@ -188,7 +188,21 @@ class OutwardScanWorkflow:
         _started_at = workflow.now().timestamp()
         wf_id = workflow.info().workflow_id
 
-        result = await self._run_impl(inp)
+        # Wrap _run_impl so record_outward_scan_event always executes even on failure.
+        # Without this, an uncaught exception in _run_impl causes the workflow to exit
+        # before the try/except blocks below, leaving no DB row for the instrument.
+        _impl_exc: Optional[Exception] = None
+        try:
+            result = await self._run_impl(inp)
+        except Exception as exc:
+            _impl_exc = exc
+            result = OutwardScanResult(
+                outcome="WORKFLOW_ERROR",
+                scan_id=inp.scan_id,
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                violations=[f"workflow_error:{str(exc)[:200]}"],
+            )
 
         # Branch monitor event (best-effort — never fail scan for event recording)
         try:
@@ -254,6 +268,8 @@ class OutwardScanWorkflow:
             log.warning("outward_scan_workflow.persist_digest_failed",
                         instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc))
 
+        if _impl_exc is not None:
+            raise _impl_exc
         return result
 
     async def _run_impl(self, inp: OutwardScanInput) -> OutwardScanResult:

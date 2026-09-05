@@ -36,7 +36,8 @@ function useOutwardQueue({ pollEnabled }) {
 }
 
 function adaptQueueItem(d) {
-  const src = d.status === 'STP_RETURN' ? 'STP' : 'HUMAN_REVIEW'
+  // API field is `outcome` (not `status`) — use d.outcome throughout
+  const src = d.outcome === 'STP_RETURN' ? 'STP' : 'HUMAN_REVIEW'
   return {
     instrument_id: d.instrument_id,
     drawee_bank: '—', drawee_branch: '—',
@@ -52,7 +53,7 @@ function adaptQueueItem(d) {
     manual_fields: [],
     iet_deadline: null,
     lot_id: d.lot_id ?? '—',
-    status: d.status ?? 'HUMAN_REVIEW',
+    status: d.outcome ?? 'HUMAN_REVIEW',
     fraud_score: d.fraud_score ?? 0,
     micr_confidence: d.ocr_confidence ?? 0.95,
     checks: { cts_valid: true, date_valid: true, signature_present: true, amount_words_match: true },
@@ -601,7 +602,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
     if (!isInward && liveOutward.length > 0 && liveOutward !== prevLiveRef.current) {
       prevLiveRef.current = liveOutward
       // Submission Queue only shows items ready for NGCH — exclude definitively rejected instruments
-      const submittable = liveOutward.filter(i => i.status !== 'CTS_REJECTED' && i.status !== 'STP_RETURN')
+      const submittable = liveOutward.filter(i => i.outcome !== 'CTS_REJECTED' && i.outcome !== 'WORKFLOW_ERROR' && i.outcome !== 'STP_RETURN')
       const adapted = submittable.map(adaptQueueItem)
       setInstruments(adapted)
       setSelected(prev => adapted.find(i => i.instrument_id === prev) ? prev : adapted[0]?.instrument_id ?? null)
