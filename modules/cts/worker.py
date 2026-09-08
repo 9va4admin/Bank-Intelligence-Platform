@@ -128,6 +128,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     validate_cts2010,
     create_lot_entry,
     run_vision_presentment_check,
+    vision_extract_and_check,
     record_outward_scan_event,
     check_cheque_dedup,
     extract_rear_payee_details,
@@ -344,7 +345,8 @@ NO_DI_ACTIVITIES = [
     send_hold_reminder,
     send_hold_critical_alert,
     send_hold_p0_alert,
-    # Outward scanning — dedup, rear OCR, payee account validation
+    # Outward scanning — dedup, rear OCR, payee account validation, CR-120 vision
+    vision_extract_and_check,
     check_cheque_dedup,
     extract_rear_payee_details,
     validate_payee_account,
