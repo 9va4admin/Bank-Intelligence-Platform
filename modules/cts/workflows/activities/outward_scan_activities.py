@@ -826,7 +826,7 @@ async def check_cheque_dedup(inp: ChequeDedupInput) -> ChequeDedupActivityResult
         from modules.cts.preprocessing.cheque_dedup import check_and_register_dedup
 
         try:
-            redis_url = config_service.get("redis.cts.url")
+            redis_url = await config_service.get("redis.cts.url")
             import aioredis
             redis = await aioredis.from_url(redis_url, decode_responses=False)
         except Exception as exc:

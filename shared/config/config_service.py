@@ -102,6 +102,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "vllm.url": "http://localhost:8000",
     "vllm.l1_url": "http://localhost:8000",
     "db.cts.dsn": "postgresql://yugabyte:yugabyte@localhost:15433/yugabyte",
+    "redis.cts.url": "redis://localhost:16379/0",
 }
 
 
@@ -290,6 +291,10 @@ class ConfigService:
                 key,
             )
         if row is None:
+            # Row absent from DB — fall back to built-in defaults before raising.
+            if key in _LAYER3_DEFAULTS:
+                log.debug("config.get.db_miss_using_default", key=key, bank_id=self._bank_id)
+                return _LAYER3_DEFAULTS[key]
             raise ConfigKeyNotFoundError(
                 f"Config key '{key}' not found for bank '{self._bank_id}'. "
                 f"Check Admin UI or infra/helm/values/_defaults.yaml."
