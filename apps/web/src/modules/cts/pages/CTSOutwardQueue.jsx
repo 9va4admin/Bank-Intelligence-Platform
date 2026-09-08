@@ -420,6 +420,10 @@ export default function CTSOutwardQueue() {
       }
 
       // Mapper: produces the shape OutwardRow / STPSuccessRow expect
+      const scanImgUrl = (instrumentId, view = 'front_bw') => {
+        const scanId = instrumentId.replace(/^INS-/, '')
+        return `${API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent(scanId)}&view=${view}`
+      }
       const toRow = (i) => ({
         instrument_id:  i.instrument_id,
         cheque_number:  i.cheque_number || i.instrument_id.slice(-8),
@@ -438,6 +442,8 @@ export default function CTSOutwardQueue() {
         ocr_confidence: i.ocr_confidence ?? 0,
         received_at:    i.received_at,
         ocr_fields:     {},
+        front_bw_url:   scanImgUrl(i.instrument_id, 'front_bw'),
+        front_gray_url: scanImgUrl(i.instrument_id, 'front_gray'),
       })
 
       setReview(items.filter(i => i.outcome === 'HUMAN_REVIEW').map(toRow))
