@@ -85,6 +85,8 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
     rear_image_required=true in Layer 3 config (default: false — blank reverse
     is standard practice and must not cause a compliance failure).
     """
+    if isinstance(inp, dict):
+        inp = CTS2010ValidationInput(**inp)
     with tracer.start_as_current_span("activity.validate_cts2010") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -180,6 +182,8 @@ async def create_lot_entry(inp: LotAssignmentInput, lot_manager: Any = None) -> 
     (modules/cts/worker_activities.py) selects the correct persistent
     instance per (bank_ifsc, session_id) from a registry before calling this.
     """
+    if isinstance(inp, dict):
+        inp = LotAssignmentInput(**inp)
     with tracer.start_as_current_span("activity.create_lot_entry") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -236,6 +240,8 @@ async def run_vision_presentment_check(
     orchestrator injected, this activity cannot run for real — that is
     correct and matches every other AI-calling activity in this codebase.
     """
+    if isinstance(inp, dict):
+        inp = VisionPresentmentCheckInput(**inp)
     with tracer.start_as_current_span("activity.run_vision_presentment_check") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -382,6 +388,8 @@ async def vision_extract_and_check(
     - MISMATCH      → amount figures/words disagree → MismatchResolutionWorkflow
     - HUMAN_REVIEW  → low confidence, model unavailable, or alteration detected
     """
+    if isinstance(inp, dict):
+        inp = VisionExtractAndCheckInput(**inp)
     with tracer.start_as_current_span("activity.vision_extract_and_check") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -565,6 +573,8 @@ async def validate_payee_account(
            On CBS miss after vault hit: treat as CBS_UNAVAILABLE (vault says account exists)
       3. On CBS call → cache account_status + holder_name_display into Account Vault
     """
+    if isinstance(inp, dict):
+        inp = PayeeValidationInput(**inp)
     with tracer.start_as_current_span("activity.validate_payee_account") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -740,6 +750,8 @@ async def extract_rear_payee_details(
     On OCR failure, degraded=True is set and the caller falls back to
     teller manual entry (the instrument is not rejected).
     """
+    if isinstance(inp, dict):
+        inp = RearPayeeExtractionInput(**inp)
     with tracer.start_as_current_span("activity.extract_rear_payee_details") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -819,6 +831,8 @@ async def check_cheque_dedup(inp: ChequeDedupInput) -> ChequeDedupActivityResult
     FRESH  → first presentation, key registered.
     DUPLICATE → same cheque seen before; caller must reject and audit.
     """
+    if isinstance(inp, dict):
+        inp = ChequeDedupInput(**inp)
     with tracer.start_as_current_span("activity.check_cheque_dedup") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -887,6 +901,8 @@ class RecordScanEventInput(BaseModel):
 
 @activity.defn(name="record_outward_scan_event")
 async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
+    if isinstance(inp, dict):
+        inp = RecordScanEventInput(**inp)
     with tracer.start_as_current_span("activity.record_outward_scan_event") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
