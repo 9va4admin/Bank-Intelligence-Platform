@@ -101,7 +101,8 @@ export default function CTSEndorsement() {
 
   const liveQueue = useEndorsementQueue({ pollEnabled: !isDemo })
   const activeInstruments = useMemo(() => {
-    if (isDemo || !liveQueue || liveQueue.length === 0) return INSTRUMENTS
+    if (isDemo) return INSTRUMENTS
+    if (!liveQueue || liveQueue.length === 0) return []
     return liveQueue
   }, [isDemo, liveQueue])
   const [statuses, setStatuses] = useState(() =>

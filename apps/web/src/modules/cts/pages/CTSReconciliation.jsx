@@ -218,7 +218,8 @@ export default function CTSReconciliation() {
 
   // ── SMB Ledger: demo invariant ─────────────────────────────────────────────
   const DISPLAY_LEDGERS = useMemo(() => {
-    if (isDemo || !liveLedgers || liveLedgers.length === 0) return SMB_LEDGERS
+    if (isDemo) return SMB_LEDGERS
+    if (!liveLedgers || liveLedgers.length === 0) return []
     return liveLedgers.map(l => ({
       ...l,
       sponsor_bank_id: bankId,

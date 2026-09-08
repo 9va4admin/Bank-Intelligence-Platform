@@ -174,7 +174,8 @@ export default function CTSBatches() {
 
   // Demo invariant: mock when isDemo or no live sessions
   const SESSIONS = useMemo(() => {
-    if (isDemo || !liveSessions || liveSessions.length === 0) return demoSessions
+    if (isDemo) return demoSessions
+    if (!liveSessions || liveSessions.length === 0) return []
     return liveSessions.map(s => ({
       id: s.session_id,
       label: s.label || s.session_type,

@@ -150,7 +150,8 @@ export default function CTSCompliance() {
 
   // Map live compliance checks → instrument-like display shape
   const INSTRUMENTS = useMemo(() => {
-    if (isDemo || !liveData?.items || liveData.items.length === 0) return MOCK_INSTRUMENTS
+    if (isDemo) return MOCK_INSTRUMENTS
+    if (!liveData?.items || liveData.items.length === 0) return []
     return liveData.items.map(c => ({
       id: c.instrument_id || c.lot_id,
       cheque: c.instrument_id || '',

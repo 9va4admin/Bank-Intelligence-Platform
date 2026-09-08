@@ -182,7 +182,8 @@ export default function CTSSMBRegistry() {
   const { subMembers: liveSmbs } = useSMBList({ pollEnabled: !isDemo && isSB })
 
   const SMB_SOURCE = useMemo(() => {
-    if (isDemo || !liveSmbs || liveSmbs.length === 0) return MOCK_SMBS
+    if (isDemo) return MOCK_SMBS
+    if (!liveSmbs || liveSmbs.length === 0) return []
     return liveSmbs.map(s => ({
       sub_member_id: s.sub_member_id,
       bank_name: s.bank_name,
