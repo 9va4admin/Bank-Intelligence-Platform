@@ -684,6 +684,12 @@ const _OUTCOME_STAGE = {
 }
 
 // Adapts a live outward decision row into the instrument shape the page renders
+// scanId is derived by stripping the "INS-" prefix the scanner agent prepends.
+function _scanImageUrl(instrumentId, view = 'front_bw') {
+  const scanId = instrumentId.replace(/^INS-/, '')
+  return `${_VQ_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent(scanId)}&view=${view}`
+}
+
 function adaptDecision(d) {
   const meta = _OUTCOME_STAGE[d.decision] ?? { stage: d.decision ?? 'UNKNOWN', label: d.decision ?? 'Unknown' }
   const src = meta.stage === 'STP' ? 'STP' : 'LIVE'
@@ -691,7 +697,8 @@ function adaptDecision(d) {
     instrument_id: d.instrument_id,
     source_stage:  meta.stage,
     outcome_label: meta.label,
-    front_bw_url: null, front_gray_url: null,
+    front_bw_url: _scanImageUrl(d.instrument_id, 'front_bw'),
+    front_gray_url: _scanImageUrl(d.instrument_id, 'front_gray'),
     drawee_bank: '—', drawee_branch: '—',
     drawee_ifsc: d.drawee_ifsc ?? '—', drawee_micr: '—',
     drawer_name: '—',

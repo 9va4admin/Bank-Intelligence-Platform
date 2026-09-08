@@ -1783,6 +1783,51 @@ async def request_scan_upload_urls(
 
 
 # ---------------------------------------------------------------------------
+# Outward scan — /v1/cts/outward/scan/image
+# Returns a short-lived presigned GET URL for a scan image in MinIO.
+# Used by the browser to display BFB/BBB/BFG scan views without exposing
+# MinIO credentials. scan_id is instrument_id with "INS-" prefix stripped.
+# ---------------------------------------------------------------------------
+
+@router_v1.get(
+    "/outward/scan/image",
+    response_model=None,
+    tags=["CTS Outward"],
+)
+async def get_scan_image_url(
+    scan_id: str,
+    view: str = "front_bw",
+    request: Request = None,
+    bank_id: str = Depends(get_bank_id_scanner_or_user),
+):
+    """Return a presigned GET URL for a scan image stored in MinIO.
+
+    view: front_bw | rear_bw | front_gray | uv
+    """
+    _VIEW_TO_KEY = {
+        "front_bw":   "front.tiff",
+        "rear_bw":    "rear.tiff",
+        "front_gray": "front_gray.tiff",
+        "uv":         "uv.tiff",
+    }
+    filename = _VIEW_TO_KEY.get(view, "front.tiff")
+    object_key = f"{bank_id}/outward/{scan_id}/{filename}"
+
+    minio_store = getattr(request.app.state, "minio_store", None) if request else None
+    if minio_store is None:
+        raise HTTPException(status_code=503, detail="Image store unavailable")
+
+    try:
+        url = await minio_store.presigned_url(
+            _CTS_IMAGES_BUCKET, object_key, expiry_seconds=300
+        )
+        return {"url": url, "scan_id": scan_id, "view": view}
+    except Exception as exc:
+        log.warning("cts.scan_image_url_error", scan_id=scan_id, view=view, error=str(exc))
+        raise HTTPException(status_code=404, detail="Image not found") from exc
+
+
+# ---------------------------------------------------------------------------
 # Outward scan — /v1/cts/outward/scan/submit
 # Called by the local scanner agent (edge/cts-scanner-agent/) running on the
 # teller PC after it has uploaded images to MinIO and extracted hardware MICR.
