@@ -670,29 +670,45 @@ function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+// Maps outward scan event outcome codes to human-readable stage / source labels
+const _OUTCOME_STAGE = {
+  STP_CONFIRM:    { stage: 'STP',      label: 'STP Auto-Filed'         },
+  STP_RETURN:     { stage: 'REJECTED', label: 'STP Auto-Return'        },
+  MISMATCH_HELD:  { stage: 'HELD',     label: 'Amount Mismatch — Held' },
+  CTS_REJECTED:   { stage: 'REJECTED', label: 'CTS Compliance Fail'    },
+  WORKFLOW_ERROR: { stage: 'ERROR',    label: 'Processing Error'       },
+  HUMAN_REVIEW:   { stage: 'REVIEW',   label: 'Flagged for Review'     },
+  AI_EXTRACTED:   { stage: 'VERIFIED', label: 'AI Extracted'           },
+  IQA_PASS:       { stage: 'VERIFIED', label: 'IQA Passed'             },
+  IQA_FAIL:       { stage: 'REJECTED', label: 'IQA Failed'             },
+}
+
 // Adapts a live outward decision row into the instrument shape the page renders
-function adaptDecision(d, idx) {
+function adaptDecision(d) {
+  const meta = _OUTCOME_STAGE[d.decision] ?? { stage: d.decision ?? 'UNKNOWN', label: d.decision ?? 'Unknown' }
+  const src = meta.stage === 'STP' ? 'STP' : 'LIVE'
   return {
     instrument_id: d.instrument_id,
-    source_stage: d.decision === 'STP_CONFIRM' ? 'STP' : 'VERIFIED',
+    source_stage:  meta.stage,
+    outcome_label: meta.label,
     front_bw_url: null, front_gray_url: null,
     drawee_bank: '—', drawee_branch: '—',
     drawee_ifsc: d.drawee_ifsc ?? '—', drawee_micr: '—',
     drawer_name: '—',
-    account_display: d.account_last4 ? `****${d.account_last4}` : '****0000',
-    ocr_score: 0.95, sig_score: 0.95,
-    fraud_score: d.fraud_score ?? 0,
-    iqa_score: 0.99,
-    deposit_channel: 'PAY_IN_SLIP',
+    account_display: d.account_last4 ? `****${d.account_last4}` : '****',
+    ocr_score: null, sig_score: null,
+    fraud_score: d.fraud_score ?? null,
+    iqa_score: null,
+    deposit_channel: null,
     deposit_data: {},
-    name_match: 'FULL_MATCH', name_match_cbs_name: '—',
+    name_match: null, name_match_cbs_name: '—',
     fields_meta: {
-      date:           { extracted_value: '—', extracted_confidence: 0.95, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
-      payee:          { extracted_value: '—', extracted_confidence: 0.95, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
-      amount_figures: { extracted_value: d.amount_bucket ?? '—', extracted_confidence: 0.95, extracted_by: 'GOT-OCR2.0', actual_value: d.amount_bucket ?? '—', source: 'STP' },
-      amount_words:   { extracted_value: '—', extracted_confidence: 0.90, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
-      micr:           { extracted_value: '—', extracted_confidence: 0.99, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
-      alterations:    { extracted_value: false, extracted_confidence: 0.99, extracted_by: 'GOT-OCR2.0', actual_value: false, source: 'STP' },
+      date:           { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      payee:          { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      amount_figures: { extracted_value: d.amount_bucket ?? '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: d.amount_bucket ?? '—', source: src },
+      amount_words:   { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      micr:           { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      alterations:    { extracted_value: false, extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: false, source: src },
     },
     lot_number: d.lot_number ?? '—',
     decision_reason: d.decision_reason,

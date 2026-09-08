@@ -678,18 +678,42 @@ export default function CTSPresentment() {
   const demoInitialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', demoSessions[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, demoSessions])
   const initialBatch = useDemoData(demoInitialBatch)
 
-  // Live sessions + batch
+  // Live sessions + batch + pipeline scan events
   const [liveSessions, setLiveSessions] = useState([])
   const [liveBatch, setLiveBatch] = useState([])
+  const [liveScanEvents, setLiveScanEvents] = useState([])
   const liveTimerRef = useRef(null)
 
   const fetchLive = useCallback(async () => {
     if (isDemo) return
     try {
-      const [sesRes, lotsRes] = await Promise.all([
+      const [sesRes, lotsRes, pipeRes] = await Promise.all([
         fetch(`${_API_BASE}/v1/cts/outward/sessions`, { credentials: 'include' }),
         fetch(`${_API_BASE}/v1/cts/outward/lots?status=OPEN&limit=5`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/outward/pipeline`, { credentials: 'include' }),
       ])
+
+      // Individual scan events — always populate even when no lots exist
+      if (pipeRes.ok) {
+        const pipeData = await pipeRes.json()
+        setLiveScanEvents((pipeData.instruments ?? []).map(i => ({
+          instrument_id: i.id,
+          account_display: '****',
+          payee: i.drawee || '—',
+          amount: i.amount || '—',
+          micr: '—',
+          date_on_cheque: '—',
+          passed: !i.iqa_fail && !i.cts_violation && !i.amount_mismatch,
+          fail_code: i.iqa_fail ? 'IQA_FAIL' : i.cts_violation ? 'CTS_REJECTED' : i.amount_mismatch ? 'MISMATCH_HELD' : null,
+          fail_label: i.iqa_fail ? 'IQA Fail' : i.cts_violation ? 'CTS Violation' : i.amount_mismatch ? 'Amount Mismatch' : null,
+          status: i.stage,
+          lot_id: i.lot || null,
+          seq_in_batch: 0,
+          image_bw: null,
+          images_all: [],
+          arrived_at: null,
+        })))
+      }
       if (sesRes.ok) {
         const sesData = await sesRes.json()
         setLiveSessions((sesData.sessions ?? []).map(s => ({
@@ -763,6 +787,12 @@ export default function CTSPresentment() {
       setSelected(liveBatch[0] ?? null)
       return
     }
+    // Fallback: use individual scan events from outward/pipeline when no lots exist
+    if (!isDemo && liveScanEvents.length > 0) {
+      setBatch(liveScanEvents)
+      setSelected(liveScanEvents[0] ?? null)
+      return
+    }
     if (!isDemo) return
     const n = isSMB ? 8 : 42
     addedRef.current = n
@@ -773,7 +803,7 @@ export default function CTSPresentment() {
     setFilterStatus('ALL')
     setFilterLot('ALL')
     setSearch('')
-  }, [isSMB, bankIfsc, isDemo, liveBatch]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSMB, bankIfsc, isDemo, liveBatch, liveScanEvents]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
   useDemoInterval(() => {
