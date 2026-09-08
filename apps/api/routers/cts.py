@@ -4985,7 +4985,7 @@ async def get_outward_human_review_queue(
             FROM cts.outward_scan_events
             WHERE bank_id = $1
               AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR')
-            ORDER BY scanned_at ASC
+            ORDER BY scanned_at DESC
             LIMIT $2
             """,
             bank_id, limit,
