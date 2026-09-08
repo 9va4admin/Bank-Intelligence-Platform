@@ -35,6 +35,7 @@ _ENDPOINT_LIMITS: dict[str, tuple[int, bool]] = {
     # CTS — live-status read paths (polled every 10–30s by UI)
     "cts_status_get":     (120, True),   # exceptions, inward/live-flow, inward/sessions, compliance
     "cts_ops_get":        (60,  True),   # outward/sessions, smb/reports, rpc/zones, outward/clearing-window
+    "cts_scanner_write":  (600, True),   # scanner agent: scan/submit, scan/event, scan/upload-url (fires every 500ms during paper jams)
     "cts_workstation_get":(120, True),   # endorsement-queue, iqa-results (polled every 30s)
     # CTS — admin/config read paths (polled every 5 min)
     "cts_admin_read":     (30,  True),   # admin/login-log, admin/ngch-routing, admin/micr-prefixes
@@ -63,6 +64,7 @@ _PATH_TO_SLUG: dict[str, str] = {
     "/v1/cts/inward/live-flow":          "cts_status_get",
     "/v1/cts/inward/sessions":           "cts_status_get",
     "/v1/cts/inward":                    "cts_inward_submit",
+    "/v1/cts/outward/scan":              "cts_scanner_write",  # scanner agent: submit, event, upload-url — must be before /outward catch-all
     "/v1/cts/outward/endorsement-queue": "cts_workstation_get",
     "/v1/cts/outward/iqa-results":       "cts_workstation_get",
     "/v1/cts/outward/compliance":        "cts_status_get",
