@@ -35,6 +35,11 @@ function useOutwardQueue({ pollEnabled }) {
   return items
 }
 
+function _scanImgUrl(instrumentId, view = 'front_bw') {
+  const scanId = (instrumentId ?? '').replace(/^INS-/, '')
+  return `${_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent(scanId)}&view=${view}`
+}
+
 function adaptQueueItem(d) {
   // API field is `outcome` (not `status`) — use d.outcome throughout
   const src = d.outcome === 'STP_RETURN' ? 'STP' : 'HUMAN_REVIEW'
@@ -57,6 +62,8 @@ function adaptQueueItem(d) {
     fraud_score: d.fraud_score ?? 0,
     micr_confidence: d.ocr_confidence ?? 0.95,
     checks: { cts_valid: true, date_valid: true, signature_present: true, amount_words_match: true },
+    front_bw_url:   _scanImgUrl(d.instrument_id, 'front_bw'),
+    front_gray_url: _scanImgUrl(d.instrument_id, 'front_gray'),
   }
 }
 
