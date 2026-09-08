@@ -568,9 +568,12 @@ export default function ChequeImageViewer({
 
   const activeView = views?.find(v => v.key === activeKey) ?? views?.[0]
 
-  const src = activeView?.url ?? makePlaceholderDataUrl(activeView?.key, fields)
+  // BBB with no URL → show N/A panel; other views fall back to SVG placeholder
+  const noRear = activeView?.key === 'BBB' && !activeView?.url
+  const src = noRear ? null : (activeView?.url ?? makePlaceholderDataUrl(activeView?.key, fields))
 
   const openLightbox = useCallback(() => {
+    if (!src) return
     setLightbox({ src, label: activeView?.label ?? '', title })
   }, [src, activeView, title])
 
@@ -587,7 +590,7 @@ export default function ChequeImageViewer({
     mock:   isDark ? 'text-slate-600' : 'text-slate-400',
   }
 
-  const isPlaceholder = !activeView?.url
+  const isPlaceholder = !noRear && !activeView?.url
 
   return (
     <>
@@ -620,45 +623,56 @@ export default function ChequeImageViewer({
               </span>
             )
           })()}
-          {/* Expand button */}
-          <button
-            onClick={openLightbox}
-            title="View full screen"
-            className={`ml-1 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
-          >
-            ⤢
-          </button>
-          {/* Download */}
-          <a
-            href={src}
-            download={`${title ? title + '_' : ''}${activeView?.key ?? 'cheque'}.${isPlaceholder ? 'svg' : 'jpg'}`}
-            className={`ml-0.5 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
-            title="Download image"
-          >
-            ↓
-          </a>
+          {/* Expand button — hidden when N/A */}
+          {!noRear && (
+            <button
+              onClick={openLightbox}
+              title="View full screen"
+              className={`ml-1 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
+            >
+              ⤢
+            </button>
+          )}
+          {/* Download — hidden when N/A */}
+          {!noRear && (
+            <a
+              href={src}
+              download={`${title ? title + '_' : ''}${activeView?.key ?? 'cheque'}.${isPlaceholder ? 'svg' : 'jpg'}`}
+              className={`ml-0.5 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
+              title="Download image"
+            >
+              ↓
+            </a>
+          )}
         </div>
 
         {/* Image area + optional deposit info panel side-by-side */}
         <div className={`flex ${compact ? 'h-[160px]' : 'h-[260px]'}`}>
-          {/* Cheque image */}
-          <div
-            className={`relative flex-1 overflow-hidden cursor-zoom-in ${th.imgWrap}`}
-            onClick={openLightbox}
-          >
-            <img
-              key={src}
-              src={src}
-              alt={activeView?.label}
-              className="w-full h-full object-contain transition-opacity duration-200"
-              style={{ imageRendering: 'crisp-edges' }}
-            />
-            {isPlaceholder && (
-              <div className={`absolute bottom-1 left-2 text-[9px] italic ${th.mock} pointer-events-none`}>
-                preview — real image from scanner/MinIO
-              </div>
-            )}
-          </div>
+          {/* Cheque image — or N/A panel for BBB with no rear scan */}
+          {noRear ? (
+            <div className={`relative flex-1 overflow-hidden flex flex-col items-center justify-center gap-2 ${th.imgWrap}`}>
+              <span className={`text-3xl font-bold tracking-widest ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>N/A</span>
+              <span className={`text-[11px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>No back image captured for this instrument</span>
+            </div>
+          ) : (
+            <div
+              className={`relative flex-1 overflow-hidden cursor-zoom-in ${th.imgWrap}`}
+              onClick={openLightbox}
+            >
+              <img
+                key={src}
+                src={src}
+                alt={activeView?.label}
+                className="w-full h-full object-contain transition-opacity duration-200"
+                style={{ imageRendering: 'crisp-edges' }}
+              />
+              {isPlaceholder && (
+                <div className={`absolute bottom-1 left-2 text-[9px] italic ${th.mock} pointer-events-none`}>
+                  preview — real image from scanner/MinIO
+                </div>
+              )}
+            </div>
+          )}
           {/* Deposit channel extracted data — shown only when depositInfo is provided */}
           {depositInfo?.channel && <DepositInfoPanel depositInfo={depositInfo} isDark={isDark} />}
         </div>
@@ -676,7 +690,7 @@ export default function ChequeImageViewer({
               </>
             )}
             <span className="flex-1" />
-            <span className="italic">{isPlaceholder ? 'No image URL — showing SVG preview' : 'Live scan image'}</span>
+            <span className="italic">{noRear ? 'No rear image' : isPlaceholder ? 'No image URL — showing SVG preview' : 'Live scan image'}</span>
           </div>
         )}
       </div>
