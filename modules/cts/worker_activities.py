@@ -203,6 +203,8 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.detect_signatures import (
             detect_signatures as _real, DetectSignaturesInput,
         )
+        if isinstance(inp, dict):
+            inp = DetectSignaturesInput(**inp)
         return await _real(inp, vllm_client=self._vllm_client)
 
     @activity.defn(name="verify_signature")
