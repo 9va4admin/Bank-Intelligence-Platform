@@ -374,7 +374,11 @@ export default function CTSOutwardPipelineMonitor() {
     staleTime: 0,
     retry: false,
   })
-  const INSTRUMENTS = isDemo || !pipelineData?.instruments ? makeMockInstruments() : pipelineData.instruments
+  const INSTRUMENTS = useMemo(
+    () => (isDemo || !pipelineData?.instruments ? makeMockInstruments() : pipelineData.instruments),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isDemo, pipelineData],
+  )
 
   const th = {
     page:    isDark ? 'bg-navy-950'                    : 'bg-slate-50',

@@ -408,46 +408,44 @@ export default function CTSOutwardQueue() {
       if (!res.ok) return
       const data = await res.json()
       const items = data.items ?? []
-      setReview(items.filter(i => i.outcome === 'HUMAN_REVIEW').map(i => ({
-        instrument_id: i.instrument_id,
-        cheque_no: i.cheque_number,
-        amount: i.amount_range,
-        payee: i.payee_display,
-        bank_slug: bankId,
-        pu: i.branch_id ?? '—',
-        branch: i.branch_id ?? '—',
-        fraud_score: i.fraud_score ?? 0,
+
+      // Human-readable labels for outcomes shown on the card reason badge
+      const OUTCOME_LABEL = {
+        HUMAN_REVIEW:  'Flagged for human review',
+        MISMATCH_HELD: 'Amount mismatch — held',
+        CTS_REJECTED:  'CTS compliance failure',
+        WORKFLOW_ERROR:'Processing error',
+        STP_RETURN:    'STP auto-return',
+        STP_CONFIRMED: 'STP auto-filed',
+      }
+
+      // Mapper: produces the shape OutwardRow / STPSuccessRow expect
+      const toRow = (i) => ({
+        instrument_id:  i.instrument_id,
+        cheque_number:  i.cheque_number || i.instrument_id.slice(-8),
+        account_display: '****',
+        payee_display:  i.payee_display || '—',
+        amount_range:   i.amount_range  || '—',
+        bank_slug:      bankId,
+        pu:             i.branch_id ?? '—',
+        branch:         i.branch_id ?? '—',
+        bank:           BANK_CONFIG.bank_name,
+        reason:         i.outcome,
+        reason_label:   OUTCOME_LABEL[i.outcome] ?? i.outcome,
+        reject_reason:  i.review_reason ?? i.outcome,
+        review_reason:  i.review_reason ?? '',
+        fraud_score:    i.fraud_score   ?? 0,
         ocr_confidence: i.ocr_confidence ?? 0,
-        review_reason: i.review_reason ?? '',
-        received_at: i.received_at,
-        ocr_fields: {},
-      })))
+        received_at:    i.received_at,
+        ocr_fields:     {},
+      })
+
+      setReview(items.filter(i => i.outcome === 'HUMAN_REVIEW').map(toRow))
       setRejected(items.filter(i =>
         i.outcome === 'STP_RETURN' || i.outcome === 'MISMATCH_HELD' ||
         i.outcome === 'CTS_REJECTED' || i.outcome === 'WORKFLOW_ERROR'
-      ).map(i => ({
-        instrument_id: i.instrument_id,
-        cheque_no: i.cheque_number,
-        amount: i.amount_range,
-        payee: i.payee_display,
-        bank_slug: bankId,
-        pu: i.branch_id ?? '—',
-        branch: i.branch_id ?? '—',
-        reject_reason: i.review_reason ?? i.outcome,
-        received_at: i.received_at,
-        ocr_fields: {},
-      })))
-      setStpSuccess(items.filter(i => i.outcome === 'STP_CONFIRMED').map(i => ({
-        instrument_id: i.instrument_id,
-        cheque_no: i.cheque_number,
-        amount: i.amount_range,
-        payee: i.payee_display,
-        bank_slug: bankId,
-        pu: i.branch_id ?? '—',
-        branch: i.branch_id ?? '—',
-        received_at: i.received_at,
-        ocr_fields: {},
-      })))
+      ).map(toRow))
+      setStpSuccess(items.filter(i => i.outcome === 'STP_CONFIRMED').map(toRow))
     } catch { }
   }, [isDemo, bankId])
 
