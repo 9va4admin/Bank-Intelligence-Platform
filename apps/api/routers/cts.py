@@ -1821,7 +1821,7 @@ async def get_scan_image_url(
         url = await minio_store.presigned_url(
             _CTS_IMAGES_BUCKET, object_key, expiry_seconds=300
         )
-        return {"url": url, "scan_id": scan_id, "view": view}
+        return RedirectResponse(url=url, status_code=307)
     except Exception as exc:
         log.warning("cts.scan_image_url_error", scan_id=scan_id, view=view, error=str(exc))
         raise HTTPException(status_code=404, detail="Image not found") from exc
@@ -3727,7 +3727,7 @@ async def get_session_report(
 import csv as _csv
 import io as _io
 from fastapi import UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 
 _VAULT_TABLE_MAP: dict[str, str] = {
     "PPS":            "cts.pps_vault_entries",
