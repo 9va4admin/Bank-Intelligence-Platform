@@ -338,7 +338,8 @@ export default function CTSAgencyCC() {
 
   // Demo invariant: always fall back to MOCK when !liveData or isDemo
   const SB_CONNECTIONS = useMemo(() => {
-    if (isDemo || !liveData || liveData.connections.length === 0) return MOCK_SB_CONNECTIONS
+    if (isDemo) return MOCK_SB_CONNECTIONS
+    if (!liveData || liveData.connections.length === 0) return []
     // map SMBListItem → connection shape
     return liveData.connections.map(m => ({
       sb_connection_id: m.sub_member_id,
@@ -353,7 +354,8 @@ export default function CTSAgencyCC() {
   }, [isDemo, liveData])
 
   const SESSIONS_DATA = useMemo(() => {
-    if (isDemo || !liveData || liveData.sessions.length === 0) return MOCK_SESSIONS
+    if (isDemo) return MOCK_SESSIONS
+    if (!liveData || liveData.sessions.length === 0) return []
     return liveData.sessions.map(s => ({
       session_id: s.session_id,
       sb_bank_id: s.session_id,

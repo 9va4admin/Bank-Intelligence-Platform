@@ -146,7 +146,8 @@ export default function CTSVaultStatus() {
 
   // Vault card data: live overrides mock when available
   const VAULT_DATA = useMemo(() => {
-    if (isDemo || !liveHealth) return VAULT_DATA_MOCK
+    if (isDemo) return VAULT_DATA_MOCK
+    if (!liveHealth) return null
     return [
       {
         label: 'Signature Vault',
@@ -170,7 +171,8 @@ export default function CTSVaultStatus() {
   }, [isDemo, liveHealth, VAULT_DATA_MOCK])
 
   const DISPLAY_MISSES = useMemo(() => {
-    if (isDemo || !liveMisses || liveMisses.length === 0) return RECENT_MISSES
+    if (isDemo) return RECENT_MISSES
+    if (!liveMisses || liveMisses.length === 0) return []
     return liveMisses.map(m => ({
       time: m.event_time ? new Date(m.event_time).toLocaleTimeString('en-IN', { hour12: false }) : '—',
       instrument: m.instrument_id,

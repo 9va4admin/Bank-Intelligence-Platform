@@ -743,7 +743,8 @@ export default function CTSPresentment() {
   }, [isDemo, fetchLive])
 
   const SESSIONS = useMemo(() => {
-    if (isDemo || !liveSessions.length) return demoSessions
+    if (isDemo) return demoSessions
+    if (!liveSessions.length) return []
     return liveSessions
   }, [isDemo, liveSessions, demoSessions])
 
