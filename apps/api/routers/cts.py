@@ -1818,13 +1818,26 @@ async def get_scan_image_url(
         raise HTTPException(status_code=503, detail="Image store unavailable")
 
     try:
-        url = await minio_store.presigned_url(
-            _CTS_IMAGES_BUCKET, object_key, expiry_seconds=300
-        )
-        return RedirectResponse(url=url, status_code=307)
+        raw_bytes = await minio_store.download_bytes(_CTS_IMAGES_BUCKET, object_key)
     except Exception as exc:
-        log.warning("cts.scan_image_url_error", scan_id=scan_id, view=view, error=str(exc))
+        log.warning("cts.scan_image_download_error", scan_id=scan_id, view=view, error=str(exc))
         raise HTTPException(status_code=404, detail="Image not found") from exc
+
+    # Browsers cannot render TIFF natively — convert to JPEG on the fly
+    try:
+        import io
+        from PIL import Image as _PILImage
+        buf_in  = io.BytesIO(raw_bytes)
+        buf_out = io.BytesIO()
+        img = _PILImage.open(buf_in).convert("RGB")
+        img.save(buf_out, format="JPEG", quality=90)
+        buf_out.seek(0)
+        return StreamingResponse(buf_out, media_type="image/jpeg",
+                                 headers={"Cache-Control": "private, max-age=300"})
+    except Exception as exc:
+        log.warning("cts.scan_image_convert_error", scan_id=scan_id, error=str(exc))
+        # Fall back to raw bytes if conversion fails
+        return StreamingResponse(io.BytesIO(raw_bytes), media_type="image/tiff")
 
 
 # ---------------------------------------------------------------------------
