@@ -248,7 +248,8 @@ export default function CTSSMBForwardingLog() {
   const { items: liveItems } = useSMBForwardingLog({ pollEnabled: !isDemo && isSB })
 
   const LOG_SOURCE = useMemo(() => {
-    if (isDemo || !liveItems || liveItems.length === 0) return demoLog
+    if (isDemo) return demoLog
+    if (!liveItems || liveItems.length === 0) return []
     return liveItems
   }, [isDemo, liveItems, demoLog])
 

@@ -139,7 +139,8 @@ export default function CTSDraweeView() {
 
   const demoSessions = useDemoData(SESSIONS)
   const activeSessions = useMemo(() => {
-    if (isDemo || !liveSessions || liveSessions.length === 0) return demoSessions
+    if (isDemo) return demoSessions
+    if (!liveSessions || liveSessions.length === 0) return []
     return liveSessions.map(s => s.session_id)
   }, [isDemo, liveSessions, demoSessions])
 

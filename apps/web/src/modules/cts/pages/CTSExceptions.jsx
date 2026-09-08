@@ -230,7 +230,8 @@ export default function CTSExceptions() {
   const liveExceptions = useExceptions({ pollEnabled: !isDemo })
 
   const ALL_EXCEPTIONS = useMemo(() => {
-    if (isDemo || !liveExceptions || liveExceptions.length === 0) return EXCEPTIONS
+    if (isDemo) return EXCEPTIONS
+    if (!liveExceptions || liveExceptions.length === 0) return []
     return liveExceptions
   }, [isDemo, liveExceptions])
 

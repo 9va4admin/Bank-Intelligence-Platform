@@ -106,7 +106,8 @@ export default function CTSRPCConsolidation() {
   const liveAlerts = useCrossCentreAlerts({ pollEnabled: !isDemo })
   const alerts = isDemo || !liveAlerts ? CROSS_CENTRE_ALERTS : liveAlerts
   const rpcs = useMemo(() => {
-    if (isDemo || !liveZones || liveZones.length === 0) return RPCS
+    if (isDemo) return RPCS
+    if (!liveZones || liveZones.length === 0) return []
     return liveZones.map(z => ({
       id: z.zone_id,
       name: z.zone_name,

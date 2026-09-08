@@ -157,7 +157,8 @@ export default function CTSNGCHRouting() {
   const ngchStatus = isDemo || !liveStatus ? NGCH_STATUS : liveStatus
 
   const DISPLAY_RULES = useMemo(() => {
-    if (isDemo || !liveRules || liveRules.length === 0) return ROUTING_RULES
+    if (isDemo) return ROUTING_RULES
+    if (!liveRules || liveRules.length === 0) return []
     return liveRules.map(r => ({
       id: r.rule_id,
       name: r.destination,

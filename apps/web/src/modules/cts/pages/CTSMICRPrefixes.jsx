@@ -47,7 +47,8 @@ export default function CTSMICRPrefixes() {
   const liveItems = useMICRPrefixes({ pollEnabled: !isDemo, search })
 
   const MICR_SOURCE = useMemo(() => {
-    if (isDemo || !liveItems || liveItems.length === 0) return MOCK_MICR_PREFIXES
+    if (isDemo) return MOCK_MICR_PREFIXES
+    if (!liveItems || liveItems.length === 0) return []
     return liveItems.map(i => ({
       id: i.prefix_id,
       prefix: i.micr_prefix,

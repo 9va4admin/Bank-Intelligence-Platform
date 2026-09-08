@@ -329,10 +329,10 @@ export default function CTSInwardMonitor() {
 
   const liveFlow = useLiveFlow({ pollEnabled: !isDemo })
 
-  // Demo invariant
+  // Demo mode: static instruments. POC/PROD: live API only (empty = no instruments yet).
   const INSTRUMENTS = useMemo(() => {
-    if (isDemo || !liveFlow || liveFlow.length === 0) return _STATIC_INSTRUMENTS
-    return liveFlow
+    if (isDemo) return _STATIC_INSTRUMENTS
+    return liveFlow ?? []
   }, [isDemo, liveFlow])
 
   const th = {

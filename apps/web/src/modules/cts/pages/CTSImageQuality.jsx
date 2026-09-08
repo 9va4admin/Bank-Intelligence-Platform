@@ -119,8 +119,10 @@ export default function CTSImageQuality() {
   const liveIQA = useIQAResults({ pollEnabled: !isDemo })
   const [instruments, setInstruments] = useState(INSTRUMENTS)
   useEffect(() => {
-    if (isDemo || !liveIQA || liveIQA.length === 0) {
+    if (isDemo) {
       setInstruments(INSTRUMENTS)
+    } else if (!liveIQA || liveIQA.length === 0) {
+      setInstruments([])
     } else {
       setInstruments(liveIQA.map(item => ({
         id: item.id,

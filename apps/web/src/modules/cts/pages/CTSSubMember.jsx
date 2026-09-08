@@ -282,7 +282,8 @@ export default function CTSSubMember() {
 
   // Demo invariant: use live data only when non-empty
   const subMembers = useMemo(() => {
-    if (isDemo || !liveSubMembers || liveSubMembers.length === 0) return MOCK_SMBS
+    if (isDemo) return MOCK_SMBS
+    if (!liveSubMembers || liveSubMembers.length === 0) return []
     // Map SMBListItem → CTSSubMember display shape
     return liveSubMembers.map((m, i) => {
       const total = m.cheques_today ?? 0

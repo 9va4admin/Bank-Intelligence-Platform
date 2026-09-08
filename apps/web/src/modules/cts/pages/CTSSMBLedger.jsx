@@ -200,7 +200,8 @@ export default function CTSSMBLedger() {
   const { ledgers: liveLedgers } = useSMBLedgers({ session_date: sessionDate, pollEnabled: !isDemo })
 
   const LEDGER_SOURCE = useMemo(() => {
-    if (isDemo || !liveLedgers || liveLedgers.length === 0) return MOCK_LEDGER
+    if (isDemo) return MOCK_LEDGER
+    if (!liveLedgers || liveLedgers.length === 0) return []
     return liveLedgers.map(l => ({
       sub_member_id: l.sub_member_id,
       bank_name: l.bank_name,

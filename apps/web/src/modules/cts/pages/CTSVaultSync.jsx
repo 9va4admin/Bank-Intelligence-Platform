@@ -138,7 +138,8 @@ export default function CTSVaultSync() {
 
   // Demo invariant: use live data when available in non-demo mode
   const activePPS  = useMemo(() => {
-    if (isDemo || !livePPS || livePPS.length === 0) return ppsSource
+    if (isDemo) return ppsSource
+    if (!livePPS || livePPS.length === 0) return []
     // Map live PPSEntry to the shape the UI expects
     return livePPS.map(e => ({
       account_display: e.account_display,
@@ -153,7 +154,8 @@ export default function CTSVaultSync() {
   }, [isDemo, livePPS, ppsSource])
 
   const activeStop = useMemo(() => {
-    if (isDemo || !liveStop || liveStop.length === 0) return stopSource
+    if (isDemo) return stopSource
+    if (!liveStop || liveStop.length === 0) return []
     return liveStop.map(s => ({
       account_display: s.account_display,
       cheque_number: s.cheque_number || '—',
