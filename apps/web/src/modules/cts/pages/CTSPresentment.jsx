@@ -712,6 +712,8 @@ export default function CTSPresentment() {
           image_bw: null,
           images_all: [],
           arrived_at: null,
+          front_bw_url:   `${_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent((i.id || '').replace(/^INS-/, ''))}&view=front_bw`,
+          front_gray_url: `${_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent((i.id || '').replace(/^INS-/, ''))}&view=front_gray`,
         })))
       }
       if (sesRes.ok) {
