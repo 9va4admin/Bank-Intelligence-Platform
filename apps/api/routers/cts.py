@@ -1804,10 +1804,13 @@ async def get_scan_image_url(
 
     view: front_bw | rear_bw | front_gray | uv
     """
+    # CTS-2010 requires 3 captures: BFB (front BW), BBB (rear BW), BFG (front gray).
+    # Scanner currently uploads front.tiff + rear.tiff only.
+    # BFG is derived from front.tiff by grayscale conversion until scanner captures it natively.
     _VIEW_TO_KEY = {
         "front_bw":   "front.tiff",
         "rear_bw":    "rear.tiff",
-        "front_gray": "front_gray.tiff",
+        "front_gray": "front.tiff",   # same source; converted to grayscale below
         "uv":         "uv.tiff",
     }
     filename = _VIEW_TO_KEY.get(view, "front.tiff")
@@ -1823,20 +1826,24 @@ async def get_scan_image_url(
         log.warning("cts.scan_image_download_error", scan_id=scan_id, view=view, error=str(exc))
         raise HTTPException(status_code=404, detail="Image not found") from exc
 
-    # Browsers cannot render TIFF natively — convert to JPEG on the fly
+    # Browsers cannot render TIFF natively — convert to JPEG on the fly.
+    # BFG (front_gray) is rendered as true grayscale; all others as RGB.
     try:
         import io
         from PIL import Image as _PILImage
         buf_in  = io.BytesIO(raw_bytes)
         buf_out = io.BytesIO()
-        img = _PILImage.open(buf_in).convert("RGB")
+        img = _PILImage.open(buf_in)
+        if view == "front_gray":
+            img = img.convert("L")   # 8-bit grayscale
+        else:
+            img = img.convert("RGB")
         img.save(buf_out, format="JPEG", quality=90)
         buf_out.seek(0)
         return StreamingResponse(buf_out, media_type="image/jpeg",
                                  headers={"Cache-Control": "private, max-age=300"})
     except Exception as exc:
         log.warning("cts.scan_image_convert_error", scan_id=scan_id, error=str(exc))
-        # Fall back to raw bytes if conversion fails
         return StreamingResponse(io.BytesIO(raw_bytes), media_type="image/tiff")
 
 
