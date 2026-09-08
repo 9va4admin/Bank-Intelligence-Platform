@@ -260,7 +260,7 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
             <ChequeImageViewer
               views={[
                 { key: 'BFB', label: 'BFB — Front Black', url: inst.front_bw_url   ?? null },
-                { key: 'BBB', label: 'BBB — Back Black',  url: null },
+                { key: 'BBB', label: 'BBB — Back Black',  url: inst.back_bw_url ?? null },
                 { key: 'BFG', label: 'BFG — Front Grey',  url: inst.front_gray_url ?? null },
               ]}
               fields={fields}
@@ -698,6 +698,7 @@ function adaptDecision(d) {
     source_stage:  meta.stage,
     outcome_label: meta.label,
     front_bw_url: _scanImageUrl(d.instrument_id, 'front_bw'),
+    back_bw_url:   _scanImageUrl(d.instrument_id, 'rear_bw'),
     front_gray_url: _scanImageUrl(d.instrument_id, 'front_gray'),
     drawee_bank: '—', drawee_branch: '—',
     drawee_ifsc: d.drawee_ifsc ?? '—', drawee_micr: '—',

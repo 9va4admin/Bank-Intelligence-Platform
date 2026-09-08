@@ -192,7 +192,7 @@ export default function LoginPage() {
     setBusy(false)
     if (ok && data) {
       if (data.csrf_token) sessionStorage.setItem('astra-csrf', data.csrf_token)
-      if (data.outcome === 'DEV_BYPASS') { navigate('/') }
+      if (data.outcome === 'DEV_BYPASS') { finish(data) }
       else if (data.outcome === 'MFA_REQUIRED') { setCode(''); setStep('verify') }
       else { beginEnrol() }
       return

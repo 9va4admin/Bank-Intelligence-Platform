@@ -26,6 +26,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
+import os as _os
+
 from shared.auth.auth_service import AuthService, LoginOutcome
 from shared.auth.exceptions import (
     AccountLockedError,
@@ -123,13 +125,16 @@ class SessionResponse(BaseModel):
 # Cookie helpers
 # --------------------------------------------------------------------------- #
 
+_SECURE_COOKIE = _os.environ.get("ASTRA_ENV", "production") != "development"
+
+
 def _set_session_cookie(response: Response, issued: IssuedSession) -> None:
     response.set_cookie(
         key=_COOKIE,
         value=issued.token,
         max_age=max(1, int(issued.expires_at - time.time())),
         httponly=True,
-        secure=True,
+        secure=_SECURE_COOKIE,
         samesite="strict",
         path="/",
     )
