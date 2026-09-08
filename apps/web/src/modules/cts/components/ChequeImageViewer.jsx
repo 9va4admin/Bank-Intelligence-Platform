@@ -23,13 +23,13 @@ function _x(s) {
 }
 
 function _svgFront(fields = {}, gray = false, iqaFailReason = null) {
-  const payee      = _x(fields.payee          || 'Sample Payee Name')
+  const payee      = _x(fields.payee          || '—')
   // drawer_name is the bank pre-printed account holder name — never falls back to payee
   const drawerName = _x(fields.drawer_name    || '')
-  const date       = fields.date               || '07/07/2026'
-  const figStr     = _x((fields.amount_figures || '₹50,000').replace('₹', '').trim())
-  const words      = _x(fields.amount_words   || 'Fifty Thousand Only')
-  const micr       = fields.micr               || '000012340050000012100000000005000123456789'
+  const date       = fields.date               || '—'
+  const figStr     = _x((fields.amount_figures || '—').replace('₹', '').trim())
+  const words      = _x(fields.amount_words   || '—')
+  const micr       = fields.micr               || '—'
   const altered    = fields.alterations        || false
   const bankName   = _x(fields.bank_name      || 'SARASWAT CO-OP. BANK LTD.')
   const bankBranch = _x(fields.bank_branch    || 'Fort Branch, Mumbai — 400 001')
@@ -262,9 +262,9 @@ function _svgFront(fields = {}, gray = false, iqaFailReason = null) {
 }
 
 function _svgBack(fields = {}) {
-  const micr     = fields.micr || '000012340050000012100000000005000123456789'
+  const micr     = fields.micr || '—'
   const bankMicr = fields.bank_micr || '400015002'
-  const payee    = fields.payee || 'Sample Payee Name'
+  const payee    = fields.payee || '—'
   const ink    = '#111111'
   const light  = '#444444'
   const micrBg = '#f2f2f2'
