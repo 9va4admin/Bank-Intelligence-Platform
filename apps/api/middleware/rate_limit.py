@@ -64,6 +64,7 @@ _PATH_TO_SLUG: dict[str, str] = {
     "/v1/cts/inward/live-flow":          "cts_status_get",
     "/v1/cts/inward/sessions":           "cts_status_get",
     "/v1/cts/inward":                    "cts_inward_submit",
+    "/v1/cts/outward/scan/image":         "cts_ops_get",        # browser image viewer — separate from scanner agent bucket
     "/v1/cts/outward/scan":              "cts_scanner_write",  # scanner agent: submit, event, upload-url — must be before /outward catch-all
     "/v1/cts/outward/endorsement-queue": "cts_workstation_get",
     "/v1/cts/outward/iqa-results":       "cts_workstation_get",
