@@ -9,7 +9,7 @@ In production this is wired into a grpcio.aio server via create_grpc_server().
 In test, the servicer is called directly without gRPC infrastructure.
 
 SQL used in this file:
-  cts.lots         — read lot status + instrument_count + clearing_session_id
+  cts.lots         — read lot status + instrument_count + session_id
   cts.mismatch_queue — read HELD items, update resolution status
   cts.eeh_sessions — read counters for session status
 """
@@ -77,7 +77,7 @@ class ChequeAck:
 # ── SQL ─────────────────────────────────────────────────────────────────────────
 
 _FETCH_LOT_SQL = """
-SELECT lot_id, status, instrument_count, clearing_session_id
+SELECT lot_id, status, instrument_count, session_id
 FROM cts.lots
 WHERE lot_id = $1
 """
@@ -189,7 +189,7 @@ class EEHServicer:
                 lot_id=row["lot_id"],
                 status="ALREADY_SEALED",
                 instrument_count=row["instrument_count"],
-                clearing_session=row.get("clearing_session_id", "") or "",
+                clearing_session=row.get("session_id", "") or "",
             )
 
         await self._db.execute(_SEAL_LOT_SQL, request.lot_id, request.sealed_by)
@@ -204,7 +204,7 @@ class EEHServicer:
             lot_id=row["lot_id"],
             status="SEALED",
             instrument_count=row["instrument_count"],
-            clearing_session=row.get("clearing_session_id", "") or "",
+            clearing_session=row.get("session_id", "") or "",
         )
 
     # ── GetMismatchQueue ──────────────────────────────────────────────────────
