@@ -34,7 +34,7 @@ class SealAllLotsInput(BaseModel):
 class SealAllLotsResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    sealed_lots: list[dict]     # [{pu_id, lot_number, instrument_count}, ...]
+    sealed_lots: list[dict]     # [{lot_id, sequence_number, instrument_count}, ...]
     status: str                 # "OK" | "DEGRADED"
 
 
@@ -60,7 +60,7 @@ async def seal_all_lots(
         async with db_pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT pu_id, lot_number, instrument_count
+                SELECT lot_id, sequence_number, instrument_count
                   FROM cts.lots
                  WHERE session_id = $1
                    AND bank_id    = $2
@@ -88,7 +88,7 @@ class UpdateSessionStatusInput(BaseModel):
     session_id: str
     bank_id: str
     status: str                 # "SUBMITTED" | "SUBMITTED_TO_SB" | "EXCEPTION" | "EMPTY_SESSION"
-    ngch_reference: Optional[str] = None
+    npci_ack_ref: Optional[str] = None
     failure_reason: Optional[str] = None
 
 
@@ -123,13 +123,13 @@ async def update_session_status(
                 """
                 UPDATE cts.clearing_sessions
                    SET status          = $1,
-                       ngch_reference  = $2,
+                       npci_ack_ref    = $2,
                        failure_reason  = $3,
-                       closed_at       = NOW()
+                       updated_at      = NOW()
                  WHERE session_id = $4 AND bank_id = $5
                 """,
                 inp.status,
-                inp.ngch_reference,
+                inp.npci_ack_ref,
                 inp.failure_reason,
                 inp.session_id,
                 inp.bank_id,
