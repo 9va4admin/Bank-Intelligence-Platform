@@ -123,18 +123,25 @@ async def ocr_extract(
         indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
         indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
 
-        # ── Stage 1: Full image → GOT-OCR2 ───────────────────────────────────────
+        # ── Stage 1: Full image → GOT-OCR2 (GPU) or Tesseract (CPU fallback) ───
         raw = await _extract_got_ocr2(inp, orchestrator)
+        if raw is None:
+            # vLLM unavailable — try Tesseract before giving up entirely
+            raw = await _extract_tesseract(inp)
         if raw is None:
             return OCRActivityResult(
                 outcome="HUMAN_REVIEW", degraded=True,
                 low_confidence_reason="MODEL_UNAVAILABLE",
-                ocr_engines_used=["got-ocr2.0:unavailable"],
+                ocr_engines_used=["got-ocr2.0:unavailable", "tesseract:unavailable"],
             )
 
         fields, cascade_level = raw
 
-        engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
+        # cascade_level == -1 signals Tesseract ran (not vLLM cascade)
+        if cascade_level == -1:
+            engines_used = ["tesseract:cpu-fallback"]
+        else:
+            engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
 
         # ── IndicOCR kill switch ──────────────────────────────────────────────────
         # Fail-open: missing / unreadable config key = NONE (do not block OCR).
@@ -206,6 +213,129 @@ async def _extract_got_ocr2(
         "ifsc_code":      _field("ifsc_code"),
     }
     return fields, cascade_result.cascade_level
+
+
+# ── Stage 1b: Tesseract CPU fallback ─────────────────────────────────────────
+
+async def _extract_tesseract(
+    inp: OCRActivityInput,
+) -> Optional[tuple[dict[str, tuple[Optional[str], float]], int]]:
+    """
+    Tesseract 5 CPU fallback when GOT-OCR2.0/vLLM is unavailable.
+
+    Returns (fields_dict, -1) on success (-1 signals Tesseract ran, not vLLM cascade).
+    Returns None if Tesseract itself is unavailable or fails.
+
+    Confidence for Tesseract results is set conservatively (0.55–0.70) so the
+    confidence gate in _build_result correctly routes to HUMAN_REVIEW.
+    Tesseract accuracy on handwritten Indian cheques is lower than GOT-OCR2.0 —
+    HUMAN_REVIEW is always the right outcome for Tesseract results.
+    """
+    import io
+    import re
+    try:
+        import httpx
+        from PIL import Image
+        import pytesseract
+        # Windows: winget installs to Program Files/Tesseract-OCR
+        import os as _os, platform as _plat
+        if _plat.system() == "Windows":
+            for _p in [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ]:
+                if _os.path.isfile(_p):
+                    pytesseract.pytesseract.tesseract_cmd = _p
+                    break
+    except ImportError:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(inp.image_url)
+            resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+
+        # PSM 6 = assume a single uniform block of text — reasonable for cheques
+        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
+        lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+
+        # ── Heuristic field extraction ────────────────────────────────────────
+        # Normalise: strip OCR noise chars, collapse whitespace
+        clean = re.sub(r'[^\x20-\x7E\n₹]', ' ', raw_text)
+
+        # Date: DD/MM/YYYY, DD-MM-YYYY, or box-digit format "0]7 [0]4] 2]0]2[4"
+        date_val: Optional[str] = None
+        # Standard delimited
+        m = re.search(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b', clean)
+        if m:
+            date_val = f"{m.group(1).zfill(2)}/{m.group(2).zfill(2)}/{m.group(3)}"
+        else:
+            # Box-digit: extract 8 consecutive digits from bracket-noise
+            digits_only = re.sub(r'[^0-9]', '', clean[:200])   # header area only
+            if len(digits_only) >= 8:
+                d = digits_only[:8]
+                date_val = f"{d[0:2]}/{d[2:4]}/{d[4:8]}"
+
+        # Amount figures: ₹/Rs prefix OR largest Indian-format number in the text
+        amount_figures: Optional[str] = None
+        m = re.search(r'(?:Rs\.?|₹)\s*([\d,\s]+(?:\.\d{1,2})?)', clean, re.IGNORECASE)
+        if m:
+            amount_figures = re.sub(r'[\s,]', '', m.group(1))
+        else:
+            # Indian format: 1,00,000 or 1, 00, 000 (spaces from box scan)
+            nums = re.findall(r'\b\d{1,2}(?:[,\s]\s*\d{2})+(?:\.\d{2})?\b', clean)
+            if nums:
+                amount_figures = re.sub(r'[\s,]', '', nums[0])
+
+        # Payee: line after "Pay" or "For" keyword (Indian cheques use "For" for account name)
+        payee_val: Optional[str] = None
+        for i, ln in enumerate(lines):
+            if re.search(r'\bPay\b', ln, re.IGNORECASE):
+                candidate = re.sub(r'\bPay\b', '', ln, flags=re.IGNORECASE).strip()
+                if not candidate and i + 1 < len(lines):
+                    candidate = lines[i + 1]
+                if candidate and len(candidate) > 2:
+                    payee_val = candidate
+                    break
+        if not payee_val:
+            # Fallback: "For <Name>" line (common on Indian cheques)
+            m = re.search(r'\bFor\s+([A-Z][A-Za-z0-9 .&,\'-]{3,60})', clean)
+            if m:
+                payee_val = m.group(1).strip()
+
+        # MICR line: digit-heavy line at the bottom (last 5 lines)
+        micr_val: Optional[str] = None
+        for ln in reversed(lines[-6:]):
+            digits = re.sub(r'\D', '', ln)
+            if len(digits) >= 15:   # MICR has cheque# + routing + account = ~27 digits
+                micr_val = ln.strip()
+                break
+
+        log.info(
+            "ocr.tesseract_fallback",
+            instrument_id=inp.instrument_id,
+            date=date_val,
+            amount=amount_figures,
+            payee_found=bool(payee_val),
+            micr_found=bool(micr_val),
+        )
+
+        # Conservative confidence — always routes to HUMAN_REVIEW via confidence gate
+        _CONF = 0.60
+        fields: dict[str, tuple[Optional[str], float]] = {
+            "micr_line":      (micr_val,      _CONF if micr_val else 0.0),
+            "amount_figures": (amount_figures, _CONF if amount_figures else 0.0),
+            "amount_words":   (None,           0.0),   # Tesseract can't parse words→numbers reliably
+            "date":           (date_val,       _CONF if date_val else 0.0),
+            "payee":          (payee_val,      _CONF if payee_val else 0.0),
+            "ifsc_code":      (None,           0.0),
+        }
+        return fields, -1   # -1 = Tesseract, not vLLM cascade level
+
+    except Exception as exc:
+        log.warning("ocr.tesseract_failed", instrument_id=inp.instrument_id, error=str(exc))
+        return None
 
 
 # ── Stage 2 ───────────────────────────────────────────────────────────────────

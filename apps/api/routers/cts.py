@@ -1834,11 +1834,10 @@ async def get_scan_image_url(
         buf_in  = io.BytesIO(raw_bytes)
         buf_out = io.BytesIO()
         img = _PILImage.open(buf_in)
-        if view == "front_gray":
-            img = img.convert("L")   # 8-bit grayscale
-        else:
-            img = img.convert("RGB")
-        img.save(buf_out, format="JPEG", quality=90)
+        # BFB and BBB are 1-bit binary scans — convert to grayscale L (not RGB)
+        # so JPEG output is 1/3 the size; front_gray is already 8-bit so L too.
+        img = img.convert("L")
+        img.save(buf_out, format="JPEG", quality=85)
         buf_out.seek(0)
         return StreamingResponse(buf_out, media_type="image/jpeg",
                                  headers={"Cache-Control": "private, max-age=300"})

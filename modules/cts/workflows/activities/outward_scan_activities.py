@@ -364,6 +364,111 @@ class VisionExtractAndCheckResult(BaseModel):
     degraded: bool = False
 
 
+async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractAndCheckResult:
+    """
+    CPU-based OCR fallback when vLLM/Qwen2-VL is unavailable.
+
+    Uses pytesseract (Tesseract 5) to extract printed fields from the front image.
+    Hardware MICR (if present) is always used directly — it's more accurate than
+    any OCR of the MICR band.  Result is always HUMAN_REVIEW because Tesseract
+    accuracy on handwritten Indian cheques is lower than GOT-OCR2.0.
+    """
+    import io
+    import re
+    try:
+        import httpx
+        from PIL import Image
+        import pytesseract
+        import os as _os, platform as _plat
+        if _plat.system() == "Windows":
+            for _p in [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ]:
+                if _os.path.isfile(_p):
+                    pytesseract.pytesseract.tesseract_cmd = _p
+                    break
+
+        # Fetch the image from MinIO
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(inp.image_front_url)
+            resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+
+        # Full-page PSM 6 (uniform block of text) — works reasonably for cheques
+        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+        lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+
+        # Heuristic extraction ────────────────────────────────────────────────
+        clean = re.sub(r'[^\x20-\x7E\n₹]', ' ', raw_text)
+
+        # Date: DD/MM/YYYY, DD-MM-YYYY, or box-digit format from scanner TIFF
+        date_val: Optional[str] = None
+        m = re.search(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b', clean)
+        if m:
+            date_val = f"{m.group(1).zfill(2)}/{m.group(2).zfill(2)}/{m.group(3)}"
+        else:
+            digits_only = re.sub(r'[^0-9]', '', clean[:200])
+            if len(digits_only) >= 8:
+                d = digits_only[:8]
+                date_val = f"{d[0:2]}/{d[2:4]}/{d[4:8]}"
+
+        # Amount figures: ₹/Rs prefix or largest Indian-format number
+        amount_figures: Optional[str] = None
+        m = re.search(r'(?:Rs\.?|₹)\s*([\d,\s]+(?:\.\d{1,2})?)', clean, re.IGNORECASE)
+        if m:
+            amount_figures = re.sub(r'[\s,]', '', m.group(1))
+        else:
+            nums = re.findall(r'\b\d{1,2}(?:[,\s]\s*\d{2})+(?:\.\d{2})?\b', clean)
+            if nums:
+                amount_figures = re.sub(r'[\s,]', '', nums[0])
+
+        # Payee: line after "Pay" or "For <Name>"
+        payee_val: Optional[str] = None
+        for i, ln in enumerate(lines):
+            if re.search(r'\bPay\b', ln, re.IGNORECASE):
+                candidate = re.sub(r'\bPay\b', '', ln, flags=re.IGNORECASE).strip()
+                if not candidate and i + 1 < len(lines):
+                    candidate = lines[i + 1]
+                if candidate and len(candidate) > 2:
+                    payee_val = candidate
+                    break
+        if not payee_val:
+            m = re.search(r'\bFor\s+([A-Z][A-Za-z0-9 .&,\'-]{3,60})', clean)
+            if m:
+                payee_val = m.group(1).strip()
+
+        log.info(
+            "vision_extract_and_check.tesseract_fallback",
+            instrument_id=inp.instrument_id,
+            has_micr=bool(inp.micr_hardware_raw),
+            date=date_val,
+            amount=amount_figures,
+            payee_found=bool(payee_val),
+        )
+
+    except ImportError:
+        log.warning("vision_extract_and_check.tesseract_not_installed",
+                    instrument_id=inp.instrument_id)
+        date_val = amount_figures = payee_val = None
+    except Exception as exc:
+        log.warning("vision_extract_and_check.tesseract_error",
+                    instrument_id=inp.instrument_id, error=str(exc))
+        date_val = amount_figures = payee_val = None
+
+    # Hardware MICR is the authoritative source — never discard it
+    micr_validated = bool(inp.micr_hardware_raw)
+
+    return VisionExtractAndCheckResult(
+        outcome="HUMAN_REVIEW",
+        amount_figures=amount_figures,
+        date=date_val,
+        payee=payee_val,
+        micr_validated=micr_validated,
+        degraded=True,
+    )
+
+
 @activity.defn
 async def vision_extract_and_check(
     inp: VisionExtractAndCheckInput,
@@ -414,7 +519,10 @@ async def vision_extract_and_check(
                 instrument_id=inp.instrument_id,
                 error=str(exc),
             )
-            return VisionExtractAndCheckResult(outcome="HUMAN_REVIEW", degraded=True)
+            # vLLM is down — attempt Tesseract CPU fallback then return HUMAN_REVIEW
+            # with whatever data we could extract (hardware MICR is always authoritative).
+            tess_result = await _tesseract_fallback(inp)
+            return tess_result
 
         # Extract fields
         amount_figures = (data.get("amount_figures") or {}).get("value")
