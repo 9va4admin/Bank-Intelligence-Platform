@@ -4095,7 +4095,7 @@ async def report_outward_scan_event(
     IMPRINTER_FAULT      — cheque submitted but endorsement stamp failed; needs manual re-stamp.
     UPLOAD_FAILED        — image upload to MinIO failed; instrument needs re-scan.
 
-    These events are written to cts.outward_scan_events so the Branch Scan Dashboard
+    These events are written to cts.outward_scan_session_events so the Branch Scan Dashboard
     can surface them alongside submitted instruments.
     """
     import uuid as _uuid
@@ -4114,7 +4114,7 @@ async def report_outward_scan_event(
             async with db_pool.acquire() as conn:
                 await conn.execute(
                     """
-                    INSERT INTO cts.outward_scan_events
+                    INSERT INTO cts.outward_scan_session_events
                         (event_id, bank_id, branch_id, session_id, scan_id,
                          event_type, position_in_batch, micr_suffix, created_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
@@ -4156,7 +4156,7 @@ async def get_scan_session_log(
     Branch Scan Dashboard data source — returns all instruments from a scanning session.
 
     Merges two data sources:
-    1. cts.outward_scan_events — double-feed, imprinter faults, upload failures
+    1. cts.outward_scan_session_events — double-feed, imprinter faults, upload failures
     2. cts.agent_decisions — submitted instruments that completed processing
 
     Items with event_type = DOUBLE_FEED_DETECTED are flagged for re-scan.
@@ -4181,7 +4181,7 @@ async def get_scan_session_log(
                 micr_source,
                 branch_id,
                 EXTRACT(EPOCH FROM created_at) AS created_at_epoch
-            FROM cts.outward_scan_events
+            FROM cts.outward_scan_session_events
             WHERE bank_id = $1
               AND session_id = $2
               AND ($3::text IS NULL OR branch_id = $3)
@@ -4278,7 +4278,7 @@ async def list_outward_scan_events(
                     SELECT scan_id, event_type, micr_suffix, micr_source,
                            branch_id, session_id, position_in_batch,
                            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
-                    FROM cts.outward_scan_events
+                    FROM cts.outward_scan_session_events
                     WHERE bank_id = $1
                       AND ($2::text IS NULL OR branch_id = $2)
                       AND ($3::text IS NULL OR event_type = $3)

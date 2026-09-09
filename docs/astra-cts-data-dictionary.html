@@ -316,7 +316,7 @@ const TABLES = [
 {
   name: "cts.cheque_instruments",
   group: "core", status: "ok",
-  migration: "20260618_003_cheque_instruments_and_images.py (+20260619_013, +20260706)",
+  migration: "20260618_003_cheque_instruments_and_images.py (+20260619_013, +20260706, +20260909_phantom_columns)",
   cols: [
     ["instrument_id","UUID PK, partitioned monthly"],["bank_id","Text FK platform.banks"],
     ["presenting_ifsc","Text"],["drawee_ifsc","Text"],["cheque_number","VARCHAR(6)"],
@@ -329,10 +329,15 @@ const TABLES = [
     ["sub_member_id","Text nullable FK cts.sub_member_banks"],
     ["branch_id","Text nullable"],["clearing_session_id","Text nullable"],
     ["vision_result","JSONB nullable"],["vision_cascade_level","Text nullable"],
+    ["queue_tier","Text NOT NULL default 'standard' — standard|high_value|smb (added 20260909)"],
+    ["review_assigned_at","TIMESTAMPTZ nullable — set by HumanReviewConsumer (added 20260909)"],
+    ["ngch_acknowledgement_id","Text nullable — NGCH filing ack ref (added 20260909)"],
+    ["final_decision","Text nullable — mirrored from agent_decisions on CTS_NGCH_FILED (added 20260909)"],
+    ["decision_recorded_at","TIMESTAMPTZ nullable — when final_decision was written (added 20260909)"],
   ],
   readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py","apps/api/routers/observability.py","modules/cts/lot/lot_store.py","modules/cts/workflows/activities/platform_health_activities.py"],
   writeBy: ["modules/cts/consumers/human_review_consumer.py","modules/cts/consumers/decision_consumer.py","apps/api/routers/cts.py"],
-  notes: "Monthly range-partitioned by received_at. PII columns (payee_name_enc, drawer_name_enc) are pgcrypto-encrypted — never SELECT *. Initial INSERT via EEH→Temporal→Kafka ingest path.",
+  notes: "Monthly range-partitioned by received_at. PII columns (payee_name_enc, drawer_name_enc) are pgcrypto-encrypted — never SELECT *. Initial INSERT via EEH→Temporal→Kafka ingest path. 2026-09-09 audit: added queue_tier, review_assigned_at, ngch_acknowledgement_id, final_decision, decision_recorded_at — all were referenced in consumer code but absent from migration.",
 },
 {
   name: "cts.cheque_image_metadata",
@@ -395,8 +400,8 @@ const TABLES = [
     ["routed_at","TIMESTAMPTZ"],["reviewed_at","TIMESTAMPTZ nullable"],
   ],
   readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py"],
-  writeBy: ["(ChequeProcessingWorkflow when decision=HUMAN_REVIEW)"],
-  notes: "Drives ops_reviewer inbox. reviewer_decision feeds back into Temporal signal chain via HumanReviewWorkflow.receive_review_decision().",
+  writeBy: ["(DEAD TABLE — no INSERT found in any Python file, 2026-09-09 audit)"],
+  notes: "DEAD TABLE — 2026-09-09 column audit found ZERO INSERT statements targeting this table in all Python code. Human review state is carried in Temporal workflow signals (HumanReviewWorkflow.receive_review_decision) and surfaced via cts.agent_decisions + Temporal query API. This table was created in the initial schema but never wired to application code. Retain for schema history; do not add business logic depending on it without a dedicated write path.",
 },
 
 // ── VAULTS ────────────────────────────────────────────────────────────────
@@ -703,18 +708,22 @@ const TABLES = [
 {
   name: "cts.clearing_sessions",
   group: "outward", status: "ok",
-  migration: "20260705_add_clearing_sessions.py",
+  migration: "20260705_add_clearing_sessions.py (+20260909_phantom_columns)",
   cols: [
     ["session_id","Text PK"],["bank_id","Text"],["sb_connection_id","Text nullable"],
     ["clearing_date","Date"],["session_type","Text (MORNING|AFTERNOON|EVENING)"],
-    ["status","Text (OPEN|SEALED|SUBMITTED|RECONCILED)"],
-    ["sealed_at","TIMESTAMPTZ nullable"],["submitted_at","TIMESTAMPTZ nullable"],
-    ["npci_ack_ref","Text nullable"],["total_instruments","Integer"],
-    ["rrf_generated","Boolean"],
+    ["status","Text (OPEN|SEALED|SUBMITTED|RECONCILED|EXCEPTION)"],
+    ["opened_at","TIMESTAMPTZ nullable"],["sealed_at","TIMESTAMPTZ nullable"],
+    ["submitted_at","TIMESTAMPTZ nullable"],["reconciled_at","TIMESTAMPTZ nullable"],
+    ["npci_ack_ref","Text nullable — NGCH acknowledgement reference"],
+    ["total_instruments","Integer"],["total_amount_range","Text nullable"],
+    ["rrf_generated","Boolean"],["created_at","TIMESTAMPTZ"],
+    ["updated_at","TIMESTAMPTZ nullable"],["created_by","Text default 'system'"],
+    ["failure_reason","Text nullable — populated when status=EXCEPTION (added 20260909)"],
   ],
   readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py","apps/api/routers/batch.py","modules/cts/workflows/activities/clearing_session_activities.py","modules/cts/workflows/activities/generate_session_report.py"],
   writeBy: ["modules/cts/workflows/activities/clearing_session_activities.py","apps/api/dev_auth_server.py"],
-  notes: "One row per bank per clearing_date per session_type. rrf_generated prevents duplicate RRF generation. Status machine: OPEN→SEALED→SUBMITTED→RECONCILED.",
+  notes: "One row per bank per clearing_date per session_type. rrf_generated prevents duplicate RRF generation. Status machine: OPEN→SEALED→SUBMITTED→RECONCILED. 2026-09-09 audit fix: code used ngch_reference (phantom) — corrected to npci_ack_ref; closed_at (phantom) — corrected to updated_at; added failure_reason for EXCEPTION state.",
 },
 {
   name: "cts.eeh_sessions",
@@ -736,19 +745,21 @@ const TABLES = [
 {
   name: "cts.lots",
   group: "outward", status: "ok",
-  migration: "20260902_lots.py",
+  migration: "20260902_lots.py (+20260909_phantom_columns)",
   cols: [
     ["lot_id","Text PK"],["bank_id","Text"],["branch_id","Text FK branches"],
     ["session_id","Text FK eeh_sessions"],["clearing_date","Date"],
     ["sequence_number","Integer (1-based, per branch+day)"],
     ["status","Text (OPEN|SEALED)"],["instrument_count","Integer"],
-    ["max_instruments","Integer default 25"],
+    ["max_instruments","Integer default 25"],["created_at","TIMESTAMPTZ"],
     ["sealed_at","TIMESTAMPTZ nullable"],
+    ["sealed_by","Text nullable — operator_id or 'system' (added 20260909)"],
+    ["updated_at","TIMESTAMPTZ nullable — set on seal (added 20260909)"],
     ["PARTIAL UNIQUE","(branch_id, clearing_date) WHERE status='OPEN'"],
   ],
   readBy: ["apps/api/routers/cts.py","apps/eeh/grpc_server.py","modules/cts/workflows/activities/clearing_session_activities.py"],
   writeBy: ["apps/api/routers/cts.py","apps/eeh/grpc_server.py","modules/cts/workflows/activities/batch_endorsement_activities.py"],
-  notes: "At most one OPEN lot per branch per clearing day (partial unique index). Auto-seals when instrument_count reaches max_instruments (25). Real-time source for CTSHubDashboard.",
+  notes: "At most one OPEN lot per branch per clearing day (partial unique index). Auto-seals when instrument_count reaches max_instruments (25). Real-time source for CTSHubDashboard. 2026-09-09 audit fix: code used clearing_session_id (phantom) — corrected to session_id; code used lot_number (phantom) — corrected to sequence_number; added sealed_by and updated_at.",
 },
 {
   name: "cts.outward_scan_events",
@@ -780,26 +791,29 @@ const TABLES = [
     ["micr_suffix","Text nullable"],["imprinter_stamped","Boolean default false"],
     ["micr_source","Text nullable"],["created_at","TIMESTAMPTZ default now()"],
   ],
-  readBy: ["(no Python read path wired yet — added for forthcoming scanner SDK integration)"],
-  writeBy: ["(no Python write path wired yet)"],
-  notes: "Position-level event log for the Branch Scan Dashboard. Distinct from cts.outward_scan_events (outcome-level). Not yet wired to application code — migration created in advance.",
+  readBy: ["apps/api/routers/cts.py (scan session log + branch fault events)"],
+  writeBy: ["apps/api/routers/cts.py (POST /v1/cts/outward/scan-events — scanner agent fault reports)"],
+  notes: "Position-level event log for the Branch Scan Dashboard. Distinct from cts.outward_scan_events (outcome-level). 2026-09-09 audit fix: three cts.py SQL blocks were incorrectly targeting cts.outward_scan_events using session-event columns (event_type, position_in_batch, imprinter_stamped, micr_source) — corrected to cts.outward_scan_session_events.",
 },
 {
   name: "cts.mismatch_queue",
   group: "outward", status: "ok",
-  migration: "20260705_add_mismatch_queue.py (+20260818_mismatch_queue_add_bank_id.py)",
+  migration: "20260705_add_mismatch_queue.py (+20260818_mismatch_queue_add_bank_id.py, +20260909_phantom_columns)",
   cols: [
     ["mismatch_id","Text PK"],["instrument_id","Text"],["branch_id","Text"],
     ["pu_id","Text"],["lot_id","Text nullable"],
     ["vision_finding","JSONB"],["scanner_data","JSONB"],
-    ["mismatch_fields","JSONB"],["status","Text (HELD|RESOLVED|RESUBMITTED)"],
-    ["held_at","TIMESTAMPTZ"],["resolved_by","Text nullable"],
-    ["resolution_note","Text nullable"],["workflow_run_id","Text nullable"],
+    ["mismatch_fields","JSONB"],["status","Text (HELD|GO_AHEAD|REJECTED|TIMEOUT_REJECTED)"],
+    ["held_at","TIMESTAMPTZ"],["resolved_at","TIMESTAMPTZ nullable"],
+    ["resolved_by","Text nullable"],["resolution_note","Text nullable"],
+    ["workflow_run_id","Text nullable"],["created_at","TIMESTAMPTZ"],
     ["bank_id","Text NOT NULL — added 20260818"],
+    ["scan_id","Text nullable — EEH ChequeAck.scan_id (added 20260909)"],
+    ["updated_at","TIMESTAMPTZ nullable — set on status change (added 20260909)"],
   ],
   readBy: ["apps/api/routers/cts.py","apps/eeh/grpc_server.py"],
   writeBy: ["modules/cts/workflows/mismatch_resolution_workflow.py","apps/api/routers/cts.py","apps/eeh/grpc_server.py"],
-  notes: "Instruments enter HELD when Vision LLM disagrees with scanner OCR on amount/payee/date. vision_finding and scanner_data store raw JSON for side-by-side review. bank_id FK added in 20260818.",
+  notes: "Instruments enter HELD when Vision LLM disagrees with scanner OCR on amount/payee/date. vision_finding and scanner_data store raw JSON for side-by-side review. bank_id FK added in 20260818. 2026-09-09 audit: scan_id and updated_at were referenced in grpc_server.py but absent from migration — added in 20260909.",
 },
 {
   name: "cts.session_reports",
@@ -1186,6 +1200,39 @@ function buildMain(filter) {
   document.getElementById('stats-line').textContent = q
     ? `${total} of ${TABLES.length} tables`
     : `${confirmed} confirmed · ${phantoms} phantom`;
+
+  // Audit banner — shown only on unfiltered view
+  const existing = document.getElementById('audit-banner');
+  if (existing) existing.remove();
+  if (!q) {
+    const banner = document.createElement('div');
+    banner.id = 'audit-banner';
+    banner.innerHTML = `
+<div style="margin:0 0 24px;padding:16px 20px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber,#f59e0b) 35%,transparent);background:color-mix(in srgb,var(--amber,#f59e0b) 8%,transparent)">
+  <div style="font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber,#f59e0b);margin-bottom:8px">Column Audit — 2026-09-09</div>
+  <div style="font-size:.82rem;line-height:1.6;color:var(--text-muted,inherit)">
+    Full two-direction audit completed: (A) columns used in Python but absent from migrations — would crash at runtime; (B) columns in migrations never populated by code — dead schema.
+    <strong style="display:block;margin-top:8px;margin-bottom:4px">Fixes applied in this session:</strong>
+    <ul style="margin:0 0 0 18px;padding:0;font-size:.8rem">
+      <li><code>cts.outward_scan_events</code> — 3 SQL blocks in <code>cts.py</code> were inserting/reading session-event columns (<code>event_type</code>, <code>position_in_batch</code>, <code>imprinter_stamped</code>) against the outcome-level table. Corrected to <code>cts.outward_scan_session_events</code>.</li>
+      <li><code>cts.clearing_sessions</code> — code used phantom <code>ngch_reference</code> (correct name: <code>npci_ack_ref</code>) and phantom <code>closed_at</code> (correct: <code>updated_at</code>). Fixed in <code>clearing_session_activities.py</code>.</li>
+      <li><code>cts.lots</code> — code used phantom <code>clearing_session_id</code> (correct: <code>session_id</code>) and <code>lot_number</code> (correct: <code>sequence_number</code>). Fixed in <code>grpc_server.py</code> and <code>clearing_session_activities.py</code>.</li>
+      <li>Migration <code>20260909_phantom_columns.py</code> — 10 new columns across 4 tables: <code>cheque_instruments</code> (+5), <code>clearing_sessions</code> (+1), <code>lots</code> (+2), <code>mismatch_queue</code> (+2).</li>
+      <li><code>cts.human_review_items</code> — confirmed DEAD TABLE: zero INSERT statements found in all Python code. Human review state lives in Temporal signals + <code>agent_decisions</code>. Marked in notes.</li>
+    </ul>
+    <strong style="display:block;margin-top:8px;margin-bottom:4px">Dead columns (schema waste, no action required):</strong>
+    <span style="font-size:.79rem">
+      <code>cheque_instruments</code>: center_id, batch_id, ngch_instrument_ref, filed_at, vision_result*, vision_cascade_level* &nbsp;·&nbsp;
+      <code>clearing_sessions</code>: sb_connection_id, sealed_at, reconciled_at, total_amount_range &nbsp;·&nbsp;
+      <code>eeh_sessions</code>: revocation_reason &nbsp;·&nbsp;
+      <code>scanner_registrations</code>: last_scan_submitted_at &nbsp;·&nbsp;
+      <code>rrf_sessions</code>: updated_at &nbsp;·&nbsp;
+      <code>mismatch_queue</code>: resolution_note
+    </span>
+  </div>
+</div>`;
+    main.insertBefore(banner, main.firstChild);
+  }
 }
 
 buildSidebar();
