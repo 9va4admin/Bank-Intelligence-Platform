@@ -844,6 +844,98 @@ class RearPayeeExtractionResult(BaseModel):
     degraded: bool = False
 
 
+async def _rear_tesseract_fallback(image_url: str, instrument_id: str) -> Optional[dict]:
+    """
+    CPU Tesseract fallback for rear-image OCR (vLLM unavailable).
+
+    Extracts account number (9-18 digits), mobile (10 digits starting 6-9),
+    IFSC (4-alpha + 0 + 6-alnum), and depositor name from written endorsement text.
+    Returns a dict in the same {field: {value, confidence}} shape as Qwen2-VL output.
+    """
+    import io
+    import re
+    try:
+        import httpx
+        from PIL import Image
+        import pytesseract
+        import os as _os, platform as _plat
+        if _plat.system() == "Windows":
+            for _p in [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ]:
+                if _os.path.isfile(_p):
+                    pytesseract.pytesseract.tesseract_cmd = _p
+                    break
+    except ImportError:
+        return None
+
+    _CONF = 0.55   # Tesseract on handwritten cheque backs is lower accuracy than front
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(image_url)
+            resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
+        clean = re.sub(r'[^\x20-\x7E\n]', ' ', raw_text)
+        lines = [ln.strip() for ln in clean.splitlines() if ln.strip()]
+
+        # Account number: keyword "A/c", "AC", "Account" followed by 9-18 digit string
+        acct_val = None
+        m = re.search(r'(?:A/?[Cc]\.?\s*(?:No\.?|Number)?|Account\s*(?:No\.?|Number)?)\s*[:#]?\s*(\d[\d\s]{7,17}\d)', clean, re.IGNORECASE)
+        if m:
+            acct_val = re.sub(r'\s', '', m.group(1))
+        else:
+            # bare 9-18 digit block not preceded by obvious noise
+            for ln in lines:
+                digits = re.sub(r'\s', '', re.sub(r'\D', '', ln))
+                if 9 <= len(digits) <= 18:
+                    acct_val = digits
+                    break
+
+        # Mobile number: 10 digits starting with 6-9
+        mobile_val = None
+        m = re.search(r'(?:Mob(?:ile)?\.?\s*(?:No\.?)?|Ph(?:one)?\.?\s*(?:No\.?)?)?\s*([6-9]\d{9})\b', clean, re.IGNORECASE)
+        if m:
+            mobile_val = m.group(1)
+
+        # IFSC: 4 letters + 0 + 6 alphanumeric
+        ifsc_val = None
+        m = re.search(r'\b([A-Z]{4}0[A-Z0-9]{6})\b', clean, re.IGNORECASE)
+        if m:
+            ifsc_val = m.group(1).upper()
+
+        # Depositor name: line after "Name:", "Pay to", or "A/c Holder" keyword
+        name_val = None
+        for i, ln in enumerate(lines):
+            if re.search(r'\b(?:Name|Pay\s*to|A/?C\s*Holder)\b', ln, re.IGNORECASE):
+                candidate = re.sub(r'\b(?:Name|Pay\s*to|A/?C\s*Holder)\s*[:#]?', '', ln, flags=re.IGNORECASE).strip()
+                if not candidate and i + 1 < len(lines):
+                    candidate = lines[i + 1]
+                if candidate and len(candidate) > 2 and not re.match(r'^\d', candidate):
+                    name_val = candidate
+                    break
+
+        log.info(
+            "extract_rear_payee_details.tesseract_fallback",
+            instrument_id=instrument_id,
+            acct_found=bool(acct_val),
+            mobile_found=bool(mobile_val),
+            ifsc_found=bool(ifsc_val),
+            name_found=bool(name_val),
+        )
+        return {
+            "account_number": {"value": acct_val,  "confidence": _CONF if acct_val  else 0.0},
+            "ifsc_code":      {"value": ifsc_val,   "confidence": _CONF if ifsc_val  else 0.0},
+            "depositor_name": {"value": name_val,   "confidence": _CONF if name_val  else 0.0},
+            "mobile_number":  {"value": mobile_val, "confidence": _CONF if mobile_val else 0.0},
+        }
+    except Exception as exc:
+        log.warning("extract_rear_payee_details.tesseract_failed", instrument_id=instrument_id, error=str(exc))
+        return None
+
+
 @activity.defn
 async def extract_rear_payee_details(
     inp: RearPayeeExtractionInput,
@@ -865,24 +957,33 @@ async def extract_rear_payee_details(
         span.set_attribute("instrument_id", inp.instrument_id)
         import json
 
-        if orchestrator is None:
-            log.warning("extract_rear_payee_details.no_orchestrator", instrument_id=inp.instrument_id)
-            return RearPayeeExtractionResult(degraded=True)
+        data: Optional[dict] = None
+        ocr_engine = "qwen2-vl"
 
-        try:
-            result = await orchestrator.call_vision(
-                image_url=inp.image_rear_url,
-                prompt=_REAR_OCR_PROMPT,
-                cheque_amount=0.0,
-            )
-            data = json.loads(result.content)
-        except Exception as exc:
-            log.warning(
-                "extract_rear_payee_details.ocr_failed",
-                instrument_id=inp.instrument_id,
-                error=str(exc),
-            )
-            return RearPayeeExtractionResult(degraded=True)
+        # Attempt 1: Qwen2-VL via orchestrator (GPU path)
+        if orchestrator is not None:
+            try:
+                result = await orchestrator.call_vision(
+                    image_url=inp.image_rear_url,
+                    prompt=_REAR_OCR_PROMPT,
+                    cheque_amount=0.0,
+                )
+                data = json.loads(result.content)
+            except Exception as exc:
+                log.warning(
+                    "extract_rear_payee_details.vision_failed",
+                    instrument_id=inp.instrument_id,
+                    error=str(exc),
+                )
+        else:
+            log.warning("extract_rear_payee_details.no_orchestrator", instrument_id=inp.instrument_id)
+
+        # Attempt 2: Tesseract CPU fallback when vLLM is unavailable
+        if data is None:
+            data = await _rear_tesseract_fallback(inp.image_rear_url, inp.instrument_id)
+            ocr_engine = "tesseract"
+            if data is None:
+                return RearPayeeExtractionResult(degraded=True)
 
         def _val(field: str) -> Optional[str]:
             entry = data.get(field) or {}
@@ -900,6 +1001,7 @@ async def extract_rear_payee_details(
             instrument_id=inp.instrument_id,
             account_last4=(_val("account_number") or "")[-4:],
             overall_confidence=overall,
+            ocr_engine=ocr_engine,
         )
         return RearPayeeExtractionResult(
             account_number=_val("account_number"),
