@@ -1,3 +1,9 @@
+---
+globs:
+  - "apps/api/**"
+  - "apps/ai_server/**"
+---
+
 # Microservice Rules (FastAPI · Health Checks · API Versioning · Service Mesh)
 
 ## Service Identity — Every Service Must Have
@@ -121,16 +127,11 @@ class ErrorResponse(BaseModel):
 import structlog
 log = structlog.get_logger()
 
-# Correct
 log.info("cheque.submitted",
          bank_id=bank_id,
          instrument_id=instrument_id,
          amount_range="₹1L-₹5L",    # range, not exact amount
-         account_suffix="****4521")  # masked
-
-# Forbidden
-print(f"Processing cheque {account_number} for ₹{amount}")  # raw PII + print()
-log.info(f"Amount: {amount}")   # f-string logging loses structure
+         account_suffix="****4521")  # masked — never raw account or exact amount
 ```
 
 ## Ingress and Load Balancing
