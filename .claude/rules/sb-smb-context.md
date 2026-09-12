@@ -1,3 +1,9 @@
+---
+globs:
+  - "apps/web/**"
+  - "apps/api/routers/**"
+---
+
 # SB vs SMB Context Rule (UI · Data · Downloads · Config)
 
 ## The Fundamental Principle

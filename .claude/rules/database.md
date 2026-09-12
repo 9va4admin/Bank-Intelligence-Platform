@@ -1,3 +1,11 @@
+---
+globs:
+  - "infra/migrations/**"
+  - "modules/**"
+  - "shared/**"
+  - "apps/api/**"
+---
+
 # Database Rules (YugabyteDB YSQL + Redis)
 
 ## YugabyteDB
