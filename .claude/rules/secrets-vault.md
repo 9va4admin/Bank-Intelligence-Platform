@@ -65,16 +65,3 @@ All secrets rotated automatically every 24 hours via Vault dynamic secrets. Appl
 
 VAULT_ADDR and VAULT_TOKEN are the only env vars config_service reads directly — injected by Vault agent sidecar at pod startup. Application code never handles Vault authentication itself.
 
----
-
-## Forbidden Patterns (gitleaks blocks these automatically)
-```python
-DB_URL = "postgresql://admin:P@ssw0rd@yugabyte:5432/astra"   # BLOCKED
-REDIS_URL = "redis://:secretpassword@redis-cts:6379"          # BLOCKED
-API_KEY = "sk-abc123xyz..."                                    # BLOCKED
-os.environ.get("NGCH_KEY", "fallback_key")                    # BLOCKED (hardcoded default)
-
-# Also forbidden in YAML/config files:
-password: "mypassword"        # BLOCKED
-token: "abc123"               # BLOCKED
-```

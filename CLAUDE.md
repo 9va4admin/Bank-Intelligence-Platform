@@ -353,7 +353,7 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 > Full history: [docs/build-history.md](docs/build-history.md)
 
-**Completed:** Phases 1–15 (Foundation → CTS Core → Observability → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role → 9-script Indic transliteration + Malayalam Christian-name lexicon → automated OCR feedback loop: failure classifier + corpus accumulation + `FeedbackAccumulatorWorkflow` + `ModelRetrainWorkflow` → `FeedbackEmitWorkflow` wired into `ChequeProcessingWorkflow` (fire-and-forget child, every decision) → `persist_agent_decision` activity + `cts.agent_decisions` table + `GET /v1/cts/decisions` list endpoint + `CTSDecisionsLog` React page → HIGH-1 fix: `get_workflow_thresholds()` wired into `submit_inward_cheque`; `HumanReviewWorkflow` timeout now truly config-driven → 18K scale test 26 scenario classes + handwritten PIL + vault miss explicit routing in cheque_workflow + `GET /v1/cts/vault-gaps` + `CTSVaultGapReport.jsx` post-banking-hours enrollment report → outward workflow test fixed: `persist_mismatch_hold_db` + `resolve_mismatch_db` now registered in test worker)
+**Completed:** Phases 1–15. Full phase-by-phase history: [docs/build-history.md](docs/build-history.md)
 
 **Immediate Next (priority order):**
 1. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster

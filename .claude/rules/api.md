@@ -1,3 +1,8 @@
+---
+globs:
+  - "apps/api/**"
+---
+
 # API Rules (FastAPI Backend)
 
 ## Structure

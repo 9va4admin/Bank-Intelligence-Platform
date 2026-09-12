@@ -1,3 +1,10 @@
+---
+globs:
+  - "modules/cts/workflows/activities/**"
+  - "apps/ai_server/**"
+  - "modules/cts/mcp/**"
+---
+
 # AI Inference Rules (Vision LLM · Reasoning LLM · OCR · Embeddings)
 
 ## Model Routing — Which Model for Which Task

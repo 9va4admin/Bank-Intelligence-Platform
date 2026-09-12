@@ -1,3 +1,8 @@
+---
+globs:
+  - "apps/api/**"
+---
+
 # API Versioning Rules (ASTRA — Multi-Bank On-Prem)
 
 ## Why This Matters More Than SaaS
