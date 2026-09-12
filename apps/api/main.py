@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
-from apps.api.routers import cts, audit, admin, notifications
+from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
 from apps.api.routers import observability
@@ -42,6 +42,7 @@ from apps.api.routers import cts_vault_ops
 from apps.api.routers import cts_admin_ops
 from apps.api.routers import cts_outward_data
 from apps.api.routers import cts_outward_core
+from apps.api.routers import cts_inward
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -378,7 +379,6 @@ app.add_middleware(AuthenticationMiddleware)
 
 # --- Routers ---
 app.include_router(auth_router.router_v1)
-app.include_router(cts.router_v1)
 app.include_router(audit.router_v1)
 app.include_router(admin.router_v1)
 app.include_router(notifications.router_v1)
@@ -403,6 +403,7 @@ app.include_router(cts_vault_ops.router_v1)
 app.include_router(cts_admin_ops.router_v1)
 app.include_router(cts_outward_data.router_v1)
 app.include_router(cts_outward_core.router_v1)
+app.include_router(cts_inward.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 
