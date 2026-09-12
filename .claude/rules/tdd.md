@@ -125,31 +125,11 @@ Rule: test path mirrors implementation path exactly, with `tests/` prefix and `t
 
 ---
 
-## What a Failing Test Output Must Look Like (RED confirmation)
-
-```
-$ pytest tests/shared/audit/test_immudb_client.py -v
-
-FAILED tests/shared/audit/test_immudb_client.py::test_write_event_calls_immudb
-  ModuleNotFoundError: No module named 'shared.audit.immudb_client'
-  — OR —
-  AssertionError: Expected call not made
-
-1 failed, 0 passed in 0.03s
-```
-
-This output is the proof that TDD was followed. Claude must paste this output in the session before writing any implementation.
-
----
-
 ## What Is NOT Acceptable
 
 ```
-✗ Writing implementation then writing tests to match it — that is test-after, not TDD
-✗ Writing tests that only test the happy path — must test error paths too
-✗ Mocking everything so tests never touch real logic — mocks only for external I/O
-✗ Skipping the RED step because "obviously it will fail" — run it, show the output
-✗ Committing a test file with all tests marked @pytest.mark.skip
-✗ Writing assert True or assert 1 == 1 as placeholder tests
-✗ Coverage via __init__.py imports — every line of logic must have a test assertion
+✗ Writing implementation first, tests after — that is test-after, not TDD
+✗ Tests that only cover the happy path — error paths are mandatory
+✗ Mocking everything — mocks only for external I/O (Immudb, NGCH, vLLM)
+✗ Skipping RED step because "obviously it will fail" — run pytest, paste the output
 ```
