@@ -34,6 +34,13 @@ from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
 from apps.api.routers import vault_upload
 from apps.api.routers import cts_ops
+from apps.api.routers import cts_dashboard
+from apps.api.routers import cts_smb
+from apps.api.routers import cts_holds
+from apps.api.routers import cts_scanner
+from apps.api.routers import cts_vault_ops
+from apps.api.routers import cts_admin_ops
+from apps.api.routers import cts_outward_data
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -244,7 +251,7 @@ async def lifespan(app: FastAPI):
         _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
 
         import os as _os
-        _dev_mode = (_os.environ.get("ASTRA_ENV", "production") == "development")
+        _dev_mode = _os.environ.get("ASTRA_DEV_BYPASS_MFA", "false").lower() == "true"
         app.state.auth_service = AuthService(
             connector_factory=_connector_factory,
             mfa=_mfa,
@@ -387,6 +394,13 @@ app.include_router(scanner.router_v1)
 app.include_router(scanner_configs.router_v1)
 app.include_router(vault_upload.router_v1)
 app.include_router(cts_ops.router_v1)
+app.include_router(cts_dashboard.router_v1)
+app.include_router(cts_smb.router_v1)
+app.include_router(cts_holds.router_v1)
+app.include_router(cts_scanner.router_v1)
+app.include_router(cts_vault_ops.router_v1)
+app.include_router(cts_admin_ops.router_v1)
+app.include_router(cts_outward_data.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 

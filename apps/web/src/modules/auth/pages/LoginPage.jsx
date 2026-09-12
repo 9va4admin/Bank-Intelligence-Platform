@@ -393,7 +393,7 @@ export default function LoginPage() {
           <div style={S.frame}>
 
             {/* Glass interior */}
-            <div style={S.glass}>
+            <div style={step === 'enrol' ? { ...S.glass, padding: '30px 40px 24px' } : S.glass}>
 
               {/* Bevel highlights — complete the 3D raised-surface illusion */}
               <span style={S.edgeTop} />
@@ -406,7 +406,7 @@ export default function LoginPage() {
               <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:700, color:'#fff', letterSpacing:'-0.025em', lineHeight:1.1, marginBottom:8, margin:'0 0 8px' }}>
                 {TITLE[step]}
               </h2>
-              <div style={{ fontSize:13, color:'rgba(255,255,255,0.35)', lineHeight:1.55, marginBottom:28 }}>
+              <div style={{ fontSize:13, color:'rgba(255,255,255,0.35)', lineHeight:1.55, marginBottom: step === 'enrol' ? 14 : 28 }}>
                 {SUB[step]}
               </div>
 
@@ -487,27 +487,33 @@ export default function LoginPage() {
               {step === 'enrol' && enrol && (
                 <form onSubmit={submitEnrolConfirm}>
 
-                  {/* QR code — white background is required for scanner apps */}
-                  <div style={S.qrWrap}>
-                    <div style={S.qrInner}>
-                      <QRCodeSVG value={enrol.otpauth_uri} size={156} />
+                  {/* QR + manual key side by side — avoids page scroll on typical laptop */}
+                  <div style={{ display:'flex', gap:14, marginBottom:14 }}>
+                    {/* QR side — white bg required for scanner apps */}
+                    <div style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:7 }}>
+                      <div style={{ padding:10, background:'#fff' }}>
+                        <QRCodeSVG value={enrol.otpauth_uri} size={120} />
+                      </div>
+                      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:'rgba(255,255,255,0.22)', textAlign:'center' }}>
+                        Authenticator · Authy
+                      </div>
                     </div>
-                    <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'rgba(255,255,255,0.22)', textAlign:'center' }}>
-                      Google Authenticator · Authy · 1Password
+                    {/* Manual key side */}
+                    <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', justifyContent:'center', gap:7 }}>
+                      <div style={{ fontSize:11, fontWeight:500, color:'rgba(255,255,255,0.35)' }}>
+                        Can't scan? Enter manually
+                      </div>
+                      <div style={{ ...S.secretBox, fontSize:11, marginBottom:0 }}>
+                        {groupSecret(enrol.secret)}
+                      </div>
+                      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:'rgba(255,255,255,0.2)' }}>
+                        Issuer: ASTRA · TOTP · 6 digits · 30s
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Manual key */}
-                  <div style={{ fontSize:11, fontWeight:500, color:'rgba(255,255,255,0.35)', marginBottom:6 }}>
-                    Can't scan? Enter this key manually
-                  </div>
-                  <div style={S.secretBox}>{groupSecret(enrol.secret)}</div>
-                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9.5, color:'rgba(255,255,255,0.2)', marginBottom:20 }}>
-                    Issuer: ASTRA · TOTP · 6 digits · 30 s
                   </div>
 
                   {/* Confirm code */}
-                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:18, marginBottom:16 }}>
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:14, marginBottom:12 }}>
                     <label style={{ display:'block', fontSize:11.5, fontWeight:500, color:'rgba(255,255,255,0.38)', marginBottom:7 }}>
                       Confirm the current 6-digit code
                     </label>
@@ -534,7 +540,7 @@ export default function LoginPage() {
               )}
 
               {/* Footer */}
-              <div style={S.panelFoot}>
+              <div style={{ ...S.panelFoot, ...(step === 'enrol' ? { marginTop:12, paddingTop:10 } : {}) }}>
                 Authorised access only · All activity is audited<br/>
                 mTLS enforced · httpOnly session cookie
               </div>

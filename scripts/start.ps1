@@ -223,13 +223,15 @@ Write-Host "  +--------------------------------------------------+" -ForegroundC
 Write-Host "  |   ASTRA is starting up                           |" -ForegroundColor Green
 Write-Host "  +--------------------------------------------------+" -ForegroundColor Green
 Write-Host "  |                                                  |" -ForegroundColor Green
-Write-Host "  |   Web UI    ->  http://localhost:5173            |" -ForegroundColor Green
+Write-Host "  |   Web UI    ->  http://localhost:4000            |" -ForegroundColor Green
 Write-Host "  |   API       ->  http://localhost:8010            |" -ForegroundColor Green
 Write-Host "  |   Temporal  ->  http://localhost:18088           |" -ForegroundColor Green
 Write-Host "  |   MinIO     ->  http://localhost:19091           |" -ForegroundColor Green
 Write-Host "  |                                                  |" -ForegroundColor Green
-Write-Host "  |   Login:  ops / Astra@0007                       |" -ForegroundColor Green
-Write-Host "  |           admin / Astra@0007                     |" -ForegroundColor Green
+Write-Host "  |   Login:  ops           / Astra@1212              |" -ForegroundColor Green
+Write-Host "  |           admin         / Astra@1212              |" -ForegroundColor Green
+Write-Host "  |           __astra-admin / Astra@1212              |" -ForegroundColor Green
+Write-Host "  |   (all accounts use password: Astra@1212)        |" -ForegroundColor Green
 Write-Host "  |                                                  |" -ForegroundColor Green
 Write-Host "  |   Allow 15-20 seconds for API + worker to boot   |" -ForegroundColor Green
 Write-Host "  +--------------------------------------------------+" -ForegroundColor Green
