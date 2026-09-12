@@ -41,6 +41,7 @@ from apps.api.routers import cts_scanner
 from apps.api.routers import cts_vault_ops
 from apps.api.routers import cts_admin_ops
 from apps.api.routers import cts_outward_data
+from apps.api.routers import cts_outward_core
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -401,6 +402,7 @@ app.include_router(cts_scanner.router_v1)
 app.include_router(cts_vault_ops.router_v1)
 app.include_router(cts_admin_ops.router_v1)
 app.include_router(cts_outward_data.router_v1)
+app.include_router(cts_outward_core.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 
