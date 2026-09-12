@@ -1,3 +1,10 @@
+---
+globs:
+  - "modules/cts/**"
+  - "apps/api/routers/cts*.py"
+  - "tests/**/cts*"
+---
+
 # CTS Module Rules
 
 ## Critical Constraints
