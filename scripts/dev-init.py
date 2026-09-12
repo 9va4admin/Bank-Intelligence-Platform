@@ -195,9 +195,9 @@ async def seed_users(bank_id: str):
 
     ph = PasswordHasher()
     users = [
-        ("admin",    "Bank IT Admin",   ph.hash("Admin@Astra2026!"),  "bank_it_admin",  "ADMIN", "SB", []),
-        ("ops",      "Ops Manager",     ph.hash("Ops@Astra2026!"),    "ops_manager",    "EDIT",  "SB", []),
-        ("reviewer", "Ops Reviewer",    ph.hash("Rev@Astra2026!"),    "ops_reviewer",   "EDIT",  "SB", ["MUMBAI", "PUNE"]),
+        ("admin",    "Bank IT Admin",   ph.hash("Astra@1212"),  "bank_it_admin",  "ADMIN", "SB", []),
+        ("ops",      "Ops Manager",     ph.hash("Astra@1212"),  "ops_manager",    "EDIT",  "SB", []),
+        ("reviewer", "Ops Reviewer",    ph.hash("Astra@1212"),  "ops_reviewer",   "EDIT",  "SB", ["MUMBAI", "PUNE"]),
     ]
     pool = await asyncpg.create_pool(
         dsn="postgresql://yugabyte:yugabyte@localhost:15433/yugabyte",
