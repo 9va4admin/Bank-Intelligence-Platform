@@ -68,7 +68,7 @@ SEED_ACCOUNTS: dict[str, dict] = {
     # In production: password from Vault (secret/astra/platform/super_admin_password)
     # In dev: fixed known password below — first login always shows QR for TOTP enrol
     "__astra-admin": {
-        "user_id": "usr-astra-sc", "password": "Astra@Platform2026!",
+        "user_id": "usr-astra-sc", "password": "Astra@1212",
         "display_name": "ASTRA Platform Admin", "role": "platform_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "__astra-platform__", "bank_id": "saraswat-coop",
@@ -76,21 +76,21 @@ SEED_ACCOUNTS: dict[str, dict] = {
     },
     # ── Bank-specific dev accounts ─────────────────────────────────────────────
     "admin": {
-        "user_id": "usr-admin", "password": "astra-dev-admin",
+        "user_id": "usr-admin", "password": "Astra@1212",
         "display_name": "Anita Rao", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
         "clearing_zones": ["ALL"],
     },
     "ops": {
-        "user_id": "usr-ops", "password": "astra-dev-ops",
+        "user_id": "usr-ops", "password": "Astra@1212",
         "display_name": "Sunil Mehta", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
         "clearing_zones": ["ALL"],
     },
     "smb": {
-        "user_id": "usr-smb", "password": "astra-dev-smb",
+        "user_id": "usr-smb", "password": "Astra@1212",
         "display_name": "Vasavi Admin", "role": "smb_admin",
         "bank_type": "SMB", "permission_level": "ADMIN",
         "entity_type": "smb", "entity_id": "smb-mh-vasavi", "bank_id": "smb-mh-vasavi",
@@ -98,21 +98,21 @@ SEED_ACCOUNTS: dict[str, dict] = {
     },
     # ── Federal Bank dev accounts (VITE_BANK_ID=federal-bank) ─────────────────
     "fed-admin": {
-        "user_id": "usr-fed-admin", "password": "federal-dev-admin",
+        "user_id": "usr-fed-admin", "password": "Astra@1212",
         "display_name": "Priya Nair", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
         "clearing_zones": ["ALL"],
     },
     "fed-ops": {
-        "user_id": "usr-fed-ops", "password": "federal-dev-ops",
+        "user_id": "usr-fed-ops", "password": "Astra@1212",
         "display_name": "Rajan Thomas", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
         "clearing_zones": ["ALL"],
     },
     "fed-reviewer": {
-        "user_id": "usr-fed-rev", "password": "federal-dev-reviewer",
+        "user_id": "usr-fed-rev", "password": "Astra@1212",
         "display_name": "Meena Pillai", "role": "ops_reviewer",
         "bank_type": "SB", "permission_level": "READ",
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
@@ -120,21 +120,21 @@ SEED_ACCOUNTS: dict[str, dict] = {
     },
     # ── Union Bank of India dev accounts (VITE_BANK_ID=union-bank) ────────────
     "ubi-admin": {
-        "user_id": "usr-ubi-admin", "password": "union-dev-admin",
+        "user_id": "usr-ubi-admin", "password": "Astra@1212",
         "display_name": "Rajesh Kumar", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
         "clearing_zones": ["ALL"],
     },
     "ubi-ops": {
-        "user_id": "usr-ubi-ops", "password": "union-dev-ops",
+        "user_id": "usr-ubi-ops", "password": "Astra@1212",
         "display_name": "Preethi Menon", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
         "clearing_zones": ["ALL"],
     },
     "ubi-smb": {
-        "user_id": "usr-ubi-smb", "password": "union-dev-smb",
+        "user_id": "usr-ubi-smb", "password": "Astra@1212",
         "display_name": "NM Co-op Admin", "role": "smb_admin",
         "bank_type": "SMB", "permission_level": "ADMIN",
         "entity_type": "smb", "entity_id": "smb-mh-nmcb", "bank_id": "smb-mh-nmcb",
@@ -574,37 +574,53 @@ CREATE TABLE IF NOT EXISTS config.bank_config (
 -- Use this to bootstrap any bank deployment, then create bank-specific users.
 INSERT INTO platform.local_auth_accounts
     (user_id, bank_id, entity_type, entity_id, username, display_name,
-     password_hash, role, clearing_zones, totp_enrolled)
+     password_hash, role, permission_level, bank_type, clearing_zones, totp_enrolled)
 VALUES
-  -- ASTRA platform super admin — saraswat-coop
+  -- ASTRA platform super admin — saraswat-coop  (pwd: Astra@1212)
   ('usr-astra-sc', 'saraswat-coop', 'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
-   '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
-   'platform_admin', ARRAY['ALL'], false),
-  -- ASTRA platform super admin — federal-bank
+   '$argon2id$v=19$m=65536,t=3,p=4$CPb2L30JvtY10y47EtfiHQ$JEXeQqLDQ1o6DNQmU4sU7NLCP0ugUXNmsV/BJt5DwPg',
+   'platform_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  -- ASTRA platform super admin — federal-bank  (pwd: Astra@1212)
   ('usr-astra-fb', 'federal-bank',  'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
-   '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
-   'platform_admin', ARRAY['ALL'], false),
-  -- Bank-specific dev accounts
+   '$argon2id$v=19$m=65536,t=3,p=4$Gj2yu3h1rHzNFigxvh6BBw$W+MJ1ytezyMH4nHiYUoFp7A/a9UIxmIfS6OfxmeMzdg',
+   'platform_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  -- Bank-specific dev accounts  (pwd: Astra@1212)
   ('usr-admin', 'saraswat-coop', 'sb',  'saraswat-coop', 'admin', 'Anita Rao',
-   '$argon2id$v=19$m=65536,t=3,p=4$RpL0cwR5KMqXDBHoxOYL4w$uimuuZjif2n7t8HwlOU2zEgV9euZTCsRASVNaAgj29I',
-   'bank_it_admin', ARRAY['ALL'], false),
+   '$argon2id$v=19$m=65536,t=3,p=4$Lmz2E3Dkfg64gFm690RdPQ$sUemvdc0eOmZnMNSTkkWhudwrhwyqf2gKAaSS0pUT+c',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
   ('usr-ops',   'saraswat-coop', 'sb',  'saraswat-coop', 'ops',   'Sunil Mehta',
-   '$argon2id$v=19$m=65536,t=3,p=4$OjmmP/u5VC/orNBhlNSRyA$ULGjkdbrZLs9FUVAY6mOvmN+wtW0whA/CCb0xKIk0iY',
-   'ops_manager', ARRAY['ALL'], false),
+   '$argon2id$v=19$m=65536,t=3,p=4$zZimm1cAWIY2dSzsvgNiGw$zrfcxNhmMtjEolZLnpXt1V8oB8yHaLM7CSorAjH9sMc',
+   'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
   ('usr-smb',   'smb-mh-vasavi', 'smb', 'smb-mh-vasavi', 'smb',   'Vasavi Admin',
-   '$argon2id$v=19$m=65536,t=3,p=4$WVVrBi7dk2K+WI79D05Njg$Bw6eRjYKWAsrdKrFs5hxvuGzOxr7SNc8mP2RGkagZBQ',
-   'smb_admin',   ARRAY['MUMBAI'], false),
-  -- Federal Bank dev accounts (VITE_BANK_ID=federal-bank)
+   '$argon2id$v=19$m=65536,t=3,p=4$eGFdQgcAHS2gaTEMQYBjrg$cjyMi1RHUMN9znIrTd8eAZTiAja7offwdmXravd5B7I',
+   'smb_admin', 'ADMIN', 'SMB', ARRAY['MUMBAI'], false),
+  -- Federal Bank dev accounts  (pwd: Astra@1212)
   ('usr-fed-admin', 'federal-bank', 'sb', 'federal-bank', 'fed-admin', 'Priya Nair',
-   '$argon2id$v=19$m=65536,t=3,p=4$kK58+XyJeeIklEpC1NLC+w$CmP7ooYe5Y543B6b9saNynLswlK3wleMbWdQfQqW5hs',
-   'bank_it_admin', ARRAY['ALL'], false),
+   '$argon2id$v=19$m=65536,t=3,p=4$0ellp7roCvUcQLHdKdUZkg$CVW5VULo2q+pCFGJ32C9Yahk22kMjjAVr0/ctdvlC7k',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
   ('usr-fed-ops',   'federal-bank', 'sb', 'federal-bank', 'fed-ops',   'Rajan Thomas',
-   '$argon2id$v=19$m=65536,t=3,p=4$FkNrtPVfTrlvql8PzoKckw$+AL7/zFDK9RP3dQ+kEdtcuB3/i/a1fJgYvR+K10c4Bs',
-   'ops_manager',   ARRAY['ALL'], false),
+   '$argon2id$v=19$m=65536,t=3,p=4$Wi+OUJfDvDBfacPSKzUnSg$Ba/CsrEFqBswimccXiWqRPZyN0eXcZw8Tap/U50oU18',
+   'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
   ('usr-fed-rev',   'federal-bank', 'sb', 'federal-bank', 'fed-reviewer', 'Meena Pillai',
-   '$argon2id$v=19$m=65536,t=3,p=4$IbaUYWuuMX6kkl8SwhEQpg$AQ6DEwZIhJSUCZIdW2tZyg+p3Zxra4ze1sVMotIhgyA',
-   'ops_reviewer',  ARRAY['ALL'], false)
-ON CONFLICT (username, bank_id) DO NOTHING;
+   '$argon2id$v=19$m=65536,t=3,p=4$QDcGjMn5uY0oE2+gUTM9Bg$A/dh4vL7SObBSE5MOk3EzRepu7MtN+Ajk+JTtZZksqk',
+   'ops_reviewer', 'READ', 'SB', ARRAY['ALL'], false),
+  -- Union Bank of India dev accounts  (pwd: Astra@1212)
+  ('usr-ubi-admin', 'union-bank', 'sb', 'union-bank', 'ubi-admin', 'Rajesh Kumar',
+   '$argon2id$v=19$m=65536,t=3,p=4$O2CWeM8WOr95Nnd6/MP8aA$WwWmVoQeTo2XigNksW3eA1zaMO+bgfJLimbAmUfjEzQ',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  ('usr-ubi-ops',   'union-bank', 'sb', 'union-bank', 'ubi-ops', 'Preethi Menon',
+   '$argon2id$v=19$m=65536,t=3,p=4$jFVZshhgvU9u6yv7dpmQvg$ZhTjozI7U0tfMdaE0QsJn4Mz7Ic5UpDJ4bE+hq2CjrU',
+   'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
+  ('usr-ubi-smb',   'smb-mh-nmcb', 'smb', 'smb-mh-nmcb', 'ubi-smb', 'NM Co-op Admin',
+   '$argon2id$v=19$m=65536,t=3,p=4$QjZ2qJJw9bWgVHzS3/i5Bw$DSIePFohMZD2mzMZ/jz4C9Sx6kGl4rdUhPju9OByZyk',
+   'smb_admin', 'ADMIN', 'SMB', ARRAY['WEST'], false)
+ON CONFLICT (username, bank_id) DO UPDATE SET
+  password_hash    = EXCLUDED.password_hash,
+  permission_level = EXCLUDED.permission_level,
+  bank_type        = EXCLUDED.bank_type,
+  totp_enrolled    = false,
+  failed_attempts  = 0,
+  locked_until     = NULL;
 
 -- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load
 INSERT INTO config.bank_config (bank_id, key, value, value_type) VALUES
