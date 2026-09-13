@@ -1,32 +1,31 @@
 """
-Tests for IQA Engine — 16 deterministic NPCI image quality tests.
+Tests for IQA Engine — 17 deterministic NPCI image quality tests per CHI Spec Rev 3.00.
 
-CTS Spec Rev 3.0 §IQA: the Image Quality Assessment is NOT AI-based.
-It applies 16 rule-based tests to each image and encodes results as:
-  UserField = "BFG:" + 16 single-char codes
-  where each char is: '0'=pass, '1'=fail, '2'=advisory, 'N'=not-applicable
+CHI Spec Rev 3.00 §IQA (Appendix 4.1.3.9 + IQA Defect Tests table pp.14-16):
+  17 tests, positions A-Q.
+  UserField = "{view_marker}:" + 17 single-char codes  (total 21 chars)
+  Codes: '0'=pass, '1'=fail, '2'=advisory, 'N'=not-applicable
 
-The UserField is embedded in CXF XML <ImageViewAnalysis><UserField>.
+The 17 test positions (A-Q) per NPCI spec:
+  A: Partial Image
+  B: Excessive Image Skew
+  C: Piggyback Image
+  D: Streaks and/or Bands
+  E: Bent Corners
+  F: Below Minimum Image Size
+  G: Exceeds Maximum Image Size
+  H: Binary Too Light
+  I: Binary Too Dark
+  J: Image Height Mismatch
+  K: Image Length Mismatch
+  L: Below Minimum Image Length
+  M: Exceeds Maximum Image Length
+  N: Below Minimum Image Height
+  O: Exceeds Maximum Image Height
+  P: Torn Corner
+  Q: ImageFormat (TIFF G4 200dpi for BW, JFIF 100dpi for gray)
 
-The 16 tests (T01–T16) per NPCI spec:
-  T01: Image dimensions within acceptable range
-  T02: Image DPI within acceptable range (200 dpi target for B/W)
-  T03: Bit depth = 1 (binary/black-and-white image)
-  T04: Image file size within acceptable range
-  T05: Front image available
-  T06: Back image available
-  T07: Gray image available
-  T08: MICR band present (bottom 20% of image not blank)
-  T09: Image skew within acceptable range (<3 degrees)
-  T10: Contrast acceptable (not too dark or too light)
-  T11: No torn corner detected
-  T12: No crumple detected
-  T13: Signature area not blank
-  T14: Amount area readable
-  T15: Date area readable
-  T16: Payee area readable
-
-RED phase: all tests must fail before iqa_engine.py is created.
+UserField view markers: "BFB:" (Front B/W), "BBB:" (Back B/W), "BFG:" (Front Gray)
 """
 import pytest
 
@@ -34,9 +33,9 @@ import pytest
 def _make_iqa_input(**kwargs):
     """Create a minimal IQAInput dict; override any field with kwargs."""
     defaults = {
-        "front_bw_bytes": b"\x00" * 1024,
-        "back_bw_bytes": b"\x00" * 512,
-        "front_gray_bytes": b"\x00" * 2048,
+        "front_bw_bytes": b"II\x2a\x00" + b"\x00" * 1020,   # TIFF magic + padding
+        "back_bw_bytes": b"II\x2a\x00" + b"\x00" * 508,    # TIFF magic + padding
+        "front_gray_bytes": b"\xff\xd8\xff\xe0" + b"\x00" * 2044,  # JFIF magic + padding
         "width_px": 1100,
         "height_px": 550,
         "dpi": 200,
@@ -57,13 +56,14 @@ class TestIQAEngineBasic:
         result = engine.run(inp)
         assert result is not None
 
-    def test_result_has_sixteen_tests(self):
+    def test_result_has_seventeen_tests(self):
+        """CHI Spec Rev 3.00: 17 tests (positions A-Q)."""
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
         inp = IQAInput(**_make_iqa_input())
         result = engine.run(inp)
-        assert len(result.tests) == 16
+        assert len(result.tests) == 17
 
     def test_each_test_has_id_and_code(self):
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
@@ -75,14 +75,14 @@ class TestIQAEngineBasic:
             assert hasattr(test, "test_id")
             assert hasattr(test, "code")
 
-    def test_test_ids_are_t01_through_t16(self):
+    def test_test_ids_are_t01_through_t17(self):
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
         inp = IQAInput(**_make_iqa_input())
         result = engine.run(inp)
         ids = [t.test_id for t in result.tests]
-        assert ids == [f"T{i:02d}" for i in range(1, 17)]
+        assert ids == [f"T{i:02d}" for i in range(1, 18)]
 
     def test_code_values_are_valid(self):
         """Every code must be '0' (pass), '1' (fail), '2' (advisory), or 'N' (N/A)."""
@@ -95,9 +95,20 @@ class TestIQAEngineBasic:
         for test in result.tests:
             assert test.code in valid_codes, f"{test.test_id}: invalid code {test.code!r}"
 
+    def test_t17_is_image_format_test(self):
+        """T17 must exist and represent the ImageFormat test."""
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        inp = IQAInput(**_make_iqa_input())
+        result = engine.run(inp)
+        t17 = next((t for t in result.tests if t.test_id == "T17"), None)
+        assert t17 is not None, "T17 (ImageFormat) test is missing"
+        assert t17.code in {"0", "1", "2", "N"}
+
 
 class TestUserFieldEncoding:
-    """UserField string format: 'BFG:' + 16 single chars."""
+    """UserField string format: '{view_marker}:' + 17 single chars = 21 chars total."""
 
     def test_user_field_starts_with_bfg_prefix(self):
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
@@ -107,38 +118,40 @@ class TestUserFieldEncoding:
         result = engine.run(inp)
         assert result.user_field().startswith("BFG:")
 
-    def test_user_field_total_length_is_20(self):
-        """'BFG:' (4) + 16 codes = 20 characters."""
+    def test_user_field_total_length_is_21(self):
+        """'BFG:' (4) + 17 codes = 21 characters (CHI Spec Rev 3.00, positions A-Q)."""
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
         inp = IQAInput(**_make_iqa_input())
         result = engine.run(inp)
-        assert len(result.user_field()) == 20
+        assert len(result.user_field()) == 21
 
-    def test_user_field_suffix_is_16_chars(self):
+    def test_user_field_front_bw_length_is_21(self):
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        result = engine.run(IQAInput(**_make_iqa_input()))
+        assert len(result.user_field_front_bw()) == 21
+
+    def test_user_field_back_bw_length_is_21(self):
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        result = engine.run(IQAInput(**_make_iqa_input()))
+        assert len(result.user_field_back_bw()) == 21
+
+    def test_user_field_suffix_is_17_chars(self):
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
         inp = IQAInput(**_make_iqa_input())
         result = engine.run(inp)
         suffix = result.user_field()[4:]  # after 'BFG:'
-        assert len(suffix) == 16
+        assert len(suffix) == 17
 
     def test_user_field_all_pass(self):
-        """All 16 tests pass → 'BFG:0000000000000000'."""
-        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput, IQATestResult
-
-        engine = IQAEngine()
-        inp = IQAInput(**_make_iqa_input())
-        result = engine.run(inp)
-        # Force all codes to '0'
-        for t in result.tests:
-            t.code = "0"
-        assert result.user_field() == "BFG:0000000000000000"
-
-    def test_user_field_with_one_fail(self):
-        """T02 fail → 'BFG:0100000000000000' (second char is '1')."""
+        """All 17 tests pass → 'BFG:00000000000000000' (17 zeros)."""
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
@@ -146,14 +159,10 @@ class TestUserFieldEncoding:
         result = engine.run(inp)
         for t in result.tests:
             t.code = "0"
-        result.tests[1].code = "1"  # T02 fails
-        uf = result.user_field()
-        assert uf[4] == "0"   # T01 pass
-        assert uf[5] == "1"   # T02 fail
-        assert uf[6:] == "00000000000000"  # T03-T16 pass
+        assert result.user_field() == "BFG:00000000000000000"
 
-    def test_user_field_not_applicable(self):
-        """Not-applicable tests use 'N' (one char, not '-1')."""
+    def test_user_field_with_t17_fail(self):
+        """T17 fail → last char of UserField is '1'."""
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
@@ -161,13 +170,13 @@ class TestUserFieldEncoding:
         result = engine.run(inp)
         for t in result.tests:
             t.code = "0"
-        result.tests[15].code = "N"  # T16 not applicable
+        result.tests[16].code = "1"  # T17 fails
         uf = result.user_field()
-        assert uf[-1] == "N"
-        assert len(uf) == 20  # still exactly 20 chars
+        assert len(uf) == 21
+        assert uf[-1] == "1"   # T17 = last position
 
     def test_user_field_all_chars_single_width(self):
-        """Every char position must be exactly 1 character (no '-1' literals)."""
+        """Every char position must be exactly 1 character (no multi-char codes)."""
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
@@ -176,7 +185,28 @@ class TestUserFieldEncoding:
         for t in result.tests:
             t.code = "N"
         uf = result.user_field()
-        assert uf == "BFG:NNNNNNNNNNNNNNNN"
+        assert uf == "BFG:NNNNNNNNNNNNNNNNN"
+
+    def test_front_bw_prefix_is_bfb(self):
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        result = engine.run(IQAInput(**_make_iqa_input()))
+        assert result.user_field_front_bw().startswith("BFB:")
+
+    def test_back_bw_prefix_is_bbb(self):
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        result = engine.run(IQAInput(**_make_iqa_input()))
+        assert result.user_field_back_bw().startswith("BBB:")
+
+    def test_gray_prefix_is_bfg(self):
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        result = engine.run(IQAInput(**_make_iqa_input()))
+        assert result.user_field().startswith("BFG:")
 
 
 class TestT01Dimensions:
@@ -186,7 +216,6 @@ class TestT01Dimensions:
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
-        # Standard cheque: ~1100×550 px at 200 dpi
         inp = IQAInput(**_make_iqa_input(width_px=1100, height_px=550))
         result = engine.run(inp)
         t01 = next(t for t in result.tests if t.test_id == "T01")
@@ -199,7 +228,7 @@ class TestT01Dimensions:
         inp = IQAInput(**_make_iqa_input(width_px=100, height_px=50))
         result = engine.run(inp)
         t01 = next(t for t in result.tests if t.test_id == "T01")
-        assert t01.code in ("1", "2")  # fail or advisory
+        assert t01.code in ("1", "2")
 
 
 class TestT02DPI:
@@ -253,8 +282,7 @@ class TestT04FileSize:
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
-        # A realistic front B/W TIFF G4: ~20KB–100KB
-        inp = IQAInput(**_make_iqa_input(front_bw_bytes=b"\x00" * 50_000))
+        inp = IQAInput(**_make_iqa_input(front_bw_bytes=b"II\x2a\x00" + b"\x00" * 49996))
         result = engine.run(inp)
         t04 = next(t for t in result.tests if t.test_id == "T04")
         assert t04.code == "0"
@@ -276,7 +304,7 @@ class TestT05T06T07ImagePresence:
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
-        inp = IQAInput(**_make_iqa_input(front_bw_bytes=b"\x00" * 1024))
+        inp = IQAInput(**_make_iqa_input(front_bw_bytes=b"II\x2a\x00" + b"\x00" * 1020))
         result = engine.run(inp)
         t05 = next(t for t in result.tests if t.test_id == "T05")
         assert t05.code == "0"
@@ -294,7 +322,7 @@ class TestT05T06T07ImagePresence:
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
-        inp = IQAInput(**_make_iqa_input(back_bw_bytes=b"\x00" * 512))
+        inp = IQAInput(**_make_iqa_input(back_bw_bytes=b"II\x2a\x00" + b"\x00" * 508))
         result = engine.run(inp)
         t06 = next(t for t in result.tests if t.test_id == "T06")
         assert t06.code == "0"
@@ -303,7 +331,53 @@ class TestT05T06T07ImagePresence:
         from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 
         engine = IQAEngine()
-        inp = IQAInput(**_make_iqa_input(front_gray_bytes=b"\x00" * 2048))
+        inp = IQAInput(**_make_iqa_input(front_gray_bytes=b"\xff\xd8\xff\xe0" + b"\x00" * 2044))
         result = engine.run(inp)
         t07 = next(t for t in result.tests if t.test_id == "T07")
         assert t07.code == "0"
+
+
+class TestT17ImageFormat:
+    """T17 (position Q): ImageFormat — TIFF G4 200dpi for BW, JFIF 100dpi for Gray."""
+
+    def test_t17_passes_for_tiff_bw_and_jfif_gray(self):
+        """Correct TIFF magic (BW) + JFIF magic (gray) → T17 pass."""
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        # TIFF little-endian magic: II + 42 (0x2a) + offset
+        front_bw = b"II\x2a\x00" + b"\x00" * 1020
+        back_bw = b"II\x2a\x00" + b"\x00" * 508
+        # JFIF magic: FF D8 FF E0
+        front_gray = b"\xff\xd8\xff\xe0" + b"\x00" * 2044
+        inp = IQAInput(**_make_iqa_input(
+            front_bw_bytes=front_bw,
+            back_bw_bytes=back_bw,
+            front_gray_bytes=front_gray,
+            dpi=200,
+            bit_depth=1,
+        ))
+        result = engine.run(inp)
+        t17 = next(t for t in result.tests if t.test_id == "T17")
+        assert t17.code in ("0", "2")  # pass or advisory
+
+    def test_t17_is_advisory_or_fail_for_wrong_gray_format(self):
+        """Non-JFIF gray image → T17 advisory or fail."""
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        wrong_gray = b"\x00\x00\x00\x00" + b"\x00" * 2044  # no JFIF magic
+        inp = IQAInput(**_make_iqa_input(front_gray_bytes=wrong_gray))
+        result = engine.run(inp)
+        t17 = next(t for t in result.tests if t.test_id == "T17")
+        assert t17.code in ("1", "2")  # fail or advisory
+
+    def test_t17_is_advisory_or_fail_for_wrong_dpi(self):
+        """DPI != 200 → T17 advisory or fail (format requirement includes DPI)."""
+        from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
+
+        engine = IQAEngine()
+        inp = IQAInput(**_make_iqa_input(dpi=72))  # wrong DPI
+        result = engine.run(inp)
+        t17 = next(t for t in result.tests if t.test_id == "T17")
+        assert t17.code in ("1", "2")
