@@ -66,6 +66,9 @@ _VALID_EVENT_TYPES = {
     "CTS_KILL_SWITCH_RELEASED",
     # ── Instrument passport / OCR provenance ──────────────────────────────────
     "CTS_INSTRUMENT_PASSPORT",          # per-instrument full AI analysis record
+    # ── Inward batch ingestion ────────────────────────────────────────────────
+    "CTS_IN_BATCH_INGESTED",            # PXF+CXF+CIBF parsed; fan-out started
+    "CTS_IN_BATCH_INGEST_FAILED",       # parse or MinIO failure; batch dropped
 }
 
 
