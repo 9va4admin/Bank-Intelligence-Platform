@@ -194,6 +194,10 @@ layer3:
     # Banks that endorse or stamp the reverse may set this to "true" to enforce rear quality checks.
     rear_image_required: "false"                 # Layer 3: hot-reload; "true" enables rear DPI/IQA checks
     strict_image_quality: "true"                # Layer 3: "false" skips DPI/colour/IQA/MICR checks — use only in POC/UAT
+    # Human review allocation — configurable per bank via Admin UI maker-checker
+    allocation_mode: "SELF"                     # SELF | HYBRID | AUTO  (see AllocationService)
+    allocation_lock_ttl_minutes: 10             # Redis lock TTL; reviewer loses lock if inactive > this
+    hybrid_auto_assign_timeout_minutes: 5       # HYBRID only: auto-assign fires if unclaimed after this many minutes
 
   vault:
     error_files:

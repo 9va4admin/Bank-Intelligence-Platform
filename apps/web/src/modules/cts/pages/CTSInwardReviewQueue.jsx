@@ -569,8 +569,8 @@ export default function CTSInwardReviewQueue() {
     queryKey: ['cts-review-queue', bankId, tierFilter],
     queryFn: async () => {
       const url = tierFilter === 'all'
-        ? `/v1/cts/review/queue?bank_id=${bankId}`
-        : `/v1/cts/review/queue?bank_id=${bankId}&tier=${tierFilter}`
+        ? `/v1/cts/queue?bank_id=${bankId}`
+        : `/v1/cts/queue?bank_id=${bankId}&tier=${tierFilter}`
       const res = await fetch(url, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load review queue')
       return res.json()
