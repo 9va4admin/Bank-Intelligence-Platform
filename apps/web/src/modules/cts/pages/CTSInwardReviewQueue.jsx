@@ -407,6 +407,35 @@ function ExpandedPanel({ item, isDark }) {
 
 // ─── Hold / Return modals ─────────────────────────────────────────────────────
 
+function UnclaimModal({ instrument, onConfirm, onCancel, isDark }) {
+  const th = {
+    overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60',
+    modal:   isDark ? 'bg-navy-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl' : 'bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-sm shadow-2xl',
+    heading: isDark ? 'text-base font-semibold text-white' : 'text-base font-semibold text-slate-900',
+  }
+  return (
+    <div className={th.overlay}>
+      <div className={th.modal}>
+        <h2 className={th.heading}>Release Claim?</h2>
+        <p className={`text-sm mt-2 mb-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          {instrument.instrument_id} will return to the unclaimed pool. Any other reviewer
+          can pick it up. Your work so far is not lost — the AI analysis remains.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button onClick={onCancel}
+            className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            Keep Claim
+          </button>
+          <button onClick={onConfirm}
+            className="text-sm px-4 py-1.5 rounded-lg font-medium bg-slate-600 hover:bg-slate-500 text-white">
+            Release
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HoldModal({ instrument, onConfirm, onCancel, isDark }) {
   const [reason, setReason] = useState('')
   const [email, setEmail] = useState('')
@@ -507,6 +536,7 @@ export default function CTSInwardReviewQueue() {
 
   // Demo-mode local state: starts as MOCK_REVIEW_ITEMS, mutations update in-place
   const [demoItems, setDemoItems]     = useState(() => MOCK_REVIEW_ITEMS)
+  const [unclaimTarget, setUnclaimTarget] = useState(null)
 
   useEffect(() => {
     setHeader?.({
@@ -601,6 +631,23 @@ export default function CTSInwardReviewQueue() {
     } catch (e) { showToast(e.message, 'error') }
   }
 
+  async function handleUnclaim(item) {
+    setUnclaimTarget(null)
+    if (isDemo) {
+      updateDemoItem(item.instrument_id, { status: 'PENDING', claimed_by: null, claimed_by_me: false })
+      showToast(`Released claim on ${item.instrument_id} — back to pool`)
+      return
+    }
+    try {
+      const res = await fetch(`/v1/cts/review/${item.instrument_id}/claim`, {
+        method: 'DELETE', credentials: 'include',
+      })
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message ?? `HTTP ${res.status}`) }
+      queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
+      showToast(`Released claim on ${item.instrument_id}`)
+    } catch (e) { showToast(e.message, 'error') }
+  }
+
   async function handleConfirm(item) {
     if (isDemo) {
       updateDemoItem(item.instrument_id, { status: 'CONFIRMED' })
@@ -676,6 +723,7 @@ export default function CTSInwardReviewQueue() {
         )}
         {holdTarget && <HoldModal instrument={holdTarget} onConfirm={handleHoldConfirm} onCancel={() => setHoldTarget(null)} isDark={isDark} />}
         {returnTarget && <ReturnModal instrument={returnTarget} onConfirm={handleReturnConfirm} onCancel={() => setReturnTarget(null)} isDark={isDark} />}
+        {unclaimTarget && <UnclaimModal instrument={unclaimTarget} onConfirm={() => handleUnclaim(unclaimTarget)} onCancel={() => setUnclaimTarget(null)} isDark={isDark} />}
 
         <div className={`flex-1 flex flex-col overflow-hidden ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
 
@@ -817,6 +865,10 @@ export default function CTSInwardReviewQueue() {
                           <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1 rounded">R</kbd>
                         </button>
                       </div>
+                      <button onClick={() => setUnclaimTarget(item)}
+                        className={`w-full py-1.5 rounded-xl text-xs font-medium border transition-colors ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                        Release Claim (return to pool)
+                      </button>
                       <p className={`text-center text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                         Keyboard: A = Confirm · R = Return · H = Hold · ←→ = Navigate
                       </p>
@@ -856,6 +908,7 @@ export default function CTSInwardReviewQueue() {
 
         {holdTarget && <HoldModal instrument={holdTarget} onConfirm={handleHoldConfirm} onCancel={() => setHoldTarget(null)} isDark={isDark} />}
         {returnTarget && <ReturnModal instrument={returnTarget} onConfirm={handleReturnConfirm} onCancel={() => setReturnTarget(null)} isDark={isDark} />}
+        {unclaimTarget && <UnclaimModal instrument={unclaimTarget} onConfirm={() => handleUnclaim(unclaimTarget)} onCancel={() => setUnclaimTarget(null)} isDark={isDark} />}
 
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
@@ -984,6 +1037,10 @@ export default function CTSInwardReviewQueue() {
                             <button onClick={() => setReturnTarget(item)}
                               className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">
                               Return
+                            </button>
+                            <button onClick={() => setUnclaimTarget(item)}
+                              className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-600'}`}>
+                              Release
                             </button>
                           </>
                         )}
