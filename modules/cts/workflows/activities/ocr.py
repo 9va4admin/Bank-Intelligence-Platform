@@ -159,7 +159,8 @@ async def ocr_extract(
         indic_refined: list[str] = []
         if indic_ocr_url and not indic_ks_active:
             indic_refined, indic_backend = await _refine_indic_zones(
-                inp, fields, indic_ocr_url, min_confidence, indic_min_confidence
+                inp.image_url, inp.instrument_id, fields,
+                indic_ocr_url, min_confidence, indic_min_confidence,
             )
             if indic_refined:
                 engines_used.append(indic_backend)
@@ -341,21 +342,28 @@ async def _extract_tesseract(
 # ── Stage 2 ───────────────────────────────────────────────────────────────────
 
 async def _refine_indic_zones(
-    inp: OCRActivityInput,
+    image_url: str,
+    instrument_id: str,
     fields: dict[str, tuple[Optional[str], float]],
     indic_ocr_url: str,
     min_confidence: float,
     indic_min_confidence: float,
+    field_to_zone: Optional[dict[str, str]] = None,
 ) -> tuple[list[str], str]:
     """
     For each SCRIPT_ADAPTIVE result field that contains Indic text (or has low
     confidence), fetch the cheque image, crop the zone, and call IndicOCR.
     Mutates `fields` in place with the refined value when IndicOCR wins.
-    Returns (refined_field_names, engine_label) where engine_label is suitable
-    for inclusion in ocr_engines_used (e.g. "indic_ocr:paddle/devanagari").
+    Returns (refined_field_names, engine_label).
+
+    field_to_zone maps result-field names to zone names — defaults to the
+    inward _RESULT_FIELD_TO_ZONE mapping; callers on a different path (e.g.
+    outward vision_extract_and_check) may pass their own mapping.
     """
+    _ftz = field_to_zone if field_to_zone is not None else _RESULT_FIELD_TO_ZONE
+
     needs_refine: list[tuple[str, str, str]] = []
-    for result_field, zone_name in _RESULT_FIELD_TO_ZONE.items():
+    for result_field, zone_name in _ftz.items():
         text, conf = fields.get(result_field, (None, 0.0))
         script = identify_indic_script(text or "")
         if script is not None or (text is None and conf < min_confidence):
@@ -366,11 +374,11 @@ async def _refine_indic_zones(
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.get(inp.image_url)
+            resp = await client.get(image_url)
             resp.raise_for_status()
             img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as exc:
-        log.warning("ocr.indic_image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
+        log.warning("ocr.indic_image_fetch_failed", instrument_id=instrument_id, error=str(exc))
         return [], ""
 
     refined: list[str] = []
@@ -402,12 +410,12 @@ async def _refine_indic_zones(
                 refined.append(result_field)
                 scripts_seen.add(script)
                 log.info("ocr.indic_refined",
-                         instrument_id=inp.instrument_id, field=result_field,
+                         instrument_id=instrument_id, field=result_field,
                          script=script, confidence=indic_conf)
 
         except Exception as exc:
             log.warning("ocr.indic_zone_failed",
-                        instrument_id=inp.instrument_id, field=result_field, error=str(exc))
+                        instrument_id=instrument_id, field=result_field, error=str(exc))
 
     script_label = "+".join(sorted(scripts_seen)) if scripts_seen else "none"
     engine_label = f"indic_ocr:{backend_used}/{script_label}" if refined else ""

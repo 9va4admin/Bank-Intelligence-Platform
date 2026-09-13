@@ -5,9 +5,10 @@ import pytest
 
 
 def _mock_cts_config():
-    """Mock config_service for validate_cts2010 (rear_image_required = false by default)."""
+    """Mock config_service for validate_cts2010 (strict by default — POC bypass must not bleed into tests)."""
     cfg = AsyncMock()
     cfg.get_cts_config = AsyncMock(return_value={"rear_image_required": "false"})
+    cfg.get = AsyncMock(return_value="true")   # strict_image_quality=true → quality checks actually run
     return cfg
 
 
