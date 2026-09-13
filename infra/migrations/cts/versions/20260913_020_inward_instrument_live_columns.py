@@ -18,8 +18,8 @@ Revises:  20260909_phantom_columns
 from alembic import op
 import sqlalchemy as sa
 
-revision = "20260913_inward_instrument_live_columns"
-down_revision = "20260909_phantom_columns"
+revision = "20260913_inward_live_cols"
+down_revision = "20260904_019"
 branch_labels = None
 depends_on = None
 
