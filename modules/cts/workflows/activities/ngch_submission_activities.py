@@ -32,11 +32,14 @@ class BuildNGCHFileInput(BaseModel):
     session_id: str
     clearing_date: str
     instrument_count: int
+    routing_no: str                  # presenting bank NPCI routing number (for filename)
+    clearing_type: str               # "14" (On-Realization) or "99" (Special)
+    file_id: str = "0001"            # sequential file ID within the session
 
 
 class BuildNGCHFileResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    file_path: str           # MinIO object key where the NGCH file was stored
+    file_path: str           # MinIO object key for the CXF file
     checksum_sha256: str
     instrument_count: int
 
@@ -45,12 +48,13 @@ class BuildNGCHFileResult(BaseModel):
 async def build_ngch_file(
     inp: BuildNGCHFileInput,
     lot_store: Any = None,
+    hsm: Any = None,
 ) -> BuildNGCHFileResult:
     """
-    Assembles the CTS-2010 NGCH file from all endorsed instruments in the lot.
-    Writes the file to MinIO and returns the object key + SHA-256 checksum.
+    Assembles the CHI Spec Rev 3.00 CXF + CIBF from all endorsed instruments in the lot.
+    Writes both files to MinIO and returns the CXF object key + SHA-256 checksum.
 
-    lot_store is DI-injected. Falls back to a stub path when unavailable
+    lot_store and hsm are DI-injected. Falls back to a stub path when unavailable
     (submission will still be attempted — NGCH will reject if file is bad).
     """
     with tracer.start_as_current_span("activity.build_ngch_file") as span:
@@ -73,6 +77,10 @@ async def build_ngch_file(
             bank_ifsc=inp.bank_ifsc,
             session_id=inp.session_id,
             clearing_date=inp.clearing_date,
+            routing_no=inp.routing_no,
+            clearing_type=inp.clearing_type,
+            file_id=inp.file_id,
+            hsm=hsm,
         )
         log.info(
             "build_ngch_file.built",
@@ -96,7 +104,8 @@ class SubmitToNGCHInput(BaseModel):
     lot_number: str
     bank_id: str
     bank_ifsc: str
-    file_path: str
+    file_path: str              # CXF MinIO key (primary submission file)
+    cibf_file_path: Optional[str] = None  # CIBF MinIO key (binary image bundle)
     checksum_sha256: str
     instrument_count: int
 
@@ -135,6 +144,7 @@ async def submit_to_ngch(
                 bank_ifsc=inp.bank_ifsc,
                 lot_number=inp.lot_number,
                 file_path=inp.file_path,
+                cibf_file_path=inp.cibf_file_path,
                 checksum=inp.checksum_sha256,
             )
             log.info(

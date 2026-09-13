@@ -547,12 +547,25 @@ class BoundCTSActivities:
     # NGCH file build + submission (previously NO_DI_ACTIVITIES)
     # ------------------------------------------------------------------
 
+    @activity.defn(name="build_and_upload_ngch_files")
+    async def build_and_upload_ngch_files(self, inp):
+        from modules.cts.workflows.activities.ngch_lot_assembly_activity import (
+            build_and_upload_ngch_files as _real,
+        )
+        return await _real(
+            inp,
+            db_pool=self._db_pool,
+            minio_client=self._minio_client,
+            hsm=self._hsm_signer,
+            config_svc=self._config_service,
+        )
+
     @activity.defn(name="build_ngch_file")
     async def build_ngch_file(self, inp):
         from modules.cts.workflows.activities.ngch_submission_activities import (
             build_ngch_file as _real,
         )
-        return await _real(inp, lot_store=self._lot_store)
+        return await _real(inp, lot_store=self._lot_store, hsm=self._hsm_signer)
 
     @activity.defn(name="submit_to_ngch")
     async def submit_to_ngch(self, inp):
@@ -631,7 +644,8 @@ class BoundCTSActivities:
             self.mark_leaf_presented,
             self.mark_leaf_paid,
             self.mark_leaf_returned,
-            # NGCH file build + submission (DI-wired: lot_store + ngch_adapter)
+            # NGCH file build + submission (DI-wired)
+            self.build_and_upload_ngch_files,
             self.build_ngch_file,
             self.submit_to_ngch,
             self.confirm_acknowledgement,
