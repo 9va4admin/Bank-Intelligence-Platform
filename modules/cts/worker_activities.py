@@ -592,6 +592,16 @@ class BoundCTSActivities:
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
+    @property
+    def redis_client(self):
+        """Expose redis_client for use by co-process consumers (e.g. human_review_consumer)."""
+        return self._redis_client
+
+    @property
+    def immudb_client(self):
+        """Expose immudb_client for use by co-process consumers."""
+        return self._immudb_client
+
     def activity_list(self) -> list:
         """All 30 DI-needing activities as bound methods, ready for
         Worker(activities=...). The one remaining registered CTS activity

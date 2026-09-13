@@ -521,6 +521,37 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
             reason="OutwardScanTrigger module unavailable",
         )
 
+    # Human review consumer — reads cts.human.review.{bank_id} Kafka topic.
+    # In AUTO/HYBRID allocation_mode: auto-assigns or schedules deferred assign
+    # immediately when an instrument enters the human review queue.
+    # Gracefully skipped when Kafka is not configured (dev/test environments).
+    consumer_task = None
+    try:
+        kafka_bootstrap = config_service.get_platform("kafka.bootstrap_servers")
+        from modules.cts.consumers.human_review_consumer import run_consumer as _run_hr_consumer
+        consumer_task = asyncio.create_task(
+            _run_hr_consumer(
+                bank_id=bank_id,
+                bootstrap_servers=kafka_bootstrap,
+                immudb=bound_activities.immudb_client,
+                redis=bound_activities.redis_client,
+                config_svc=config_service,
+            )
+        )
+        log.info("worker.human_review_consumer_started", bank_id=bank_id)
+    except ConfigKeyNotFoundError:
+        log.warning(
+            "worker.human_review_consumer_skipped",
+            bank_id=bank_id,
+            reason="kafka.bootstrap_servers not configured",
+        )
+    except ImportError:
+        log.warning(
+            "worker.human_review_consumer_skipped",
+            bank_id=bank_id,
+            reason="human_review_consumer module unavailable",
+        )
+
     trigger_task = None
     async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:
         if trigger is not None:
@@ -547,6 +578,12 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         if trigger_task is not None:
             try:
                 await asyncio.wait_for(trigger_task, timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+        if consumer_task is not None:
+            consumer_task.cancel()
+            try:
+                await asyncio.wait_for(consumer_task, timeout=5.0)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass
 
