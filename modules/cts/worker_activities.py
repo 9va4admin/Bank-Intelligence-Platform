@@ -87,6 +87,16 @@ from modules.cts.workflows.activities.signature import SignatureActivityInput
 from modules.cts.workflows.activities.stop_payment import StopPaymentActivityInput
 from modules.cts.workflows.activities.persist_decision import PersistDecisionInput
 from modules.cts.workflows.activities.write_audit import WriteAuditInput
+from modules.cts.workflows.activities.inward_batch_activities import (
+    ParseInwardBatchInput,
+    parse_inward_batch as _parse_inward_batch,
+    UploadInstrumentImagesInput,
+    upload_instrument_images as _upload_instrument_images,
+)
+from modules.cts.workflows.activities.insert_inward_instrument import (
+    InsertInwardInstrumentInput,
+    insert_inward_instrument as _insert_inward_instrument,
+)
 from modules.cts.workflows.activities.leaf_lifecycle import (
     LeafLifecycleResult,
     MarkLeafPaidInput,
@@ -589,6 +599,24 @@ class BoundCTSActivities:
         return await _real(inp, ngch_client=self._ngch_adapter)
 
     # ------------------------------------------------------------------
+    # Inward batch ingestion (InwardBatchIngestionWorkflow)
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="parse_inward_batch")
+    async def parse_inward_batch(self, inp: ParseInwardBatchInput):
+        return await _parse_inward_batch(inp, minio_client=self._minio_client)
+
+    @activity.defn(name="upload_instrument_images")
+    async def upload_instrument_images(self, inp: UploadInstrumentImagesInput):
+        return await _upload_instrument_images(inp, minio_client=self._minio_client)
+
+    @activity.defn(name="insert_inward_instrument")
+    async def insert_inward_instrument(self, inp: InsertInwardInstrumentInput):
+        return await _insert_inward_instrument(
+            inp, db_pool=self._db_pool, kafka_producer=self._event_producer
+        )
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
@@ -660,6 +688,10 @@ class BoundCTSActivities:
             self.submit_to_ngch,
             self.confirm_acknowledgement,
             self.fetch_ngch_settlement_report,
+            # Inward batch ingestion
+            self.parse_inward_batch,
+            self.upload_instrument_images,
+            self.insert_inward_instrument,
         ]
 
 
