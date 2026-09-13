@@ -19,6 +19,8 @@ def _make_input(**kwargs):
         session_id="SES01",
         clearing_date="2024-06-19",
         instrument_count=5,
+        routing_no="000550050",
+        clearing_type="14",
     )
     defaults.update(kwargs)
     return NGCHSubmissionInput(**defaults)
@@ -184,6 +186,8 @@ class TestNGCHSubmissionActivities:
             session_id="SES-001",
             clearing_date="2026-07-19",
             instrument_count=5,
+            routing_no="000550050",
+            clearing_type="14",
         )
         result = await build_ngch_file(inp, lot_store=None)
         assert result.instrument_count == 5
