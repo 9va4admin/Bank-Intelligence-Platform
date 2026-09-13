@@ -14,7 +14,7 @@ from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
 
 def _make_app():
-    from apps.api.routers.cts import router_v1
+    from apps.api.routers.cts_dashboard import router_v1
     app = FastAPI()
     app.include_router(router_v1)
     return app
@@ -54,7 +54,8 @@ class TestDashboardTodayEndpoint:
         assert r.status_code == 401
 
     def test_dashboard_today_no_db_returns_zeroes(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _ops_ctx()
@@ -71,7 +72,8 @@ class TestDashboardTodayEndpoint:
         assert body["stp_confirmed"] == 0
 
     def test_dashboard_today_returns_live_inward_count(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _ops_ctx()
@@ -105,7 +107,8 @@ class TestDashboardTodayEndpoint:
         assert body["stp_returned"] == 724
 
     def test_dashboard_today_computes_stp_rate(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _ops_ctx()
@@ -124,7 +127,8 @@ class TestDashboardTodayEndpoint:
         assert body["overall_stp_rate_pct"] == 80.0
 
     def test_dashboard_today_bank_scoped(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _smb_ctx()
@@ -156,7 +160,8 @@ class TestDashboardTrendEndpoint:
         assert r.status_code == 401
 
     def test_dashboard_trend_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _ops_ctx()
@@ -168,7 +173,8 @@ class TestDashboardTrendEndpoint:
         assert isinstance(body["trend"], list)
 
     def test_dashboard_trend_returns_daily_rows(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _ops_ctx()
@@ -188,7 +194,8 @@ class TestDashboardTrendEndpoint:
         assert rows[0]["inward"] == 4800
 
     def test_dashboard_trend_respects_days_param(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_dashboard import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _ops_ctx()
