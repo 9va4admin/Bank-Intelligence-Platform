@@ -234,7 +234,8 @@ async def _resolve_hf_token(bank_id: str) -> Optional[str]:
         return await config_service.get("demo.hf_token")
     except Exception:
         pass
-    return None
+    import os
+    return os.environ.get("ASTRA_DEMO_HF_TOKEN") or None
 
 
 async def _resolve_sig_detector_url(bank_id: str) -> str:
