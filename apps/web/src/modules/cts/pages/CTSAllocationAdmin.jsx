@@ -74,6 +74,26 @@ export default function CTSAllocationAdmin() {
     retry: false,
   })
 
+  // --- active (online) reviewers query — who has an active heartbeat right now ---
+  const { data: reviewersData } = useQuery({
+    queryKey: ['active-reviewers', bankId],
+    queryFn: async () => {
+      if (isDemo) return {
+        active_reviewers: [
+          { reviewer_id: 'ananya.krishnan', expires_at: Date.now() / 1000 + 240 },
+          { reviewer_id: 'rahul.menon',     expires_at: Date.now() / 1000 + 180 },
+        ],
+      }
+      const res = await fetch(`/v1/cts/allocation/reviewers?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return {}
+      return res.json()
+    },
+    enabled: true,
+    refetchInterval: isDemo ? false : REFETCH_MS,
+    staleTime: 10_000,
+    retry: false,
+  })
+
   // --- config query for current allocation_mode ---
   const { data: cfgData } = useQuery({
     queryKey: ['cts-config-alloc-mode', bankId],
@@ -90,10 +110,10 @@ export default function CTSAllocationAdmin() {
 
   const allocationMode = cfgData?.allocation_mode ?? '—'
 
-  // --- force-release mutation ---
+  // --- admin force-release mutation (separate endpoint from reviewer self-unclaim) ---
   const releaseMutation = useMutation({
     mutationFn: async (instrumentId) => {
-      const res = await fetch(`/v1/cts/review/${instrumentId}/claim`, {
+      const res = await fetch(`/v1/cts/admin/review/${instrumentId}/claim`, {
         method: 'DELETE',
         credentials: 'include',
       })
@@ -109,9 +129,17 @@ export default function CTSAllocationAdmin() {
   })
 
   const claims = statusData?.active_claims ?? []
+  const onlineReviewers = reviewersData?.active_reviewers ?? []
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString('en-IN', { hour12: false })
     : '—'
+
+  function fmtExpiresIn(expires_at) {
+    const secs = Math.max(0, Math.round(expires_at - Date.now() / 1000))
+    if (secs <= 0) return 'expired'
+    const m = Math.floor(secs / 60), s = secs % 60
+    return `${m}m ${String(s).padStart(2, '0')}s`
+  }
 
   return (
     <AppShell>
@@ -140,7 +168,7 @@ export default function CTSAllocationAdmin() {
         </div>
 
         {/* Summary row */}
-        <div className={`border rounded-lg p-4 mb-5 flex items-center gap-8 ${th.card}`}>
+        <div className={`border rounded-lg p-4 mb-5 flex items-center gap-8 flex-wrap ${th.card}`}>
           <div>
             <div className={`text-2xl font-bold ${th.heading}`}>
               {isLoading ? '…' : claims.length}
@@ -149,14 +177,52 @@ export default function CTSAllocationAdmin() {
           </div>
           <div className={`h-8 w-px ${th.divider}`} />
           <div>
-            <div className={`text-sm ${th.body}`}>
-              {[...new Set(claims.map(c => c.reviewer_id))].length} reviewer{claims.length !== 1 ? 's' : ''}
+            <div className={`text-sm font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+              {onlineReviewers.length}
             </div>
-            <div className={`text-xs ${th.muted}`}>with claims</div>
+            <div className={`text-xs ${th.muted}`}>reviewers online now</div>
+          </div>
+          <div className={`h-8 w-px ${th.divider}`} />
+          <div>
+            <div className={`text-sm ${th.body}`}>
+              {[...new Set(claims.map(c => c.reviewer_id))].length}
+            </div>
+            <div className={`text-xs ${th.muted}`}>with active claims</div>
           </div>
           {isError && (
             <div className="ml-auto text-xs text-red-400">
               Failed to load — retrying in 30s
+            </div>
+          )}
+        </div>
+
+        {/* Online reviewers panel */}
+        <div className={`border rounded-lg p-4 mb-5 ${th.card}`}>
+          <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>
+            Reviewers Online Now
+            <span className={`ml-2 font-normal normal-case ${th.muted}`}>
+              (heartbeat expires after 5 min of inactivity)
+            </span>
+          </div>
+          {onlineReviewers.length === 0 ? (
+            <p className={`text-sm ${th.muted}`}>
+              No reviewers currently active. In AUTO/HYBRID mode, auto-assign will queue
+              instruments until a reviewer opens the review queue page.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {onlineReviewers.map(r => (
+                <div
+                  key={r.reviewer_id}
+                  className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border ${isDark ? 'bg-emerald-900/20 border-emerald-700/40 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-medium">{r.reviewer_id}</span>
+                  <span className={`font-mono ${isDark ? 'text-emerald-600' : 'text-emerald-500'}`}>
+                    {fmtExpiresIn(r.expires_at)}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
