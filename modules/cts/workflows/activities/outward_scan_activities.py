@@ -185,7 +185,7 @@ async def create_lot_entry(inp: LotAssignmentInput, lot_manager: Any = None) -> 
     if isinstance(inp, dict):
         inp = LotAssignmentInput(**inp)
     with tracer.start_as_current_span("activity.create_lot_entry") as span:
-        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("bank_id", inp.bank_ifsc)
         span.set_attribute("instrument_id", inp.instrument_id)
         lot_number = lot_manager.auto_assign(inp.instrument_id)
         log.info(
@@ -362,6 +362,7 @@ class VisionExtractAndCheckResult(BaseModel):
     mismatch_fields: list[str] = []        # for MismatchResolutionWorkflow compatibility
     overall_confidence: float = 0.0
     degraded: bool = False
+    indic_refined_fields: list[str] = []   # fields replaced by IndicOCR on outward path
 
 
 async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractAndCheckResult:
@@ -529,6 +530,37 @@ async def vision_extract_and_check(
         amount_words   = (data.get("amount_words")   or {}).get("value")
         payee          = (data.get("payee")          or {}).get("value")
         date           = (data.get("date")           or {}).get("value")
+
+        # ── Indic script refinement (outward) ───────────────────────────────────
+        # Qwen2-VL reads Indic scripts but specialized IndicOCR (PaddleOCR v3)
+        # is more accurate for handwritten regional text on cheque fields.
+        # Runs whenever IndicOCR service URL is configured AND kill mode is not KC.
+        indic_refined_fields: list[str] = []
+        indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
+        indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
+
+        if indic_ocr_url:
+            try:
+                ks_raw = await config_service.get("cts.indic_ocr.kill_mode") if config_service else None
+                indic_ks_active = ks_raw == "KC"
+            except Exception:
+                indic_ks_active = False
+
+            if not indic_ks_active:
+                from modules.cts.workflows.activities.ocr import _refine_indic_zones
+                # Build fields dict in the (value, confidence) tuple format _refine_indic_zones expects
+                _indic_fields: dict = {
+                    "payee":        (payee,        float((data.get("payee")        or {}).get("confidence", 0.0))),
+                    "amount_words": (amount_words, float((data.get("amount_words") or {}).get("confidence", 0.0))),
+                }
+                indic_refined_fields, _ = await _refine_indic_zones(
+                    inp.image_front_url, inp.instrument_id,
+                    _indic_fields, indic_ocr_url, min_confidence, indic_min_confidence,
+                )
+                if "payee" in indic_refined_fields:
+                    payee = _indic_fields["payee"][0]
+                if "amount_words" in indic_refined_fields:
+                    amount_words = _indic_fields["amount_words"][0]
 
         confidences = [
             v["confidence"]
