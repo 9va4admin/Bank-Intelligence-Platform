@@ -176,6 +176,23 @@ class TestUploadInstrumentImagesActivity:
         )
         assert hasattr(upload_instrument_images, "__temporal_activity_definition")
 
+    def test_input_uses_cibf_staging_key_not_raw_bytes(self):
+        """Input must carry cibf_staging_key + offsets — raw image bytes must not be in input."""
+        from modules.cts.workflows.activities.inward_batch_activities import (
+            UploadInstrumentImagesInput,
+        )
+        import inspect
+        fields = inspect.signature(UploadInstrumentImagesInput).parameters
+        assert "cibf_staging_key" in fields, "Input must have cibf_staging_key field"
+        assert "front_bw_image_offset" in fields
+        assert "front_bw_image_length" in fields
+        assert "back_bw_image_offset" in fields
+        assert "back_bw_image_length" in fields
+        assert "front_gray_image_offset" in fields
+        assert "front_gray_image_length" in fields
+        assert "front_bw_bytes" not in fields, \
+            "Raw bytes must not be in input — they bloat Temporal history"
+
     @pytest.mark.asyncio
     async def test_no_minio_returns_failure(self):
         from modules.cts.workflows.activities.inward_batch_activities import (
@@ -186,39 +203,128 @@ class TestUploadInstrumentImagesActivity:
             bank_id="saraswat",
             batch_id="BCH0001",
             item_seq_no="00055005000001",
-            front_bw_bytes=b"\x49\x49" * 100,
-            back_bw_bytes=b"\x49\x49" * 80,
-            front_gray_bytes=b"\xFF\xD8" * 200,
+            cibf_staging_key="cts/inward/saraswat/SES001/staging/BCH0001_cibf.img",
+            front_bw_image_offset=256,  front_bw_image_length=8860,
+            back_bw_image_offset=9372,  back_bw_image_length=1122,
+            front_gray_image_offset=10750, front_gray_image_length=8860,
             minio_bucket="cts-files",
         )
         result = await upload_instrument_images(inp, minio_client=None)
         assert result.uploaded is False
 
     @pytest.mark.asyncio
-    async def test_upload_with_minio_produces_keys(self):
+    async def test_activity_slices_cibf_and_uploads_correct_bytes(self):
+        """Activity must download CIBF, slice at given offsets, upload each view."""
+        import io
+        from unittest.mock import call
         from modules.cts.workflows.activities.inward_batch_activities import (
             UploadInstrumentImagesInput,
             upload_instrument_images,
         )
+        # Build a fake CIBF: 3 distinct regions
+        front_bw  = b"\x49\x49\x2a\x00" + b"\xAA" * 100  # 104 bytes at offset 0
+        back_bw   = b"\x49\x49\x2a\x00" + b"\xBB" * 80   # 84 bytes at offset 256
+        front_gray = b"\xFF\xD8\xFF\xe0" + b"\xCC" * 200  # 204 bytes at offset 512
+        cibf = (b"\x00" * 256 + front_bw   # DS then front_bw at 256
+              + b"\x00" * 256 + back_bw    # DS then back_bw at 256+104+256=616
+              + b"\x00" * 256 + front_gray)
+
+        captured_uploads = {}
+        def fake_put(bucket_name, object_name, data, length, content_type):
+            captured_uploads[object_name] = data.read()
+
         mock_minio = MagicMock()
-        mock_minio.put_object = MagicMock()
+        mock_minio.put_object.side_effect = fake_put
+
+        # CIBF returned on get_object
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = cibf
+        mock_resp.close = MagicMock()
+        mock_resp.release_conn = MagicMock()
+        mock_minio.get_object.return_value = mock_resp
 
         inp = UploadInstrumentImagesInput(
             bank_id="saraswat",
             batch_id="BCH0001",
             item_seq_no="00055005000001",
-            front_bw_bytes=b"\x49\x49" * 100,
-            back_bw_bytes=b"\x49\x49" * 80,
-            front_gray_bytes=b"\xFF\xD8" * 200,
+            cibf_staging_key="cts/inward/saraswat/SES001/staging/BCH0001_cibf.img",
+            front_bw_image_offset=256,  front_bw_image_length=len(front_bw),
+            back_bw_image_offset=256 + len(front_bw) + 256,
+            back_bw_image_length=len(back_bw),
+            front_gray_image_offset=256 + len(front_bw) + 256 + len(back_bw) + 256,
+            front_gray_image_length=len(front_gray),
             minio_bucket="cts-files",
         )
         result = await upload_instrument_images(inp, minio_client=mock_minio)
+
         assert result.uploaded is True
-        assert result.front_bw_key
+        assert result.front_bw_key and "saraswat" in result.front_bw_key
         assert result.back_bw_key
         assert result.front_gray_key
-        assert "saraswat" in result.front_bw_key
-        assert "00055005000001" in result.front_bw_key
+
+        # Verify the CIBF was downloaded once
+        mock_minio.get_object.assert_called_once()
+
+        # Verify the correct bytes were uploaded for each view
+        front_bw_uploaded  = captured_uploads.get(result.front_bw_key)
+        back_bw_uploaded   = captured_uploads.get(result.back_bw_key)
+        front_gray_uploaded = captured_uploads.get(result.front_gray_key)
+        assert front_bw_uploaded == front_bw,  "Front BW bytes don't match CIBF slice"
+        assert back_bw_uploaded == back_bw,    "Back BW bytes don't match CIBF slice"
+        assert front_gray_uploaded == front_gray, "Front Gray bytes don't match CIBF slice"
+
+    @pytest.mark.asyncio
+    async def test_upload_result_carries_iet_deadline(self):
+        from modules.cts.workflows.activities.inward_batch_activities import (
+            UploadInstrumentImagesInput, upload_instrument_images,
+        )
+        cibf = b"\x00" * 512 + b"\x49\x49\x2a\x00" * 50
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = cibf
+        mock_resp.close = MagicMock()
+        mock_resp.release_conn = MagicMock()
+        mock_minio = MagicMock()
+        mock_minio.get_object.return_value = mock_resp
+
+        inp = UploadInstrumentImagesInput(
+            bank_id="saraswat",
+            batch_id="BCH0001",
+            item_seq_no="00055005000001",
+            cibf_staging_key="cts/inward/saraswat/SES001/staging/BCH0001_cibf.img",
+            front_bw_image_offset=0,   front_bw_image_length=100,
+            back_bw_image_offset=100,  back_bw_image_length=100,
+            front_gray_image_offset=200, front_gray_image_length=100,
+            minio_bucket="cts-files",
+            iet_deadline=9_999_999_999.0,
+        )
+        result = await upload_instrument_images(inp, minio_client=mock_minio)
+        assert result.iet_deadline == 9_999_999_999.0
+
+
+# ── Workflow CIBF staging key wiring ─────────────────────────────────────────
+
+class TestWorkflowCIBFWiring:
+    """Verify workflow passes cibf_staging_key and offsets to upload activity."""
+
+    def _src(self):
+        import inspect
+        import modules.cts.workflows.inward_batch_workflow as wf_mod
+        return inspect.getsource(wf_mod)
+
+    def test_workflow_passes_cibf_staging_key(self):
+        src = self._src()
+        assert "cibf_staging_key" in src, \
+            "Workflow must pass cibf_staging_key from parse_result to upload activity"
+
+    def test_workflow_passes_image_offsets(self):
+        src = self._src()
+        assert "front_bw_image_offset" in src
+        assert "front_bw_image_length" in src
+
+    def test_workflow_does_not_pass_raw_bytes(self):
+        src = self._src()
+        assert 'front_bw_bytes=b""' not in src, \
+            "Workflow must not pass empty raw bytes to upload activity"
 
 
 # ── Audit event registration ──────────────────────────────────────────────────
