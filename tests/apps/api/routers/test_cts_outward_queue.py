@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 
 def _make_app(with_publisher=True):
     from apps.api.routers.cts_outward_queue import router_v1, get_event_publisher
-    from apps.api.routers.cts import get_current_user_context
+    from apps.api.routers.cts_deps import get_current_user_context
     from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
     app = FastAPI()

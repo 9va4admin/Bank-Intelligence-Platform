@@ -46,7 +46,8 @@ def _ctx(bank_id: str = BANK_ID, role: Role = Role.OPS_MANAGER) -> UserContext:
 
 
 def _make_app(bank_id: str = BANK_ID) -> FastAPI:
-    from apps.api.routers.cts import router_v1, get_current_user_context
+    from apps.api.routers.cts_outward_core import router_v1
+    from apps.api.routers.cts_deps import get_current_user_context
     app = FastAPI()
     app.include_router(router_v1)
     app.dependency_overrides[get_current_user_context] = lambda: _ctx(bank_id)
@@ -84,7 +85,7 @@ def _make_upload_result(
 class TestVaultUploadAuth:
     def test_unauthenticated_upload_returns_401(self):
         """No auth → 401. The route requires get_current_user_context."""
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_outward_core import router_v1
         app = FastAPI()
         app.include_router(router_v1)   # no dependency override → real auth
         client = TestClient(app, raise_server_exceptions=False)
@@ -96,7 +97,7 @@ class TestVaultUploadAuth:
         assert response.status_code == 401
 
     def test_unauthenticated_batch_status_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_outward_core import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -104,7 +105,7 @@ class TestVaultUploadAuth:
         assert response.status_code == 401
 
     def test_unauthenticated_errors_csv_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_outward_core import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -671,7 +672,7 @@ class TestVaultBatchErrorsCsvMinIO:
         app.state.db_pool = self._pool_with_efp()
         mc = _minio_client()
         app.state.minio_client = mc
-        with patch("apps.api.routers.cts.config_service") as mock_cs:
+        with patch("apps.api.routers.cts_outward_core.config_service") as mock_cs:
             mock_cs.get = AsyncMock(return_value="astra-vault-errors")
             client = TestClient(app, raise_server_exceptions=False)
             client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
@@ -737,7 +738,7 @@ class TestVaultUploadPassesMinioClient:
         result = _make_upload_result()
         with patch("modules.cts.vaults.vault_upload_processor.VaultUploadProcessor") as MockProc:
             MockProc.return_value.process = AsyncMock(return_value=result)
-            with patch("apps.api.routers.cts.config_service") as mock_cs:
+            with patch("apps.api.routers.cts_outward_core.config_service") as mock_cs:
                 mock_cs.get = AsyncMock(return_value="astra-vault-errors")
                 client = TestClient(app, raise_server_exceptions=False)
                 client.post(

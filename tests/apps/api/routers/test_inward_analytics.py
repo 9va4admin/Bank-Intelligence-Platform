@@ -24,7 +24,8 @@ def _ctx(bank_id="test-bank", role=Role.OPS_MANAGER):
 
 
 def _make_app(mock_db=None, ctx=None):
-    from apps.api.routers.cts import router_v1, require_user_context
+    from apps.api.routers.cts_inward import router_v1
+    from apps.api.routers.cts_deps import get_current_user_context as require_user_context
 
     app = FastAPI()
     app.include_router(router_v1)
@@ -104,8 +105,16 @@ def _mock_conn(fetch_side_effect=None, fetchrow_return=None):
 
 
 class TestInwardAnalytics:
+    @pytest.fixture(autouse=True)
+    def _mock_config_service(self):
+        from unittest.mock import patch, AsyncMock
+        import apps.api.routers.cts_inward as _mod
+        cfg = {"cts.ocr_min_confidence": "0.90", "cts.sig_min_match_score": "0.80"}
+        with patch.object(_mod.config_service, "get_cts_config", AsyncMock(return_value=cfg)):
+            yield
+
     def test_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
 
         app = FastAPI()
         app.include_router(router_v1)
@@ -192,7 +201,8 @@ class TestInwardAnalytics:
         assert "ALTERATION" in flags
 
     def test_503_when_no_db(self):
-        from apps.api.routers.cts import router_v1, require_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context as require_user_context
 
         app = FastAPI()
         app.include_router(router_v1)
@@ -203,7 +213,8 @@ class TestInwardAnalytics:
         assert resp.status_code == 503
 
     def test_wrong_role_returns_403(self):
-        from apps.api.routers.cts import router_v1, require_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context as require_user_context
 
         app = FastAPI()
         app.include_router(router_v1)

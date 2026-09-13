@@ -23,7 +23,8 @@ def _ctx(bank_id="test-bank", role=Role.OPS_MANAGER):
 
 
 def _make_app(mock_db=None, ctx=None):
-    from apps.api.routers.cts import router_v1, require_user_context
+    from apps.api.routers.cts_outward_data import router_v1
+    from apps.api.dependencies import require_user_context
 
     app = FastAPI()
     app.include_router(router_v1)
@@ -64,7 +65,7 @@ def _fake_analytics_rows():
 
 class TestAnalyticsDaily:
     def test_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_outward_data import router_v1
 
         app = FastAPI()
         app.include_router(router_v1)
@@ -110,7 +111,8 @@ class TestAnalyticsDaily:
             assert field in row, f"Missing field: {field}"
 
     def test_503_when_no_db(self):
-        from apps.api.routers.cts import router_v1, require_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.dependencies import require_user_context
 
         app = FastAPI()
         app.include_router(router_v1)
@@ -122,7 +124,8 @@ class TestAnalyticsDaily:
         assert resp.status_code == 503
 
     def test_wrong_role_returns_403(self):
-        from apps.api.routers.cts import router_v1, require_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.dependencies import require_user_context
 
         app = FastAPI()
         app.include_router(router_v1)

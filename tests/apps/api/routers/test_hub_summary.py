@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
-from apps.api.routers.cts import (
+from apps.api.routers.cts_outward_core import (
     BranchSessionInfo,
     BranchSessionSummary,
     HubSummaryResponse,

@@ -23,7 +23,8 @@ def _ctx(bank_id="test-bank", role=Role.OPS_MANAGER):
 
 
 def _make_app(lot_row=None, scan_rows=None, ctx=None):
-    from apps.api.routers.cts import router_v1, require_user_context
+    from apps.api.routers.cts_outward_data import router_v1
+    from apps.api.dependencies import require_user_context
 
     conn = AsyncMock()
     conn.__aenter__ = AsyncMock(return_value=conn)
@@ -78,7 +79,7 @@ _SAMPLE_LOT_ROW = {
 
 class TestLotInstruments:
     def test_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_outward_data import router_v1
 
         app = FastAPI()
         app.include_router(router_v1)
@@ -139,7 +140,8 @@ class TestLotInstruments:
         assert resp.status_code == 403
 
     def test_503_no_db(self):
-        from apps.api.routers.cts import router_v1, require_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.dependencies import require_user_context
 
         app = FastAPI()
         app.include_router(router_v1)
