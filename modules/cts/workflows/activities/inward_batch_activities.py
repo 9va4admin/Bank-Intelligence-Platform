@@ -260,9 +260,13 @@ class UploadInstrumentImagesInput(BaseModel):
     bank_id: str
     batch_id: str
     item_seq_no: str
-    front_bw_bytes: bytes
-    back_bw_bytes: bytes
-    front_gray_bytes: bytes
+    cibf_staging_key: str        # MinIO key of staged CIBF — activity slices images from it
+    front_bw_image_offset: int
+    front_bw_image_length: int
+    back_bw_image_offset: int
+    back_bw_image_length: int
+    front_gray_image_offset: int
+    front_gray_image_length: int
     minio_bucket: str
     iet_deadline: float = 0.0   # passed through to result for workflow to use
 
@@ -311,10 +315,22 @@ async def upload_instrument_images(
         fgry_key = f"{base}/front_gray.jfif"
 
         try:
+            # Download the staged CIBF once and slice out the three image regions
+            cibf = _download(minio_client, inp.minio_bucket, inp.cibf_staging_key)
+            front_bw_bytes = cibf[
+                inp.front_bw_image_offset: inp.front_bw_image_offset + inp.front_bw_image_length
+            ]
+            back_bw_bytes = cibf[
+                inp.back_bw_image_offset: inp.back_bw_image_offset + inp.back_bw_image_length
+            ]
+            front_gray_bytes = cibf[
+                inp.front_gray_image_offset: inp.front_gray_image_offset + inp.front_gray_image_length
+            ]
+
             for key, data, ctype in [
-                (fbw_key,  inp.front_bw_bytes,   "image/tiff"),
-                (bbw_key,  inp.back_bw_bytes,    "image/tiff"),
-                (fgry_key, inp.front_gray_bytes, "image/jpeg"),
+                (fbw_key,  front_bw_bytes,   "image/tiff"),
+                (bbw_key,  back_bw_bytes,    "image/tiff"),
+                (fgry_key, front_gray_bytes, "image/jpeg"),
             ]:
                 minio_client.put_object(
                     bucket_name=inp.minio_bucket,
