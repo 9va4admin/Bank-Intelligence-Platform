@@ -85,6 +85,7 @@ class InsertInwardInstrumentResult(BaseModel):
     bank_id: str
     item_seq_no: str
     inserted: bool
+    amount_range: str = ""
     error: Optional[str] = None
 
 
@@ -93,13 +94,15 @@ async def insert_inward_instrument(
     inp: InsertInwardInstrumentInput,
     db_pool: Any = None,
     kafka_producer: Any = None,
-    immudb_client: Any = None,
 ) -> InsertInwardInstrumentResult:
     """Insert cheque_instruments + cheque_image_metadata + publish Kafka event.
 
+    Immudb audit is NOT done here — the workflow calls write_audit activity
+    separately after this returns, so HSM signing and unlimited-retry guarantee
+    are handled by the standard audit path.
+
     Gracefully degrades: if db_pool is None returns inserted=False with error.
-    Immudb and Kafka failures are logged but do not block the DB write result
-    (Temporal retry handles durability for audit and messaging).
+    Kafka failure is logged but non-blocking (Temporal retry handles re-publish).
     """
     with tracer.start_as_current_span("activity.insert_inward_instrument") as span:
         span.set_attribute("bank_id", inp.bank_id)
@@ -267,23 +270,10 @@ async def insert_inward_instrument(
                 )
                 # Non-blocking — Temporal retry handles re-publish
 
-        # ── 4. Immudb audit (fire-and-forget) ────────────────────────────────
-        if immudb_client is not None:
-            try:
-                immudb_client.set(
-                    f"cts:inward:{inp.bank_id}:{instrument_id}:received",
-                    f'{{"item_seq_no":"{inp.item_seq_no}","iet_deadline":{inp.iet_deadline}}}'.encode(),
-                )
-            except Exception as exc:
-                log.warning(
-                    "insert_inward_instrument.immudb_failed",
-                    instrument_id=instrument_id,
-                    error=str(exc),
-                )
-
         return InsertInwardInstrumentResult(
             instrument_id=instrument_id,
             bank_id=inp.bank_id,
             item_seq_no=inp.item_seq_no,
             inserted=True,
+            amount_range=amount_range,
         )
