@@ -596,6 +596,51 @@ async def get_human_review_queue(
 
     items.sort(key=lambda x: x.iet_deadline)
     log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
+
+    # --- Reviewer heartbeat + HYBRID deferred auto-assign ---
+    # Every queue poll registers the reviewer as active (5-min TTL in Redis).
+    # In HYBRID mode, we also fire any deferred auto-assigns whose timeout has passed.
+    redis = getattr(request.app.state, "redis_cts", None)
+    if redis is not None and ctx.role.value in ("ops_reviewer", "ops_manager"):
+        from modules.cts.allocation.lock_service import LockService
+        from modules.cts.allocation.allocation_service import AllocationService
+        lock_svc = LockService(redis_client=redis)
+
+        try:
+            await lock_svc.heartbeat_reviewer(eff_bank_id, ctx.user_id)
+        except Exception as exc:
+            log.warning("cts.queue.heartbeat_failed", user_id=ctx.user_id, error=str(exc))
+
+        # HYBRID deferred auto-assign — check for instruments past their unclaimed timeout
+        config_svc = getattr(request.app.state, "config_service", None)
+        cts_config: dict = {}
+        if config_svc is not None:
+            try:
+                cts_config = await config_svc.get_cts_config(eff_bank_id)
+            except Exception:
+                pass
+
+        if cts_config.get("allocation_mode") == "HYBRID":
+            try:
+                alloc_svc = AllocationService(lock_service=lock_svc)
+                due = await lock_svc.pop_due_hybrid_pending(eff_bank_id, limit=10)
+                if due:
+                    available = await lock_svc.get_active_reviewers(eff_bank_id)
+                    for pending_id in due:
+                        # Only auto-assign if still unclaimed (reviewer may have self-claimed)
+                        holder = await lock_svc.get_lock_holder(pending_id)
+                        if holder is None:
+                            result = await alloc_svc.auto_assign(pending_id, available, cts_config)
+                            log.info(
+                                "cts.queue.hybrid_auto_assigned",
+                                instrument_id=pending_id,
+                                claimed=result.claimed,
+                                reviewer_id=result.reviewer_id,
+                                bank_id=eff_bank_id,
+                            )
+            except Exception as exc:
+                log.warning("cts.queue.hybrid_auto_assign_error", bank_id=eff_bank_id, error=str(exc))
+
     return QueueResponse(items=items, total=len(items), bank_id=eff_bank_id)
 
 

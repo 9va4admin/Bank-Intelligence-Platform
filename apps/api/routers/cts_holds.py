@@ -170,6 +170,19 @@ class AllocationStatusResponse(BaseModel):
     total: int
 
 
+class ActiveReviewerItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    reviewer_id: str
+    expires_at: float  # Unix timestamp — heartbeat TTL expiry
+
+
+class ActiveReviewersResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    active_reviewers: list[ActiveReviewerItem]
+    total: int
+
+
 # ---------------------------------------------------------------------------
 # Amount-range display helper
 # ---------------------------------------------------------------------------
@@ -850,3 +863,122 @@ async def get_allocation_status(
 
     log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
     return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
+
+
+# ---------------------------------------------------------------------------
+# GET /allocation/reviewers  — admin: who is currently online (heartbeat pool)
+#
+# Returns every ops_reviewer whose heartbeat hasn't expired (5-min TTL refreshed
+# on every queue poll). The ops_manager uses this to:
+#   - Know who is available before manually assigning work
+#   - Understand why AUTO mode may have no candidates
+#   - Decide whether to call someone in before the IET window closes
+# ---------------------------------------------------------------------------
+
+@router_v1.get(
+    "/allocation/reviewers",
+    response_model=ActiveReviewersResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_active_reviewers(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ActiveReviewersResponse:
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+    reviewers: list[ActiveReviewerItem] = []
+
+    if redis is not None:
+        import time as _time
+        from modules.cts.allocation.lock_service import LockService, _HEARTBEAT_KEY_PREFIX
+        lock_svc = LockService(redis_client=redis)
+        key = f"{_HEARTBEAT_KEY_PREFIX}{bank_id}"
+        now_ts = _time.time()
+        # Purge expired members first
+        await redis.zremrangebyscore(key, "-inf", now_ts)
+        # Return remaining with their expiry scores
+        raw = await redis.zrange(key, 0, -1, withscores=True)
+        for member, score in raw:
+            reviewer_id_val = member.decode() if isinstance(member, bytes) else member
+            reviewers.append(ActiveReviewerItem(reviewer_id=reviewer_id_val, expires_at=score))
+
+    log.info("cts.alloc.reviewers", bank_id=bank_id, online=len(reviewers))
+    return ActiveReviewersResponse(bank_id=bank_id, active_reviewers=reviewers, total=len(reviewers))
+
+
+# ---------------------------------------------------------------------------
+# DELETE /admin/review/{instrument_id}/claim  — admin force-release
+#
+# Separate endpoint from the reviewer self-unclaim (DELETE /review/{id}/claim).
+# The self-unclaim is owner-guarded (only the holder can release their own lock).
+# This endpoint ignores ownership — it always releases, regardless of who holds it.
+# Only ops_manager and bank_it_admin may call this.
+# Every call is audited to Immudb with the admin's user_id and the previous holder.
+# ---------------------------------------------------------------------------
+
+@router_v1.delete(
+    "/admin/review/{instrument_id}/claim",
+    response_model=ClaimResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def admin_force_release_claim(
+    instrument_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClaimResponse:
+    bank_id = ctx.bank_id
+    admin_id = ctx.user_id
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+
+    class _NullRedis:
+        async def get(self, key): return None
+        async def set(self, key, value, ex=None): return True
+        async def delete(self, key): return 0
+        async def scan(self, cursor, match=None, count=None): return (0, [])
+        async def expire(self, key, ttl): return 0
+        async def zadd(self, key, mapping): return 0
+        async def zremrangebyscore(self, key, mn, mx): return 0
+        async def zrange(self, key, start, end): return []
+
+    from modules.cts.allocation.lock_service import LockService
+    lock_svc = LockService(redis_client=redis if redis is not None else _NullRedis())
+
+    # Capture who held the lock before releasing (for the audit record)
+    previous_holder = await lock_svc.get_lock_holder(instrument_id)
+
+    await lock_svc.force_release(instrument_id)
+
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        audit_event = AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_UNCLAIMED,
+            bank_id=bank_id,
+            user_id=admin_id,
+            payload={
+                "instrument_id": instrument_id,
+                "force_released_by": admin_id,
+                "previous_holder": previous_holder,
+                "action": "ADMIN_FORCE_RELEASE",
+            },
+        )
+        await audit_writer(audit_event)
+
+    log.info(
+        "cts.alloc.force_released",
+        instrument_id=instrument_id,
+        admin_id=admin_id,
+        previous_holder=previous_holder,
+        bank_id=bank_id,
+    )
+    return ClaimResponse(
+        instrument_id=instrument_id,
+        claimed=False,
+        message=f"Force-released (was held by {previous_holder or 'nobody'})",
+    )
