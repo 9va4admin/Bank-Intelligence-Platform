@@ -5,10 +5,10 @@ Packages an endorsed lot into a CTS-compliant NGCH file and submits it
 to the National Grid Clearing House for settlement.
 
 Activity sequence:
-  1. build_ngch_file          — assemble XML/CTS file from lot instruments
-  2. submit_to_ngch           — NGCH adapter delivers file (SFTP or REST)
-  3. confirm_acknowledgement  — parse NGCH response / ACK message
-  4. write_audit              — Immudb audit (ALL terminal outcomes)
+  1. build_and_upload_ngch_files — DB query + image download + CHI-spec build + MinIO upload
+  2. submit_to_ngch              — NGCH adapter delivers CXF + CIBF (SFTP or REST)
+  3. confirm_acknowledgement     — parse NGCH response / ACK message
+  4. write_audit                 — Immudb audit (ALL terminal outcomes)
   5. publish cts.outward.submitted.{bank_id} — Kafka event on SUBMITTED
 
 Terminal states: SUBMITTED | SUBMISSION_FAILED
@@ -48,6 +48,9 @@ class NGCHSubmissionInput(BaseModel):
     session_id: str
     clearing_date: str
     instrument_count: int
+    routing_no: str               # presenting bank NPCI routing number (for CHI Spec filename)
+    clearing_type: str            # "14" (On-Realization) or "99" (Special)
+    file_id: str = "0001"         # sequential file ID within the session
 
 
 class NGCHSubmissionResult(BaseModel):
@@ -67,42 +70,45 @@ class NGCHSubmissionWorkflow:
 
     @workflow.run
     async def run(self, inp: NGCHSubmissionInput) -> NGCHSubmissionResult:
+        from modules.cts.workflows.activities.ngch_lot_assembly_activity import (
+            FetchAndBuildInput,
+            build_and_upload_ngch_files,
+        )
         from modules.cts.workflows.activities.ngch_submission_activities import (
-            BuildNGCHFileInput,
             ConfirmAcknowledgementInput,
             SubmitToNGCHInput,
-            build_ngch_file,
             confirm_acknowledgement,
             submit_to_ngch,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
         from shared.event_bus.topics import CTS_OUTWARD_SUBMITTED
 
-        # Step 1: Build NGCH file and store in MinIO
-        file_result = await workflow.execute_activity(
-            build_ngch_file,
-            BuildNGCHFileInput(
-                lot_number=inp.lot_number,
+        # Step 1: Fetch instruments from DB, download images, build spec-compliant
+        #         CXF + CIBF, upload both to MinIO — returns MinIO keys + filenames
+        build_result = await workflow.execute_activity(
+            build_and_upload_ngch_files,
+            FetchAndBuildInput(
                 bank_id=inp.bank_id,
-                bank_ifsc=inp.bank_ifsc,
+                lot_number=inp.lot_number,
                 session_id=inp.session_id,
                 clearing_date=inp.clearing_date,
-                instrument_count=inp.instrument_count,
+                bank_ifsc=inp.bank_ifsc,
             ),
-            start_to_close_timeout=timedelta(seconds=60),
+            start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_NGCH_RETRY,
         )
 
-        # Step 2: Submit to NGCH via adapter
+        # Step 2: Submit to NGCH via adapter (CXF + CIBF as separate files)
         submit_result = await workflow.execute_activity(
             submit_to_ngch,
             SubmitToNGCHInput(
                 lot_number=inp.lot_number,
                 bank_id=inp.bank_id,
                 bank_ifsc=inp.bank_ifsc,
-                file_path=file_result.file_path,
-                checksum_sha256=file_result.checksum_sha256,
-                instrument_count=inp.instrument_count,
+                file_path=build_result.cxf_minio_key,
+                cibf_file_path=build_result.cibf_minio_key,
+                checksum_sha256="",         # checksum verified at NGCH via file content
+                instrument_count=build_result.instrument_count,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_NGCH_RETRY,
@@ -144,7 +150,9 @@ class NGCHSubmissionWorkflow:
                     "bank_ifsc": inp.bank_ifsc,
                     "session_id": inp.session_id,
                     "clearing_date": inp.clearing_date,
-                    "instrument_count": inp.instrument_count,
+                    "instrument_count": build_result.instrument_count,
+                    "cxf_filename": build_result.cxf_filename,
+                    "cibf_filename": build_result.cibf_filename,
                     "outcome": outcome,
                     "ngch_reference": ngch_reference,
                     "failure_reason": failure_reason,
@@ -155,23 +163,16 @@ class NGCHSubmissionWorkflow:
         )
 
         # Step 5: On SUBMITTED, publish to cts.outward.submitted topic
-        # so audit-service and analytics-service can consume
         if outcome == "SUBMITTED":
-            from modules.cts.workflows.activities.ngch_submission_activities import (
-                SubmitToNGCHInput as _unused,
-            )
-            from shared.event_bus.producer import EventProducer
-            # Non-critical publish — fire attempt but don't fail workflow on error
             try:
-                # EventProducer is injected via workflow context in the real worker;
-                # here we rely on workflow sandbox — the activity handles the publish.
-                # This placeholder logs intent; the activity-level DI handles real publish.
                 log.info(
                     "ngch_submission_workflow.outward_submitted_event",
                     topic=CTS_OUTWARD_SUBMITTED.format(bank_id=inp.bank_id),
                     lot_number=inp.lot_number,
                     bank_id=inp.bank_id,
                     ngch_reference=ngch_reference,
+                    cxf_filename=build_result.cxf_filename,
+                    cibf_filename=build_result.cibf_filename,
                 )
             except Exception as exc:
                 log.warning(
@@ -185,6 +186,8 @@ class NGCHSubmissionWorkflow:
             bank_id=inp.bank_id,
             outcome=outcome,
             ngch_reference=ngch_reference,
+            cxf_filename=build_result.cxf_filename,
+            cibf_filename=build_result.cibf_filename,
         )
 
         return NGCHSubmissionResult(
@@ -201,13 +204,8 @@ class NGCHSubmissionWorkflow:
         inp: NGCHSubmissionInput,
         mock_results: dict,
     ) -> NGCHSubmissionResult:
-        # Step 1: Build NGCH file
         ngch_file = mock_results["ngch_file"]  # noqa: F841
-
-        # Step 2: Submit to NGCH
         submission = mock_results["submission"]
-
-        # Step 3: Confirm acknowledgement
         ack = mock_results["acknowledgement"]
 
         if not ack.acknowledged:
