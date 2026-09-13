@@ -219,3 +219,251 @@ class TestRedisKeyFormat:
     def test_lock_key_prefix_constant_exists(self):
         from modules.cts.allocation.lock_service import LOCK_KEY_PREFIX
         assert LOCK_KEY_PREFIX.startswith("lock:cts:")
+
+
+# ---------------------------------------------------------------------------
+# Extended helper — adds sorted set operations for heartbeat / HYBRID tests
+# ---------------------------------------------------------------------------
+
+def _make_full_redis():
+    """Fake Redis with lock key + sorted set support."""
+    redis = AsyncMock()
+    redis._store: dict = {}
+    redis._zsets: dict = {}
+
+    async def set_nx(key, value, ex=None):
+        if key in redis._store:
+            return False
+        redis._store[key] = value
+        return True
+
+    async def delete(key):
+        redis._store.pop(key, None)
+
+    async def get(key):
+        return redis._store.get(key)
+
+    async def expire(key, seconds):
+        pass
+
+    async def zadd(key, mapping):
+        if key not in redis._zsets:
+            redis._zsets[key] = {}
+        redis._zsets[key].update(mapping)
+
+    async def zremrangebyscore(key, min_s, max_s):
+        if key not in redis._zsets:
+            return
+        min_f = float("-inf") if min_s == "-inf" else float(min_s)
+        max_f = float("inf") if max_s == "+inf" else float(max_s)
+        stale = [m for m, s in redis._zsets[key].items() if min_f <= s <= max_f]
+        for m in stale:
+            del redis._zsets[key][m]
+
+    async def zrange(key, start, stop):
+        if key not in redis._zsets:
+            return []
+        items = sorted(redis._zsets[key].items(), key=lambda x: x[1])
+        members = [m for m, _ in items]
+        return members[start:] if stop == -1 else members[start : stop + 1]
+
+    async def zrangebyscore(key, min_s, max_s, start=0, num=None):
+        if key not in redis._zsets:
+            return []
+        min_f = float("-inf") if min_s == "-inf" else float(min_s)
+        max_f = float("inf") if max_s == "+inf" else float(max_s)
+        items = sorted(redis._zsets[key].items(), key=lambda x: x[1])
+        members = [m for m, s in items if min_f <= s <= max_f]
+        result = members[start:]
+        return result[:num] if num is not None else result
+
+    async def zrem(key, *members):
+        if key not in redis._zsets:
+            return
+        for m in members:
+            redis._zsets[key].pop(m, None)
+
+    redis.set = AsyncMock(side_effect=set_nx)
+    redis.delete = AsyncMock(side_effect=delete)
+    redis.get = AsyncMock(side_effect=get)
+    redis.expire = AsyncMock(side_effect=expire)
+    redis.zadd = AsyncMock(side_effect=zadd)
+    redis.zremrangebyscore = AsyncMock(side_effect=zremrangebyscore)
+    redis.zrange = AsyncMock(side_effect=zrange)
+    redis.zrangebyscore = AsyncMock(side_effect=zrangebyscore)
+    redis.zrem = AsyncMock(side_effect=zrem)
+    return redis
+
+
+# ---------------------------------------------------------------------------
+# 6. force_release
+# ---------------------------------------------------------------------------
+
+class TestForceRelease:
+    @pytest.mark.asyncio
+    async def test_force_release_removes_lock_regardless_of_owner(self):
+        """Admin force_release deletes lock even when caller is not the lock holder."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        await svc.acquire_lock("INST-FR-01", "reviewer-1", _cfg())
+        assert await svc.get_lock_holder("INST-FR-01") == "reviewer-1"
+        await svc.force_release("INST-FR-01")
+        assert await svc.get_lock_holder("INST-FR-01") is None
+
+    @pytest.mark.asyncio
+    async def test_force_release_on_unclaimed_instrument_does_not_raise(self):
+        """force_release on a key that does not exist is a safe no-op."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        await svc.force_release("INST-NONEXISTENT")
+
+    @pytest.mark.asyncio
+    async def test_after_force_release_new_reviewer_can_acquire(self):
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        await svc.acquire_lock("INST-FR-02", "reviewer-1", _cfg())
+        await svc.force_release("INST-FR-02")
+        result = await svc.acquire_lock("INST-FR-02", "reviewer-2", _cfg())
+        assert result is True
+
+
+# ---------------------------------------------------------------------------
+# 7. Reviewer heartbeat
+# ---------------------------------------------------------------------------
+
+class TestHeartbeatReviewer:
+    @pytest.mark.asyncio
+    async def test_heartbeat_registers_reviewer_in_sorted_set(self):
+        """heartbeat_reviewer must add reviewer to the sorted set."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        await svc.heartbeat_reviewer("saraswat-coop", "ananya.krishnan")
+        assert "active-reviewers:saraswat-coop" in redis._zsets
+        assert "ananya.krishnan" in redis._zsets["active-reviewers:saraswat-coop"]
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_score_is_future_timestamp(self):
+        """Score stored must be a future Unix timestamp (now + ttl_seconds)."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        before = time.time()
+        await svc.heartbeat_reviewer("saraswat-coop", "reviewer-x", ttl_seconds=300)
+        after = time.time()
+        score = redis._zsets["active-reviewers:saraswat-coop"]["reviewer-x"]
+        assert before + 299 <= score <= after + 301
+
+    @pytest.mark.asyncio
+    async def test_get_active_reviewers_returns_live_members(self):
+        """Reviewer with future expiry timestamp is returned."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        redis._zsets["active-reviewers:saraswat-coop"] = {
+            "ananya.krishnan": time.time() + 300
+        }
+        result = await svc.get_active_reviewers("saraswat-coop")
+        assert "ananya.krishnan" in result
+
+    @pytest.mark.asyncio
+    async def test_get_active_reviewers_excludes_expired_members(self):
+        """Reviewer whose expiry timestamp is in the past is pruned."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        redis._zsets["active-reviewers:saraswat-coop"] = {
+            "stale.reviewer": time.time() - 1
+        }
+        result = await svc.get_active_reviewers("saraswat-coop")
+        assert "stale.reviewer" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_active_reviewers_returns_empty_when_no_heartbeats(self):
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        result = await svc.get_active_reviewers("new-bank-no-reviewers")
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# 8. HYBRID pending queue
+# ---------------------------------------------------------------------------
+
+class TestHybridPendingQueue:
+    @pytest.mark.asyncio
+    async def test_add_hybrid_pending_stores_with_correct_score(self):
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        assign_at = time.time() + 300.0
+        await svc.add_hybrid_pending("saraswat-coop", "INST-HP-01", assign_at)
+        key = "hybrid-pending:saraswat-coop"
+        assert key in redis._zsets
+        assert "INST-HP-01" in redis._zsets[key]
+        assert redis._zsets[key]["INST-HP-01"] == assign_at
+
+    @pytest.mark.asyncio
+    async def test_pop_due_hybrid_pending_returns_and_removes_due_items(self):
+        """Items with assign_after_ts <= now are returned and removed from the set."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        redis._zsets["hybrid-pending:saraswat-coop"] = {
+            "INST-DUE-01": time.time() - 1
+        }
+        result = await svc.pop_due_hybrid_pending("saraswat-coop")
+        assert "INST-DUE-01" in result
+        assert "INST-DUE-01" not in redis._zsets.get("hybrid-pending:saraswat-coop", {})
+
+    @pytest.mark.asyncio
+    async def test_pop_due_hybrid_pending_skips_future_items(self):
+        """Items with assign_after_ts > now are NOT returned."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        redis._zsets["hybrid-pending:saraswat-coop"] = {
+            "INST-FUTURE": time.time() + 10000
+        }
+        result = await svc.pop_due_hybrid_pending("saraswat-coop")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_pop_due_hybrid_pending_returns_empty_when_queue_empty(self):
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        result = await svc.pop_due_hybrid_pending("empty-bank")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_remove_hybrid_pending_removes_specific_instrument(self):
+        """remove_hybrid_pending removes target but leaves siblings untouched."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        redis._zsets["hybrid-pending:saraswat-coop"] = {
+            "INST-A": time.time() + 100,
+            "INST-B": time.time() + 200,
+        }
+        await svc.remove_hybrid_pending("saraswat-coop", "INST-A")
+        key = "hybrid-pending:saraswat-coop"
+        assert "INST-A" not in redis._zsets[key]
+        assert "INST-B" in redis._zsets[key]
+
+    @pytest.mark.asyncio
+    async def test_pop_due_hybrid_pending_respects_limit(self):
+        """pop_due returns at most `limit` items even when more are due."""
+        from modules.cts.allocation.lock_service import LockService
+        redis = _make_full_redis()
+        svc = LockService(redis_client=redis)
+        past = time.time() - 1
+        redis._zsets["hybrid-pending:saraswat-coop"] = {
+            f"INST-{i:03d}": past - i for i in range(5)
+        }
+        result = await svc.pop_due_hybrid_pending("saraswat-coop", limit=3)
+        assert len(result) == 3
