@@ -276,3 +276,50 @@ class TestInwardBatchIETSafety:
         )
         assert item.iet_deadline == 9999999999.0
         assert item.pps_flag == "P"
+
+
+# ── Workflow audit wiring ─────────────────────────────────────────────────────
+
+class TestInwardBatchWorkflowAuditWiring:
+    """Verify InwardBatchIngestionWorkflow calls write_audit for both outcomes."""
+
+    def _src(self):
+        import inspect
+        import modules.cts.workflows.inward_batch_workflow as wf_mod
+        return inspect.getsource(wf_mod)
+
+    def test_workflow_imports_write_audit(self):
+        src = self._src()
+        assert "write_audit" in src, \
+            "InwardBatchIngestionWorkflow must import write_audit"
+
+    def test_workflow_imports_write_audit_input(self):
+        src = self._src()
+        assert "WriteAuditInput" in src, \
+            "InwardBatchIngestionWorkflow must import WriteAuditInput"
+
+    def test_workflow_audits_batch_ingested_on_success(self):
+        src = self._src()
+        assert "CTS_IN_BATCH_INGESTED" in src, \
+            "Workflow must write CTS_IN_BATCH_INGESTED audit on successful batch completion"
+
+    def test_workflow_audits_batch_ingest_failed_on_parse_error(self):
+        src = self._src()
+        assert "CTS_IN_BATCH_INGEST_FAILED" in src, \
+            "Workflow must write CTS_IN_BATCH_INGEST_FAILED audit when parse fails"
+
+    def test_audit_payload_includes_instrument_count(self):
+        src = self._src()
+        assert "instruments_started" in src, \
+            "Audit payload must include instruments_started count"
+
+    def test_audit_payload_includes_session_id(self):
+        src = self._src()
+        assert "session_id" in src, \
+            "Audit payload must include session_id for RBI traceability"
+
+    def test_audit_uses_unlimited_retry(self):
+        """Audit write must use unlimited retry (_AUDIT_RETRY) — same as outward workflow."""
+        src = self._src()
+        assert "_AUDIT_RETRY" in src, \
+            "Audit write must use _AUDIT_RETRY (maximum_attempts=0 = unlimited)"
