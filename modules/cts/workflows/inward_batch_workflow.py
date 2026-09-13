@@ -3,11 +3,12 @@ InwardBatchIngestionWorkflow — full inward batch ingestion pipeline.
 
 Receives notification that a PXF + CXF + CIBF triple has been deposited
 to MinIO by the NGCH adapter. Steps:
-  1. parse_inward_batch   — download, parse PXF/CXF/CIBF, return per-item list
-  2. upload_instrument_images — upload front BW / back BW / front gray per instrument
-  3. insert_inward_instrument — write to cts.cheque_instruments + cheque_image_metadata
-                                + publish cts.inward.{bank_id} Kafka event
-  4. start_child_workflow ChequeProcessingWorkflow per instrument (fan-out, parallel)
+  1. parse_inward_batch        — download, parse PXF/CXF/CIBF, return per-item list
+  2. upload_instrument_images  — upload front BW / back BW / front gray per instrument
+  3. insert_inward_instrument  — write to cts.cheque_instruments + cheque_image_metadata
+                                 + publish cts.inward.{bank_id} Kafka event
+  4. start_child_workflow      — ChequeProcessingWorkflow per instrument (fan-out, parallel)
+  5. write_audit               — Immudb audit (ALL terminal outcomes, batch level)
 
 IET rule: iet_deadline per instrument always comes from PXF. Never from config.
 """
@@ -38,6 +39,11 @@ with workflow.unsafe.imports_passed_through():
     from modules.cts.workflows.cheque_workflow import (
         ChequeProcessingWorkflow,
         ChequeWorkflowInput,
+    )
+    from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
+    from modules.cts.workflows.activities.write_audit import (
+        WriteAuditInput,
+        write_audit,
     )
 
 log = structlog.get_logger()
@@ -85,6 +91,18 @@ _DB_RETRY = RetryPolicy(
     non_retryable_error_types=["ValidationError"],
 )
 
+_AUDIT_RETRY = RetryPolicy(
+    maximum_attempts=0,  # unlimited — audit must succeed
+    initial_interval=timedelta(seconds=1),
+    maximum_interval=timedelta(minutes=5),
+)
+
+_AUDIT_RETRY = RetryPolicy(
+    maximum_attempts=None,          # unlimited — audit must eventually succeed
+    initial_interval=timedelta(seconds=1),
+    maximum_interval=timedelta(minutes=5),
+)
+
 
 @workflow.defn
 class InwardBatchIngestionWorkflow:
@@ -124,6 +142,24 @@ class InwardBatchIngestionWorkflow:
                 batch_id=inp.batch_id,
                 bank_id=inp.bank_id,
                 error=parse_result.parse_error,
+            )
+            await workflow.execute_activity(
+                write_audit,
+                args=[WriteAuditInput(
+                    event_type="CTS_IN_BATCH_INGEST_FAILED",
+                    bank_id=inp.bank_id,
+                    payload={
+                        "batch_id": inp.batch_id,
+                        "session_id": inp.session_id,
+                        "clearing_date": inp.clearing_date,
+                        "parse_error": parse_result.parse_error,
+                        "pxf_minio_key": inp.pxf_minio_key,
+                        "cxf_minio_key": inp.cxf_minio_key,
+                        "cibf_minio_key": inp.cibf_minio_key,
+                    },
+                )],
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
             )
             return InwardBatchResult(
                 batch_id=inp.batch_id,
@@ -195,7 +231,28 @@ class InwardBatchIngestionWorkflow:
                 failure_count += 1
                 continue
 
-            # 3b. Fan-out: one ChequeProcessingWorkflow per instrument
+            # 3b. Immudb audit — HSM-signed, unlimited retries (write_audit standard path)
+            await workflow.execute_activity(
+                write_audit,
+                args=[WriteAuditInput(
+                    event_type="CTS_IN_BATCH_INGESTED",
+                    bank_id=inp.bank_id,
+                    instrument_id=insert_result.instrument_id,
+                    payload={
+                        "item_seq_no": item_dict["item_seq_no"],
+                        "batch_id": inp.batch_id,
+                        "session_id": inp.session_id,
+                        "iet_deadline": item_dict["iet_deadline"],
+                        "pps_flag": item_dict["pps_flag"],
+                        "amount_range": insert_result.instrument_id,   # resolved inside activity
+                        "front_bw_key": upload_result.front_bw_key,
+                    },
+                )],
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+
+            # 3d. Fan-out: one ChequeProcessingWorkflow per instrument
             # IETWatchdogWorkflow is started inside ChequeProcessingWorkflow as its first act.
             # parent_close_policy=ABANDON: processing survives even if this batch workflow ends.
             await workflow.start_child_workflow(
@@ -216,6 +273,26 @@ class InwardBatchIngestionWorkflow:
             )
 
             instruments_started += 1
+
+        await workflow.execute_activity(
+            write_audit,
+            args=[WriteAuditInput(
+                event_type="CTS_IN_BATCH_INGESTED",
+                bank_id=inp.bank_id,
+                payload={
+                    "batch_id": inp.batch_id,
+                    "session_id": inp.session_id,
+                    "clearing_date": inp.clearing_date,
+                    "instruments_started": instruments_started,
+                    "failure_count": failure_count,
+                    "pxf_minio_key": inp.pxf_minio_key,
+                    "cxf_minio_key": inp.cxf_minio_key,
+                    "cibf_minio_key": inp.cibf_minio_key,
+                },
+            )],
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_AUDIT_RETRY,
+        )
 
         workflow.logger.info(
             "inward_batch.complete",
