@@ -41,10 +41,6 @@ with workflow.unsafe.imports_passed_through():
         ChequeWorkflowInput,
     )
     from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
-    from modules.cts.workflows.activities.write_audit import (
-        WriteAuditInput,
-        write_audit,
-    )
 
 log = structlog.get_logger()
 
@@ -89,12 +85,6 @@ _DB_RETRY = RetryPolicy(
     initial_interval=timedelta(seconds=2),
     backoff_coefficient=2.0,
     non_retryable_error_types=["ValidationError"],
-)
-
-_AUDIT_RETRY = RetryPolicy(
-    maximum_attempts=0,  # unlimited — audit must succeed
-    initial_interval=timedelta(seconds=1),
-    maximum_interval=timedelta(minutes=5),
 )
 
 _AUDIT_RETRY = RetryPolicy(
@@ -244,7 +234,7 @@ class InwardBatchIngestionWorkflow:
                         "session_id": inp.session_id,
                         "iet_deadline": item_dict["iet_deadline"],
                         "pps_flag": item_dict["pps_flag"],
-                        "amount_range": insert_result.instrument_id,   # resolved inside activity
+                        "amount_range": insert_result.amount_range,
                         "front_bw_key": upload_result.front_bw_key,
                     },
                 )],
