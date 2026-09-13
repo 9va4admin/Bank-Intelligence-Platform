@@ -1,14 +1,15 @@
 """
-InwardBatchIngestionWorkflow — orchestrate inward batch ingestion.
+InwardBatchIngestionWorkflow — full inward batch ingestion pipeline.
 
 Receives notification that a PXF + CXF + CIBF triple has been deposited
 to MinIO by the NGCH adapter. Steps:
   1. parse_inward_batch   — download, parse PXF/CXF/CIBF, return per-item list
-  2. upload_instrument_images — fan-out (one per instrument, parallel)
-  3. Start ChequeProcessingWorkflow child per instrument with per-item iet_deadline
+  2. upload_instrument_images — upload front BW / back BW / front gray per instrument
+  3. insert_inward_instrument — write to cts.cheque_instruments + cheque_image_metadata
+                                + publish cts.inward.{bank_id} Kafka event
+  4. start_child_workflow ChequeProcessingWorkflow per instrument (fan-out, parallel)
 
-IET rule: each ChequeProcessingWorkflow receives iet_deadline from PXF.
-This workflow never reads iet_minutes from config.
+IET rule: iet_deadline per instrument always comes from PXF. Never from config.
 """
 from __future__ import annotations
 
@@ -28,6 +29,15 @@ with workflow.unsafe.imports_passed_through():
         UploadInstrumentImagesResult,
         parse_inward_batch,
         upload_instrument_images,
+    )
+    from modules.cts.workflows.activities.insert_inward_instrument import (
+        InsertInwardInstrumentInput,
+        InsertInwardInstrumentResult,
+        insert_inward_instrument,
+    )
+    from modules.cts.workflows.cheque_workflow import (
+        ChequeProcessingWorkflow,
+        ChequeWorkflowInput,
     )
 
 log = structlog.get_logger()
@@ -68,10 +78,17 @@ _UPLOAD_RETRY = RetryPolicy(
     non_retryable_error_types=["ValidationError"],
 )
 
+_DB_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=2.0,
+    non_retryable_error_types=["ValidationError"],
+)
+
 
 @workflow.defn
 class InwardBatchIngestionWorkflow:
-    """Ingests one inward clearing batch: parse → upload → fan-out."""
+    """Ingests one inward clearing batch: parse → upload → DB insert → fan-out."""
 
     @staticmethod
     def workflow_id(bank_id: str, batch_id: str) -> str:
@@ -85,7 +102,7 @@ class InwardBatchIngestionWorkflow:
             bank_id=inp.bank_id,
         )
 
-        # Step 1 — parse all three NGCH files
+        # ── Step 1: parse PXF + CXF + CIBF ──────────────────────────────────
         parse_result: ParseInwardBatchResult = await workflow.execute_activity(
             parse_inward_batch,
             args=[ParseInwardBatchInput(
@@ -118,15 +135,9 @@ class InwardBatchIngestionWorkflow:
 
         items = parse_result.items  # list of dicts (serialised ParsedBatchItem)
 
-        # Step 2 — upload images in parallel (fan-out per instrument)
+        # ── Step 2: upload images in parallel ────────────────────────────────
         upload_handles = []
         for item_dict in items:
-            # Images are not passed through Temporal history — the upload activity
-            # downloads CIBF from MinIO using cibf_bytes_key and slices using offsets.
-            # Here we pass the offsets so the activity can do the slicing itself.
-            # For now the activity receives pre-sliced bytes via the input model.
-            # In production the activity fetches CIBF from parse_result.cibf_bytes_key.
-            # This fan-out structure supports both patterns.
             upload_handles.append(
                 workflow.execute_activity(
                     upload_instrument_images,
@@ -134,7 +145,7 @@ class InwardBatchIngestionWorkflow:
                         bank_id=inp.bank_id,
                         batch_id=inp.batch_id,
                         item_seq_no=item_dict["item_seq_no"],
-                        front_bw_bytes=b"",    # sliced by activity from MinIO
+                        front_bw_bytes=b"",    # activity fetches CIBF from MinIO staging key
                         back_bw_bytes=b"",
                         front_gray_bytes=b"",
                         minio_bucket=inp.minio_bucket,
@@ -149,16 +160,62 @@ class InwardBatchIngestionWorkflow:
         for handle in upload_handles:
             upload_results.append(await handle)
 
-        # Step 3 — fan-out to ChequeProcessingWorkflow per instrument
-        # (child workflow starts are fire-and-forget here; IET watchdog is started
-        # inside ChequeProcessingWorkflow itself as its first act)
+        # ── Step 3: DB insert + Kafka + ChequeProcessingWorkflow per instrument
         instruments_started = 0
         failure_count = 0
-        for upload_result in upload_results:
-            if upload_result.uploaded:
-                instruments_started += 1
-            else:
+
+        for item_dict, upload_result in zip(items, upload_results):
+            if not upload_result.uploaded:
                 failure_count += 1
+                continue
+
+            # 3a. Persist to YugabyteDB + publish Kafka event
+            insert_result: InsertInwardInstrumentResult = await workflow.execute_activity(
+                insert_inward_instrument,
+                args=[InsertInwardInstrumentInput(
+                    bank_id=inp.bank_id,
+                    batch_id=inp.batch_id,
+                    session_id=inp.session_id,
+                    item_seq_no=item_dict["item_seq_no"],
+                    iet_deadline=item_dict["iet_deadline"],   # from PXF — IET safety
+                    pps_flag=item_dict["pps_flag"],
+                    micr_line=item_dict["micr_line"],
+                    drawee_ifsc=item_dict["drawee_ifsc"],
+                    drawee_account=item_dict["drawee_account"],
+                    amount_paise=item_dict["amount_paise"],
+                    front_bw_key=upload_result.front_bw_key,
+                    back_bw_key=upload_result.back_bw_key,
+                    front_gray_key=upload_result.front_gray_key,
+                )],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_DB_RETRY,
+            )
+
+            if not insert_result.inserted:
+                failure_count += 1
+                continue
+
+            # 3b. Fan-out: one ChequeProcessingWorkflow per instrument
+            # IETWatchdogWorkflow is started inside ChequeProcessingWorkflow as its first act.
+            # parent_close_policy=ABANDON: processing survives even if this batch workflow ends.
+            await workflow.start_child_workflow(
+                ChequeProcessingWorkflow.run,
+                args=[ChequeWorkflowInput(
+                    instrument_id=insert_result.instrument_id,
+                    bank_id=inp.bank_id,
+                    image_url=upload_result.front_bw_key,
+                    account_number=item_dict["drawee_account"],
+                    cheque_number=item_dict["item_seq_no"][-6:],
+                    presented_amount=item_dict["amount_paise"] / 100.0,
+                    presented_payee="",    # Vision LLM extracts this inside the workflow
+                    iet_deadline=item_dict["iet_deadline"],   # from PXF — IET watchdog uses this
+                    ngch_ifsc=item_dict["drawee_ifsc"],
+                )],
+                id=f"cts-{inp.bank_id}-{insert_result.instrument_id}",
+                parent_close_policy=workflow.ParentClosePolicy.ABANDON,
+            )
+
+            instruments_started += 1
 
         workflow.logger.info(
             "inward_batch.complete",
