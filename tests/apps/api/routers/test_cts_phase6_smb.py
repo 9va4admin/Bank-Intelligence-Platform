@@ -14,7 +14,7 @@ from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
 
 def _make_app():
-    from apps.api.routers.cts import router_v1
+    from apps.api.routers.cts_smb import router_v1
     app = FastAPI()
     app.include_router(router_v1)
     return app
@@ -54,7 +54,8 @@ class TestSMBForwardingLogAllEndpoint:
         assert r.status_code == 401
 
     def test_forwarding_log_all_smb_user_forbidden(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _smb_ctx()
@@ -63,7 +64,8 @@ class TestSMBForwardingLogAllEndpoint:
         assert r.status_code == 403
 
     def test_forwarding_log_all_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -76,7 +78,8 @@ class TestSMBForwardingLogAllEndpoint:
         assert isinstance(body["items"], list)
 
     def test_forwarding_log_all_returns_items_with_bank_name(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -110,7 +113,8 @@ class TestSMBForwardingLogAllEndpoint:
         assert item["forwarding_status"] == "COMPLETED"
 
     def test_forwarding_log_all_respects_limit(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -122,7 +126,8 @@ class TestSMBForwardingLogAllEndpoint:
         assert r.status_code == 200
 
     def test_forwarding_log_all_failed_only_filter(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -148,7 +153,8 @@ class TestSMBListEndpoint:
         assert r.status_code == 401
 
     def test_smb_list_smb_user_forbidden(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _smb_ctx()
@@ -157,7 +163,8 @@ class TestSMBListEndpoint:
         assert r.status_code == 403
 
     def test_smb_list_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()

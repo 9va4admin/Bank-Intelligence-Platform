@@ -21,7 +21,7 @@ from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
 
 def _make_app():
-    from apps.api.routers.cts import router_v1
+    from apps.api.routers.cts_inward import router_v1
     app = FastAPI()
     app.include_router(router_v1)
     return app
@@ -46,7 +46,7 @@ def _submit_payload():
 
 class TestCTSSubmitRoute:
     def test_submit_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -55,7 +55,8 @@ class TestCTSSubmitRoute:
         assert response.status_code == 401
 
     def test_submit_authenticated_returns_202_or_200(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -66,7 +67,8 @@ class TestCTSSubmitRoute:
         assert response.status_code in (200, 202)
 
     def test_submit_response_has_instrument_id(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -79,7 +81,8 @@ class TestCTSSubmitRoute:
         assert "instrument_id" in data
 
     def test_submit_response_has_workflow_id(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -91,7 +94,8 @@ class TestCTSSubmitRoute:
         assert "workflow_id" in data
 
     def test_submit_response_has_status(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -103,7 +107,8 @@ class TestCTSSubmitRoute:
         assert data["status"] in ("ACCEPTED", "REJECTED")
 
     def test_submit_invalid_payload_returns_422(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -115,7 +120,8 @@ class TestCTSSubmitRoute:
 
     def test_submit_workflow_id_is_deterministic(self):
         """Workflow ID must be cts-{bank_id}-{instrument_id} — idempotency guarantee."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -129,7 +135,7 @@ class TestCTSSubmitRoute:
 
 class TestCTSDecisionRoute:
     def test_get_decision_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -138,7 +144,8 @@ class TestCTSDecisionRoute:
         assert response.status_code == 401
 
     def test_get_decision_authenticated_returns_200(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -148,7 +155,8 @@ class TestCTSDecisionRoute:
         assert response.status_code == 200
 
     def test_get_decision_response_has_instrument_id(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -159,7 +167,8 @@ class TestCTSDecisionRoute:
         assert data["instrument_id"] == "INST001"
 
     def test_get_decision_response_has_workflow_status(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -172,7 +181,7 @@ class TestCTSDecisionRoute:
 
 class TestCTSHealthRoute:
     def test_health_live_no_auth_required(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -210,7 +219,8 @@ class TestCTSSubmitWithTemporalClient:
 
     def _make_app_with_temporal(self, temporal_client):
         _patch_temporalio()
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -236,10 +246,14 @@ class TestCTSSubmitWithTemporalClient:
     def test_submit_with_temporal_workflow_already_started_is_idempotent(self):
         """WorkflowAlreadyStartedError → still returns 202 (idempotent)."""
         _patch_temporalio()
+        try:
+            from temporalio.exceptions import WorkflowAlreadyStartedError as _WASErr
+            _exc = _WASErr(workflow_id="INST001", workflow_type="ChequeProcessingWorkflow")
+        except (ImportError, TypeError):
+            class _WASErr(Exception): pass
+            _exc = _WASErr("workflow already started")
         temporal_client = MagicMock()
-        temporal_client.start_workflow = AsyncMock(
-            side_effect=Exception("workflow already started")
-        )
+        temporal_client.start_workflow = AsyncMock(side_effect=_exc)
         app = self._make_app_with_temporal(temporal_client)
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -323,7 +337,8 @@ class TestCTSDecisionWithTemporalClient:
     """Covers lines 210-221: decision fetch when Temporal client is present."""
 
     def _make_app_with_temporal(self, temporal_client):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -331,11 +346,31 @@ class TestCTSDecisionWithTemporalClient:
         return app
 
     def test_get_decision_returns_completed_result_from_temporal(self):
+        import sys
+        from types import ModuleType
+
+        # Build a minimal temporalio.client stub with WorkflowExecutionStatus so
+        # the route's internal `from temporalio.client import WorkflowExecutionStatus`
+        # succeeds regardless of what prior tests put in sys.modules.
+        class _WEStatus:
+            COMPLETED = "COMPLETED"
+            FAILED = "FAILED"
+            TERMINATED = "TERMINATED"
+            CANCELED = "CANCELED"
+            TIMED_OUT = "TIMED_OUT"
+
+        fake_client_mod = ModuleType("temporalio.client")
+        fake_client_mod.WorkflowExecutionStatus = _WEStatus
+
         result = MagicMock()
         result.decision = "STP_CONFIRM"
         result.rationale = "All checks passed"
 
+        desc = MagicMock()
+        desc.status = _WEStatus.COMPLETED  # matches route comparison
+
         handle = MagicMock()
+        handle.describe = AsyncMock(return_value=desc)
         handle.result = AsyncMock(return_value=result)
 
         temporal_client = MagicMock()
@@ -344,7 +379,15 @@ class TestCTSDecisionWithTemporalClient:
         app = self._make_app_with_temporal(temporal_client)
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.get("/v1/cts/decisions/INST001", headers=_auth_headers())
+        _saved = sys.modules.get("temporalio.client")
+        sys.modules["temporalio.client"] = fake_client_mod
+        try:
+            response = client.get("/v1/cts/decisions/INST001", headers=_auth_headers())
+        finally:
+            if _saved is None:
+                sys.modules.pop("temporalio.client", None)
+            else:
+                sys.modules["temporalio.client"] = _saved
         assert response.status_code == 200
         data = response.json()
         assert data["decision"] == "STP_CONFIRM"
@@ -370,7 +413,8 @@ class TestCTSReviewDecision:
     """Covers lines 247-291: review decision signal path."""
 
     def _make_app(self, temporal_client=None):
-        from apps.api.routers.cts import router_v1, get_current_bank_id, get_current_user_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id, get_current_user_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -380,7 +424,7 @@ class TestCTSReviewDecision:
         return app
 
     def test_review_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -522,7 +566,7 @@ class TestCTSAuthEdgeCases:
     """Cover the 'token does not start with test-token-' rejection paths."""
 
     def test_submit_invalid_token_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -535,7 +579,7 @@ class TestCTSAuthEdgeCases:
         assert response.status_code == 401
 
     def test_get_decision_invalid_token_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -547,7 +591,7 @@ class TestCTSAuthEdgeCases:
         assert response.status_code == 401
 
     def test_review_invalid_token_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -577,7 +621,7 @@ class TestCTSDependencyCoverage:
     def test_get_current_user_id_delegates_to_shared_auth_context(self):
         """get_current_user_id correctly extracts user_id from the shared,
         middleware-backed session context — not from a parsed token."""
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         from apps.api.dependencies import require_user_context
         app = FastAPI()
         app.include_router(router_v1)
@@ -596,7 +640,7 @@ class TestCTSDependencyCoverage:
     def test_get_current_bank_id_delegates_to_shared_auth_context(self):
         """get_current_bank_id correctly extracts bank_id from the shared
         session context — not from removeprefix() on a raw Bearer token."""
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         from apps.api.dependencies import require_user_context
         app = FastAPI()
         app.include_router(router_v1)
@@ -614,7 +658,7 @@ class TestCTSDependencyCoverage:
         universal backdoor, must never grant access again — with no session
         cookie and no dependency override, every request 401s regardless of
         what's in the Authorization header."""
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -627,7 +671,8 @@ class TestCTSDependencyCoverage:
 
     def test_get_current_user_id_no_token_returns_401(self):
         """No session cookie, no override → 401."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -641,7 +686,8 @@ class TestCTSDependencyCoverage:
 
     def test_get_current_user_id_invalid_token_returns_401(self):
         """A bogus Authorization header (no valid session) → 401."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -657,7 +703,8 @@ class TestCTSDependencyCoverage:
     def test_get_temporal_client_raises_503_when_no_client(self):
         """Covers lines 63-69: get_temporal_client raises 503 when not set on app state."""
         _patch_temporalio()
-        from apps.api.routers.cts import router_v1, get_current_bank_id, get_temporal_client
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id, get_temporal_client
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -681,7 +728,7 @@ class TestCTSDependencyCoverage:
     def test_get_temporal_client_returns_client_when_set(self):
         """Covers line 69: get_temporal_client returns client when set on app state."""
         _patch_temporalio()
-        from apps.api.routers.cts import get_temporal_client
+        from apps.api.routers.cts_deps import get_temporal_client
         from fastapi import Request
         from unittest.mock import MagicMock as MM
         mock_client = MM()
@@ -699,7 +746,8 @@ class TestCTSDependencyCoverage:
 class TestCTSQueueRoute:
     def test_queue_no_temporal_returns_empty(self):
         """Without Temporal client, returns empty queue with 200."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
@@ -716,7 +764,7 @@ class TestCTSQueueRoute:
 
     def test_queue_unauthenticated_returns_401(self):
         """No auth header → 401."""
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -725,7 +773,8 @@ class TestCTSQueueRoute:
 
     def test_queue_limit_capped_at_100(self):
         """limit > 100 is silently capped to 100."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
@@ -740,7 +789,8 @@ class TestCTSQueueRoute:
 
     def test_queue_with_temporal_returns_items(self):
         """Temporal client returning workflow list → items populated."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         from unittest.mock import MagicMock, AsyncMock
 
         # Build async iterable of workflow stubs
@@ -789,7 +839,8 @@ class TestCTSQueueRoute:
 
     def test_queue_temporal_error_returns_empty(self):
         """Temporal list_workflows error → empty queue (not 503)."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         from unittest.mock import MagicMock
 
         async def _broken_iter():
@@ -814,7 +865,8 @@ class TestCTSQueueRoute:
 
     def test_queue_sorted_by_iet_deadline_ascending(self):
         """Items are returned sorted by iet_deadline ascending (most urgent first)."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         from unittest.mock import MagicMock
 
         def _make_wf(inst_id, iet_deadline):
@@ -867,7 +919,7 @@ class TestCTSQueueRoute:
 
 class TestChequeSearchRoute:
     def test_search_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_inward import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -875,8 +927,8 @@ class TestChequeSearchRoute:
         assert response.status_code == 401
 
     def test_search_query_too_short_returns_422(self):
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -885,8 +937,8 @@ class TestChequeSearchRoute:
         assert response.status_code == 422
 
     def test_search_valid_query_returns_200(self):
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -899,8 +951,8 @@ class TestChequeSearchRoute:
         assert body["bank_id"] == "test-bank"
 
     def test_search_limit_capped_at_20(self):
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -916,7 +968,7 @@ class TestChequeSearchRoute:
 
 class TestVaultSyncRoutes:
     def test_sync_status_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_vault_ops import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -924,8 +976,8 @@ class TestVaultSyncRoutes:
         assert response.status_code == 401
 
     def test_sync_status_no_temporal_returns_unknown(self):
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -936,7 +988,7 @@ class TestVaultSyncRoutes:
         assert response.json()["status"] == "UNKNOWN"
 
     def test_trigger_unauthenticated_returns_401(self):
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_vault_ops import router_v1
         app = FastAPI()
         app.include_router(router_v1)
         client = TestClient(app, raise_server_exceptions=False)
@@ -944,8 +996,8 @@ class TestVaultSyncRoutes:
         assert response.status_code == 401
 
     def test_trigger_no_temporal_returns_triggered(self):
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -958,8 +1010,8 @@ class TestVaultSyncRoutes:
         assert "workflow_id" in body
 
     def test_trigger_with_temporal_starts_workflow(self):
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -982,8 +1034,8 @@ class TestVaultSyncRoutes:
         .claude/rules/pii-data-protection.md) — this route must fetch a real
         pepper via config_service.get_secret() before constructing it, or
         every trigger fails with a Pydantic validation error."""
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -1007,8 +1059,8 @@ class TestVaultSyncRoutes:
     def test_trigger_returns_503_when_pepper_unavailable(self):
         """Vault unreachable -> pepper fetch raises -> route must fail closed
         (503), never silently trigger a workflow with a missing/empty pepper."""
-        from apps.api.routers.cts import router_v1
-        from apps.api.routers.cts import get_current_bank_id
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -1037,7 +1089,8 @@ class TestCTSSubmitCtsConfigWiring:
 
     def _make_app(self, temporal_client):
         _patch_temporalio()
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_inward import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
@@ -1149,7 +1202,8 @@ class TestScheduleIDOR:
     404 — not 403. 403 reveals the schedule exists (existence oracle = IDOR)."""
 
     def _make_schedule_app(self, bank_id: str):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts_admin_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: bank_id

@@ -16,7 +16,7 @@ from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
 
 def _make_app():
-    from apps.api.routers.cts import router_v1
+    from apps.api.routers.cts_vault_ops import router_v1
     app = FastAPI()
     app.include_router(router_v1)
     return app
@@ -75,7 +75,8 @@ class TestVaultHealthEndpoint:
         assert r.status_code == 401
 
     def test_vault_health_no_db_returns_empty_stats(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -89,7 +90,8 @@ class TestVaultHealthEndpoint:
         assert "pps_status" in body
 
     def test_vault_health_returns_key_counts_from_db(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -108,7 +110,8 @@ class TestVaultHealthEndpoint:
 
     def test_vault_health_scoped_to_bank_id(self):
         """DB query must use bank_id from JWT — not a param from the caller."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _smb_ctx()
@@ -124,7 +127,8 @@ class TestVaultHealthEndpoint:
         assert body["bank_id"] == "vasavi-001"
 
     def test_vault_health_status_healthy_when_keys_present(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -155,7 +159,8 @@ class TestVaultMissesEndpoint:
         assert r.status_code == 401
 
     def test_vault_misses_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -167,7 +172,8 @@ class TestVaultMissesEndpoint:
         assert isinstance(body["misses"], list)
 
     def test_vault_misses_returns_todays_events(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -194,7 +200,8 @@ class TestVaultMissesEndpoint:
         assert miss["routed_to"] == "HUMAN_REVIEW"
 
     def test_vault_misses_miss_reason_never_exposes_full_account(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -231,7 +238,8 @@ class TestVaultPPSEndpoint:
         assert r.status_code == 401
 
     def test_vault_pps_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -243,7 +251,8 @@ class TestVaultPPSEndpoint:
         assert isinstance(body["entries"], list)
 
     def test_vault_pps_returns_entries(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -274,7 +283,8 @@ class TestVaultPPSEndpoint:
 
     def test_vault_pps_status_filter(self):
         """Only non-CONFIRMED_PAID entries returned by default."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -300,7 +310,8 @@ class TestVaultStopChequesEndpoint:
         assert r.status_code == 401
 
     def test_vault_stop_cheques_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -312,7 +323,8 @@ class TestVaultStopChequesEndpoint:
         assert isinstance(body["instructions"], list)
 
     def test_vault_stop_cheques_returns_active_instructions(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -340,7 +352,8 @@ class TestVaultStopChequesEndpoint:
         assert inst["status"] == "ACTIVE"
 
     def test_vault_stop_cheques_fraud_analyst_denied(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_vault_ops import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _fraud_ctx()

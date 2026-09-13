@@ -15,9 +15,10 @@ from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 
 
 def _make_app():
-    from apps.api.routers.cts import router_v1
+    from apps.api.routers import cts_smb, cts_outward_data
     app = FastAPI()
-    app.include_router(router_v1)
+    app.include_router(cts_smb.router_v1)
+    app.include_router(cts_outward_data.router_v1)
     return app
 
 
@@ -65,7 +66,8 @@ class TestSMBLedgersEndpoint:
         assert r.status_code == 401
 
     def test_smb_ledgers_wrong_role_returns_403(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         fraud_ctx = UserContext(
@@ -78,7 +80,8 @@ class TestSMBLedgersEndpoint:
         assert r.status_code == 403
 
     def test_smb_ledgers_no_db_returns_empty_list(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -93,7 +96,8 @@ class TestSMBLedgersEndpoint:
         assert "session_date" in body
 
     def test_smb_ledgers_with_db_returns_correct_shape(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -129,7 +133,8 @@ class TestSMBLedgersEndpoint:
 
     def test_smb_user_cannot_call_all_ledgers(self):
         """SMB users should get 403 — they see only their own ledger via /smb/{id}/ledger."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_smb import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _smb_ctx()
@@ -152,7 +157,8 @@ class TestOutwardReconciliationEndpoint:
         assert r.status_code == 401
 
     def test_reconciliation_wrong_role_returns_403(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         reviewer_ctx = UserContext(
@@ -165,7 +171,8 @@ class TestOutwardReconciliationEndpoint:
         assert r.status_code == 403
 
     def test_reconciliation_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -181,7 +188,8 @@ class TestOutwardReconciliationEndpoint:
         assert "recon_date" in body
 
     def test_reconciliation_with_db_returns_sessions_and_discrepancies(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         import uuid
         app = FastAPI()
         app.include_router(router_v1)
@@ -229,7 +237,8 @@ class TestOutwardReconciliationEndpoint:
         assert body["discrepancies"][0]["cheque_number"] == "100006"
 
     def test_reconciliation_date_defaults_to_today(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -258,7 +267,8 @@ class TestOutwardLotsListEndpoint:
         assert r.status_code == 401
 
     def test_lots_list_wrong_role_returns_403(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         fraud_ctx = UserContext(
@@ -271,7 +281,8 @@ class TestOutwardLotsListEndpoint:
         assert r.status_code == 403
 
     def test_lots_list_no_db_returns_empty(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -285,7 +296,8 @@ class TestOutwardLotsListEndpoint:
         assert "clearing_date" in body
 
     def test_lots_list_with_db_returns_correct_shape(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()
@@ -336,7 +348,8 @@ class TestOutwardLotsListEndpoint:
 
     def test_lots_list_scoped_to_bank_id(self):
         """Only lots belonging to the authenticated bank are returned."""
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx(bank_id="bank-A")
@@ -357,7 +370,8 @@ class TestOutwardLotsListEndpoint:
         assert "bank-A" in captured_args
 
     def test_lots_list_accepts_clearing_date_param(self):
-        from apps.api.routers.cts import router_v1, get_current_user_context
+        from apps.api.routers.cts_outward_data import router_v1
+        from apps.api.routers.cts_deps import get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: _sb_ctx()

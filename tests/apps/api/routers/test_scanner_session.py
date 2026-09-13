@@ -21,9 +21,25 @@ def _make_ctx(role="ops_manager", bank_id="test-bank", bank_type=BankType.SB):
     )
 
 
+class _FakeRedisPipeline:
+    def incr(self, key): pass
+    def expire(self, key, ttl): pass
+    async def execute(self): return [1, True]  # count=1 (under limit)
+
+
+class _FakeRedis:
+    def pipeline(self): return _FakeRedisPipeline()
+    async def keys(self, pattern): return []
+    async def get(self, key): return None
+    async def setex(self, key, ttl, value): pass
+    async def delete(self, key): pass
+    async def getdel(self, key): return None
+
+
 @pytest.fixture
 def app():
     from apps.api.main import app as _app
+    _app.state.redis_cts = _FakeRedis()
     return _app
 
 
@@ -33,7 +49,7 @@ def client(app):
 
 
 def _auth_override(ctx):
-    from apps.api.routers.cts import get_current_user_context
+    from apps.api.routers.cts_deps import get_current_user_context
     app_ref = None
     async def _dep():
         return ctx
@@ -46,7 +62,7 @@ class TestScannerSessionOpen:
 
     def test_open_session_returns_session_id(self, app, client):
         ctx = _make_ctx()
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         mock_conn = AsyncMock()
@@ -72,7 +88,7 @@ class TestScannerSessionOpen:
 
     def test_open_session_403_wrong_role(self, app, client):
         ctx = _make_ctx(role="fraud_analyst")
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         resp = client.post(
@@ -84,7 +100,7 @@ class TestScannerSessionOpen:
 
     def test_open_session_409_already_active(self, app, client):
         ctx = _make_ctx()
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         mock_conn = AsyncMock()
@@ -106,7 +122,7 @@ class TestScannerSessionOpen:
 
     def test_open_session_503_no_db(self, app, client):
         ctx = _make_ctx()
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
         if hasattr(app.state, "db_pool_cts"):
             del app.state.db_pool_cts
@@ -125,7 +141,7 @@ class TestScannerSessionClose:
 
     def test_close_session_success(self, app, client):
         ctx = _make_ctx()
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         mock_conn = AsyncMock()
@@ -150,7 +166,7 @@ class TestScannerSessionClose:
 
     def test_close_session_404_not_found(self, app, client):
         ctx = _make_ctx()
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         mock_conn = AsyncMock()
@@ -171,7 +187,7 @@ class TestScannerSessionClose:
 
     def test_close_session_409_already_closed(self, app, client):
         ctx = _make_ctx()
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         mock_conn = AsyncMock()
@@ -194,7 +210,7 @@ class TestScannerSessionClose:
 
     def test_close_session_403_cross_bank(self, app, client):
         ctx = _make_ctx(bank_id="bank-A")
-        from apps.api.routers.cts import get_current_user_context
+        from apps.api.routers.cts_deps import get_current_user_context
         app.dependency_overrides[get_current_user_context] = lambda: ctx
 
         mock_conn = AsyncMock()
