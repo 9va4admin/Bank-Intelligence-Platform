@@ -1,91 +1,108 @@
 """
-Tests for build_ngch_file Temporal activity — Gap 2 wiring.
+Tests for build_ngch_file Temporal activity — CHI Spec Rev 3.00 compliant.
 
-P1 GAP: modules/cts/ngch/ contains IQAEngine, NGCHSigner, CIBFAssembler, CXFBuilder
-as standalone tested modules, but there is no Temporal activity that orchestrates
-them into a spec-compliant outward submission bundle.
+The activity orchestrates:
+  1. IQAEngine.run()                        → 3 UserFields (21 chars each: BFB/BBB/BFG)
+  2. NGCHSigner.sign_micr(keyword-args)     → MICRDSResult (fingerprint + 344-char sig)
+  3. NGCHSigner.sign_image() × 3 per instr → 3 × 256-byte ImageDS
+  4. CIBFAssembler.assemble_lot()           → CIBFLotResult (single lot-level binary)
+  5. CXFBuilder.build()                     → CXF XML bytes (FileHeader root, attributes)
 
-This test file covers the build_ngch_file activity which must:
-  1. Run IQAEngine on instrument images → UserField codes
-  2. Run NGCHSigner.sign_micr(micr_line) → MICRDS (344-char Base64)
-  3. Run NGCHSigner.sign_image(front_bw_bytes) → ImageDS (256-byte raw)
-  4. Run CIBFAssembler.assemble(CIBFInput) → CIBFResult (binary bundle)
-  5. Build CXFItem from all the above
-  6. Run CXFBuilder.build([CXFItem], session_id=...) → CXF XML bytes
-  7. Return BuildNGCHFileResult with cxf_bytes + cibf_bytes_per_instrument
+New API vs old:
+  - item_seq_no: 14 chars (not 5)
+  - sign_micr() uses keyword args (not positional micr_line string)
+  - sign_image() called 3× per instrument (not 1×): front BW, back BW, front gray
+  - CIBF is lot-level (one binary blob), not per-instrument
+  - Result carries: cxf_bytes, cibf_bytes (lot), cxf_filename, cibf_filename
+  - BuildNGCHFileInput gains: clearing_type, file_id, date_ddmmyyyy, time_hhmmss
+  - InstrumentBuildInput gains: payor_bank_rout_no, serial_no, trans_code, account_no, doc_type
 
-The activity is synchronous (no async HTTP) — it wires local in-memory components.
-OTel span and structlog are mandatory per project rules.
-
-RED phase: all tests fail before build_ngch_file.py is created.
+RED phase: tests fail before build_ngch_file.py is updated.
 """
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from typing import List
 
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# ── Constants ──────────────────────────────────────────────────────────────────
 
-_FAKE_RSA_SIG_256 = b"\xAB" * 256   # 256-byte fake RSA signature
-_FAKE_MICRDS = "A" * 344             # 344-char fake Base64 MICRDS
-_FAKE_FRONT_BW = b"\x00\x01" * 500  # ≥ 768 bytes (IMAGEDS_OFFSET+IMAGEDS_LENGTH)
-_FAKE_BACK_BW  = b"\x00\x02" * 200
-_FAKE_FRONT_GRAY = b"\xFF\xD8\xFF" + b"\x00" * 200  # fake JPEG header
-
-# IQA user field prefixes for the 3 views per CHI Spec Rev 3.0
-_IQA_UF_FRONT_BW   = "BFB:0000000000000000"
-_IQA_UF_BACK_BW    = "BBB:0000000000000000"
-_IQA_UF_FRONT_GRAY = "BFG:0000000000000000"
+_FAKE_RSA_SIG_256 = b"\xAB" * 256     # 256-byte fake RSA signature (ImageDS + MICRDS raw)
+_FAKE_FRONT_BW   = b"II\x2a\x00" + b"\x00" * 500   # fake TIFF little-endian
+_FAKE_BACK_BW    = b"II\x2a\x00" + b"\x00" * 300
+_FAKE_FRONT_GRAY = b"\xff\xd8\xff\xe0" + b"\x00" * 400   # fake JFIF
 
 
-def _make_instrument(
-    item_seq_no: str = "00001",
-    micr_line: str = "400160001234",
-    drawee_ifsc: str = "SBIN0000123",
-    drawee_account: str = "SB12345678901",
-    amount_paise: int = 5_000_000,
-    front_bw: bytes = _FAKE_FRONT_BW,
-    back_bw: bytes = _FAKE_BACK_BW,
-    front_gray: bytes = _FAKE_FRONT_GRAY,
-    width_px: int = 1200,
-    height_px: int = 500,
-    dpi: int = 200,
-    bit_depth: int = 1,
-    presenting_bank_rout_no: str = "000550050",
-    cycle_no: str = "01",
-    presentment_date: str = "19062026",
-    batch_id: str = "BATCH-001",
-) -> dict:
-    return {
-        "item_seq_no": item_seq_no,
-        "micr_line": micr_line,
-        "drawee_ifsc": drawee_ifsc,
-        "drawee_account": drawee_account,
-        "amount_paise": amount_paise,
-        "front_bw_bytes": front_bw,
-        "back_bw_bytes": back_bw,
-        "front_gray_bytes": front_gray,
-        "width_px": width_px,
-        "height_px": height_px,
-        "dpi": dpi,
-        "bit_depth": bit_depth,
-        "presenting_bank_rout_no": presenting_bank_rout_no,
-        "cycle_no": cycle_no,
-        "presentment_date": presentment_date,
-        "batch_id": batch_id,
-    }
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _make_instrument(**overrides) -> dict:
+    """Minimal valid InstrumentBuildInput kwargs."""
+    defaults = dict(
+        item_seq_no="00000101000001",       # 14 chars — mandatory per spec
+        payor_bank_rout_no="400160001",     # 9-digit routing of drawee bank
+        account_no="****4521",              # masked for logging
+        serial_no="123456",
+        trans_code="10",
+        doc_type="01",
+        micr_line="400160001234",
+        drawee_ifsc="SBIN0000123",
+        amount_paise=5_000_000,
+        front_bw_bytes=_FAKE_FRONT_BW,
+        back_bw_bytes=_FAKE_BACK_BW,
+        front_gray_bytes=_FAKE_FRONT_GRAY,
+        width_px=1200,
+        height_px=500,
+        dpi=200,
+        bit_depth=1,
+        presenting_bank_rout_no="000550050",
+        cycle_no="01",
+        presentment_date="01042026",
+        batch_id="BATCH-001",
+    )
+    defaults.update(overrides)
+    return defaults
+
+
+def _make_input(**overrides) -> dict:
+    """Minimal valid BuildNGCHFileInput kwargs."""
+    defaults = dict(
+        bank_id="test-bank",
+        lot_number="LOT-001",
+        session_id="SES-0619-001",
+        routing_no="000550050",
+        clearing_type="14",
+        file_id="0001",
+        date_ddmmyyyy="01042026",
+        time_hhmmss="103000",
+        instruments=[_make_instrument()],
+    )
+    defaults.update(overrides)
+    return defaults
 
 
 def _make_mock_hsm():
-    """Mock HSM that returns deterministic fake signatures."""
+    """Mock HSM: sign() returns 256 bytes of 0xAB."""
     hsm = MagicMock()
     hsm.sign.return_value = _FAKE_RSA_SIG_256
     return hsm
 
 
-class TestBuildNGCHFileActivityExists:
-    """The activity module and function must exist."""
+def _run(**input_overrides):
+    """Build and run the activity with a mock HSM."""
+    from modules.cts.workflows.activities.build_ngch_file import (
+        build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
+    )
+    raw = _make_input(**input_overrides)
+    instrs = raw.pop("instruments")
+    inp = BuildNGCHFileInput(
+        **raw,
+        instruments=[InstrumentBuildInput(**i) for i in instrs],
+    )
+    return build_ngch_file(inp, hsm=_make_mock_hsm())
 
+
+# ── Module structure ───────────────────────────────────────────────────────────
+
+class TestBuildNGCHFileActivityExists:
     def test_module_importable(self):
         from modules.cts.workflows.activities import build_ngch_file  # noqa: F401
 
@@ -101,305 +118,290 @@ class TestBuildNGCHFileActivityExists:
         from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileResult
         assert BuildNGCHFileResult is not None
 
+    def test_instrument_input_model_exists(self):
+        from modules.cts.workflows.activities.build_ngch_file import InstrumentBuildInput
+        assert InstrumentBuildInput is not None
+
+
+# ── InstrumentBuildInput ───────────────────────────────────────────────────────
+
+class TestInstrumentBuildInput:
+    def test_accepts_valid_instrument(self):
+        from modules.cts.workflows.activities.build_ngch_file import InstrumentBuildInput
+        instr = InstrumentBuildInput(**_make_instrument())
+        assert instr.item_seq_no == "00000101000001"
+
+    def test_requires_payor_bank_rout_no(self):
+        from modules.cts.workflows.activities.build_ngch_file import InstrumentBuildInput
+        import pydantic
+        bad = _make_instrument()
+        del bad["payor_bank_rout_no"]
+        with pytest.raises((pydantic.ValidationError, TypeError)):
+            InstrumentBuildInput(**bad)
+
+    def test_requires_serial_no(self):
+        from modules.cts.workflows.activities.build_ngch_file import InstrumentBuildInput
+        import pydantic
+        bad = _make_instrument()
+        del bad["serial_no"]
+        with pytest.raises((pydantic.ValidationError, TypeError)):
+            InstrumentBuildInput(**bad)
+
+    def test_requires_trans_code(self):
+        from modules.cts.workflows.activities.build_ngch_file import InstrumentBuildInput
+        import pydantic
+        bad = _make_instrument()
+        del bad["trans_code"]
+        with pytest.raises((pydantic.ValidationError, TypeError)):
+            InstrumentBuildInput(**bad)
+
+    def test_requires_doc_type(self):
+        from modules.cts.workflows.activities.build_ngch_file import InstrumentBuildInput
+        import pydantic
+        bad = _make_instrument()
+        del bad["doc_type"]
+        with pytest.raises((pydantic.ValidationError, TypeError)):
+            InstrumentBuildInput(**bad)
+
+
+# ── BuildNGCHFileInput ─────────────────────────────────────────────────────────
 
 class TestBuildNGCHFileInputModel:
-    """BuildNGCHFileInput validates its fields."""
+    def test_accepts_valid_input(self):
+        from modules.cts.workflows.activities.build_ngch_file import (
+            BuildNGCHFileInput, InstrumentBuildInput,
+        )
+        inp = BuildNGCHFileInput(
+            **{k: v for k, v in _make_input().items() if k != "instruments"},
+            instruments=[InstrumentBuildInput(**_make_instrument())],
+        )
+        assert inp.session_id == "SES-0619-001"
 
-    def test_input_requires_session_id(self):
+    def test_requires_clearing_type(self):
         from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileInput
         import pydantic
+        bad = {k: v for k, v in _make_input().items() if k not in ("clearing_type", "instruments")}
         with pytest.raises((pydantic.ValidationError, TypeError)):
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                instruments=[],
-                # missing: session_id
-            )
+            BuildNGCHFileInput(**bad, instruments=[])
 
-    def test_input_requires_bank_id(self):
+    def test_requires_routing_no(self):
         from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileInput
         import pydantic
+        bad = {k: v for k, v in _make_input().items() if k not in ("routing_no", "instruments")}
         with pytest.raises((pydantic.ValidationError, TypeError)):
-            BuildNGCHFileInput(
-                lot_number="LOT-001",
-                session_id="SES-001",
-                instruments=[],
-                # missing: bank_id
-            )
-
-    def test_input_accepts_instrument_list(self):
-        from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileInput
-        inp = BuildNGCHFileInput(
-            bank_id="test-bank",
-            lot_number="LOT-001",
-            session_id="SES-0619-001",
-            instruments=[_make_instrument()],
-        )
-        assert len(inp.instruments) == 1
+            BuildNGCHFileInput(**bad, instruments=[])
 
 
-class TestBuildNGCHFileResultModel:
-    """BuildNGCHFileResult must carry CXF bytes and per-instrument CIBF bytes."""
+# ── HSM sign call counts ───────────────────────────────────────────────────────
 
-    def test_result_has_cxf_bytes(self):
-        from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileResult
-        result = BuildNGCHFileResult(
-            lot_number="LOT-001",
-            bank_id="test-bank",
-            cxf_bytes=b"<xml/>",
-            cibf_bytes_per_instrument={"00001": b"\x00" * 100},
-            instrument_count=1,
-        )
-        assert result.cxf_bytes == b"<xml/>"
+class TestHSMCallCounts:
+    """sign_micr uses 1 HSM call; sign_image uses 3 per instrument."""
 
-    def test_result_has_cibf_bytes_per_instrument(self):
-        from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileResult
-        cibf = {"00001": b"\xAB" * 200, "00002": b"\xCD" * 200}
-        result = BuildNGCHFileResult(
-            lot_number="LOT-001",
-            bank_id="test-bank",
-            cxf_bytes=b"<xml/>",
-            cibf_bytes_per_instrument=cibf,
-            instrument_count=2,
-        )
-        assert result.cibf_bytes_per_instrument["00001"] == b"\xAB" * 200
-
-    def test_result_has_instrument_count(self):
-        from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileResult
-        result = BuildNGCHFileResult(
-            lot_number="LOT-001",
-            bank_id="test-bank",
-            cxf_bytes=b"<xml/>",
-            cibf_bytes_per_instrument={},
-            instrument_count=0,
-        )
-        assert result.instrument_count == 0
-
-
-class TestBuildNGCHFileCallsSignerAndIQA:
-    """Activity must call IQAEngine, NGCHSigner, CIBFAssembler, CXFBuilder."""
-
-    def test_activity_calls_sign_micr(self):
+    def test_one_instrument_calls_hsm_four_times(self):
+        """1 instrument × (1 MICRDS + 3 ImageDS) = 4 HSM sign calls."""
         from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
         )
         hsm = _make_mock_hsm()
-        inp = BuildNGCHFileInput(
-            bank_id="test-bank",
-            lot_number="LOT-001",
-            session_id="SES-0619-001",
-            instruments=[_make_instrument()],
-        )
-        result = build_ngch_file(inp, hsm=hsm)
-        # HSM must have been called at least once (for MICRDS)
-        assert hsm.sign.call_count >= 1
+        raw = _make_input()
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        build_ngch_file(inp, hsm=hsm)
+        assert hsm.sign.call_count == 4
 
-    def test_activity_calls_sign_image(self):
+    def test_two_instruments_calls_hsm_eight_times(self):
+        """2 instruments × 4 = 8 HSM sign calls."""
         from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
         )
         hsm = _make_mock_hsm()
-        inp = BuildNGCHFileInput(
-            bank_id="test-bank",
-            lot_number="LOT-001",
-            session_id="SES-0619-001",
-            instruments=[_make_instrument()],
-        )
-        result = build_ngch_file(inp, hsm=hsm)
-        # HSM must be called for both MICRDS and ImageDS per instrument
-        # one instrument → 2 HSM calls (sign_micr + sign_image)
-        assert hsm.sign.call_count == 2
+        raw = _make_input(instruments=[
+            _make_instrument(item_seq_no="00000101000001"),
+            _make_instrument(item_seq_no="00000101000002"),
+        ])
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        build_ngch_file(inp, hsm=hsm)
+        assert hsm.sign.call_count == 8
 
-    def test_activity_with_two_instruments_calls_hsm_four_times(self):
+    def test_sign_image_called_with_front_bw_bytes(self):
+        """sign_image must be called with the front BW image bytes."""
         from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
         )
         hsm = _make_mock_hsm()
-        inp = BuildNGCHFileInput(
-            bank_id="test-bank",
-            lot_number="LOT-001",
-            session_id="SES-0619-001",
-            instruments=[
-                _make_instrument(item_seq_no="00001"),
-                _make_instrument(item_seq_no="00002"),
-            ],
+        raw = _make_input()
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        build_ngch_file(inp, hsm=hsm)
+        # At least one call was with the front BW bytes
+        call_args_list = [call[0][0] for call in hsm.sign.call_args_list]
+        assert _FAKE_FRONT_BW in call_args_list
+
+    def test_sign_image_called_with_back_bw_bytes(self):
+        from modules.cts.workflows.activities.build_ngch_file import (
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
         )
-        result = build_ngch_file(inp, hsm=hsm)
-        assert hsm.sign.call_count == 4  # 2 instruments × 2 signatures each
+        hsm = _make_mock_hsm()
+        raw = _make_input()
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        build_ngch_file(inp, hsm=hsm)
+        call_args_list = [call[0][0] for call in hsm.sign.call_args_list]
+        assert _FAKE_BACK_BW in call_args_list
+
+    def test_sign_image_called_with_front_gray_bytes(self):
+        from modules.cts.workflows.activities.build_ngch_file import (
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
+        )
+        hsm = _make_mock_hsm()
+        raw = _make_input()
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        build_ngch_file(inp, hsm=hsm)
+        call_args_list = [call[0][0] for call in hsm.sign.call_args_list]
+        assert _FAKE_FRONT_GRAY in call_args_list
 
 
-class TestBuildNGCHFileCXFOutput:
-    """CXF bytes must be valid XML with the CXF namespace."""
+# ── CXF output ────────────────────────────────────────────────────────────────
 
+class TestCXFOutput:
     def test_cxf_bytes_is_bytes(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
-        )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument()],
-            ),
-            hsm=_make_mock_hsm(),
-        )
+        result = _run()
         assert isinstance(result.cxf_bytes, bytes)
 
+    def test_cxf_bytes_starts_with_xml_decl(self):
+        result = _run()
+        assert result.cxf_bytes.startswith(b"<?xml")
+
     def test_cxf_bytes_is_valid_xml(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
-        )
         import xml.etree.ElementTree as ET
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument()],
-            ),
-            hsm=_make_mock_hsm(),
-        )
+        result = _run()
         root = ET.fromstring(result.cxf_bytes)
         assert root is not None
 
-    def test_cxf_bytes_has_cxf_namespace(self):
+    def test_cxf_has_cxf_namespace(self):
+        result = _run()
+        assert b"urn:schemas-ncr-com:ECPIX:CXF:FileStructure:010005" in result.cxf_bytes
+
+    def test_cxf_root_is_fileheader(self):
+        result = _run()
+        assert b"FileHeader" in result.cxf_bytes
+
+    def test_cxf_contains_session_id(self):
+        result = _run(session_id="MY-UNIQUE-SES")
+        assert b"MY-UNIQUE-SES" in result.cxf_bytes
+
+    def test_cxf_contains_iqa_prefixes(self):
+        result = _run()
+        assert b"BFB:" in result.cxf_bytes
+        assert b"BBB:" in result.cxf_bytes
+        assert b"BFG:" in result.cxf_bytes
+
+
+# ── CIBF output (lot-level) ────────────────────────────────────────────────────
+
+class TestCIBFOutput:
+    def test_result_has_cibf_bytes(self):
+        from modules.cts.workflows.activities.build_ngch_file import BuildNGCHFileResult
+        result = _run()
+        assert hasattr(result, "cibf_bytes")
+
+    def test_cibf_bytes_is_bytes(self):
+        result = _run()
+        assert isinstance(result.cibf_bytes, bytes)
+        assert len(result.cibf_bytes) > 0
+
+    def test_cibf_size_is_3ds_plus_3images_per_instrument(self):
+        """Per-instrument: 3×256 DS + len(FB) + len(BB) + len(FG)."""
+        result = _run()
+        expected = (
+            3 * 256
+            + len(_FAKE_FRONT_BW)
+            + len(_FAKE_BACK_BW)
+            + len(_FAKE_FRONT_GRAY)
+        )
+        assert len(result.cibf_bytes) == expected
+
+    def test_two_instruments_cibf_double_size(self):
+        raw = _make_input(instruments=[
+            _make_instrument(item_seq_no="00000101000001"),
+            _make_instrument(item_seq_no="00000101000002"),
+        ])
         from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
         )
-        import xml.etree.ElementTree as ET
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument()],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        _CXF_NS = "urn:schemas-ncr-com:ECPIX:CXF:FileStructure:010005"
-        root = ET.fromstring(result.cxf_bytes)
-        assert _CXF_NS in root.tag or _CXF_NS in result.cxf_bytes.decode("utf-8")
-
-    def test_cxf_bytes_session_id_matches_input(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
-        )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-UNIQUE",
-                instruments=[_make_instrument()],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        assert b"SES-0619-UNIQUE" in result.cxf_bytes
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        result = build_ngch_file(inp, hsm=_make_mock_hsm())
+        per_instr = 3 * 256 + len(_FAKE_FRONT_BW) + len(_FAKE_BACK_BW) + len(_FAKE_FRONT_GRAY)
+        assert len(result.cibf_bytes) == 2 * per_instr
 
 
-class TestBuildNGCHFileCIBFOutput:
-    """Each instrument produces a CIBF binary blob keyed by item_seq_no."""
+# ── Filename generation ────────────────────────────────────────────────────────
 
-    def test_cibf_dict_keyed_by_item_seq_no(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
-        )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument(item_seq_no="00007")],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        assert "00007" in result.cibf_bytes_per_instrument
+class TestFilenameGeneration:
+    def test_result_has_cxf_filename(self):
+        result = _run()
+        assert hasattr(result, "cxf_filename")
 
-    def test_cibf_value_is_bytes(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
-        )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument()],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        cibf = result.cibf_bytes_per_instrument["00001"]
-        assert isinstance(cibf, bytes)
-        assert len(cibf) > 0
+    def test_result_has_cibf_filename(self):
+        result = _run()
+        assert hasattr(result, "cibf_filename")
 
-    def test_cibf_size_equals_sum_of_three_image_segments(self):
-        """CIBF is a concatenation of front_bw + back_bw + front_gray."""
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+    def test_cxf_filename_format(self):
+        """CXF filename: CXF_{routing}_{ddmmyyyy}_{hhmmss}_{ct}_{fid}.XML"""
+        result = _run(
+            routing_no="000550050",
+            date_ddmmyyyy="01042026",
+            time_hhmmss="103000",
+            clearing_type="14",
+            file_id="0001",
         )
-        front_bw = _FAKE_FRONT_BW      # 1000 bytes
-        back_bw = b"\x00" * 800        # 800 bytes
-        front_gray = b"\xFF" * 600     # 600 bytes
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument(
-                    front_bw=front_bw,
-                    back_bw=back_bw,
-                    front_gray=front_gray,
-                )],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        expected_size = len(front_bw) + len(back_bw) + len(front_gray)
-        actual_size = len(result.cibf_bytes_per_instrument["00001"])
-        assert actual_size == expected_size
+        assert result.cxf_filename == "CXF_000550050_01042026_103000_14_0001.XML"
 
-    def test_two_instruments_produce_two_cibf_entries(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+    def test_cibf_filename_format(self):
+        """CIBF filename: CIBF_{routing}_{ddmmyyyy}_{hhmmss}_{ct}_{fid}_{nn}.img"""
+        result = _run(
+            routing_no="000550050",
+            date_ddmmyyyy="01042026",
+            time_hhmmss="103000",
+            clearing_type="14",
+            file_id="0001",
         )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[
-                    _make_instrument(item_seq_no="00001"),
-                    _make_instrument(item_seq_no="00002"),
-                ],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        assert len(result.cibf_bytes_per_instrument) == 2
-        assert "00001" in result.cibf_bytes_per_instrument
-        assert "00002" in result.cibf_bytes_per_instrument
+        # Modifier is "01" for first CIBF of the file
+        assert result.cibf_filename == "CIBF_000550050_01042026_103000_14_0001_01.img"
 
+    def test_clearing_type_14_accepted(self):
+        result = _run(clearing_type="14")
+        assert "14" in result.cxf_filename
+
+    def test_clearing_type_99_accepted(self):
+        result = _run(clearing_type="99")
+        assert "99" in result.cxf_filename
+
+
+# ── Instrument count ───────────────────────────────────────────────────────────
+
+class TestInstrumentCount:
     def test_instrument_count_matches_input(self):
         from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
+            build_ngch_file, BuildNGCHFileInput, InstrumentBuildInput,
         )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[
-                    _make_instrument(item_seq_no="00001"),
-                    _make_instrument(item_seq_no="00002"),
-                    _make_instrument(item_seq_no="00003"),
-                ],
-            ),
-            hsm=_make_mock_hsm(),
-        )
+        raw = _make_input(instruments=[
+            _make_instrument(item_seq_no="00000101000001"),
+            _make_instrument(item_seq_no="00000101000002"),
+            _make_instrument(item_seq_no="00000101000003"),
+        ])
+        instrs = raw.pop("instruments")
+        inp = BuildNGCHFileInput(**raw, instruments=[InstrumentBuildInput(**i) for i in instrs])
+        result = build_ngch_file(inp, hsm=_make_mock_hsm())
         assert result.instrument_count == 3
 
 
-class TestBuildNGCHFileEmptyInstrumentsRaises:
-    """Empty instrument list must be rejected — CXF spec requires at least one item."""
+# ── Error paths ────────────────────────────────────────────────────────────────
 
+class TestErrorPaths:
     def test_empty_instruments_raises(self):
         from modules.cts.workflows.activities.build_ngch_file import (
             build_ngch_file, BuildNGCHFileInput,
@@ -407,32 +409,8 @@ class TestBuildNGCHFileEmptyInstrumentsRaises:
         with pytest.raises((ValueError, Exception)):
             build_ngch_file(
                 BuildNGCHFileInput(
-                    bank_id="test-bank",
-                    lot_number="LOT-001",
-                    session_id="SES-0619-001",
+                    **{k: v for k, v in _make_input().items() if k != "instruments"},
                     instruments=[],
                 ),
                 hsm=_make_mock_hsm(),
             )
-
-
-class TestBuildNGCHFileIQACodesInCXF:
-    """IQA UserField codes must appear in the CXF output."""
-
-    def test_iqa_user_field_present_in_cxf_xml(self):
-        from modules.cts.workflows.activities.build_ngch_file import (
-            build_ngch_file, BuildNGCHFileInput,
-        )
-        result = build_ngch_file(
-            BuildNGCHFileInput(
-                bank_id="test-bank",
-                lot_number="LOT-001",
-                session_id="SES-0619-001",
-                instruments=[_make_instrument()],
-            ),
-            hsm=_make_mock_hsm(),
-        )
-        # All 3 IQA UserField prefixes must appear per CHI Spec Rev 3.0
-        assert b"BFB:" in result.cxf_bytes
-        assert b"BBB:" in result.cxf_bytes
-        assert b"BFG:" in result.cxf_bytes

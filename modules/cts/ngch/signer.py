@@ -1,25 +1,60 @@
 """
-NGCHSigner — MICRDS and ImageDS signatures per CTS Spec Rev 3.0.
+NGCHSigner — MICRDS and ImageDS signatures per CHI Spec Rev 3.00.
 
-MICRDS: RSA-SHA256 over MICR line (UTF-8 bytes) → Base64-encoded string (344 chars)
-ImageDS: RSA-SHA256 over raw image bytes → 256-byte raw binary
+MICRDS (Appendix 4.1.3.4):
+  - MICRFingerPrint attribute = semicolon-delimited field NAMES
+    "PresentmentDate;PresentingBankRoutNo;CycleNo;ItemSeqNo;Amount;SerialNo;Transcode"
+  - Data signed = corresponding field VALUES concatenated with ";" as separator
+    "01042026;000550050;01;00000101123456;10000;123456;10;"
+  - RSA-SHA256 over UTF-8 bytes of the concatenated values
+  - Base64-encoded result = 344 chars
+
+ImageDS (Appendix 4.1.3.7):
+  - RSA-SHA256 over raw image bytes → 256-byte raw binary
+  - Called once per image view (3× per instrument: front BW, back BW, front gray)
 
 All RSA signing is delegated to an HSM interface (FIPS 140-2 Level 3).
-No private key material touches Python memory; the HSM performs the operation.
+No private key material touches Python memory.
 
 HSM interface contract (duck-typed):
-  hsm.sign(data: bytes) -> bytes       # RSA-SHA256, raw signature bytes
-  hsm.get_public_key_pem() -> bytes    # Public key in PEM format (for verification)
+  hsm.sign(data: bytes) -> bytes       # RSA-SHA256 PKCS#1v15, raw 256-byte output
+  hsm.get_public_key_pem() -> bytes
 """
 import base64
+from dataclasses import dataclass
 
 import structlog
 
 log = structlog.get_logger()
 
+# Field names in the MICR fingerprint (order matches spec Appendix 4.1.3.4 sample)
+_MICR_FINGERPRINT = (
+    "PresentmentDate;PresentingBankRoutNo;CycleNo;ItemSeqNo;Amount;SerialNo;Transcode"
+)
+_MICR_FIELD_ORDER = [
+    "presentment_date",
+    "presenting_bank_rout_no",
+    "cycle_no",
+    "item_seq_no",
+    "amount",
+    "serial_no",
+    "trans_code",
+]
+
+
+@dataclass(frozen=True)
+class MICRDSResult:
+    """Result of signing MICR field values.
+
+    fingerprint:    Semicolon-delimited field NAMES (for CXF MICRFingerPrint attribute).
+    signature_b64:  344-char Base64 RSA-SHA256 over concatenated field VALUES.
+    """
+    fingerprint: str
+    signature_b64: str
+
 
 class NGCHSigner:
-    """Signs MICR lines (MICRDS) and image blobs (ImageDS) via HSM.
+    """Signs MICR fields (MICRDS) and image blobs (ImageDS) via HSM.
 
     Args:
         hsm: HSM interface implementing sign(data: bytes) -> bytes.
@@ -30,29 +65,54 @@ class NGCHSigner:
     def __init__(self, *, hsm) -> None:
         self._hsm = hsm
 
-    def sign_micr(self, micr_line: str) -> str:
-        """Sign a MICR line and return Base64-encoded MICRDS (344 chars).
+    def sign_micr(
+        self,
+        *,
+        presentment_date: str,
+        presenting_bank_rout_no: str,
+        cycle_no: str,
+        item_seq_no: str,
+        amount: int,
+        serial_no: str,
+        trans_code: str,
+    ) -> MICRDSResult:
+        """Sign MICR field values and return MICRDSResult.
 
-        The MICR line is encoded as UTF-8 before signing.
-        Result is standard Base64 (no URL-safe variant) — exactly 344 chars
-        for a 2048-bit RSA key.
+        The fingerprint string (field names) is fixed per spec.
+        The data signed is the corresponding field values joined with ";".
+        The Base64-encoded RSA-SHA256 signature is exactly 344 chars.
 
         Args:
-            micr_line: The MICR line string as extracted from the cheque.
+            presentment_date:        DDMMYYYY format
+            presenting_bank_rout_no: 9-digit NPCI routing number of presenting bank
+            cycle_no:                2-char cycle number ("01"-"12")
+            item_seq_no:             14-char item sequence number
+            amount:                  cheque amount in paise (integer)
+            serial_no:               cheque serial number (MICR-extracted)
+            trans_code:              MICR transaction code (e.g. "10")
 
         Returns:
-            Base64-encoded RSA-SHA256 signature (344 characters).
+            MICRDSResult with fingerprint string and 344-char base64 signature.
         """
-        raw_sig = self._hsm.sign(micr_line.encode("utf-8"))
-        encoded = base64.b64encode(raw_sig).decode("ascii")
-        log.debug("ngch_signer.micrds_signed", sig_len=len(encoded))
-        return encoded
+        data_to_sign = (
+            f"{presentment_date};"
+            f"{presenting_bank_rout_no};"
+            f"{cycle_no};"
+            f"{item_seq_no};"
+            f"{amount};"
+            f"{serial_no};"
+            f"{trans_code};"
+        )
+        raw_sig = self._hsm.sign(data_to_sign.encode("utf-8"))
+        sig_b64 = base64.b64encode(raw_sig).decode("ascii")
+        log.debug("ngch_signer.micrds_signed", sig_len=len(sig_b64))
+        return MICRDSResult(fingerprint=_MICR_FINGERPRINT, signature_b64=sig_b64)
 
     def sign_image(self, image_bytes: bytes) -> bytes:
         """Sign raw image bytes and return 256-byte raw ImageDS.
 
-        The signature is embedded at the spec-defined byte offset inside
-        the CIBF by CIBFAssembler — do not Base64-encode this value.
+        Must be called once per image view (3× per instrument).
+        The raw signature bytes are prepended before the image in the CIBF binary.
 
         Args:
             image_bytes: Raw binary content of the cheque image (TIFF or JPEG).
