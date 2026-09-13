@@ -80,6 +80,7 @@ from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkfl
 from modules.cts.workflows.smb_forwarding_workflow import SMBForwardingWorkflow
 from modules.cts.workflows.smb_cheque_processing_workflow import SMBChequeProcessingWorkflow
 from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+from modules.cts.workflows.inward_batch_workflow import InwardBatchIngestionWorkflow
 from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
 from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWorkflow
 from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
@@ -228,6 +229,8 @@ ALL_WORKFLOWS = [
     FeedbackEmitWorkflow,
     # Vault file-drop (MinIO event → SFTP channel upload for all vault types)
     VaultFileDropWorkflow,
+    # Inward batch ingestion (NGCH delivers PXF + CXF + CIBF → parse → DB → fan-out)
+    InwardBatchIngestionWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
