@@ -34,3 +34,4 @@ _test_*.jpg
 
 # Temp test-build helpers (content already merged into proper test files)
 tests/**/partial_image_tests_append.py
+apps/ai_server/ai-server
