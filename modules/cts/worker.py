@@ -209,7 +209,6 @@ from modules.cts.workflows.vault_file_drop_workflow import (
 try:
     from modules.msv.workflows.msv_workflow import MSVValidationWorkflow
     from modules.msv.workflows.activities.orchestrate import orchestrate_msv_validation
-    from modules.msv.workflows.activities.write_audit import write_audit as msv_write_audit
     from modules.msv.workflows.activities.cbs_sync import sync_signatories_from_cbs
     _MSV_AVAILABLE = True
 except ImportError as _msv_import_err:
@@ -388,8 +387,9 @@ NO_DI_ACTIVITIES = [
 if _MSV_AVAILABLE:
     NO_DI_ACTIVITIES.extend([
         orchestrate_msv_validation,
-        msv_write_audit,
         sync_signatories_from_cbs,
+        # Note: MSVValidationWorkflow also calls write_audit — the CTS write_audit
+        # activity registered above (shared name "write_audit") serves both workflows.
     ])
 
 
