@@ -551,48 +551,67 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         )
 
     # DropFolderWatcher — monitors per-branch drop folders for OEM scanner output,
-    # maps files to ScannedChequeInput, and publishes to Kafka.  One watcher per
-    # branch configured under cts.scanner.drop_folder_branches (list of branch IDs).
+    # maps files to ScannedChequeInput, and publishes BatchScannedEvents to Kafka.
+    # One WatcherConfig per branch entry in cts.scanner.watcher_configs (list of dicts).
+    # Each entry must carry: branch_id, pu_id, drop_folder, metadata_glob,
+    # stability_wait_seconds, scanner_config_id (looked up in scanner_configs table).
+    # ScannerDropFolderMapper requires a ScannerConfig (loaded from DB/config_service).
+    # ScannerFactory (adapters.py) resolves the hardware adapter per branch.
     # Gracefully skipped when not configured or Kafka unavailable.
     drop_watcher_tasks: list[asyncio.Task] = []
     drop_watchers: list = []
     try:
         from pathlib import Path
         from modules.cts.scanner.file_watcher import DropFolderWatcher, WatcherConfig
-        from modules.cts.scanner.mapper import ScannerDropFolderMapper
-        from modules.cts.scanner.adapters import ScannerFactory
+        from modules.cts.scanner.mapper import ScannerDropFolderMapper, ScannerConfig
+        from modules.cts.scanner.adapters import ScannerFactory  # noqa: F401 — imported for wiring
 
         kafka_bootstrap_for_watcher = config_service.get_platform("kafka.bootstrap_servers")
-        branches_cfg = config_service.get(f"cts.scanner.drop_folder_branches.{bank_id}", default=None)
-        if branches_cfg:
-            for branch_cfg in branches_cfg:
+        watcher_cfgs = config_service.get(f"cts.scanner.watcher_configs.{bank_id}", default=None)
+        if watcher_cfgs:
+            from shared.event_bus.producer import EventProducer as _KafkaProducer
+            for branch_cfg in watcher_cfgs:
                 branch_id = branch_cfg.get("branch_id", "")
                 pu_id = branch_cfg.get("pu_id", "")
                 drop_folder = Path(branch_cfg.get("drop_folder", f"/data/cts/scanner/{bank_id}/{branch_id}"))
                 metadata_glob = branch_cfg.get("metadata_glob", "*.dat")
                 stability_secs = int(branch_cfg.get("stability_wait_seconds", 2))
-                oem = branch_cfg.get("oem", "generic")
                 kafka_topic = f"cts.outward.scanned.{bank_id}"
+                scanner_config_dict = branch_cfg.get("scanner_config", {})
 
-                from shared.event_bus.producer import EventProducer as _KafkaProducer
-                watcher_kafka = _KafkaProducer(
-                    bootstrap_servers=kafka_bootstrap_for_watcher, module="cts"
-                )
-                mapper = ScannerDropFolderMapper(oem=oem, branch_id=branch_id, bank_id=bank_id)
-                cfg = WatcherConfig(
-                    bank_id=bank_id,
-                    branch_id=branch_id,
-                    pu_id=pu_id,
-                    drop_folder=drop_folder,
-                    metadata_glob=metadata_glob,
-                    stability_wait_seconds=stability_secs,
-                    kafka_topic=kafka_topic,
-                )
-                watcher = DropFolderWatcher(config=cfg, mapper=mapper, kafka_producer=watcher_kafka)
-                drop_watchers.append(watcher)
-                log.info("worker.drop_folder_watcher_configured", bank_id=bank_id, branch_id=branch_id, drop_folder=str(drop_folder))
+                try:
+                    scanner_config = ScannerConfig(**{
+                        "scanner_config_id": scanner_config_dict.get("scanner_config_id", f"{bank_id}-{branch_id}"),
+                        "bank_id": bank_id,
+                        "branch_id": branch_id,
+                        "scanner_oem": scanner_config_dict.get("scanner_oem", "generic"),
+                        "scanner_model": scanner_config_dict.get("scanner_model", "generic"),
+                        "output_format": scanner_config_dict.get("output_format", "csv"),
+                        "date_format": scanner_config_dict.get("date_format", "%d%m%Y"),
+                        "amount_format": scanner_config_dict.get("amount_format", "DECIMAL_DOT"),
+                        "field_mapping": scanner_config_dict.get("field_mapping", {}),
+                        "image_naming_pattern": scanner_config_dict.get("image_naming_pattern", "{scan_id}"),
+                        "image_side_mapping": scanner_config_dict.get("image_side_mapping", {}),
+                        "drop_folder_path": str(drop_folder),
+                    })
+                    mapper = ScannerDropFolderMapper(scanner_config)
+                    watcher_kafka = _KafkaProducer(bootstrap_servers=kafka_bootstrap_for_watcher, module="cts")
+                    cfg = WatcherConfig(
+                        bank_id=bank_id,
+                        branch_id=branch_id,
+                        pu_id=pu_id,
+                        drop_folder=drop_folder,
+                        metadata_glob=metadata_glob,
+                        stability_wait_seconds=stability_secs,
+                        kafka_topic=kafka_topic,
+                    )
+                    watcher = DropFolderWatcher(config=cfg, mapper=mapper, kafka_producer=watcher_kafka)
+                    drop_watchers.append(watcher)
+                    log.info("worker.drop_folder_watcher_configured", bank_id=bank_id, branch_id=branch_id, drop_folder=str(drop_folder))
+                except Exception as _branch_exc:
+                    log.warning("worker.drop_folder_watcher_branch_failed", bank_id=bank_id, branch_id=branch_id, error=str(_branch_exc))
         else:
-            log.info("worker.drop_folder_watcher_skipped", bank_id=bank_id, reason="no branches configured under cts.scanner.drop_folder_branches")
+            log.info("worker.drop_folder_watcher_skipped", bank_id=bank_id, reason="no watcher configs under cts.scanner.watcher_configs")
     except ConfigKeyNotFoundError:
         log.info("worker.drop_folder_watcher_skipped", bank_id=bank_id, reason="kafka.bootstrap_servers not configured")
     except Exception as exc:
