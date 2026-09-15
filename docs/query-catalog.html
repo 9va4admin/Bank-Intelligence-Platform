@@ -1,0 +1,1776 @@
+<!doctype html>
+<title>ASTRA Query Catalog</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --faint: #484f58;
+  --accent: #388bfd;
+  --sql: #388bfd;
+  --sql-bg: #0d2149;
+  --redis: #e0523a;
+  --redis-bg: #2a1009;
+  --kafka: #9b59d0;
+  --kafka-bg: #1e0b2e;
+  --minio: #24a5a0;
+  --minio-bg: #0a2221;
+  --immudb: #6a7d8f;
+  --immudb-bg: #151d24;
+  --temporal: #d4a84b;
+  --temporal-bg: #261e08;
+  --hot-bg: #1a1200;
+  --hot-border: #6a4b00;
+  --pii-border: #5a1a1a;
+  --tag-hot: #d4a84b;
+  --tag-pii: #e05050;
+  --green: #3fb950;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Layout */
+.shell { display: flex; height: 100%; }
+.sidebar {
+  width: 240px; min-width: 240px; height: 100%; overflow-y: auto;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 16px 12px; gap: 16px;
+}
+.main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+/* Sidebar */
+.sidebar-logo { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: .05em; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.sidebar-logo span { color: var(--muted); font-weight: 400; }
+.sidebar-section { display: flex; flex-direction: column; gap: 6px; }
+.sidebar-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-bottom: 2px; }
+.sidebar input[type=text] {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 6px 10px; font-size: 13px; width: 100%; outline: none;
+}
+.sidebar input[type=text]:focus { border-color: var(--accent); }
+.filter-btn {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+  cursor: pointer; font-size: 13px; color: var(--muted); user-select: none;
+  transition: background .12s;
+}
+.filter-btn:hover { background: var(--bg3); color: var(--text); }
+.filter-btn.active { background: var(--bg3); color: var(--text); }
+.filter-btn .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.filter-btn .count { margin-left: auto; font-size: 11px; color: var(--faint); }
+.filter-toggle {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+  cursor: pointer; font-size: 13px; color: var(--muted); user-select: none;
+}
+.filter-toggle:hover { background: var(--bg3); }
+.filter-toggle input { accent-color: var(--accent); cursor: pointer; }
+.filter-toggle.active { color: var(--text); }
+.result-count { font-size: 11px; color: var(--faint); padding: 4px 0; }
+
+/* Main header */
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.page-sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+/* Cards grid */
+.cards { display: flex; flex-direction: column; gap: 16px; }
+
+.card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; scroll-margin-top: 80px;
+}
+.card.hot { border-color: var(--hot-border); background: var(--bg2); }
+.card.pii-table { border-left: 3px solid var(--pii-border); }
+.card.hot.pii-table { border-left: 3px solid var(--pii-border); border-top-color: var(--hot-border); border-right-color: var(--hot-border); border-bottom-color: var(--hot-border); }
+
+.card-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.q-num { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: var(--muted); flex-shrink: 0; }
+.card-title { font-weight: 600; font-size: 14px; color: var(--text); flex: 1; min-width: 0; }
+.badge {
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: .05em; flex-shrink: 0;
+}
+.badge-sql    { background: var(--sql-bg);    color: var(--sql); }
+.badge-redis  { background: var(--redis-bg);  color: var(--redis); }
+.badge-kafka  { background: var(--kafka-bg);  color: var(--kafka); }
+.badge-minio  { background: var(--minio-bg);  color: var(--minio); }
+.badge-immudb { background: var(--immudb-bg); color: var(--immudb); }
+.badge-temporal { background: var(--temporal-bg); color: var(--temporal); }
+.tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
+.tag-hot { background: #261e08; color: var(--tag-hot); }
+.tag-pii { background: #2a0a0a; color: var(--tag-pii); }
+
+.card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.card-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+.meta-item { font-size: 12px; color: var(--muted); }
+.meta-item strong { color: var(--text); font-weight: 500; }
+
+pre.query {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 14px; overflow-x: auto; font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; line-height: 1.6; color: #cdd9e5; white-space: pre;
+}
+.card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.params-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.params-table th { text-align: left; color: var(--faint); font-weight: 500; padding: 4px 8px 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.params-table td { padding: 3px 8px 3px 0; color: var(--muted); vertical-align: top; }
+.params-table td:first-child { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+.called-from { font-size: 12px; color: var(--muted); }
+.called-from code { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); }
+
+/* Hidden */
+.card[hidden] { display: none !important; }
+</style>
+
+<div class="shell">
+<aside class="sidebar">
+  <div class="sidebar-logo">ASTRA <span>Query Catalog</span></div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Search</div>
+    <input type="text" id="search" placeholder="table, key, topic…">
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Store Type</div>
+    <div class="filter-btn active" data-store="all" onclick="setStore(this)">
+      <span class="dot" style="background:#8b949e"></span> All
+      <span class="count" id="cnt-all"></span>
+    </div>
+    <div class="filter-btn" data-store="SQL" onclick="setStore(this)">
+      <span class="dot" style="background:var(--sql)"></span> SQL / YugabyteDB
+      <span class="count" id="cnt-SQL"></span>
+    </div>
+    <div class="filter-btn" data-store="Redis" onclick="setStore(this)">
+      <span class="dot" style="background:var(--redis)"></span> Redis
+      <span class="count" id="cnt-Redis"></span>
+    </div>
+    <div class="filter-btn" data-store="Kafka" onclick="setStore(this)">
+      <span class="dot" style="background:var(--kafka)"></span> Kafka
+      <span class="count" id="cnt-Kafka"></span>
+    </div>
+    <div class="filter-btn" data-store="MinIO" onclick="setStore(this)">
+      <span class="dot" style="background:var(--minio)"></span> MinIO
+      <span class="count" id="cnt-MinIO"></span>
+    </div>
+    <div class="filter-btn" data-store="Immudb" onclick="setStore(this)">
+      <span class="dot" style="background:var(--immudb)"></span> Immudb
+      <span class="count" id="cnt-Immudb"></span>
+    </div>
+    <div class="filter-btn" data-store="Temporal" onclick="setStore(this)">
+      <span class="dot" style="background:var(--temporal)"></span> Temporal
+      <span class="count" id="cnt-Temporal"></span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Flags</div>
+    <label class="filter-toggle" id="lbl-hot">
+      <input type="checkbox" id="chk-hot" onchange="applyFilters()"> Hot Path only
+    </label>
+    <label class="filter-toggle" id="lbl-pii">
+      <input type="checkbox" id="chk-pii" onchange="applyFilters()"> PII Tables only
+    </label>
+  </div>
+
+  <div class="result-count" id="result-count"></div>
+</aside>
+
+<main class="main">
+  <div class="page-header">
+    <div class="page-title">Query Catalog</div>
+    <div class="page-sub">Every data-store operation in ASTRA CTS — SQL · Redis · Kafka · MinIO · Immudb · Temporal</div>
+  </div>
+  <div class="cards" id="cards">
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SQL QUERIES
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card hot pii-table" id="Q-001" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-001</span>
+    <span class="card-title">list_agent_decisions</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns the latest agent decisions for a bank joined with instrument metadata. Used by the CTS Decisions Log UI page.</div>
+    <pre class="query">SELECT
+  d.instrument_id,
+  d.workflow_id,
+  d.decision,
+  d.decision_reason,
+  d.fraud_score,
+  d.shap_values,
+  d.processing_duration_ms,
+  d.iet_margin_seconds,
+  d.degraded_mode,
+  EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch,
+  d.ocr_engines_used,
+  d.indic_ocr_kill_switch_active,
+  d.signature_match_score,
+  d.signature_verdict,
+  d.pps_verdict,
+  d.cbs_balance_status,
+  d.alteration_detected,
+  i.micr_code,
+  i.account_last4,
+  i.amount_range,
+  i.presenting_ifsc
+FROM cts.agent_decisions d
+LEFT JOIN cts.cheque_instruments i
+  ON i.instrument_id = d.instrument_id
+  AND i.bank_id = d.bank_id
+WHERE d.bank_id = $1
+ORDER BY d.created_at DESC
+LIMIT $2</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id — tenant isolation filter</td></tr>
+      <tr><td>$2</td><td>int</td><td>limit (default 50, max 100)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/decisions</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-002" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-002</span>
+    <span class="card-title">vault_gap_report</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Finds instruments routed to HUMAN_REVIEW due to missing vault signature for a given date. Powers the CTSVaultGapReport UI page so enrollment teams can act on missing specimens.</div>
+    <pre class="query">SELECT
+  i.account_last4,
+  d.instrument_id,
+  d.decision_reason,
+  i.micr_code,
+  EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch
+FROM cts.agent_decisions d
+LEFT JOIN cts.cheque_instruments i
+  ON i.instrument_id = d.instrument_id
+  AND i.bank_id = d.bank_id
+WHERE d.bank_id = $1
+  AND d.decision = 'HUMAN_REVIEW'
+  AND d.decision_reason ILIKE '%NO_SIGNATURE_IN_VAULT%'
+  AND d.created_at::date = $2::date
+ORDER BY i.account_last4, d.created_at ASC
+LIMIT 2000</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>date</td><td>Report date (YYYY-MM-DD)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/vault-gaps</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-003" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-003</span>
+    <span class="card-title">instrument_digest</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the processing digest for a single instrument including steps_digest (ordered activity log) and registry_version. Used for CTS passport / tamper-evident audit trail.</div>
+    <pre class="query">SELECT
+  instrument_id,
+  bank_id,
+  workflow_id,
+  decision,
+  EXTRACT(EPOCH FROM processing_started_at)::float AS started_at,
+  EXTRACT(EPOCH FROM processing_completed_at)::float AS decided_at,
+  steps_digest,
+  registry_version
+FROM cts.agent_decisions
+WHERE instrument_id = $1
+  AND bank_id = $2
+LIMIT 1</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>instrument_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/instruments/{instrument_id}/digest</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-004" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-004</span>
+    <span class="card-title">search_instruments</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Keyword search for cheque instruments by cheque number or instrument_id. Returns masked fields only — account_display masked, amounts as range buckets.</div>
+    <pre class="query">SELECT
+  instrument_id,
+  cheque_number,
+  account_display,
+  payee_display,
+  amount_range,
+  status,
+  clearing_zone,
+  received_at,
+  fraud_score,
+  ocr_confidence
+FROM cts.cheque_instruments
+WHERE bank_id = $1
+  AND (cheque_number ILIKE $2 OR instrument_id ILIKE $2)
+ORDER BY received_at DESC
+LIMIT $3</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>Search pattern (ILIKE, wraps with %%)</td></tr>
+      <tr><td>$3</td><td>int</td><td>limit (max 20)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/instruments/search</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-005" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-005</span>
+    <span class="card-title">fetch_hold_id</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Retrieves the most recent unreleased hold_id for an instrument after HoldService places a hold. Used to return hold_id in the place-hold API response.</div>
+    <pre class="query">SELECT hold_id
+FROM cts.instrument_holds
+WHERE instrument_id = $1
+  AND bank_id = $2
+  AND released_at IS NULL
+ORDER BY held_at DESC
+LIMIT 1</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>instrument_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/holds/{instrument_id}</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-006" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-006</span>
+    <span class="card-title">list_holds</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Lists all unreleased holds for a bank, joined with cheque instrument metadata for display. Ordered by IET deadline ascending so nearest-breach items appear first.</div>
+    <pre class="query">SELECT
+  h.hold_id,
+  h.instrument_id,
+  h.bank_id,
+  h.held_by,
+  h.held_at,
+  h.iet_deadline,
+  h.hold_reason,
+  h.branch_notified_at,
+  h.branch_recommendation,
+  h.branch_note,
+  i.account_last4,
+  i.amount_range,
+  i.queue_tier
+FROM cts.instrument_holds h
+LEFT JOIN cts.cheque_instruments i
+  ON h.instrument_id = i.instrument_id::TEXT
+  AND i.bank_id = $1
+WHERE h.bank_id = $1
+  AND h.released_at IS NULL
+ORDER BY h.iet_deadline ASC</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id (used twice — holds filter and join)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/holds</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-007" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-007</span>
+    <span class="card-title">release_hold</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Marks an active hold as released, recording timestamp, releaser identity, branch note, and branch recommendation. Non-retryable — RETURNING hold_id confirms the row existed.</div>
+    <pre class="query">UPDATE cts.instrument_holds
+   SET released_at         = $1,
+       released_by         = $2,
+       branch_note         = COALESCE($3, branch_note),
+       branch_recommendation = COALESCE($4, branch_recommendation)
+ WHERE instrument_id = $5
+   AND bank_id       = $6
+   AND released_at IS NULL
+RETURNING hold_id</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>float</td><td>Unix timestamp of release</td></tr>
+      <tr><td>$2</td><td>text</td><td>reviewer_id performing release</td></tr>
+      <tr><td>$3</td><td>text?</td><td>Optional branch note</td></tr>
+      <tr><td>$4</td><td>text?</td><td>Optional branch recommendation (CONFIRM|RETURN)</td></tr>
+      <tr><td>$5</td><td>text</td><td>instrument_id</td></tr>
+      <tr><td>$6</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/holds/{instrument_id}/release</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-008" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-008</span>
+    <span class="card-title">submit_hold_recommendation</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Branch manager updates their recommendation on an active hold without releasing it. Uses COALESCE so partial updates are safe.</div>
+    <pre class="query">UPDATE cts.instrument_holds
+   SET branch_note           = COALESCE($1, branch_note),
+       branch_recommendation = COALESCE($2, branch_recommendation)
+ WHERE instrument_id = $3
+   AND bank_id       = $4
+   AND released_at IS NULL
+RETURNING hold_id</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text?</td><td>Optional branch note</td></tr>
+      <tr><td>$2</td><td>text?</td><td>Optional recommendation (CONFIRM|RETURN)</td></tr>
+      <tr><td>$3</td><td>text</td><td>instrument_id</td></tr>
+      <tr><td>$4</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/holds/{instrument_id}/recommendation</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-009" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-009</span>
+    <span class="card-title">list_mismatches</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Lists HELD mismatches from the outward scan queue, optionally filtered by branch. Two variants: with and without branch_id filter.</div>
+    <pre class="query">-- Variant A: all branches
+SELECT mismatch_id, instrument_id, branch_id, held_at, status,
+       mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
+FROM cts.mismatch_queue
+WHERE bank_id = $1 AND status = 'HELD'
+ORDER BY held_at ASC
+
+-- Variant B: single branch
+SELECT mismatch_id, instrument_id, branch_id, held_at, status,
+       mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
+FROM cts.mismatch_queue
+WHERE bank_id = $1 AND branch_id = $2 AND status = 'HELD'
+ORDER BY held_at ASC</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>branch_id (Variant B only)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/mismatches</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-010" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-010</span>
+    <span class="card-title">resolve_mismatch_select</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches mismatch record and its associated Temporal workflow_run_id before sending the resolution signal. Validates the mismatch is still HELD.</div>
+    <pre class="query">SELECT mismatch_id, branch_id, workflow_run_id
+FROM cts.mismatch_queue
+WHERE mismatch_id = $1
+  AND bank_id     = $2
+  AND status      = 'HELD'</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>mismatch_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/mismatches/{mismatch_id}/resolve</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-011" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-011</span>
+    <span class="card-title">emit_payee_feedback</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Inserts a payee corpus event into the OCR feedback table. Fired as a fire-and-forget child workflow (FeedbackEmitWorkflow) after every ChequeProcessingWorkflow decision, meaning it runs during the inward hot path but does not block the primary decision.</div>
+    <pre class="query">INSERT INTO cts.ocr_corpus_events
+  (bank_id, instrument_id, corpus_type, failure_mode, name_match_score, rationale)
+VALUES
+  ($1, $2, $3, $4, $5, $6)</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>instrument_id</td></tr>
+      <tr><td>$3</td><td>text</td><td>corpus_type = "payee"</td></tr>
+      <tr><td>$4</td><td>text</td><td>failure_mode (e.g. OCR_LOW_CONFIDENCE, PAYEE_MISMATCH)</td></tr>
+      <tr><td>$5</td><td>float?</td><td>name_match_score — fuzzy match score 0–1</td></tr>
+      <tr><td>$6</td><td>text?</td><td>rationale — human-readable reason from LLM</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/workflows/activities/feedback_activities.py</code> → <code>emit_payee_feedback_signal</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-012" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-012</span>
+    <span class="card-title">emit_micr_feedback</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Inserts a MICR corpus event into the OCR feedback table. Same schema as Q-011; corpus_type is fixed to "micr". Also fire-and-forget via FeedbackEmitWorkflow.</div>
+    <pre class="query">INSERT INTO cts.ocr_corpus_events
+  (bank_id, instrument_id, corpus_type, failure_mode, name_match_score, rationale)
+VALUES
+  ($1, $2, $3, $4, $5, $6)</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>instrument_id</td></tr>
+      <tr><td>$3</td><td>text</td><td>corpus_type = "micr"</td></tr>
+      <tr><td>$4</td><td>text</td><td>failure_mode</td></tr>
+      <tr><td>$5</td><td>float?</td><td>name_match_score</td></tr>
+      <tr><td>$6</td><td>text?</td><td>rationale</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/workflows/activities/feedback_activities.py</code> → <code>emit_micr_feedback_signal</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-013" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-013</span>
+    <span class="card-title">insert_retrain_run</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a new MLflow retraining run. ON CONFLICT DO NOTHING makes this idempotent — Temporal retries will not create duplicate rows.</div>
+    <pre class="query">INSERT INTO cts.model_retrain_runs
+  (run_id, bank_id, corpus_type, mlflow_run_id, status)
+VALUES
+  ($1, $2, $3, $4, $5)
+ON CONFLICT (run_id) DO NOTHING</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>run_id (UUID)</td></tr>
+      <tr><td>$2</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$3</td><td>text</td><td>corpus_type (payee|micr)</td></tr>
+      <tr><td>$4</td><td>text</td><td>mlflow_run_id</td></tr>
+      <tr><td>$5</td><td>text</td><td>status (RUNNING|COMPLETED|FAILED)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/workflows/activities/feedback_activities.py</code> → <code>dispatch_retrain_job</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-014" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-014</span>
+    <span class="card-title">update_shadow_eval</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Writes shadow evaluation accuracy metrics back to a retrain run record after the newly-trained model has been tested against held-out data.</div>
+    <pre class="query">UPDATE cts.model_retrain_runs
+   SET accuracy_before  = $1,
+       accuracy_after   = $2,
+       improvement_pct  = $3
+ WHERE mlflow_run_id    = $4</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>float</td><td>accuracy_before — baseline model accuracy</td></tr>
+      <tr><td>$2</td><td>float</td><td>accuracy_after — new model accuracy</td></tr>
+      <tr><td>$3</td><td>float</td><td>improvement_pct — percentage improvement</td></tr>
+      <tr><td>$4</td><td>text</td><td>mlflow_run_id — correlates to MLflow</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/workflows/activities/feedback_activities.py</code> → <code>run_shadow_evaluation</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-015" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-015</span>
+    <span class="card-title">promote_model</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Marks a retrain run as promoted to production. Sets promoted=TRUE and records final status, completion timestamp, and improvement percentage.</div>
+    <pre class="query">UPDATE cts.model_retrain_runs
+   SET status          = $1,
+       completed_at    = $2,
+       improvement_pct = COALESCE($3, improvement_pct),
+       promoted        = TRUE
+ WHERE mlflow_run_id   = $4</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>status (PROMOTED|REJECTED)</td></tr>
+      <tr><td>$2</td><td>timestamptz</td><td>completed_at</td></tr>
+      <tr><td>$3</td><td>float?</td><td>improvement_pct (COALESCE — preserves existing if null)</td></tr>
+      <tr><td>$4</td><td>text</td><td>mlflow_run_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/workflows/activities/feedback_activities.py</code> → <code>promote_model</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-016" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-016</span>
+    <span class="card-title">get_mandate_rule</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the mandate rule (SINGLE / ANY / ALL) and quorum_n for an account during signature verification. Account is identified by its HMAC-SHA256 hash — never the raw account number.</div>
+    <pre class="query">SELECT mandate_rule, quorum_n
+FROM cts.account_signatories
+WHERE bank_id      = $1
+  AND account_hash = $2
+  AND is_active    = TRUE
+LIMIT 1</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash — HMAC-SHA256(pepper, bank_id:account_number)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/signature_vault.py</code> → <code>get_mandate_rule()</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-017" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-017</span>
+    <span class="card-title">load_signatory_ids</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns ordered signatory_id list for an account. Called during signature vault warm-up and when Redis LRANGE misses. Order preserved by created_at for deterministic embedding index assignment.</div>
+    <pre class="query">SELECT signatory_id
+FROM cts.account_signatories
+WHERE bank_id      = $1
+  AND account_hash = $2
+  AND is_active    = TRUE
+ORDER BY created_at</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash — HMAC-SHA256</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/signature_vault.py</code> → <code>_load_signatory_ids()</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-018" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-018</span>
+    <span class="card-title">load_signatory_from_db</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches raw embedding bytes (packed float32) for a signatory from the YugabyteDB durable store. Called only on Redis cache miss. Ordered by specimen_index for correct reconstruction.</div>
+    <pre class="query">SELECT embedding
+FROM cts.signature_embeddings
+WHERE bank_id      = $1
+  AND account_hash = $2
+  AND signatory_id = $3
+ORDER BY specimen_index</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash — HMAC-SHA256</td></tr>
+      <tr><td>$3</td><td>text</td><td>signatory_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/signature_vault.py</code> → <code>_load_signatory_from_db()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-019" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-019</span>
+    <span class="card-title">store_sig_embeddings</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Upserts a signature embedding specimen into YugabyteDB. Conflict target is the composite key (bank_id, account_hash, signatory_id, specimen_index) — re-enrollment updates the embedding in place.</div>
+    <pre class="query">INSERT INTO cts.signature_embeddings
+  (bank_id, account_hash, signatory_id, specimen_index, embedding, source)
+VALUES
+  ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (bank_id, account_hash, signatory_id, specimen_index)
+DO UPDATE SET
+  embedding  = EXCLUDED.embedding,
+  source     = EXCLUDED.source,
+  updated_at = now()</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash — HMAC-SHA256</td></tr>
+      <tr><td>$3</td><td>text</td><td>signatory_id</td></tr>
+      <tr><td>$4</td><td>int</td><td>specimen_index (0-based)</td></tr>
+      <tr><td>$5</td><td>bytea</td><td>embedding — packed float32 bytes</td></tr>
+      <tr><td>$6</td><td>text</td><td>source (ENROLLMENT | BACKFILL)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/signature_vault.py</code> → <code>store_embeddings()</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-020" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-020</span>
+    <span class="card-title">check_pps_existing</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks whether a PPS entry already exists before deciding to INSERT or UPDATE. Part of the PPS vault upsert flow. account_hash is HMAC-SHA256 with bank-specific pepper.</div>
+    <pre class="query">SELECT
+  entry_id,
+  status,
+  amount_paise,
+  cheque_date,
+  expires_at,
+  registration_channel,
+  registered_by
+FROM cts.pps_vault_entries
+WHERE bank_id      = $1
+  AND account_hash = $2
+  AND cheque_number = $3</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash — HMAC-SHA256(pepper, bank_id:account_number)</td></tr>
+      <tr><td>$3</td><td>text</td><td>cheque_number</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>store()</code> pre-check</div>
+  </div>
+</div>
+
+<div class="card" id="Q-021" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-021</span>
+    <span class="card-title">pps_history_snapshot</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Copies the current PPS entry into the history table before an update, creating a full audit trail of every state change. Uses INSERT … SELECT to avoid sending data twice.</div>
+    <pre class="query">INSERT INTO cts.pps_vault_entries_history
+  (entry_id, bank_id, account_hash, cheque_number, cheque_date,
+   amount_paise, amount_range, status, expires_at, registration_channel,
+   registered_by, change_action, changed_by, changed_at, upload_batch_id)
+SELECT
+  entry_id, bank_id, account_hash, cheque_number, cheque_date,
+  amount_paise, amount_range, status, expires_at, registration_channel,
+  registered_by, $4, $5, now(), $6
+FROM cts.pps_vault_entries
+WHERE bank_id      = $1
+  AND account_hash = $2
+  AND cheque_number = $3</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash</td></tr>
+      <tr><td>$3</td><td>text</td><td>cheque_number</td></tr>
+      <tr><td>$4</td><td>text</td><td>change_action (UPDATE|CANCEL)</td></tr>
+      <tr><td>$5</td><td>text</td><td>changed_by — user or system id</td></tr>
+      <tr><td>$6</td><td>text?</td><td>upload_batch_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>store()</code>, <code>cancel()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-022" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-022</span>
+    <span class="card-title">pps_full_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Full upsert of a PPS vault entry — inserts on first registration, updates on re-registration (e.g. amount correction). Conflict target is the composite business key (bank_id, account_hash, cheque_number).</div>
+    <pre class="query">INSERT INTO cts.pps_vault_entries
+  (bank_id, account_hash, account_last4, cheque_number, cheque_date,
+   amount_paise, amount_range, payee_name_enc, status, expires_at,
+   registration_channel, cbs_pps_ref, registered_by, upload_batch_id,
+   registered_at, last_synced_at, created_at)
+VALUES
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+   now(), now(), now())
+ON CONFLICT (bank_id, account_hash, cheque_number)
+DO UPDATE SET
+  cheque_date          = EXCLUDED.cheque_date,
+  amount_paise         = EXCLUDED.amount_paise,
+  amount_range         = EXCLUDED.amount_range,
+  payee_name_enc       = EXCLUDED.payee_name_enc,
+  status               = EXCLUDED.status,
+  expires_at           = EXCLUDED.expires_at,
+  registration_channel = EXCLUDED.registration_channel,
+  cbs_pps_ref          = EXCLUDED.cbs_pps_ref,
+  registered_by        = EXCLUDED.registered_by,
+  upload_batch_id      = EXCLUDED.upload_batch_id,
+  last_synced_at       = now()</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1–$2</td><td>text</td><td>bank_id, account_hash</td></tr>
+      <tr><td>$3</td><td>text</td><td>account_last4 (display only)</td></tr>
+      <tr><td>$4–$5</td><td>text</td><td>cheque_number, cheque_date (YYYY-MM-DD)</td></tr>
+      <tr><td>$6–$7</td><td>bigint, text</td><td>amount_paise, amount_range bucket</td></tr>
+      <tr><td>$8</td><td>bytea</td><td>payee_name_enc — pgcrypto encrypted</td></tr>
+      <tr><td>$9</td><td>text</td><td>status (REGISTERED|CANCELLED|USED)</td></tr>
+      <tr><td>$10</td><td>timestamptz</td><td>expires_at — cheque validity deadline</td></tr>
+      <tr><td>$11</td><td>text</td><td>registration_channel (CBS|BRANCH|API)</td></tr>
+      <tr><td>$12–$14</td><td>text</td><td>cbs_pps_ref, registered_by, upload_batch_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>store()</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-023" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-023</span>
+    <span class="card-title">pps_load_from_db</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Database fallback when Redis HGETALL misses. Fetches a single active PPS entry for the 5-flag NPCI decision tree. Only returns REGISTERED status — expired/cancelled entries must not affect the decision.</div>
+    <pre class="query">SELECT
+  amount_paise,
+  amount_range,
+  cheque_date,
+  status,
+  expires_at,
+  registration_channel
+FROM cts.pps_vault_entries
+WHERE bank_id      = $1
+  AND account_hash = $2
+  AND cheque_number = $3
+  AND status       = 'REGISTERED'</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>account_hash</td></tr>
+      <tr><td>$3</td><td>text</td><td>cheque_number</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>_load_from_db()</code> (Redis miss path)</div>
+  </div>
+</div>
+
+<div class="card" id="Q-024" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-024</span>
+    <span class="card-title">list_audit_events</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Cursor-paginated audit event listing with optional event_type and severity filters. Cursor encodes (occurred_at, event_id) for stable keyset pagination.</div>
+    <pre class="query">SELECT
+  event_id,
+  bank_id,
+  event_type,
+  severity,
+  service_name,
+  occurred_at,
+  immudb_verified
+FROM cts.cts_audit_events
+WHERE bank_id = $1
+  [AND event_type = $N]
+  [AND severity   = $N]
+  [AND (occurred_at, event_id::text) &lt; ($N::timestamptz, $N)]
+ORDER BY occurred_at DESC, event_id DESC
+LIMIT $N</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>optional</td><td>text</td><td>event_type filter</td></tr>
+      <tr><td>optional</td><td>text</td><td>severity filter (INFO|WARN|CRITICAL)</td></tr>
+      <tr><td>optional</td><td>timestamptz, text</td><td>cursor (occurred_at, event_id) for keyset pagination</td></tr>
+      <tr><td>last</td><td>int</td><td>limit + 1 (has_more detection)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/audit.py</code> → <code>GET /v1/audit/events</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-025" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-025</span>
+    <span class="card-title">count_audit_events</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns total audit event count for a bank. Run alongside Q-024 to populate pagination total.</div>
+    <pre class="query">SELECT COUNT(*) AS cnt
+FROM cts.cts_audit_events
+WHERE bank_id = $1</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/audit.py</code> → <code>GET /v1/audit/events</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-026" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-026</span>
+    <span class="card-title">get_audit_event_detail</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches full detail of a single audit event including event_data payload, Immudb transaction ID, and verification status.</div>
+    <pre class="query">SELECT
+  event_id,
+  bank_id,
+  event_type,
+  severity,
+  service_name,
+  workflow_id,
+  activity_name,
+  event_data,
+  immudb_tx_id,
+  immudb_verified,
+  occurred_at
+FROM cts.cts_audit_events
+WHERE event_id = $1::uuid
+  AND bank_id  = $2</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>uuid</td><td>event_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>bank_id (tenant isolation)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/audit.py</code> → <code>GET /v1/audit/events/{event_id}</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-027" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-027</span>
+    <span class="card-title">immudb_verify_lookup</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches immudb_tx_id and immudb_verified flag for a specific event. Used by the tamper-detection verify endpoint — returns the Merkle proof status stored when Immudb verifiedSet was called.</div>
+    <pre class="query">SELECT event_id, immudb_tx_id, immudb_verified
+FROM cts.cts_audit_events
+WHERE event_id = $1::uuid
+  AND bank_id  = $2</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>uuid</td><td>event_id</td></tr>
+      <tr><td>$2</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/audit.py</code> → <code>GET /v1/audit/immudb/verify/{event_id}</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-028" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-028</span>
+    <span class="card-title">compliance_summary_agg</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Aggregates audit event counts by severity for a date range. Used by the compliance summary endpoint to produce a dashboard for RBI examiners and compliance officers.</div>
+    <pre class="query">SELECT
+  COUNT(*)                                        AS total_events,
+  COUNT(*) FILTER (WHERE severity = 'CRITICAL')   AS critical_count,
+  COUNT(*) FILTER (WHERE severity = 'WARN')       AS warn_count,
+  COUNT(*) FILTER (WHERE severity = 'INFO')       AS info_count,
+  COUNT(*) FILTER (WHERE NOT immudb_verified)     AS unverified_count
+FROM cts.cts_audit_events
+WHERE bank_id    = $1
+  AND occurred_at >= $2::date
+  AND occurred_at &lt;  $3::date + INTERVAL '1 day'</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>date</td><td>date_from (inclusive)</td></tr>
+      <tr><td>$3</td><td>date</td><td>date_to (inclusive via +1 day)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/audit.py</code> → <code>GET /v1/audit/compliance/summary</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-029" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-029</span>
+    <span class="card-title">top_event_types</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns the top 10 most frequent audit event types in a date range. Included in the compliance summary response.</div>
+    <pre class="query">SELECT event_type, COUNT(*) AS cnt
+FROM cts.cts_audit_events
+WHERE bank_id    = $1
+  AND occurred_at >= $2::date
+  AND occurred_at &lt;  $3::date + INTERVAL '1 day'
+GROUP BY event_type
+ORDER BY cnt DESC
+LIMIT 10</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2–$3</td><td>date</td><td>date_from / date_to</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/audit.py</code> → <code>GET /v1/audit/compliance/summary</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-030" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-030</span>
+    <span class="card-title">iet_risk_panel</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Ops dashboard panel: counts instruments currently IN_PROCESSING and those within 30 seconds of IET breach. Runs every 60 seconds via PlatformHealthCheckWorkflow.</div>
+    <pre class="query">SELECT
+  COUNT(*) FILTER (WHERE iet_deadline &lt; NOW() + INTERVAL '30 seconds') AS near_breach,
+  COUNT(*) AS in_processing
+FROM cts.cheque_instruments
+WHERE bank_id = $1
+  AND status  = 'IN_PROCESSING'</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_dashboard_panels()</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-031" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-031</span>
+    <span class="card-title">human_review_panel</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Ops dashboard panel: queue depth and average wait time (minutes) for instruments in HUMAN_REVIEW status.</div>
+    <pre class="query">SELECT
+  COUNT(*) AS queue_depth,
+  COALESCE(AVG(EXTRACT(EPOCH FROM (NOW() - received_at)) / 60), 0) AS avg_wait
+FROM cts.cheque_instruments
+WHERE bank_id = $1
+  AND status  = 'HUMAN_REVIEW'</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_dashboard_panels()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-032" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-032</span>
+    <span class="card-title">vault_coverage_count</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Counts distinct accounts with signature embeddings in YugabyteDB. Compared against Redis sig:* key count to compute vault coverage percentage for the Ops Dashboard.</div>
+    <pre class="query">SELECT COUNT(DISTINCT account_hash) AS accounts
+FROM cts.signature_embeddings
+WHERE bank_id = $1</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_vault_coverage()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-033" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-033</span>
+    <span class="card-title">ocr_failure_modes</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Aggregates OCR failure mode distribution for the last 30 days. Powers the failure-mode breakdown panel in the Ops Dashboard OCR Feedback section.</div>
+    <pre class="query">SELECT failure_mode, COUNT(*) AS cnt
+FROM cts.ocr_corpus_events
+WHERE bank_id    = $1
+  AND created_at > NOW() - INTERVAL '30 days'
+GROUP BY failure_mode
+ORDER BY cnt DESC</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_ocr_feedback()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-034" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-034</span>
+    <span class="card-title">retrain_run_history</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the 10 most recent model retraining runs for the Ops Dashboard history panel, including accuracy before/after and promotion status.</div>
+    <pre class="query">SELECT
+  run_id,
+  corpus_type,
+  triggered_at,
+  completed_at,
+  status,
+  accuracy_before,
+  accuracy_after,
+  improvement_pct,
+  promoted
+FROM cts.model_retrain_runs
+WHERE bank_id = $1
+ORDER BY triggered_at DESC
+LIMIT 10</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_ocr_feedback()</code></div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-035" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-035</span>
+    <span class="card-title">model_drift_calc</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Computes current-vs-baseline model metric drift for two models: got-ocr2 (ocr_confidence from cts.ai_inference_logs) and qwen2-vl (fraud_score from cts.agent_decisions). Dynamic SQL — table and column are substituted from a static config array.</div>
+    <pre class="query">-- For got-ocr2 (ocr_confidence_mean):
+SELECT
+  AVG(ocr_confidence) FILTER (
+    WHERE created_at > NOW() - INTERVAL '1 day'
+  ) AS current_val,
+  AVG(ocr_confidence) FILTER (
+    WHERE created_at BETWEEN NOW() - INTERVAL '8 days'
+                         AND NOW() - INTERVAL '1 day'
+  ) AS baseline_7d
+FROM cts.ai_inference_logs
+WHERE bank_id = $1
+
+-- For qwen2-vl (fraud_score_mean):
+SELECT
+  AVG(fraud_score) FILTER (
+    WHERE created_at > NOW() - INTERVAL '1 day'
+  ) AS current_val,
+  AVG(fraud_score) FILTER (
+    WHERE created_at BETWEEN NOW() - INTERVAL '8 days'
+                         AND NOW() - INTERVAL '1 day'
+  ) AS baseline_7d
+FROM cts.agent_decisions
+WHERE bank_id = $1</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id (for each model iteration)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_model_health()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-036" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-036</span>
+    <span class="card-title">recent_critical_alerts</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches CRITICAL and ERROR audit events from the last 24 hours for the Ops Dashboard alerts panel.</div>
+    <pre class="query">SELECT event_type, severity, occurred_at, acknowledged
+FROM cts.audit_events
+WHERE bank_id    = $1
+  AND severity   IN ('CRITICAL', 'ERROR')
+  AND occurred_at > NOW() - INTERVAL '24 hours'
+ORDER BY occurred_at DESC
+LIMIT $2</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+      <tr><td>$2</td><td>int</td><td>limit (default 20)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_alerts()</code></div>
+  </div>
+</div>
+
+<div class="card" id="Q-037" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-037</span>
+    <span class="card-title">count_critical_alerts_24h</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Total count of CRITICAL/ERROR events in last 24 hours. Paired with Q-036 to supply the alerts panel total count for pagination.</div>
+    <pre class="query">SELECT COUNT(*) AS cnt
+FROM cts.audit_events
+WHERE bank_id    = $1
+  AND severity   IN ('CRITICAL', 'ERROR')
+  AND occurred_at > NOW() - INTERVAL '24 hours'</pre>
+    <table class="params-table"><thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead><tbody>
+      <tr><td>$1</td><td>text</td><td>bank_id</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_alerts()</code></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     REDIS
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card hot" id="R-001" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-001</span>
+    <span class="card-title">sig_vault_load</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Loads all signature embedding specimens for one signatory from the Redis hot tier. Returns an ordered list of packed float32 byte strings. Called during inward cheque processing before Siamese network comparison.</div>
+    <pre class="query">LRANGE sig:{bank_id}:{hmac_sha256(pepper, bank_id:account_number)}:{signatory_id} 0 -1</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}</td><td>Tenant identifier</td></tr>
+      <tr><td>{hmac_sha256(...)}</td><td>HMAC-SHA256(bank-specific pepper, "bank_id:account_number") — never raw account number</td></tr>
+      <tr><td>{signatory_id}</td><td>Individual signatory within the account</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/signature_vault.py</code> → <code>load_specimens()</code> — hot path</div>
+  </div>
+</div>
+
+<div class="card" id="R-002" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-002</span>
+    <span class="card-title">sig_vault_store</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Pipeline-stores signature specimens into Redis. DEL clears stale specimens; RPUSH appends each new packed float32 embedding. Executed as a Redis pipeline for atomicity. No TTL — VaultSyncWorkflow (6 AM daily) refreshes from YugabyteDB.</div>
+    <pre class="query">-- Pipeline (atomic):
+DEL  sig:{bank_id}:{hmac}:{signatory_id}
+RPUSH sig:{bank_id}:{hmac}:{signatory_id} {packed_float32_bytes_0}
+RPUSH sig:{bank_id}:{hmac}:{signatory_id} {packed_float32_bytes_1}
+...  (one RPUSH per specimen)</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}</td><td>Tenant identifier</td></tr>
+      <tr><td>{hmac}</td><td>HMAC-SHA256(pepper, bank_id:account_number)</td></tr>
+      <tr><td>{signatory_id}</td><td>Signatory within the account</td></tr>
+      <tr><td>{packed_float32_bytes_N}</td><td>struct.pack("&gt;f"*len, *embedding) — one RPUSH per specimen</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/signature_vault.py</code> → <code>store_embeddings()</code>, VaultSyncWorkflow backfill</div>
+  </div>
+</div>
+
+<div class="card hot" id="R-003" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-003</span>
+    <span class="card-title">pps_vault_lookup</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Primary PPS lookup during inward processing. Returns all fields of a PPS hash entry in one round trip. On miss, falls back to Q-023 (DB load). Hit = O(1), critical for sub-600ms decision budget.</div>
+    <pre class="query">HGETALL pps:{bank_id}:{hmac_sha256(pepper, bank_id:account_number)}:{cheque_number}</pre>
+    <div class="card-meta">
+      <div class="meta-item">Returns hash fields: <strong>amount_paise, payee, cheque_date, status, npci_flag</strong></div>
+    </div>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}</td><td>Tenant identifier</td></tr>
+      <tr><td>{hmac_sha256(...)}</td><td>HMAC-SHA256(bank-specific pepper, "bank_id:account_number")</td></tr>
+      <tr><td>{cheque_number}</td><td>Cheque leaf number being presented</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>lookup()</code> — hot path</div>
+  </div>
+</div>
+
+<div class="card" id="R-004" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-004</span>
+    <span class="card-title">pps_vault_store</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Writes a PPS entry to Redis with expiry matching the cheque validity window. HSET stores all fields; EXPIRE sets the TTL so entries automatically evict when the cheque is no longer presentable.</div>
+    <pre class="query">HSET pps:{bank_id}:{hmac}:{cheque_number}
+     amount_paise {amount_paise}
+     payee        {payee_name_plain}
+     cheque_date  {cheque_date}
+     status       {status}
+     npci_flag    {P|D|Y|Z|N}
+EXPIRE pps:{bank_id}:{hmac}:{cheque_number} {ttl_seconds}</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}, {hmac}, {cheque_number}</td><td>Same key structure as R-003</td></tr>
+      <tr><td>{amount_paise}</td><td>Amount in paise (integer)</td></tr>
+      <tr><td>{payee_name_plain}</td><td>Payee name (plain — Redis is in-cluster only)</td></tr>
+      <tr><td>{cheque_date}</td><td>YYYY-MM-DD</td></tr>
+      <tr><td>{npci_flag}</td><td>NPCI 5-flag decision: P=payable, D=discrepant, Y=not registered, Z=cancelled, N=amount mismatch</td></tr>
+      <tr><td>{ttl_seconds}</td><td>Seconds until cheque validity expires (from cheque_date + 3 months)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>store()</code></div>
+  </div>
+</div>
+
+<div class="card" id="R-005" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-005</span>
+    <span class="card-title">pps_vault_cancel</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Removes a PPS entry from Redis when cancelled by the customer. Paired with Q-022 (DB upsert to CANCELLED status) and Q-021 (history snapshot).</div>
+    <pre class="query">DEL pps:{bank_id}:{hmac}:{cheque_number}</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}</td><td>Tenant identifier</td></tr>
+      <tr><td>{hmac}</td><td>HMAC-SHA256(pepper, bank_id:account_number)</td></tr>
+      <tr><td>{cheque_number}</td><td>Cheque leaf number</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>modules/cts/vaults/pps_vault.py</code> → <code>cancel()</code></div>
+  </div>
+</div>
+
+<div class="card" id="R-006" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-006</span>
+    <span class="card-title">corpus_progress_read</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Reads the current OCR feedback corpus accumulation count for a given corpus type. Compared against the retrain threshold (default 500) to compute progress percentage for the Ops Dashboard.</div>
+    <pre class="query">GET feedback:corpus:{bank_id}:{corpus_type}:count</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}</td><td>Tenant identifier</td></tr>
+      <tr><td>{corpus_type}</td><td>"payee" or "micr"</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_ocr_feedback()</code></div>
+  </div>
+</div>
+
+<div class="card" id="R-007" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-007</span>
+    <span class="card-title">vault_coverage_scan</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">SCAN-based count of signature vault keys for a bank. Used to compute vault warm coverage vs YugabyteDB. count=1000 controls the cursor batch size — non-blocking incremental scan.</div>
+    <pre class="query">SCAN 0 MATCH sig:{bank_id}:* COUNT 1000
+-- (iterated until cursor returns 0 to count all matching keys)</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>{bank_id}</td><td>Tenant identifier — keys belonging to other banks are never counted</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_vault_coverage()</code></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     IMMUDB
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card hot" id="I-001" data-store="Immudb" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-001</span>
+    <span class="card-title">write_audit_event</span>
+    <span class="badge badge-immudb">Immudb</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Writes a tamper-evident audit event to Immudb using verifiedSet. The Merkle proof is stored in YugabyteDB (immudb_tx_id, immudb_verified). Called after every cheque decision via WriteAuditActivity with unlimited retries (AUDIT_RETRY policy).</div>
+    <pre class="query">verifiedSet(
+  key   = "{bank_id}:{collection}:{sha256(event_id)}",
+  value = &lt;json_bytes of HSM-signed AuditEvent&gt;
+)
+
+-- Collection values:
+--   cts_events  → all CTS inward/outward activity events
+--   ej_events   → ATM EJ events (separate repo, shown for reference)</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>key</td><td>Composite: bank_id + collection name + SHA-256(event_id UUID)</td></tr>
+      <tr><td>value</td><td>JSON bytes of the HSM-signed AuditEvent — event_type, bank_id, occurred_at, payload (non-PII), hsm_signature</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>shared/audit/immudb_client.py</code> → <code>write_event()</code> — invoked by <code>modules/cts/workflows/activities/write_audit.py</code></div>
+  </div>
+</div>
+
+<div class="card" id="I-002" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-002</span>
+    <span class="card-title">verify_audit_event</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Verifies that a stored audit event has not been tampered with by re-fetching it via Immudb's cryptographic verifiedGet. The Merkle proof chain is validated client-side. Called from the audit verify endpoint.</div>
+    <pre class="query">verifiedGet(
+  key = "{bank_id}:{collection}:{sha256(event_id)}"
+)
+-- Returns: value bytes + inclusion proof + consistency proof</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>key</td><td>Same composite key as I-001</td></tr>
+      <tr><td>collection</td><td>cts_events (for CTS audit events)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>shared/audit/immudb_client.py</code> → <code>verify_event()</code> — invoked by <code>GET /v1/audit/immudb/verify/{event_id}</code></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     KAFKA
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card hot" id="K-001" data-store="Kafka" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-001</span>
+    <span class="card-title">publish_ngch_filed</span>
+    <span class="badge badge-kafka">Kafka</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Published after every successful NGCH filing. Consumed by downstream reporting, reconciliation, and notification services. The sole Kafka publish inside the NGCH filer activity — the only place in ASTRA that calls NGCHAdapter.file_decision().</div>
+    <pre class="query">Topic:   cts.decisions.{bank_id}
+Key:     {bank_id} (bytes)
+Payload (schema_version "1.0"):
+{
+  "event_type":       "CTS_NGCH_FILED",
+  "schema_version":   "1.0",
+  "instrument_id":    "&lt;uuid&gt;",
+  "decision":         "CONFIRM" | "RETURN",
+  "acknowledgement_id": "&lt;ngch_ack_id&gt;",
+  "workflow_id":      "cts-{bank_id}-{instrument_id}"
+}</pre>
+    <div class="called-from">Called from: <code>modules/cts/workflows/activities/ngch_filer.py</code> → <code>file_to_ngch()</code></div>
+  </div>
+</div>
+
+<div class="card" id="K-002" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-002</span>
+    <span class="card-title">publish_config_changed</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Published when a Layer 3 config change is approved by the bank_it_admin checker. Triggers config_service cache invalidation (30s TTL) across all pods via the platform.config.changed consumer.</div>
+    <pre class="query">Topic:   platform.config.changed
+Key:     {bank_id} (bytes)
+Payload (schema_version "1.0"):
+{
+  "event_type":     "CONFIG_CHANGED",
+  "schema_version": "1.0",
+  "bank_id":        "{bank_id}",
+  "config_key":     "{config_key}",
+  "new_value":      "{new_value}",
+  "changed_by":     "{user_id}",
+  "change_id":      "{change_id}"
+}</pre>
+    <div class="called-from">Called from: <code>apps/api/routers/admin.py</code> → approve threshold change endpoint</div>
+  </div>
+</div>
+
+<div class="card" id="K-003" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-003</span>
+    <span class="card-title">publish_notification_request</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">General notification request published to the platform notifications topic. Consumed by the notification-service (dispatcher.py) which routes to WhatsApp or email channels based on template_id.</div>
+    <pre class="query">Topic:   platform.notifications
+Key:     {bank_id} (bytes)
+Payload (schema_version "1.0"):
+{
+  "event_type":     "NOTIFICATION_REQUEST",
+  "schema_version": "1.0",
+  "template_id":    "{template_id}",
+  "recipients":     ["{user_id|email}"],
+  "bank_id":        "{bank_id}",
+  "variables":      { "{key}": "{value}" }
+}</pre>
+    <div class="called-from">Called from: <code>apps/api/routers/admin.py</code> → config change approved/rejected notifications; <code>shared/notifications/dispatcher.py</code></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MinIO
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card hot" id="M-001" data-store="MinIO" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-001</span>
+    <span class="card-title">upload_cheque_image</span>
+    <span class="badge badge-minio">MinIO</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Uploads a cheque image (or any byte payload) to MinIO object storage with SSE-KMS encryption. Called during inward scan ingestion to persist the TIFF/JPEG before workflow processing begins.</div>
+    <pre class="query">put_object(
+  bucket_name  = "cts-instruments-{bank_id}",
+  object_key   = "inward/{clearing_date}/{instrument_id}/{side}.tiff",
+  data         = io.BytesIO(image_bytes),
+  length       = len(image_bytes),
+  content_type = "image/tiff"
+  -- SSE-KMS: key managed by Vault transit engine (applied at bucket policy level)
+)</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>cts-instruments-{bank_id}</td><td>Per-bank bucket — no cross-bank objects</td></tr>
+      <tr><td>{clearing_date}</td><td>YYYY-MM-DD partition for ILM tier transition</td></tr>
+      <tr><td>{instrument_id}</td><td>UUID instrument identifier</td></tr>
+      <tr><td>{side}</td><td>"front" or "rear"</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>shared/storage/minio_client.py</code> → <code>upload_bytes()</code></div>
+  </div>
+</div>
+
+<div class="card hot" id="M-002" data-store="MinIO" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-002</span>
+    <span class="card-title">download_cheque_image</span>
+    <span class="badge badge-minio">MinIO</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Downloads a cheque image from MinIO for processing by OCR, alteration detection, or signature verification activities. Hot path — every inward instrument retrieval.</div>
+    <pre class="query">get_object(
+  bucket_name = "cts-instruments-{bank_id}",
+  object_key  = "inward/{clearing_date}/{instrument_id}/{side}.tiff"
+)</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>cts-instruments-{bank_id}</td><td>Per-bank bucket</td></tr>
+      <tr><td>{clearing_date}</td><td>YYYY-MM-DD</td></tr>
+      <tr><td>{instrument_id}</td><td>UUID</td></tr>
+      <tr><td>{side}</td><td>"front" or "rear"</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>shared/storage/minio_client.py</code> → <code>download_bytes()</code></div>
+  </div>
+</div>
+
+<div class="card" id="M-003" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-003</span>
+    <span class="card-title">presigned_image_url</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Generates a time-limited presigned GET URL for a cheque image. Used when the UI needs to display the image directly without proxying bytes through the API. Expiry is configured via ai.image_url_expiry_seconds (default 300).</div>
+    <pre class="query">presigned_get_object(
+  bucket_name     = "cts-instruments-{bank_id}",
+  object_key      = "inward/{clearing_date}/{instrument_id}/{side}.tiff",
+  expires         = timedelta(seconds={expiry_seconds})
+)</pre>
+    <table class="params-table"><thead><tr><th>Placeholder</th><th>Description</th></tr></thead><tbody>
+      <tr><td>cts-instruments-{bank_id}</td><td>Per-bank bucket</td></tr>
+      <tr><td>{expiry_seconds}</td><td>From config_service: ai.image_url_expiry_seconds (default 300)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>shared/storage/minio_client.py</code> → <code>presigned_url()</code></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TEMPORAL
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card hot" id="T-001" data-store="Temporal" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-001</span>
+    <span class="card-title">start_ChequeProcessingWorkflow</span>
+    <span class="badge badge-temporal">Temporal</span>
+    <span class="tag tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Starts the primary inward cheque processing workflow. Exactly-once guaranteed via deterministic workflow_id. Called by POST /v1/cts/inward/{instrument_id}/submit. IETWatchdogWorkflow is started as first child inside the workflow before any activity.</div>
+    <pre class="query">client.start_workflow(
+  workflow      = ChequeProcessingWorkflow.run,
+  args          = [ChequeWorkflowInput(
+                    instrument_id = "{instrument_id}",
+                    bank_id       = "{bank_id}",
+                    image_url     = "{minio_presigned_url}",
+                    micr_line     = "{micr_line}",
+                    amount        = {amount_float},
+                    iet_deadline  = {unix_timestamp},
+                    ...
+                  )],
+  id            = "cts-{bank_id}-{instrument_id}",
+  task_queue    = "cts-processing-{bank_id}",
+  id_reuse_policy = WorkflowIDReusePolicy.REJECT_DUPLICATE
+)</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>workflow_id</td><td>cts-{bank_id}-{instrument_id} — idempotency key</td></tr>
+      <tr><td>task_queue</td><td>cts-processing-{bank_id} — per-bank isolation</td></tr>
+      <tr><td>id_reuse_policy</td><td>REJECT_DUPLICATE — exactly-once guarantee</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/inward/{instrument_id}/submit</code></div>
+  </div>
+</div>
+
+<div class="card" id="T-002" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-002</span>
+    <span class="card-title">signal_HumanReviewWorkflow</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Sends the reviewer decision signal to a waiting HumanReviewWorkflow. The workflow blocks on this signal for up to 55 minutes (IET-aware timeout). Signal payload is the ReviewDecision (CONFIRM|RETURN + rationale).</div>
+    <pre class="query">handle = client.get_workflow_handle(
+  "cts-humanreview-{bank_id}-{instrument_id}"
+)
+await handle.signal(
+  HumanReviewWorkflow.receive_review_decision,
+  ReviewDecision(
+    decision       = "CONFIRM" | "RETURN",
+    reviewer_id    = "{user_id}",
+    return_reason  = "{rrb_code}" | None,
+    notes          = "{reviewer_notes}" | None
+  )
+)</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>workflow_id</td><td>cts-humanreview-{bank_id}-{instrument_id}</td></tr>
+      <tr><td>signal_name</td><td>receive_review_decision</td></tr>
+      <tr><td>decision</td><td>CONFIRM or RETURN</td></tr>
+      <tr><td>return_reason</td><td>URRBCH reason code (required when RETURN)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/review/{instrument_id}/decision</code></div>
+  </div>
+</div>
+
+<div class="card" id="T-003" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-003</span>
+    <span class="card-title">list_HumanReviewWorkflows</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Lists open HumanReviewWorkflow instances to build the human review queue. Uses Temporal's list_workflows API with a JMESPath-style filter expression scoped to the bank's task queue and RUNNING status.</div>
+    <pre class="query">client.list_workflows(
+  query = "WorkflowType = 'HumanReviewWorkflow'
+           AND TaskQueue = 'cts-processing-{bank_id}'
+           AND ExecutionStatus = 'Running'"
+)</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>WorkflowType</td><td>HumanReviewWorkflow — filters to review-only workflows</td></tr>
+      <tr><td>TaskQueue</td><td>cts-processing-{bank_id} — bank isolation</td></tr>
+      <tr><td>ExecutionStatus</td><td>Running — excludes completed/timed-out entries</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>GET /v1/cts/review/queue</code></div>
+  </div>
+</div>
+
+<div class="card" id="T-004" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-004</span>
+    <span class="card-title">start_HoldEscalationWorkflow</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Starts the hold escalation workflow which fires a 30-minute reminder, T-60min CRITICAL alert, and T-5min P0 alert before IET breach. Started when a hold is placed. Non-critical — failure is logged and the hold proceeds.</div>
+    <pre class="query">client.start_workflow(
+  workflow   = HoldEscalationWorkflow.run,
+  args       = [HoldEscalationInput(
+                  instrument_id = "{instrument_id}",
+                  bank_id       = "{bank_id}",
+                  reviewer_id   = "{reviewer_id}",
+                  iet_deadline  = {unix_timestamp},
+                  held_at       = {unix_timestamp},
+                  branch_email  = "{branch_email}" | None
+                )],
+  id         = "cts-hold-escalation-{bank_id}-{instrument_id}",
+  task_queue = "cts-processing-{bank_id}"
+)</pre>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/holds/{instrument_id}</code></div>
+  </div>
+</div>
+
+<div class="card" id="T-005" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-005</span>
+    <span class="card-title">signal_HoldEscalationWorkflow_released</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Signals the hold escalation workflow to stop after a hold is released by an ops reviewer. The workflow cancels pending timer-based escalations. Non-fatal — the workflow may have already completed or never started.</div>
+    <pre class="query">handle = client.get_workflow_handle(
+  "cts-hold-escalation-{bank_id}-{instrument_id}"
+)
+await handle.signal(HoldEscalationWorkflow.released)</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>workflow_id</td><td>cts-hold-escalation-{bank_id}-{instrument_id}</td></tr>
+      <tr><td>signal_name</td><td>released — no payload required</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/holds/{instrument_id}/release</code></div>
+  </div>
+</div>
+
+<div class="card" id="T-006" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-006</span>
+    <span class="card-title">signal_MismatchResolutionWorkflow</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Sends the branch supervisor's GO_AHEAD or REJECTED resolution to the MismatchResolutionWorkflow (4-hour timeout). The signal payload includes the action and resolver identity.</div>
+    <pre class="query">handle = client.get_workflow_handle(
+  "cts-mismatch-{bank_id}-{branch_id}-{mismatch_id}",
+  run_id = "{workflow_run_id}"
+)
+await handle.signal(
+  MismatchResolutionWorkflow.resolve,
+  MismatchSignal(
+    action      = "GO_AHEAD" | "REJECTED",
+    resolved_by = "{user_id}"
+  )
+)</pre>
+    <table class="params-table"><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+      <tr><td>workflow_id</td><td>cts-mismatch-{bank_id}-{branch_id}-{mismatch_id}</td></tr>
+      <tr><td>run_id</td><td>workflow_run_id from cts.mismatch_queue row (Q-010)</td></tr>
+      <tr><td>action</td><td>GO_AHEAD (proceed with original amount) or REJECTED (return instrument)</td></tr>
+    </tbody></table>
+    <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/mismatches/{mismatch_id}/resolve</code></div>
+  </div>
+</div>
+
+  </div><!-- /cards -->
+</main>
+</div><!-- /shell -->
+
+<script>
+const cards = Array.from(document.querySelectorAll('.card[id]'));
+let activeStore = 'all';
+
+function counts() {
+  const stores = ['SQL','Redis','Kafka','MinIO','Immudb','Temporal'];
+  document.getElementById('cnt-all').textContent = cards.length;
+  stores.forEach(s => {
+    const el = document.getElementById('cnt-' + s);
+    if (el) el.textContent = cards.filter(c => c.dataset.store === s).length;
+  });
+}
+
+function setStore(el) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  activeStore = el.dataset.store;
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const hotOnly = document.getElementById('chk-hot').checked;
+  const piiOnly = document.getElementById('chk-pii').checked;
+  let visible = 0;
+  cards.forEach(card => {
+    const storeMatch = activeStore === 'all' || card.dataset.store === activeStore;
+    const hotMatch   = !hotOnly  || card.dataset.hot === '1';
+    const piiMatch   = !piiOnly  || card.dataset.pii === '1';
+    const text       = card.textContent.toLowerCase();
+    const qMatch     = !q || text.includes(q);
+    const show = storeMatch && hotMatch && piiMatch && qMatch;
+    card.hidden = !show;
+    if (show) visible++;
+  });
+  document.getElementById('result-count').textContent = `${visible} of ${cards.length} shown`;
+  document.getElementById('lbl-hot').classList.toggle('active', hotOnly);
+  document.getElementById('lbl-pii').classList.toggle('active', piiOnly);
+}
+
+document.getElementById('search').addEventListener('input', applyFilters);
+counts();
+applyFilters();
+
+// Deep-link on load
+if (location.hash) {
+  const el = document.querySelector(location.hash);
+  if (el) setTimeout(() => el.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+}
+</script>
