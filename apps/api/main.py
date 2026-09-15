@@ -33,6 +33,7 @@ from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
 from apps.api.routers import vault_upload
+from apps.api.routers import msv
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -425,6 +426,7 @@ app.include_router(platform_router.router_v1)
 app.include_router(scanner.router_v1)
 app.include_router(scanner_configs.router_v1)
 app.include_router(vault_upload.router_v1)
+app.include_router(msv.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 
