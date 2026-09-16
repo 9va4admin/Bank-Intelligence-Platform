@@ -1211,6 +1211,2406 @@ WHERE bank_id    = $1
     <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_alerts()</code></div>
   </div>
 </div>
+<div class="card pii-table" id="Q-038" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-038</span>
+    <span class="card-title">Insert cheque instrument record</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Inserts a new cheque instrument row when an inward cheque is received from NGCH, establishing the canonical processing record.</div>
+    <pre class="query">INSERT INTO cts.cheque_instruments
+  (instrument_id, bank_id, lot_id, micr_data, drawer_account_hash,
+   payee_name_enc, amount_bucket, received_at, status, clearing_zone)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'RECEIVED',$9)
+ON CONFLICT (instrument_id) DO NOTHING</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Unique cheque identifier</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Drawee bank IFSC prefix</td></tr>
+          <tr><td>lot_id</td><td>UUID</td><td>Clearing lot identifier</td></tr>
+          <tr><td>micr_data</td><td>JSONB</td><td>Parsed MICR line fields</td></tr>
+          <tr><td>drawer_account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>payee_name_enc</td><td>BYTEA</td><td>pgcrypto-encrypted payee name</td></tr>
+          <tr><td>amount_bucket</td><td>TEXT</td><td>Range bucket</td></tr>
+          <tr><td>received_at</td><td>TIMESTAMPTZ</td><td>NGCH receipt timestamp</td></tr>
+          <tr><td>clearing_zone</td><td>TEXT</td><td>RBI clearing zone code</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-039" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-039</span>
+    <span class="card-title">Update instrument status</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates the processing status of a cheque instrument at each workflow stage. Called repeatedly during the 600ms inward processing window.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET status = $1, updated_at = NOW()
+ WHERE instrument_id = $2
+   AND bank_id = $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>New status: PROCESSING/OCR_DONE/FRAUD_SCORED/DECISION_MADE/FILED/RETURNED</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/decision.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-040" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-040</span>
+    <span class="card-title">Select instrument for human review</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the full instrument row for human review queue display, decrypting payee name via pgcrypto when the caller has can_view_pii permission.</div>
+    <pre class="query">SELECT instrument_id, bank_id, lot_id, micr_data,
+       pgp_sym_decrypt(payee_name_enc, $3) AS payee_name,
+       amount_bucket, received_at, status, clearing_zone,
+       ocr_output, fraud_score, decision
+  FROM cts.cheque_instruments
+ WHERE instrument_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+          <tr><td>pgp_key</td><td>TEXT</td><td>PGP symmetric key from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/human_review_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-041" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-041</span>
+    <span class="card-title">List instruments pending human review</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns paginated list of instruments awaiting human decision for the ops_reviewer queue UI, filtered to the user's clearing zone.</div>
+    <pre class="query">SELECT instrument_id, lot_id, amount_bucket, received_at,
+       fraud_score, status, clearing_zone
+  FROM cts.cheque_instruments
+ WHERE bank_id = $1
+   AND status = 'HUMAN_REVIEW'
+   AND clearing_zone = ANY($2)
+ORDER BY received_at ASC
+ LIMIT $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>zones</td><td>TEXT[]</td><td>Allowed clearing zones for this reviewer</td></tr>
+          <tr><td>limit</td><td>INT</td><td>Page size max 100</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-042" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-042</span>
+    <span class="card-title">Update OCR output on instrument</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores structured OCR result JSON on the instrument row after OCR activity completes.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET ocr_output = $1,
+       ocr_confidence = $2,
+       updated_at = NOW()
+ WHERE instrument_id = $3
+   AND bank_id = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>ocr_output</td><td>JSONB</td><td>Structured OCR field extraction result</td></tr>
+          <tr><td>ocr_confidence</td><td>FLOAT</td><td>Aggregate OCR confidence 0-1</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-043" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-043</span>
+    <span class="card-title">Store fraud score and SHAP values</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Persists XGBoost fraud score and SHAP explanation values on the instrument. NGCH filing is blocked until this write succeeds.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET fraud_score = $1,
+       shap_values = $2,
+       fraud_model_version = $3,
+       updated_at = NOW()
+ WHERE instrument_id = $4
+   AND bank_id = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>fraud_score</td><td>FLOAT</td><td>XGBoost ensemble score 0-1</td></tr>
+          <tr><td>shap_values</td><td>JSONB</td><td>SHAP feature contributions</td></tr>
+          <tr><td>fraud_model_version</td><td>TEXT</td><td>MLflow model version tag</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/fraud.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-044" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-044</span>
+    <span class="card-title">Record final decision on instrument</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Writes the final STP or human decision with rationale. Triggers Immudb audit write immediately after.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET decision = $1,
+       decision_reason = $2,
+       decision_by = $3,
+       decided_at = NOW(),
+       status = $4,
+       updated_at = NOW()
+ WHERE instrument_id = $5
+   AND bank_id = $6</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>decision</td><td>TEXT</td><td>HONOUR/RETURN/HUMAN_REVIEW</td></tr>
+          <tr><td>decision_reason</td><td>TEXT</td><td>Machine or human rationale</td></tr>
+          <tr><td>decision_by</td><td>TEXT</td><td>STP_AGENT or reviewer user_id</td></tr>
+          <tr><td>status</td><td>TEXT</td><td>Post-decision status</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/decision.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-045" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-045</span>
+    <span class="card-title">Insert agent decision log row</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Appends a row to the append-only agent_decisions table for every automated decision, capturing the full AI reasoning chain.</div>
+    <pre class="query">INSERT INTO cts.agent_decisions
+  (decision_id, instrument_id, bank_id, workflow_id,
+   ocr_confidence, fraud_score, signature_score,
+   shap_values, llm_reasoning, final_decision,
+   decided_at, model_versions)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),$11)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>decision_id</td><td>UUID</td><td>Unique decision row ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Linked instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping</td></tr>
+          <tr><td>workflow_id</td><td>TEXT</td><td>Temporal workflow ID</td></tr>
+          <tr><td>ocr_confidence</td><td>FLOAT</td><td>OCR aggregate confidence</td></tr>
+          <tr><td>fraud_score</td><td>FLOAT</td><td>XGBoost fraud score</td></tr>
+          <tr><td>signature_score</td><td>FLOAT</td><td>Siamese network match score</td></tr>
+          <tr><td>shap_values</td><td>JSONB</td><td>SHAP values JSON</td></tr>
+          <tr><td>llm_reasoning</td><td>TEXT</td><td>LLM explanation text</td></tr>
+          <tr><td>final_decision</td><td>TEXT</td><td>HONOUR/RETURN/HUMAN_REVIEW</td></tr>
+          <tr><td>model_versions</td><td>JSONB</td><td>Map of model IDs used</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/decision.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-046" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-046</span>
+    <span class="card-title">List agent decisions paginated</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Paginated fetch of agent decisions for the CTSDecisionsLog React page. Cursor-based pagination using UUIDv7 ordering.</div>
+    <pre class="query">SELECT decision_id, instrument_id, fraud_score,
+       signature_score, final_decision, decided_at
+  FROM cts.agent_decisions
+ WHERE bank_id = $1
+   AND decided_at > $2
+ORDER BY decided_at DESC
+ LIMIT $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>cursor</td><td>TIMESTAMPTZ</td><td>Pagination cursor timestamp</td></tr>
+          <tr><td>limit</td><td>INT</td><td>Page size max 100</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-047" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-047</span>
+    <span class="card-title">Insert outward scan record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a newly scanned outward cheque from the scanner adapter into the outward instruments table.</div>
+    <pre class="query">INSERT INTO cts.outward_instruments
+  (instrument_id, bank_id, lot_id, scan_session_id,
+   micr_data, image_front_key, image_rear_key,
+   scanned_at, status)
+VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),'SCANNED')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Generated UUID for this cheque</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Presenting bank</td></tr>
+          <tr><td>lot_id</td><td>UUID</td><td>Current open lot</td></tr>
+          <tr><td>scan_session_id</td><td>UUID</td><td>Scanner session</td></tr>
+          <tr><td>micr_data</td><td>JSONB</td><td>Parsed MICR fields</td></tr>
+          <tr><td>image_front_key</td><td>TEXT</td><td>MinIO object key front image</td></tr>
+          <tr><td>image_rear_key</td><td>TEXT</td><td>MinIO object key rear image</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/scanner/</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-048" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-048</span>
+    <span class="card-title">Update outward instrument after compliance check</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records CTS-2010 compliance result on the outward instrument row.</div>
+    <pre class="query">UPDATE cts.outward_instruments
+   SET cts2010_pass = $1,
+       cts2010_violations = $2,
+       updated_at = NOW()
+ WHERE instrument_id = $3
+   AND bank_id = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>cts2010_pass</td><td>BOOL</td><td>True if all CTS-2010 fields valid</td></tr>
+          <tr><td>cts2010_violations</td><td>JSONB</td><td>List of violation codes</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target outward instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/compliance/cts2010.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-049" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-049</span>
+    <span class="card-title">Insert lot record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Creates a new clearing lot for outward instruments. Opened by the scanner session manager.</div>
+    <pre class="query">INSERT INTO cts.lots
+  (lot_id, bank_id, scan_session_id, opened_at,
+   clearing_date, status, zone)
+VALUES ($1,$2,$3,NOW(),$4,'OPEN',$5)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>lot_id</td><td>UUID</td><td>Lot identifier</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Presenting bank</td></tr>
+          <tr><td>scan_session_id</td><td>UUID</td><td>Scanner session</td></tr>
+          <tr><td>clearing_date</td><td>DATE</td><td>Target clearing date</td></tr>
+          <tr><td>zone</td><td>TEXT</td><td>Clearing zone</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/lot/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-050" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-050</span>
+    <span class="card-title">Close lot and record counts</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Marks a lot as closed and records the final instrument count for session reconciliation.</div>
+    <pre class="query">UPDATE cts.lots
+   SET status = 'CLOSED',
+       instrument_count = $1,
+       closed_at = NOW()
+ WHERE lot_id = $2
+   AND bank_id = $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_count</td><td>INT</td><td>Final cheque count in lot</td></tr>
+          <tr><td>lot_id</td><td>UUID</td><td>Target lot</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/lot/</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-051" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-051</span>
+    <span class="card-title">Select lots for NGCH submission</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches closed lots pending NGCH submission for the outward workflow batch processor.</div>
+    <pre class="query">SELECT lot_id, bank_id, clearing_date, instrument_count, zone
+  FROM cts.lots
+ WHERE bank_id = $1
+   AND status = 'CLOSED'
+   AND clearing_date = $2
+ORDER BY opened_at ASC
+ LIMIT 50</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Presenting bank</td></tr>
+          <tr><td>clearing_date</td><td>DATE</td><td>Target clearing date</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-052" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-052</span>
+    <span class="card-title">Insert NGCH submission record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records each NGCH filing attempt with idempotency key. The unique constraint on (lot_id, bank_id) prevents duplicate submissions.</div>
+    <pre class="query">INSERT INTO cts.ngch_submissions
+  (submission_id, lot_id, bank_id, workflow_id,
+   submitted_at, status, ngch_reference)
+VALUES ($1,$2,$3,$4,NOW(),'SUBMITTED',$5)
+ON CONFLICT (lot_id, bank_id) DO UPDATE
+   SET status = 'RESUBMITTED', ngch_reference = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>submission_id</td><td>UUID</td><td>Unique submission ID</td></tr>
+          <tr><td>lot_id</td><td>UUID</td><td>Lot being submitted</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>workflow_id</td><td>TEXT</td><td>Temporal workflow ID</td></tr>
+          <tr><td>ngch_reference</td><td>TEXT</td><td>NGCH-assigned reference number</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-053" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-053</span>
+    <span class="card-title">Update NGCH submission status</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates submission status after NGCH acknowledgement or rejection.</div>
+    <pre class="query">UPDATE cts.ngch_submissions
+   SET status = $1,
+       ngch_ack_at = NOW(),
+       error_detail = $2
+ WHERE submission_id = $3
+   AND bank_id = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>ACCEPTED/REJECTED/ERROR</td></tr>
+          <tr><td>error_detail</td><td>TEXT</td><td>NGCH error code if rejected</td></tr>
+          <tr><td>submission_id</td><td>UUID</td><td>Target submission</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/mcp/ngch_adapter.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-054" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-054</span>
+    <span class="card-title">Select session reconciliation data</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Aggregates lot and submission data for the end-of-day session reconciliation report.</div>
+    <pre class="query">SELECT l.lot_id, l.instrument_count,
+       s.status AS ngch_status, s.ngch_reference
+  FROM cts.lots l
+  JOIN cts.ngch_submissions s USING (lot_id)
+ WHERE l.bank_id = $1
+   AND l.clearing_date = $2
+ORDER BY l.opened_at</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>clearing_date</td><td>DATE</td><td>Session date</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/reconciliation/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-055" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-055</span>
+    <span class="card-title">Insert RRF return record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Inserts a return reason record for a dishonoured inward cheque into the RRF table.</div>
+    <pre class="query">INSERT INTO cts.rrf_records
+  (rrf_id, instrument_id, bank_id, return_reason_code,
+   return_reason_desc, returned_at, ngch_rrf_ref)
+VALUES ($1,$2,$3,$4,$5,NOW(),$6)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>rrf_id</td><td>UUID</td><td>RRF record ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Dishonoured instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Drawee bank</td></tr>
+          <tr><td>return_reason_code</td><td>TEXT</td><td>RBI return reason code</td></tr>
+          <tr><td>return_reason_desc</td><td>TEXT</td><td>Human-readable reason</td></tr>
+          <tr><td>ngch_rrf_ref</td><td>TEXT</td><td>NGCH RRF acknowledgement ref</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/rrf/</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-056" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-056</span>
+    <span class="card-title">Select RRF records for filing</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches pending RRF records that need to be filed to NGCH for the current session.</div>
+    <pre class="query">SELECT rrf_id, instrument_id, return_reason_code,
+       return_reason_desc, returned_at
+  FROM cts.rrf_records
+ WHERE bank_id = $1
+   AND ngch_rrf_ref IS NULL
+   AND returned_at::date = $2
+ORDER BY returned_at
+ LIMIT 100</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>date</td><td>DATE</td><td>Session date</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/rrf/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-057" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-057</span>
+    <span class="card-title">Insert signature vault entry</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores a new signature vault entry for an account. Written during enrollment and VaultSyncWorkflow.</div>
+    <pre class="query">INSERT INTO cts.signature_vault
+  (vault_entry_id, bank_id, account_hash, signature_embedding,
+   specimen_count, enrolled_at, last_synced_at)
+VALUES ($1,$2,$3,$4,$5,NOW(),NOW())
+ON CONFLICT (bank_id, account_hash)
+  DO UPDATE SET signature_embedding = $4,
+               specimen_count = $5,
+               last_synced_at = NOW()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>vault_entry_id</td><td>UUID</td><td>Vault entry ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>signature_embedding</td><td>JSONB</td><td>Siamese network embedding vector</td></tr>
+          <tr><td>specimen_count</td><td>INT</td><td>Number of specimens averaged</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/signature_vault.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-058" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-058</span>
+    <span class="card-title">Select signature vault entry by account hash</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Looks up vault entry by hashed account number. Raw account number is never stored or passed to this query.</div>
+    <pre class="query">SELECT vault_entry_id, signature_embedding,
+       specimen_count, last_synced_at
+  FROM cts.signature_vault
+ WHERE bank_id = $1
+   AND account_hash = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number — never raw</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/signature_vault.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/signature.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-059" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-059</span>
+    <span class="card-title">List vault gaps for post-banking-hours report</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Identifies instruments processed today where vault lookup returned no entry. Feeds the CTSVaultGapReport React page.</div>
+    <pre class="query">SELECT i.instrument_id, i.drawer_account_hash,
+       i.received_at, i.decision
+  FROM cts.cheque_instruments i
+  LEFT JOIN cts.signature_vault v
+    ON v.bank_id = i.bank_id
+   AND v.account_hash = i.drawer_account_hash
+ WHERE i.bank_id = $1
+   AND i.received_at::date = $2
+   AND v.vault_entry_id IS NULL
+ORDER BY i.received_at
+ LIMIT 100</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>date</td><td>DATE</td><td>Processing date</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-060" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-060</span>
+    <span class="card-title">Insert PPS record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a new Positive Pay System entry for high-value cheque validation.</div>
+    <pre class="query">INSERT INTO cts.pps_records
+  (pps_id, bank_id, account_hash, cheque_number,
+   amount_bucket, valid_from, valid_until, status)
+VALUES ($1,$2,$3,$4,$5,$6,$7,'ACTIVE')
+ON CONFLICT (bank_id, account_hash, cheque_number)
+  DO UPDATE SET valid_until = $7, status = 'ACTIVE'</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>pps_id</td><td>UUID</td><td>PPS record ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>cheque_number</td><td>TEXT</td><td>Cheque serial number</td></tr>
+          <tr><td>amount_bucket</td><td>TEXT</td><td>Registered amount range</td></tr>
+          <tr><td>valid_from</td><td>DATE</td><td>Validity start</td></tr>
+          <tr><td>valid_until</td><td>DATE</td><td>Validity end</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/pps_vault.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-061" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-061</span>
+    <span class="card-title">Select PPS record for validation</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Looks up PPS entry during inward processing to validate high-value cheques. Part of the hot path.</div>
+    <pre class="query">SELECT pps_id, amount_bucket, valid_from, valid_until, status
+  FROM cts.pps_records
+ WHERE bank_id = $1
+   AND account_hash = $2
+   AND cheque_number = $3
+   AND status = 'ACTIVE'
+   AND valid_from <= NOW()::date
+   AND valid_until >= NOW()::date</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>cheque_number</td><td>TEXT</td><td>Cheque serial number to validate</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/pps_vault.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/pps.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-062" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-062</span>
+    <span class="card-title">Insert stop payment record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a stop payment instruction for an account/cheque combination.</div>
+    <pre class="query">INSERT INTO cts.stop_payments
+  (stop_id, bank_id, account_hash, cheque_number_from,
+   cheque_number_to, reason, effective_at, expires_at, status)
+VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7,'ACTIVE')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>stop_id</td><td>UUID</td><td>Stop payment record ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>cheque_number_from</td><td>TEXT</td><td>Range start cheque number</td></tr>
+          <tr><td>cheque_number_to</td><td>TEXT</td><td>Range end cheque number</td></tr>
+          <tr><td>reason</td><td>TEXT</td><td>Stop reason code</td></tr>
+          <tr><td>expires_at</td><td>TIMESTAMPTZ</td><td>Automatic expiry time</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/stop_payment.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-063" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-063</span>
+    <span class="card-title">Check stop payment for instrument</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks whether a stop payment instruction is active for the given account and cheque number. Hot path check.</div>
+    <pre class="query">SELECT stop_id, reason, effective_at
+  FROM cts.stop_payments
+ WHERE bank_id = $1
+   AND account_hash = $2
+   AND cheque_number_from <= $3
+   AND cheque_number_to >= $3
+   AND status = 'ACTIVE'
+   AND (expires_at IS NULL OR expires_at > NOW())
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>cheque_number</td><td>TEXT</td><td>Cheque number to check</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/stop_payment.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-064" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-064</span>
+    <span class="card-title">Insert SMB forwarding record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records that an inward cheque was forwarded from sponsor bank to sub-member bank for processing.</div>
+    <pre class="query">INSERT INTO cts.smb_forwarding_log
+  (forward_id, instrument_id, sb_bank_id, smb_bank_id,
+   forwarded_at, status)
+VALUES ($1,$2,$3,$4,NOW(),'FORWARDED')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>forward_id</td><td>UUID</td><td>Forwarding log ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Forwarded instrument</td></tr>
+          <tr><td>sb_bank_id</td><td>TEXT</td><td>Sponsor bank IFSC prefix</td></tr>
+          <tr><td>smb_bank_id</td><td>TEXT</td><td>Sub-member bank IFSC prefix</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-065" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-065</span>
+    <span class="card-title">Select SMB forwarding log</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the forwarding history for SMB instruments. Used by both SB and SMB views.</div>
+    <pre class="query">SELECT forward_id, instrument_id, smb_bank_id,
+       forwarded_at, status
+  FROM cts.smb_forwarding_log
+ WHERE sb_bank_id = $1
+   AND forwarded_at::date = $2
+ORDER BY forwarded_at DESC
+ LIMIT $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>sb_bank_id</td><td>TEXT</td><td>Sponsor bank IFSC prefix</td></tr>
+          <tr><td>date</td><td>DATE</td><td>Date filter</td></tr>
+          <tr><td>limit</td><td>INT</td><td>Page size max 100</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-066" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-066</span>
+    <span class="card-title">Select SMB registry</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns the list of sub-member banks registered under a sponsor bank.</div>
+    <pre class="query">SELECT smb_id, smb_name, smb_ifsc, enrolled_at, status
+  FROM cts.smb_registry
+ WHERE sb_bank_id = $1
+   AND status = 'ACTIVE'
+ORDER BY smb_name</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>sb_bank_id</td><td>TEXT</td><td>Sponsor bank IFSC prefix</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-067" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-067</span>
+    <span class="card-title">Insert SMB registry entry</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Registers a new sub-member bank under a sponsor bank. Initiated by BankOnboardingWorkflow.</div>
+    <pre class="query">INSERT INTO cts.smb_registry
+  (smb_id, sb_bank_id, smb_name, smb_ifsc,
+   enrolled_at, status)
+VALUES ($1,$2,$3,$4,NOW(),'PENDING')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>smb_id</td><td>UUID</td><td>Sub-member bank ID</td></tr>
+          <tr><td>sb_bank_id</td><td>TEXT</td><td>Sponsor bank IFSC prefix</td></tr>
+          <tr><td>smb_name</td><td>TEXT</td><td>Sub-member bank display name</td></tr>
+          <tr><td>smb_ifsc</td><td>TEXT</td><td>Sub-member IFSC code</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-068" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-068</span>
+    <span class="card-title">Insert mismatch hold record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a presentment-vs-drawee data mismatch that requires 4-hour resolution workflow.</div>
+    <pre class="query">INSERT INTO cts.mismatch_holds
+  (hold_id, instrument_id, bank_id, mismatch_fields,
+   detected_at, resolution_deadline, status)
+VALUES ($1,$2,$3,$4,NOW(),NOW() + INTERVAL '4 hours','OPEN')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>hold_id</td><td>UUID</td><td>Mismatch hold ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Affected instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>mismatch_fields</td><td>JSONB</td><td>List of mismatched field names and values</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/mismatch_resolution_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-069" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-069</span>
+    <span class="card-title">Resolve mismatch hold</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Closes a mismatch hold after the 4-hour resolution workflow completes.</div>
+    <pre class="query">UPDATE cts.mismatch_holds
+   SET status = $1,
+       resolved_at = NOW(),
+       resolution_note = $2
+ WHERE hold_id = $3
+   AND bank_id = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>RESOLVED/ESCALATED/TIMEOUT</td></tr>
+          <tr><td>resolution_note</td><td>TEXT</td><td>Resolution summary</td></tr>
+          <tr><td>hold_id</td><td>UUID</td><td>Target hold</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/mismatch_resolution_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-070" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-070</span>
+    <span class="card-title">Insert OCR feedback record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records OCR failure signal for the feedback accumulator. Feeds automated model retraining pipeline.</div>
+    <pre class="query">INSERT INTO cts.ocr_feedback
+  (feedback_id, instrument_id, bank_id, failure_type,
+   ocr_output, human_correction, submitted_at)
+VALUES ($1,$2,$3,$4,$5,$6,NOW())</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>feedback_id</td><td>UUID</td><td>Feedback record ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Source instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>failure_type</td><td>TEXT</td><td>OCR failure classification</td></tr>
+          <tr><td>ocr_output</td><td>JSONB</td><td>Original OCR output</td></tr>
+          <tr><td>human_correction</td><td>JSONB</td><td>Corrected field values</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/feedback/</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/feedback_activities.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-071" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-071</span>
+    <span class="card-title">Count OCR feedback for retrain threshold</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Counts accumulated OCR feedback records since the last model retrain. Compared against ocr_feedback_retrain_threshold config.</div>
+    <pre class="query">SELECT COUNT(*) AS feedback_count
+  FROM cts.ocr_feedback
+ WHERE bank_id = $1
+   AND submitted_at > $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>since</td><td>TIMESTAMPTZ</td><td>Last retrain timestamp</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/feedback_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-072" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-072</span>
+    <span class="card-title">Select OCR feedback corpus for retrain</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the full OCR feedback corpus for model retraining batch.</div>
+    <pre class="query">SELECT feedback_id, ocr_output, human_correction, failure_type
+  FROM cts.ocr_feedback
+ WHERE bank_id = $1
+   AND submitted_at > $2
+ORDER BY submitted_at
+ LIMIT 1000</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>since</td><td>TIMESTAMPTZ</td><td>Last retrain timestamp</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/feedback/corpus_manager.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-073" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-073</span>
+    <span class="card-title">Insert model retrain record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a model retraining run triggered by the FeedbackAccumulatorWorkflow.</div>
+    <pre class="query">INSERT INTO cts.model_retrains
+  (retrain_id, bank_id, corpus_type, corpus_count,
+   triggered_at, status, mlflow_run_id)
+VALUES ($1,$2,$3,$4,NOW(),'RUNNING',$5)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>retrain_id</td><td>UUID</td><td>Retrain run ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>corpus_type</td><td>TEXT</td><td>OCR/SIGNATURE</td></tr>
+          <tr><td>corpus_count</td><td>INT</td><td>Number of feedback samples</td></tr>
+          <tr><td>mlflow_run_id</td><td>TEXT</td><td>MLflow experiment run ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/feedback_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-074" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-074</span>
+    <span class="card-title">Update model retrain status</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates the retrain record when MLflow training completes or fails.</div>
+    <pre class="query">UPDATE cts.model_retrains
+   SET status = $1,
+       completed_at = NOW(),
+       new_model_version = $2,
+       accuracy_delta = $3
+ WHERE retrain_id = $4
+   AND bank_id = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>COMPLETED/FAILED</td></tr>
+          <tr><td>new_model_version</td><td>TEXT</td><td>MLflow model version promoted</td></tr>
+          <tr><td>accuracy_delta</td><td>FLOAT</td><td>Accuracy improvement vs baseline</td></tr>
+          <tr><td>retrain_id</td><td>UUID</td><td>Target retrain run</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/feedback_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-075" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-075</span>
+    <span class="card-title">Select config thresholds for bank</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches all hot-reload Layer 3 config values for a bank. Called at activity start for every inward cheque.</div>
+    <pre class="query">SELECT config_key, config_value, updated_at
+  FROM platform.config_store
+ WHERE bank_id = $1
+   AND layer = 3
+   AND is_active = TRUE
+ORDER BY config_key</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/config/config_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-076" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-076</span>
+    <span class="card-title">Upsert config value</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Maker-checker config update: inserts or updates a Layer 3 config value.</div>
+    <pre class="query">INSERT INTO platform.config_store
+  (config_id, bank_id, layer, config_key, config_value,
+   changed_by, changed_at, is_active)
+VALUES ($1,$2,3,$3,$4,$5,NOW(),TRUE)
+ON CONFLICT (bank_id, layer, config_key)
+  DO UPDATE SET config_value = $4,
+               changed_by = $5,
+               changed_at = NOW()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>config_id</td><td>UUID</td><td>Config record ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>config_key</td><td>TEXT</td><td>Dot-separated config key</td></tr>
+          <tr><td>config_value</td><td>JSONB</td><td>New value</td></tr>
+          <tr><td>changed_by</td><td>TEXT</td><td>Approver user_id</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/admin.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-077" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-077</span>
+    <span class="card-title">Select policy version for OPA</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the current active OPA policy version and Rego source for a policy name.</div>
+    <pre class="query">SELECT policy_version, rego_source, activated_at
+  FROM platform.policy_versions
+ WHERE bank_id = $1
+   AND policy_name = $2
+   AND is_active = TRUE
+ORDER BY activated_at DESC
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>policy_name</td><td>TEXT</td><td>OPA policy identifier e.g. cts_routing</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/config/config_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-078" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-078</span>
+    <span class="card-title">Insert audit event record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Writes a platform audit event to YugabyteDB before forwarding to Immudb. Part of the dual-write audit pattern.</div>
+    <pre class="query">INSERT INTO platform.audit_events
+  (event_id, bank_id, event_type, entity_id,
+   actor_id, payload_hash, immudb_key, occurred_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>event_id</td><td>UUID</td><td>Audit event ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>event_type</td><td>TEXT</td><td>Audit event type code</td></tr>
+          <tr><td>entity_id</td><td>TEXT</td><td>Primary entity ID</td></tr>
+          <tr><td>actor_id</td><td>TEXT</td><td>User or service performing action</td></tr>
+          <tr><td>payload_hash</td><td>TEXT</td><td>SHA-256 of full payload</td></tr>
+          <tr><td>immudb_key</td><td>TEXT</td><td>Immudb key for cross-reference</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+        <a class="called-tag" href="#">apps/api/routers/audit.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-079" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-079</span>
+    <span class="card-title">Select audit events for compliance view</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns paginated audit events for the compliance officer / RBI examiner read-only view.</div>
+    <pre class="query">SELECT event_id, event_type, entity_id, actor_id,
+       payload_hash, immudb_key, occurred_at
+  FROM platform.audit_events
+ WHERE bank_id = $1
+   AND occurred_at BETWEEN $2 AND $3
+   AND ($4::text IS NULL OR event_type = $4)
+ORDER BY occurred_at DESC
+ LIMIT $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>from_ts</td><td>TIMESTAMPTZ</td><td>Range start</td></tr>
+          <tr><td>to_ts</td><td>TIMESTAMPTZ</td><td>Range end</td></tr>
+          <tr><td>event_type</td><td>TEXT</td><td>Optional event type filter</td></tr>
+          <tr><td>limit</td><td>INT</td><td>Page size max 100</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/audit.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-080" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-080</span>
+    <span class="card-title">Insert user record</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Creates a new platform user during bank onboarding or admin user creation.</div>
+    <pre class="query">INSERT INTO platform.users
+  (user_id, bank_id, username, role, clearing_zone,
+   auth_connector, created_at, is_active)
+VALUES ($1,$2,$3,$4,$5,$6,NOW(),TRUE)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>user_id</td><td>UUID</td><td>User ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>username</td><td>TEXT</td><td>Login username</td></tr>
+          <tr><td>role</td><td>TEXT</td><td>RBAC role</td></tr>
+          <tr><td>clearing_zone</td><td>TEXT</td><td>Allowed zone or NULL for all</td></tr>
+          <tr><td>auth_connector</td><td>TEXT</td><td>local/ldap/saml</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/auth_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-081" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-081</span>
+    <span class="card-title">Select user by username and bank</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Auth lookup: fetches user record during login. Part of the authentication hot path.</div>
+    <pre class="query">SELECT user_id, bank_id, username, role,
+       clearing_zone, auth_connector, is_active
+  FROM platform.users
+ WHERE bank_id = $1
+   AND username = $2
+   AND is_active = TRUE</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>username</td><td>TEXT</td><td>Login username</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/auth_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-082" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-082</span>
+    <span class="card-title">Update user last login</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates last_login_at on the user record after successful authentication.</div>
+    <pre class="query">UPDATE platform.users
+   SET last_login_at = NOW()
+ WHERE user_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>user_id</td><td>UUID</td><td>Authenticated user ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/auth_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-083" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-083</span>
+    <span class="card-title">Insert session token record</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a newly issued JWT session token with JTI for revocation tracking.</div>
+    <pre class="query">INSERT INTO platform.session_tokens
+  (jti, user_id, bank_id, issued_at, expires_at, is_revoked)
+VALUES ($1,$2,$3,NOW(),$4,FALSE)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>UUID</td><td>JWT ID (JTI claim)</td></tr>
+          <tr><td>user_id</td><td>UUID</td><td>Token owner</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping</td></tr>
+          <tr><td>expires_at</td><td>TIMESTAMPTZ</td><td>Token expiry</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-084" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-084</span>
+    <span class="card-title">Revoke session token (JTI blocklist)</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Marks a JWT as revoked on logout or forced revocation.</div>
+    <pre class="query">UPDATE platform.session_tokens
+   SET is_revoked = TRUE,
+       revoked_at = NOW()
+ WHERE jti = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>UUID</td><td>JWT ID to revoke</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-085" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-085</span>
+    <span class="card-title">Check JTI revocation status</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks if a JWT JTI has been revoked. Backed by Redis cache R-010 for hot-path performance.</div>
+    <pre class="query">SELECT is_revoked FROM platform.session_tokens
+ WHERE jti = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>UUID</td><td>JWT ID to check</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-086" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-086</span>
+    <span class="card-title">Insert MFA enrollment record</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records TOTP MFA enrollment for a user.</div>
+    <pre class="query">INSERT INTO platform.mfa_enrollments
+  (enrollment_id, user_id, bank_id, mfa_type,
+   secret_enc, enrolled_at, is_active)
+VALUES ($1,$2,$3,'TOTP',$4,NOW(),TRUE)
+ON CONFLICT (user_id, bank_id)
+  DO UPDATE SET secret_enc = $4, enrolled_at = NOW()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>enrollment_id</td><td>UUID</td><td>Enrollment record ID</td></tr>
+          <tr><td>user_id</td><td>UUID</td><td>User ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>secret_enc</td><td>BYTEA</td><td>AES-256 encrypted TOTP secret</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/mfa.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-087" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-087</span>
+    <span class="card-title">Select MFA enrollment for verification</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches TOTP secret for OTP verification during 2-factor login.</div>
+    <pre class="query">SELECT secret_enc, is_active
+  FROM platform.mfa_enrollments
+ WHERE user_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>user_id</td><td>UUID</td><td>User ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/mfa.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-088" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-088</span>
+    <span class="card-title">Insert bank onboarding record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a new bank onboarding task initiated by the platform super admin.</div>
+    <pre class="query">INSERT INTO platform.bank_onboarding
+  (onboarding_id, bank_id, bank_name, bank_type,
+   initiated_by, initiated_at, status, workflow_id)
+VALUES ($1,$2,$3,$4,$5,NOW(),'IN_PROGRESS',$6)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>onboarding_id</td><td>UUID</td><td>Onboarding record ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>New bank identifier</td></tr>
+          <tr><td>bank_name</td><td>TEXT</td><td>Display name</td></tr>
+          <tr><td>bank_type</td><td>TEXT</td><td>SB/SMB</td></tr>
+          <tr><td>initiated_by</td><td>TEXT</td><td>Platform admin user_id</td></tr>
+          <tr><td>workflow_id</td><td>TEXT</td><td>BankOnboardingWorkflow ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/admin.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-089" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-089</span>
+    <span class="card-title">Update bank onboarding status</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates onboarding status as the BankOnboardingWorkflow progresses.</div>
+    <pre class="query">UPDATE platform.bank_onboarding
+   SET status = $1,
+       completed_at = CASE WHEN $1 = 'COMPLETED' THEN NOW() ELSE NULL END
+ WHERE onboarding_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>IN_PROGRESS/COMPLETED/FAILED</td></tr>
+          <tr><td>onboarding_id</td><td>UUID</td><td>Target onboarding record</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-090" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-090</span>
+    <span class="card-title">Select platform health metrics</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Aggregates platform health signals for the ASTRA Ops Dashboard. Queried every 60 seconds by PlatformHealthCheckWorkflow.</div>
+    <pre class="query">SELECT
+  (SELECT COUNT(*) FROM cts.cheque_instruments
+    WHERE status = 'HUMAN_REVIEW' AND bank_id = $1) AS pending_review,
+  (SELECT COUNT(*) FROM cts.mismatch_holds
+    WHERE status = 'OPEN' AND bank_id = $1) AS open_mismatches,
+  (SELECT COUNT(*) FROM cts.ngch_submissions
+    WHERE status = 'ERROR'
+      AND submitted_at > NOW() - INTERVAL '1 hour'
+      AND bank_id = $1) AS ngch_errors</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/observability.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-091" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-091</span>
+    <span class="card-title">Select kill switch status for account</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks if a kill switch (account freeze) is active for the given account hash. Hot path lookup during inward processing.</div>
+    <pre class="query">SELECT ks_id, reason, activated_at, activated_by
+  FROM cts.kill_switches
+ WHERE bank_id = $1
+   AND account_hash = $2
+   AND is_active = TRUE
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/kill_switch_lookup.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-092" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-092</span>
+    <span class="card-title">Insert kill switch record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Activates a kill switch / account freeze on an account.</div>
+    <pre class="query">INSERT INTO cts.kill_switches
+  (ks_id, bank_id, account_hash, reason,
+   activated_by, activated_at, is_active)
+VALUES ($1,$2,$3,$4,$5,NOW(),TRUE)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>ks_id</td><td>UUID</td><td>Kill switch record ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>reason</td><td>TEXT</td><td>Freeze reason</td></tr>
+          <tr><td>activated_by</td><td>TEXT</td><td>Operator user_id</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-093" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-093</span>
+    <span class="card-title">Deactivate kill switch</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Lifts an account freeze by marking the kill switch inactive.</div>
+    <pre class="query">UPDATE cts.kill_switches
+   SET is_active = FALSE,
+       deactivated_at = NOW(),
+       deactivated_by = $1
+ WHERE ks_id = $2
+   AND bank_id = $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>deactivated_by</td><td>TEXT</td><td>Operator user_id</td></tr>
+          <tr><td>ks_id</td><td>UUID</td><td>Target kill switch</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-094" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-094</span>
+    <span class="card-title">Insert MSV mandate</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Creates a new multi-signature validation mandate for an account.</div>
+    <pre class="query">INSERT INTO msv.mandates
+  (mandate_id, bank_id, account_hash, mandate_type,
+   min_signatures, created_at, is_active)
+VALUES ($1,$2,$3,$4,$5,NOW(),TRUE)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>mandate_id</td><td>UUID</td><td>Mandate ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>mandate_type</td><td>TEXT</td><td>ANY_OF/ALL_OF/M_OF_N</td></tr>
+          <tr><td>min_signatures</td><td>INT</td><td>Minimum required signatures</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/mandates/models.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-095" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-095</span>
+    <span class="card-title">Select active MSV mandate for account</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the active MSV mandate for account validation.</div>
+    <pre class="query">SELECT mandate_id, mandate_type, min_signatures
+  FROM msv.mandates
+ WHERE bank_id = $1
+   AND account_hash = $2
+   AND is_active = TRUE
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/workflows/msv_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-096" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-096</span>
+    <span class="card-title">Insert MSV signatory record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Registers an authorised signatory for an MSV mandate.</div>
+    <pre class="query">INSERT INTO msv.signatories
+  (signatory_id, mandate_id, bank_id, name_enc,
+   signature_embedding, enrolled_at, is_active)
+VALUES ($1,$2,$3,$4,$5,NOW(),TRUE)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>signatory_id</td><td>UUID</td><td>Signatory record ID</td></tr>
+          <tr><td>mandate_id</td><td>UUID</td><td>Parent mandate</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>name_enc</td><td>BYTEA</td><td>pgcrypto-encrypted signatory name</td></tr>
+          <tr><td>signature_embedding</td><td>JSONB</td><td>Siamese network embedding</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/vaults/signatory_registry.py</a>
+        <a class="called-tag" href="#">modules/msv/enrollment/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-097" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-097</span>
+    <span class="card-title">Select signatories for mandate</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Returns all active signatories for an MSV mandate validation run.</div>
+    <pre class="query">SELECT signatory_id, signature_embedding
+  FROM msv.signatories
+ WHERE mandate_id = $1
+   AND bank_id = $2
+   AND is_active = TRUE</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>mandate_id</td><td>UUID</td><td>Parent mandate</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/workflows/msv_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-098" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-098</span>
+    <span class="card-title">Insert MSV validation result</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records the outcome of an MSV cheque validation run.</div>
+    <pre class="query">INSERT INTO msv.validation_results
+  (result_id, mandate_id, instrument_id, bank_id,
+   matched_signatories, total_required, passed,
+   validated_at, workflow_id)
+VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>result_id</td><td>UUID</td><td>Result ID</td></tr>
+          <tr><td>mandate_id</td><td>UUID</td><td>Validated mandate</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Cheque instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>matched_signatories</td><td>INT</td><td>Count matched</td></tr>
+          <tr><td>total_required</td><td>INT</td><td>Count required</td></tr>
+          <tr><td>passed</td><td>BOOL</td><td>True if min threshold met</td></tr>
+          <tr><td>workflow_id</td><td>TEXT</td><td>MSVValidationWorkflow ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/workflows/msv_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-099" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-099</span>
+    <span class="card-title">Select MSV bulk enrollment progress</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches bulk enrollment job progress for the MSV enrollment progress tracker.</div>
+    <pre class="query">SELECT job_id, total_accounts, enrolled_count,
+       failed_count, started_at, status
+  FROM msv.bulk_enrollment_jobs
+ WHERE bank_id = $1
+   AND job_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>job_id</td><td>UUID</td><td>Bulk enrollment job ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/enrollment/progress_tracker.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-100" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-100</span>
+    <span class="card-title">Insert notification dispatch record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records a notification dispatch attempt before sending via email/WhatsApp.</div>
+    <pre class="query">INSERT INTO platform.notification_dispatches
+  (dispatch_id, bank_id, channel, recipient,
+   message_key, dispatched_at, status)
+VALUES ($1,$2,$3,$4,$5,NOW(),'PENDING')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>dispatch_id</td><td>UUID</td><td>Dispatch record ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>channel</td><td>TEXT</td><td>EMAIL/WHATSAPP</td></tr>
+          <tr><td>recipient</td><td>TEXT</td><td>Masked recipient</td></tr>
+          <tr><td>message_key</td><td>TEXT</td><td>Message key from messages.yaml</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/notifications/dispatcher.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-101" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-101</span>
+    <span class="card-title">Update notification dispatch status</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates dispatch status after email/WhatsApp send attempt.</div>
+    <pre class="query">UPDATE platform.notification_dispatches
+   SET status = $1,
+       delivered_at = CASE WHEN $1 = 'DELIVERED' THEN NOW() ELSE NULL END,
+       error_detail = $2
+ WHERE dispatch_id = $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>DELIVERED/FAILED</td></tr>
+          <tr><td>error_detail</td><td>TEXT</td><td>Error if failed</td></tr>
+          <tr><td>dispatch_id</td><td>UUID</td><td>Target dispatch record</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/notifications/dispatcher.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-102" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-102</span>
+    <span class="card-title">Select undelivered notifications for retry</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches failed notifications for retry by PlatformHealthCheckWorkflow.</div>
+    <pre class="query">SELECT dispatch_id, channel, recipient, message_key
+  FROM platform.notification_dispatches
+ WHERE bank_id = $1
+   AND status = 'FAILED'
+   AND dispatched_at > NOW() - INTERVAL '1 hour'
+ LIMIT 50</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/notifications/dispatcher.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-103" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-103</span>
+    <span class="card-title">Select endorsement batch records</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches instruments in a lot that need outward endorsement stamping.</div>
+    <pre class="query">SELECT instrument_id, image_front_key, image_rear_key
+  FROM cts.outward_instruments
+ WHERE lot_id = $1
+   AND bank_id = $2
+   AND status = 'COMPLIANCE_PASS'
+ORDER BY scanned_at</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>lot_id</td><td>UUID</td><td>Lot to endorse</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/endorsement/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-104" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-104</span>
+    <span class="card-title">Update instrument after endorsement</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Marks an outward instrument as endorsed after the batch stamping activity.</div>
+    <pre class="query">UPDATE cts.outward_instruments
+   SET status = 'ENDORSED',
+       endorsed_at = NOW(),
+       endorsement_image_key = $1
+ WHERE instrument_id = $2
+   AND bank_id = $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>endorsement_image_key</td><td>TEXT</td><td>MinIO key of endorsed image</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/endorsement/</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-105" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-105</span>
+    <span class="card-title">Select inward cheque for alteration check</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches instrument OCR output for the vision LLM alteration analysis activity.</div>
+    <pre class="query">SELECT instrument_id, ocr_output, image_front_key
+  FROM cts.cheque_instruments
+ WHERE instrument_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-106" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-106</span>
+    <span class="card-title">Update alteration analysis result</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores vision LLM alteration detection result on the instrument. Hot path.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET alteration_result = $1,
+       alteration_risk = $2,
+       updated_at = NOW()
+ WHERE instrument_id = $3
+   AND bank_id = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>alteration_result</td><td>JSONB</td><td>Vision LLM per-field alteration analysis</td></tr>
+          <tr><td>alteration_risk</td><td>FLOAT</td><td>Overall tamper risk score 0-1</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-107" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-107</span>
+    <span class="card-title">Select signature verification result</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Retrieves stored signature match result during decision synthesis.</div>
+    <pre class="query">SELECT signature_score, signature_match,
+       vault_hit, verified_at
+  FROM cts.cheque_instruments
+ WHERE instrument_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/decision.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-108" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-108</span>
+    <span class="card-title">Update signature verification result</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores Siamese network signature match result on the instrument. Hot path.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET signature_score = $1,
+       signature_match = $2,
+       vault_hit = $3,
+       verified_at = NOW()
+ WHERE instrument_id = $4
+   AND bank_id = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>signature_score</td><td>FLOAT</td><td>Siamese network match score 0-1</td></tr>
+          <tr><td>signature_match</td><td>BOOL</td><td>True if above threshold</td></tr>
+          <tr><td>vault_hit</td><td>BOOL</td><td>False if vault miss — routes to human review</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/signature.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-109" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-109</span>
+    <span class="card-title">Delete expired PPS records</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Removes expired PPS entries. Run nightly by VaultSyncWorkflow.</div>
+    <pre class="query">DELETE FROM cts.pps_records
+ WHERE bank_id = $1
+   AND valid_until < NOW()::date</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-110" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-110</span>
+    <span class="card-title">Delete expired stop payments</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Removes expired stop payment records. Run nightly by VaultSyncWorkflow.</div>
+    <pre class="query">DELETE FROM cts.stop_payments
+ WHERE bank_id = $1
+   AND expires_at IS NOT NULL
+   AND expires_at < NOW()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-111" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-111</span>
+    <span class="card-title">Select IET deadline for instrument</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches the IET deadline from the instrument record for the IETWatchdogWorkflow.</div>
+    <pre class="query">SELECT received_at, iet_deadline
+  FROM cts.cheque_instruments
+ WHERE instrument_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/iet_watchdog_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot pii-table" id="Q-112" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-112</span>
+    <span class="card-title">Mark IET filed on instrument</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records that IET was filed before deadline. Critical status update.</div>
+    <pre class="query">UPDATE cts.cheque_instruments
+   SET iet_filed = TRUE,
+       iet_filed_at = NOW(),
+       status = 'IET_FILED'
+ WHERE instrument_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card pii-table" id="Q-113" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-113</span>
+    <span class="card-title">Select inward cheques for session report</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Aggregates inward processing results for the daily session report.</div>
+    <pre class="query">SELECT decision, COUNT(*) AS count
+  FROM cts.cheque_instruments
+ WHERE bank_id = $1
+   AND received_at::date = $2
+GROUP BY decision</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>date</td><td>DATE</td><td>Session date</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/reconciliation/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-114" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-114</span>
+    <span class="card-title">Select outward instruments for CXF file</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches endorsed outward instruments for CXF presentment file generation.</div>
+    <pre class="query">SELECT instrument_id, micr_data, image_front_key,
+       image_rear_key, endorsement_image_key
+  FROM cts.outward_instruments
+ WHERE lot_id = $1
+   AND bank_id = $2
+   AND status = 'ENDORSED'
+ORDER BY scanned_at</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>lot_id</td><td>UUID</td><td>Lot to generate CXF for</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ngch_filer.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-115" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-115</span>
+    <span class="card-title">Upsert CBS account balance cache</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Caches CBS balance lookup result to avoid repeated CBS calls within a processing window.</div>
+    <pre class="query">INSERT INTO cts.cbs_balance_cache
+  (cache_id, bank_id, account_hash,
+   available_balance_bucket, fetched_at, expires_at)
+VALUES ($1,$2,$3,$4,NOW(),NOW() + INTERVAL '30 seconds')
+ON CONFLICT (bank_id, account_hash)
+  DO UPDATE SET available_balance_bucket = $4,
+               fetched_at = NOW(),
+               expires_at = NOW() + INTERVAL '30 seconds'</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>cache_id</td><td>UUID</td><td>Cache entry ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>available_balance_bucket</td><td>TEXT</td><td>Balance range bucket</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/cbs_connector/base.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-116" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-116</span>
+    <span class="card-title">Select CBS balance cache</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks CBS balance cache before making a live CBS call. 30-second TTL.</div>
+    <pre class="query">SELECT available_balance_bucket, fetched_at
+  FROM cts.cbs_balance_cache
+ WHERE bank_id = $1
+   AND account_hash = $2
+   AND expires_at > NOW()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/cbs_connector/base.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/cbs.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-117" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-117</span>
+    <span class="card-title">Insert human review assignment</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records assignment of a human review task to an ops_reviewer.</div>
+    <pre class="query">INSERT INTO cts.human_review_assignments
+  (assignment_id, instrument_id, bank_id,
+   assigned_to, assigned_at, deadline)
+VALUES ($1,$2,$3,$4,NOW(),$5)
+ON CONFLICT (instrument_id, bank_id)
+  DO UPDATE SET assigned_to = $4, assigned_at = NOW()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>assignment_id</td><td>UUID</td><td>Assignment record ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Instrument needing review</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>assigned_to</td><td>TEXT</td><td>Reviewer user_id</td></tr>
+          <tr><td>deadline</td><td>TIMESTAMPTZ</td><td>IET-aligned deadline</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/human_review_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-118" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-118</span>
+    <span class="card-title">Select human review assignment for instrument</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches reviewer assignment for an instrument's human review workflow.</div>
+    <pre class="query">SELECT assignment_id, assigned_to, assigned_at, deadline
+  FROM cts.human_review_assignments
+ WHERE instrument_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>UUID</td><td>Target instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/human_review_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-119" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-119</span>
+    <span class="card-title">Select dispute records</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches dispute records for the disputes management page.</div>
+    <pre class="query">SELECT dispute_id, instrument_id, dispute_type,
+       raised_by, raised_at, status
+  FROM cts.disputes
+ WHERE bank_id = $1
+   AND raised_at > $2
+ORDER BY raised_at DESC
+ LIMIT $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>since</td><td>TIMESTAMPTZ</td><td>Lookback timestamp</td></tr>
+          <tr><td>limit</td><td>INT</td><td>Page size max 100</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/disputes.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-120" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-120</span>
+    <span class="card-title">Insert dispute record</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Creates a new dispute record raised against a processing decision.</div>
+    <pre class="query">INSERT INTO cts.disputes
+  (dispute_id, instrument_id, bank_id,
+   dispute_type, raised_by, raised_at, status)
+VALUES ($1,$2,$3,$4,$5,NOW(),'OPEN')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>dispute_id</td><td>UUID</td><td>Dispute record ID</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Disputed instrument</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>dispute_type</td><td>TEXT</td><td>WRONGFUL_RETURN/FORGERY/AMOUNT_MISMATCH</td></tr>
+          <tr><td>raised_by</td><td>TEXT</td><td>Operator user_id</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/disputes.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-121" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-121</span>
+    <span class="card-title">Update dispute status</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Updates dispute resolution status.</div>
+    <pre class="query">UPDATE cts.disputes
+   SET status = $1,
+       resolved_by = $2,
+       resolved_at = NOW(),
+       resolution_note = $3
+ WHERE dispute_id = $4
+   AND bank_id = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>status</td><td>TEXT</td><td>RESOLVED/ESCALATED/CLOSED</td></tr>
+          <tr><td>resolved_by</td><td>TEXT</td><td>Resolver user_id</td></tr>
+          <tr><td>resolution_note</td><td>TEXT</td><td>Resolution summary</td></tr>
+          <tr><td>dispute_id</td><td>UUID</td><td>Target dispute</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/disputes.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="Q-122" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-122</span>
+    <span class="card-title">Delete stale cheque dedup entries</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Removes cheque deduplication entries older than 90 days. Run by VaultSyncWorkflow.</div>
+    <pre class="query">DELETE FROM cts.cheque_dedup
+ WHERE bank_id = $1
+   AND received_at < NOW() - INTERVAL '90 days'</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+        <a class="called-tag" href="#">modules/cts/preprocessing/cheque_dedup.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="Q-123" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-123</span>
+    <span class="card-title">Upsert cheque dedup entry</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Inserts or detects duplicate cheque entries within the 90-day dedup window. Hot path.</div>
+    <pre class="query">INSERT INTO cts.cheque_dedup
+  (dedup_id, bank_id, cheque_hash, instrument_id, received_at)
+VALUES ($1,$2,$3,$4,NOW())
+ON CONFLICT (bank_id, cheque_hash) DO NOTHING
+RETURNING dedup_id</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>dedup_id</td><td>UUID</td><td>Dedup entry ID</td></tr>
+          <tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr>
+          <tr><td>cheque_hash</td><td>TEXT</td><td>SHA-256 of MICR+image fingerprint</td></tr>
+          <tr><td>instrument_id</td><td>UUID</td><td>Associated instrument ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/preprocessing/cheque_dedup.py</a>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      REDIS
@@ -1358,6 +3758,569 @@ EXPIRE pps:{bank_id}:{hmac}:{cheque_number} {ttl_seconds}</pre>
     <div class="called-from">Called from: <code>apps/api/routers/observability.py</code> → <code>_fetch_vault_coverage()</code></div>
   </div>
 </div>
+<div class="card hot" id="R-008" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-008</span>
+    <span class="card-title">Bloom filter check for cheque dedup</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks the Redis bloom filter before the slower YugabyteDB dedup query. Eliminates 99%+ of duplicate-check DB hits.</div>
+    <pre class="query">BF.EXISTS cts:dedup:{bank_id} {cheque_hash}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>cheque_hash</td><td>string</td><td>SHA-256 of MICR+image fingerprint</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/preprocessing/cheque_dedup.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-009" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-009</span>
+    <span class="card-title">Bloom filter add after dedup confirm</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Adds a confirmed-unique cheque hash to the bloom filter after YugabyteDB upsert succeeds.</div>
+    <pre class="query">BF.ADD cts:dedup:{bank_id} {cheque_hash}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>cheque_hash</td><td>string</td><td>SHA-256 to add</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/preprocessing/cheque_dedup.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-010" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-010</span>
+    <span class="card-title">JTI revocation cache check</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Checks Redis for a revoked JWT JTI before falling back to YugabyteDB Q-085. Cache-aside pattern; miss = not revoked.</div>
+    <pre class="query">GET auth:jti:revoked:{jti}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>string</td><td>JWT ID claim to check</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-011" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-011</span>
+    <span class="card-title">Set JTI revocation in cache</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Caches a revoked JTI in Redis with TTL matching token expiry. Written at logout.</div>
+    <pre class="query">SET auth:jti:revoked:{jti} 1 EXAT {expiry_unix}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>string</td><td>JWT ID to mark revoked</td></tr>
+          <tr><td>expiry_unix</td><td>int</td><td>Unix timestamp of token expiry</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-012" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-012</span>
+    <span class="card-title">Instrument processing lock (Lua)</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Atomic Lua script: SET NX with 10-second TTL acquires an instrument-level distributed lock to prevent double-processing.</div>
+    <pre class="query">-- Lua atomic lock acquisition
+local key = 'cts:lock:' .. KEYS[1]
+if redis.call('SET', key, ARGV[1], 'NX', 'EX', tonumber(ARGV[2])) then
+  return 1
+else
+  return 0
+end</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>KEYS[1]</td><td>string</td><td>{bank_id}:{instrument_id}</td></tr>
+          <tr><td>ARGV[1]</td><td>string</td><td>Lock token (workflow_id)</td></tr>
+          <tr><td>ARGV[2]</td><td>int</td><td>TTL in seconds (10)</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/cheque_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-013" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-013</span>
+    <span class="card-title">Release instrument processing lock</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Lua script: releases the instrument lock only if the caller holds it.</div>
+    <pre class="query">-- Lua atomic lock release
+local key = 'cts:lock:' .. KEYS[1]
+if redis.call('GET', key) == ARGV[1] then
+  return redis.call('DEL', key)
+else
+  return 0
+end</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>KEYS[1]</td><td>string</td><td>{bank_id}:{instrument_id}</td></tr>
+          <tr><td>ARGV[1]</td><td>string</td><td>Lock token to verify ownership</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/cheque_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-014" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-014</span>
+    <span class="card-title">Session token cache set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Caches authenticated session JWT payload in Redis for fast auth middleware lookups. 15-minute TTL.</div>
+    <pre class="query">SET auth:session:{jti} {payload_json} EX 900</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>string</td><td>JWT ID as cache key</td></tr>
+          <tr><td>payload_json</td><td>string</td><td>JSON-serialised JWT claims</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-015" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-015</span>
+    <span class="card-title">Session token cache get</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Retrieves cached session payload. Cache hit avoids JWT signature verification on every request.</div>
+    <pre class="query">GET auth:session:{jti}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>jti</td><td>string</td><td>JWT ID claim</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/session_token.py</a>
+        <a class="called-tag" href="#">apps/api/middleware/</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-016" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-016</span>
+    <span class="card-title">Config cache get</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Retrieves Layer 3 config value from Redis cache. 30-second TTL; miss triggers Q-075.</div>
+    <pre class="query">GET config:{bank_id}:{config_key}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>config_key</td><td>string</td><td>Dot-separated config key</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/config/config_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-017" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-017</span>
+    <span class="card-title">Config cache set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Caches a Layer 3 config value after DB read. Invalidated by platform.config.changed Kafka event.</div>
+    <pre class="query">SET config:{bank_id}:{config_key} {value_json} EX 30</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>config_key</td><td>string</td><td>Config key</td></tr>
+          <tr><td>value_json</td><td>string</td><td>JSON-serialised value</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/config/config_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-018" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-018</span>
+    <span class="card-title">Config cache invalidate (bulk)</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Deletes all config cache entries for a bank on platform.config.changed Kafka event.</div>
+    <pre class="query">DEL config:{bank_id}:*</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier to invalidate</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/config/config_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-019" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-019</span>
+    <span class="card-title">Account signature vault LRANGE</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches all stored signature embeddings for an account from the Redis vault list. Hot path; &lt;5ms SLA.</div>
+    <pre class="query">LRANGE sig:{bank_id}:{account_hash} 0 -1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>string</td><td>HMAC-SHA256 of account number</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/signature_vault.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-020" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-020</span>
+    <span class="card-title">Account signature vault RPUSH (enroll)</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Appends a new signature embedding to the vault list on enrollment.</div>
+    <pre class="query">RPUSH sig:{bank_id}:{account_hash} {embedding_json}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>string</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>embedding_json</td><td>string</td><td>JSON-serialised embedding vector</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/signature_vault.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-021" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-021</span>
+    <span class="card-title">PPS vault entry get</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches PPS record hash for an account+cheque combo from the Redis PPS vault.</div>
+    <pre class="query">HGETALL pps:{bank_id}:{account_hash}:{cheque_number}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>string</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>cheque_number</td><td>string</td><td>Cheque serial number</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/pps_vault.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-022" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-022</span>
+    <span class="card-title">PPS vault entry set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Writes PPS entry to the Redis PPS vault hash with validity TTL.</div>
+    <pre class="query">HSET pps:{bank_id}:{account_hash}:{cheque_number} amount_bucket {bucket} valid_until {date}
+EXPIRE pps:{bank_id}:{account_hash}:{cheque_number} {ttl_seconds}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>account_hash</td><td>string</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>cheque_number</td><td>string</td><td>Cheque serial number</td></tr>
+          <tr><td>bucket</td><td>string</td><td>Amount bucket value</td></tr>
+          <tr><td>date</td><td>string</td><td>Validity end date</td></tr>
+          <tr><td>ttl_seconds</td><td>int</td><td>Seconds until expiry</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/pps_vault.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-023" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-023</span>
+    <span class="card-title">MSV signatory vault get</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches signatory embeddings for an MSV mandate from Redis signatory vault.</div>
+    <pre class="query">LRANGE msv:sig:{bank_id}:{mandate_id} 0 -1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>mandate_id</td><td>string</td><td>MSV mandate ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/vaults/signatory_registry.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-024" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-024</span>
+    <span class="card-title">Login rate limit check</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Increments per-user login attempt counter. Compared against max_login_attempts threshold before allowing auth.</div>
+    <pre class="query">INCR ratelimit:login:{bank_id}:{username}
+EXPIRE ratelimit:login:{bank_id}:{username} 300</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>username</td><td>string</td><td>Login username</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/auth_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="R-025" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-025</span>
+    <span class="card-title">API rate limit check (Lua token bucket)</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Token bucket rate limiter for CTS submission endpoints. Returns remaining tokens.</div>
+    <pre class="query">-- Lua token bucket
+local key = 'rl:api:' .. KEYS[1]
+local current = redis.call('INCR', key)
+if current == 1 then redis.call('EXPIRE', key, tonumber(ARGV[2])) end
+return {current, tonumber(ARGV[1])}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>KEYS[1]</td><td>string</td><td>{bank_id}:{endpoint}</td></tr>
+          <tr><td>ARGV[1]</td><td>int</td><td>Request limit (600)</td></tr>
+          <tr><td>ARGV[2]</td><td>int</td><td>Window in seconds (60)</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/middleware/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-026" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-026</span>
+    <span class="card-title">Audit event stream XADD</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Appends an audit event to the Redis Stream before Temporal async write to Immudb.</div>
+    <pre class="query">XADD platform:audit:stream:{bank_id} * event_id {eid} event_type {etype} payload_json {pjson}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>eid</td><td>string</td><td>Audit event UUID</td></tr>
+          <tr><td>etype</td><td>string</td><td>Event type code</td></tr>
+          <tr><td>pjson</td><td>string</td><td>Full event payload JSON</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-027" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-027</span>
+    <span class="card-title">Audit event stream XREAD (consumer)</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Reads audit events from the Redis Stream for the Temporal AuditWriteWorkflow consumer.</div>
+    <pre class="query">XREADGROUP GROUP cg-audit-{bank_id} worker-{id} COUNT 100 STREAMS platform:audit:stream:{bank_id} ></pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>id</td><td>string</td><td>Consumer worker ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-028" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-028</span>
+    <span class="card-title">Notification debounce set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Sets a debounce key to suppress duplicate notifications for the same event within a 5-minute window.</div>
+    <pre class="query">SET notify:debounce:{bank_id}:{event_key} 1 EX 300 NX</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>event_key</td><td>string</td><td>Notification dedup key (event_type+entity_id)</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/notifications/dispatcher.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-029" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-029</span>
+    <span class="card-title">Dashboard metrics cache set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Caches ASTRA Ops Dashboard metric aggregations. 60-second TTL.</div>
+    <pre class="query">SET dash:{bank_id}:metrics {metrics_json} EX 60</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>metrics_json</td><td>string</td><td>JSON-serialised dashboard metric payload</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/observability.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-030" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-030</span>
+    <span class="card-title">Dashboard metrics cache get</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Retrieves cached dashboard metrics. Cache hit avoids Q-090 aggregate query.</div>
+    <pre class="query">GET dash:{bank_id}:metrics</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/observability.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-031" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-031</span>
+    <span class="card-title">EEH session state get</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetches emergency early-honour session state for the IETWatchdogWorkflow coordinator.</div>
+    <pre class="query">GET cts:eeh:session:{bank_id}:{date}</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>date</td><td>string</td><td>Clearing date YYYY-MM-DD</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/iet_watchdog_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="R-032" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-032</span>
+    <span class="card-title">EEH session state set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Records that an EEH filing session is active for a bank on a clearing date.</div>
+    <pre class="query">SET cts:eeh:session:{bank_id}:{date} {session_json} EX 86400</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>string</td><td>Bank identifier</td></tr>
+          <tr><td>date</td><td>string</td><td>Clearing date YYYY-MM-DD</td></tr>
+          <tr><td>session_json</td><td>string</td><td>EEH session details JSON</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/iet_watchdog_workflow.py</a>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      IMMUDB
@@ -1405,6 +4368,132 @@ EXPIRE pps:{bank_id}:{hmac}:{cheque_number} {ttl_seconds}</pre>
       <tr><td>collection</td><td>cts_events (for CTS audit events)</td></tr>
     </tbody></table>
     <div class="called-from">Called from: <code>shared/audit/immudb_client.py</code> → <code>verify_event()</code> — invoked by <code>GET /v1/audit/immudb/verify/{event_id}</code></div>
+  </div>
+</div>
+<div class="card" id="I-003" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-003</span>
+    <span class="card-title">Immudb writer client init</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Initialises the Immudb client with mTLS credentials from Vault. One client instance per bank namespace.</div>
+    <pre class="query">ImmudbClient(
+  host=config_service.get(f'immudb.{bank_id}.host'),
+  port=config_service.get(f'immudb.{bank_id}.port')
+).use_database(f'astra_{bank_id}')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>ca_cert</td><td>bytes</td><td>CA certificate from Vault</td></tr>
+          <tr><td>client_key</td><td>bytes</td><td>Client private key from Vault</td></tr>
+          <tr><td>client_cert</td><td>bytes</td><td>Client certificate from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="I-004" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-004</span>
+    <span class="card-title">verifiedSet — all CTS and platform audit events</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Cryptographically commits an audit event to Immudb with Merkle-tree proof. Called after every YugabyteDB cheque record write.</div>
+    <pre class="query">client.verifiedSet(
+  key=f'audit:{bank_id}:{event_id}'.encode(),
+  value=AuditEventPayload(
+    event_id=event_id,
+    bank_id=bank_id,
+    event_type=event_type,
+    entity_id=entity_id,
+    actor_id=actor_id,
+    hsm_signature=hsm_sign(payload),
+    occurred_at=occurred_at.isoformat()
+  ).model_dump_json().encode()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>event_id</td><td>str</td><td>Audit event UUID</td></tr>
+          <tr><td>event_type</td><td>str</td><td>Audit event type code</td></tr>
+          <tr><td>entity_id</td><td>str</td><td>Primary entity ID</td></tr>
+          <tr><td>actor_id</td><td>str</td><td>User or service performing action</td></tr>
+          <tr><td>hsm_signature</td><td>str</td><td>HSM-signed payload hash (FIPS 140-2 L3)</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/write_audit.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="I-005" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-005</span>
+    <span class="card-title">verifiedSet — kill switch audit event</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Commits a kill switch activation or deactivation event to Immudb with HSM signature.</div>
+    <pre class="query">client.verifiedSet(
+  key=f'killswitch:{bank_id}:{ks_id}'.encode(),
+  value=KillSwitchAuditPayload(
+    ks_id=ks_id,
+    bank_id=bank_id,
+    account_hash=account_hash,
+    action=action,
+    activated_by=activated_by,
+    hsm_signature=hsm_sign(payload)
+  ).model_dump_json().encode()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>ks_id</td><td>str</td><td>Kill switch record ID</td></tr>
+          <tr><td>account_hash</td><td>str</td><td>HMAC-SHA256 of account number</td></tr>
+          <tr><td>action</td><td>str</td><td>ACTIVATED or DEACTIVATED</td></tr>
+          <tr><td>activated_by</td><td>str</td><td>Operator user_id</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/kill_switch_lookup.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="I-006" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-006</span>
+    <span class="card-title">Batch verifiedSet from Redis Stream consumer</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Reads audit events from Redis Stream in batches of 100 and commits each to Immudb via verifiedSet. Retries indefinitely per AUDIT_RETRY policy.</div>
+    <pre class="query">for message in stream_batch:
+    event = AuditEventEnvelope.model_validate_json(message.value)
+    client.verifiedSet(
+        key=f'audit:{event.bank_id}:{event.event_id}'.encode(),
+        value=sign_and_serialise(event)
+    )
+    consumer.commit(message)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>stream_batch</td><td>list</td><td>Batch of Redis Stream messages (max 100)</td></tr>
+          <tr><td>event</td><td>AuditEventEnvelope</td><td>Deserialised audit event envelope</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/write_audit.py</a>
+    </div>
   </div>
 </div>
 
@@ -1482,6 +4571,420 @@ Payload (schema_version "1.0"):
     <div class="called-from">Called from: <code>apps/api/routers/admin.py</code> → config change approved/rejected notifications; <code>shared/notifications/dispatcher.py</code></div>
   </div>
 </div>
+<div class="card" id="K-004" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-004</span>
+    <span class="card-title">Produce audit event to platform topic</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Publishes an audit event to platform.audit.events Kafka topic. Consumed by AuditWriteWorkflow for durable Immudb write.</div>
+    <pre class="query">producer.produce(
+  topic='platform.audit.events',
+  key=f'{bank_id}:{event_id}',
+  value=AuditEventEnvelope(
+    schema_version='1.0',
+    event_id=event_id,
+    bank_id=bank_id,
+    event_type=event_type,
+    payload=payload
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>event_id</td><td>str</td><td>Audit event UUID</td></tr>
+          <tr><td>event_type</td><td>str</td><td>Audit event type code</td></tr>
+          <tr><td>payload</td><td>dict</td><td>Full event payload</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+        <a class="called-tag" href="#">shared/event_bus/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-005" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-005</span>
+    <span class="card-title">Kafka producer init (base)</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Initialises the shared Kafka producer with bank-scoped client ID, mTLS config, and exactly-once semantics.</div>
+    <pre class="query">Producer({
+  'bootstrap.servers': config_service.get('kafka.brokers'),
+  'client.id': f'astra-{service_name}-{bank_id}',
+  'security.protocol': 'SSL',
+  'enable.idempotence': True,
+  'acks': 'all',
+  'compression.type': 'snappy'
+})</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>service_name</td><td>str</td><td>Producing service name</td></tr>
+          <tr><td>bank_id</td><td>str</td><td>Bank scoping for client ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/event_bus/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-006" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-006</span>
+    <span class="card-title">Kafka base consumer init</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Initialises a Kafka consumer with bank-scoped consumer group and mTLS config.</div>
+    <pre class="query">Consumer({
+  'bootstrap.servers': config_service.get('kafka.brokers'),
+  'group.id': f'cg-{service_name}-{bank_id}',
+  'auto.offset.reset': 'earliest',
+  'enable.auto.commit': False,
+  'security.protocol': 'SSL'
+})</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>service_name</td><td>str</td><td>Consumer service name</td></tr>
+          <tr><td>bank_id</td><td>str</td><td>Bank scoping for consumer group</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/event_bus/</a>
+        <a class="called-tag" href="#">modules/cts/worker.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-007" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-007</span>
+    <span class="card-title">Consume mismatch resolution events</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Subscribes to cts.mismatch.{bank_id} topic for mismatch resolution workflow signals.</div>
+    <pre class="query">consumer.subscribe(['cts.mismatch.' + bank_id])
+# Poll loop: dispatch to MismatchResolutionWorkflow.signal()</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/mismatch_resolution_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-008" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-008</span>
+    <span class="card-title">Consume agent decision events</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Subscribes to cts.agent.decisions.{bank_id} for downstream analytics and fraud monitoring consumers.</div>
+    <pre class="query">consumer.subscribe(['cts.agent.decisions.' + bank_id])
+# Envelope schema_version='1.0'</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/decision.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-009" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-009</span>
+    <span class="card-title">Consume human review queue events</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Subscribes to cts.human.review.{bank_id} to drive human review workflow starts.</div>
+    <pre class="query">consumer.subscribe([
+  f'cts.human.review.{bank_id}',
+  f'cts.human.review.{bank_id}.{smb_id}'
+])</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>smb_id</td><td>str</td><td>Optional SMB bank ID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/human_review_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-010" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-010</span>
+    <span class="card-title">Consume outward scan events</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Subscribes to cts.outward.scan.{bank_id} for new scanner captures to feed OutwardScanWorkflow.</div>
+    <pre class="query">consumer.subscribe(['cts.outward.scan.' + bank_id])</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/outward_scan_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-011" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-011</span>
+    <span class="card-title">Consume vault sync trigger events</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Subscribes to cts.vault.sync.{bank_id} for on-demand vault sync triggers outside the scheduled 6AM run.</div>
+    <pre class="query">consumer.subscribe(['cts.vault.sync.' + bank_id])</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-012" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-012</span>
+    <span class="card-title">Consume config changed events</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Subscribes to platform.config.changed to invalidate Redis config cache on Layer 3 config updates.</div>
+    <pre class="query">consumer.subscribe(['platform.config.changed'])
+# On receipt: invalidate Redis key config:{bank_id}:*</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier from event payload</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/config/config_service.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="K-013" data-store="Kafka" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-013</span>
+    <span class="card-title">Produce inward cheque event</span>
+    <span class="badge badge-kafka">Kafka</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Produces an event to cts.inward.{bank_id} when a cheque enters the system. Triggers ChequeProcessingWorkflow start.</div>
+    <pre class="query">producer.produce(
+  topic=f'cts.inward.{bank_id}',
+  key=instrument_id,
+  value=InwardChequeEnvelope(
+    schema_version='1.0',
+    instrument_id=instrument_id,
+    bank_id=bank_id,
+    lot_id=lot_id,
+    iet_deadline=iet_deadline
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Drawee bank identifier</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Cheque instrument UUID</td></tr>
+          <tr><td>lot_id</td><td>str</td><td>Lot UUID</td></tr>
+          <tr><td>iet_deadline</td><td>str</td><td>IET deadline ISO timestamp</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-014" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-014</span>
+    <span class="card-title">Produce SMB relay event</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Produces to cts.smb.inbound.{smb_bank_id} to relay an inward cheque from sponsor bank to sub-member.</div>
+    <pre class="query">producer.produce(
+  topic=f'cts.smb.inbound.{smb_bank_id}',
+  key=instrument_id,
+  value=SMBRelayEnvelope(
+    schema_version='1.0',
+    instrument_id=instrument_id,
+    sb_bank_id=sb_bank_id,
+    smb_bank_id=smb_bank_id,
+    iet_deadline=iet_deadline
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>smb_bank_id</td><td>str</td><td>Sub-member bank identifier</td></tr>
+          <tr><td>sb_bank_id</td><td>str</td><td>Sponsor bank identifier</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Cheque instrument UUID</td></tr>
+          <tr><td>iet_deadline</td><td>str</td><td>IET deadline ISO timestamp</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-015" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-015</span>
+    <span class="card-title">Produce outward scanned event</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Publishes a new outward scan event to cts.outward.scanned.{bank_id} after scanner capture.</div>
+    <pre class="query">producer.produce(
+  topic=f'cts.outward.scanned.{bank_id}',
+  key=instrument_id,
+  value=OutwardScanEnvelope(
+    schema_version='1.0',
+    instrument_id=instrument_id,
+    scan_session_id=scan_session_id
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Presenting bank identifier</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Outward instrument UUID</td></tr>
+          <tr><td>scan_session_id</td><td>str</td><td>Scanner session UUID</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/scanner/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-016" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-016</span>
+    <span class="card-title">Produce SMB return event</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Publishes return reason from SMB back to sponsor bank on cts.smb.return.{sb_bank_id} topic.</div>
+    <pre class="query">producer.produce(
+  topic=f'cts.smb.return.{sb_bank_id}',
+  key=instrument_id,
+  value=SMBReturnEnvelope(
+    schema_version='1.0',
+    instrument_id=instrument_id,
+    smb_bank_id=smb_bank_id,
+    return_reason_code=return_reason_code
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>sb_bank_id</td><td>str</td><td>Sponsor bank identifier</td></tr>
+          <tr><td>smb_bank_id</td><td>str</td><td>Sub-member bank identifier</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Instrument UUID</td></tr>
+          <tr><td>return_reason_code</td><td>str</td><td>RBI return reason code</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-017" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-017</span>
+    <span class="card-title">Produce OCR feedback event</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Publishes an OCR failure signal to cts.ocr.feedback.{bank_id} for the FeedbackAccumulatorWorkflow.</div>
+    <pre class="query">producer.produce(
+  topic=f'cts.ocr.feedback.{bank_id}',
+  key=instrument_id,
+  value=OCRFeedbackEnvelope(
+    schema_version='1.0',
+    instrument_id=instrument_id,
+    failure_type=failure_type,
+    ocr_output=ocr_output
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Source instrument UUID</td></tr>
+          <tr><td>failure_type</td><td>str</td><td>OCR failure classification</td></tr>
+          <tr><td>ocr_output</td><td>dict</td><td>Original OCR structured output</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/feedback_activities.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="K-018" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-018</span>
+    <span class="card-title">Produce notification dispatch event</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Publishes a notification request to platform.notifications.{bank_id} for the NotificationWorkflow consumer.</div>
+    <pre class="query">producer.produce(
+  topic=f'platform.notifications.{bank_id}',
+  key=dispatch_id,
+  value=NotificationEnvelope(
+    schema_version='1.0',
+    dispatch_id=dispatch_id,
+    channel=channel,
+    recipient=recipient,
+    message_key=message_key,
+    variables=variables
+  ).model_dump_json()
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>dispatch_id</td><td>str</td><td>Notification dispatch UUID</td></tr>
+          <tr><td>channel</td><td>str</td><td>EMAIL or WHATSAPP</td></tr>
+          <tr><td>recipient</td><td>str</td><td>Masked recipient contact</td></tr>
+          <tr><td>message_key</td><td>str</td><td>Key from messages.yaml</td></tr>
+          <tr><td>variables</td><td>dict</td><td>Template variable substitutions</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/notifications/dispatcher.py</a>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      MinIO
@@ -1555,6 +5058,245 @@ Payload (schema_version "1.0"):
       <tr><td>{expiry_seconds}</td><td>From config_service: ai.image_url_expiry_seconds (default 300)</td></tr>
     </tbody></table>
     <div class="called-from">Called from: <code>shared/storage/minio_client.py</code> → <code>presigned_url()</code></div>
+  </div>
+</div>
+<div class="card" id="M-004" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-004</span>
+    <span class="card-title">MinIO client init with Vault credentials</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Initialises the MinIO client using credentials fetched from Vault via config_service. SSE-KMS enabled.</div>
+    <pre class="query">Minio(
+  endpoint=config_service.get('minio.endpoint'),
+  access_key=config_service.get_secret('minio.access_key'),
+  secret_key=config_service.get_secret('minio.secret_key'),
+  secure=True
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>endpoint</td><td>str</td><td>MinIO endpoint URL from config_service</td></tr>
+          <tr><td>access_key</td><td>str</td><td>Access key from Vault</td></tr>
+          <tr><td>secret_key</td><td>str</td><td>Secret key from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/vaults/signature_vault.py</a>
+        <a class="called-tag" href="#">shared/audit/immudb_client.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="M-005" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-005</span>
+    <span class="card-title">Copy then delete vault archive object</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Archives a signature vault object to warm storage bucket, then deletes from hot. Used by VaultSyncWorkflow for ILM transition.</div>
+    <pre class="query">client.copy_object(
+  CopySource=CopySource(bucket=hot_bucket, object_name=key),
+  bucket_name=warm_bucket,
+  object_name=key,
+  sse=SseKMS(kms_key_id=kms_key)
+)
+client.remove_object(hot_bucket, key)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>hot_bucket</td><td>str</td><td>Source hot MinIO bucket</td></tr>
+          <tr><td>warm_bucket</td><td>str</td><td>Destination warm bucket</td></tr>
+          <tr><td>key</td><td>str</td><td>Object key (cheque image path)</td></tr>
+          <tr><td>kms_key</td><td>str</td><td>KMS key ID from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/vault_sync_workflow.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="M-006" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-006</span>
+    <span class="card-title">Get vault gap CSV report object</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Downloads the nightly vault gap CSV from MinIO for the CTSVaultGapReport React page download link.</div>
+    <pre class="query">client.get_object(
+  bucket_name=config_service.get('minio.reports.bucket'),
+  object_name=f'vault-gaps/{bank_id}/{date}.csv'
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>date</td><td>str</td><td>Report date YYYY-MM-DD</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="M-007" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-007</span>
+    <span class="card-title">Put session reconciliation report PDF</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Uploads the end-of-day session reconciliation PDF to MinIO with WORM object lock.</div>
+    <pre class="query">client.put_object(
+  bucket_name=config_service.get('minio.reports.bucket'),
+  object_name=f'session-reports/{bank_id}/{clearing_date}/reconciliation.pdf',
+  data=pdf_bytes,
+  length=len(pdf_bytes),
+  content_type='application/pdf',
+  sse=SseKMS(kms_key_id=kms_key),
+  retention=Retention(GOVERNANCE, retain_until)
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>clearing_date</td><td>str</td><td>Clearing date YYYY-MM-DD</td></tr>
+          <tr><td>pdf_bytes</td><td>bytes</td><td>PDF report content</td></tr>
+          <tr><td>kms_key</td><td>str</td><td>KMS key ID</td></tr>
+          <tr><td>retain_until</td><td>datetime</td><td>Object lock retain-until date</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/reconciliation/</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="M-008" data-store="MinIO" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-008</span>
+    <span class="card-title">Put inward cheque front image</span>
+    <span class="badge badge-minio">MinIO</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores the inward cheque front TIFF image to MinIO hot bucket with SSE-KMS. Hot path during inward intake.</div>
+    <pre class="query">client.put_object(
+  bucket_name=config_service.get('minio.cheques.hot.bucket'),
+  object_name=f'inward/{bank_id}/{lot_id}/{instrument_id}/front.tiff',
+  data=image_bytes,
+  length=len(image_bytes),
+  content_type='image/tiff',
+  sse=SseKMS(kms_key_id=kms_key)
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>lot_id</td><td>str</td><td>Lot UUID</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Instrument UUID</td></tr>
+          <tr><td>image_bytes</td><td>bytes</td><td>Front image TIFF bytes</td></tr>
+          <tr><td>kms_key</td><td>str</td><td>KMS key ID from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card hot" id="M-009" data-store="MinIO" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-009</span>
+    <span class="card-title">Put inward cheque rear image</span>
+    <span class="badge badge-minio">MinIO</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores the inward cheque rear TIFF image to MinIO hot bucket. Hot path during inward intake.</div>
+    <pre class="query">client.put_object(
+  bucket_name=config_service.get('minio.cheques.hot.bucket'),
+  object_name=f'inward/{bank_id}/{lot_id}/{instrument_id}/rear.tiff',
+  data=image_bytes,
+  length=len(image_bytes),
+  content_type='image/tiff',
+  sse=SseKMS(kms_key_id=kms_key)
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>lot_id</td><td>str</td><td>Lot UUID</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Instrument UUID</td></tr>
+          <tr><td>image_bytes</td><td>bytes</td><td>Rear image TIFF bytes</td></tr>
+          <tr><td>kms_key</td><td>str</td><td>KMS key ID from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/workflows/activities/ocr.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="M-010" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-010</span>
+    <span class="card-title">Put outward cheque front image</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores a newly scanned outward cheque front image to MinIO.</div>
+    <pre class="query">client.put_object(
+  bucket_name=config_service.get('minio.cheques.hot.bucket'),
+  object_name=f'outward/{bank_id}/{scan_session_id}/{instrument_id}/front.tiff',
+  data=image_bytes,
+  length=len(image_bytes),
+  content_type='image/tiff',
+  sse=SseKMS(kms_key_id=kms_key)
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Presenting bank identifier</td></tr>
+          <tr><td>scan_session_id</td><td>str</td><td>Scanner session UUID</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Instrument UUID</td></tr>
+          <tr><td>image_bytes</td><td>bytes</td><td>Front image TIFF bytes</td></tr>
+          <tr><td>kms_key</td><td>str</td><td>KMS key ID from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/scanner/</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="M-011" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-011</span>
+    <span class="card-title">Put outward cheque rear image</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Stores a newly scanned outward cheque rear image to MinIO.</div>
+    <pre class="query">client.put_object(
+  bucket_name=config_service.get('minio.cheques.hot.bucket'),
+  object_name=f'outward/{bank_id}/{scan_session_id}/{instrument_id}/rear.tiff',
+  data=image_bytes,
+  length=len(image_bytes),
+  content_type='image/tiff',
+  sse=SseKMS(kms_key_id=kms_key)
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Presenting bank identifier</td></tr>
+          <tr><td>scan_session_id</td><td>str</td><td>Scanner session UUID</td></tr>
+          <tr><td>instrument_id</td><td>str</td><td>Instrument UUID</td></tr>
+          <tr><td>image_bytes</td><td>bytes</td><td>Rear image TIFF bytes</td></tr>
+          <tr><td>kms_key</td><td>str</td><td>KMS key ID from Vault</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/scanner/</a>
+    </div>
   </div>
 </div>
 
@@ -1717,6 +5459,67 @@ await handle.signal(
       <tr><td>action</td><td>GO_AHEAD (proceed with original amount) or REJECTED (return instrument)</td></tr>
     </tbody></table>
     <div class="called-from">Called from: <code>apps/api/routers/cts.py</code> → <code>POST /v1/cts/mismatches/{mismatch_id}/resolve</code></div>
+  </div>
+</div>
+<div class="card" id="T-007" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-007</span>
+    <span class="card-title">List workflows — count in-flight instruments</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Queries Temporal for the count of in-flight ChequeProcessingWorkflow instances for the ASTRA Ops Dashboard.</div>
+    <pre class="query">client.list_workflows(
+  query=(
+    f"WorkflowType='ChequeProcessingWorkflow'"
+    f" AND BankId='{bank_id}'"
+    f" AND ExecutionStatus='Running'"
+  )
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier — used as Temporal search attribute filter</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/observability.py</a>
+    </div>
+  </div>
+</div>
+<div class="card" id="T-008" data-store="Temporal" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">T-008</span>
+    <span class="card-title">Start MSVValidationWorkflow</span>
+    <span class="badge badge-temporal">Temporal</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Starts an MSVValidationWorkflow for a cheque requiring multi-signature validation. Deterministic workflow ID guarantees exactly-once.</div>
+    <pre class="query">await client.start_workflow(
+  MSVValidationWorkflow.run,
+  args=[MSVWorkflowInput(
+    instrument_id=instrument_id,
+    bank_id=bank_id,
+    mandate_id=mandate_id,
+    image_front_key=image_front_key
+  )],
+  id=f'msv-{bank_id}-{instrument_id}',
+  task_queue=f'msv-processing-{bank_id}',
+  execution_timeout=timedelta(minutes=10)
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+          <tr><td>instrument_id</td><td>str</td><td>Cheque instrument UUID</td></tr>
+          <tr><td>bank_id</td><td>str</td><td>Bank identifier</td></tr>
+          <tr><td>mandate_id</td><td>str</td><td>MSV mandate UUID</td></tr>
+          <tr><td>image_front_key</td><td>str</td><td>MinIO front image key</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/workflows/msv_workflow.py</a>
+        <a class="called-tag" href="#">apps/api/routers/msv.py</a>
+    </div>
   </div>
 </div>
 
