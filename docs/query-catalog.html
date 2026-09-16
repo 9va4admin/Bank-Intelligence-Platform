@@ -194,7 +194,74 @@ pre.query {
     <div class="page-title">Query Catalog</div>
     <div class="page-sub">Every data-store operation in ASTRA CTS — SQL · Redis · Kafka · MinIO · Immudb · Temporal</div>
   </div>
-  <div class="cards" id="cards">
+  
+<style>
+.schema-audit {
+  background: var(--bg2); border: 2px solid #c0392b; border-radius: 10px;
+  padding: 20px 24px; margin-bottom: 28px;
+}
+.schema-audit h2 { font-size: 15px; font-weight: 700; color: #e74c3c; margin-bottom: 16px; }
+.schema-audit h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 14px; margin-bottom: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+.schema-audit summary { cursor: pointer; font-size: 15px; font-weight: 700; color: #e74c3c; list-style: none; }
+.schema-audit summary::before { content: "▶ "; font-size: 11px; }
+details[open] .schema-audit summary::before { content: "▼ "; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.audit-table th { background: var(--bg3); padding: 6px 10px; text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+.audit-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); color: var(--text); font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.audit-table tr:last-child td { border-bottom: none; }
+.dead-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+.dead-table-badge { color: #7f1d1d; background: #fef2f2; border: 1px solid #fca5a5; }
+.dead-col-badge { color: #78350f; background: #fffbeb; border: 1px solid #fcd34d; }
+.mismatch-badge { color: #7c3aed; background: #f5f3ff; border: 1px solid #c4b5fd; }
+</style>
+<details>
+<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #c0392b; border-radius:10px; margin-bottom:28px; display:block;">⚠ Schema Audit Report — 3 mismatches · 10 dead tables · selected dead columns</summary>
+<div class="schema-audit" style="border-top:none; border-top-left-radius:0; border-top-right-radius:0; margin-top:-8px; margin-bottom:28px;">
+
+<h3>Schema Mismatches (3) <span class="mismatch-badge dead-badge">columns in code but not in any migration</span></h3>
+<table class="audit-table">
+  <thead><tr><th>Query</th><th>Table</th><th>Column</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#Q-140">Q-140</a></td><td>platform.local_auth_accounts</td><td>permission_level</td><td>Added to platform.users in 20260627_006 — never added to local_auth_accounts</td></tr>
+    <tr><td><a href="#Q-140">Q-140</a></td><td>platform.local_auth_accounts</td><td>bank_type</td><td>Added to platform.users in 20260627_006 — never added to local_auth_accounts</td></tr>
+    <tr><td><a href="#Q-152">Q-152</a></td><td>cts.cheque_instruments</td><td>queue_tier</td><td>Used in holds list query and cheque_workflow.py — no migration creates this column</td></tr>
+  </tbody>
+</table>
+
+<h3>Dead Tables (10 representative samples) <span class="dead-table-badge dead-badge">table in migrations, zero queries touch it</span></h3>
+<table class="audit-table">
+  <thead><tr><th>Table</th><th>Created by Migration</th><th>Columns</th></tr></thead>
+  <tbody>
+    <tr><td>cts.account_vault</td><td>20260803_add_account_vault.py</td><td>16</td></tr>
+    <tr><td>cts.eeh_sessions</td><td>20260705_add_eeh_sessions.py</td><td>12</td></tr>
+    <tr><td>cts.smb_push_sessions</td><td>20260705_add_smb_push_sessions.py</td><td>12</td></tr>
+    <tr><td>cts.scanner_registrations</td><td>20260811_scanner_registrations.py</td><td>15</td></tr>
+    <tr><td>cts.session_reports</td><td>20260811_add_session_reports.py</td><td>20</td></tr>
+    <tr><td>platform.login_events</td><td>20260627_006_bank_type_permission_level_and_login_events.py</td><td>12</td></tr>
+    <tr><td>platform.notification_records</td><td>20260618_003_platform_notifications.py</td><td>19</td></tr>
+    <tr><td>platform.model_drift_alerts</td><td>20260618_005_platform_model_registry.py</td><td>16</td></tr>
+    <tr><td>platform.security_violations</td><td>20260719_add_security_violations.py</td><td>14</td></tr>
+    <tr><td>msv.signatory_manifest</td><td>20260709_create_msv_schema.py</td><td>9</td></tr>
+  </tbody>
+</table>
+<p style="font-size:11px;color:var(--muted);margin-top:6px">Full dead-table list: /tmp/xref.json contains all 61 entries. Tables may be populated via ORM or indirect SQL not captured by the catalog scanner.</p>
+
+<h3>Selected Dead Columns <span class="dead-col-badge dead-badge">column in migration, never referenced in any query</span></h3>
+<table class="audit-table">
+  <thead><tr><th>Table</th><th>Column</th><th>Added by</th></tr></thead>
+  <tbody>
+    <tr><td>cts.agent_decisions</td><td>ai_inference_logs</td><td>20260618_005_agent_decisions_and_review.py</td></tr>
+    <tr><td>cts.cheque_instruments</td><td>watermark_verified</td><td>20260618_003_cheque_instruments_and_images.py</td></tr>
+    <tr><td>cts.cheque_instruments</td><td>cts2010_compliant</td><td>20260618_003_cheque_instruments_and_images.py</td></tr>
+    <tr><td>cts.sub_member_banks</td><td>smb_kafka_topic</td><td>20260619_013_sub_member_banks_and_ledger.py</td></tr>
+    <tr><td>platform.users</td><td>permission_level</td><td>20260627_006_bank_type_permission_level_and_login_events.py</td></tr>
+  </tbody>
+</table>
+
+</div>
+</details>
+
+<div class="cards" id="cards">
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      SQL QUERIES
@@ -5523,6 +5590,1126 @@ await handle.signal(
   </div>
 </div>
 
+
+<div class="card hot" id="Q-124" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-124</span>
+    <span class="card-title">IFSC lookup by bank + code + SMB (active)</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Active-only IFSC lookup scoped to bank and sub-member. Primary hot-path used by CRL service.</div>
+    <pre class="query">SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name,
+       branch_city, micr_code, is_active, effective_from,
+       effective_till, status, created_by, approved_by
+  FROM cts.ifsc_registry
+ WHERE bank_id = $1
+   AND ifsc_code = $2
+   AND smb_id = $3
+   AND status = 'ACTIVE'
+   AND is_active = TRUE
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr><tr><td>ifsc_code</td><td>TEXT</td><td>IFSC code to look up (normalised to uppercase)</td></tr><tr><td>smb_id</td><td>TEXT</td><td>Sub-member bank filter</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-125" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-125</span>
+    <span class="card-title">IFSC lookup by bank + code (no SMB, active)</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Active-only IFSC lookup without sub-member scoping. Used for sponsor-bank instruments.</div>
+    <pre class="query">SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name,
+       branch_city, micr_code, is_active, effective_from,
+       effective_till, status, created_by, approved_by
+  FROM cts.ifsc_registry
+ WHERE bank_id = $1
+   AND ifsc_code = $2
+   AND status = 'ACTIVE'
+   AND is_active = TRUE
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr><tr><td>ifsc_code</td><td>TEXT</td><td>IFSC code to look up</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-126" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-126</span>
+    <span class="card-title">IFSC fetch by primary key</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Single IFSC registry entry fetch by UUID primary key. Used by approve/deactivate flows.</div>
+    <pre class="query">SELECT * FROM cts.ifsc_registry WHERE id = $1 LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>id</td><td>UUID</td><td>Primary key of the IFSC entry</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-127" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-127</span>
+    <span class="card-title">IFSC list by bank (paginated)</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List all IFSC entries for a bank with optional bank_type/smb_id/active_only filters.</div>
+    <pre class="query">SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name,
+       branch_city, micr_code, is_active, effective_from,
+       effective_till, status, created_by, approved_by
+  FROM cts.ifsc_registry
+ WHERE bank_id = $1
+   AND status = 'ACTIVE'
+   AND is_active = TRUE
+ ORDER BY ifsc_code ASC
+ LIMIT 50</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>status</td><td>TEXT</td><td>Filter by status (ACTIVE/PENDING/INACTIVE)</td></tr><tr><td>limit</td><td>INT</td><td>Page size; max 200</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-128" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-128</span>
+    <span class="card-title">IFSC registry INSERT (PENDING status)</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Create new IFSC entry in PENDING status awaiting approval. Raises on (bank_id, ifsc_code) unique violation.</div>
+    <pre class="query">INSERT INTO cts.ifsc_registry (
+    bank_id, bank_type, smb_id, ifsc_code,
+    branch_name, branch_city, micr_code,
+    is_active, effective_from, status, created_by, created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, $8, 'PENDING', $9, NOW())
+RETURNING id, bank_id, bank_type, smb_id, ifsc_code, branch_name,
+          branch_city, micr_code, is_active, effective_from,
+          effective_till, status, created_by, approved_by</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr><tr><td>bank_type</td><td>TEXT</td><td>SB or SMB</td></tr><tr><td>smb_id</td><td>TEXT</td><td>SMB ID, nullable</td></tr><tr><td>ifsc_code</td><td>TEXT</td><td>IFSC code to register</td></tr><tr><td>branch_name</td><td>TEXT</td><td>Branch name, nullable</td></tr><tr><td>branch_city</td><td>TEXT</td><td>Branch city, nullable</td></tr><tr><td>micr_code</td><td>TEXT</td><td>9-digit MICR code, nullable</td></tr><tr><td>effective_from</td><td>DATE</td><td>Effective date</td></tr><tr><td>created_by</td><td>TEXT</td><td>User ID of creator</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-129" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-129</span>
+    <span class="card-title">IFSC approve — set ACTIVE</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Maker-checker approval: promote PENDING IFSC to ACTIVE status.</div>
+    <pre class="query">UPDATE cts.ifsc_registry
+   SET status = 'ACTIVE',
+       is_active = TRUE,
+       approved_by = $2,
+       approved_at = NOW(),
+       updated_at = NOW()
+ WHERE id = $1
+RETURNING id, bank_id, bank_type, smb_id, ifsc_code, branch_name,
+          branch_city, micr_code, is_active, effective_from,
+          effective_till, status, created_by, approved_by</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>id</td><td>UUID</td><td>IFSC entry primary key</td></tr><tr><td>approved_by</td><td>TEXT</td><td>User ID of approver</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-130" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-130</span>
+    <span class="card-title">IFSC deactivate — set INACTIVE</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Deactivate an ACTIVE IFSC entry. No hard delete — keeps history.</div>
+    <pre class="query">UPDATE cts.ifsc_registry
+   SET status = 'INACTIVE',
+       is_active = FALSE,
+       updated_by = $2,
+       updated_at = NOW()
+ WHERE id = $1
+RETURNING id, bank_id, bank_type, smb_id, ifsc_code, branch_name,
+          branch_city, micr_code, is_active, effective_from,
+          effective_till, status, created_by, approved_by</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>id</td><td>UUID</td><td>IFSC entry primary key</td></tr><tr><td>updated_by</td><td>TEXT</td><td>User ID performing deactivation</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/ifsc/repository.py</a>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-131" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-131</span>
+    <span class="card-title">SMB batch ledger counters — SELECT</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Read current STP-return count and total received for a sub-member session. Used by return-rate shield check.</div>
+    <pre class="query">SELECT total_received, stp_return
+  FROM cts.sub_member_batch_ledgers
+ WHERE bank_id = $1
+   AND sub_member_id = $2
+   AND session_date = $3
+   AND clearing_session = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Sponsor bank ID</td></tr><tr><td>sub_member_id</td><td>TEXT</td><td>Sub-member bank ID</td></tr><tr><td>session_date</td><td>DATE</td><td>CTS clearing date</td></tr><tr><td>clearing_session</td><td>TEXT</td><td>Session identifier (e.g. AM1)</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/activities.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-132" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-132</span>
+    <span class="card-title">SMB return-rate thresholds — SELECT</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Read per-SMB return rate and soft-hold thresholds from sub_member_banks configuration.</div>
+    <pre class="query">SELECT return_rate_threshold, soft_hold_threshold
+  FROM cts.sub_member_banks
+ WHERE sub_member_id = $1
+   AND bank_id = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>sub_member_id</td><td>TEXT</td><td>Sub-member bank ID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Sponsor bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/activities.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-133" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-133</span>
+    <span class="card-title">SMB batch ledger UPSERT (bucket counter)</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Increment per-decision bucket counter in sub_member_batch_ledgers. INSERT on first cheque of a session, ON CONFLICT DO UPDATE for subsequent. Column name comes from allowlist (_BUCKET_COLUMNS dict).</div>
+    <pre class="query">INSERT INTO cts.sub_member_batch_ledgers
+    (bank_id, sub_member_id, session_date, clearing_session,
+     total_received, {bucket_column})
+VALUES ($1, $2, $3, $4, 1, 1)
+ON CONFLICT (bank_id, sub_member_id, session_date, clearing_session)
+DO UPDATE SET
+    total_received = cts.sub_member_batch_ledgers.total_received + 1,
+    {bucket_column} = cts.sub_member_batch_ledgers.{bucket_column} + 1,
+    updated_at = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Sponsor bank ID</td></tr><tr><td>sub_member_id</td><td>TEXT</td><td>Sub-member bank ID</td></tr><tr><td>session_date</td><td>DATE</td><td>CTS clearing date</td></tr><tr><td>clearing_session</td><td>TEXT</td><td>Session identifier</td></tr><tr><td>updated_at</td><td>TIMESTAMPTZ</td><td>Update timestamp</td></tr><tr><td>{bucket_column}</td><td>TEXT (identifier)</td><td>Allowlisted column: stp_pass | stp_return | eyeball | fraud_hold | iet_emergency</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/activities.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-134" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-134</span>
+    <span class="card-title">SMB return notification Kafka publish</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Not SQL — see K-019 for the Kafka side. Placeholder for the activity return path that also reads ledger via Q-131.</div>
+    <pre class="query">-- see K-019: event_producer.publish(topic=platform.notifications, event_type='SMB_RETURN_NOTIFICATION')</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/activities.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-135" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-135</span>
+    <span class="card-title">MSV enrollment progress — SELECT status</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Check if an account hash has already been enrolled. Used by BulkEnrollmentProcessor to skip re-enrollment.</div>
+    <pre class="query">SELECT status, enrolled_at
+  FROM msv.enrollment_progress
+ WHERE bank_id = $1
+   AND account_hash = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number (never raw)</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/enrollment/progress_tracker.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-136" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-136</span>
+    <span class="card-title">MSV enrollment progress — mark ENROLLED (upsert)</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Upsert enrollment status to ENROLLED. ON CONFLICT to handle duplicate calls gracefully.</div>
+    <pre class="query">INSERT INTO msv.enrollment_progress
+    (bank_id, account_hash, operation_type, status, enrolled_at, batch_id)
+VALUES ($1, $2, '', 'ENROLLED', NOW(), $3)
+ON CONFLICT (bank_id, account_hash)
+DO UPDATE SET
+    status = 'ENROLLED',
+    enrolled_at = NOW(),
+    batch_id = $3</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr><tr><td>batch_id</td><td>TEXT</td><td>Bulk enrollment job ID</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/enrollment/progress_tracker.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-137" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-137</span>
+    <span class="card-title">MSV enrollment progress — mark FAILED (upsert)</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Upsert enrollment status to FAILED with error reason.</div>
+    <pre class="query">INSERT INTO msv.enrollment_progress
+    (bank_id, account_hash, operation_type, status, error_reason, batch_id)
+VALUES ($1, $2, '', 'FAILED', $3, $4)
+ON CONFLICT (bank_id, account_hash)
+DO UPDATE SET
+    status = 'FAILED',
+    error_reason = $3,
+    batch_id = $4</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr><tr><td>error_reason</td><td>TEXT</td><td>Error description</td></tr><tr><td>batch_id</td><td>TEXT</td><td>Bulk enrollment job ID</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/enrollment/progress_tracker.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-138" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-138</span>
+    <span class="card-title">MSV enrollment job — SELECT by job_id</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetch enrollment job status and counters by primary key.</div>
+    <pre class="query">SELECT job_id, bank_id, file_name, file_type, status,
+       total_accounts, processed_accounts, enrolled_accounts,
+       failed_accounts, total_signatures, enrolled_signatures,
+       current_operation_type, started_at, completed_at, error_summary
+  FROM msv.enrollment_jobs
+ WHERE job_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>job_id</td><td>TEXT</td><td>Enrollment job UUID</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/enrollment/progress_tracker.py</a>
+        <a class="called-tag" href="#">apps/api/routers/msv.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-139" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-139</span>
+    <span class="card-title">MSV enrollment job — UPDATE progress counters</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Increment processed_accounts and enrolled_signatures in bulk batches (every 500 accounts).</div>
+    <pre class="query">UPDATE msv.enrollment_jobs
+   SET processed_accounts   = processed_accounts   + $2,
+       enrolled_signatures  = enrolled_signatures  + $3
+ WHERE job_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>job_id</td><td>TEXT</td><td>Enrollment job UUID</td></tr><tr><td>accounts_delta</td><td>INT</td><td>Number of accounts processed in this batch</td></tr><tr><td>sigs_delta</td><td>INT</td><td>Number of signatures enrolled in this batch</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/enrollment/progress_tracker.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot pii-table" id="Q-140" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-140</span>
+    <span class="card-title">Local auth — SELECT account by username</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div style="border-left:3px solid #dc2626;background:#fef2f2;padding:8px 12px;margin:8px 0;border-radius:4px;font-size:12px;color:#991b1b">
+      <strong>⚠ SCHEMA MISMATCH</strong> — column(s) referenced but not found in any migration: <code>permission_level, bank_type</code>
+    </div>
+    <div class="card-desc">Fetch local-auth account by bank_id + username for password authentication. Explicit column list per database.md.</div>
+    <pre class="query">SELECT user_id, bank_id, entity_type, entity_id, username,
+       display_name, password_hash, role, permission_level, bank_type,
+       clearing_zones, is_active, failed_attempts, locked_until,
+       email, phone
+  FROM platform.local_auth_accounts
+ WHERE bank_id = $1
+   AND username = $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>username</td><td>TEXT</td><td>Username (case-sensitive)</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/connectors/local.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot pii-table" id="Q-141" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-141</span>
+    <span class="card-title">Local auth — UPDATE on successful login</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Reset failed_attempts and set last_login_at on successful password authentication.</div>
+    <pre class="query">UPDATE platform.local_auth_accounts
+   SET failed_attempts = 0,
+       locked_until = NULL,
+       last_login_at = now()
+ WHERE user_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>user_id</td><td>TEXT</td><td>User UUID</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/connectors/local.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot pii-table" id="Q-142" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-142</span>
+    <span class="card-title">Local auth — INCREMENT failed attempts</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Increment failed_attempts counter after a bad password attempt.</div>
+    <pre class="query">UPDATE platform.local_auth_accounts
+   SET failed_attempts = failed_attempts + 1
+ WHERE user_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>user_id</td><td>TEXT</td><td>User UUID</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/connectors/local.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot pii-table" id="Q-143" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-143</span>
+    <span class="card-title">Local auth — LOCK account (set locked_until)</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Lock account until a Unix timestamp (default: now + 15 minutes) after too many failed attempts.</div>
+    <pre class="query">UPDATE platform.local_auth_accounts
+   SET locked_until = $2
+ WHERE user_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>user_id</td><td>TEXT</td><td>User UUID</td></tr><tr><td>locked_until</td><td>FLOAT</td><td>Unix timestamp (epoch seconds) until which account is locked</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/connectors/local.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-144" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-144</span>
+    <span class="card-title">TOTP enrollment status — SELECT</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Read totp_enrolled flag for a user. Called by AccountEnrollmentStore.is_totp_enrolled().</div>
+    <pre class="query">SELECT totp_enrolled FROM platform.local_auth_accounts WHERE user_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>user_id</td><td>TEXT</td><td>User UUID</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/enrollment_store.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-145" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-145</span>
+    <span class="card-title">TOTP enrollment status — UPDATE</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Set totp_enrolled flag. Called after successful TOTP setup or admin reset.</div>
+    <pre class="query">UPDATE platform.local_auth_accounts SET totp_enrolled = $2 WHERE user_id = $1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>user_id</td><td>TEXT</td><td>User UUID</td></tr><tr><td>totp_enrolled</td><td>BOOL</td><td>TRUE after successful enrollment; FALSE on admin reset</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/auth/enrollment_store.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-146" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-146</span>
+    <span class="card-title">CRL — resolve IFSC to branch + processing unit</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Core routing query: maps an IFSC code to its branch + processing unit for Temporal task queue and Kafka topic assignment. Redis-cached (crl:{ifsc_code}, TTL 5 min).</div>
+    <pre class="query">SELECT b.branch_id,
+       b.bank_id,
+       b.branch_ifsc,
+       b.micr_code,
+       p.pu_id,
+       p.clearing_zone,
+       p.temporal_task_queue,
+       p.kafka_inward_topic
+  FROM cts.branches b
+  JOIN cts.processing_units p ON p.pu_id = b.pu_id
+ WHERE b.branch_ifsc = $1
+   AND b.is_active = true
+   AND p.is_active = true
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>branch_ifsc</td><td>TEXT</td><td>IFSC code of the drawee branch</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/crl/service.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-147" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-147</span>
+    <span class="card-title">CRL — resolve MICR to IFSC code</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">MICR secondary index lookup: maps 9-digit MICR code to IFSC. Redis secondary index (crl_micr:{micr_code}, TTL 5 min).</div>
+    <pre class="query">SELECT b.branch_ifsc
+  FROM cts.branches b
+ WHERE b.micr_code = $1
+   AND b.is_active = true
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>micr_code</td><td>TEXT</td><td>9-digit MICR city code</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/crl/service.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot pii-table" id="Q-148" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-148</span>
+    <span class="card-title">Decisions log — list with cheque join</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List agent decisions with cheque metadata join. New columns: ocr_engines_used, indic_ocr_kill_switch_active, signature/pps/cbs verdicts. Explicit column list.</div>
+    <pre class="query">SELECT d.instrument_id, d.workflow_id, d.decision,
+       d.decision_reason, d.fraud_score, d.shap_values,
+       d.processing_duration_ms, d.iet_margin_seconds, d.degraded_mode,
+       EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch,
+       d.ocr_engines_used, d.indic_ocr_kill_switch_active,
+       d.signature_match_score, d.signature_verdict,
+       d.pps_verdict, d.cbs_balance_status, d.alteration_detected,
+       i.micr_code, i.account_last4, i.amount_range, i.presenting_ifsc
+  FROM cts.agent_decisions d
+  LEFT JOIN cts.cheque_instruments i
+         ON i.instrument_id = d.instrument_id
+        AND i.bank_id = d.bank_id
+ WHERE d.bank_id = $1
+ ORDER BY d.created_at DESC
+ LIMIT $2</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>limit</td><td>INT</td><td>Max rows; capped at 100</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-149" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-149</span>
+    <span class="card-title">Instrument digest — SELECT from agent_decisions</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetch the pipeline step digest for a specific instrument. Powers the passbook digest UI.</div>
+    <pre class="query">SELECT instrument_id, bank_id, workflow_id, decision,
+       EXTRACT(EPOCH FROM processing_started_at)::float AS started_at,
+       EXTRACT(EPOCH FROM processing_completed_at)::float AS decided_at,
+       steps_digest, registry_version
+  FROM cts.agent_decisions
+ WHERE instrument_id = $1
+   AND bank_id = $2
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>instrument_id</td><td>TEXT</td><td>Instrument UUID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-150" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-150</span>
+    <span class="card-title">Vault gap list — SELECT vault-miss decisions for date</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Find instruments decided as HUMAN_REVIEW with vault-miss reason on a given date. Powers CTSVaultGapReport.</div>
+    <pre class="query">SELECT i.account_last4, d.instrument_id,
+       d.decision_reason, i.micr_code,
+       EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch
+  FROM cts.agent_decisions d
+  LEFT JOIN cts.cheque_instruments i
+         ON i.instrument_id = d.instrument_id
+        AND i.bank_id = d.bank_id
+ WHERE d.bank_id = $1
+   AND d.decision = 'HUMAN_REVIEW'
+   AND d.decision_reason ILIKE '%NO_SIGNATURE_IN_VAULT%'
+   AND d.created_at::date = $2::date
+ ORDER BY i.account_last4, d.created_at ASC
+ LIMIT 2000</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>date</td><td>DATE</td><td>Target clearing date</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-151" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-151</span>
+    <span class="card-title">Instrument hold — SELECT hold_id for instrument</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetch most recent active hold_id for an instrument. Used before starting escalation workflow.</div>
+    <pre class="query">SELECT hold_id
+  FROM cts.instrument_holds
+ WHERE instrument_id = $1
+   AND bank_id = $2
+   AND released_at IS NULL
+ ORDER BY held_at DESC
+ LIMIT 1</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>instrument_id</td><td>TEXT</td><td>Instrument UUID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot pii-table" id="Q-152" data-store="SQL" data-hot="1" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-152</span>
+    <span class="card-title">Holds list — SELECT active holds with cheque join</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div style="border-left:3px solid #dc2626;background:#fef2f2;padding:8px 12px;margin:8px 0;border-radius:4px;font-size:12px;color:#991b1b">
+      <strong>⚠ SCHEMA MISMATCH</strong> — column(s) referenced but not found in any migration: <code>cts.cheque_instruments.queue_tier</code>
+    </div>
+    <div class="card-desc">List all unreleased holds for a bank with cheque metadata join. Powers HoldsQueue UI.</div>
+    <pre class="query">SELECT h.hold_id, h.instrument_id, h.bank_id, h.held_by,
+       h.held_at, h.iet_deadline, h.hold_reason,
+       h.branch_notified_at, h.branch_recommendation, h.branch_note,
+       i.account_last4, i.amount_range, i.queue_tier
+  FROM cts.instrument_holds h
+  LEFT JOIN cts.cheque_instruments i
+         ON h.instrument_id = i.instrument_id::TEXT
+        AND i.bank_id = $1
+ WHERE h.bank_id = $1
+   AND h.released_at IS NULL
+ ORDER BY h.iet_deadline ASC</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-153" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-153</span>
+    <span class="card-title">Hold release — UPDATE released_at + metadata</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Release an active hold: set released_at, released_by, and optional branch note/recommendation.</div>
+    <pre class="query">UPDATE cts.instrument_holds
+   SET released_at = $1,
+       released_by = $2,
+       branch_note = COALESCE($3, branch_note),
+       branch_recommendation = COALESCE($4, branch_recommendation)
+ WHERE instrument_id = $5
+   AND bank_id = $6
+   AND released_at IS NULL
+RETURNING hold_id</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>released_at</td><td>FLOAT</td><td>Unix epoch timestamp</td></tr><tr><td>released_by</td><td>TEXT</td><td>Reviewer user ID</td></tr><tr><td>branch_note</td><td>TEXT</td><td>Optional branch note</td></tr><tr><td>branch_recommendation</td><td>TEXT</td><td>Optional recommendation (GO_AHEAD|REJECT)</td></tr><tr><td>instrument_id</td><td>TEXT</td><td>Instrument UUID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-154" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-154</span>
+    <span class="card-title">Hold recommendation — UPDATE branch note</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Update branch recommendation on an active hold without releasing it.</div>
+    <pre class="query">UPDATE cts.instrument_holds
+   SET branch_note = COALESCE($1, branch_note),
+       branch_recommendation = COALESCE($2, branch_recommendation)
+ WHERE instrument_id = $3
+   AND bank_id = $4
+   AND released_at IS NULL
+RETURNING hold_id</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>branch_note</td><td>TEXT</td><td>Updated note from branch supervisor</td></tr><tr><td>branch_recommendation</td><td>TEXT</td><td>GO_AHEAD or REJECT</td></tr><tr><td>instrument_id</td><td>TEXT</td><td>Instrument UUID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-155" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-155</span>
+    <span class="card-title">Mismatch queue list — SELECT HELD items</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List open (HELD) mismatch items for branch review. Optional branch_id filter.</div>
+    <pre class="query">SELECT mismatch_id, instrument_id, branch_id, held_at, status,
+       mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
+  FROM cts.mismatch_queue
+ WHERE bank_id = $1
+   AND status = 'HELD'
+ ORDER BY held_at ASC</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-156" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-156</span>
+    <span class="card-title">Mismatch — SELECT by mismatch_id for signal</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetch mismatch record to get workflow_run_id for Temporal signal dispatch.</div>
+    <pre class="query">SELECT mismatch_id, branch_id, workflow_run_id
+  FROM cts.mismatch_queue
+ WHERE mismatch_id = $1
+   AND bank_id = $2
+   AND status = 'HELD'</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>mismatch_id</td><td>TEXT</td><td>Mismatch UUID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-157" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-157</span>
+    <span class="card-title">Mismatch resolve — UPDATE status + audit</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Set mismatch resolution: status = GO_AHEAD or REJECTED, with resolver and optional note.</div>
+    <pre class="query">UPDATE cts.mismatch_queue
+   SET status = $1,
+       resolved_at = NOW(),
+       resolved_by = $2,
+       resolution_note = $3
+ WHERE mismatch_id = $4
+   AND bank_id = $5</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>action</td><td>TEXT</td><td>GO_AHEAD or REJECTED</td></tr><tr><td>resolved_by</td><td>TEXT</td><td>User ID of resolver</td></tr><tr><td>resolution_note</td><td>TEXT</td><td>Optional note</td></tr><tr><td>mismatch_id</td><td>TEXT</td><td>Mismatch UUID</td></tr><tr><td>bank_id</td><td>TEXT</td><td>Bank scoping guard</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">apps/api/routers/cts.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-158" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-158</span>
+    <span class="card-title">pgcrypto encrypt — pgp_sym_encrypt</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Encrypt PII string (payee name, drawer name) using PostgreSQL pgcrypto pgp_sym_encrypt. Key from Vault via config_service.</div>
+    <pre class="query">SELECT pgp_sym_encrypt($1, $2)::bytea AS enc</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>plaintext</td><td>TEXT</td><td>PII value to encrypt</td></tr><tr><td>key</td><td>TEXT</td><td>Symmetric key from Vault (never logged)</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/utils/pii_crypto.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card pii-table" id="Q-159" data-store="SQL" data-hot="0" data-pii="1">
+  <div class="card-head">
+    <span class="q-num">Q-159</span>
+    <span class="card-title">pgcrypto decrypt — pgp_sym_decrypt</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-pii">PII TABLE</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Decrypt pgp_sym_encrypt ciphertext back to plaintext. Only called when RBAC can_view_pii() is true.</div>
+    <pre class="query">SELECT pgp_sym_decrypt($1::bytea, $2) AS dec</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>ciphertext</td><td>BYTEA</td><td>Encrypted PII value</td></tr><tr><td>key</td><td>TEXT</td><td>Symmetric key from Vault</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">shared/utils/pii_crypto.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="Q-160" data-store="SQL" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-160</span>
+    <span class="card-title">MSV signatory embeddings — INSERT/upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Store signatory embedding in PostgreSQL. ON CONFLICT upsert: updates embedding and clears revoked_at on re-enrollment.</div>
+    <pre class="query">INSERT INTO msv.signatory_embeddings
+    (bank_id, account_hash, signatory_id, specimen_idx,
+     embedding, operation_type)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (bank_id, account_hash, signatory_id, specimen_idx)
+DO UPDATE SET
+    embedding = EXCLUDED.embedding,
+    operation_type = EXCLUDED.operation_type,
+    enrolled_at = NOW(),
+    revoked_at = NULL</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr><tr><td>signatory_id</td><td>TEXT</td><td>Signatory identifier</td></tr><tr><td>specimen_idx</td><td>INT</td><td>Specimen index 0..N-1</td></tr><tr><td>embedding</td><td>BYTEA</td><td>Float32 array serialised as big-endian bytes</td></tr><tr><td>operation_type</td><td>TEXT</td><td>Account operation type (S/L/J/etc)</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/vaults/signatory_registry.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="Q-161" data-store="SQL" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">Q-161</span>
+    <span class="card-title">MSV signatory embeddings — SELECT all specimens</span>
+    <span class="badge badge-sql">SQL</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Load all specimen embeddings for a signatory from PostgreSQL. Called on Redis cache miss.</div>
+    <pre class="query">SELECT bank_id, account_hash, signatory_id,
+       specimen_idx, embedding, operation_type
+  FROM msv.signatory_embeddings
+ WHERE bank_id = $1
+   AND account_hash = $2
+   AND signatory_id = $3
+ ORDER BY specimen_idx ASC</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody><tr><td>bank_id</td><td>TEXT</td><td>Bank identifier</td></tr><tr><td>account_hash</td><td>TEXT</td><td>HMAC-SHA256 of account number</td></tr><tr><td>signatory_id</td><td>TEXT</td><td>Signatory identifier</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/vaults/signatory_registry.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="R-033" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-033</span>
+    <span class="card-title">CRL service — IFSC routing cache</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Redis cache-aside for IFSC→branch+PU routing (Q-146). Secondary index for MICR→IFSC lookups (Q-147). TTL 300 seconds (5 minutes).</div>
+    <table class="params-table">
+      <thead><tr><th>Operation</th><th>Purpose</th></tr></thead>
+      <tbody><tr><td><code>GET crl:{ifsc_code}</code></td><td>Hit: return cached CRLResolution JSON. Miss: fall through to Q-146.</td></tr><tr><td><code>SET crl:{ifsc_code}</code></td><td>Write-through after DB lookup (Q-146). TTL=300s.</td></tr><tr><td><code>GET crl_micr:{micr_code}</code></td><td>Hit: return cached IFSC string. Miss: fall through to Q-147.</td></tr><tr><td><code>SET crl_micr:{micr_code}</code></td><td>Write-through after DB lookup (Q-147). TTL=300s.</td></tr><tr><td><code>DEL crl:{ifsc_code}</code></td><td>Cache invalidation after branch→PU remapping (delete_cache_entry).</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/crl/service.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card hot" id="R-034" data-store="Redis" data-hot="1" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-034</span>
+    <span class="card-title">MSV signatory vault — Redis list cache</span>
+    <span class="badge badge-redis">Redis</span>
+    <span class="tag-hot">HOT PATH</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Redis list-based cache for signatory embeddings. Key: msv:{bank_id}:{account_hash}:{signatory_id}. No TTL — flushed by VaultSyncWorkflow on re-enrollment.</div>
+    <table class="params-table">
+      <thead><tr><th>Operation</th><th>Purpose</th></tr></thead>
+      <tbody><tr><td><code>LRANGE key 0 -1</code></td><td>Hot path: return all specimen embedding bytes. Hit rate target >95%.</td></tr><tr><td><code>LPUSH key embedding...</code></td><td>Warm Redis after PostgreSQL fallback (Q-161). Also on new store (Q-160).</td></tr><tr><td><code>KEYS msv:{bank_id}:{account_hash}:*</code></td><td>Find all signatory keys for bulk invalidation.</td></tr><tr><td><code>DEL key</code></td><td>Invalidate cache for a specific signatory after revocation.</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/msv/vaults/signatory_registry.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="R-035" data-store="Redis" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">R-035</span>
+    <span class="card-title">OCR corpus counter — Redis incr/get/set</span>
+    <span class="badge badge-redis">Redis</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Redis counter tracking number of failure events accumulated per (bank_id, corpus_type). When counter ≥ threshold, ModelRetrainWorkflow is triggered.</div>
+    <table class="params-table">
+      <thead><tr><th>Operation</th><th>Purpose</th></tr></thead>
+      <tbody><tr><td><code>INCR corpus_count:{bank_id}:{corpus_type}</code></td><td>Increment on each corpus event stored to MinIO.</td></tr><tr><td><code>GET corpus_count:{bank_id}:{corpus_type}</code></td><td>Read current count to check retrain threshold.</td></tr><tr><td><code>SET corpus_count:{bank_id}:{corpus_type} 0</code></td><td>Reset counter after retrain job is triggered.</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/feedback/corpus_manager.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="M-012" data-store="MinIO" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">M-012</span>
+    <span class="card-title">OCR corpus — PUT failure event to MinIO</span>
+    <span class="badge badge-minio">MinIO</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Store OCR failure event (image + ground truth + metadata) to MinIO corpus bucket for model retraining. Object path: {corpus_type}/{bank_id}/{date}/{event_id}.jsonl.gz. WORM bucket with ILM lifecycle.</div>
+    <table class="params-table">
+      <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+      <tbody><tr><td><code>put_object(bucket=astra-ocr-corpus, ...)</code></td><td>Write failure corpus entry for retraining pipeline.</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/feedback/corpus_manager.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="I-007" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-007</span>
+    <span class="card-title">Kill switch event — write to Immudb</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Write cryptographically signed kill-switch activation or deactivation event to Immudb. Non-repudiable audit trail for all AI bypass decisions.</div>
+    <table class="params-table">
+      <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+      <tbody><tr><td><code>write_event(signed_event.to_json())</code></td><td>Write KILL_SWITCH_ACTIVATED or KILL_SWITCH_DEACTIVATED event with HSM signature.</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/kill_switch/kill_switch_event_handler.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="I-008" data-store="Immudb" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">I-008</span>
+    <span class="card-title">Migration diagnosis — Immudb audit event (stub)</span>
+    <span class="badge badge-immudb">Immudb</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Internal diagnostic workflow writes metadata-only audit event to Immudb. Currently a NotImplementedError stub — must be wired to production ImmudbClient before enabling in live environments.</div>
+    <table class="params-table">
+      <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+      <tbody><tr><td><code>_write_immudb_event(payload)</code></td><td>Stub: write migration diagnosis audit event. Raises NotImplementedError in production until wired.</td></tr></tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">internal/workflows/migration_diagnosis/activities.py</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="K-019" data-store="Kafka" data-hot="0" data-pii="0">
+  <div class="card-head">
+    <span class="q-num">K-019</span>
+    <span class="card-title">SMB return notification publish</span>
+    <span class="badge badge-kafka">Kafka</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Publish SMB instrument return notification event to platform.notifications topic. Consumed by notification-service for email/WhatsApp dispatch.</div>
+    <pre class="query">event_producer.publish(
+  topic=platform.notifications,
+  event_type='SMB_RETURN_NOTIFICATION',
+  payload={
+    "notification_id": "SMB-NOTIF-...",
+    "tier": "TIER1_IMMEDIATE",
+    "channel": "email",
+    "recipient_role": "ops_reviewer",
+    "template_id": "CTS_SMB_RETURN_NOTIFICATION",
+    "bank_id": bank_id,
+    "smb_id": sub_member_id,
+    "priority": "P2",
+    "event_category": "SMB_RETURN"
+  },
+  schema_version="1.0"
+)</pre>
+    <table class="params-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>topic</td><td>TEXT</td><td>platform.notifications (PLATFORM_NOTIFICATIONS constant)</td></tr>
+        <tr><td>schema_version</td><td>TEXT</td><td>Always "1.0" — Kafka envelope version</td></tr>
+      </tbody>
+    </table>
+    <div class="called-from"><strong>Called from:</strong>
+        <a class="called-tag" href="#">modules/cts/sub_member/activities.py</a>
+    </div>
+  </div>
+</div>
   </div><!-- /cards -->
 </main>
 </div><!-- /shell -->
