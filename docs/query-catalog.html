@@ -215,10 +215,10 @@ details[open] .schema-audit summary::before { content: "▼ "; }
 .mismatch-badge { color: #7c3aed; background: #f5f3ff; border: 1px solid #c4b5fd; }
 </style>
 <details>
-<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #c0392b; border-radius:10px; margin-bottom:28px; display:block;">⚠ Schema Audit Report — 3 mismatches · 10 dead tables · selected dead columns</summary>
+<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #16a34a; border-radius:10px; margin-bottom:28px; display:block;">✓ Schema Audit Report — 0 mismatches (all fixed) · 10 dead tables · selected dead columns</summary>
 <div class="schema-audit" style="border-top:none; border-top-left-radius:0; border-top-right-radius:0; margin-top:-8px; margin-bottom:28px;">
 
-<h3>Schema Mismatches (3) <span class="mismatch-badge dead-badge">columns in code but not in any migration</span></h3>
+<h3>Schema Mismatches (0) <span class="mismatch-badge" style="background:#16a34a;color:#fff">all fixed by migrations 20260916_018 &amp; 20260916_platform_local_auth_cols</span></h3>
 <table class="audit-table">
   <thead><tr><th>Query</th><th>Table</th><th>Column</th><th>Note</th></tr></thead>
   <tbody>
@@ -6005,8 +6005,8 @@ DO UPDATE SET
     <span class="tag-pii">PII TABLE</span>
   </div>
   <div class="card-body">
-    <div style="border-left:3px solid #dc2626;background:#fef2f2;padding:8px 12px;margin:8px 0;border-radius:4px;font-size:12px;color:#991b1b">
-      <strong>⚠ SCHEMA MISMATCH</strong> — column(s) referenced but not found in any migration: <code>permission_level, bank_type</code>
+    <div style="border-left:3px solid #16a34a;background:#f0fdf4;padding:8px 12px;margin:8px 0;border-radius:4px;font-size:12px;color:#15803d">
+      <strong>✓ FIXED</strong> — <code>permission_level</code> and <code>bank_type</code> added to <code>platform.local_auth_accounts</code> in migration <code>20260916_platform_local_auth_cols</code>
     </div>
     <div class="card-desc">Fetch local-auth account by bank_id + username for password authentication. Explicit column list per database.md.</div>
     <pre class="query">SELECT user_id, bank_id, entity_type, entity_id, username,
@@ -6320,8 +6320,8 @@ DO UPDATE SET
     <span class="tag-pii">PII TABLE</span>
   </div>
   <div class="card-body">
-    <div style="border-left:3px solid #dc2626;background:#fef2f2;padding:8px 12px;margin:8px 0;border-radius:4px;font-size:12px;color:#991b1b">
-      <strong>⚠ SCHEMA MISMATCH</strong> — column(s) referenced but not found in any migration: <code>cts.cheque_instruments.queue_tier</code>
+    <div style="border-left:3px solid #16a34a;background:#f0fdf4;padding:8px 12px;margin:8px 0;border-radius:4px;font-size:12px;color:#15803d">
+      <strong>✓ FIXED</strong> — <code>queue_tier</code> column added to <code>cts.cheque_instruments</code> in migration <code>20260916_018</code>
     </div>
     <div class="card-desc">List all unreleased holds for a bank with cheque metadata join. Powers HoldsQueue UI.</div>
     <pre class="query">SELECT h.hold_id, h.instrument_id, h.bank_id, h.held_by,
