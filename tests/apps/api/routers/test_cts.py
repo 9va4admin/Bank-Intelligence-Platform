@@ -45,6 +45,20 @@ def _submit_payload():
 
 
 class TestCTSSubmitRoute:
+    def _make_app(self):
+        """Happy-path submit requires a working Temporal client — the route hard-fails
+        (503) without one (see TestCTSSubmitWithoutTemporalClient). A real cheque
+        submission always has Temporal available; here we mock it."""
+        _patch_temporalio()
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(return_value=MagicMock())
+        app.state.temporal_client = temporal_client
+        return app
+
     def test_submit_unauthenticated_returns_401(self):
         from apps.api.routers.cts import router_v1
         app = FastAPI()
@@ -55,50 +69,42 @@ class TestCTSSubmitRoute:
         assert response.status_code == 401
 
     def test_submit_authenticated_returns_202_or_200(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app = self._make_app()
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.post("/v1/cts/inward/INST001/submit",
-                               json=_submit_payload(), headers=_auth_headers())
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post("/v1/cts/inward/INST001/submit",
+                                   json=_submit_payload(), headers=_auth_headers())
         assert response.status_code in (200, 202)
 
     def test_submit_response_has_instrument_id(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app = self._make_app()
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.post("/v1/cts/inward/INST001/submit",
-                               json=_submit_payload(), headers=_auth_headers())
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post("/v1/cts/inward/INST001/submit",
+                                   json=_submit_payload(), headers=_auth_headers())
         assert response.status_code in (200, 202)
         data = response.json()
         assert "instrument_id" in data
 
     def test_submit_response_has_workflow_id(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app = self._make_app()
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.post("/v1/cts/inward/INST001/submit",
-                               json=_submit_payload(), headers=_auth_headers())
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post("/v1/cts/inward/INST001/submit",
+                                   json=_submit_payload(), headers=_auth_headers())
         data = response.json()
         assert "workflow_id" in data
 
     def test_submit_response_has_status(self):
-        from apps.api.routers.cts import router_v1, get_current_bank_id
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app = self._make_app()
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.post("/v1/cts/inward/INST001/submit",
-                               json=_submit_payload(), headers=_auth_headers())
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post("/v1/cts/inward/INST001/submit",
+                                   json=_submit_payload(), headers=_auth_headers())
         data = response.json()
         assert data["status"] in ("ACCEPTED", "REJECTED")
 
@@ -115,14 +121,12 @@ class TestCTSSubmitRoute:
 
     def test_submit_workflow_id_is_deterministic(self):
         """Workflow ID must be cts-{bank_id}-{instrument_id} — idempotency guarantee."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app = self._make_app()
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.post("/v1/cts/inward/INST001/submit",
-                               json=_submit_payload(), headers=_auth_headers())
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post("/v1/cts/inward/INST001/submit",
+                                   json=_submit_payload(), headers=_auth_headers())
         data = response.json()
         assert data["workflow_id"] == "cts-test-bank-INST001"
 
@@ -317,6 +321,47 @@ class TestCTSSubmitWithTemporalClient:
                 headers=_auth_headers(),
             )
         assert response.headers.get("x-workflow-id") == "cts-test-bank-INST001"
+
+
+class TestCTSSubmitWithoutTemporalClient:
+    """CRITICAL regression guard: if the Temporal client is unavailable at
+    request time (DC failover window, startup race, misconfigured app.state),
+    submit_inward_cheque must hard-fail — never silently skip starting
+    ChequeProcessingWorkflow/IETWatchdogWorkflow while still returning 202
+    ACCEPTED. A soft skip here is a structural bypass of the IET watchdog
+    with zero audit trail — see CLAUDE.md §12, temporal.md."""
+
+    def _make_app_without_temporal(self):
+        _patch_temporalio()
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        # Deliberately do NOT set app.state.temporal_client
+        return app
+
+    def test_submit_without_temporal_client_returns_503_not_202(self):
+        app = self._make_app_without_temporal()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/inward/INST001/submit",
+            json=_submit_payload(),
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 503
+
+    def test_submit_without_temporal_client_never_returns_accepted(self):
+        app = self._make_app_without_temporal()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/inward/INST001/submit",
+            json=_submit_payload(),
+            headers=_auth_headers(),
+        )
+        assert response.status_code != 202
+        assert response.json().get("status") != "ACCEPTED"
 
 
 class TestCTSDecisionWithTemporalClient:

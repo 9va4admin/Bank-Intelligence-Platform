@@ -238,34 +238,37 @@ async def submit_inward_cheque(
                 error=str(exc),
             )
 
-    temporal_client = getattr(request.app.state, "temporal_client", None)
+    # Temporal is the ONLY path that starts ChequeProcessingWorkflow (and, inside it,
+    # IETWatchdogWorkflow). If the client isn't available this must be a hard failure —
+    # never a silent skip that still reports ACCEPTED with no workflow and no watchdog
+    # coverage. See CLAUDE.md §12 / temporal.md.
+    temporal_client = get_temporal_client(request)
 
-    if temporal_client is not None:
-        try:
-            from datetime import timedelta as _td
-            from temporalio.exceptions import WorkflowAlreadyStartedError
-            from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+    try:
+        from datetime import timedelta as _td
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 
-            await temporal_client.start_workflow(
-                ChequeProcessingWorkflow.run,
-                workflow_input,
-                id=workflow_id,
-                task_queue=f"cts-processing-{bank_id}",
-                execution_timeout=_td(hours=4),  # IET window (3h) + 1h buffer; auto-terminates stuck workflows
-            )
-        except WorkflowAlreadyStartedError:
-            pass  # idempotent — workflow already running for this instrument_id
-        except Exception as exc:
-            log.error(
-                "cts.submit_workflow_error",
-                instrument_id=instrument_id,
-                bank_id=bank_id,
-                error=str(exc),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to start workflow",
-            ) from exc
+        await temporal_client.start_workflow(
+            ChequeProcessingWorkflow.run,
+            workflow_input,
+            id=workflow_id,
+            task_queue=f"cts-processing-{bank_id}",
+            execution_timeout=_td(hours=4),  # IET window (3h) + 1h buffer; auto-terminates stuck workflows
+        )
+    except WorkflowAlreadyStartedError:
+        pass  # idempotent — workflow already running for this instrument_id
+    except Exception as exc:
+        log.error(
+            "cts.submit_workflow_error",
+            instrument_id=instrument_id,
+            bank_id=bank_id,
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to start workflow",
+        ) from exc
 
     log.info(
         "cts.submit_accepted",

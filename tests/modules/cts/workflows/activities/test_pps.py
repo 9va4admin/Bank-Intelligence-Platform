@@ -67,9 +67,12 @@ class TestPPSVaultMiss:
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
-    async def test_vault_miss_below_threshold_proceeds(self):
-        """CCP compliance: PPS is optional below the threshold.
-        Vault miss on a low-value cheque does NOT block STP — PROCEED."""
+    async def test_vault_miss_below_threshold_still_human_review(self):
+        """CRITICAL regression guard: a genuine vault miss/error is an infrastructure
+        signal, not NPCI flag Z. It must ALWAYS route to HUMAN_REVIEW regardless of
+        amount — never PROCEED. Only flag Z (a present, valid vault entry that says
+        'data not available') is threshold-gated. Conflating the two allows an
+        infra hiccup to silently auto-confirm a cheque with zero PPS check."""
         from modules.cts.workflows.activities.pps import lookup_pps
         from modules.cts.vaults.pps_vault import PPSResult
 
@@ -84,7 +87,27 @@ class TestPPSVaultMiss:
             vault=mock_vault,
             config={"pps_mandatory_threshold": 500000.0},
         )
-        assert result.outcome == "PROCEED"
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.mismatch_reason == "PPS_MISS"
+
+    @pytest.mark.asyncio
+    async def test_vault_error_below_threshold_still_human_review(self):
+        """Same invariant as above for VAULT_ERROR (Redis/DB failure), not just PPS_MISS."""
+        from modules.cts.workflows.activities.pps import lookup_pps
+        from modules.cts.vaults.pps_vault import PPSResult
+
+        mock_vault = AsyncMock()
+        mock_vault.lookup = AsyncMock(
+            return_value=PPSResult(outcome="HUMAN_REVIEW", pps_entry=None, miss_reason="VAULT_ERROR")
+        )
+
+        result = await lookup_pps(
+            _make_input(presented_amount=50000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.mismatch_reason == "VAULT_ERROR"
 
     @pytest.mark.asyncio
     async def test_vault_miss_outcome_never_auto_return(self):
@@ -119,6 +142,48 @@ class TestPPSVaultMiss:
             config={"pps_mandatory_threshold": 500000.0},
         )
         assert result.outcome == "HUMAN_REVIEW"
+
+
+class TestPPSFlagZ:
+    """Flag Z = a present, valid vault entry explicitly marking 'data not available'.
+    This is the ONLY case where amount-threshold routing is legitimate — distinct
+    from an actual vault miss/error, which must always be HUMAN_REVIEW (see above)."""
+
+    @pytest.mark.asyncio
+    async def test_flag_z_above_threshold_human_review(self):
+        from modules.cts.workflows.activities.pps import lookup_pps
+        from modules.cts.vaults.pps_vault import PPSResult
+
+        mock_vault = AsyncMock()
+        mock_vault.lookup = AsyncMock(
+            return_value=PPSResult(outcome="FOUND", pps_entry={"npci_flag": "Z"})
+        )
+
+        result = await lookup_pps(
+            _make_input(presented_amount=600000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.npci_flag == "Z"
+
+    @pytest.mark.asyncio
+    async def test_flag_z_below_threshold_proceeds(self):
+        from modules.cts.workflows.activities.pps import lookup_pps
+        from modules.cts.vaults.pps_vault import PPSResult
+
+        mock_vault = AsyncMock()
+        mock_vault.lookup = AsyncMock(
+            return_value=PPSResult(outcome="FOUND", pps_entry={"npci_flag": "Z"})
+        )
+
+        result = await lookup_pps(
+            _make_input(presented_amount=50000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
+        assert result.outcome == "PROCEED"
+        assert result.npci_flag == "Z"
 
 
 class TestPPSMatch:

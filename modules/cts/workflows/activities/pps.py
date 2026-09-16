@@ -6,12 +6,15 @@ bank's pre-registered cheque registry stored in PPSVault.
   P — Positive match → PROCEED
   D — Duplicate presentation → AUTO_RETURN (URRBCH code 41, not customer fault)
   Y — Financial mismatch → HUMAN_REVIEW (financial reason outranks PPS reason)
-  Z — Data not available → check pps_mandatory_threshold from config:
+  Z — Data not available (valid vault entry says so) → check pps_mandatory_threshold:
        amount >= threshold → HUMAN_REVIEW (PPS_MANDATORY_MISSING)
        amount <  threshold → PROCEED
   N — Not registered (issuer opted out) → PROCEED
 
-Vault miss: same routing as flag Z — threshold check.
+Vault miss / vault error (PPS_MISS, VAULT_ERROR): ALWAYS HUMAN_REVIEW, regardless
+of amount. This is an infrastructure signal, not flag Z, and must never share
+flag Z's threshold-gated routing — see CLAUDE.md §12 ("Vault stale → ALL to
+human review (NEVER auto-return on miss)").
 Old match logic (no NPCI flag in vault): falls back to amount/payee comparison.
 """
 from typing import Any, Optional
@@ -84,12 +87,20 @@ async def lookup_pps(
     vault_result = await vault.lookup(inp.account_number, inp.cheque_number)
 
     if vault_result.outcome != "FOUND":
+        # A genuine vault miss/error (PPS_MISS, VAULT_ERROR) is an infrastructure
+        # signal, not NPCI flag Z — it must ALWAYS route to HUMAN_REVIEW regardless
+        # of amount. Only flag Z (a present, valid vault entry that explicitly says
+        # "data not available") is threshold-gated via _threshold_route below.
+        # Never share this code path with a real miss/error — see CLAUDE.md §12.
         log.info(
             "pps_activity.vault_miss",
             instrument_id=inp.instrument_id,
             miss_reason=vault_result.miss_reason,
         )
-        return _threshold_route(inp.presented_amount, config)
+        return PPSActivityResult(
+            outcome="HUMAN_REVIEW",
+            mismatch_reason=vault_result.miss_reason or "PPS_VAULT_MISS",
+        )
 
     entry = vault_result.pps_entry
     npci_flag: Optional[str] = entry.get("npci_flag")
