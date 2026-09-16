@@ -215,7 +215,7 @@ details[open] .schema-audit summary::before { content: "▼ "; }
 .mismatch-badge { color: #7c3aed; background: #f5f3ff; border: 1px solid #c4b5fd; }
 </style>
 <details>
-<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #16a34a; border-radius:10px; margin-bottom:28px; display:block;">✓ Schema Audit Report — 0 mismatches (all fixed) · 10 dead tables · selected dead columns</summary>
+<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #16a34a; border-radius:10px; margin-bottom:28px; display:block;">✓ Schema Audit Report — 0 mismatches (all fixed) · 32 dead tables · 45 dead columns</summary>
 <div class="schema-audit" style="border-top:none; border-top-left-radius:0; border-top-right-radius:0; margin-top:-8px; margin-bottom:28px;">
 
 <h3>Schema Mismatches (0) <span class="mismatch-badge" style="background:#16a34a;color:#fff">all fixed by migrations 20260916_018 &amp; 20260916_platform_local_auth_cols</span></h3>
@@ -228,33 +228,94 @@ details[open] .schema-audit summary::before { content: "▼ "; }
   </tbody>
 </table>
 
-<h3>Dead Tables (10 representative samples) <span class="dead-table-badge dead-badge">table in migrations, zero queries touch it</span></h3>
+<h3>Dead Tables (32 — exhaustive) <span class="dead-table-badge dead-badge">table in migrations, zero queries touch it</span></h3>
 <table class="audit-table">
-  <thead><tr><th>Table</th><th>Created by Migration</th><th>Columns</th></tr></thead>
+  <thead><tr><th>Table</th><th>Created by Migration</th><th>Columns</th><th>Recommendation</th></tr></thead>
   <tbody>
-    <tr><td>cts.account_vault</td><td>20260803_add_account_vault.py</td><td>16</td></tr>
-    <tr><td>cts.eeh_sessions</td><td>20260705_add_eeh_sessions.py</td><td>12</td></tr>
-    <tr><td>cts.smb_push_sessions</td><td>20260705_add_smb_push_sessions.py</td><td>12</td></tr>
-    <tr><td>cts.scanner_registrations</td><td>20260811_scanner_registrations.py</td><td>15</td></tr>
-    <tr><td>cts.session_reports</td><td>20260811_add_session_reports.py</td><td>20</td></tr>
-    <tr><td>platform.login_events</td><td>20260627_006_bank_type_permission_level_and_login_events.py</td><td>12</td></tr>
-    <tr><td>platform.notification_records</td><td>20260618_003_platform_notifications.py</td><td>19</td></tr>
-    <tr><td>platform.model_drift_alerts</td><td>20260618_005_platform_model_registry.py</td><td>16</td></tr>
-    <tr><td>platform.security_violations</td><td>20260719_add_security_violations.py</td><td>14</td></tr>
-    <tr><td>msv.signatory_manifest</td><td>20260709_create_msv_schema.py</td><td>9</td></tr>
+<tr><td class="font-mono text-xs">cts.account_vault</td><td class="text-xs text-slate-400">20260803_add_account_vault.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.account_vault_detail</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.account_vault_detail_history</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">13</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.cheque_books</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">13</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.cheque_books_history</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.cheque_leaves</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.cheque_leaves_history</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">13</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.clearing_sessions</td><td class="text-xs text-slate-400">20260705_add_clearing_sessions.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.eeh_sessions</td><td class="text-xs text-slate-400">20260705_add_eeh_sessions.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.mcp_connection_configs</td><td class="text-xs text-slate-400">20260701_add_mcp_connection_configs.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.outward_scan_events</td><td class="text-xs text-slate-400">20260803_add_outward_scan_events.py</td><td class="text-center">1</td><td class="text-xs text-amber-400">DROP TABLE</td></tr>
+<tr><td class="font-mono text-xs">cts.sb_connections</td><td class="text-xs text-slate-400">20260705_add_sb_connections.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.scanner_configs</td><td class="text-xs text-slate-400">20260705_add_scanner_configs.py</td><td class="text-center">16</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.scanner_registrations</td><td class="text-xs text-slate-400">20260811_scanner_registrations.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.session_reports</td><td class="text-xs text-slate-400">20260811_add_session_reports.py</td><td class="text-center">1</td><td class="text-xs text-amber-400">DROP TABLE</td></tr>
+<tr><td class="font-mono text-xs">cts.smb_push_sessions</td><td class="text-xs text-slate-400">20260705_add_smb_push_sessions.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">cts.vault_upload_batches</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.bank_module_config</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">11</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.bank_onboarding_events</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">8</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.config_change_log</td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">16</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.config_entries</td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">11</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.immudb_verification_log</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="text-center">11</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.layer2_change_requests</td><td class="text-xs text-slate-400">20260803_add_layer2_change_requests.py</td><td class="text-center">10</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.login_events</td><td class="text-xs text-slate-400">20260627_006_bank_type_permission_level_and_login_events.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.model_drift_alerts</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="text-center">16</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.notification_records</td><td class="text-xs text-slate-400">20260618_003_platform_notifications.py</td><td class="text-center">19</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.notification_templates</td><td class="text-xs text-slate-400">20260618_003_platform_notifications.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.opa_policy_versions</td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">15</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.security_violations</td><td class="text-xs text-slate-400">20260719_add_security_violations.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.user_preferences</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">5</td><td class="text-xs text-amber-400">DROP TABLE</td></tr>
+<tr><td class="font-mono text-xs">platform.user_roles</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.user_sessions</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">10</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
   </tbody>
 </table>
-<p style="font-size:11px;color:var(--muted);margin-top:6px">Full dead-table list: /tmp/xref.json contains all 61 entries. Tables may be populated via ORM or indirect SQL not captured by the catalog scanner.</p>
 
-<h3>Selected Dead Columns <span class="dead-col-badge dead-badge">column in migration, never referenced in any query</span></h3>
+<h3>Dead Columns (45 — exhaustive) <span class="dead-col-badge dead-badge">column in migration, never referenced in any query</span></h3>
 <table class="audit-table">
-  <thead><tr><th>Table</th><th>Column</th><th>Added by</th></tr></thead>
+  <thead><tr><th>Table</th><th>Column</th><th>Added by Migration</th><th>Type</th></tr></thead>
   <tbody>
-    <tr><td>cts.agent_decisions</td><td>ai_inference_logs</td><td>20260618_005_agent_decisions_and_review.py</td></tr>
-    <tr><td>cts.cheque_instruments</td><td>watermark_verified</td><td>20260618_003_cheque_instruments_and_images.py</td></tr>
-    <tr><td>cts.cheque_instruments</td><td>cts2010_compliant</td><td>20260618_003_cheque_instruments_and_images.py</td></tr>
-    <tr><td>cts.sub_member_banks</td><td>smb_kafka_topic</td><td>20260619_013_sub_member_banks_and_ledger.py</td></tr>
-    <tr><td>platform.users</td><td>permission_level</td><td>20260627_006_bank_type_permission_level_and_login_events.py</td></tr>
+<tr><td class="font-mono text-xs" rowspan="1">cts.agent_decisions</td><td class="font-mono text-xs text-yellow-300">human_review_routed_to</td><td class="text-xs text-slate-400">20260706_alter_ngch_submissions_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs" rowspan="8">cts.branches</td><td class="font-mono text-xs text-yellow-300">address</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">district</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">drop_folder_base_path</td><td class="text-xs text-slate-400">20260705_add_branches.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">is_scanning_enabled</td><td class="text-xs text-slate-400">20260705_add_branches.py</td><td class="font-mono text-xs text-slate-500">Boolean(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">phone_number</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">pin_code</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">scanner_input_mode</td><td class="text-xs text-slate-400">20260811_branches_add_scanner_input_mode.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">state</td><td class="text-xs text-slate-400">20260705_add_branches.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs" rowspan="3">cts.cheque_instruments</td><td class="font-mono text-xs text-yellow-300">clearing_session_id</td><td class="text-xs text-slate-400">20260706_alter_cheque_instruments_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">vision_cascade_level</td><td class="text-xs text-slate-400">20260706_alter_cheque_instruments_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">vision_result</td><td class="text-xs text-slate-400">20260706_alter_cheque_instruments_add_pu.py</td><td class="font-mono text-xs text-slate-500">JSONB(</td></tr>
+<tr><td class="font-mono text-xs" rowspan="1">cts.ngch_submissions</td><td class="font-mono text-xs text-yellow-300">sb_connection_id</td><td class="text-xs text-slate-400">20260706_alter_ngch_submissions_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs" rowspan="3">cts.processing_units</td><td class="font-mono text-xs text-yellow-300">max_agent_swarm_size</td><td class="text-xs text-slate-400">20260705_add_processing_units.py</td><td class="font-mono text-xs text-slate-500">Integer(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">ngch_participant_code</td><td class="text-xs text-slate-400">20260705_add_processing_units.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">pu_name</td><td class="text-xs text-slate-400">20260705_add_processing_units.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
+<tr><td class="font-mono text-xs" rowspan="5">platform.audit_events</td><td class="font-mono text-xs text-yellow-300">actor_service</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">actor_user_id</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">UUID(as_uuid=True</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">module</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">subject_id</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">subject_type</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs" rowspan="4">platform.banks</td><td class="font-mono text-xs text-yellow-300">bank_code</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">ifsc_prefix</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">ngch_member_code</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">onboarded_at</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">DateTime(timezone=True</td></tr>
+<tr><td class="font-mono text-xs" rowspan="14">platform.model_versions</td><td class="font-mono text-xs text-yellow-300">baseline_metrics</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">JSONB</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">deployed_at</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">DateTime(timezone=True</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">deployed_by</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">UUID(as_uuid=True</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">gpu_profile</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">mlflow_model_uri</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">model_family</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">model_id</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">UUID(as_uuid=True</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">model_name</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">module</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">quantisation</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">retire_reason</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">retired_at</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">DateTime(timezone=True</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">version_tag</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">vllm_queue</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs" rowspan="6">platform.users</td><td class="font-mono text-xs text-yellow-300">display_name_enc</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">LargeBinary</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">email_enc</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">LargeBinary</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">primary_role</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">saml_idp_entity_id</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">saml_subject</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
+<tr><td class="font-mono text-xs text-yellow-300">zone_scope</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">JSONB</td></tr>
   </tbody>
 </table>
 
