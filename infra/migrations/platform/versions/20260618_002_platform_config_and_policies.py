@@ -119,6 +119,12 @@ def upgrade() -> None:
     # OPA config watcher polls this table for new versions (polls every 30s).
     # On new ACTIVE version: OPA hot-reloads the bundle — no pod restart needed.
     # Full Rego diff stored for compliance audit (who changed what policy and when).
+    #
+    # KEEP-PLANNED (schema audit 2026-09-16): CLAUDE.md §Versioning Scope lists
+    # "OPA Rego policies | YES | policy_version in YugabyteDB policy_versions table".
+    # The OPA watcher integration (apps/api/routers/admin.py policy approval flow
+    # → OPA live reload) is on the roadmap for NPCI Modernisation Phase B.
+    # This table is intentionally kept despite zero current queries.
     op.create_table(
         "opa_policy_versions",
         sa.Column("policy_version_id", UUID(as_uuid=True), primary_key=True,
