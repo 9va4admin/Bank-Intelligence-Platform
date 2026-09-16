@@ -215,7 +215,7 @@ details[open] .schema-audit summary::before { content: "▼ "; }
 .mismatch-badge { color: #7c3aed; background: #f5f3ff; border: 1px solid #c4b5fd; }
 </style>
 <details>
-<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #16a34a; border-radius:10px; margin-bottom:28px; display:block;">✓ Schema Audit Report — 0 mismatches (all fixed) · 32 dead tables · 45 dead columns</summary>
+<summary class="schema-audit" style="padding:20px 24px; background:var(--bg2); border:2px solid #16a34a; border-radius:10px; margin-bottom:28px; display:block;">✓ Schema Audit Report — 0 mismatches (all fixed) · 1 dead table · 0 dead columns</summary>
 <div class="schema-audit" style="border-top:none; border-top-left-radius:0; border-top-right-radius:0; margin-top:-8px; margin-bottom:28px;">
 
 <h3>Schema Mismatches (0) <span class="mismatch-badge" style="background:#16a34a;color:#fff">all fixed by migrations 20260916_018 &amp; 20260916_platform_local_auth_cols</span></h3>
@@ -228,94 +228,18 @@ details[open] .schema-audit summary::before { content: "▼ "; }
   </tbody>
 </table>
 
-<h3>Dead Tables (32 — exhaustive) <span class="dead-table-badge dead-badge">table in migrations, zero queries touch it</span></h3>
+<h3>Dead Tables (1 — exhaustive) — 31 resolved 2026-09-16 (12 dropped, 19 wired-up) <span class="dead-table-badge dead-badge">table in migrations, zero queries touch it</span></h3>
 <table class="audit-table">
   <thead><tr><th>Table</th><th>Created by Migration</th><th>Columns</th><th>Recommendation</th></tr></thead>
   <tbody>
-<tr><td class="font-mono text-xs">cts.account_vault</td><td class="text-xs text-slate-400">20260803_add_account_vault.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.account_vault_detail</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.account_vault_detail_history</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">13</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.cheque_books</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">13</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.cheque_books_history</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.cheque_leaves</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.cheque_leaves_history</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">13</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.clearing_sessions</td><td class="text-xs text-slate-400">20260705_add_clearing_sessions.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.eeh_sessions</td><td class="text-xs text-slate-400">20260705_add_eeh_sessions.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.mcp_connection_configs</td><td class="text-xs text-slate-400">20260701_add_mcp_connection_configs.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.outward_scan_events</td><td class="text-xs text-slate-400">20260803_add_outward_scan_events.py</td><td class="text-center">1</td><td class="text-xs text-amber-400">DROP TABLE</td></tr>
-<tr><td class="font-mono text-xs">cts.sb_connections</td><td class="text-xs text-slate-400">20260705_add_sb_connections.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.scanner_configs</td><td class="text-xs text-slate-400">20260705_add_scanner_configs.py</td><td class="text-center">16</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.scanner_registrations</td><td class="text-xs text-slate-400">20260811_scanner_registrations.py</td><td class="text-center">17</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.session_reports</td><td class="text-xs text-slate-400">20260811_add_session_reports.py</td><td class="text-center">1</td><td class="text-xs text-amber-400">DROP TABLE</td></tr>
-<tr><td class="font-mono text-xs">cts.smb_push_sessions</td><td class="text-xs text-slate-400">20260705_add_smb_push_sessions.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">cts.vault_upload_batches</td><td class="text-xs text-slate-400">20260818_cheque_leaf_lifecycle.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.bank_module_config</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">11</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.bank_onboarding_events</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">8</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.config_change_log</td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">16</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.config_entries</td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">11</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.immudb_verification_log</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="text-center">11</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.layer2_change_requests</td><td class="text-xs text-slate-400">20260803_add_layer2_change_requests.py</td><td class="text-center">10</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.login_events</td><td class="text-xs text-slate-400">20260627_006_bank_type_permission_level_and_login_events.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.model_drift_alerts</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="text-center">16</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.notification_records</td><td class="text-xs text-slate-400">20260618_003_platform_notifications.py</td><td class="text-center">19</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.notification_templates</td><td class="text-xs text-slate-400">20260618_003_platform_notifications.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.opa_policy_versions</td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">15</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.security_violations</td><td class="text-xs text-slate-400">20260719_add_security_violations.py</td><td class="text-center">14</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.user_preferences</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">5</td><td class="text-xs text-amber-400">DROP TABLE</td></tr>
-<tr><td class="font-mono text-xs">platform.user_roles</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">12</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
-<tr><td class="font-mono text-xs">platform.user_sessions</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="text-center">10</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
+<tr><td class="font-mono text-xs">platform.opa_policy_versions <span class="dead-badge" style="background:#1e3a5f;color:#93c5fd;border-color:#3b82f6">KEEP-PLANNED</span></td><td class="text-xs text-slate-400">20260618_002_platform_config_and_policies.py</td><td class="text-center">15</td><td class="text-xs text-amber-400">Review &amp; archive</td></tr>
   </tbody>
 </table>
 
-<h3>Dead Columns (45 — exhaustive) <span class="dead-col-badge dead-badge">column in migration, never referenced in any query</span></h3>
+<h3>Dead Columns (0 — all resolved 2026-09-16: 19 dropped, 26 wired-up) <span class="dead-col-badge dead-badge">column in migration, never referenced in any query</span></h3>
 <table class="audit-table">
   <thead><tr><th>Table</th><th>Column</th><th>Added by Migration</th><th>Type</th></tr></thead>
   <tbody>
-<tr><td class="font-mono text-xs" rowspan="1">cts.agent_decisions</td><td class="font-mono text-xs text-yellow-300">human_review_routed_to</td><td class="text-xs text-slate-400">20260706_alter_ngch_submissions_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs" rowspan="8">cts.branches</td><td class="font-mono text-xs text-yellow-300">address</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">district</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">drop_folder_base_path</td><td class="text-xs text-slate-400">20260705_add_branches.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">is_scanning_enabled</td><td class="text-xs text-slate-400">20260705_add_branches.py</td><td class="font-mono text-xs text-slate-500">Boolean(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">phone_number</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">pin_code</td><td class="text-xs text-slate-400">20260806_branches_add_contact_fields.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">scanner_input_mode</td><td class="text-xs text-slate-400">20260811_branches_add_scanner_input_mode.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">state</td><td class="text-xs text-slate-400">20260705_add_branches.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs" rowspan="3">cts.cheque_instruments</td><td class="font-mono text-xs text-yellow-300">clearing_session_id</td><td class="text-xs text-slate-400">20260706_alter_cheque_instruments_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">vision_cascade_level</td><td class="text-xs text-slate-400">20260706_alter_cheque_instruments_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">vision_result</td><td class="text-xs text-slate-400">20260706_alter_cheque_instruments_add_pu.py</td><td class="font-mono text-xs text-slate-500">JSONB(</td></tr>
-<tr><td class="font-mono text-xs" rowspan="1">cts.ngch_submissions</td><td class="font-mono text-xs text-yellow-300">sb_connection_id</td><td class="text-xs text-slate-400">20260706_alter_ngch_submissions_add_pu.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs" rowspan="3">cts.processing_units</td><td class="font-mono text-xs text-yellow-300">max_agent_swarm_size</td><td class="text-xs text-slate-400">20260705_add_processing_units.py</td><td class="font-mono text-xs text-slate-500">Integer(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">ngch_participant_code</td><td class="text-xs text-slate-400">20260705_add_processing_units.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">pu_name</td><td class="text-xs text-slate-400">20260705_add_processing_units.py</td><td class="font-mono text-xs text-slate-500">Text(</td></tr>
-<tr><td class="font-mono text-xs" rowspan="5">platform.audit_events</td><td class="font-mono text-xs text-yellow-300">actor_service</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">actor_user_id</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">UUID(as_uuid=True</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">module</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">subject_id</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">subject_type</td><td class="text-xs text-slate-400">20260618_004_platform_audit.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs" rowspan="4">platform.banks</td><td class="font-mono text-xs text-yellow-300">bank_code</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">ifsc_prefix</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">ngch_member_code</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">onboarded_at</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">DateTime(timezone=True</td></tr>
-<tr><td class="font-mono text-xs" rowspan="14">platform.model_versions</td><td class="font-mono text-xs text-yellow-300">baseline_metrics</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">JSONB</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">deployed_at</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">DateTime(timezone=True</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">deployed_by</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">UUID(as_uuid=True</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">gpu_profile</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">mlflow_model_uri</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">model_family</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">model_id</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">UUID(as_uuid=True</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">model_name</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">module</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">quantisation</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">retire_reason</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">retired_at</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">DateTime(timezone=True</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">version_tag</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">vllm_queue</td><td class="text-xs text-slate-400">20260618_005_platform_model_registry.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs" rowspan="6">platform.users</td><td class="font-mono text-xs text-yellow-300">display_name_enc</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">LargeBinary</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">email_enc</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">LargeBinary</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">primary_role</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">saml_idp_entity_id</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">saml_subject</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">Text</td></tr>
-<tr><td class="font-mono text-xs text-yellow-300">zone_scope</td><td class="text-xs text-slate-400">20260618_001_platform_banks_and_users.py</td><td class="font-mono text-xs text-slate-500">JSONB</td></tr>
   </tbody>
 </table>
 
@@ -5427,6 +5351,334 @@ client.remove_object(hot_bucket, key)</pre>
     </div>
   </div>
 </div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     Q-162 through Q-180  — WIRE UP resolutions (schema audit 2026-09-16)
+     Code had SQL for these tables but queries were never registered here.
+     ══════════════════════════════════════════════════════════════════════ -->
+
+<div class="card" id="Q-162" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-162</span>
+    <span class="card-title">account_vault_lookup</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetch account operational profile from cts.account_vault by hashed account key. Two-tier store: Redis L1 → YugabyteDB fallback. Source: modules/cts/vaults/account_vault.py.</div>
+    <pre class="query">SELECT account_number_last4, account_type, account_status,
+       holder_name_display, branch_code, branch_name, branch_ifsc,
+       branch_manager_email, branch_contact_email, branch_contact_phone,
+       last_synced_at
+FROM cts.account_vault
+WHERE bank_id = $1 AND account_hash = $2</pre>
+    <div class="card-meta"><span>Source: modules/cts/vaults/account_vault.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-163" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-163</span>
+    <span class="card-title">account_vault_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Upsert account profile into cts.account_vault (durable write-through). Source: modules/cts/vaults/account_vault.py.</div>
+    <pre class="query">INSERT INTO cts.account_vault (bank_id, account_hash, account_number_last4,
+       account_type, account_status, holder_name_display, branch_code,
+       branch_name, branch_ifsc, branch_manager_email, branch_contact_email,
+       branch_contact_phone, last_synced_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+ON CONFLICT (bank_id, account_hash) DO UPDATE SET
+       account_type = EXCLUDED.account_type,
+       account_status = EXCLUDED.account_status,
+       last_synced_at = NOW()</pre>
+    <div class="card-meta"><span>Source: modules/cts/vaults/account_vault.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-164" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-164</span>
+    <span class="card-title">account_vault_detail_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Write account contact detail rows to cts.account_vault_detail with history snapshot to cts.account_vault_detail_history. Source: modules/cts/vaults/vault_upload_processor.py.</div>
+    <pre class="query">-- History snapshot (before update)
+INSERT INTO cts.account_vault_detail_history
+  SELECT id, bank_id, account_hash, role, is_active, holder_name_display,
+         NOW() AS changed_at, $upload_batch_id AS upload_batch_id
+  FROM cts.account_vault_detail WHERE bank_id = $1 AND account_hash = $2;
+-- Main upsert
+INSERT INTO cts.account_vault_detail (bank_id, account_hash, role, holder_name_display, is_active)
+VALUES ($1, $2, $3, $4, true)
+ON CONFLICT (bank_id, account_hash, role) DO UPDATE SET
+  holder_name_display = EXCLUDED.holder_name_display, is_active = true</pre>
+    <div class="card-meta"><span>Source: modules/cts/vaults/vault_upload_processor.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-165" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-165</span>
+    <span class="card-title">cheque_books_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Upsert cheque book record into cts.cheque_books with history snapshot to cts.cheque_books_history. Source: modules/cts/vaults/cheque_leaf_vault.py.</div>
+    <pre class="query">INSERT INTO cts.cheque_books (bank_id, account_hash, series_start, series_end, issued_date, branch_code, is_active)
+VALUES ($1, $2, $3, $4, $5, $6, true)
+ON CONFLICT (bank_id, account_hash, series_start) DO UPDATE SET
+  series_end = EXCLUDED.series_end, is_active = EXCLUDED.is_active</pre>
+    <div class="card-meta"><span>Source: modules/cts/vaults/cheque_leaf_vault.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-166" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-166</span>
+    <span class="card-title">cheque_leaf_lookup</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Look up a cheque leaf by account and cheque number to validate PPS stop status. Source: modules/cts/vaults/cheque_leaf_vault.py.</div>
+    <pre class="query">SELECT id, status, issued_date
+FROM cts.cheque_leaves
+WHERE bank_id = $1 AND account_hash = $2 AND cheque_number = $3</pre>
+    <div class="card-meta"><span>Source: modules/cts/vaults/cheque_leaf_vault.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-167" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-167</span>
+    <span class="card-title">clearing_session_open</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Fetch open clearing session for a processing unit to attach lots. Source: modules/cts/workflows/activities/clearing_session_activities.py.</div>
+    <pre class="query">SELECT pu_id, lot_number, instrument_count
+FROM cts.clearing_sessions
+WHERE bank_id = $1 AND session_date = $2 AND status = 'OPEN'
+ORDER BY created_at DESC LIMIT 1</pre>
+    <div class="card-meta"><span>Source: modules/cts/workflows/activities/clearing_session_activities.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-168" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-168</span>
+    <span class="card-title">eeh_session_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Insert or increment EEH scan session counter in cts.eeh_sessions. Source: apps/eeh/grpc_server.py.</div>
+    <pre class="query">INSERT INTO cts.eeh_sessions (session_id, bank_id, branch_id, operator_id, cert_fingerprint,
+       started_at, total_uploaded)
+VALUES ($1, $2, $3, $4, $5, NOW(), 1)
+ON CONFLICT (session_id) DO UPDATE SET
+  total_uploaded = cts.eeh_sessions.total_uploaded + 1</pre>
+    <div class="card-meta"><span>Source: apps/eeh/grpc_server.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-169" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-169</span>
+    <span class="card-title">mcp_connection_configs_list</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List MCP connection configs for a bank (NGCH, CBS, CCTV adapters). Source: apps/api/routers/mcp_connections.py.</div>
+    <pre class="query">SELECT id, bank_id, connection_name, vendor_type, endpoint_url,
+       status, last_tested_at, created_at, updated_at
+FROM cts.mcp_connection_configs
+WHERE bank_id = $1 AND is_active = true
+ORDER BY created_at DESC</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/mcp_connections.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-170" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-170</span>
+    <span class="card-title">outward_scan_event_insert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Record outward scan event for lot/session reconciliation. Source: modules/cts/workflows/activities/outward_scan_activities.py.</div>
+    <pre class="query">INSERT INTO cts.outward_scan_events (bank_id, lot_id, scan_id, instrument_id,
+       event_type, occurred_at)
+VALUES ($1, $2, $3, $4, $5, NOW())</pre>
+    <div class="card-meta"><span>Source: modules/cts/workflows/activities/outward_scan_activities.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-171" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-171</span>
+    <span class="card-title">scanner_configs_list</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List scanner configurations for a bank with branch details. Source: apps/api/routers/scanner_configs.py.</div>
+    <pre class="query">SELECT scanner_config_id, bank_id, branch_id, branch_ifsc,
+       drop_folder_path, scanner_model, is_active, created_at
+FROM cts.scanner_configs
+WHERE bank_id = $1 AND is_active = true
+ORDER BY branch_ifsc</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/scanner_configs.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-172" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-172</span>
+    <span class="card-title">scanner_registrations_list</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List scanner registrations (physical scanner ↔ branch mapping). Source: apps/api/routers/scanner.py.</div>
+    <pre class="query">SELECT registration_id, bank_id, branch_id, branch_ifsc, sdk_version,
+       registered_at, last_seen_at, is_active
+FROM cts.scanner_registrations
+WHERE bank_id = $1
+ORDER BY registered_at DESC</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/scanner.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-173" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-173</span>
+    <span class="card-title">session_report_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Write or update session summary report in cts.session_reports after NGCH submission or failure. Source: modules/cts/workflows/activities/generate_session_report.py.</div>
+    <pre class="query">INSERT INTO cts.session_reports (session_id, bank_id, clearing_date, session_type,
+       total_instruments, npci_ack_ref, status, generated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+ON CONFLICT (session_id, bank_id) DO UPDATE SET
+  status = EXCLUDED.status, npci_ack_ref = EXCLUDED.npci_ack_ref</pre>
+    <div class="card-meta"><span>Source: modules/cts/workflows/activities/generate_session_report.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-174" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-174</span>
+    <span class="card-title">smb_push_session_dedup</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Check if a vault push file was already sent (dedup by file_hash). Source: modules/cts/workflows/activities/smb_vault_push_activities.py.</div>
+    <pre class="query">SELECT file_hash FROM cts.smb_push_sessions
+WHERE file_hash = $1 AND smb_id = $2</pre>
+    <div class="card-meta"><span>Source: modules/cts/workflows/activities/smb_vault_push_activities.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-175" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-175</span>
+    <span class="card-title">vault_upload_batch_upsert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Track vault file upload batch progress and status. Source: modules/cts/vaults/vault_upload_processor.py.</div>
+    <pre class="query">SELECT account_hash FROM cts.account_vault
+WHERE bank_id = $1 AND account_hash = ANY($2::text[])</pre>
+    <div class="card-meta"><span>Source: modules/cts/vaults/vault_upload_processor.py · cts.vault_upload_batches tracks batch metadata</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-176" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-176</span>
+    <span class="card-title">layer2_change_request_submit</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Submit a Helm values change request for bank IT admin approval. Source: apps/api/routers/admin.py.</div>
+    <pre class="query">INSERT INTO platform.layer2_change_requests
+  (request_id, bank_id, config_key, current_value, requested_value,
+   requested_by, reason, status, submitted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', NOW())</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/admin.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-177" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-177</span>
+    <span class="card-title">layer2_change_requests_list</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List Layer 2 (Helm values) change requests for approval workflow. Source: apps/api/routers/admin.py.</div>
+    <pre class="query">SELECT request_id, config_key, current_value, requested_value,
+       requested_by, reason, status, submitted_at, reviewed_at
+FROM platform.layer2_change_requests
+WHERE bank_id = $1 AND status = $2
+ORDER BY submitted_at DESC LIMIT $3</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/admin.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-178" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-178</span>
+    <span class="card-title">notification_records_list</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List outbound notification records with status and retry info. Source: apps/api/routers/notifications.py.</div>
+    <pre class="query">SELECT notification_id, channel, template_id, recipient_ref,
+       status, sent_at, retry_count, error_detail, case_ref_type, case_ref_id,
+       created_at
+FROM platform.notification_records
+WHERE bank_id = $1
+ORDER BY created_at DESC LIMIT $2</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/notifications.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-179" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-179</span>
+    <span class="card-title">security_violation_insert</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">Record a security policy violation event (brute force, SSRF attempt, IDOR probe). Source: apps/api/middleware/security_violations.py.</div>
+    <pre class="query">INSERT INTO platform.security_violations
+  (violation_id, bank_id, violation_type, severity, source_ip,
+   endpoint, request_id, details, occurred_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())</pre>
+    <div class="card-meta"><span>Source: apps/api/middleware/security_violations.py</span></div>
+  </div>
+</div>
+
+<div class="card" id="Q-180" data-store="SQL">
+  <div class="card-head">
+    <span class="q-num">Q-180</span>
+    <span class="card-title">security_violations_list</span>
+    <span class="badge badge-sql">SQL</span>
+  </div>
+  <div class="card-body">
+    <div class="card-desc">List security violations for the security operations dashboard. Source: apps/api/routers/admin.py.</div>
+    <pre class="query">SELECT violation_id, violation_type, severity, source_ip,
+       endpoint, details, occurred_at
+FROM platform.security_violations
+WHERE bank_id = $1
+ORDER BY occurred_at DESC LIMIT $2</pre>
+    <div class="card-meta"><span>Source: apps/api/routers/admin.py</span></div>
+  </div>
+</div>
+
+
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      TEMPORAL
