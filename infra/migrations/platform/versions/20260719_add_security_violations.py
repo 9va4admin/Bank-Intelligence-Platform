@@ -5,14 +5,14 @@ Written by _publish_violation_alert() — fire-and-forget, ON CONFLICT DO NOTHIN
 so retries never produce duplicates.
 
 Revision ID: 20260719_p_secviol
-Revises: 20260717_add_totp_enrolled
+Revises: 20260717_totp_enrolled
 Create Date: 2026-07-19
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "20260719_p_secviol"
-down_revision = "20260717_add_totp_enrolled"
+down_revision = "20260717_totp_enrolled"
 branch_labels = None
 depends_on = None
 
