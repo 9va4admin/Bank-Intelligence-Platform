@@ -766,44 +766,76 @@ async def list_user_sessions(
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
         raise HTTPException(status_code=404, detail="User not found")
-    # Sessions live in Redis (platform.user_sessions); query Redis when available
+    # platform.user_sessions is the durable store; Redis is a 60s read-cache.
+    # Cache key: sessions:{bank_id}:{user_id} (JSON list)
+    import json as _json
     redis = getattr(request.app.state, "redis_platform", None)
+    cache_key = f"sessions:{admin['bank_id']}:{user_id}"
     if redis is not None:
         try:
-            raw_sessions = await redis.lrange(f"sessions:{admin['bank_id']}:{user_id}", 0, -1)
-            if raw_sessions:
-                import json
-                sessions = []
-                for s in raw_sessions:
-                    try:
-                        d = json.loads(s)
-                        sessions.append(SessionRecord(
-                            session_id=d["session_id"],
-                            user_id=user_id,
-                            created_at=datetime.fromisoformat(d["created_at"]),
-                            last_active_at=datetime.fromisoformat(d["last_active_at"]),
-                            ip_address=d.get("ip_address", "unknown"),
-                            user_agent=d.get("user_agent", "unknown"),
-                            is_current=False,
-                        ))
-                    except Exception:
-                        pass
-                return sessions
+            cached = await redis.get(cache_key)
+            if cached:
+                records = _json.loads(cached)
+                return [
+                    SessionRecord(
+                        session_id=r["session_id"],
+                        user_id=user_id,
+                        created_at=datetime.fromisoformat(r["issued_at"]),
+                        last_active_at=datetime.fromisoformat(r["last_active_at"]) if r.get("last_active_at") else None,
+                        ip_address=r.get("ip_hash", "****"),
+                        user_agent=r.get("user_agent", "unknown"),
+                        is_current=False,
+                    )
+                    for r in records
+                ]
         except Exception:
             pass
-    # Fallback: return stub (Redis unavailable or no sessions stored)
-    now = datetime.now(timezone.utc)
-    return [
+    # DB read — platform.user_sessions is source of truth
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is None:
+        return []
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT session_id, issued_at, last_active_at, user_agent, ip_hash
+            FROM platform.user_sessions
+            WHERE user_id = $1 AND bank_id = $2
+              AND revoked_at IS NULL AND expires_at > NOW()
+            ORDER BY issued_at DESC
+            LIMIT 50
+            """,
+            user_id,
+            admin["bank_id"],
+        )
+    sessions = [
         SessionRecord(
-            session_id="sess-abc123",
+            session_id=str(row["session_id"]),
             user_id=user_id,
-            created_at=datetime(2026, 6, 25, 9, 0, tzinfo=timezone.utc),
-            last_active_at=now,
-            ip_address="10.0.1.45",
-            user_agent="Mozilla/5.0 (Windows NT 10.0)",
+            created_at=row["issued_at"],
+            last_active_at=row["last_active_at"],
+            ip_address=row["ip_hash"] or "****",
+            user_agent=row["user_agent"] or "unknown",
             is_current=False,
         )
+        for row in rows
     ]
+    # Repopulate cache (60s TTL)
+    if redis is not None and sessions:
+        try:
+            payload = _json.dumps([
+                {
+                    "session_id": s.session_id,
+                    "issued_at": s.created_at.isoformat(),
+                    "last_active_at": s.last_active_at.isoformat() if s.last_active_at else None,
+                    "ip_hash": s.ip_address,
+                    "user_agent": s.user_agent,
+                }
+                for s in sessions
+            ])
+            await redis.set(cache_key, payload, ex=60)
+        except Exception:
+            pass
+    return sessions
 
 
 @router_v1.delete("/v1/admin/users/{user_id}/sessions", status_code=204)
@@ -820,6 +852,20 @@ async def force_logout_user(
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
         raise HTTPException(status_code=404, detail="User not found")
+    # Revoke in DB first — this is what makes the token actually dead.
+    # Redis key cleared after so the cache reflects the revocation immediately.
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is not None:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE platform.user_sessions
+                SET revoked_at = NOW(), revoke_reason = 'ADMIN_REVOKE'
+                WHERE user_id = $1 AND bank_id = $2 AND revoked_at IS NULL
+                """,
+                user_id,
+                admin["bank_id"],
+            )
     redis = getattr(request.app.state, "redis_platform", None)
     if redis is not None:
         try:
