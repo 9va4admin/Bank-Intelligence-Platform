@@ -11,8 +11,13 @@ Covers:
     that succeeds must thread real values through to the right builder.
   - The one genuinely stateful piece — per-(bank_ifsc, session_id)
     LotManager caching.
-  - activity_list() completeness: exactly the 30 DI-needing activities,
-    no duplicates, names matching the real @activity.defn registrations.
+  - activity_list() completeness: exactly the DI-needing activities,
+    no duplicates, names matching the real @activity.defn registrations,
+    and specifically that validate_ifsc / validate_cheque_series /
+    vision_extract_and_check are present — these are called unconditionally
+    from cheque_workflow.py / outward_scan_workflow.py's real code paths but
+    were missing from this list entirely (ActivityNotRegisteredError on
+    every cheque hitting those steps) until this fix.
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -73,6 +78,39 @@ class TestBoundMethodDelegation:
         with patch("modules.cts.workflows.activities.ocr.ocr_extract", new=AsyncMock(return_value="RESULT")) as mock_real:
             result = await bound.ocr_extract("INPUT")
         mock_real.assert_awaited_once_with("INPUT", config_service=fake_cfg, orchestrator=fake_orch)
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_validate_ifsc_passes_repo_none(self):
+        """repo has no real backend yet — the activity's own graceful
+        degradation (HUMAN_REVIEW, degraded=True) handles repo=None."""
+        bound = _bound()
+        with patch("modules.cts.workflows.activities.ifsc_validator.validate_ifsc", new=AsyncMock(return_value="RESULT")) as mock_real:
+            result = await bound.validate_ifsc("INPUT")
+        mock_real.assert_awaited_once_with("INPUT", repo=None)
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_validate_cheque_series_passes_cbs_vault_and_config(self):
+        fake_cbs = MagicMock()
+        fake_vault = MagicMock()
+        fake_cfg = MagicMock()
+        bound = _bound(cbs_connector=fake_cbs, cheque_leaf_vault=fake_vault, config_service=fake_cfg)
+        with patch("modules.cts.workflows.activities.cheque_series.validate_cheque_series", new=AsyncMock(return_value="RESULT")) as mock_real:
+            result = await bound.validate_cheque_series("INPUT")
+        mock_real.assert_awaited_once_with(
+            "INPUT", cbs_connector=fake_cbs, cheque_leaf_vault=fake_vault, config_service=fake_cfg,
+        )
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_vision_extract_and_check_passes_orchestrator_and_config(self):
+        fake_orch = MagicMock()
+        fake_cfg = MagicMock()
+        bound = _bound(orchestrator=fake_orch, config_service=fake_cfg)
+        with patch("modules.cts.workflows.activities.outward_scan_activities.vision_extract_and_check", new=AsyncMock(return_value="RESULT")) as mock_real:
+            result = await bound.vision_extract_and_check("INPUT")
+        mock_real.assert_awaited_once_with("INPUT", orchestrator=fake_orch, config_service=fake_cfg)
         assert result == "RESULT"
 
     @pytest.mark.asyncio
@@ -238,10 +276,10 @@ class TestLotManagerCaching:
 
 
 class TestActivityListCompleteness:
-    def test_returns_exactly_30_bound_methods(self):
+    def test_returns_exactly_45_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 31
+        assert len(activities) == 45
 
     def test_no_duplicate_names(self):
         bound = _bound()
@@ -252,6 +290,28 @@ class TestActivityListCompleteness:
         bound = _bound()
         for a in bound.activity_list():
             assert a.__self__ is bound
+
+    def test_includes_validate_ifsc(self):
+        """CRITICAL regression guard: validate_ifsc is called unconditionally
+        from cheque_workflow.py Step 3a on the main inward path. Missing from
+        registration means ActivityNotRegisteredError on every such cheque."""
+        bound = _bound()
+        names = [a.__name__ for a in bound.activity_list()]
+        assert "validate_ifsc" in names
+
+    def test_includes_validate_cheque_series(self):
+        """CRITICAL regression guard: validate_cheque_series is called
+        unconditionally from cheque_workflow.py Stage D Step 7.0."""
+        bound = _bound()
+        names = [a.__name__ for a in bound.activity_list()]
+        assert "validate_cheque_series" in names
+
+    def test_includes_vision_extract_and_check(self):
+        """CRITICAL regression guard: vision_extract_and_check is called from
+        OutwardScanWorkflow's real CR-120 hardware-MICR path."""
+        bound = _bound()
+        names = [a.__name__ for a in bound.activity_list()]
+        assert "vision_extract_and_check" in names
 
 
 class TestBuildBoundActivitiesGracefulDegradation:
