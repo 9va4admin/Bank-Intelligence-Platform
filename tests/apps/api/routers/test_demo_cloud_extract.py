@@ -356,3 +356,128 @@ class TestPreviewEndpoint:
         client = _authed_client()
         response = client.post("/v1/cts/demo/cloud-extract/preview", files=_fake_unreadable_file())
         assert response.status_code == 422
+
+
+def _mock_ocr_httpx_client(text: str):
+    """httpx.AsyncClient mock for the boilerplate-strip OCR call: POST /ocr
+    returns {"text": ...} the way the local IndicOCR/PaddleOCR service does."""
+    post_resp = MagicMock()
+    post_resp.raise_for_status = MagicMock()
+    post_resp.json = MagicMock(return_value={"text": text})
+
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=post_resp)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    return MagicMock(return_value=client)
+
+
+class TestStripBoilerplateTextViaOCR:
+    """Unit tests for _strip_boilerplate_text_via_ocr — the second-pass
+    cleanup that reads the bottom strip of a signature crop via local
+    PaddleOCR and whites it out if it matches known printed boilerplate
+    ("AUTHORISED SIGNATORIES", "PLEASE SIGN ABOVE", etc). See the router's
+    own docstring for why this exists: pure blob-shape analysis lets a
+    bold multi-word caption slip through as one large connected component."""
+
+    def _crop(self, w: int = 200, h: int = 100) -> Image.Image:
+        return Image.new("RGB", (w, h), "white")
+
+    @pytest.mark.asyncio
+    async def test_whites_out_bottom_strip_when_boilerplate_detected(self):
+        from apps.api.routers.demo_cloud_extract import _strip_boilerplate_text_via_ocr
+
+        crop = self._crop()
+        with patch("httpx.AsyncClient", new=_mock_ocr_httpx_client("AUTHORISED SIGNATORIES")), \
+             patch(
+                 "apps.api.routers.demo_cloud_extract._resolve_indic_ocr_url",
+                 new=AsyncMock(return_value="http://indic-ocr:8021"),
+             ):
+            result = await _strip_boilerplate_text_via_ocr(crop, "test-bank")
+
+        # Bottom ~40% strip must now be pure white (255,255,255).
+        cw, ch = result.size
+        strip_top = int(ch * 0.60)
+        sample = result.crop((0, strip_top, cw, ch)).getcolors()
+        assert sample == [(sample[0][0], (255, 255, 255))]
+
+    @pytest.mark.asyncio
+    async def test_leaves_crop_untouched_when_no_boilerplate_keyword_matches(self):
+        from apps.api.routers.demo_cloud_extract import _strip_boilerplate_text_via_ocr
+
+        crop = self._crop()
+        with patch("httpx.AsyncClient", new=_mock_ocr_httpx_client("SOME RANDOM TEXT")), \
+             patch(
+                 "apps.api.routers.demo_cloud_extract._resolve_indic_ocr_url",
+                 new=AsyncMock(return_value="http://indic-ocr:8021"),
+             ):
+            result = await _strip_boilerplate_text_via_ocr(crop, "test-bank")
+
+        assert list(result.getdata()) == list(crop.getdata())
+
+    @pytest.mark.asyncio
+    async def test_leaves_crop_untouched_when_ocr_returns_empty_text(self):
+        from apps.api.routers.demo_cloud_extract import _strip_boilerplate_text_via_ocr
+
+        crop = self._crop()
+        with patch("httpx.AsyncClient", new=_mock_ocr_httpx_client("")), \
+             patch(
+                 "apps.api.routers.demo_cloud_extract._resolve_indic_ocr_url",
+                 new=AsyncMock(return_value="http://indic-ocr:8021"),
+             ):
+            result = await _strip_boilerplate_text_via_ocr(crop, "test-bank")
+
+        assert list(result.getdata()) == list(crop.getdata())
+
+    @pytest.mark.asyncio
+    async def test_degrades_gracefully_when_ocr_service_unreachable(self):
+        """Best-effort by design: OCR service down must never break the
+        signature crop pipeline — the crop passes through unmodified."""
+        from apps.api.routers.demo_cloud_extract import _strip_boilerplate_text_via_ocr
+
+        crop = self._crop()
+        with patch("httpx.AsyncClient", side_effect=Exception("connection refused")), \
+             patch(
+                 "apps.api.routers.demo_cloud_extract._resolve_indic_ocr_url",
+                 new=AsyncMock(return_value="http://indic-ocr:8021"),
+             ):
+            result = await _strip_boilerplate_text_via_ocr(crop, "test-bank")
+
+        assert list(result.getdata()) == list(crop.getdata())
+
+    @pytest.mark.asyncio
+    async def test_skips_ocr_entirely_for_too_small_crop(self):
+        """Crops under 20px tall can't contain a meaningful caption strip --
+        must return untouched without ever calling the OCR service."""
+        from apps.api.routers.demo_cloud_extract import _strip_boilerplate_text_via_ocr
+
+        crop = self._crop(w=200, h=15)
+        mock_client_factory = _mock_ocr_httpx_client("AUTHORISED SIGNATORIES")
+        with patch("httpx.AsyncClient", new=mock_client_factory), \
+             patch(
+                 "apps.api.routers.demo_cloud_extract._resolve_indic_ocr_url",
+                 new=AsyncMock(return_value="http://indic-ocr:8021"),
+             ):
+            result = await _strip_boilerplate_text_via_ocr(crop, "test-bank")
+
+        mock_client_factory.assert_not_called()
+        assert list(result.getdata()) == list(crop.getdata())
+
+    @pytest.mark.asyncio
+    async def test_keyword_match_is_case_insensitive_on_ocr_output(self):
+        """OCR text is upper-cased before matching -- a lowercase/mixed-case
+        read of the boilerplate must still trigger the whiteout."""
+        from apps.api.routers.demo_cloud_extract import _strip_boilerplate_text_via_ocr
+
+        crop = self._crop()
+        with patch("httpx.AsyncClient", new=_mock_ocr_httpx_client("please sign above")), \
+             patch(
+                 "apps.api.routers.demo_cloud_extract._resolve_indic_ocr_url",
+                 new=AsyncMock(return_value="http://indic-ocr:8021"),
+             ):
+            result = await _strip_boilerplate_text_via_ocr(crop, "test-bank")
+
+        cw, ch = result.size
+        strip_top = int(ch * 0.60)
+        sample = result.crop((0, strip_top, cw, ch)).getcolors()
+        assert sample == [(sample[0][0], (255, 255, 255))]
