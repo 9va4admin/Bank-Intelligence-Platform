@@ -101,13 +101,52 @@ def _identity(**over):
     return ASTRAIdentity(**d)
 
 
-def _service(identity=None, exc=None, enrolled=(), mfa=None):
+class _FakeConn:
+    def __init__(self, recorder):
+        self._recorder = recorder
+
+    async def execute(self, sql, *args):
+        self._recorder.append((sql, args))
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _FakeDBPool:
+    """Minimal asyncpg.Pool stand-in: records every executed query/args so
+    tests can assert real persistence calls happened, without a real DB.
+
+    TODO(revisit): this should be a real asyncpg pool against the real
+    YugabyteDB (tests/integration/conftest.py's require_yugabyte pattern),
+    asserting rows actually landed in platform.user_sessions/login_events.
+    Not done yet because the local astra-yugabyte container's data volume
+    is corrupted as of 2026-09-17 -- yugabyted loops through startup
+    without ever binding port 5433 (confirmed via docker inspect health
+    log: real "Connection refused" from yugabyted's own healthcheck, not a
+    client-side issue). Fix: `docker compose -f infra/docker-compose.dev.yml
+    down -v && up -d` to recreate the volume -- deferred since that wipes
+    local dev data and needs the user's OK first. Revisit once fixed."""
+
+    def __init__(self):
+        self.queries: list[tuple[str, tuple]] = []
+
+    def acquire(self):
+        return _FakeConn(self.queries)
+
+
+def _service(identity=None, exc=None, enrolled=(), mfa=None, dev_mode=False, db_pool=None):
     priv, pub = KEYS
     sess = SessionTokenService(priv, pub, "astra-auth", 900)
     mfa = mfa or TOTPMFAService(_MfaStore(), "ASTRA")
     conn = _FakeConnector(identity=identity if identity is not None else _identity(), exc=exc)
     accts = _FakeAccounts(enrolled)
-    svc = AuthService(connector=conn, mfa=mfa, session_service=sess, account_store=accts)
+    svc = AuthService(
+        connector=conn, mfa=mfa, session_service=sess, account_store=accts,
+        dev_mode=dev_mode, db_pool=db_pool,
+    )
     return svc, mfa, accts, sess
 
 
@@ -326,3 +365,87 @@ def test_neither_connector_nor_factory_raises_value_error():
     accts = _FakeAccounts()
     with pytest.raises(ValueError, match="connector"):
         AuthService(mfa=mfa, session_service=sess, account_store=accts)
+
+
+# --------------------------------------------------------------------------- #
+# dev_mode bypass + db_pool persistence -- merged from two independently
+# developed features (2026-09-17); neither had test coverage before this,
+# so the merge itself was unverified until now.
+# --------------------------------------------------------------------------- #
+
+def test_dev_mode_bypasses_mfa_and_issues_full_session():
+    svc, _, _, sess = _service(enrolled=[], dev_mode=True)
+    result = asyncio.run(svc.login("ops1", "pw"))
+    assert result.outcome == LoginOutcome.DEV_BYPASS
+    claims = sess.validate(result.interim_session.token)
+    assert claims.mfa_authenticated is True
+
+
+def test_dev_mode_false_by_default_never_bypasses():
+    svc, _, _, _ = _service(enrolled=[])  # dev_mode not passed -- must default False
+    result = asyncio.run(svc.login("ops1", "pw"))
+    assert result.outcome == LoginOutcome.MFA_ENROLLMENT_REQUIRED
+    assert result.interim_session.claims.mfa_authenticated is False
+
+
+def test_dev_mode_bypass_still_persists_session_and_logs_success():
+    """The merge's own addition: every other full-session path
+    (verify_mfa, confirm_enrollment) calls _persist_session +
+    logs LOGIN_SUCCESS -- dev_mode bypass must too, for consistency."""
+    db = _FakeDBPool()
+    svc, _, _, _ = _service(enrolled=[], dev_mode=True, db_pool=db)
+    asyncio.run(svc.login("ops1", "pw"))
+    tables_written = [sql for sql, _ in db.queries]
+    assert any("platform.user_sessions" in sql for sql in tables_written)
+    assert any(
+        "platform.login_events" in sql and "LOGIN_SUCCESS" in args
+        for sql, args in db.queries
+    )
+
+
+def test_dev_mode_bypass_without_db_pool_does_not_raise():
+    """db_pool is optional -- dev_mode must work standalone (test/local mode
+    with no DB configured at all), not silently require one."""
+    svc, _, _, _ = _service(enrolled=[], dev_mode=True, db_pool=None)
+    result = asyncio.run(svc.login("ops1", "pw"))
+    assert result.outcome == LoginOutcome.DEV_BYPASS
+
+
+def test_login_failure_logs_login_failed_event_when_db_pool_present():
+    db = _FakeDBPool()
+    svc, _, _, _ = _service(exc=AuthenticationError("bad password"), db_pool=db)
+    with pytest.raises(AuthenticationError):
+        asyncio.run(svc.login("ops1", "wrong"))
+    assert any(
+        "platform.login_events" in sql and "LOGIN_FAILED" in args and "INVALID_CREDENTIALS" in args
+        for sql, args in db.queries
+    )
+
+
+def test_verify_mfa_success_persists_session_when_db_pool_present():
+    db = _FakeDBPool()
+    svc, mfa, _, _ = _service(enrolled=["usr-001"], db_pool=db)
+    login_result = asyncio.run(svc.login("ops1", "pw"))
+    # Enrol a real secret first so verify can succeed deterministically.
+    secret = pyotp.random_base32()
+    asyncio.run(mfa._store.put("usr-001", secret))
+    code = pyotp.TOTP(secret).now()
+    asyncio.run(svc.verify_mfa(login_result.interim_session.claims, code))
+    tables_written = [sql for sql, _ in db.queries]
+    assert any("platform.user_sessions" in sql for sql in tables_written)
+    assert any(
+        "platform.login_events" in sql and "LOGIN_SUCCESS" in args
+        for sql, args in db.queries
+    )
+
+
+def test_persistence_is_fire_and_forget_on_db_error():
+    """A DB write failure must never break the login flow -- these are
+    audit/session-tracking writes, not the source of truth for auth state."""
+    class _BrokenPool:
+        def acquire(self):
+            raise RuntimeError("DB unreachable")
+
+    svc, _, _, _ = _service(enrolled=[], dev_mode=True, db_pool=_BrokenPool())
+    result = asyncio.run(svc.login("ops1", "pw"))
+    assert result.outcome == LoginOutcome.DEV_BYPASS
