@@ -134,3 +134,75 @@ class TestRealPaddleOCROnActualCheques:
         resp = httpx.get(f"{INDIC_OCR_URL}/health/live", timeout=10.0)
         assert resp.status_code == 200
         assert resp.json()["service"] == "indic-ocr"
+
+
+class TestRealTesseractOnActualCheques:
+    """Real, non-mocked coverage for the tesseract backend added 2026-09-17
+    to close the gap PaddleOCR genuinely cannot cover at all: bengali,
+    gurmukhi, gujarati, odia, malayalam have zero paddleocr 2.7.3 model.
+    Uses the official tesseract-ocr/tessdata_fast models
+    (apps/indic_ocr/tessdata/) -- the community indic-ocr/tessdata project
+    was tested and rejected the same day: its files throw
+    "unichar ... in normproto file is not in unichar set" on load with
+    Tesseract 5.4.0, a real, verified incompatibility."""
+
+    def test_reads_real_kannada_letterhead_text_via_tesseract(self, require_indic_ocr):
+        """PaddleOCR's 'ka' model produces zero Kannada Unicode characters on
+        this exact crop (confirmed separately) -- garbled Latin fragments
+        instead. Tesseract must produce genuine Kannada script output."""
+        path = os.path.join(FIXTURES_DIR, "real_kannada_bank_letterhead.png")
+        with open(path, "rb") as f:
+            resp = httpx.post(
+                f"{INDIC_OCR_URL}/ocr",
+                params={"backend": "tesseract", "script": "kannada"},
+                files={"file": ("real_kannada_bank_letterhead.png", f, "image/png")},
+                timeout=60.0,
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["backend"] == "tesseract"
+        assert data["paddle_lang"] == "kan"
+        # At least one genuine Kannada Unicode codepoint (U+0C80-U+0CFF) in
+        # the output -- proves real script recognition, not Latin garbage.
+        assert any("ಀ" <= ch <= "೿" for ch in data["text"]), (
+            f"expected real Kannada Unicode output, got {data['text']!r}"
+        )
+        assert data["confidence"] > 0.0
+
+    def test_reads_real_handwritten_kannada_amount_words(self, require_indic_ocr):
+        """Lower bar than the printed-letterhead test -- handwriting is
+        genuinely harder -- but still must produce real Kannada script
+        output, not empty/Latin garbage, from an actual cheque's
+        amount-in-words line."""
+        path = os.path.join(FIXTURES_DIR, "real_kannada_handwritten_amount_words.png")
+        with open(path, "rb") as f:
+            resp = httpx.post(
+                f"{INDIC_OCR_URL}/ocr",
+                params={"backend": "tesseract", "script": "kannada"},
+                files={"file": ("real_kannada_handwritten_amount_words.png", f, "image/png")},
+                timeout=60.0,
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert any("ಀ" <= ch <= "೿" for ch in data["text"]), (
+            f"expected at least some real Kannada Unicode output, got {data['text']!r}"
+        )
+
+    def test_gujarati_has_zero_paddle_model_but_tesseract_covers_it(self, require_indic_ocr):
+        """Regression guard for the actual capability gap this backend was
+        added to close: paddleocr 2.7.3 has NO Gujarati model at all (not
+        degraded -- literally absent from its MODEL_URLS). Confirms the
+        cascade actually reaches a working engine for a script PaddleOCR
+        cannot serve under any configuration."""
+        path = os.path.join(FIXTURES_DIR, "real_hdfc_bank_printed.png")
+        with open(path, "rb") as f:
+            resp = httpx.post(
+                f"{INDIC_OCR_URL}/ocr",
+                params={"backend": "tesseract", "script": "gujarati"},
+                files={"file": ("real_hdfc_bank_printed.png", f, "image/png")},
+                timeout=60.0,
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["backend"] == "tesseract"
+        assert data["paddle_lang"] == "guj"
