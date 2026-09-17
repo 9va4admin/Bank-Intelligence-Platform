@@ -64,6 +64,19 @@ from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict
 
+# This service used to keep its own copy of the CTS-2010 field-zone
+# percentages, which had silently drifted out of sync with the real,
+# properly-calibrated table in modules/cts/preprocessing/zone_extractor.py
+# (payee_name here was y=0.25-0.46; the real one is y=0.13-0.30). Confirmed
+# by direct testing on a real cheque 2026-09-17: the wrong copy's
+# payee_name zone bled into the amount_words line below it, and its
+# amount_words zone (y=0.44-0.63) missed the actual text entirely, landing
+# on the A/c No. table instead. Import the one real definition rather than
+# maintain a second copy that can drift again.
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from modules.cts.preprocessing.zone_extractor import CTS_ZONES as _CTS_ZONES
+
 log = structlog.get_logger()
 
 # ── Backend constants ─────────────────────────────────────────────────────────
@@ -153,14 +166,6 @@ _TESSERACT_CMD = os.environ.get(
     "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 )
 
-# ── CTS-2010 field zones ──────────────────────────────────────────────────────
-
-_CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
-    "bank_name":    (0.00, 0.00, 0.65, 0.20),
-    "date":         (0.62, 0.00, 1.00, 0.22),
-    "payee_name":   (0.05, 0.25, 0.88, 0.46),
-    "amount_words": (0.05, 0.44, 0.88, 0.63),
-}
 
 # ── Lazy singletons ───────────────────────────────────────────────────────────
 # One PaddleOCR instance per lang code; created on first use and cached.
@@ -671,7 +676,13 @@ async def ocr_zones(
     used_backend = b   # updated to whichever backend actually served a zone
     resolved_script = script   # updated when script="auto" resolves to a real lang
 
-    for field, (x1f, y1f, x2f, y2f) in _CTS_ZONES.items():
+    # This endpoint only serves ZoneOcrResult's 4 text fields (bank_name,
+    # date, payee_name, amount_words) -- amount_figures/micr_band are also
+    # in the imported CTS_ZONES (they're used elsewhere, by
+    # _verify_numeric_fields_via_zone_crop's single-zone /ocr calls) but
+    # have no field on this response and would just waste an OCR pass here.
+    for field in ("bank_name", "date", "payee_name", "amount_words"):
+        x1f, y1f, x2f, y2f = _CTS_ZONES[field]
         x1 = max(0,  int(x1f * iw))
         y1 = max(0,  int(y1f * ih))
         x2 = min(iw, int(x2f * iw))

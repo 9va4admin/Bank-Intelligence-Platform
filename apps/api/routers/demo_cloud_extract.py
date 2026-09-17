@@ -105,7 +105,13 @@ IMPORTANT INSTRUCTIONS:
 1. Read the ENTIRE cheque carefully.
 2. Extract all visible information exactly as written.
 3. Preserve leading zeros in cheque numbers, account numbers, MICR codes, and other numeric identifiers.
-4. If a field is not visible or cannot be determined confidently, return null.
+4. If a field is not visible, illegible, or cannot be determined confidently, return null. This applies
+   especially to handwritten text in a script you cannot confidently read (e.g. Kannada, Tamil, Telugu,
+   Malayalam, Bengali, Gujarati, Odia, Punjabi, Devanagari handwriting). NEVER substitute a different
+   piece of visible text as a guess when the true field is illegible — for example, if the handwritten
+   payee name after "Pay" is in a script you cannot read, return null for payee_name. Do NOT reuse the
+   drawer's printed business name (see payee_name rule below) or any other unrelated text as a fallback.
+   Guessing a plausible-looking value is worse than returning null — it is scored as a hallucination.
 5. Return ONLY valid JSON.
 6. Do not return markdown, comments, explanations, confidence scores, or extra text.
 
@@ -113,9 +119,32 @@ FIELD EXTRACTION RULES
 
 * bank_name: Full bank name printed on the cheque.
 * ifsc_code: Extract IFSC code exactly (format XXXX0XXXXXX, e.g. SBIN0001234).
-* date: Convert to DD/MM/YYYY format.
-* payee_name: Full name written after "Pay".
-* amount_words: Complete handwritten amount in words.
+* date: The instrument date, almost always printed as individual boxed digit cells in a
+  "D D M M Y Y Y Y" grid near the top-right corner (often directly below or beside text like
+  "Valid for three months from the date of issue/instrument"). Read each digit box carefully,
+  left to right, even if the boxes are faint, thin-bordered, or partially overlapped by other
+  printed text. Convert to DD/MM/YYYY format. Only return null if truly no date is visible anywhere
+  on the cheque — do not skip it just because the amount/payee fields were hard to read.
+* payee_name: The name handwritten on the "Pay" line only (immediately after the printed word "Pay").
+  This is the RECIPIENT of the cheque, filled in by the drawer when writing it. Do NOT confuse this
+  with any PRINTED company/business name found elsewhere on the cheque — in particular, a printed
+  name appearing near the signature above "Partner / Authorised Signatory" or "For <Company Name>"
+  identifies the DRAWER (the account holder issuing the cheque), which is the opposite of the payee.
+  If the handwriting on the Pay line is illegible or in an unfamiliar script, return null — never
+  substitute the drawer's printed name or any other visible text.
+* payee_bbox: The bounding box of the "Pay" line's handwritten text ONLY (not the printed word "Pay"
+  itself, not the "या धारक को / Or Bearer" text on the right), as [x1, y1, x2, y2] fractions of the
+  full image (0.0-1.0). Return your best estimate of WHERE this text is even when payee_name itself is
+  null because you can't read it — locating a region is a much easier and more reliable task than
+  reading unfamiliar handwriting, and lets a downstream OCR pass target the right zone.
+* amount_words: Complete handwritten amount in words, transcribed in whatever script it is actually
+  written in. If it is handwritten in a non-Latin script you cannot confidently transliterate, return
+  null — do NOT invent a plausible-sounding English phrase or infer it from amount_numeric. A fabricated
+  translation is a hallucination and is worse than returning null.
+* amount_words_bbox: The bounding box of the handwritten amount-in-words text ONLY (the "Rupees ___"
+  line, which may wrap onto a second line above the numeric amount box) as [x1, y1, x2, y2] fractions
+  of the full image. Same rule as payee_bbox: return your best location estimate even when
+  amount_words itself is null.
 * amount_numeric: Numeric amount from the amount box. Preserve commas and decimals exactly as written.
 * is_amount_matching: Compare amount_words and amount_numeric using semantic understanding — allow minor
   OCR mistakes and spelling variations (e.g. "One Thousnd Rupees Only" vs 1000 -> true). Only return false
@@ -160,7 +189,9 @@ Return ONLY valid JSON:
 "bank_name": "",
 "date": "",
 "payee_name": "",
+"payee_bbox": [0.10, 0.14, 0.55, 0.20],
 "amount_words": "",
+"amount_words_bbox": [0.05, 0.20, 0.88, 0.32],
 "amount_numeric": "",
 "is_amount_matching": true,
 "account_number": "",
@@ -185,6 +216,7 @@ class CloudExtractResponse(BaseModel):
     payee_name: Optional[str] = None
     payee_name_transliterated: Optional[str] = None   # Latin romanization, set when payee_name is Indic-script
     amount_words: Optional[str] = None
+    amount_words_transliterated: Optional[str] = None  # Latin romanization, set when amount_words is Indic-script
     amount_numeric: Optional[str] = None
     is_amount_matching: Optional[bool] = None
     account_number: Optional[str] = None
@@ -362,6 +394,69 @@ async def _call_indic_ocr_zones(
         )
 
 
+async def _call_indic_ocr_single_crop(
+    crop: Image.Image, bank_id: str
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    OCR a single pre-cropped region (script="auto") via the plain /ocr
+    endpoint, rather than /ocr_zones's fixed-percentage field boxes.
+
+    Exists because _CTS_ZONES (apps/indic_ocr/main.py) uses hardcoded
+    percentage-of-image boxes calibrated against one reference cheque
+    layout — confirmed wrong on a real cheque with a taller letterhead
+    (2026-09-17): the fixed payee_name zone bled into the amount-words
+    line below it, and the fixed amount_words zone landed on the A/c No.
+    table further down, producing garbled mixed-field OCR output. A
+    dynamic bbox from the cloud VLM's own visual layout understanding
+    (payee_bbox/amount_words_bbox in CLOUD_EXTRACT_PROMPT — the VLM can
+    locate a field's position reliably even when it can't read unfamiliar
+    handwriting inside it) generalises across bank layouts where a fixed
+    percentage cannot.
+
+    Returns (text, resolved_script) or (None, None) on any failure.
+    """
+    try:
+        import httpx
+        url = await _resolve_indic_ocr_url(bank_id)
+        buf = io.BytesIO()
+        crop.convert("RGB").save(buf, format="PNG")
+        buf.seek(0)
+        async with httpx.AsyncClient(timeout=30.0) as hc:
+            resp = await hc.post(
+                f"{url}/ocr",
+                files={"file": ("zone.png", buf, "image/png")},
+                params={"backend": "paddle", "script": "auto"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            text = (data.get("text") or "").strip()
+            return (text or None), data.get("script")
+    except Exception as exc:
+        log.info("demo.cloud_extract.dynamic_bbox_ocr_failed", bank_id=bank_id, error=str(exc))
+        return None, None
+
+
+def _crop_from_bbox(
+    pil_img: Image.Image, bbox: Optional[list], pad: float = 0.02
+) -> Optional[Image.Image]:
+    """Crop pil_img using a [x1,y1,x2,y2] fractional bbox, with small padding.
+    Returns None if bbox is missing/malformed or the crop would be empty."""
+    if not bbox or len(bbox) != 4:
+        return None
+    try:
+        x1f, y1f, x2f, y2f = (float(v) for v in bbox)
+    except (TypeError, ValueError):
+        return None
+    iw, ih = pil_img.size
+    x1 = max(0, int((x1f - pad) * iw))
+    y1 = max(0, int((y1f - pad) * ih))
+    x2 = min(iw, int((x2f + pad) * iw))
+    y2 = min(ih, int((y2f + pad) * ih))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return pil_img.crop((x1, y1, x2, y2))
+
+
 # Fields where the cloud VLM is asked to freely generate non-Latin script
 # text. This is the specific weakness this reroute targets — Qwen/Gemma are
 # unreliable at transcribing Indic-script handwriting (confirmed: wrong-script
@@ -404,9 +499,19 @@ async def _reroute_indic_text_fields(
     serve it (service down / all backends failed) — the VLM's original,
     unverified value is kept in that case, never silently swapped for null.
     """
+    # Trigger on either: the VLM hallucinated visible Indic-script characters
+    # (original condition), OR the VLM returned nothing at all for the field.
+    # The second case is now the common one as of 2026-09-17's anti-
+    # hallucination prompt fix: the VLM is now told to return null rather
+    # than guess when it can't read non-Latin handwriting, which means the
+    # old "only reroute on detected Indic script" condition would never fire
+    # again -- there'd be no script to detect in a null. Rerouting on null
+    # too gives local OCR a real chance to read what the cloud VLM admitted
+    # it couldn't, instead of the field just staying empty.
     fields_needing_reroute = [
         f for f in _INDIC_REROUTE_FIELDS
         if identify_indic_script(parsed.get(f) or "") is not None
+        or not parsed.get(f) or parsed.get(f) == "null"
     ]
     if not fields_needing_reroute:
         return parsed, None, None
@@ -421,35 +526,68 @@ async def _reroute_indic_text_fields(
     # and keeps whichever one's real OCR output scores best — determining
     # the script empirically from the cheque image itself, not from a guess
     # that has already been shown unreliable.
-    indic_fields, indic_available, indic_error = await _call_indic_ocr_zones(
-        pil_img, bank_id, script="auto"
-    )
-
-    if not indic_available:
-        log.warning("demo.cloud_extract.indic_reroute_unavailable",
-                    bank_id=bank_id, fields=fields_needing_reroute, error=indic_error)
-        return parsed, None, (
-            f"INDIC_REROUTE_FAILED for {fields_needing_reroute} — "
-            f"cloud VLM's unverified text kept. {indic_error}"
-        )
-
-    resolved_script = indic_fields.get("script")
-
+    #
+    # Per-field dynamic bbox first (payee_bbox/amount_words_bbox from the
+    # VLM's own layout understanding — generalises across bank letterhead
+    # heights where fixed _CTS_ZONES percentages don't, see
+    # _call_indic_ocr_single_crop's docstring for the confirmed failure this
+    # fixes). Falls back to the fixed-zone /ocr_zones call per field when no
+    # usable bbox was provided or the bbox-targeted OCR found nothing.
     rerouted: dict[str, str] = {}
     updated = dict(parsed)
+    resolved_script: Optional[str] = None
+    fields_still_needing_fixed_zone: list[str] = []
+
+    _BBOX_KEY = {"payee_name": "payee_bbox", "amount_words": "amount_words_bbox"}
     for field in fields_needing_reroute:
-        local_value = indic_fields.get(field)
-        if local_value and local_value.strip():
+        bbox = parsed.get(_BBOX_KEY.get(field, ""))
+        crop = _crop_from_bbox(pil_img, bbox)
+        if crop is None:
+            fields_still_needing_fixed_zone.append(field)
+            continue
+        local_value, field_script = await _call_indic_ocr_single_crop(crop, bank_id)
+        if local_value:
             updated[field] = local_value
-            rerouted[field] = indic_fields.get("backend", "paddle")
-        # else: IndicOCR ran but found nothing for this zone — keep the VLM's
-        # value rather than blanking a field that at least has *something*.
+            rerouted[field] = "paddle"
+            resolved_script = resolved_script or field_script
+        else:
+            fields_still_needing_fixed_zone.append(field)
+
+    if fields_still_needing_fixed_zone:
+        indic_fields, indic_available, indic_error = await _call_indic_ocr_zones(
+            pil_img, bank_id, script="auto"
+        )
+        if not indic_available:
+            log.warning("demo.cloud_extract.indic_reroute_unavailable",
+                        bank_id=bank_id, fields=fields_still_needing_fixed_zone, error=indic_error)
+            if not rerouted:
+                return parsed, None, (
+                    f"INDIC_REROUTE_FAILED for {fields_needing_reroute} — "
+                    f"cloud VLM's unverified text kept. {indic_error}"
+                )
+        else:
+            resolved_script = resolved_script or indic_fields.get("script")
+            for field in fields_still_needing_fixed_zone:
+                local_value = indic_fields.get(field)
+                if local_value and local_value.strip():
+                    updated[field] = local_value
+                    rerouted[field] = indic_fields.get("backend", "paddle")
+                # else: IndicOCR ran but found nothing for this zone — keep
+                # the VLM's value rather than blanking a field that at least
+                # has *something*.
 
     # Latin romanization for readability — real script now known empirically
     # (via script="auto"), not guessed from the VLM's already-unreliable output.
+    # Shown alongside the native-script text, never replacing it — an
+    # operator who can't read Kannada/Tamil/etc. can at least sound out the
+    # name; one who can read it still sees the authoritative original.
     if updated.get("payee_name") and resolved_script:
         updated["payee_name_transliterated"] = transliterate_by_script(
             updated["payee_name"], resolved_script
+        )
+    if updated.get("amount_words") and resolved_script:
+        updated["amount_words_transliterated"] = transliterate_by_script(
+            updated["amount_words"], resolved_script
         )
 
     # Real cross-check, replacing the cloud VLM's self-referential
@@ -2033,6 +2171,23 @@ async def cloud_extract_cheque(
     parsed, numeric_verified = await _verify_numeric_fields_via_zone_crop(
         pil_img, client, model_id, parsed, ctx.bank_id
     )
+
+    # Always re-verify is_amount_matching with the real deterministic parser
+    # -- never trust the cloud VLM's own self-report unconditionally. Found
+    # 2026-09-17 via a 19-cheque comparative run: the LLM's self-reported
+    # is_amount_matching disagreed with amounts_match() on 7/19 real cheques
+    # (37%) -- it compares its own two readings against each other and means
+    # nothing once either has been corrected by zone-crop verification above.
+    # Skipped only when _reroute_indic_text_fields already ran this exact
+    # check with a script hint (see amounts_match(..., script=resolved_script)
+    # there) -- redoing it here without that hint would be strictly less
+    # accurate for Indic-script amounts, not more.
+    if not (rerouted_fields and "amount_words" in rerouted_fields):
+        words = parsed.get("amount_words")
+        if parsed.get("amount_numeric") and words and words != "null":
+            parsed["is_amount_matching"] = amounts_match(
+                parsed.get("amount_numeric"), words
+            )
 
     # When the LLM confirms a signature exists, build the tightest possible
     # zone from the LLM's own signature_bboxes (preferred) so _focused_sig_crop
