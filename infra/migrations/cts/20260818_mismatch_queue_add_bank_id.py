@@ -18,7 +18,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260818_mismatch_queue_add_bank_id"
-down_revision = "20260705_add_mismatch_queue"
+down_revision = "20260818_pps_vault_fix"
 branch_labels = None
 depends_on = None
 

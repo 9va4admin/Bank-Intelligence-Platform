@@ -18,7 +18,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260811_add_session_reports"
-down_revision = "20260811_scanner_registrations"
+down_revision = "20260811_scanner_configs_crud"
 branch_labels = None
 depends_on = None
 

@@ -34,6 +34,15 @@ depends_on = None
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS cts")
 
+    # cts.clearing_sessions from the real chain (20260618_002) is a
+    # confirmed-dead, entirely different schema (center_id/clearing_type/
+    # ngch_session_ref) with zero application references anywhere in this
+    # repo. apps/api/routers/batch.py already queries THIS migration's
+    # schema (session_id, bank_id, session_type, clearing_date, opened_at/
+    # sealed_at/submitted_at/reconciled_at, npci_ack_ref) by name. CASCADE
+    # clears the equally-dead cts.clearing_batches FK on this table.
+    op.execute("DROP TABLE IF EXISTS cts.clearing_sessions CASCADE")
+
     op.create_table(
         "clearing_sessions",
         sa.Column("session_id", sa.Text(), nullable=False),

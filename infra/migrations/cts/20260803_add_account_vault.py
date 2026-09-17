@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260803_add_account_vault"
-down_revision = "20260706_alter_ngch_submissions_add_pu"
+down_revision = "20260705_smb_push_sessions"
 branch_labels = None
 depends_on = None
 

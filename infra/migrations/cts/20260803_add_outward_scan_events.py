@@ -16,7 +16,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260803_add_outward_scan_events"
-down_revision = "20260803_add_instrument_holds"
+down_revision = "20260803_add_hold_iet_timing"
 branch_labels = None
 depends_on = None
 

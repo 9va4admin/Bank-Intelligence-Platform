@@ -22,7 +22,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260806_branches_add_contact_fields"
-down_revision = "20260705_add_branches"
+down_revision = "20260819_agent_decisions_steps_digest"
 branch_labels = None
 depends_on = None
 
