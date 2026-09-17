@@ -161,6 +161,7 @@ class CBSConnector(ABC):
         inquiry_name: str,
         bank_id: str,
         name_match_threshold: float = 0.80,
+        high_confidence_threshold: Optional[float] = None,
     ) -> BeneficiaryValidationResult:
         """
         Outward CTS — validate the payee's account before presenting to NGCH.

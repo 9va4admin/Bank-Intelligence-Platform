@@ -17,7 +17,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class FraudActivityInput(BaseModel):
@@ -50,25 +53,30 @@ def _rule_based_score(
     inp: FraudActivityInput,
     ocr_low_confidence_threshold: float,
     high_value_amount_threshold: float,
+    baseline_weight: float,
+    alteration_weight: float,
+    low_ocr_weight: float,
+    high_value_weight: float,
 ) -> tuple[float, dict[str, float]]:
     """Fallback rule-based scorer when XGBoost is unavailable.
 
-    Thresholds must be passed explicitly — callers fetch them from config_service.
+    All thresholds and weights must be passed explicitly — callers fetch them
+    from config_service.
     """
-    score = 0.10  # baseline
-    shap: dict[str, float] = {"baseline": 0.10}
+    score = baseline_weight
+    shap: dict[str, float] = {"baseline": baseline_weight}
 
     if inp.alteration_detected:
-        score += 0.60
-        shap["alteration_detected"] = 0.60
+        score += alteration_weight
+        shap["alteration_detected"] = alteration_weight
 
     if inp.ocr_confidence < ocr_low_confidence_threshold:
-        score += 0.15
-        shap["low_ocr_confidence"] = 0.15
+        score += low_ocr_weight
+        shap["low_ocr_confidence"] = low_ocr_weight
 
     if inp.amount > high_value_amount_threshold:
-        score += 0.05
-        shap["very_high_amount"] = 0.05
+        score += high_value_weight
+        shap["very_high_amount"] = high_value_weight
 
     return min(score, 1.0), shap
 
@@ -87,58 +95,70 @@ async def score_fraud(
     SHAP values always populated in result.
     Optionally synthesises LLM rationale when upstream context is provided.
     """
-    thresholds = await config_service.get_cts_config(inp.bank_id)
-    _ocr_low_conf = thresholds["cts.ocr_min_confidence"]
-    _high_value = thresholds["cts.high_value_amount_threshold"]
+    with tracer.start_as_current_span("activity.score_fraud") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
 
-    features = [inp.amount, inp.ocr_confidence, 1.0 if inp.alteration_detected else 0.0]
-    feature_names = getattr(model, "feature_names", ["amount", "ocr_confidence", "alteration_flag"])
+        thresholds = await config_service.get_cts_config(inp.bank_id)
+        _ocr_low_conf = thresholds["cts.ocr_min_confidence"]
+        _high_value = thresholds["cts.high_value_amount_threshold"]
+        _baseline_weight = float(thresholds.get("cts.fraud_fallback_baseline_weight", 0.10))
+        _alteration_weight = float(thresholds.get("cts.fraud_fallback_alteration_weight", 0.60))
+        _low_ocr_weight = float(thresholds.get("cts.fraud_fallback_low_ocr_weight", 0.15))
+        _high_value_weight = float(thresholds.get("cts.fraud_fallback_high_value_weight", 0.05))
 
-    try:
-        proba = model.predict_proba([features])[0]
-        fraud_score = float(proba[1])
+        features = [inp.amount, inp.ocr_confidence, 1.0 if inp.alteration_detected else 0.0]
+        feature_names = getattr(model, "feature_names", ["amount", "ocr_confidence", "alteration_flag"])
 
-        raw_shap = explainer.shap_values([features])
-        shap_values = {
-            feature_names[i]: float(raw_shap[0][i])
-            for i in range(len(feature_names))
-        }
+        try:
+            proba = model.predict_proba([features])[0]
+            fraud_score = float(proba[1])
 
-        # LLM rationale — only when upstream context is available and vllm_client provided
-        rationale = None
-        headroom_reduction_pct = None
-        if vllm_client and inp.ocr_result is not None:
-            llm_timeout = float(await config_service.get("ai.llm_request_timeout_s"))
-            rationale, headroom_reduction_pct = await _synthesise_rationale(
-                inp=inp,
+            raw_shap = explainer.shap_values([features])
+            shap_values = {
+                feature_names[i]: float(raw_shap[0][i])
+                for i in range(len(feature_names))
+            }
+
+            # LLM rationale — only when upstream context is available and vllm_client provided
+            rationale = None
+            headroom_reduction_pct = None
+            if vllm_client and inp.ocr_result is not None:
+                llm_timeout = float(await config_service.get("ai.llm_request_timeout_s"))
+                rationale, headroom_reduction_pct = await _synthesise_rationale(
+                    inp=inp,
+                    fraud_score=fraud_score,
+                    shap_values=shap_values,
+                    vllm_client=vllm_client,
+                    high_value_threshold=_high_value,
+                    llm_timeout=llm_timeout,
+                )
+
+            return FraudActivityResult(
                 fraud_score=fraud_score,
                 shap_values=shap_values,
-                vllm_client=vllm_client,
-                high_value_threshold=_high_value,
-                llm_timeout=llm_timeout,
+                rationale=rationale,
+                headroom_reduction_pct=headroom_reduction_pct,
             )
 
-        return FraudActivityResult(
-            fraud_score=fraud_score,
-            shap_values=shap_values,
-            rationale=rationale,
-            headroom_reduction_pct=headroom_reduction_pct,
-        )
+        except Exception as exc:
+            log.warning(
+                "fraud_activity.model_unavailable",
+                instrument_id=inp.instrument_id,
+                error=str(exc),
+            )
+            fallback_score, fallback_shap = _rule_based_score(
+                inp, _ocr_low_conf, _high_value,
+                _baseline_weight, _alteration_weight,
+                _low_ocr_weight, _high_value_weight,
+            )
+            fallback_shap["_source"] = "rule_based_fallback"
 
-    except Exception as exc:
-        log.warning(
-            "fraud_activity.model_unavailable",
-            instrument_id=inp.instrument_id,
-            error=str(exc),
-        )
-        fallback_score, fallback_shap = _rule_based_score(inp, _ocr_low_conf, _high_value)
-        fallback_shap["_source"] = "rule_based_fallback"
-
-        return FraudActivityResult(
-            fraud_score=fallback_score,
-            shap_values=fallback_shap,
-            degraded=True,
-        )
+            return FraudActivityResult(
+                fraud_score=fallback_score,
+                shap_values=fallback_shap,
+                degraded=True,
+            )
 
 
 async def _synthesise_rationale(
@@ -146,8 +166,8 @@ async def _synthesise_rationale(
     fraud_score: float,
     shap_values: dict,
     vllm_client,
-    high_value_threshold: float = 500_000.0,
-    llm_timeout: float = 180.0,
+    high_value_threshold: Optional[float] = None,
+    llm_timeout: Optional[float] = None,
 ) -> tuple[str, float]:
     """
     Call Llama 3.3 70B to synthesise a human-readable fraud rationale.

@@ -17,7 +17,11 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
+
+import structlog
+
+log = structlog.get_logger()
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Salutations
@@ -553,12 +557,84 @@ _SCRIPT_CONFIGS: dict[str, _IndicScript] = {
 _TRANSLITERABLE_SCRIPTS: frozenset[str] = frozenset(_SCRIPT_CONFIGS)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  IndicXlit — AI4Bharat seq2seq transliterator (optional, auto-detected)
+# ─────────────────────────────────────────────────────────────────────────────
+# Install: pip install ai4bharat-transliteration
+# Models are ~5 MB each × 9 languages; downloaded once to ~/.cache on first use.
+# On-prem safe — no outbound calls after initial model download.
+# Falls back to Brahmic phonemic engine when the package is not installed.
+
+_XLIT_SCRIPT_TO_LANG: dict[str, str] = {
+    "devanagari": "hi",   # Hindi, Marathi
+    "bengali":    "bn",
+    "gurmukhi":   "pa",   # Punjabi
+    "gujarati":   "gu",
+    "odia":       "or",
+    "tamil":      "ta",
+    "telugu":     "te",
+    "kannada":    "kn",
+    "malayalam":  "ml",
+}
+
+_xlit_engine: Any | None = None
+_xlit_tried: bool = False
+
+
+def _get_xlit_engine() -> Any | None:
+    global _xlit_engine, _xlit_tried
+    if _xlit_tried:
+        return _xlit_engine
+    _xlit_tried = True
+    try:
+        from ai4bharat.transliteration import XlitEngine  # pip install ai4bharat-transliteration
+        _xlit_engine = XlitEngine(src_script_type="indic", beam_width=4, rescore=True)
+        log.info("payee_normalizer.indicxlit_loaded")
+    except Exception as exc:
+        log.warning(
+            "payee_normalizer.indicxlit_unavailable_phonemic_fallback",
+            error=str(exc),
+        )
+        _xlit_engine = None
+    return _xlit_engine
+
+
+def _xlit_word(word: str, lang: str) -> str | None:
+    """Transliterate one Indic word via IndicXlit. Returns None on failure."""
+    engine = _get_xlit_engine()
+    if engine is None:
+        return None
+    try:
+        candidates = engine.translit_word(word, lang_code=lang, topk=1)
+        return candidates[0] if candidates else None
+    except Exception:
+        return None
+
+
 def transliterate_by_script(text: str, script: str) -> str:
     """Transliterate Indic text to Latin given the script name.
 
-    Returns the original text unchanged if the script is not recognised
-    (safe fallback — Jaro-Winkler will score it low → MISMATCH path).
+    Tries IndicXlit seq2seq first — better for conventional name spellings
+    (especially community-specific names like Malayalam Christian names).
+    Falls back to Brahmic phonemic engine per word when IndicXlit returns
+    no candidates or is not installed.
+
+    Returns original text unchanged when the script is unrecognised.
     """
+    lang = _XLIT_SCRIPT_TO_LANG.get(script)
+    if lang is not None:
+        words = text.split()
+        parts: list[str] = []
+        for word in words:
+            xlit = _xlit_word(word, lang)
+            if xlit is not None:
+                parts.append(xlit)
+            else:
+                cfg = _SCRIPT_CONFIGS.get(script)
+                parts.append(_transliterate_indic(word, cfg) if cfg else word)
+        if parts:
+            return " ".join(parts)
+
     cfg = _SCRIPT_CONFIGS.get(script)
     if cfg is None:
         return text

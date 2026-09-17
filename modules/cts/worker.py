@@ -80,6 +80,7 @@ from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkfl
 from modules.cts.workflows.smb_forwarding_workflow import SMBForwardingWorkflow
 from modules.cts.workflows.smb_cheque_processing_workflow import SMBChequeProcessingWorkflow
 from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+from modules.cts.workflows.inward_batch_workflow import InwardBatchIngestionWorkflow
 from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
 from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWorkflow
 from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
@@ -128,6 +129,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     validate_cts2010,
     create_lot_entry,
     run_vision_presentment_check,
+    vision_extract_and_check,
     record_outward_scan_event,
     check_cheque_dedup,
     extract_rear_payee_details,
@@ -241,6 +243,8 @@ ALL_WORKFLOWS = [
     FeedbackEmitWorkflow,
     # Vault file-drop (MinIO event → SFTP channel upload for all vault types)
     VaultFileDropWorkflow,
+    # Inward batch ingestion (NGCH delivers PXF + CXF + CIBF → parse → DB → fan-out)
+    InwardBatchIngestionWorkflow,
 ]
 
 # Add MSV workflow when available
@@ -321,26 +325,22 @@ ALL_ACTIVITIES = [
 
 # Activities registered directly as bare functions.  Includes:
 #   a) Pure computation (validate_cts2010 — no I/O)
-#   b) Batch endorsement + NGCH submission activities — have graceful
-#      degradation when their optional DI dependency is None, so they work
-#      without BoundCTSActivities wiring today and gain real DI later.
+#   b) Batch endorsement activities (stamp_endorsement, update_lot_status)
 #   c) New stub activities for ClearingSession, SessionReconciliation,
-#      SBRelay, SMBVaultPush, and AgencyCC workflows — same pattern.
+#      SBRelay, SMBVaultPush, and AgencyCC workflows.
+# NOTE: build_ngch_file, submit_to_ngch, confirm_acknowledgement, and
+#   fetch_ngch_settlement_report have been moved to BoundCTSActivities
+#   (DI-wired with lot_store + ngch_adapter). Removed from this list.
 NO_DI_ACTIVITIES = [
     validate_cts2010,
     cross_check_ngch_metadata,
     # Batch endorsement (BatchEndorsementWorkflow)
     stamp_endorsement,
     update_lot_status,
-    # NGCH file build + submission (NGCHSubmissionWorkflow)
-    build_ngch_file,
-    submit_to_ngch,
-    confirm_acknowledgement,
     # Clearing session (ClearingSessionWorkflow)
     seal_all_lots,
     update_session_status,
     # Session reconciliation (SessionReconciliationWorkflow)
-    fetch_ngch_settlement_report,
     match_submitted_vs_settled,
     generate_rrf,
     # SB relay — inward forwarding + agency CC
@@ -366,7 +366,8 @@ NO_DI_ACTIVITIES = [
     send_hold_reminder,
     send_hold_critical_alert,
     send_hold_p0_alert,
-    # Outward scanning — dedup, rear OCR, payee account validation
+    # Outward scanning — dedup, rear OCR, payee account validation, CR-120 vision
+    vision_extract_and_check,
     check_cheque_dedup,
     extract_rear_payee_details,
     validate_payee_account,
@@ -635,6 +636,37 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 log.warning("worker.drop_folder_poll_error", bank_id=bank_id, error=str(_exc))
             await _asyncio.sleep(2)
 
+    # Human review consumer — reads cts.human.review.{bank_id} Kafka topic.
+    # In AUTO/HYBRID allocation_mode: auto-assigns or schedules deferred assign
+    # immediately when an instrument enters the human review queue.
+    # Gracefully skipped when Kafka is not configured (dev/test environments).
+    consumer_task = None
+    try:
+        kafka_bootstrap = config_service.get_platform("kafka.bootstrap_servers")
+        from modules.cts.consumers.human_review_consumer import run_consumer as _run_hr_consumer
+        consumer_task = asyncio.create_task(
+            _run_hr_consumer(
+                bank_id=bank_id,
+                bootstrap_servers=kafka_bootstrap,
+                immudb=bound_activities.immudb_client,
+                redis=bound_activities.redis_client,
+                config_svc=config_service,
+            )
+        )
+        log.info("worker.human_review_consumer_started", bank_id=bank_id)
+    except ConfigKeyNotFoundError:
+        log.warning(
+            "worker.human_review_consumer_skipped",
+            bank_id=bank_id,
+            reason="kafka.bootstrap_servers not configured",
+        )
+    except ImportError:
+        log.warning(
+            "worker.human_review_consumer_skipped",
+            bank_id=bank_id,
+            reason="human_review_consumer module unavailable",
+        )
+
     trigger_task = None
     async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:
         if trigger is not None:
@@ -656,7 +688,11 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 for t in ("standard", "high_value", "very_high")
             ],
         )
-        await shutdown_event.wait()
+        # asyncio.Event.wait() can be cancelled by Temporal's Rust-bridge task
+        # dispatch on Windows SelectorEventLoop when live workflows are present.
+        # Poll in short sleeps instead — functionally equivalent, avoids the issue.
+        while not shutdown_event.is_set():
+            await asyncio.sleep(0.5)
 
         if trigger is not None:
             trigger.stop()
@@ -670,14 +706,28 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         if drop_watcher_tasks:
             await asyncio.gather(*drop_watcher_tasks, return_exceptions=True)
 
+        if consumer_task is not None:
+            consumer_task.cancel()
+            try:
+                await asyncio.wait_for(consumer_task, timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+
     log.info("worker.stopped", bank_id=bank_id)
 
 
 def main() -> None:
     import argparse
+    import sys
     parser = argparse.ArgumentParser(description="ASTRA CTS Temporal Worker")
     parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
     args = parser.parse_args()
+
+    # Temporal's Rust core (temporalio.bridge) requires SelectorEventLoop on Windows.
+    # ProactorEventLoop (Windows default) breaks the long-polling gRPC calls so the
+    # worker connects but never actually polls any task queue.
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     asyncio.run(run_worker(bank_id=args.bank_id))
 

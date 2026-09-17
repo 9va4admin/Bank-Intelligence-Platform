@@ -44,7 +44,7 @@ YUGABYTE_HOST = "localhost"
 YUGABYTE_PORT = 5443
 YUGABYTE_USER = "yugabyte"
 YUGABYTE_PASSWORD = "yugabyte"
-YUGABYTE_DATABASE = "astra"
+YUGABYTE_DATABASE = "yugabyte"
 
 IMMUDB_HOST = "localhost"
 IMMUDB_PORT = 3332

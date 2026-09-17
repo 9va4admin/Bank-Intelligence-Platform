@@ -72,10 +72,10 @@ Write-Host "  OutDir   : $OutDir" -ForegroundColor White
 Write-Step 1 "Checking Go toolchain"
 
 try {
-    $goVersion = go version
+    $goVersion = & "C:\Program Files\Go\bin\go.exe" version
     Write-OK $goVersion
 } catch {
-    Write-Fail "Go not found in PATH. Install Go 1.22+ from https://go.dev/dl/"
+    Write-Fail "Go not found. Expected at C:\Program Files\Go\bin\go.exe"
 }
 
 # ── Step 2: Build the .exe ────────────────────────────────────────────────────
@@ -97,14 +97,18 @@ if ($Native) {
         Write-Host "         Set CGO_CFLAGS / CGO_LDFLAGS if installed elsewhere." -ForegroundColor Yellow
     }
 
+    # CanoCheetah.dll is 32-bit — binary must be 386 to load it.
+    # mingw32 bin must be in PATH so cgo.exe (a Windows process) can find gcc.
+    $env:PATH        = "C:\msys64\mingw32\bin;" + $env:PATH
     $env:CGO_ENABLED = "1"
     $env:GOOS        = "windows"
-    $env:GOARCH      = "amd64"
+    $env:GOARCH      = "386"
+    $env:CC          = "gcc"
 
-    Write-Info "CGO_ENABLED=1 GOOS=windows GOARCH=amd64"
-    go build -ldflags $ldflags -o $OutExe .
+    Write-Info "CGO_ENABLED=1 GOOS=windows GOARCH=386 CC=gcc (mingw32)"
+    & "C:\Program Files\Go\bin\go.exe" build -ldflags $ldflags -o $OutExe .
     if ($LASTEXITCODE -ne 0) { Write-Fail "Native go build failed" }
-    Write-OK "Built $OutExe (native, Canon Ranger SDK)"
+    Write-OK "Built $OutExe (native, Canon CSD API, 32-bit)"
 } else {
     # Stub build: no CGO, works from any OS
     $env:CGO_ENABLED = "0"
@@ -112,7 +116,7 @@ if ($Native) {
     $env:GOARCH      = "amd64"
 
     Write-Info "CGO_ENABLED=0 GOOS=windows GOARCH=amd64"
-    go build -ldflags $ldflags -o $OutExe .
+    & "C:\Program Files\Go\bin\go.exe" build -ldflags $ldflags -o $OutExe .
     if ($LASTEXITCODE -ne 0) { Write-Fail "Stub go build failed" }
     Write-OK "Built $OutExe (stub transport, no Ranger SDK)"
 }

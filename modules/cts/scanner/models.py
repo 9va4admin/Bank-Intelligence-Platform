@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 
 class ScannerOEM(str, Enum):
@@ -63,13 +63,21 @@ class ScanResult:
 
     micr_raw:            str        # raw MICR line — never log in full (contains account data)
     bank_id:             str
+    branch_id:           Optional[str] = None   # ASTRA branch ID — set when edge agent sends it
     operator_id:         str
 
     # Optional scanner capability fields
     uv_image:             Optional[bytes] = None   # UV scan buffer — any UV-capable OEM
-    micr_hardware_raw:    Optional[str]   = None   # Hardware MICR (Canon Ranger TransportGetMICR)
+    micr_hardware_raw:    Optional[str]   = None   # Hardware MICR (Canon CSD TransportGetMICR)
     imprinter_stamped:    bool            = False   # Endorsement stamped during document pass
     double_feed_detected: bool            = False   # Ultrasonic double-feed signal
+
+    # MICR source — determines routing authority.
+    # HARDWARE: from scanner's physical MICR head (99.9%+ accuracy) — authoritative.
+    # OCR:      from GOT-OCR2 image read (97-98%) — fallback when no hardware reader.
+    # UNKNOWN:  legacy / drop-folder path where source cannot be determined.
+    # Rule: if HARDWARE and OCR disagree on routing fields → immediate HUMAN_REVIEW.
+    micr_source: Literal["HARDWARE", "OCR", "UNKNOWN"] = "UNKNOWN"
 
     @property
     def has_front_image(self) -> bool:

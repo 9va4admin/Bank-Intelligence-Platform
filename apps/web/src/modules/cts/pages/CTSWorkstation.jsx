@@ -6,6 +6,7 @@ import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
 import { BATCH_STATS, getStpStream } from '../data/mockQueue'
 import useReviewQueue from '../hooks/useReviewQueue'
+import useInwardAnalytics from '../hooks/useInwardAnalytics'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -137,6 +138,23 @@ export default function CTSWorkstation() {
   const [batchStats, setBatchStats] = useState(useDemoData({ ...BATCH_STATS }, ZERO_BATCH))
   const [now, setNow] = useState(new Date())
 
+  // Live analytics — seed today's batch stats in POC/PROD mode
+  const { data: analytics } = useInwardAnalytics({ pollEnabled: !isDemo })
+  useEffect(() => {
+    if (isDemo) return
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const today = analytics.daily.find(r => r.date === todayStr)
+    if (!today) return
+    setBatchStats({
+      total_inward:    today.total,
+      stp_confirmed:   today.stp_confirm,
+      stp_returned:    today.stp_return,
+      human_review:    today.human_review,
+      stp_rate:        today.total > 0 ? ((today.stp_confirm + today.stp_return) / today.total * 100) : 0,
+      avg_decision_ms: Math.round(today.avg_ms),
+    })
+  }, [analytics, isDemo])
+
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
@@ -184,7 +202,7 @@ export default function CTSWorkstation() {
   const sessionElapsedStr = `${String(Math.floor(sessionElapsedSec / 3600)).padStart(2,'0')}:${String(Math.floor((sessionElapsedSec % 3600) / 60)).padStart(2,'0')}:${String(sessionElapsedSec % 60).padStart(2,'0')}`
 
   usePageHeader({
-    subtitle: `AM Clearing · SES-${bankIfsc || 'BANK'}-20260619-001 · IET Window: ${IET_WINDOW_MINS}min`,
+    subtitle: `AM Clearing · SES-${bankIfsc || 'BANK'}-${(() => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}` })()}-001 · IET Window: ${IET_WINDOW_MINS}min`,
     actions: (
       <div className="flex items-center gap-3">
         <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'}`}>

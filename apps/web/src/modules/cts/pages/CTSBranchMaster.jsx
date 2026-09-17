@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -207,6 +207,21 @@ function deleteBranch(ifsc) {
     return Promise.resolve({})
   }
   return apiFetch(`/v1/branches/${ifsc}`, { method: 'DELETE' })
+}
+
+async function generateRegistrationCode(branchId) {
+  if (USE_MOCK) {
+    // Generate a mock code client-side in demo mode
+    const prefix = (BANK_CONFIG.bank_id || 'DEMO').slice(0, 4).toUpperCase().replace(/-/g, '').padEnd(4, 'X')
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
+    const code = prefix + rand
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    return { code, branch_id: branchId, expires_at: expires }
+  }
+  return apiFetch('/v1/cts/admin/scanner/registration-code', {
+    method: 'POST',
+    body: JSON.stringify({ branch_id: branchId }),
+  })
 }
 
 async function previewImport(file) {
@@ -570,6 +585,165 @@ function ImportModal({ isDark, onClose, qc }) {
   )
 }
 
+// ── Scanner Registration Modal ────────────────────────────────────────────────
+// Shown when ops_manager clicks "Register Scanner" on an SDK_PUSH branch.
+// Calls POST /v1/cts/admin/scanner/registration-code → shows 8-char code.
+// IT admin reads this code to the branch IT coordinator over phone/email.
+// Branch IT runs the ASTRA installer wizard and enters this code.
+// Code is single-use and expires in 24 hours.
+
+function ScannerRegistrationModal({ branch, isDark, onClose }) {
+  const [step, setStep]       = useState('idle')  // idle | loading | done | error
+  const [codeData, setCodeData] = useState(null)
+  const [err, setErr]         = useState('')
+  const [copied, setCopied]   = useState(false)
+  const [secsLeft, setSecsLeft] = useState(null)
+
+  // Countdown timer — updates every second once code is generated
+  useEffect(() => {
+    if (!codeData?.expires_at) return
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((new Date(codeData.expires_at) - Date.now()) / 1000))
+      setSecsLeft(diff)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [codeData?.expires_at])
+
+  async function handleGenerate() {
+    setStep('loading')
+    setErr('')
+    try {
+      const data = await generateRegistrationCode(branch.branch_id ?? branch.branch_ifsc)
+      setCodeData(data)
+      setStep('done')
+    } catch (e) {
+      setErr(e.message)
+      setStep('error')
+    }
+  }
+
+  function handleCopy() {
+    if (!codeData?.code) return
+    navigator.clipboard.writeText(codeData.code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const formatCountdown = (s) => {
+    if (s === null) return '—'
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = s % 60
+    return `${h}h ${m}m ${sec}s`
+  }
+
+  const th = {
+    card:   isDark ? 'bg-white/5 border border-white/10 rounded-lg p-4' : 'bg-slate-50 border border-slate-200 rounded-lg p-4',
+    body:   isDark ? 'text-slate-300 text-sm' : 'text-slate-700 text-sm',
+    muted:  isDark ? 'text-slate-400 text-xs' : 'text-slate-500 text-xs',
+    code:   isDark ? 'bg-navy-950 border border-white/15 rounded-xl px-8 py-5 text-center'
+                   : 'bg-slate-100 border border-slate-300 rounded-xl px-8 py-5 text-center',
+  }
+  const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
+
+  return (
+    <Modal title={`Register Scanner — ${branch.branch_name}`} onClose={onClose} isDark={isDark}>
+      {step === 'idle' && (
+        <div className="space-y-4">
+          <div className={th.card}>
+            <p className={th.body}>
+              This will generate a <strong>one-time 8-character registration code</strong> for{' '}
+              <strong>{branch.branch_name}</strong> ({branch.branch_ifsc}).
+            </p>
+            <p className={`mt-2 ${th.muted}`}>
+              Read this code to your branch IT coordinator over phone or secure email.
+              They enter it in the ASTRA installer wizard — the installer contacts this
+              server, verifies the code, and writes the correct branch configuration
+              automatically. The IT admin never types a branch ID.
+            </p>
+            <p className={`mt-2 ${th.muted}`}>
+              The code expires in <strong>24 hours</strong> and is <strong>single-use</strong>.
+              Generating a new code invalidates any previous pending code for this branch.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>Cancel</button>
+            <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleGenerate}>
+              Generate Code
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'loading' && (
+        <div className={`text-center py-8 ${th.muted}`}>Generating…</div>
+      )}
+
+      {step === 'done' && codeData && (
+        <div className="space-y-4">
+          {/* The code — large, easy to read aloud */}
+          <div className={th.code}>
+            <p className={`text-xs font-medium mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Registration Code for {branch.branch_name}
+            </p>
+            <p className={`text-4xl font-bold tracking-[0.25em] font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {codeData.code}
+            </p>
+            <p className={`mt-3 text-xs ${secsLeft < 3600 ? 'text-amber-400' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Expires in {formatCountdown(secsLeft)}
+            </p>
+          </div>
+
+          {/* Instructions for the IT admin to relay */}
+          <div className={th.card}>
+            <p className={`text-xs font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+              Tell the branch IT coordinator:
+            </p>
+            <ol className={`${th.muted} space-y-1 list-decimal list-inside`}>
+              <li>Run <strong>ASTRA-Scanner-Setup-{'{version}'}.exe</strong> as Administrator</li>
+              <li>Enter server URL: <span className="font-mono">{window.location.origin}</span></li>
+              <li>Enter registration code: <span className="font-mono font-bold">{codeData.code}</span></li>
+              <li>Click <strong>Verify →</strong> — branch details appear automatically</li>
+              <li>Complete the wizard to install the Windows service</li>
+            </ol>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              className={`${btnCls} ${isDark ? 'border border-white/15 text-slate-300 hover:bg-white/6' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+              onClick={handleCopy}
+            >
+              {copied ? '✓ Copied' : 'Copy Code'}
+            </button>
+            <button
+              className={`${btnCls} ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}
+              onClick={handleGenerate}
+            >
+              Regenerate
+            </button>
+            <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={onClose}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'error' && (
+        <div className="space-y-4">
+          <p className="text-red-400 text-sm">{err}</p>
+          <div className="flex justify-end gap-3">
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>Cancel</button>
+            <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleGenerate}>Retry</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 function DeleteConfirmModal({ branch, isDark, onClose, onConfirm }) {
   const bodyText = isDark ? 'text-slate-300 text-sm' : 'text-slate-700 text-sm'
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
@@ -760,6 +934,19 @@ export default function CTSBranchMaster() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
+                      {/* Register Scanner — only for SDK_PUSH active branches */}
+                      {b.is_active && b.scanner_input_mode === 'SDK_PUSH' && (
+                        <button
+                          title="Generate one-time installer registration code"
+                          className={`p-1.5 rounded transition-colors text-violet-400 hover:text-violet-300 ${isDark ? 'hover:bg-violet-900/30' : 'hover:bg-violet-50'}`}
+                          onClick={() => { setSelected(b); setModal('register-scanner') }}
+                        >
+                          {/* Key icon */}
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         title="Edit branch"
                         className={`p-1.5 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
@@ -845,6 +1032,13 @@ export default function CTSBranchMaster() {
       )}
       {modal === 'import' && (
         <ImportModal isDark={isDark} onClose={() => setModal(null)} qc={qc} />
+      )}
+      {modal === 'register-scanner' && selected && (
+        <ScannerRegistrationModal
+          isDark={isDark}
+          branch={selected}
+          onClose={() => setModal(null)}
+        />
       )}
 
       {/* Toast */}

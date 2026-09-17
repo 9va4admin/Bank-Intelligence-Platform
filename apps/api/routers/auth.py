@@ -26,6 +26,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
+import os as _os
+
 from shared.auth.auth_service import AuthService, LoginOutcome
 from shared.auth.exceptions import (
     AccountLockedError,
@@ -123,13 +125,16 @@ class SessionResponse(BaseModel):
 # Cookie helpers
 # --------------------------------------------------------------------------- #
 
+_SECURE_COOKIE = _os.environ.get("ASTRA_ENV", "production") != "development"
+
+
 def _set_session_cookie(response: Response, issued: IssuedSession) -> None:
     response.set_cookie(
         key=_COOKIE,
         value=issued.token,
         max_age=max(1, int(issued.expires_at - time.time())),
         httponly=True,
-        secure=True,
+        secure=_SECURE_COOKIE,
         samesite="strict",
         path="/",
     )
@@ -189,6 +194,13 @@ async def login(
         )
 
     _set_session_cookie(response, result.interim_session)
+    if result.outcome == LoginOutcome.DEV_BYPASS:
+        # Full session already issued — signal frontend to skip MFA step.
+        return LoginResponse(
+            outcome=result.outcome.value,
+            requires="none",
+            csrf_token=result.interim_session.csrf_token,
+        )
     requires = "mfa_code" if result.outcome == LoginOutcome.MFA_REQUIRED else "mfa_enrollment"
     return LoginResponse(
         outcome=result.outcome.value,
@@ -275,17 +287,39 @@ async def logout(
     # even if the httpOnly cookie was captured (e.g., network intercept, XSS on a
     # misconfigured CSP). TTL = remaining session lifetime so Redis auto-expires it.
     token = request.cookies.get(_COOKIE)
-    if token and redis is not None:
+    if token:
         session_service = getattr(request.app.state, "session_service", None)
         if session_service is not None:
             try:
+                import datetime as _dt
                 claims = session_service.validate(token)
                 remaining_ttl = max(1, int(claims.expires_at - time.time()))
-                await redis.setex(
-                    f"revoked:session:{claims.session_id}",
-                    remaining_ttl,
-                    "1",
-                )
+                expires_dt = _dt.datetime.fromtimestamp(claims.expires_at, tz=_dt.timezone.utc)
+
+                # Primary: Redis (fast lookup on every request)
+                if redis is not None:
+                    await redis.setex(
+                        f"revoked:session:{claims.session_id}",
+                        remaining_ttl,
+                        "1",
+                    )
+
+                # Fallback: YugabyteDB (survives Redis restart)
+                db = getattr(request.app.state, "db_pool_cts", None)
+                if db is not None:
+                    await db.execute(
+                        """
+                        INSERT INTO cts.revoked_sessions
+                            (session_id, bank_id, user_id, revoked_at, expires_at)
+                        VALUES ($1, $2, $3, now(), $4)
+                        ON CONFLICT (session_id) DO NOTHING
+                        """,
+                        claims.session_id,
+                        claims.bank_id,
+                        claims.user_id,
+                        expires_dt,
+                    )
+
                 log.info(
                     "auth.session_revoked",
                     bank_id=claims.bank_id,

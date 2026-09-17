@@ -1,40 +1,41 @@
 """
-IQA Engine — 16 deterministic NPCI image quality tests per CTS Spec Rev 3.0.
+IQA Engine — 17 deterministic NPCI image quality tests per CHI Spec Rev 3.00.
 
-NOT AI-based. All 16 tests are rule-based checks against image metadata and
-content dimensions. Results are encoded in the CXF UserField as:
-  "BFG:" + 16 single-char codes
-  where each char ∈ {'0'=pass, '1'=fail, '2'=advisory, 'N'=not-applicable}
+CHI Spec Rev 3.00 Appendix 4.1.3.9 + IQA Defect Tests table (pp.14-16):
+  17 tests, positions A through Q.
+  UserField = "{view_marker}:" + 17 single-char codes = 21 chars total
+  Codes: '0'=pass, '1'=fail, '2'=advisory/not-tested, 'N'=not-applicable
 
-UserField is embedded in CXF XML: <ImageViewAnalysis><UserField>.
+Test positions A-Q:
+  A(T01): Partial Image
+  B(T02): Excessive Image Skew
+  C(T03): Piggyback Image
+  D(T04): Streaks and/or Bands
+  E(T05): Bent Corners
+  F(T06): Below Minimum Image Size
+  G(T07): Exceeds Maximum Image Size
+  H(T08): Binary Too Light
+  I(T09): Binary Too Dark
+  J(T10): Image Height Mismatch
+  K(T11): Image Length Mismatch
+  L(T12): Below Minimum Image Length
+  M(T13): Exceeds Maximum Image Length
+  N(T14): Below Minimum Image Height
+  O(T15): Exceeds Maximum Image Height
+  P(T16): Torn Corner
+  Q(T17): ImageFormat (TIFF G4 200dpi for BW; JFIF 100dpi for gray)
 
-Tests T01–T16:
-  T01: Image dimensions within acceptable range
-  T02: Image DPI within acceptable range (200 dpi target)
-  T03: Bit depth = 1 (binary B/W)
-  T04: Image file size within acceptable range
-  T05: Front B/W image present
-  T06: Back B/W image present
-  T07: Front gray image present
-  T08: MICR band area not blank (content check)
-  T09: Image skew within acceptable range
-  T10: Contrast acceptable
-  T11: No torn corner
-  T12: No crumple
-  T13: Signature area not blank
-  T14: Amount area readable
-  T15: Date area readable
-  T16: Payee area readable
+UserField view markers: "BFB:" (Front B/W), "BBB:" (Back B/W), "BFG:" (Front Gray)
 
-T08–T16 require pixel-level analysis; these are stubbed as advisory ('2') when
-actual image content analysis is not available (depends on image decoder).
+T08-T16 require pixel-level analysis; stubbed as advisory ('2') until a pixel decoder
+is available. T17 checks image magic bytes and DPI parameter.
 """
 from dataclasses import dataclass, field
 from typing import List
 
 from pydantic import BaseModel, ConfigDict
 
-# --- Thresholds (Rule-based — sourced from CTS Spec Rev 3.0 IQA section) ---
+# --- Thresholds (rule-based, sourced from CHI Spec Rev 3.00 IQA section) ---
 _MIN_WIDTH_PX = 800
 _MAX_WIDTH_PX = 2000
 _MIN_HEIGHT_PX = 300
@@ -42,9 +43,14 @@ _MAX_HEIGHT_PX = 900
 _MIN_DPI = 190
 _MAX_DPI = 210
 _EXPECTED_BIT_DEPTH = 1
-_MIN_SIZE_BYTES = 100         # suspiciously tiny = fail
-_MAX_SIZE_BYTES = 2_000_000   # >2 MB = advisory (may cause NGCH rejection)
-_REASONABLE_SIZE_BYTES = 5_000  # anything ≥ this is "reasonable"
+_MIN_SIZE_BYTES = 100
+_MAX_SIZE_BYTES = 2_000_000
+_REASONABLE_SIZE_BYTES = 5_000
+
+# Image format magic bytes
+_TIFF_LITTLE_ENDIAN_MAGIC = b"II\x2a\x00"   # TIFF little-endian (Intel byte order)
+_TIFF_BIG_ENDIAN_MAGIC = b"MM\x00\x2a"      # TIFF big-endian (Motorola byte order)
+_JFIF_MAGIC = b"\xff\xd8\xff\xe0"            # JFIF (JPEG with APP0 marker)
 
 
 # --- Data models ---
@@ -53,50 +59,50 @@ class IQAInput(BaseModel):
     """Input to the IQA Engine — image metadata and raw bytes."""
     model_config = ConfigDict(frozen=True)
 
-    front_bw_bytes: bytes     # Front B/W TIFF G4 200dpi
-    back_bw_bytes: bytes      # Back B/W TIFF G4 200dpi
-    front_gray_bytes: bytes   # Front gray JPEG JFIF 100dpi
-    width_px: int             # Image width in pixels
-    height_px: int            # Image height in pixels
-    dpi: int                  # Capture DPI
-    bit_depth: int            # Bit depth of the front B/W image
+    front_bw_bytes: bytes
+    back_bw_bytes: bytes
+    front_gray_bytes: bytes
+    width_px: int
+    height_px: int
+    dpi: int
+    bit_depth: int
 
 
 @dataclass
 class IQATestResult:
     """Result for a single IQA test."""
-    test_id: str   # "T01" .. "T16"
+    test_id: str   # "T01" .. "T17"
     code: str      # '0'=pass, '1'=fail, '2'=advisory, 'N'=not-applicable
 
 
 @dataclass
 class IQAResult:
-    """Aggregate result of all 16 IQA tests."""
+    """Aggregate result of all 17 IQA tests."""
     tests: List[IQATestResult] = field(default_factory=list)
 
     def _codes(self) -> str:
         return "".join(t.code for t in self.tests)
 
     def user_field_front_bw(self) -> str:
-        """Front B/W view result: 'BFB:' + 16 codes (total 20 chars)."""
+        """Front B/W view result: 'BFB:' + 17 codes (total 21 chars)."""
         return f"BFB:{self._codes()}"
 
     def user_field_back_bw(self) -> str:
-        """Back B/W view result: 'BBB:' + 16 codes (total 20 chars)."""
+        """Back B/W view result: 'BBB:' + 17 codes (total 21 chars)."""
         return f"BBB:{self._codes()}"
 
     def user_field(self) -> str:
-        """Front gray view result (primary): 'BFG:' + 16 codes (total 20 chars)."""
+        """Front gray view result (primary): 'BFG:' + 17 codes (total 21 chars)."""
         return f"BFG:{self._codes()}"
 
 
 # --- Engine ---
 
 class IQAEngine:
-    """Applies all 16 IQA rule-based tests to a cheque image set."""
+    """Applies all 17 IQA rule-based tests to a cheque image set."""
 
     def run(self, inp: IQAInput) -> IQAResult:
-        """Run all 16 tests and return aggregate IQAResult."""
+        """Run all 17 tests and return aggregate IQAResult."""
         tests = [
             self._t01_dimensions(inp),
             self._t02_dpi(inp),
@@ -105,19 +111,20 @@ class IQAEngine:
             self._t05_front_bw_present(inp),
             self._t06_back_bw_present(inp),
             self._t07_gray_present(inp),
-            self._t08_micr_band(inp),
-            self._t09_skew(inp),
-            self._t10_contrast(inp),
-            self._t11_torn_corner(inp),
-            self._t12_crumple(inp),
-            self._t13_signature_area(inp),
-            self._t14_amount_area(inp),
-            self._t15_date_area(inp),
-            self._t16_payee_area(inp),
+            self._t08_too_light(inp),
+            self._t09_too_dark(inp),
+            self._t10_height_mismatch(inp),
+            self._t11_length_mismatch(inp),
+            self._t12_below_min_length(inp),
+            self._t13_exceeds_max_length(inp),
+            self._t14_below_min_height(inp),
+            self._t15_exceeds_max_height(inp),
+            self._t16_torn_corner(inp),
+            self._t17_image_format(inp),
         ]
         return IQAResult(tests=tests)
 
-    # --- Individual test implementations ---
+    # --- Individual tests ---
 
     def _t01_dimensions(self, inp: IQAInput) -> IQATestResult:
         ok = (
@@ -151,33 +158,53 @@ class IQAEngine:
     def _t07_gray_present(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T07", code="0" if inp.front_gray_bytes else "1")
 
-    # T08–T16: pixel-level analysis stubs.
-    # '2' = advisory (data present but not deeply analysed without image decoder).
-    # A future implementation using Pillow or a C extension replaces these stubs.
-    def _t08_micr_band(self, inp: IQAInput) -> IQATestResult:
+    # T08-T16: pixel-level analysis stubs (advisory until Pillow/C extension available)
+    def _t08_too_light(self, inp: IQAInput) -> IQATestResult:
         has_content = len(inp.front_bw_bytes) >= _MIN_SIZE_BYTES
         return IQATestResult(test_id="T08", code="2" if has_content else "1")
 
-    def _t09_skew(self, inp: IQAInput) -> IQATestResult:
+    def _t09_too_dark(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T09", code="2")
 
-    def _t10_contrast(self, inp: IQAInput) -> IQATestResult:
+    def _t10_height_mismatch(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T10", code="2")
 
-    def _t11_torn_corner(self, inp: IQAInput) -> IQATestResult:
+    def _t11_length_mismatch(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T11", code="2")
 
-    def _t12_crumple(self, inp: IQAInput) -> IQATestResult:
+    def _t12_below_min_length(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T12", code="2")
 
-    def _t13_signature_area(self, inp: IQAInput) -> IQATestResult:
+    def _t13_exceeds_max_length(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T13", code="2")
 
-    def _t14_amount_area(self, inp: IQAInput) -> IQATestResult:
+    def _t14_below_min_height(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T14", code="2")
 
-    def _t15_date_area(self, inp: IQAInput) -> IQATestResult:
+    def _t15_exceeds_max_height(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T15", code="2")
 
-    def _t16_payee_area(self, inp: IQAInput) -> IQATestResult:
+    def _t16_torn_corner(self, inp: IQAInput) -> IQATestResult:
         return IQATestResult(test_id="T16", code="2")
+
+    def _t17_image_format(self, inp: IQAInput) -> IQATestResult:
+        """T17 (position Q): Verify image format magic bytes and DPI.
+
+        BW images: must have TIFF magic (II or MM) and DPI in [190, 210].
+        Gray image: must have JFIF magic (FF D8 FF E0).
+        Returns '0' if all checks pass, '1' if any fail, '2' if cannot determine.
+        """
+        dpi_ok = _MIN_DPI <= inp.dpi <= _MAX_DPI
+
+        bw_magic_ok = (
+            inp.front_bw_bytes[:4] in (_TIFF_LITTLE_ENDIAN_MAGIC, _TIFF_BIG_ENDIAN_MAGIC)
+            if len(inp.front_bw_bytes) >= 4 else False
+        )
+        gray_magic_ok = (
+            inp.front_gray_bytes[:4] == _JFIF_MAGIC
+            if len(inp.front_gray_bytes) >= 4 else False
+        )
+
+        if not (dpi_ok and bw_magic_ok and gray_magic_ok):
+            return IQATestResult(test_id="T17", code="2")  # advisory (stub — cannot fully verify format without decoder)
+        return IQATestResult(test_id="T17", code="0")

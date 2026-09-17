@@ -7,14 +7,18 @@ Routes under test:
   GET    /v1/cts/scanner/fleet                        — fleet status (all registrations for bank)
   GET    /v1/cts/scanner/{branch_ifsc}/status         — per-branch scanner status
   DELETE /v1/cts/scanner/{registration_id}            — deactivate registration
+  POST   /v1/cts/scanner/agent/heartbeat              — Go CGO agent heartbeat (machine token)
+  GET    /v1/cts/scanner/agent/status                 — branch scanner state: ACTIVE/IDLE/OFFLINE
 
 Auth model:
   - Admin routes (register/fleet/status/delete): JWT via get_current_user dependency
   - Heartbeat: Authorization: Bearer <registration_token>  — machine identity, never a user JWT
+  - Agent heartbeat: Authorization: Bearer <machine-token>  — Go CGO agent on teller PC
 """
 import hashlib
 import secrets
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import FastAPI
@@ -25,10 +29,12 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def clear_scanner_store():
-    from apps.api.routers.scanner import _SCANNER_STORE
+    from apps.api.routers.scanner import _SCANNER_STORE, _AGENT_STORE
     _SCANNER_STORE.clear()
+    _AGENT_STORE.clear()
     yield
     _SCANNER_STORE.clear()
+    _AGENT_STORE.clear()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -336,3 +342,168 @@ class TestDeactivate:
         reg_id, _ = _seed_registration(bank_id="other-bank")
         r = _client("bank_it_admin").delete(f"/v1/cts/scanner/{reg_id}")
         assert r.status_code == 404
+
+
+# ── POST /agent/heartbeat ─────────────────────────────────────────────────────
+# Go CGO edge agent on the teller PC calls this every 30 seconds.
+# Auth: Bearer <machine token> — never a user JWT.
+# Route must be declared BEFORE /{registration_id}/heartbeat to avoid FastAPI
+# treating the literal "agent" as a registration_id path param.
+
+class TestAgentHeartbeat:
+    _PAYLOAD = {"bank_id": "test-bank", "branch_id": "br-001", "active_session_id": ""}
+
+    def _post(self, token: str = "dev-machine-token-xyz", payload=None) -> object:
+        app = FastAPI()
+        from apps.api.routers.scanner import router_v1
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        return client.post(
+            "/v1/cts/scanner/agent/heartbeat",
+            json=payload or self._PAYLOAD,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    def test_any_bearer_token_accepted_in_dev_mode(self):
+        """Dev/test: no DB, so any Bearer token auto-registers and returns OK."""
+        r = self._post()
+        assert r.status_code == 200
+        assert r.json()["status"] == "OK"
+
+    def test_route_not_captured_by_registration_id_param(self):
+        """Critical: /agent/heartbeat must NOT match /{registration_id}/heartbeat.
+        Before the fix, FastAPI treated 'agent' as a registration_id and returned 404."""
+        r = self._post()
+        # If routing is broken, the SDK heartbeat handler runs and returns 401/404
+        # (no matching registration). The agent endpoint must return 200.
+        assert r.status_code == 200
+
+    def test_missing_authorization_header_returns_401(self):
+        app = FastAPI()
+        from apps.api.routers.scanner import router_v1
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post("/v1/cts/scanner/agent/heartbeat", json=self._PAYLOAD)
+        assert r.status_code == 401
+
+    def test_non_bearer_authorization_returns_401(self):
+        app = FastAPI()
+        from apps.api.routers.scanner import router_v1
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post(
+            "/v1/cts/scanner/agent/heartbeat",
+            json=self._PAYLOAD,
+            headers={"Authorization": "Basic dXNlcjpwYXNz"},
+        )
+        assert r.status_code == 401
+
+    def test_second_heartbeat_same_token_returns_ok(self):
+        """Token already in _AGENT_STORE — second call still returns OK."""
+        r1 = self._post("stable-token-abc")
+        r2 = self._post("stable-token-abc")
+        assert r1.status_code == 200
+        assert r2.status_code == 200
+
+    def test_heartbeat_stores_active_session_id(self):
+        """When active_session_id is provided it is persisted in _AGENT_STORE."""
+        token = "session-token-def"
+        self._post(
+            token,
+            {"bank_id": "test-bank", "branch_id": "br-001", "active_session_id": "SES-123"},
+        )
+        from apps.api.routers.scanner import _AGENT_STORE
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        assert _AGENT_STORE[token_hash]["active_session_id"] == "SES-123"
+
+    def test_heartbeat_updates_last_seen(self):
+        token = "ts-token-ghi"
+        self._post(token)
+        from apps.api.routers.scanner import _AGENT_STORE
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        last_seen = _AGENT_STORE[token_hash]["last_seen"]
+        assert last_seen is not None
+
+
+# ── GET /agent/status ─────────────────────────────────────────────────────────
+# Returns ACTIVE / IDLE / OFFLINE for a branch's scanner agent.
+# Used by the Branch Dashboard's status pill.
+# Auth: JWT (ops_manager, bank_it_admin).
+
+class TestAgentStatus:
+    def _seed_agent(
+        self,
+        token: str = "status-token",
+        bank_id: str = "test-bank",
+        branch_id: str = "br-001",
+        last_seen_offset_seconds: int = 30,  # seconds ago (positive = in the past)
+        active_session_id: str = "",
+    ) -> str:
+        from apps.api.routers.scanner import _AGENT_STORE
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        last_seen = datetime.now(timezone.utc) - timedelta(seconds=last_seen_offset_seconds)
+        _AGENT_STORE[token_hash] = {
+            "bank_id": bank_id,
+            "branch_id": branch_id,
+            "token_hash": token_hash,
+            "last_seen": last_seen.isoformat(),
+            "active_session_id": active_session_id,
+        }
+        return token_hash
+
+    def _get_status(self, branch_id: str = "br-001", role: str = "ops_manager"):
+        from apps.api.routers.scanner import router_v1, get_current_user
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_user] = lambda: {
+            "bank_id": "test-bank",
+            "user_id": "user-001",
+            "role": role,
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+        return client.get(f"/v1/cts/scanner/agent/status?branch_id={branch_id}")
+
+    def test_active_session_returns_active(self):
+        self._seed_agent(last_seen_offset_seconds=20, active_session_id="SES-001")
+        r = self._get_status()
+        assert r.status_code == 200
+        assert r.json()["state"] == "ACTIVE"
+
+    def test_recent_heartbeat_no_session_returns_idle(self):
+        self._seed_agent(last_seen_offset_seconds=20, active_session_id="")
+        r = self._get_status()
+        assert r.status_code == 200
+        assert r.json()["state"] == "IDLE"
+
+    def test_stale_heartbeat_returns_offline(self):
+        self._seed_agent(last_seen_offset_seconds=120, active_session_id="")
+        r = self._get_status()
+        assert r.status_code == 200
+        assert r.json()["state"] == "OFFLINE"
+
+    def test_no_heartbeat_ever_returns_offline(self):
+        """Branch never connected — no entry in _AGENT_STORE."""
+        r = self._get_status(branch_id="never-seen-branch")
+        assert r.status_code == 200
+        assert r.json()["state"] == "OFFLINE"
+
+    def test_unauthenticated_returns_401(self):
+        from apps.api.routers.scanner import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/v1/cts/scanner/agent/status?branch_id=br-001")
+        assert r.status_code == 401
+
+    def test_ops_reviewer_returns_403(self):
+        r = self._get_status(role="ops_reviewer")
+        assert r.status_code == 403
+
+    def test_response_includes_branch_id_and_last_seen(self):
+        self._seed_agent(last_seen_offset_seconds=10, active_session_id="SES-002")
+        r = self._get_status()
+        assert r.status_code == 200
+        body = r.json()
+        assert body["branch_id"] == "br-001"
+        assert "last_seen" in body
+        assert body["last_seen"] is not None

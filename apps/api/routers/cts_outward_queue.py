@@ -22,7 +22,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from apps.api.routers.cts import get_current_user_context
+from apps.api.routers.cts_deps import get_current_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer

@@ -13,7 +13,7 @@
  *   compact  boolean   — reduced chrome for hover popups
  *   title    string    — e.g. instrument_id shown in lightbox
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ── SVG placeholder generator ─────────────────────────────────────────────────
 
@@ -23,13 +23,13 @@ function _x(s) {
 }
 
 function _svgFront(fields = {}, gray = false, iqaFailReason = null) {
-  const payee      = _x(fields.payee          || 'Sample Payee Name')
+  const payee      = _x(fields.payee          || '—')
   // drawer_name is the bank pre-printed account holder name — never falls back to payee
   const drawerName = _x(fields.drawer_name    || '')
-  const date       = fields.date               || '07/07/2026'
-  const figStr     = _x((fields.amount_figures || '₹50,000').replace('₹', '').trim())
-  const words      = _x(fields.amount_words   || 'Fifty Thousand Only')
-  const micr       = fields.micr               || '000012340050000012100000000005000123456789'
+  const date       = fields.date               || '—'
+  const figStr     = _x((fields.amount_figures || '—').replace('₹', '').trim())
+  const words      = _x(fields.amount_words   || '—')
+  const micr       = fields.micr               || '—'
   const altered    = fields.alterations        || false
   const bankName   = _x(fields.bank_name      || 'SARASWAT CO-OP. BANK LTD.')
   const bankBranch = _x(fields.bank_branch    || 'Fort Branch, Mumbai — 400 001')
@@ -262,9 +262,9 @@ function _svgFront(fields = {}, gray = false, iqaFailReason = null) {
 }
 
 function _svgBack(fields = {}) {
-  const micr     = fields.micr || '000012340050000012100000000005000123456789'
+  const micr     = fields.micr || '—'
   const bankMicr = fields.bank_micr || '400015002'
-  const payee    = fields.payee || 'Sample Payee Name'
+  const payee    = fields.payee || '—'
   const ink    = '#111111'
   const light  = '#444444'
   const micrBg = '#f2f2f2'
@@ -347,52 +347,136 @@ function IQABadge({ score, isDark }) {
   )
 }
 
-// ── Lightbox ──────────────────────────────────────────────────────────────────
+// ── Lightbox with zoom / pan / contrast ──────────────────────────────────────
 
 function Lightbox({ src, label, title, onClose, isDark }) {
+  const [zoom, setZoom]         = useState(1)
+  const [panX, setPanX]         = useState(0)
+  const [panY, setPanY]         = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [contrast, setContrast]   = useState(100)
+  const [brightness, setBrightness] = useState(100)
+  const [showControls, setShowControls] = useState(false)
+  const dragStart = useRef(null)
+  const imgRef = useRef(null)
+
   useEffect(() => {
     const fn = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', fn)
     return () => window.removeEventListener('keydown', fn)
   }, [onClose])
 
+  // Wheel zoom
+  const onWheel = useCallback((e) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.2 : 0.2
+    setZoom(z => Math.min(5, Math.max(1, z + delta)))
+    if (zoom <= 1) { setPanX(0); setPanY(0) }
+  }, [zoom])
+
+  useEffect(() => {
+    const el = imgRef.current?.parentElement
+    if (!el) return
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [onWheel])
+
+  // Pan (only when zoomed)
+  const onMouseDown = useCallback((e) => {
+    if (zoom <= 1) return
+    setDragging(true)
+    dragStart.current = { x: e.clientX - panX, y: e.clientY - panY }
+  }, [zoom, panX, panY])
+
+  const onMouseMove = useCallback((e) => {
+    if (!dragging || !dragStart.current) return
+    setPanX(e.clientX - dragStart.current.x)
+    setPanY(e.clientY - dragStart.current.y)
+  }, [dragging])
+
+  const onMouseUp = useCallback(() => {
+    setDragging(false)
+    dragStart.current = null
+  }, [])
+
+  const resetView = () => { setZoom(1); setPanX(0); setPanY(0); setContrast(100); setBrightness(100) }
+
+  const imgStyle = {
+    imageRendering: 'crisp-edges',
+    transform: `scale(${zoom}) translate(${panX / zoom}px, ${panY / zoom}px)`,
+    transition: dragging ? 'none' : 'transform 0.12s ease',
+    filter: `contrast(${contrast}%) brightness(${brightness}%)`,
+    cursor: zoom > 1 ? (dragging ? 'grabbing' : 'grab') : 'zoom-in',
+    transformOrigin: 'center center',
+  }
+
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm"
-      onClick={onClose}
+      className="fixed inset-0 z-[9999] flex flex-col bg-black/95 backdrop-blur-sm"
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
     >
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-3 bg-black/60">
-        <div className="text-xs text-slate-300">
-          <span className="text-white font-semibold">{label}</span>
-          {title && <span className="ml-2 text-slate-500 font-mono">{title}</span>}
+      {/* Top toolbar */}
+      <div className="flex items-center justify-between px-5 py-3 bg-black/70 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-white font-semibold text-sm">{label}</span>
+          {title && <span className="text-slate-500 font-mono text-xs">{title}</span>}
         </div>
-        <div className="flex items-center gap-4">
-          <a
-            href={src}
-            download
-            onClick={(e) => e.stopPropagation()}
-            className="text-[11px] text-slate-400 hover:text-white transition-colors px-3 py-1 rounded border border-white/20 hover:border-white/40"
-          >
-            ↓ Download
-          </a>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white text-lg leading-none"
-          >
-            ✕
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Zoom controls */}
+          <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="text-slate-300 hover:text-white w-7 h-7 rounded border border-white/20 hover:border-white/40 flex items-center justify-center text-base">+</button>
+          <span className="text-xs text-slate-400 font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => { setZoom(z => Math.max(1, z - 0.25)); if (zoom <= 1.25) { setPanX(0); setPanY(0) } }} className="text-slate-300 hover:text-white w-7 h-7 rounded border border-white/20 hover:border-white/40 flex items-center justify-center text-base">−</button>
+          <button onClick={resetView} title="Reset view" className="text-[11px] text-slate-400 hover:text-white px-2 h-7 rounded border border-white/20 hover:border-white/40">Reset</button>
+          {/* Adjustments */}
+          <button onClick={() => setShowControls(v => !v)} className={`text-[11px] px-2 h-7 rounded border transition-colors ${showControls ? 'border-amber-400/60 text-amber-300' : 'border-white/20 text-slate-400 hover:text-white hover:border-white/40'}`}>Adjust</button>
+          <a href={src} download onClick={e => e.stopPropagation()} className="text-[11px] text-slate-400 hover:text-white px-3 h-7 rounded border border-white/20 hover:border-white/40 flex items-center">↓ Save</a>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-lg w-7 h-7 flex items-center justify-center">✕</button>
         </div>
       </div>
-      {/* Image */}
-      <img
-        src={src}
-        alt={label}
-        onClick={(e) => e.stopPropagation()}
-        className="max-w-[90vw] max-h-[80vh] object-contain rounded shadow-2xl border border-white/10"
-        style={{ imageRendering: 'crisp-edges' }}
-      />
-      <div className="absolute bottom-4 text-[11px] text-slate-500">Click anywhere or press Esc to close</div>
+
+      {/* Adjustment bar (collapsible) */}
+      {showControls && (
+        <div className="flex items-center gap-6 px-5 py-2.5 bg-black/50 border-b border-white/8 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 w-16">Contrast</span>
+            <input type="range" min={50} max={200} value={contrast} onChange={e => setContrast(Number(e.target.value))}
+              className="w-32 h-1 accent-amber-400" />
+            <span className="text-[11px] text-slate-400 font-mono w-8">{contrast}%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 w-16">Brightness</span>
+            <input type="range" min={50} max={200} value={brightness} onChange={e => setBrightness(Number(e.target.value))}
+              className="w-32 h-1 accent-amber-400" />
+            <span className="text-[11px] text-slate-400 font-mono w-8">{brightness}%</span>
+          </div>
+          <button onClick={() => { setContrast(100); setBrightness(100) }} className="text-[11px] text-slate-500 hover:text-white">Reset filters</button>
+        </div>
+      )}
+
+      {/* Image area */}
+      <div className="flex-1 flex items-center justify-center overflow-hidden" onClick={zoom <= 1 ? onClose : undefined}>
+        <img
+          ref={imgRef}
+          src={src}
+          alt={label}
+          style={imgStyle}
+          className="max-w-[90vw] max-h-full object-contain rounded shadow-2xl border border-white/10 select-none"
+          onMouseDown={onMouseDown}
+          onClick={e => e.stopPropagation()}
+          draggable={false}
+        />
+      </div>
+
+      {/* Bottom hint */}
+      <div className="flex items-center justify-center gap-4 py-2 text-[10px] text-slate-600 shrink-0">
+        <span>Scroll to zoom</span>
+        <span>·</span>
+        <span>Drag to pan when zoomed</span>
+        <span>·</span>
+        <span>Click background or Esc to close</span>
+      </div>
     </div>
   )
 }
@@ -484,9 +568,12 @@ export default function ChequeImageViewer({
 
   const activeView = views?.find(v => v.key === activeKey) ?? views?.[0]
 
-  const src = activeView?.url ?? makePlaceholderDataUrl(activeView?.key, fields)
+  // BBB with no URL → show N/A panel; other views fall back to SVG placeholder
+  const noRear = activeView?.key === 'BBB' && !activeView?.url
+  const src = noRear ? null : (activeView?.url ?? makePlaceholderDataUrl(activeView?.key, fields))
 
   const openLightbox = useCallback(() => {
+    if (!src) return
     setLightbox({ src, label: activeView?.label ?? '', title })
   }, [src, activeView, title])
 
@@ -503,7 +590,7 @@ export default function ChequeImageViewer({
     mock:   isDark ? 'text-slate-600' : 'text-slate-400',
   }
 
-  const isPlaceholder = !activeView?.url
+  const isPlaceholder = !noRear && !activeView?.url
 
   return (
     <>
@@ -536,45 +623,56 @@ export default function ChequeImageViewer({
               </span>
             )
           })()}
-          {/* Expand button */}
-          <button
-            onClick={openLightbox}
-            title="View full screen"
-            className={`ml-1 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
-          >
-            ⤢
-          </button>
-          {/* Download */}
-          <a
-            href={src}
-            download={`${title ? title + '_' : ''}${activeView?.key ?? 'cheque'}.${isPlaceholder ? 'svg' : 'jpg'}`}
-            className={`ml-0.5 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
-            title="Download image"
-          >
-            ↓
-          </a>
+          {/* Expand button — hidden when N/A */}
+          {!noRear && (
+            <button
+              onClick={openLightbox}
+              title="View full screen"
+              className={`ml-1 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
+            >
+              ⤢
+            </button>
+          )}
+          {/* Download — hidden when N/A */}
+          {!noRear && (
+            <a
+              href={src}
+              download={`${title ? title + '_' : ''}${activeView?.key ?? 'cheque'}.${isPlaceholder ? 'svg' : 'jpg'}`}
+              className={`ml-0.5 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
+              title="Download image"
+            >
+              ↓
+            </a>
+          )}
         </div>
 
         {/* Image area + optional deposit info panel side-by-side */}
         <div className={`flex ${compact ? 'h-[160px]' : 'h-[260px]'}`}>
-          {/* Cheque image */}
-          <div
-            className={`relative flex-1 overflow-hidden cursor-zoom-in ${th.imgWrap}`}
-            onClick={openLightbox}
-          >
-            <img
-              key={src}
-              src={src}
-              alt={activeView?.label}
-              className="w-full h-full object-contain transition-opacity duration-200"
-              style={{ imageRendering: 'crisp-edges' }}
-            />
-            {isPlaceholder && (
-              <div className={`absolute bottom-1 left-2 text-[9px] italic ${th.mock} pointer-events-none`}>
-                preview — real image from scanner/MinIO
-              </div>
-            )}
-          </div>
+          {/* Cheque image — or N/A panel for BBB with no rear scan */}
+          {noRear ? (
+            <div className={`relative flex-1 overflow-hidden flex flex-col items-center justify-center gap-2 ${th.imgWrap}`}>
+              <span className={`text-3xl font-bold tracking-widest ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>N/A</span>
+              <span className={`text-[11px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>No back image captured for this instrument</span>
+            </div>
+          ) : (
+            <div
+              className={`relative flex-1 overflow-hidden cursor-zoom-in ${th.imgWrap}`}
+              onClick={openLightbox}
+            >
+              <img
+                key={src}
+                src={src}
+                alt={activeView?.label}
+                className="w-full h-full object-contain transition-opacity duration-200"
+                style={{ imageRendering: 'crisp-edges' }}
+              />
+              {isPlaceholder && (
+                <div className={`absolute bottom-1 left-2 text-[9px] italic ${th.mock} pointer-events-none`}>
+                  preview — real image from scanner/MinIO
+                </div>
+              )}
+            </div>
+          )}
           {/* Deposit channel extracted data — shown only when depositInfo is provided */}
           {depositInfo?.channel && <DepositInfoPanel depositInfo={depositInfo} isDark={isDark} />}
         </div>
@@ -592,7 +690,7 @@ export default function ChequeImageViewer({
               </>
             )}
             <span className="flex-1" />
-            <span className="italic">{isPlaceholder ? 'No image URL — showing SVG preview' : 'Live scan image'}</span>
+            <span className="italic">{noRear ? 'No rear image' : isPlaceholder ? 'No image URL — showing SVG preview' : 'Live scan image'}</span>
           </div>
         )}
       </div>

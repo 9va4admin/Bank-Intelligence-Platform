@@ -15,7 +15,10 @@ from temporalio import activity
 
 from modules.cts.mcp.ngch_adapter import DuplicateFilingError, NGCHUnavailableError
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class NGCHFilerInput(BaseModel):
@@ -53,72 +56,75 @@ async def file_to_ngch(
     Raises DuplicateFilingError (non-retryable): already filed with this key.
     Raises NGCHUnavailableError (retryable): Temporal retries with NGCH_FILING_RETRY policy.
     """
-    try:
-        response = await ngch_adapter.file_decision(
-            instrument_id=inp.instrument_id,
-            decision=inp.decision,
-            workflow_id=inp.workflow_id,
-        )
-    except DuplicateFilingError:
-        log.warning(
-            "ngch_filer.duplicate_detected",
-            instrument_id=inp.instrument_id,
-            workflow_id=inp.workflow_id,
-        )
-        raise
-    except NGCHUnavailableError:
-        log.error(
-            "ngch_filer.ngch_unavailable",
-            instrument_id=inp.instrument_id,
-            workflow_id=inp.workflow_id,
-        )
-        raise
-
-    log.info(
-        "ngch_filer.filed",
-        instrument_id=inp.instrument_id,
-        decision=inp.decision,
-        acknowledgement_id=response.get("acknowledgement_id"),
-    )
-
-    await event_producer.publish(
-        topic=f"cts.decisions.{inp.bank_id}",
-        event_type="CTS_NGCH_FILED",
-        payload={
-            "instrument_id": inp.instrument_id,
-            "decision": inp.decision,
-            "acknowledgement_id": response.get("acknowledgement_id"),
-            "workflow_id": inp.workflow_id,
-        },
-        schema_version="1.0",
-    )
-
-    # Update cheque leaf vault — fire-and-forget; never blocks the return value
-    if cheque_leaf_vault is not None and inp.account_number and inp.cheque_number:
+    with tracer.start_as_current_span("activity.file_to_ngch") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
         try:
-            if inp.decision == "CONFIRM":
-                await cheque_leaf_vault.mark_paid(
-                    account_number=inp.account_number,
-                    cheque_number=inp.cheque_number,
-                    instrument_id=inp.instrument_id,
-                )
-            else:
-                await cheque_leaf_vault.mark_returned(
-                    account_number=inp.account_number,
-                    cheque_number=inp.cheque_number,
-                    instrument_id=inp.instrument_id,
-                    return_reason_code=inp.return_reason_code,
-                )
-        except Exception as _leaf_exc:
-            log.warning(
-                "ngch_filer.leaf_status_update_failed",
+            response = await ngch_adapter.file_decision(
                 instrument_id=inp.instrument_id,
                 decision=inp.decision,
-                error=str(_leaf_exc),
+                workflow_id=inp.workflow_id,
             )
+        except DuplicateFilingError:
+            log.warning(
+                "ngch_filer.duplicate_detected",
+                instrument_id=inp.instrument_id,
+                workflow_id=inp.workflow_id,
+            )
+            raise
+        except NGCHUnavailableError:
+            log.error(
+                "ngch_filer.ngch_unavailable",
+                instrument_id=inp.instrument_id,
+                workflow_id=inp.workflow_id,
+            )
+            raise
 
-    return NGCHFilerResult(
-        acknowledgement_id=response.get("acknowledgement_id", ""),
-        status=response.get("status", ""),
-        filed_decision=inp.decision,
-    )
+        log.info(
+            "ngch_filer.filed",
+            instrument_id=inp.instrument_id,
+            decision=inp.decision,
+            acknowledgement_id=response.get("acknowledgement_id"),
+        )
+
+        await event_producer.publish(
+            topic=f"cts.decisions.{inp.bank_id}",
+            event_type="CTS_NGCH_FILED",
+            payload={
+                "instrument_id": inp.instrument_id,
+                "decision": inp.decision,
+                "acknowledgement_id": response.get("acknowledgement_id"),
+                "workflow_id": inp.workflow_id,
+            },
+            schema_version="1.0",
+        )
+
+        # Update cheque leaf vault — fire-and-forget; never blocks the return value
+        if cheque_leaf_vault is not None and inp.account_number and inp.cheque_number:
+            try:
+                if inp.decision == "CONFIRM":
+                    await cheque_leaf_vault.mark_paid(
+                        account_number=inp.account_number,
+                        cheque_number=inp.cheque_number,
+                        instrument_id=inp.instrument_id,
+                    )
+                else:
+                    await cheque_leaf_vault.mark_returned(
+                        account_number=inp.account_number,
+                        cheque_number=inp.cheque_number,
+                        instrument_id=inp.instrument_id,
+                        return_reason_code=inp.return_reason_code,
+                    )
+            except Exception as _leaf_exc:
+                log.warning(
+                    "ngch_filer.leaf_status_update_failed",
+                    instrument_id=inp.instrument_id,
+                    decision=inp.decision,
+                    error=str(_leaf_exc),
+                )
+
+        return NGCHFilerResult(
+            acknowledgement_id=response.get("acknowledgement_id", ""),
+            status=response.get("status", ""),
+            filed_decision=inp.decision,
+        )

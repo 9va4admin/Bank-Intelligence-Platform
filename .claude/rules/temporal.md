@@ -1,3 +1,9 @@
+---
+globs:
+  - "modules/cts/workflows/**"
+  - "modules/**/worker.py"
+---
+
 # Temporal Workflow Rules (ASTRA Standard)
 
 ## Fundamental Constraints

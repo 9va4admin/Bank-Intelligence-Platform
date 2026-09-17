@@ -16,7 +16,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -50,60 +53,62 @@ async def stamp_endorsement(
     lot_store is DI-injected at worker startup (reads images from MinIO
     via the lot management module). Falls back gracefully when unavailable.
     """
-    if lot_store is None:
-        log.warning(
-            "stamp_endorsement.lot_store_unavailable",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-        )
-        return StampEndorsementResult(
-            endorsed_count=0,
-            failed_count=len(inp.instrument_ids),
-            failed_instrument_ids=list(inp.instrument_ids),
-        )
-
-    from modules.cts.endorsement.batch import BatchEndorsementProcessor
-    from modules.cts.endorsement.models import EndorsementTemplate
-
-    template = EndorsementTemplate(
-        bank_ifsc=inp.bank_ifsc,
-        presenter_name=f"ASTRA-{inp.bank_id}",
-        stamp_date=datetime.utcnow(),
-    )
-    processor = BatchEndorsementProcessor(template=template)
-
-    failed: list[str] = []
-    endorsed: list[str] = []
-
-    items = await lot_store.fetch_instrument_images(inp.lot_number, inp.bank_id)
-    for instrument_id, account_suffix, front_bytes, rear_bytes in items:
-        try:
-            processor.process([(instrument_id, account_suffix, front_bytes, rear_bytes)])
-            endorsed.append(instrument_id)
-            log.debug(
-                "stamp_endorsement.stamped",
-                instrument_id=instrument_id,
-                lot_number=inp.lot_number,
-            )
-        except Exception as exc:
-            failed.append(instrument_id)
+    with tracer.start_as_current_span("activity.stamp_endorsement") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if lot_store is None:
             log.warning(
-                "stamp_endorsement.failed",
-                instrument_id=instrument_id,
+                "stamp_endorsement.lot_store_unavailable",
                 lot_number=inp.lot_number,
-                error=str(exc),
+                bank_id=inp.bank_id,
+            )
+            return StampEndorsementResult(
+                endorsed_count=0,
+                failed_count=len(inp.instrument_ids),
+                failed_instrument_ids=list(inp.instrument_ids),
             )
 
-    return StampEndorsementResult(
-        endorsed_count=len(endorsed),
-        failed_count=len(failed),
-        failed_instrument_ids=failed,
-    )
+        from modules.cts.endorsement.batch import BatchEndorsementProcessor
+        from modules.cts.endorsement.models import EndorsementTemplate
+
+        template = EndorsementTemplate(
+            bank_ifsc=inp.bank_ifsc,
+            presenter_name=f"ASTRA-{inp.bank_id}",
+            stamp_date=datetime.utcnow(),
+        )
+        processor = BatchEndorsementProcessor(template=template)
+
+        failed: list[str] = []
+        endorsed: list[str] = []
+
+        items = await lot_store.fetch_instrument_images(inp.lot_number, inp.bank_id)
+        for instrument_id, account_suffix, front_bytes, rear_bytes in items:
+            try:
+                processor.process([(instrument_id, account_suffix, front_bytes, rear_bytes)])
+                endorsed.append(instrument_id)
+                log.debug(
+                    "stamp_endorsement.stamped",
+                    instrument_id=instrument_id,
+                    lot_number=inp.lot_number,
+                )
+            except Exception as exc:
+                failed.append(instrument_id)
+                log.warning(
+                    "stamp_endorsement.failed",
+                    instrument_id=instrument_id,
+                    lot_number=inp.lot_number,
+                    error=str(exc),
+                )
+
+        return StampEndorsementResult(
+            endorsed_count=len(endorsed),
+            failed_count=len(failed),
+            failed_instrument_ids=failed,
+        )
 
 
-# ---------------------------------------------------------------------------
-# update_lot_status
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # update_lot_status
+    # ---------------------------------------------------------------------------
 
 class UpdateLotStatusInput(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -129,34 +134,36 @@ async def update_lot_status(
     Updates the lot record in YugabyteDB to ENDORSED or ENDORSEMENT_FAILED.
     db_pool is injected at worker startup. Degrades gracefully when unavailable.
     """
-    if db_pool is None:
-        log.warning(
-            "update_lot_status.db_unavailable",
+    with tracer.start_as_current_span("activity.update_lot_status") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None:
+            log.warning(
+                "update_lot_status.db_unavailable",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+            )
+            return UpdateLotStatusResult(updated=False, outcome=inp.outcome)
+
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE cts.lots
+                   SET status = $1,
+                       endorsed_count = $2,
+                       endorsement_failed_count = $3,
+                       endorsed_at = NOW()
+                 WHERE lot_number = $4 AND bank_id = $5
+                """,
+                inp.outcome,
+                inp.endorsed_count,
+                inp.failed_count,
+                inp.lot_number,
+                inp.bank_id,
+            )
+        log.info(
+            "update_lot_status.updated",
             lot_number=inp.lot_number,
             bank_id=inp.bank_id,
+            outcome=inp.outcome,
         )
-        return UpdateLotStatusResult(updated=False, outcome=inp.outcome)
-
-    async with db_pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE cts.lots
-               SET status = $1,
-                   endorsed_count = $2,
-                   endorsement_failed_count = $3,
-                   endorsed_at = NOW()
-             WHERE lot_number = $4 AND bank_id = $5
-            """,
-            inp.outcome,
-            inp.endorsed_count,
-            inp.failed_count,
-            inp.lot_number,
-            inp.bank_id,
-        )
-    log.info(
-        "update_lot_status.updated",
-        lot_number=inp.lot_number,
-        bank_id=inp.bank_id,
-        outcome=inp.outcome,
-    )
-    return UpdateLotStatusResult(updated=True, outcome=inp.outcome)
+        return UpdateLotStatusResult(updated=True, outcome=inp.outcome)

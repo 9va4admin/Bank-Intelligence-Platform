@@ -199,7 +199,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSSchedules() {
-  const { bankId } = useBankContext()
+  const { bankId, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(null)
@@ -223,6 +223,7 @@ export default function CTSSchedules() {
       return res.json()
     },
     staleTime: 30_000,
+    enabled: !isDemo,
   })
 
   const toggleMutation = useMutation({
@@ -240,6 +241,7 @@ export default function CTSSchedules() {
   })
 
   const handleToggle = (s) => {
+    if (isDemo) return
     const action = s.status === 'RUNNING' ? 'pause' : 'resume'
     toggleMutation.mutate({ scheduleId: s.schedule_id, action })
   }
@@ -316,7 +318,7 @@ export default function CTSSchedules() {
                   </button>
                   {/* Edit */}
                   <button
-                    onClick={() => setEditing(s)}
+                    onClick={() => { if (!isDemo) setEditing(s) }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       isDark
                         ? 'border-white/10 text-slate-300 hover:bg-white/8 hover:text-white'

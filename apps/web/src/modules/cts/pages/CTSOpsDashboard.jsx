@@ -10,7 +10,7 @@
  * SMB users: no tabs — this page IS their own SMB dashboard
  *   (SMBDashboardContent, shared with the standalone /cts/smb/dashboard route).
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -18,6 +18,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
+import useOpsDashboard from '../hooks/useOpsDashboard'
 
 // RPC zones — each is a live, independent connection to NGCH for its clearing
 // zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
@@ -276,6 +277,29 @@ function SMBFilterBar({ smbs, selectedSmbId, onSelect, isDark }) {
   )
 }
 
+// ─── SMB live data hook ───────────────────────────────────────────────────────
+
+function useSMBOpsData({ pollEnabled, bankId, smbId }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ bank_id: bankId })
+      if (smbId) params.set('smb_id', smbId)
+      const res = await fetch(`/v1/cts/smb/ops-summary?${params}`, { credentials: 'include' })
+      if (!res.ok) return
+      setData(await res.json())
+    } catch { /* keep last */ }
+  }, [bankId, smbId])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const ZERO_TODAY = {
@@ -300,6 +324,10 @@ export default function CTSOpsDashboard() {
   const [dashTab, setDashTab] = useState('mybank') // 'mybank' | 'smb' — SB only
   const [includeSMB, setIncludeSMB] = useState(false) // My Bank tab: combine with sponsored SMBs
   const [downloading, setDownloading] = useState(null)
+
+  // Live data hooks — called unconditionally (before any early return)
+  const { today: liveToday, trend: liveTrend } = useOpsDashboard({ pollEnabled: !isDemo })
+  const liveSMBOps = useSMBOpsData({ pollEnabled: !isDemo && !isSMB, bankId: undefined, smbId: selectedSmbId })
 
   // All hooks called unconditionally, every render — the isSMB early return
   // below must never skip a hook that ran on a previous render.
@@ -356,17 +384,49 @@ export default function CTSOpsDashboard() {
   // Sessions grid stays SB's own regardless of the checkbox — a "session" is a
   // clearing window scoped to this bank; merging SMB session rows into the same
   // grid would mix two banks' processing windows in one list.
-  // In POC/PROD: start with zeros — real data comes from backend polling (not yet wired).
-  const myBank = !isDemo
-    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
-    : includeSMB
-      ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
-      : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
-  const smbView = !isDemo
-    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
-    : selectedSmbId
-      ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
-      : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
+  // Live data overrides mock when available in non-demo mode.
+  const liveConverted = useMemo(() => {
+    if (isDemo || !liveToday) return null
+    return {
+      clearing_date: liveToday.clearing_date,
+      sessions_count: liveToday.sessions_count,
+      sessions_settled: liveToday.sessions_settled,
+      total_inward: liveToday.total_inward,
+      total_inward_value_paise: 0,  // not returned by this endpoint
+      stp_confirmed: liveToday.stp_confirmed,
+      stp_returned: liveToday.stp_returned,
+      manual_confirmed: liveToday.manual_confirmed,
+      manual_returned: liveToday.manual_returned,
+      pending_review: liveToday.pending_review,
+      overall_stp_rate_pct: liveToday.overall_stp_rate_pct,
+      overall_return_rate_pct: liveToday.overall_return_rate_pct,
+      total_outward: liveToday.total_outward,
+      total_outward_value_paise: 0,
+      outward_returned: liveToday.outward_returned,
+      net_settlement_paise: 0,
+    }
+  }, [isDemo, liveToday])
+
+  const liveTrendConverted = useMemo(() => {
+    if (isDemo || !liveTrend || liveTrend.length === 0) return null
+    return liveTrend.map(r => ({
+      date: r.date,
+      inward: r.inward,
+      return_rate_pct: r.return_rate_pct,
+      stp_rate_pct: r.stp_rate_pct,
+    }))
+  }, [isDemo, liveTrend])
+
+  const myBank = isDemo
+    ? (includeSMB
+        ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
+        : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND })
+    : { TODAY: liveConverted || ZERO_TODAY, SESSIONS: [], TREND: liveTrendConverted || ZERO_TREND }
+  const smbView = isDemo
+    ? (selectedSmbId
+        ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
+        : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND })
+    : { TODAY: liveSMBOps?.today || ZERO_TODAY, SESSIONS: [], TREND: liveSMBOps?.trend || ZERO_TREND }
 
   const active = dashTab === 'mybank' ? myBank : smbView
   const totalSessions = active.TODAY.sessions_count
@@ -389,18 +449,23 @@ export default function CTSOpsDashboard() {
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               {bankMode !== 'SB_ONLY' && dashTab === 'mybank' && (
-                <label className={`flex items-center gap-1.5 text-[11px] font-medium cursor-pointer select-none ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                  <input
-                    type="checkbox"
-                    checked={includeSMB}
-                    onChange={(e) => setIncludeSMB(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded accent-violet-500"
-                  />
+                <button
+                  role="switch"
+                  aria-checked={includeSMB}
+                  onClick={() => setIncludeSMB(v => !v)}
+                  className={`flex items-center gap-2 text-[11px] font-medium cursor-pointer select-none transition-colors ${isDark ? 'text-slate-300' : 'text-slate-600'}`}
+                >
+                  <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includeSMB ? 'bg-[#f5c842]' : (isDark ? 'bg-white/15' : 'bg-slate-300')}`}>
+                    <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includeSMB ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                  </span>
                   + SMB
-                </label>
+                </button>
               )}
               <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} bankMode={bankMode} />
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                Live
+              </span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
                 className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors

@@ -121,9 +121,15 @@ class TestHfTokenEnvFallback:
     def test_vault_token_preferred_over_env_when_both_available(self, monkeypatch):
         monkeypatch.setenv("ASTRA_DEMO_HF_TOKEN", "hf_env_fallback_token")
         client = _authed_client()
+
+        async def _selective_get_secret(key):
+            if key == "demo.hf_token":
+                return "hf_vault_token"
+            raise Exception(f"not configured: {key}")
+
         with patch(
             "shared.config.config_service.config_service.get_secret",
-            new=AsyncMock(return_value="hf_vault_token"),
+            new=_selective_get_secret,
         ), patch("openai.AsyncOpenAI") as mock_openai_cls:
             client_inst = AsyncMock()
             client_inst.chat.completions.create = AsyncMock(

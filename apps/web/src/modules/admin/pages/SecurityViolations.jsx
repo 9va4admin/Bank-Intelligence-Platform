@@ -129,7 +129,7 @@ const DEMO_DATA = {
 
 export default function SecurityViolations() {
   const { isDark } = useTheme()
-  const { bankName, isSB } = useBankContext()
+  const { bankName, isSB, isDemo } = useBankContext()
   const { data, loading, error, load, reinstate } = useSecurityViolations()
   const [loaded, setLoaded] = useState(false)
   const [reinstating, setReinstating] = useState(null)
@@ -150,7 +150,7 @@ export default function SecurityViolations() {
               </p>
             )}
             <button
-              onClick={() => { setLoaded(true); load() }}
+              onClick={() => { setLoaded(true); if (!isDemo) load() }}
               className="px-5 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-500 transition-colors"
             >
               Load violation log
@@ -161,8 +161,9 @@ export default function SecurityViolations() {
     )
   }
 
-  const violations = data?.violations ?? []
-  const suspendedCount = data?.suspended_count ?? 0
+  const displayData = isDemo ? DEMO_DATA : data
+  const violations = displayData?.violations ?? []
+  const suspendedCount = displayData?.suspended_count ?? 0
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',

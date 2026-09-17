@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -8,8 +8,9 @@ import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// SESSION_ID built dynamically inside component using bankIfsc
-const DATE_STR   = '20260619'
+// SESSION_ID built dynamically inside component using bankIfsc and today's date
+const _today = new Date()
+const DATE_STR = `${_today.getFullYear()}${String(_today.getMonth()+1).padStart(2,'0')}${String(_today.getDate()).padStart(2,'0')}`
 
 // DBC check failure reasons (maps to which AI check failed)
 const FAIL_REASONS = [
@@ -351,7 +352,7 @@ export default function CTSPresentmentFile() {
   const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const SB_IFSC = bankIfsc
   const SB_NAME = bankName
-  const SESSION_ID = `SES-${bankIfsc || 'BANK'}-20260619-001`
+  const SESSION_ID = `SES-${bankIfsc || 'BANK'}-${DATE_STR}-001`
   const { isDark } = useTheme()
 
   const demoBatch = useDemoData(makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID), { items: [], status: 'OPEN', nextSeq: 1, batchNo: 0 })
@@ -360,7 +361,90 @@ export default function CTSPresentmentFile() {
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
   const [expandReject, setExpandReject]   = useState(true)
+  const [ngchSending, setNgchSending]   = useState(false)
   const seqRef = useRef(currentBatch.nextSeq)
+
+  const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+  const liveTimerRef = useRef(null)
+
+  // POC/PROD: fetch open lot from hub-summary, then poll its instruments every 10s
+  const fetchLiveInstruments = useCallback(async () => {
+    if (isDemo) return
+    try {
+      // Step 1: find current open lot via hub-summary
+      const hubRes = await fetch(`${API_BASE}/v1/cts/outward/hub-summary`, { credentials: 'include' })
+      if (!hubRes.ok) return
+      const hub = await hubRes.json()
+      const firstLot = (hub.branches ?? []).flatMap(b => b.current_lot ? [b.current_lot] : [])[0]
+      if (!firstLot?.lot_id) return
+
+      // Step 2: fetch lot instruments
+      const instrRes = await fetch(
+        `${API_BASE}/v1/cts/outward/lots/${encodeURIComponent(firstLot.lot_id)}/instruments`,
+        { credentials: 'include' },
+      )
+      if (!instrRes.ok) return
+      const data = await instrRes.json()
+
+      // Map API rows → currentBatch.items shape
+      const mapped = (data.instruments ?? []).map((r, idx) => ({
+        instrument_id:   r.instrument_id ?? r.scan_id,
+        account_display: `****${r.micr_suffix ?? '0000'}`,
+        payee:           r.payee_display ?? '—',
+        amount:          r.amount_range ?? '—',
+        micr:            r.micr_suffix ?? '—',
+        date_on_cheque:  new Date(r.scanned_at).toLocaleDateString('en-IN'),
+        passed:          r.outcome === 'ACCEPTED',
+        fail_code:       r.outcome !== 'ACCEPTED' ? r.outcome : null,
+        fail_label:      r.outcome !== 'ACCEPTED' ? r.outcome : null,
+        fail_category:   r.outcome !== 'ACCEPTED' ? 'System' : null,
+        seq_in_batch:    idx + 1,
+        image_bw:        null,
+        images_all:      [],
+        arrived_at:      r.scanned_at,
+      }))
+
+      setCurrentBatch(prev => ({
+        ...prev,
+        lot_id: firstLot.lot_id,
+        batchId: firstLot.lot_id,
+        items: mapped,
+        nextSeq: mapped.length + 1,
+        status: firstLot.status === 'SEALED' ? 'CLOSED' : 'OPEN',
+      }))
+    } catch {
+      // keep previous state on transient error
+    }
+  }, [isDemo, API_BASE])
+
+  useEffect(() => {
+    if (isDemo) return
+    fetchLiveInstruments()
+    liveTimerRef.current = setInterval(fetchLiveInstruments, 10_000)
+    return () => clearInterval(liveTimerRef.current)
+  }, [isDemo, fetchLiveInstruments])
+
+  async function handleSendToNGCH() {
+    if (isDemo) return
+    setNgchSending(true)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const res = await fetch(`${API_BASE}/v1/cts/outward/clearing-session/submit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearing_date: today, session_type: 'MORNING', deployment_mode: 'SB_NGCH', pu_ids: [] }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.warn('NGCH submit failed:', err.detail ?? res.status)
+      }
+    } catch (e) {
+      console.warn('NGCH submit error:', e.message)
+    } finally {
+      setNgchSending(false)
+    }
+  }
 
   // Simulate Kafka listener: instruments arrive and get appended to current batch
   useDemoInterval(() => {
@@ -418,7 +502,7 @@ export default function CTSPresentmentFile() {
           ))}
           {isOpen && (
             <span className={`ml-auto text-[9px] font-mono ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-              ● Kafka listener active — auto-updating
+              ● {isDemo ? 'Kafka listener active — auto-updating' : 'Live — polling every 10s'}
             </span>
           )}
         </div>
@@ -465,9 +549,17 @@ export default function CTSPresentmentFile() {
                     disabled={passed.length === 0}
                     isDark={isDark}
                   />
-                  <span className={`text-[9px] ${th.lbl} ml-1`}>
-                    Send to NGCH — coming soon
-                  </span>
+                  <button
+                    onClick={handleSendToNGCH}
+                    disabled={passed.length === 0 || ngchSending}
+                    className={`text-[10px] px-3 py-1.5 rounded-lg font-medium border transition-colors ml-1 ${
+                      passed.length === 0 || ngchSending
+                        ? (isDark ? 'border-white/10 text-slate-600 cursor-not-allowed' : 'border-slate-200 text-slate-400 cursor-not-allowed')
+                        : 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {ngchSending ? 'Submitting…' : 'Send to NGCH'}
+                  </button>
                 </div>
 
                 {/* Live instrument list */}

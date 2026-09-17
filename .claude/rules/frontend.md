@@ -1,3 +1,8 @@
+---
+globs:
+  - "apps/web/**"
+---
+
 # Frontend Rules (React · Theming · Component Standards)
 
 ## Multi-Theme Requirement (Non-Negotiable)

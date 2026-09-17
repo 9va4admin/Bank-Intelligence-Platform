@@ -14,7 +14,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ── seal_all_lots ─────────────────────────────────────────────────────────────
@@ -31,7 +34,7 @@ class SealAllLotsInput(BaseModel):
 class SealAllLotsResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    sealed_lots: list[dict]     # [{pu_id, lot_number, instrument_count}, ...]
+    sealed_lots: list[dict]     # [{lot_id, sequence_number, instrument_count}, ...]
     status: str                 # "OK" | "DEGRADED"
 
 
@@ -44,35 +47,37 @@ async def seal_all_lots(
     Fetch all lots with status = 'SEALED' for the given session from YugabyteDB.
     Returns the lot metadata list.  Degrades gracefully when db_pool is None.
     """
-    if db_pool is None:
-        log.warning(
-            "seal_all_lots.db_unavailable",
+    with tracer.start_as_current_span("activity.seal_all_lots") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None:
+            log.warning(
+                "seal_all_lots.db_unavailable",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+            )
+            return SealAllLotsResult(sealed_lots=[], status="DEGRADED")
+
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT lot_id, sequence_number, instrument_count
+                  FROM cts.lots
+                 WHERE session_id = $1
+                   AND bank_id    = $2
+                   AND status     = 'SEALED'
+                """,
+                inp.session_id,
+                inp.bank_id,
+            )
+
+        sealed = [dict(r) for r in rows]
+        log.info(
+            "seal_all_lots.complete",
             session_id=inp.session_id,
             bank_id=inp.bank_id,
+            lot_count=len(sealed),
         )
-        return SealAllLotsResult(sealed_lots=[], status="DEGRADED")
-
-    async with db_pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT pu_id, lot_number, instrument_count
-              FROM cts.lots
-             WHERE session_id = $1
-               AND bank_id    = $2
-               AND status     = 'SEALED'
-            """,
-            inp.session_id,
-            inp.bank_id,
-        )
-
-    sealed = [dict(r) for r in rows]
-    log.info(
-        "seal_all_lots.complete",
-        session_id=inp.session_id,
-        bank_id=inp.bank_id,
-        lot_count=len(sealed),
-    )
-    return SealAllLotsResult(sealed_lots=sealed, status="OK")
+        return SealAllLotsResult(sealed_lots=sealed, status="OK")
 
 
 # ── update_session_status ─────────────────────────────────────────────────────
@@ -83,7 +88,7 @@ class UpdateSessionStatusInput(BaseModel):
     session_id: str
     bank_id: str
     status: str                 # "SUBMITTED" | "SUBMITTED_TO_SB" | "EXCEPTION" | "EMPTY_SESSION"
-    ngch_reference: Optional[str] = None
+    npci_ack_ref: Optional[str] = None
     failure_reason: Optional[str] = None
 
 
@@ -103,35 +108,37 @@ async def update_session_status(
     Mark the clearing session record in YugabyteDB with its terminal status.
     Degrades gracefully when db_pool is None.
     """
-    if db_pool is None:
-        log.warning(
-            "update_session_status.db_unavailable",
+    with tracer.start_as_current_span("activity.update_session_status") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None:
+            log.warning(
+                "update_session_status.db_unavailable",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+            )
+            return UpdateSessionStatusResult(updated=False, status=inp.status)
+
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE cts.clearing_sessions
+                   SET status          = $1,
+                       npci_ack_ref    = $2,
+                       failure_reason  = $3,
+                       updated_at      = NOW()
+                 WHERE session_id = $4 AND bank_id = $5
+                """,
+                inp.status,
+                inp.npci_ack_ref,
+                inp.failure_reason,
+                inp.session_id,
+                inp.bank_id,
+            )
+
+        log.info(
+            "update_session_status.updated",
             session_id=inp.session_id,
             bank_id=inp.bank_id,
+            status=inp.status,
         )
-        return UpdateSessionStatusResult(updated=False, status=inp.status)
-
-    async with db_pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE cts.clearing_sessions
-               SET status          = $1,
-                   ngch_reference  = $2,
-                   failure_reason  = $3,
-                   closed_at       = NOW()
-             WHERE session_id = $4 AND bank_id = $5
-            """,
-            inp.status,
-            inp.ngch_reference,
-            inp.failure_reason,
-            inp.session_id,
-            inp.bank_id,
-        )
-
-    log.info(
-        "update_session_status.updated",
-        session_id=inp.session_id,
-        bank_id=inp.bank_id,
-        status=inp.status,
-    )
-    return UpdateSessionStatusResult(updated=True, status=inp.status)
+        return UpdateSessionStatusResult(updated=True, status=inp.status)

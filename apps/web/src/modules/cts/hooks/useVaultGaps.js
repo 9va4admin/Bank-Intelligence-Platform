@@ -9,9 +9,9 @@ import { useState, useEffect, useCallback } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
-export default function useVaultGaps({ date = null } = {}) {
+export default function useVaultGaps({ date = null, enabled = true } = {}) {
   const [data, setData]       = useState(null)   // VaultGapResponse shape
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!enabled)
   const [error, setError]     = useState(null)
 
   const fetchGaps = useCallback(async () => {
@@ -33,7 +33,7 @@ export default function useVaultGaps({ date = null } = {}) {
     }
   }, [date])
 
-  useEffect(() => { fetchGaps() }, [fetchGaps])
+  useEffect(() => { if (enabled) fetchGaps() }, [fetchGaps, enabled])
 
   return { data, loading, error, refetch: fetchGaps }
 }

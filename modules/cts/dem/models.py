@@ -53,12 +53,14 @@ def inward_download_priority(file_type: DEMFileType) -> int:
 
 
 class FileClearingType(str, Enum):
-    """CCH-returned FileClearingType codes from Reqtype=RU response."""
+    """CCH-returned FileClearingType codes from Reqtype=RU response.
+
+    CT=01 (Normal) was removed from NPCI clearing in September 2024.
+    Only CT=14 (On-Realization) and CT=99 (Special) remain valid.
+    """
     CXF_14 = "CXF_14"    # CXF On Realization (CT=14)
-    CXF_01 = "CXF_01"    # CXF Normal (CT=01)
-    CXF_99 = "CXF_99"    # CXF Express (CT=99)
+    CXF_99 = "CXF_99"    # CXF Special Clearing (CT=99)
     CIBF_14 = "CIBF_14"
-    CIBF_01 = "CIBF_01"
     CIBF_99 = "CIBF_99"
     RRF = "RRF"
     PPS_0 = "PPS_0"

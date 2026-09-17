@@ -68,7 +68,7 @@ class TestMSVValidateRoute:
             user_id="test-user",
             role=Role.OPS_MANAGER,
             bank_id="kotak-mah",
-            clearing_zone="DEFAULT",
+            bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -87,7 +87,7 @@ class TestMSVValidateRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -106,7 +106,7 @@ class TestMSVValidateRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -129,7 +129,7 @@ class TestMSVValidateRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -159,7 +159,7 @@ class TestMSVSignatoriesRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -177,7 +177,7 @@ class TestMSVSignatoriesRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -195,7 +195,7 @@ class TestMSVSignatoriesRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -226,7 +226,7 @@ class TestMSVEnrollmentJobRoute:
         app.include_router(router_v1)
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
-            bank_id="kotak-mah", clearing_zone="DEFAULT",
+            bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 

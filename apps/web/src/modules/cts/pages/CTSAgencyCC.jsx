@@ -9,11 +9,46 @@
  * this is an sbOnly page because only the agency itself operates it.
  * SMB users never see this page (AppShell sbOnly gate + useBankContext guard).
  */
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const AGENCY_POLL_MS = 60_000
+
+function useAgencyData({ pollEnabled }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const [connRes, sessRes, relayRes, pushRes] = await Promise.all([
+        fetch(`${_API_BASE}/v1/cts/smb?active_only=false`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/outward/sessions`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/agency/inward-relay-stats`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/agency/push-sessions`, { credentials: 'include' }),
+      ])
+      const connJson  = connRes.ok  ? await connRes.json()  : null
+      const sessJson  = sessRes.ok  ? await sessRes.json()  : null
+      const relayJson = relayRes.ok ? await relayRes.json() : null
+      const pushJson  = pushRes.ok  ? await pushRes.json()  : null
+      setData({
+        connections:   connJson?.sub_members  ?? [],
+        sessions:      sessJson?.sessions     ?? [],
+        inwardStats:   relayJson ?? null,
+        pushSessions:  pushJson?.sessions     ?? [],
+      })
+    } catch { /* stay with last data */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, AGENCY_POLL_MS)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK_SB_CONNECTIONS = [
@@ -281,9 +316,11 @@ function SessionRow({ session, isDark }) {
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function CTSAgencyCC() {
   const { isDark } = useTheme()
-  const { bankName, bankId } = useBankContext()
+  const { bankName, bankId, isDemo } = useBankContext()
   const { setHeader } = usePageHeader?.() ?? { setHeader: () => {} }
   const [activeTab, setActiveTab] = useState(0)
+
+  const liveData = useAgencyData({ pollEnabled: !isDemo })
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -299,10 +336,46 @@ export default function CTSAgencyCC() {
       : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'),
   }
 
-  const totalInstruments = MOCK_SESSIONS.reduce((s, r) => s + r.total_instruments, 0)
-  const submittedSessions = MOCK_SESSIONS.filter(s => s.status === 'SUBMITTED').length
-  const exceptionSessions = MOCK_SESSIONS.filter(s => s.status === 'EXCEPTION').length
-  const activeSBs = MOCK_SB_CONNECTIONS.filter(c => c.is_active).length
+  // Demo invariant: always fall back to MOCK when !liveData or isDemo
+  const SB_CONNECTIONS = useMemo(() => {
+    if (isDemo) return MOCK_SB_CONNECTIONS
+    if (!liveData || liveData.connections.length === 0) return []
+    // map SMBListItem → connection shape
+    return liveData.connections.map(m => ({
+      sb_connection_id: m.sub_member_id,
+      sb_name: m.bank_name,
+      sb_bank_id: m.sub_member_id,
+      connector_type: m.cbs_connector || 'SFTP_GENERIC',
+      is_active: m.status === 'ACTIVE',
+      last_tested_at: m.last_active_at || new Date().toISOString(),
+      last_test_latency_ms: null,
+      smb_count: 0,
+    }))
+  }, [isDemo, liveData])
+
+  const SESSIONS_DATA = useMemo(() => {
+    if (isDemo) return MOCK_SESSIONS
+    if (!liveData || liveData.sessions.length === 0) return []
+    return liveData.sessions.map(s => ({
+      session_id: s.session_id,
+      sb_bank_id: s.session_id,
+      sb_name: s.session_type,
+      session_type: s.session_type,
+      status: s.status,
+      total_instruments: s.total_instruments,
+      sb_reference: s.ngch_reference || null,
+      opened_at: s.opened_at,
+      submitted_at: s.submitted_at || null,
+    }))
+  }, [isDemo, liveData])
+
+  const inwardStats  = isDemo || !liveData?.inwardStats  ? MOCK_INWARD_STATS   : liveData.inwardStats
+  const pushSessions = isDemo || !liveData?.pushSessions?.length ? MOCK_PUSH_SESSIONS : liveData.pushSessions
+
+  const totalInstruments = SESSIONS_DATA.reduce((s, r) => s + (r.total_instruments || 0), 0)
+  const submittedSessions = SESSIONS_DATA.filter(s => s.status === 'SUBMITTED').length
+  const exceptionSessions = SESSIONS_DATA.filter(s => s.status === 'EXCEPTION').length
+  const activeSBs = SB_CONNECTIONS.filter(c => c.is_active).length
 
   const TABS = ['SB Connections', 'Clearing Sessions', 'Inward Relay', 'SMB Push Sessions']
 
@@ -329,7 +402,7 @@ export default function CTSAgencyCC() {
           <div>
             <h1 className={`text-lg font-bold ${th.heading}`}>Agency Command Center</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {bankName} · AGENCY_SB_RELAY mode · {MOCK_SB_CONNECTIONS.length} Sponsor Banks configured
+              {bankName} · AGENCY_SB_RELAY mode · {SB_CONNECTIONS.length} Sponsor Banks configured
             </p>
           </div>
           <div className={`text-xs px-3 py-1.5 rounded border ${
@@ -344,8 +417,8 @@ export default function CTSAgencyCC() {
           <StatCard
             label="Active SBs"
             value={activeSBs}
-            sub={`of ${MOCK_SB_CONNECTIONS.length} configured`}
-            accent={activeSBs < MOCK_SB_CONNECTIONS.length ? (isDark ? 'text-amber-400' : 'text-amber-600') : undefined}
+            sub={`of ${SB_CONNECTIONS.length} configured`}
+            accent={activeSBs < SB_CONNECTIONS.length ? (isDark ? 'text-amber-400' : 'text-amber-600') : undefined}
             isDark={isDark}
           />
           <StatCard
@@ -357,7 +430,7 @@ export default function CTSAgencyCC() {
           <StatCard
             label="Sessions Submitted"
             value={submittedSessions}
-            sub={`of ${MOCK_SESSIONS.length} sessions today`}
+            sub={`of ${SESSIONS_DATA.length} sessions today`}
             accent={isDark ? 'text-emerald-400' : 'text-emerald-600'}
             isDark={isDark}
           />
@@ -404,7 +477,7 @@ export default function CTSAgencyCC() {
         {activeTab === 0 && (
           <div className="space-y-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {MOCK_SB_CONNECTIONS.map(conn => (
+              {SB_CONNECTIONS.map(conn => (
                 <SBConnectionCard key={conn.sb_connection_id} conn={conn} isDark={isDark} />
               ))}
             </div>
@@ -429,13 +502,13 @@ export default function CTSAgencyCC() {
                   </tr>
                 </thead>
                 <tbody>
-                  {MOCK_SESSIONS.map(session => (
+                  {SESSIONS_DATA.map(session => (
                     <SessionRow key={session.session_id} session={session} isDark={isDark} />
                   ))}
                 </tbody>
               </table>
             </div>
-            {MOCK_SESSIONS.length === 0 && (
+            {SESSIONS_DATA.length === 0 && (
               <div className={`py-10 text-center text-sm ${th.muted}`}>No clearing sessions today yet</div>
             )}
           </div>
@@ -450,24 +523,24 @@ export default function CTSAgencyCC() {
                 <div className="flex justify-between">
                   <span className={`text-sm ${th.body}`}>Total received from SBs</span>
                   <span className={`text-sm font-bold tabular-nums ${th.heading}`}>
-                    {MOCK_INWARD_STATS.total_received.toLocaleString('en-IN')}
+                    {inwardStats.total_received.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={`text-sm ${th.body}`}>Routed to PUs</span>
                   <span className={`text-sm font-bold tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                    {MOCK_INWARD_STATS.routed.toLocaleString('en-IN')}
+                    {inwardStats.routed.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={`text-sm ${th.body}`}>CRL misses</span>
-                  <span className={`text-sm font-bold tabular-nums ${MOCK_INWARD_STATS.crl_misses > 0 ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
-                    {MOCK_INWARD_STATS.crl_misses}
+                  <span className={`text-sm font-bold tabular-nums ${inwardStats.crl_misses > 0 ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
+                    {inwardStats.crl_misses}
                   </span>
                 </div>
                 <div className={`pt-2 border-t ${th.divider} flex justify-between`}>
                   <span className={`text-xs ${th.muted}`}>Last relay</span>
-                  <span className={`text-xs font-mono ${th.muted}`}>{fmtTime(MOCK_INWARD_STATS.last_relay_at)}</span>
+                  <span className={`text-xs font-mono ${th.muted}`}>{fmtTime(inwardStats.last_relay_at)}</span>
                 </div>
               </div>
             </div>
@@ -507,7 +580,7 @@ export default function CTSAgencyCC() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_PUSH_SESSIONS.map(s => (
+                    {pushSessions.map(s => (
                       <tr key={s.id} className={`border-b ${th.row} transition-colors`}>
                         <td className={`py-2.5 px-3 text-xs font-medium ${th.body}`}>{s.smb_name}</td>
                         <td className={`py-2.5 px-3 text-xs font-mono ${th.muted}`}>{s.file_type}</td>

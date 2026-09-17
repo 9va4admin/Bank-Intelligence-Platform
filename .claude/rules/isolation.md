@@ -1,3 +1,9 @@
+---
+globs:
+  - "modules/**"
+  - "infra/**"
+---
+
 # Module Isolation Rules (CTS — this repo only)
 
 ## The Fundamental Principle

@@ -21,7 +21,10 @@ from temporalio import activity
 
 from shared.cbs_connector.exceptions import CBSUnavailableError
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class StopPaymentActivityInput(BaseModel):
@@ -53,83 +56,86 @@ async def check_stop_payment(
 
     Always returns a result — never raises. CBS failure degrades to HUMAN_REVIEW.
     """
-    # Fast path: Bloom filter pre-check before CBS round-trip
-    if bloom_client is not None:
+    with tracer.start_as_current_span("activity.check_stop_payment") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        # Fast path: Bloom filter pre-check before CBS round-trip
+        if bloom_client is not None:
+            try:
+                if bloom_client.check_serial(inp.cheque_number):
+                    log.info(
+                        "stop_payment.bloom_hit",
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        cheque_suffix=inp.cheque_number[-4:],
+                    )
+                    return StopPaymentActivityResult(
+                        outcome="HUMAN_REVIEW",
+                        bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id,
+                        stop_reason="bloom_filter_hit",
+                        bloom_hit=True,
+                    )
+            except Exception as exc:
+                # Bloom unavailable is non-fatal — fall through to CBS
+                log.warning(
+                    "stop_payment.bloom_error",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    error=str(exc),
+                )
+
+        # Authoritative CBS lookup
         try:
-            if bloom_client.check_serial(inp.cheque_number):
-                log.info(
-                    "stop_payment.bloom_hit",
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    cheque_suffix=inp.cheque_number[-4:],
-                )
-                return StopPaymentActivityResult(
-                    outcome="HUMAN_REVIEW",
-                    bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id,
-                    stop_reason="bloom_filter_hit",
-                    bloom_hit=True,
-                )
-        except Exception as exc:
-            # Bloom unavailable is non-fatal — fall through to CBS
+            result = await cbs_connector.check_stop_payment(
+                inp.account_number, inp.cheque_number, inp.bank_id
+            )
+        except CBSUnavailableError as exc:
             log.warning(
-                "stop_payment.bloom_error",
+                "stop_payment.cbs_unavailable",
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 error=str(exc),
             )
+            return StopPaymentActivityResult(
+                outcome="HUMAN_REVIEW",
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                stop_reason="cbs_unavailable",
+                degraded=True,
+            )
+        except Exception as exc:
+            log.error(
+                "stop_payment.unexpected_error",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return StopPaymentActivityResult(
+                outcome="HUMAN_REVIEW",
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                stop_reason="unexpected_error",
+                degraded=True,
+            )
 
-    # Authoritative CBS lookup
-    try:
-        result = await cbs_connector.check_stop_payment(
-            inp.account_number, inp.cheque_number, inp.bank_id
-        )
-    except CBSUnavailableError as exc:
-        log.warning(
-            "stop_payment.cbs_unavailable",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return StopPaymentActivityResult(
-            outcome="HUMAN_REVIEW",
-            bank_id=inp.bank_id,
-            instrument_id=inp.instrument_id,
-            stop_reason="cbs_unavailable",
-            degraded=True,
-        )
-    except Exception as exc:
-        log.error(
-            "stop_payment.unexpected_error",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return StopPaymentActivityResult(
-            outcome="HUMAN_REVIEW",
-            bank_id=inp.bank_id,
-            instrument_id=inp.instrument_id,
-            stop_reason="unexpected_error",
-            degraded=True,
-        )
+        if result.is_stopped:
+            log.info(
+                "stop_payment.confirmed_stopped",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                cheque_suffix=inp.cheque_number[-4:],
+                reason=result.reason,
+            )
+            return StopPaymentActivityResult(
+                outcome="STP_RETURN",
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                stop_reason=result.reason,
+            )
 
-    if result.is_stopped:
-        log.info(
-            "stop_payment.confirmed_stopped",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            cheque_suffix=inp.cheque_number[-4:],
-            reason=result.reason,
-        )
         return StopPaymentActivityResult(
-            outcome="STP_RETURN",
+            outcome="PROCEED",
             bank_id=inp.bank_id,
             instrument_id=inp.instrument_id,
-            stop_reason=result.reason,
         )
-
-    return StopPaymentActivityResult(
-        outcome="PROCEED",
-        bank_id=inp.bank_id,
-        instrument_id=inp.instrument_id,
-    )

@@ -6,7 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -35,13 +40,16 @@ type UploadURLResponse struct {
 	RearPresignedURL  string `json:"rear_presigned_url"`
 	FrontObjectURL    string `json:"front_object_url"` // s3://... URL for submit request
 	RearObjectURL     string `json:"rear_object_url"`
+	UVPresignedURL    string `json:"uv_presigned_url,omitempty"` // only when include_uv=true
+	UVObjectURL       string `json:"uv_object_url,omitempty"`
 	ExpiresAt         int64  `json:"expires_at"` // Unix timestamp
 }
 
-// RequestUploadURLs asks ASTRA to provision a pair of pre-signed MinIO URLs
-// for uploading front and rear cheque images for a given scan_id.
-func (c *ASTRAClient) RequestUploadURLs(ctx context.Context, scanID string) (*UploadURLResponse, error) {
-	body, _ := json.Marshal(map[string]string{"scan_id": scanID})
+// RequestUploadURLs asks ASTRA to provision pre-signed MinIO PUT URLs for
+// front, rear, and optionally UV cheque images for a given scan_id.
+// includeUV should be true when item.UVImage is non-nil.
+func (c *ASTRAClient) RequestUploadURLs(ctx context.Context, scanID string, includeUV bool) (*UploadURLResponse, error) {
+	body, _ := json.Marshal(map[string]any{"scan_id": scanID, "include_uv": includeUV})
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost, c.baseURL+"/v1/cts/outward/scan/upload-url", bytes.NewReader(body))
 	if err != nil {
@@ -96,6 +104,8 @@ type ScanSubmitRequest struct {
 	ScanID           string   `json:"scan_id"`
 	InstrumentID     string   `json:"instrument_id"`
 	BankIFSC         string   `json:"bank_ifsc"`
+	BankID           string   `json:"bank_id"`
+	BranchID         string   `json:"branch_id"`         // ASTRA branch ID — required for ops dashboard routing
 	SessionID        string   `json:"session_id"`
 	ImageFrontURL    string   `json:"image_front_url"`
 	ImageRearURL     string   `json:"image_rear_url"`
@@ -109,9 +119,25 @@ type ScanSubmitRequest struct {
 	// MICRHardwareRaw is the raw E13B string from TransportGetMICR().
 	// When present, the backend uses the CR-120 single-pass Qwen2-VL path.
 	// Never logged in full on the server side — contains account number.
-	MICRHardwareRaw *string `json:"micr_hardware_raw,omitempty"`
-	PuID            *string `json:"pu_id,omitempty"`
-	BranchID        *string `json:"branch_id,omitempty"`
+	MICRHardwareRaw  *string `json:"micr_hardware_raw,omitempty"`
+	// UVImageURL is the s3:// object URL of the UV wavelength image uploaded to MinIO.
+	// Set only when the scanner has a UV lamp (CR-120 UV model) and EnableUVScan=true.
+	// When present, OutwardScanWorkflow runs check_security_features with this image.
+	UVImageURL       *string `json:"image_uv_url,omitempty"`
+	ImprinterStamped bool    `json:"imprinter_stamped"`  // true = rear endorsement was printed
+	PuID             *string `json:"pu_id,omitempty"`
+}
+
+// ScanEventRequest mirrors POST /v1/cts/outward/scan/event — lightweight event
+// for non-submit outcomes: double-feed detection, imprinter fault, etc.
+type ScanEventRequest struct {
+	BankID          string `json:"bank_id"`
+	BranchID        string `json:"branch_id"`
+	SessionID       string `json:"session_id"`
+	ScanID          string `json:"scan_id"`           // generated even for failed scans
+	EventType       string `json:"event_type"`        // DOUBLE_FEED_DETECTED | IMPRINTER_FAULT
+	PositionInBatch int    `json:"position_in_batch"` // counter within the session
+	MICRSuffix      string `json:"micr_suffix,omitempty"` // last 4 chars only
 }
 
 // ScanSubmitResponse mirrors POST /v1/cts/outward/scan/submit response body.
@@ -121,6 +147,34 @@ type ScanSubmitResponse struct {
 	WorkflowID   string `json:"workflow_id"`
 	Status       string `json:"status"` // "ACCEPTED"
 	Path         string `json:"path"`   // "CR120" | "LEGACY"
+}
+
+// ReportScanEvent calls POST /v1/cts/outward/scan/event for non-submit outcomes
+// (double-feed, imprinter fault). The scan is held at the branch and not processed
+// centrally — the ops dashboard shows it as requiring re-scan.
+func (c *ASTRAClient) ReportScanEvent(ctx context.Context, req *ScanEventRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("report scan event marshal: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx,
+		http.MethodPost, c.baseURL+"/v1/cts/outward/scan/event", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("report scan event request: %w", err)
+	}
+	c.setHeaders(httpReq)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("report scan event http: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		return fmt.Errorf("report scan event: server returned %d: %s", resp.StatusCode, b)
+	}
+	return nil
 }
 
 // SubmitScan calls POST /v1/cts/outward/scan/submit and returns the workflow ID.
@@ -161,7 +215,85 @@ func (c *ASTRAClient) setHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "astra-cts-scanner-agent/1.0")
 }
 
+// saveImagesLocally writes all three TIFF images, UV image, and raw MICR data
+// to a scanned/ folder next to the exe for immediate local visibility.
+// Called before upload so files exist even if the ASTRA API is unreachable.
+// File names use the MICR cheque number as prefix: {MICR_NO}_F_GR.tif etc.
+func saveImagesLocally(scanID string, front, frontBW, rear, uv []byte, micrRaw string) {
+	dir := localScannedDir(scanID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		slog.Warn("local image save: mkdir failed", "dir", dir, "error", err)
+		return
+	}
+	write := func(name string, data []byte) {
+		if len(data) == 0 {
+			return
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			slog.Warn("local image save: write failed", "path", path, "error", err)
+		} else {
+			slog.Info("local image saved", "path", path)
+		}
+	}
+	pfx := micrFilePrefix(micrRaw)
+	write(pfx+"_F_GR.tif", front)   // front grayscale 8-bit LZW   — NPCI CTS-2010
+	write(pfx+"_F_BW.tif", frontBW) // front binary 1-bit CCITT G4 — derived by threshold
+	write(pfx+"_B_BW.tif", rear)    // rear  binary 1-bit CCITT G4 — NPCI CTS-2010
+	write("uv.tif", uv)
+	if micrRaw != "" {
+		write("micr.txt", []byte(micrRaw))
+	}
+}
+
+// micrFilePrefix derives a safe filesystem prefix from the raw E13B MICR string.
+// E13B format: <CHEQUE_NO<MICR_CODE:ACCOUNT_NO<SERIAL
+// We extract the cheque serial number (digits between the first pair of '<').
+// Example: "<888741<400532011:004461<31"  →  "888741"
+// If the cheque number cannot be parsed, we sanitise the full MICR string.
+// Falls back to "NOMICRR" when the MICR line is empty (scanner read failed).
+func micrFilePrefix(micrRaw string) string {
+	if micrRaw == "" {
+		return "NOMICRR"
+	}
+	// Strip leading '<' then take digits up to the next '<' or ':'
+	s := strings.TrimLeft(micrRaw, "<")
+	if idx := strings.IndexAny(s, "<:"); idx > 0 {
+		candidate := strings.TrimSpace(s[:idx])
+		if candidate != "" {
+			return candidate
+		}
+	}
+	// Fallback: replace every non-alphanumeric char with '_', trim edges
+	var b strings.Builder
+	for _, r := range micrRaw {
+		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	pfx := strings.Trim(b.String(), "_")
+	if pfx == "" {
+		return "NOMICRR"
+	}
+	return pfx
+}
+
+// localScannedDir returns the path to the per-scan image folder:
+//   <exe-dir>/scanned/<scan_id>/
+func localScannedDir(scanID string) string {
+	base := "scanned"
+	if runtime.GOOS == "windows" {
+		if exe, err := os.Executable(); err == nil {
+			base = filepath.Join(filepath.Dir(exe), "scanned")
+		}
+	}
+	return filepath.Join(base, scanID)
+}
+
 // processScannedItem is the full pipeline for a single cheque after scan:
+//  0. Save images locally (always — visible even when upload fails)
 //  1. Request upload URLs from ASTRA
 //  2. Upload front image to MinIO
 //  3. Upload rear image to MinIO
@@ -176,11 +308,14 @@ func processScannedItem(
 	item *ScannedItem,
 	chequeNumber string,
 ) (*ScanSubmitResponse, error) {
+	// Step 0 — save locally so images and MICR are visible regardless of upload outcome
+	saveImagesLocally(scanID, item.FrontImage, item.FrontImageBW, item.RearImage, item.UVImage, item.MICRRaw)
+
 	uploadCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	// Step 1 — get pre-signed upload URLs
-	urls, err := client.RequestUploadURLs(uploadCtx, scanID)
+	// Step 1 — get pre-signed upload URLs (UV requested only when image is present)
+	urls, err := client.RequestUploadURLs(uploadCtx, scanID, item.UVImage != nil)
 	if err != nil {
 		return nil, fmt.Errorf("request upload urls: %w", err)
 	}
@@ -195,15 +330,25 @@ func processScannedItem(
 		return nil, fmt.Errorf("upload rear: %w", err)
 	}
 
+	// Step 3b — upload UV image when present (CR-120 UV model, EnableUVScan=true)
+	if item.UVImage != nil && urls.UVPresignedURL != "" {
+		if err := client.UploadImage(uploadCtx, urls.UVPresignedURL, item.UVImage); err != nil {
+			return nil, fmt.Errorf("upload uv: %w", err)
+		}
+	}
+
 	// Step 4 — submit scan metadata
 	submitReq := &ScanSubmitRequest{
-		ScanID:       scanID,
-		InstrumentID: instrumentID,
-		BankIFSC:     cfg.BankIFSC,
-		SessionID:    sessionID,
-		ImageFrontURL: urls.FrontObjectURL,
-		ImageRearURL:  urls.RearObjectURL,
-		ChequeNumber: chequeNumber,
+		ScanID:           scanID,
+		InstrumentID:     instrumentID,
+		BankIFSC:         cfg.BankIFSC,
+		BankID:           cfg.BankID,
+		BranchID:         cfg.BranchID,
+		SessionID:        sessionID,
+		ImageFrontURL:    urls.FrontObjectURL,
+		ImageRearURL:     urls.RearObjectURL,
+		ChequeNumber:     chequeNumber,
+		ImprinterStamped: item.ImprinterStamped,
 	}
 
 	// Populate optional hardware metrics
@@ -226,6 +371,13 @@ func processScannedItem(
 	if item.MICRRaw != "" {
 		micrCopy := item.MICRRaw
 		submitReq.MICRHardwareRaw = &micrCopy
+	}
+
+	// UV image — if uploaded, pass the object URL so the workflow can retrieve it
+	// for security feature verification (check_security_features activity).
+	if item.UVImage != nil && urls.UVObjectURL != "" {
+		uvURL := urls.UVObjectURL
+		submitReq.UVImageURL = &uvURL
 	}
 
 	submitCtx, cancel2 := context.WithTimeout(ctx, 30*time.Second)

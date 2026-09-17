@@ -1,8 +1,30 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useComplianceData({ pollEnabled }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/compliance`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setData(json)
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 2 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
 
 // ── CTS-2010 Standard reference (mirrors Python CTS2010Standard) ─────────────
 const CTS2010 = {
@@ -27,10 +49,15 @@ function evalRecord(r) {
   return { ...r, result: reasons.length === 0 ? 'PASS' : 'FAIL', reasons }
 }
 
+function _compactToday() {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+}
 function makeRawInstruments(bankIfsc) {
   const ifsc = bankIfsc || 'BANK'
-  const lot1 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_01`
-  const lot2 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_02`
+  const td = _compactToday()
+  const lot1 = `LOT_${ifsc}_${td}_SES-${ifsc}-${td}-001_01`
+  const lot2 = `LOT_${ifsc}_${td}_SES-${ifsc}-${td}-001_02`
   return [
     { id:'CHQ-OUT-00001', cheque:'100001', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
     { id:'CHQ-OUT-00002', cheque:'100002', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:41.7, front_iqa_score:0.92, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.8, rear_iqa_score:0.88, micr_band_score:0.93 },
@@ -113,12 +140,37 @@ function downloadXml(xml, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSCompliance() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const sessionId   = `SES-${bankIfsc || 'BANK'}-20260619-001`
-  const INSTRUMENTS = useMemo(() => makeRawInstruments(bankIfsc).map(evalRecord), [bankIfsc])
-  const LOTS        = useMemo(() => [...new Set(INSTRUMENTS.map(i => i.lot))], [INSTRUMENTS])
-  const [selectedLot, setSelectedLot] = useState(() => LOTS[0])
+  const sessionId   = `SES-${bankIfsc || 'BANK'}-${_compactToday()}-001`
+
+  const liveData = useComplianceData({ pollEnabled: !isDemo })
+
+  const MOCK_INSTRUMENTS = useMemo(() => makeRawInstruments(bankIfsc).map(evalRecord), [bankIfsc])
+
+  // Map live compliance checks → instrument-like display shape
+  const INSTRUMENTS = useMemo(() => {
+    if (isDemo) return MOCK_INSTRUMENTS
+    if (!liveData?.items || liveData.items.length === 0) return []
+    return liveData.items.map(c => ({
+      id: c.instrument_id || c.lot_id,
+      cheque: c.instrument_id || '',
+      lot: c.lot_id || '',
+      result: c.result,
+      reasons: c.detail ? [c.detail] : [],
+      front_dpi: 300, front_colour_depth: 24, front_file_size_kb: 38,
+      front_iqa_score: c.result === 'PASS' ? 0.95 : 0.65,
+      rear_dpi: 300, rear_colour_depth: 24, rear_file_size_kb: 22,
+      rear_iqa_score: c.result === 'PASS' ? 0.91 : 0.60,
+      micr_band_score: c.result === 'PASS' ? 0.96 : 0.70,
+    }))
+  }, [isDemo, liveData, MOCK_INSTRUMENTS])
+
+  const LOTS        = useMemo(() => [...new Set(INSTRUMENTS.map(i => i.lot))].filter(Boolean), [INSTRUMENTS])
+  const [selectedLot, setSelectedLot] = useState(null)
+  useEffect(() => {
+    if (!selectedLot && LOTS.length > 0) setSelectedLot(LOTS[0])
+  }, [LOTS, selectedLot])
   const [filterResult, setFilterResult] = useState('ALL')
 
   const lotItems = INSTRUMENTS.filter(i => i.lot === selectedLot)
@@ -131,7 +183,7 @@ export default function CTSCompliance() {
 
   const lotSeqMatch  = selectedLot.match(/_(\d{2})$/)
   const lotSeq       = lotSeqMatch ? lotSeqMatch[1] : '01'
-  const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_20260619_${sessionId}_LOT${lotSeq}.xml`
+  const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_${_compactToday()}_${sessionId}_LOT${lotSeq}.xml`
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',

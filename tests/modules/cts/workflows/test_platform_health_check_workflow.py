@@ -349,7 +349,7 @@ class TestRunWithMocks:
             },
         )
         assert len(dispatched) == 0
-        assert result.checks_run == 3
+        assert result.checks_run == 5
 
     @pytest.mark.asyncio
     async def test_iet_breach_sends_p0_alert(self):
@@ -417,7 +417,7 @@ class TestRunWithMocks:
                 "dispatched":  [],
             },
         )
-        assert result.checks_run == 3
+        assert result.checks_run == 5
 
     @pytest.mark.asyncio
     async def test_vault_cold_sends_warn_alert(self):
@@ -463,7 +463,7 @@ class TestRunWithMocks:
             },
         )
         assert all(d["event_type"] != "VAULT_REDIS_COLD_DETECTED" for d in dispatched)
-        assert result.checks_run == 3
+        assert result.checks_run == 5
 
 
 # ── Activity: check_vault_redis_coverage_for_alert ───────────────────────────
@@ -627,3 +627,307 @@ class TestCheckVaultCoverage:
         )
         assert result.degraded is True
         assert result.needs_alert is False
+
+
+# ── Activity: check_scanner_fleet_for_alert ───────────────────────────────────
+
+class TestCheckScannerFleet:
+    """Scanner fleet health — detects branches that have gone OFFLINE (no heartbeat
+    within 90 seconds) during clearing hours and raises a WARN/P1 alert."""
+
+    def test_import(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            check_scanner_fleet_for_alert,
+        )
+        assert callable(check_scanner_fleet_for_alert)
+
+    @pytest.mark.asyncio
+    async def test_degraded_when_db_none(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(bank_id="test-bank"),
+            db_pool=None,
+        )
+        assert result.degraded is True
+        assert result.needs_alert is False
+        assert result.offline_count == 0
+
+    @pytest.mark.asyncio
+    async def test_all_branches_online_no_alert(self):
+        """All branches have recent heartbeats — no alert."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(
+                bank_id="test-bank",
+                clearing_start_hour_utc=3,
+                clearing_end_hour_utc=14,
+                force_utc_hour=9,
+            ),
+            db_pool=mock_pool,
+        )
+        assert result.needs_alert is False
+        assert result.offline_count == 0
+        assert result.offline_branches == []
+        assert result.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_one_branch_offline_during_clearing_triggers_warn(self):
+        """One branch offline during clearing hours → P1 WARN alert."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[
+            {"branch_id": "BRANCH-ANDHERI-01"},
+        ])
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(
+                bank_id="test-bank",
+                clearing_start_hour_utc=3,
+                clearing_end_hour_utc=14,
+                force_utc_hour=9,
+            ),
+            db_pool=mock_pool,
+        )
+        assert result.needs_alert is True
+        assert result.offline_count == 1
+        assert "BRANCH-ANDHERI-01" in result.offline_branches
+        assert result.alert_severity == "WARN"
+        assert result.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_multiple_branches_offline(self):
+        """Multiple offline branches — all reported in list."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[
+            {"branch_id": "BRANCH-ANDHERI-01"},
+            {"branch_id": "BRANCH-DADAR-02"},
+            {"branch_id": "BRANCH-KURLA-03"},
+        ])
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(
+                bank_id="test-bank",
+                clearing_start_hour_utc=3,
+                clearing_end_hour_utc=14,
+                force_utc_hour=9,
+            ),
+            db_pool=mock_pool,
+        )
+        assert result.needs_alert is True
+        assert result.offline_count == 3
+        assert set(result.offline_branches) == {
+            "BRANCH-ANDHERI-01", "BRANCH-DADAR-02", "BRANCH-KURLA-03"
+        }
+
+    @pytest.mark.asyncio
+    async def test_outside_clearing_hours_skips_alert(self):
+        """Branches offline outside clearing hours — no alert (overnight/weekend)."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[
+            {"branch_id": "BRANCH-ANDHERI-01"},
+        ])
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(
+                bank_id="test-bank",
+                clearing_start_hour_utc=3,
+                clearing_end_hour_utc=14,
+                force_utc_hour=20,
+            ),
+            db_pool=mock_pool,
+        )
+        assert result.needs_alert is False
+        assert result.skipped_outside_hours is True
+
+    @pytest.mark.asyncio
+    async def test_boundary_start_hour_is_included(self):
+        """Alert fires exactly at clearing_start_hour_utc boundary."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[{"branch_id": "BRANCH-X"}])
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(
+                bank_id="test-bank",
+                clearing_start_hour_utc=3,
+                clearing_end_hour_utc=14,
+                force_utc_hour=3,
+            ),
+            db_pool=mock_pool,
+        )
+        assert result.needs_alert is True
+
+    @pytest.mark.asyncio
+    async def test_boundary_end_hour_is_excluded(self):
+        """No alert fires at or after clearing_end_hour_utc."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[{"branch_id": "BRANCH-X"}])
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(
+                bank_id="test-bank",
+                clearing_start_hour_utc=3,
+                clearing_end_hour_utc=14,
+                force_utc_hour=14,
+            ),
+            db_pool=mock_pool,
+        )
+        assert result.needs_alert is False
+        assert result.skipped_outside_hours is True
+
+    @pytest.mark.asyncio
+    async def test_db_error_degrades_gracefully_scanner(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckScannerFleetInput, check_scanner_fleet_for_alert,
+        )
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(side_effect=Exception("DB timeout")),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        result = await check_scanner_fleet_for_alert(
+            CheckScannerFleetInput(bank_id="test-bank", force_utc_hour=9),
+            db_pool=mock_pool,
+        )
+        assert result.degraded is True
+        assert result.needs_alert is False
+
+
+# ── run_with_mocks — scanner fleet check wired ───────────────────────────────
+
+class TestRunWithMocksScannerFleet:
+
+    @pytest.mark.asyncio
+    async def test_scanner_offline_sends_warn_alert(self):
+        from modules.cts.workflows.platform_health_check_workflow import (
+            PlatformHealthCheckWorkflow, PlatformHealthInput,
+        )
+        wf = PlatformHealthCheckWorkflow()
+        dispatched = []
+        result = await wf.run_with_mocks(
+            PlatformHealthInput(bank_id="test-bank"),
+            mock_results={
+                "iet_risk":      {"needs_alert": False, "degraded": False},
+                "human_review":  {"needs_alert": False, "degraded": False},
+                "scanner_fleet": {
+                    "needs_alert": True,
+                    "offline_count": 2,
+                    "offline_branches": ["BRANCH-A", "BRANCH-B"],
+                    "alert_severity": "WARN",
+                    "degraded": False,
+                    "skipped_outside_hours": False,
+                },
+                "dispatched": dispatched,
+            },
+        )
+        assert any(d["event_type"] == "SCANNER_BRANCH_OFFLINE" for d in dispatched)
+        assert any(d["severity"] == "WARN" for d in dispatched)
+        assert any(d["priority"] == "P1" for d in dispatched)
+        assert any("BRANCH-A" in d["message"] for d in dispatched)
+        assert result.alerts_sent == 1
+
+    @pytest.mark.asyncio
+    async def test_scanner_fleet_absent_defaults_no_alert(self):
+        """Key absent from mock_results — backward-compatible, no crash."""
+        from modules.cts.workflows.platform_health_check_workflow import (
+            PlatformHealthCheckWorkflow, PlatformHealthInput,
+        )
+        wf = PlatformHealthCheckWorkflow()
+        dispatched = []
+        result = await wf.run_with_mocks(
+            PlatformHealthInput(bank_id="test-bank"),
+            mock_results={
+                "iet_risk":    {"needs_alert": False, "degraded": False},
+                "human_review": {"needs_alert": False, "degraded": False},
+                "dispatched":  dispatched,
+            },
+        )
+        assert all(d["event_type"] != "SCANNER_BRANCH_OFFLINE" for d in dispatched)
+
+    @pytest.mark.asyncio
+    async def test_checks_run_count_is_five(self):
+        """With scanner fleet check, run_with_mocks reports 5 checks."""
+        from modules.cts.workflows.platform_health_check_workflow import (
+            PlatformHealthCheckWorkflow, PlatformHealthInput,
+        )
+        wf = PlatformHealthCheckWorkflow()
+        result = await wf.run_with_mocks(
+            PlatformHealthInput(bank_id="test-bank"),
+            mock_results={
+                "iet_risk":      {"needs_alert": False, "degraded": False},
+                "human_review":  {"needs_alert": False, "degraded": False},
+                "scanner_fleet": {"needs_alert": False, "degraded": False,
+                                  "skipped_outside_hours": False},
+                "dispatched": [],
+            },
+        )
+        assert result.checks_run == 5
+
+    @pytest.mark.asyncio
+    async def test_scanner_outside_hours_sends_no_alert(self):
+        """skipped_outside_hours=True → no dispatch even if offline branches present."""
+        from modules.cts.workflows.platform_health_check_workflow import (
+            PlatformHealthCheckWorkflow, PlatformHealthInput,
+        )
+        wf = PlatformHealthCheckWorkflow()
+        dispatched = []
+        await wf.run_with_mocks(
+            PlatformHealthInput(bank_id="test-bank"),
+            mock_results={
+                "iet_risk":      {"needs_alert": False, "degraded": False},
+                "human_review":  {"needs_alert": False, "degraded": False},
+                "scanner_fleet": {
+                    "needs_alert": False,
+                    "offline_count": 3,
+                    "offline_branches": ["X", "Y", "Z"],
+                    "skipped_outside_hours": True,
+                    "degraded": False,
+                },
+                "dispatched": dispatched,
+            },
+        )
+        assert not any(d["event_type"] == "SCANNER_BRANCH_OFFLINE" for d in dispatched)

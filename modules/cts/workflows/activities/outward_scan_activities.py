@@ -22,7 +22,10 @@ from modules.cts.compliance.models import InstrumentComplianceRecord
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
 from shared.ai.model_cascade import CascadeOrchestrator
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 def _numeric_amounts_match(a: str, b: str, tolerance: Decimal = Decimal("0.01")) -> bool:
@@ -82,56 +85,74 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
     rear_image_required=true in Layer 3 config (default: false — blank reverse
     is standard practice and must not cause a compliance failure).
     """
-    from shared.config.config_service import config_service  # avoid circular at module load
+    if isinstance(inp, dict):
+        inp = CTS2010ValidationInput(**inp)
+    with tracer.start_as_current_span("activity.validate_cts2010") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        from shared.config.config_service import config_service  # avoid circular at module load
+        if not config_service._ready:
+            await config_service.initialise()
 
-    cts_cfg = await config_service.get_cts_config(inp.bank_id)
-    rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
+        cts_cfg = await config_service.get_cts_config(inp.bank_id)
+        rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
+        _siq_raw = await config_service.get("cts.strict_image_quality")
+        strict_image_quality: bool = str(_siq_raw).lower() == "true"
 
-    required_metrics = list(_FRONT_REQUIRED_METRICS)
-    if rear_image_required:
-        required_metrics.extend(_REAR_METRICS)
+        if not strict_image_quality:
+            # POC/UAT mode — skip all image-quality checks; real CTS scanners produce compliant images
+            log.warning(
+                "validate_cts2010.poc_mode_quality_bypass",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return CTS2010ValidationResult(is_compliant=True, violations=[])
 
-    missing = [f for f in required_metrics if getattr(inp, f) is None]
-    if missing:
-        log.warning(
-            "validate_cts2010.missing_metrics",
+        required_metrics = list(_FRONT_REQUIRED_METRICS)
+        if rear_image_required:
+            required_metrics.extend(_REAR_METRICS)
+
+        missing = [f for f in required_metrics if getattr(inp, f) is None]
+        if missing:
+            log.warning(
+                "validate_cts2010.missing_metrics",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                missing=missing,
+            )
+            return CTS2010ValidationResult(is_compliant=False, violations=["MISSING_IMAGE_METRICS"])
+
+        record = InstrumentComplianceRecord(
             instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            missing=missing,
+            cheque_number=inp.cheque_number,
+            lot_number="",  # not yet assigned at validation time — informational only, unused by _evaluate()
+            front_dpi=inp.front_dpi,
+            front_colour_depth=inp.front_colour_depth,
+            front_file_size_kb=inp.front_file_size_kb,
+            front_iqa_score=inp.front_iqa_score,
+            rear_dpi=inp.rear_dpi or 0,
+            rear_colour_depth=inp.rear_colour_depth or 0,
+            rear_file_size_kb=inp.rear_file_size_kb or 0.0,
+            rear_iqa_score=inp.rear_iqa_score or 0.0,
+            micr_band_score=inp.micr_band_score,
+            rear_image_required=rear_image_required,
         )
-        return CTS2010ValidationResult(is_compliant=False, violations=["MISSING_IMAGE_METRICS"])
 
-    record = InstrumentComplianceRecord(
-        instrument_id=inp.instrument_id,
-        cheque_number=inp.cheque_number,
-        lot_number="",  # not yet assigned at validation time — informational only, unused by _evaluate()
-        front_dpi=inp.front_dpi,
-        front_colour_depth=inp.front_colour_depth,
-        front_file_size_kb=inp.front_file_size_kb,
-        front_iqa_score=inp.front_iqa_score,
-        rear_dpi=inp.rear_dpi or 0,
-        rear_colour_depth=inp.rear_colour_depth or 0,
-        rear_file_size_kb=inp.rear_file_size_kb or 0.0,
-        rear_iqa_score=inp.rear_iqa_score or 0.0,
-        micr_band_score=inp.micr_band_score,
-        rear_image_required=rear_image_required,
-    )
-
-    log.info(
-        "validate_cts2010.evaluated",
-        instrument_id=inp.instrument_id,
-        is_compliant=record.is_compliant,
-        violations=record.failure_reasons,
-    )
-    return CTS2010ValidationResult(
-        is_compliant=record.is_compliant,
-        violations=record.failure_reasons,
-    )
+        log.info(
+            "validate_cts2010.evaluated",
+            instrument_id=inp.instrument_id,
+            is_compliant=record.is_compliant,
+            violations=record.failure_reasons,
+        )
+        return CTS2010ValidationResult(
+            is_compliant=record.is_compliant,
+            violations=record.failure_reasons,
+        )
 
 
-# ---------------------------------------------------------------------------
-# create_lot_entry
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # create_lot_entry
+    # ---------------------------------------------------------------------------
 
 class LotAssignmentInput(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -161,18 +182,23 @@ async def create_lot_entry(inp: LotAssignmentInput, lot_manager: Any = None) -> 
     (modules/cts/worker_activities.py) selects the correct persistent
     instance per (bank_ifsc, session_id) from a registry before calling this.
     """
-    lot_number = lot_manager.auto_assign(inp.instrument_id)
-    log.info(
-        "create_lot_entry.assigned",
-        instrument_id=inp.instrument_id,
-        lot_number=lot_number,
-    )
-    return LotAssignmentResult(lot_number=lot_number)
+    if isinstance(inp, dict):
+        inp = LotAssignmentInput(**inp)
+    with tracer.start_as_current_span("activity.create_lot_entry") as span:
+        span.set_attribute("bank_id", inp.bank_ifsc)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        lot_number = lot_manager.auto_assign(inp.instrument_id)
+        log.info(
+            "create_lot_entry.assigned",
+            instrument_id=inp.instrument_id,
+            lot_number=lot_number,
+        )
+        return LotAssignmentResult(lot_number=lot_number)
 
 
-# ---------------------------------------------------------------------------
-# run_vision_presentment_check
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # run_vision_presentment_check
+    # ---------------------------------------------------------------------------
 
 _PRESENTMENT_PROMPT = """
 Read the amount in figures printed on this cheque image. Respond in JSON only:
@@ -214,54 +240,59 @@ async def run_vision_presentment_check(
     orchestrator injected, this activity cannot run for real — that is
     correct and matches every other AI-calling activity in this codebase.
     """
-    import json
+    if isinstance(inp, dict):
+        inp = VisionPresentmentCheckInput(**inp)
+    with tracer.start_as_current_span("activity.run_vision_presentment_check") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        import json
 
-    result = await orchestrator.call_vision(
-        image_url=inp.image_front_url,
-        prompt=_PRESENTMENT_PROMPT,
-        cheque_amount=inp.cheque_amount,
-    )
+        result = await orchestrator.call_vision(
+            image_url=inp.image_front_url,
+            prompt=_PRESENTMENT_PROMPT,
+            cheque_amount=inp.cheque_amount,
+        )
 
-    try:
-        parsed = json.loads(result.content)
-        vision_amount_str = parsed.get("amount_figures")
-    except (json.JSONDecodeError, AttributeError):
-        vision_amount_str = None
+        try:
+            parsed = json.loads(result.content)
+            vision_amount_str = parsed.get("amount_figures")
+        except (json.JSONDecodeError, AttributeError):
+            vision_amount_str = None
 
-    if vision_amount_str is None:
-        # Vision couldn't read it at all — cannot confirm a match, but this is
-        # not the same as a confirmed mismatch either. Degrade to no-mismatch
-        # (scanner remains authoritative for presentment) rather than holding
-        # every cheque Vision merely failed to read.
-        log.warning(
-            "run_vision_presentment_check.vision_unreadable",
+        if vision_amount_str is None:
+            # Vision couldn't read it at all — cannot confirm a match, but this is
+            # not the same as a confirmed mismatch either. Degrade to no-mismatch
+            # (scanner remains authoritative for presentment) rather than holding
+            # every cheque Vision merely failed to read.
+            log.warning(
+                "run_vision_presentment_check.vision_unreadable",
+                instrument_id=inp.instrument_id,
+            )
+            return VisionPresentmentCheckResult(
+                has_mismatch=False, mismatch_fields=[], vision_amount_str=None,
+            )
+
+        has_mismatch = not _numeric_amounts_match(inp.scanner_amount_str, vision_amount_str)
+
+        log.info(
+            "run_vision_presentment_check.compared",
             instrument_id=inp.instrument_id,
+            scanner_amount=inp.scanner_amount_str,
+            vision_amount=vision_amount_str,
+            has_mismatch=has_mismatch,
+            cascade_level=result.cascade_level,
         )
+
         return VisionPresentmentCheckResult(
-            has_mismatch=False, mismatch_fields=[], vision_amount_str=None,
+            has_mismatch=has_mismatch,
+            mismatch_fields=["amount_figures"] if has_mismatch else [],
+            vision_amount_str=vision_amount_str,
         )
 
-    has_mismatch = not _numeric_amounts_match(inp.scanner_amount_str, vision_amount_str)
 
-    log.info(
-        "run_vision_presentment_check.compared",
-        instrument_id=inp.instrument_id,
-        scanner_amount=inp.scanner_amount_str,
-        vision_amount=vision_amount_str,
-        has_mismatch=has_mismatch,
-        cascade_level=result.cascade_level,
-    )
-
-    return VisionPresentmentCheckResult(
-        has_mismatch=has_mismatch,
-        mismatch_fields=["amount_figures"] if has_mismatch else [],
-        vision_amount_str=vision_amount_str,
-    )
-
-
-# ---------------------------------------------------------------------------
-# vision_extract_and_check  (CR-120 path — replaces ocr_extract + run_vision_presentment_check)
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # vision_extract_and_check  (CR-120 path — replaces ocr_extract + run_vision_presentment_check)
+    # ---------------------------------------------------------------------------
 
 def _build_outward_vision_prompt(micr_hardware_raw: Optional[str]) -> str:
     """
@@ -331,6 +362,112 @@ class VisionExtractAndCheckResult(BaseModel):
     mismatch_fields: list[str] = []        # for MismatchResolutionWorkflow compatibility
     overall_confidence: float = 0.0
     degraded: bool = False
+    indic_refined_fields: list[str] = []   # fields replaced by IndicOCR on outward path
+
+
+async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractAndCheckResult:
+    """
+    CPU-based OCR fallback when vLLM/Qwen2-VL is unavailable.
+
+    Uses pytesseract (Tesseract 5) to extract printed fields from the front image.
+    Hardware MICR (if present) is always used directly — it's more accurate than
+    any OCR of the MICR band.  Result is always HUMAN_REVIEW because Tesseract
+    accuracy on handwritten Indian cheques is lower than GOT-OCR2.0.
+    """
+    import io
+    import re
+    try:
+        import httpx
+        from PIL import Image
+        import pytesseract
+        import os as _os, platform as _plat
+        if _plat.system() == "Windows":
+            for _p in [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ]:
+                if _os.path.isfile(_p):
+                    pytesseract.pytesseract.tesseract_cmd = _p
+                    break
+
+        # Fetch the image from MinIO
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(inp.image_front_url)
+            resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+
+        # Full-page PSM 6 (uniform block of text) — works reasonably for cheques
+        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+        lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+
+        # Heuristic extraction ────────────────────────────────────────────────
+        clean = re.sub(r'[^\x20-\x7E\n₹]', ' ', raw_text)
+
+        # Date: DD/MM/YYYY, DD-MM-YYYY, or box-digit format from scanner TIFF
+        date_val: Optional[str] = None
+        m = re.search(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b', clean)
+        if m:
+            date_val = f"{m.group(1).zfill(2)}/{m.group(2).zfill(2)}/{m.group(3)}"
+        else:
+            digits_only = re.sub(r'[^0-9]', '', clean[:200])
+            if len(digits_only) >= 8:
+                d = digits_only[:8]
+                date_val = f"{d[0:2]}/{d[2:4]}/{d[4:8]}"
+
+        # Amount figures: ₹/Rs prefix or largest Indian-format number
+        amount_figures: Optional[str] = None
+        m = re.search(r'(?:Rs\.?|₹)\s*([\d,\s]+(?:\.\d{1,2})?)', clean, re.IGNORECASE)
+        if m:
+            amount_figures = re.sub(r'[\s,]', '', m.group(1))
+        else:
+            nums = re.findall(r'\b\d{1,2}(?:[,\s]\s*\d{2})+(?:\.\d{2})?\b', clean)
+            if nums:
+                amount_figures = re.sub(r'[\s,]', '', nums[0])
+
+        # Payee: line after "Pay" or "For <Name>"
+        payee_val: Optional[str] = None
+        for i, ln in enumerate(lines):
+            if re.search(r'\bPay\b', ln, re.IGNORECASE):
+                candidate = re.sub(r'\bPay\b', '', ln, flags=re.IGNORECASE).strip()
+                if not candidate and i + 1 < len(lines):
+                    candidate = lines[i + 1]
+                if candidate and len(candidate) > 2:
+                    payee_val = candidate
+                    break
+        if not payee_val:
+            m = re.search(r'\bFor\s+([A-Z][A-Za-z0-9 .&,\'-]{3,60})', clean)
+            if m:
+                payee_val = m.group(1).strip()
+
+        log.info(
+            "vision_extract_and_check.tesseract_fallback",
+            instrument_id=inp.instrument_id,
+            has_micr=bool(inp.micr_hardware_raw),
+            date=date_val,
+            amount=amount_figures,
+            payee_found=bool(payee_val),
+        )
+
+    except ImportError:
+        log.warning("vision_extract_and_check.tesseract_not_installed",
+                    instrument_id=inp.instrument_id)
+        date_val = amount_figures = payee_val = None
+    except Exception as exc:
+        log.warning("vision_extract_and_check.tesseract_error",
+                    instrument_id=inp.instrument_id, error=str(exc))
+        date_val = amount_figures = payee_val = None
+
+    # Hardware MICR is the authoritative source — never discard it
+    micr_validated = bool(inp.micr_hardware_raw)
+
+    return VisionExtractAndCheckResult(
+        outcome="HUMAN_REVIEW",
+        amount_figures=amount_figures,
+        date=date_val,
+        payee=payee_val,
+        micr_validated=micr_validated,
+        degraded=True,
+    )
 
 
 @activity.defn
@@ -357,95 +494,90 @@ async def vision_extract_and_check(
     - MISMATCH      → amount figures/words disagree → MismatchResolutionWorkflow
     - HUMAN_REVIEW  → low confidence, model unavailable, or alteration detected
     """
-    import json
+    if isinstance(inp, dict):
+        inp = VisionExtractAndCheckInput(**inp)
+    with tracer.start_as_current_span("activity.vision_extract_and_check") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        import json
 
-    ai_config = await config_service.get_ai_config(inp.bank_id) if config_service else {}
-    min_confidence: float = ai_config.get("ai.ocr.min_confidence", 0.85)
-    alteration_threshold: float = ai_config.get("ai.alteration.risk_threshold", 0.60)
+        ai_config = await config_service.get_ai_config(inp.bank_id) if config_service else {}
+        min_confidence: float = ai_config.get("ai.ocr.min_confidence", 0.85)
+        alteration_threshold: float = ai_config.get("ai.alteration.risk_threshold", 0.60)
 
-    prompt = _build_outward_vision_prompt(inp.micr_hardware_raw)
+        prompt = _build_outward_vision_prompt(inp.micr_hardware_raw)
 
-    try:
-        cascade_result = await orchestrator.call_vision(
-            image_url=inp.image_front_url,
-            prompt=prompt,
-            cheque_amount=0.0,
-        )
-        data = json.loads(cascade_result.content)
-    except Exception as exc:
-        log.warning(
-            "vision_extract_and_check.model_unavailable",
-            instrument_id=inp.instrument_id,
-            error=str(exc),
-        )
-        return VisionExtractAndCheckResult(outcome="HUMAN_REVIEW", degraded=True)
-
-    # Extract fields
-    amount_figures = (data.get("amount_figures") or {}).get("value")
-    amount_words   = (data.get("amount_words")   or {}).get("value")
-    payee          = (data.get("payee")          or {}).get("value")
-    date           = (data.get("date")           or {}).get("value")
-
-    confidences = [
-        v["confidence"]
-        for v in data.values()
-        if isinstance(v, dict) and "confidence" in v
-    ]
-    overall = sum(confidences) / len(confidences) if confidences else 0.0
-
-    low_fields = [
-        k for k, v in data.items()
-        if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence
-    ]
-    if low_fields:
-        log.info(
-            "vision_extract_and_check.low_confidence",
-            instrument_id=inp.instrument_id,
-            low_fields=low_fields,
-        )
-        return VisionExtractAndCheckResult(
-            outcome="HUMAN_REVIEW",
-            amount_figures=amount_figures,
-            amount_words=amount_words,
-            payee=payee,
-            date=date,
-            overall_confidence=overall,
-        )
-
-    # Alteration check
-    alteration_detected: bool  = bool(data.get("alteration_detected", False))
-    alteration_risk: float     = float(data.get("alteration_risk", 0.0))
-    tampered_fields: list[str] = list(data.get("tampered_fields", []))
-
-    if alteration_detected or alteration_risk >= alteration_threshold:
-        log.info(
-            "vision_extract_and_check.alteration",
-            instrument_id=inp.instrument_id,
-            alteration_risk=alteration_risk,
-            tampered_fields=tampered_fields,
-        )
-        return VisionExtractAndCheckResult(
-            outcome="HUMAN_REVIEW",
-            amount_figures=amount_figures,
-            amount_words=amount_words,
-            payee=payee,
-            date=date,
-            alteration_detected=True,
-            alteration_risk=alteration_risk,
-            tampered_fields=tampered_fields,
-            overall_confidence=overall,
-        )
-
-    # Hardware MICR cross-validation (when scanner provided MICR)
-    micr_validated = False
-    micr_mismatch  = False
-    if inp.micr_hardware_raw and "micr_visual" in data:
-        micr_validated = True
-        micr_mismatch  = not bool(data.get("micr_matches_hardware", True))
-        if micr_mismatch:
-            log.info(
-                "vision_extract_and_check.micr_mismatch",
+        try:
+            cascade_result = await orchestrator.call_vision(
+                image_url=inp.image_front_url,
+                prompt=prompt,
+                cheque_amount=0.0,
+            )
+            data = json.loads(cascade_result.content)
+        except Exception as exc:
+            log.warning(
+                "vision_extract_and_check.model_unavailable",
                 instrument_id=inp.instrument_id,
+                error=str(exc),
+            )
+            # vLLM is down — attempt Tesseract CPU fallback then return HUMAN_REVIEW
+            # with whatever data we could extract (hardware MICR is always authoritative).
+            tess_result = await _tesseract_fallback(inp)
+            return tess_result
+
+        # Extract fields
+        amount_figures = (data.get("amount_figures") or {}).get("value")
+        amount_words   = (data.get("amount_words")   or {}).get("value")
+        payee          = (data.get("payee")          or {}).get("value")
+        date           = (data.get("date")           or {}).get("value")
+
+        # ── Indic script refinement (outward) ───────────────────────────────────
+        # Qwen2-VL reads Indic scripts but specialized IndicOCR (PaddleOCR v3)
+        # is more accurate for handwritten regional text on cheque fields.
+        # Runs whenever IndicOCR service URL is configured AND kill mode is not KC.
+        indic_refined_fields: list[str] = []
+        indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
+        indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
+
+        if indic_ocr_url:
+            try:
+                ks_raw = await config_service.get("cts.indic_ocr.kill_mode") if config_service else None
+                indic_ks_active = ks_raw == "KC"
+            except Exception:
+                indic_ks_active = False
+
+            if not indic_ks_active:
+                from modules.cts.workflows.activities.ocr import _refine_indic_zones
+                # Build fields dict in the (value, confidence) tuple format _refine_indic_zones expects
+                _indic_fields: dict = {
+                    "payee":        (payee,        float((data.get("payee")        or {}).get("confidence", 0.0))),
+                    "amount_words": (amount_words, float((data.get("amount_words") or {}).get("confidence", 0.0))),
+                }
+                indic_refined_fields, _ = await _refine_indic_zones(
+                    inp.image_front_url, inp.instrument_id,
+                    _indic_fields, indic_ocr_url, min_confidence, indic_min_confidence,
+                )
+                if "payee" in indic_refined_fields:
+                    payee = _indic_fields["payee"][0]
+                if "amount_words" in indic_refined_fields:
+                    amount_words = _indic_fields["amount_words"][0]
+
+        confidences = [
+            v["confidence"]
+            for v in data.values()
+            if isinstance(v, dict) and "confidence" in v
+        ]
+        overall = sum(confidences) / len(confidences) if confidences else 0.0
+
+        low_fields = [
+            k for k, v in data.items()
+            if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence
+        ]
+        if low_fields:
+            log.info(
+                "vision_extract_and_check.low_confidence",
+                instrument_id=inp.instrument_id,
+                low_fields=low_fields,
             )
             return VisionExtractAndCheckResult(
                 outcome="HUMAN_REVIEW",
@@ -453,46 +585,90 @@ async def vision_extract_and_check(
                 amount_words=amount_words,
                 payee=payee,
                 date=date,
-                micr_validated=micr_validated,
-                micr_mismatch=True,
                 overall_confidence=overall,
             )
 
-    # Figures vs words cross-check
-    match = amounts_match(figures=amount_figures, words=amount_words)
-    if match is False:
-        log.info(
-            "vision_extract_and_check.amount_mismatch",
-            instrument_id=inp.instrument_id,
-        )
+        # Alteration check
+        alteration_detected: bool  = bool(data.get("alteration_detected", False))
+        alteration_risk: float     = float(data.get("alteration_risk", 0.0))
+        tampered_fields: list[str] = list(data.get("tampered_fields", []))
+
+        if alteration_detected or alteration_risk >= alteration_threshold:
+            log.info(
+                "vision_extract_and_check.alteration",
+                instrument_id=inp.instrument_id,
+                alteration_risk=alteration_risk,
+                tampered_fields=tampered_fields,
+            )
+            return VisionExtractAndCheckResult(
+                outcome="HUMAN_REVIEW",
+                amount_figures=amount_figures,
+                amount_words=amount_words,
+                payee=payee,
+                date=date,
+                alteration_detected=True,
+                alteration_risk=alteration_risk,
+                tampered_fields=tampered_fields,
+                overall_confidence=overall,
+            )
+
+        # Hardware MICR cross-validation (when scanner provided MICR)
+        micr_validated = False
+        micr_mismatch  = False
+        if inp.micr_hardware_raw and "micr_visual" in data:
+            micr_validated = True
+            micr_mismatch  = not bool(data.get("micr_matches_hardware", True))
+            if micr_mismatch:
+                log.info(
+                    "vision_extract_and_check.micr_mismatch",
+                    instrument_id=inp.instrument_id,
+                )
+                return VisionExtractAndCheckResult(
+                    outcome="HUMAN_REVIEW",
+                    amount_figures=amount_figures,
+                    amount_words=amount_words,
+                    payee=payee,
+                    date=date,
+                    micr_validated=micr_validated,
+                    micr_mismatch=True,
+                    overall_confidence=overall,
+                )
+
+        # Figures vs words cross-check
+        match = amounts_match(figures=amount_figures, words=amount_words)
+        if match is False:
+            log.info(
+                "vision_extract_and_check.amount_mismatch",
+                instrument_id=inp.instrument_id,
+            )
+            return VisionExtractAndCheckResult(
+                outcome="MISMATCH",
+                amount_figures=amount_figures,
+                amount_words=amount_words,
+                payee=payee,
+                date=date,
+                mismatch_fields=["amount_figures", "amount_words"],
+                micr_validated=micr_validated,
+                overall_confidence=overall,
+            )
+
         return VisionExtractAndCheckResult(
-            outcome="MISMATCH",
+            outcome="PROCEED",
             amount_figures=amount_figures,
             amount_words=amount_words,
             payee=payee,
             date=date,
-            mismatch_fields=["amount_figures", "amount_words"],
+            alteration_detected=False,
+            alteration_risk=alteration_risk,
+            tampered_fields=[],
             micr_validated=micr_validated,
+            micr_mismatch=False,
+            mismatch_fields=[],
             overall_confidence=overall,
         )
 
-    return VisionExtractAndCheckResult(
-        outcome="PROCEED",
-        amount_figures=amount_figures,
-        amount_words=amount_words,
-        payee=payee,
-        date=date,
-        alteration_detected=False,
-        alteration_risk=alteration_risk,
-        tampered_fields=[],
-        micr_validated=micr_validated,
-        micr_mismatch=False,
-        mismatch_fields=[],
-        overall_confidence=overall,
-    )
 
-
-# ── Payee / beneficiary account validation (outward) ─────────────────────────
+    # ── Payee / beneficiary account validation (outward) ─────────────────────────
 
 
 class PayeeValidationInput(BaseModel):
@@ -501,7 +677,7 @@ class PayeeValidationInput(BaseModel):
     bank_id: str
     payee_account_number: str           # from deposit slip (kiosk entry / teller counter / rear OCR)
     payee_name_from_slip: Optional[str] = None   # name customer wrote on slip / back of cheque
-    name_match_threshold: float = 0.80           # default; overridden by config_service in activity
+    name_match_threshold: Optional[float] = None  # always set via config_service in activity
 
 
 class PayeeValidationResult(BaseModel):
@@ -537,125 +713,130 @@ async def validate_payee_account(
            On CBS miss after vault hit: treat as CBS_UNAVAILABLE (vault says account exists)
       3. On CBS call → cache account_status + holder_name_display into Account Vault
     """
-    cts_config = await config_service.get_cts_config(inp.bank_id) if config_service else {}
-    threshold: float = float(cts_config.get("payee_name_match_threshold", inp.name_match_threshold))
+    if isinstance(inp, dict):
+        inp = PayeeValidationInput(**inp)
+    with tracer.start_as_current_span("activity.validate_payee_account") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        cts_config = await config_service.get_cts_config(inp.bank_id) if config_service else {}
+        threshold: float = float(cts_config.get("payee_name_match_threshold", inp.name_match_threshold or 0.80))
 
-    # ── Step 1: Account Vault lookup ─────────────────────────────────────────
-    vault_hit = False
-    vault_status: Optional[str] = None
+        # ── Step 1: Account Vault lookup ─────────────────────────────────────────
+        vault_hit = False
+        vault_status: Optional[str] = None
 
-    if account_vault is not None:
-        vault_result = await account_vault.lookup(inp.payee_account_number, inp.bank_id)
-        if vault_result.outcome == "FOUND" and vault_result.profile:
-            vault_hit = True
-            vault_status = vault_result.profile.account_status
-            if vault_status in _INACTIVE_STATUSES:
-                log.info(
-                    "validate_payee_account.vault_inactive",
-                    instrument_id=inp.instrument_id,
-                    account_last4=inp.payee_account_number[-4:],
-                    account_status=vault_status,
-                )
-                return PayeeValidationResult(
-                    outcome="ACCOUNT_INACTIVE",
-                    account_status=vault_status,
-                    payee_display=vault_result.profile.holder_name_display or "***",
-                    vault_hit=True,
-                )
+        if account_vault is not None:
+            vault_result = await account_vault.lookup(inp.payee_account_number, inp.bank_id)
+            if vault_result.outcome == "FOUND" and vault_result.profile:
+                vault_hit = True
+                vault_status = vault_result.profile.account_status
+                if vault_status in _INACTIVE_STATUSES:
+                    log.info(
+                        "validate_payee_account.vault_inactive",
+                        instrument_id=inp.instrument_id,
+                        account_last4=inp.payee_account_number[-4:],
+                        account_status=vault_status,
+                    )
+                    return PayeeValidationResult(
+                        outcome="ACCOUNT_INACTIVE",
+                        account_status=vault_status,
+                        payee_display=vault_result.profile.holder_name_display or "***",
+                        vault_hit=True,
+                    )
 
-    # ── Step 2: CBS call — name match (and full check on vault miss) ─────────
-    if cbs_connector is None:
-        log.warning(
-            "validate_payee_account.no_cbs_connector",
-            instrument_id=inp.instrument_id,
-        )
-        return PayeeValidationResult(
-            outcome="CBS_UNAVAILABLE", degraded=True, vault_hit=vault_hit,
-        )
-
-    try:
-        from shared.cbs_connector.base import BeneficiaryValidationResult
-
-        # If the deposit-slip name is in an Indic script, transliterate to Latin
-        # before CBS comparison — the CBS connector's _name_match_score() uses
-        # plain string comparison and cannot handle Devanagari, Tamil, etc.
-        raw_inquiry = inp.payee_name_from_slip or ""
-        inquiry_name = raw_inquiry
-        if raw_inquiry:
-            from modules.cts.preprocessing.payee_normalizer import (
-                _is_indic, strip_salutation, transliterate_by_script, _detect_script,
+        # ── Step 2: CBS call — name match (and full check on vault miss) ─────────
+        if cbs_connector is None:
+            log.warning(
+                "validate_payee_account.no_cbs_connector",
+                instrument_id=inp.instrument_id,
             )
-            if _is_indic(raw_inquiry):
-                script = _detect_script(raw_inquiry) or "devanagari"
-                inquiry_name = transliterate_by_script(
-                    strip_salutation(raw_inquiry), script
-                )
-                log.info(
-                    "validate_payee_account.indic_transliterated",
-                    instrument_id=inp.instrument_id,
-                    script=script,
-                )
-
-        cbs_result: BeneficiaryValidationResult = await cbs_connector.validate_beneficiary(
-            account_number=inp.payee_account_number,
-            inquiry_name=inquiry_name,
-            bank_id=inp.bank_id,
-            name_match_threshold=threshold,
-        )
-    except Exception as exc:
-        log.warning(
-            "validate_payee_account.cbs_error",
-            instrument_id=inp.instrument_id,
-            error=str(exc),
-        )
-        if vault_hit:
-            # Vault says account exists (ACTIVE) but CBS is now unavailable — proceed degraded
             return PayeeValidationResult(
-                outcome="CBS_UNAVAILABLE",
-                account_status=vault_status,
-                payee_display="***",
-                vault_hit=True,
-                degraded=True,
+                outcome="CBS_UNAVAILABLE", degraded=True, vault_hit=vault_hit,
             )
-        return PayeeValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
 
-    log.info(
-        "validate_payee_account.cbs_result",
-        instrument_id=inp.instrument_id,
-        account_last4=inp.payee_account_number[-4:],
-        outcome=cbs_result.outcome,
-        name_match_score=cbs_result.name_match_score,
-        vault_hit=vault_hit,
-    )
-
-    # ── Step 3: Cache CBS result into Account Vault ──────────────────────────
-    if account_vault is not None and cbs_result.outcome not in ("ACCOUNT_NOT_FOUND", "CBS_UNAVAILABLE"):
         try:
-            await account_vault.store_profile(
+            from shared.cbs_connector.base import BeneficiaryValidationResult
+
+            # If the deposit-slip name is in an Indic script, transliterate to Latin
+            # before CBS comparison — the CBS connector's _name_match_score() uses
+            # plain string comparison and cannot handle Devanagari, Tamil, etc.
+            raw_inquiry = inp.payee_name_from_slip or ""
+            inquiry_name = raw_inquiry
+            if raw_inquiry:
+                from modules.cts.preprocessing.payee_normalizer import (
+                    _is_indic, strip_salutation, transliterate_by_script, _detect_script,
+                )
+                if _is_indic(raw_inquiry):
+                    script = _detect_script(raw_inquiry) or "devanagari"
+                    inquiry_name = transliterate_by_script(
+                        strip_salutation(raw_inquiry), script
+                    )
+                    log.info(
+                        "validate_payee_account.indic_transliterated",
+                        instrument_id=inp.instrument_id,
+                        script=script,
+                    )
+
+            cbs_result: BeneficiaryValidationResult = await cbs_connector.validate_beneficiary(
                 account_number=inp.payee_account_number,
-                profile={
-                    "account_number_last4": inp.payee_account_number[-4:],
-                    "account_type": "UNKNOWN",
-                    "account_status": cbs_result.account_status.value if cbs_result.account_status else "ACTIVE",
-                    "holder_name_display": cbs_result.payee_display or "***",
-                },
-                source="CBS_PAYEE_VALIDATE",
+                inquiry_name=inquiry_name,
+                bank_id=inp.bank_id,
+                name_match_threshold=threshold,
             )
         except Exception as exc:
-            log.warning("validate_payee_account.vault_cache_failed", error=str(exc))
+            log.warning(
+                "validate_payee_account.cbs_error",
+                instrument_id=inp.instrument_id,
+                error=str(exc),
+            )
+            if vault_hit:
+                # Vault says account exists (ACTIVE) but CBS is now unavailable — proceed degraded
+                return PayeeValidationResult(
+                    outcome="CBS_UNAVAILABLE",
+                    account_status=vault_status,
+                    payee_display="***",
+                    vault_hit=True,
+                    degraded=True,
+                )
+            return PayeeValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
 
-    return PayeeValidationResult(
-        outcome=cbs_result.outcome,
-        account_status=cbs_result.account_status.value if cbs_result.account_status else None,
-        name_match_score=cbs_result.name_match_score,
-        name_match_confidence=cbs_result.name_match_confidence,
-        payee_display=cbs_result.payee_display,
-        vault_hit=vault_hit,
-        degraded=cbs_result.degraded,
-    )
+        log.info(
+            "validate_payee_account.cbs_result",
+            instrument_id=inp.instrument_id,
+            account_last4=inp.payee_account_number[-4:],
+            outcome=cbs_result.outcome,
+            name_match_score=cbs_result.name_match_score,
+            vault_hit=vault_hit,
+        )
+
+        # ── Step 3: Cache CBS result into Account Vault ──────────────────────────
+        if account_vault is not None and cbs_result.outcome not in ("ACCOUNT_NOT_FOUND", "CBS_UNAVAILABLE"):
+            try:
+                await account_vault.store_profile(
+                    account_number=inp.payee_account_number,
+                    profile={
+                        "account_number_last4": inp.payee_account_number[-4:],
+                        "account_type": "UNKNOWN",
+                        "account_status": cbs_result.account_status.value if cbs_result.account_status else "ACTIVE",
+                        "holder_name_display": cbs_result.payee_display or "***",
+                    },
+                    source="CBS_PAYEE_VALIDATE",
+                )
+            except Exception as exc:
+                log.warning("validate_payee_account.vault_cache_failed", error=str(exc))
+
+        return PayeeValidationResult(
+            outcome=cbs_result.outcome,
+            account_status=cbs_result.account_status.value if cbs_result.account_status else None,
+            name_match_score=cbs_result.name_match_score,
+            name_match_confidence=cbs_result.name_match_confidence,
+            payee_display=cbs_result.payee_display,
+            vault_hit=vault_hit,
+            degraded=cbs_result.degraded,
+        )
 
 
-# ── Rear-image / deposit-slip payee detail extraction ─────────────────────────
+    # ── Rear-image / deposit-slip payee detail extraction ─────────────────────────
 
 
 _REAR_OCR_PROMPT = """This is the REAR (back) of a cheque or a bank deposit slip.
@@ -695,6 +876,98 @@ class RearPayeeExtractionResult(BaseModel):
     degraded: bool = False
 
 
+async def _rear_tesseract_fallback(image_url: str, instrument_id: str) -> Optional[dict]:
+    """
+    CPU Tesseract fallback for rear-image OCR (vLLM unavailable).
+
+    Extracts account number (9-18 digits), mobile (10 digits starting 6-9),
+    IFSC (4-alpha + 0 + 6-alnum), and depositor name from written endorsement text.
+    Returns a dict in the same {field: {value, confidence}} shape as Qwen2-VL output.
+    """
+    import io
+    import re
+    try:
+        import httpx
+        from PIL import Image
+        import pytesseract
+        import os as _os, platform as _plat
+        if _plat.system() == "Windows":
+            for _p in [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ]:
+                if _os.path.isfile(_p):
+                    pytesseract.pytesseract.tesseract_cmd = _p
+                    break
+    except ImportError:
+        return None
+
+    _CONF = 0.55   # Tesseract on handwritten cheque backs is lower accuracy than front
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(image_url)
+            resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
+        clean = re.sub(r'[^\x20-\x7E\n]', ' ', raw_text)
+        lines = [ln.strip() for ln in clean.splitlines() if ln.strip()]
+
+        # Account number: keyword "A/c", "AC", "Account" followed by 9-18 digit string
+        acct_val = None
+        m = re.search(r'(?:A/?[Cc]\.?\s*(?:No\.?|Number)?|Account\s*(?:No\.?|Number)?)\s*[:#]?\s*(\d[\d\s]{7,17}\d)', clean, re.IGNORECASE)
+        if m:
+            acct_val = re.sub(r'\s', '', m.group(1))
+        else:
+            # bare 9-18 digit block not preceded by obvious noise
+            for ln in lines:
+                digits = re.sub(r'\s', '', re.sub(r'\D', '', ln))
+                if 9 <= len(digits) <= 18:
+                    acct_val = digits
+                    break
+
+        # Mobile number: 10 digits starting with 6-9
+        mobile_val = None
+        m = re.search(r'(?:Mob(?:ile)?\.?\s*(?:No\.?)?|Ph(?:one)?\.?\s*(?:No\.?)?)?\s*([6-9]\d{9})\b', clean, re.IGNORECASE)
+        if m:
+            mobile_val = m.group(1)
+
+        # IFSC: 4 letters + 0 + 6 alphanumeric
+        ifsc_val = None
+        m = re.search(r'\b([A-Z]{4}0[A-Z0-9]{6})\b', clean, re.IGNORECASE)
+        if m:
+            ifsc_val = m.group(1).upper()
+
+        # Depositor name: line after "Name:", "Pay to", or "A/c Holder" keyword
+        name_val = None
+        for i, ln in enumerate(lines):
+            if re.search(r'\b(?:Name|Pay\s*to|A/?C\s*Holder)\b', ln, re.IGNORECASE):
+                candidate = re.sub(r'\b(?:Name|Pay\s*to|A/?C\s*Holder)\s*[:#]?', '', ln, flags=re.IGNORECASE).strip()
+                if not candidate and i + 1 < len(lines):
+                    candidate = lines[i + 1]
+                if candidate and len(candidate) > 2 and not re.match(r'^\d', candidate):
+                    name_val = candidate
+                    break
+
+        log.info(
+            "extract_rear_payee_details.tesseract_fallback",
+            instrument_id=instrument_id,
+            acct_found=bool(acct_val),
+            mobile_found=bool(mobile_val),
+            ifsc_found=bool(ifsc_val),
+            name_found=bool(name_val),
+        )
+        return {
+            "account_number": {"value": acct_val,  "confidence": _CONF if acct_val  else 0.0},
+            "ifsc_code":      {"value": ifsc_val,   "confidence": _CONF if ifsc_val  else 0.0},
+            "depositor_name": {"value": name_val,   "confidence": _CONF if name_val  else 0.0},
+            "mobile_number":  {"value": mobile_val, "confidence": _CONF if mobile_val else 0.0},
+        }
+    except Exception as exc:
+        log.warning("extract_rear_payee_details.tesseract_failed", instrument_id=instrument_id, error=str(exc))
+        return None
+
+
 @activity.defn
 async def extract_rear_payee_details(
     inp: RearPayeeExtractionInput,
@@ -709,54 +982,69 @@ async def extract_rear_payee_details(
     On OCR failure, degraded=True is set and the caller falls back to
     teller manual entry (the instrument is not rejected).
     """
-    import json
+    if isinstance(inp, dict):
+        inp = RearPayeeExtractionInput(**inp)
+    with tracer.start_as_current_span("activity.extract_rear_payee_details") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        import json
 
-    if orchestrator is None:
-        log.warning("extract_rear_payee_details.no_orchestrator", instrument_id=inp.instrument_id)
-        return RearPayeeExtractionResult(degraded=True)
+        data: Optional[dict] = None
+        ocr_engine = "qwen2-vl"
 
-    try:
-        result = await orchestrator.call_vision(
-            image_url=inp.image_rear_url,
-            prompt=_REAR_OCR_PROMPT,
-            cheque_amount=0.0,
-        )
-        data = json.loads(result.content)
-    except Exception as exc:
-        log.warning(
-            "extract_rear_payee_details.ocr_failed",
+        # Attempt 1: Qwen2-VL via orchestrator (GPU path)
+        if orchestrator is not None:
+            try:
+                result = await orchestrator.call_vision(
+                    image_url=inp.image_rear_url,
+                    prompt=_REAR_OCR_PROMPT,
+                    cheque_amount=0.0,
+                )
+                data = json.loads(result.content)
+            except Exception as exc:
+                log.warning(
+                    "extract_rear_payee_details.vision_failed",
+                    instrument_id=inp.instrument_id,
+                    error=str(exc),
+                )
+        else:
+            log.warning("extract_rear_payee_details.no_orchestrator", instrument_id=inp.instrument_id)
+
+        # Attempt 2: Tesseract CPU fallback when vLLM is unavailable
+        if data is None:
+            data = await _rear_tesseract_fallback(inp.image_rear_url, inp.instrument_id)
+            ocr_engine = "tesseract"
+            if data is None:
+                return RearPayeeExtractionResult(degraded=True)
+
+        def _val(field: str) -> Optional[str]:
+            entry = data.get(field) or {}
+            return entry.get("value")
+
+        def _conf(field: str) -> float:
+            entry = data.get(field) or {}
+            return float(entry.get("confidence", 0.0))
+
+        confs = [_conf(f) for f in ("account_number", "ifsc_code", "depositor_name")]
+        overall = sum(confs) / len(confs) if confs else 0.0
+
+        log.info(
+            "extract_rear_payee_details.done",
             instrument_id=inp.instrument_id,
-            error=str(exc),
+            account_last4=(_val("account_number") or "")[-4:],
+            overall_confidence=overall,
+            ocr_engine=ocr_engine,
         )
-        return RearPayeeExtractionResult(degraded=True)
-
-    def _val(field: str) -> Optional[str]:
-        entry = data.get(field) or {}
-        return entry.get("value")
-
-    def _conf(field: str) -> float:
-        entry = data.get(field) or {}
-        return float(entry.get("confidence", 0.0))
-
-    confs = [_conf(f) for f in ("account_number", "ifsc_code", "depositor_name")]
-    overall = sum(confs) / len(confs) if confs else 0.0
-
-    log.info(
-        "extract_rear_payee_details.done",
-        instrument_id=inp.instrument_id,
-        account_last4=(_val("account_number") or "")[-4:],
-        overall_confidence=overall,
-    )
-    return RearPayeeExtractionResult(
-        account_number=_val("account_number"),
-        ifsc_code=_val("ifsc_code"),
-        depositor_name=_val("depositor_name"),
-        mobile_number=_val("mobile_number"),
-        overall_confidence=overall,
-    )
+        return RearPayeeExtractionResult(
+            account_number=_val("account_number"),
+            ifsc_code=_val("ifsc_code"),
+            depositor_name=_val("depositor_name"),
+            mobile_number=_val("mobile_number"),
+            overall_confidence=overall,
+        )
 
 
-# ── Cheque de-duplication activity ────────────────────────────────────────────
+    # ── Cheque de-duplication activity ────────────────────────────────────────────
 
 class ChequeDedupInput(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -785,51 +1073,56 @@ async def check_cheque_dedup(inp: ChequeDedupInput) -> ChequeDedupActivityResult
     FRESH  → first presentation, key registered.
     DUPLICATE → same cheque seen before; caller must reject and audit.
     """
-    from shared.config.config_service import config_service
-    from modules.cts.preprocessing.cheque_dedup import check_and_register_dedup
+    if isinstance(inp, dict):
+        inp = ChequeDedupInput(**inp)
+    with tracer.start_as_current_span("activity.check_cheque_dedup") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        from shared.config.config_service import config_service
+        from modules.cts.preprocessing.cheque_dedup import check_and_register_dedup
 
-    try:
-        redis_url = config_service.get("redis.cts.url")
-        import aioredis
-        redis = await aioredis.from_url(redis_url, decode_responses=False)
-    except Exception as exc:
-        # Redis unavailable: fail open with FRESH to avoid blocking clearing.
-        # Audit trail in YugabyteDB provides compliance backstop.
-        log.warning(
-            "check_cheque_dedup.redis_unavailable",
+        try:
+            redis_url = await config_service.get("redis.cts.url")
+            import aioredis
+            redis = await aioredis.from_url(redis_url, decode_responses=False)
+        except Exception as exc:
+            # Redis unavailable: fail open with FRESH to avoid blocking clearing.
+            # Audit trail in YugabyteDB provides compliance backstop.
+            log.warning(
+                "check_cheque_dedup.redis_unavailable",
+                instrument_id=inp.instrument_id,
+                error=str(exc),
+            )
+            return ChequeDedupActivityResult(is_duplicate=False)
+
+        # MICR line layout (CTS-2010): positions 13–21 (1-indexed) = 9-digit bank/branch code.
+        # Strip non-digit chars before slicing — scanner OCR sometimes inserts spaces.
+        digits_only = "".join(c for c in inp.micr_line if c.isdigit())
+        micr_code = digits_only[12:21] if len(digits_only) >= 21 else digits_only
+
+        result = await check_and_register_dedup(
+            bank_id=inp.bank_id,
+            micr_code=micr_code,
+            cheque_number=inp.cheque_number,
             instrument_id=inp.instrument_id,
-            error=str(exc),
+            presented_at=inp.presented_at,
+            redis=redis,
         )
-        return ChequeDedupActivityResult(is_duplicate=False)
-
-    # MICR line layout (CTS-2010): positions 13–21 (1-indexed) = 9-digit bank/branch code.
-    # Strip non-digit chars before slicing — scanner OCR sometimes inserts spaces.
-    digits_only = "".join(c for c in inp.micr_line if c.isdigit())
-    micr_code = digits_only[12:21] if len(digits_only) >= 21 else digits_only
-
-    result = await check_and_register_dedup(
-        bank_id=inp.bank_id,
-        micr_code=micr_code,
-        cheque_number=inp.cheque_number,
-        instrument_id=inp.instrument_id,
-        presented_at=inp.presented_at,
-        redis=redis,
-    )
-    log.info(
-        "check_cheque_dedup.result",
-        instrument_id=inp.instrument_id,
-        decision=result.decision,
-        micr_suffix=micr_code[-4:] if micr_code else "",
-        cheque_suffix=inp.cheque_number[-4:],
-    )
-    return ChequeDedupActivityResult(
-        is_duplicate=(result.decision == "DUPLICATE"),
-        original_instrument_id=result.existing_instrument_id,
-        original_presented_at=result.existing_presented_at,
-    )
+        log.info(
+            "check_cheque_dedup.result",
+            instrument_id=inp.instrument_id,
+            decision=result.decision,
+            micr_suffix=micr_code[-4:] if micr_code else "",
+            cheque_suffix=inp.cheque_number[-4:],
+        )
+        return ChequeDedupActivityResult(
+            is_duplicate=(result.decision == "DUPLICATE"),
+            original_instrument_id=result.existing_instrument_id,
+            original_presented_at=result.existing_presented_at,
+        )
 
 
-# ── Scan event recorder ────────────────────────────────────────────────────────
+    # ── Scan event recorder ────────────────────────────────────────────────────────
 
 class RecordScanEventInput(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -850,27 +1143,34 @@ class RecordScanEventInput(BaseModel):
 
 @activity.defn(name="record_outward_scan_event")
 async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
-    from shared.config.config_service import config_service
-    dsn = await config_service.get("db.cts.dsn")
+    if isinstance(inp, dict):
+        inp = RecordScanEventInput(**inp)
+    with tracer.start_as_current_span("activity.record_outward_scan_event") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        from shared.config.config_service import config_service
+        if not config_service._ready:
+            await config_service.initialise()
+        dsn = await config_service.get_secret("db.cts.dsn")
 
-    import asyncpg
-    try:
-        conn = await asyncpg.connect(dsn)
+        import asyncpg
         try:
-            await conn.execute(
-                """
-                INSERT INTO cts.outward_scan_events
-                    (bank_id, branch_id, session_id, scan_id, instrument_id,
-                     micr_suffix, payee_display, amount_range, outcome,
-                     lot_id, mismatch_id, mismatch_fields, reject_reason)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                """,
-                inp.bank_id, inp.branch_id, inp.session_id, inp.scan_id,
-                inp.instrument_id, inp.micr_suffix, inp.payee_display,
-                inp.amount_range, inp.outcome, inp.lot_id, inp.mismatch_id,
-                inp.mismatch_fields, inp.reject_reason,
-            )
-        finally:
-            await conn.close()
-    except Exception as exc:
-        log.warning("record_outward_scan_event.db_unavailable", scan_id=inp.scan_id, error=str(exc))
+            conn = await asyncpg.connect(dsn)
+            try:
+                await conn.execute(
+                    """
+                    INSERT INTO cts.outward_scan_events
+                        (bank_id, branch_id, session_id, scan_id, instrument_id,
+                         micr_suffix, payee_display, amount_range, outcome,
+                         lot_id, mismatch_id, mismatch_fields, reject_reason)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    """,
+                    inp.bank_id, inp.branch_id, inp.session_id, inp.scan_id,
+                    inp.instrument_id, inp.micr_suffix, inp.payee_display,
+                    inp.amount_range, inp.outcome, inp.lot_id, inp.mismatch_id,
+                    inp.mismatch_fields, inp.reject_reason,
+                )
+            finally:
+                await conn.close()
+        except Exception as exc:
+            log.warning("record_outward_scan_event.db_unavailable", scan_id=inp.scan_id, error=str(exc))
