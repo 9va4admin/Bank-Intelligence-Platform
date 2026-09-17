@@ -3,8 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LoginPage from './LoginPage'
 
+// useTheme mock kept for compat in case it is re-imported
 vi.mock('../../../shared/theme/ThemeContext', () => ({
-  useTheme: () => ({ isDark: false, toggle: vi.fn() }),
+  useTheme: () => ({ isDark: true, toggle: vi.fn() }),
 }))
 vi.mock('../../../shared/context/AuthContext', () => ({
   useAuth: () => ({ refresh: vi.fn().mockResolvedValue('authenticated') }),
@@ -28,7 +29,7 @@ describe('LoginPage', () => {
   it('renders the sign-in step', () => {
     renderPage()
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy()
-    expect(screen.getByText('Use your ASTRA operator credentials.')).toBeTruthy()
+    expect(screen.getByText(/Use your ASTRA credentials/)).toBeTruthy()
     expect(screen.getByText('ASTRA')).toBeTruthy()
   })
 
@@ -39,9 +40,9 @@ describe('LoginPage', () => {
     })
     renderPage()
     fillCredentials()
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
-    await waitFor(() => expect(screen.getByText('Two-factor authentication')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Enter your code' })).toBeTruthy())
     expect(global.fetch).toHaveBeenCalledWith(
       '/v1/auth/login',
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
@@ -53,7 +54,7 @@ describe('LoginPage', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
     renderPage()
     fillCredentials()
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
     await waitFor(() => expect(screen.getByText('Invalid username or password.')).toBeTruthy())
   })
 
@@ -61,7 +62,7 @@ describe('LoginPage', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 423, json: async () => ({}) })
     renderPage()
     fillCredentials()
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
     await waitFor(() => expect(screen.getByText(/Account locked/)).toBeTruthy())
   })
 
@@ -77,9 +78,9 @@ describe('LoginPage', () => {
       })
     renderPage()
     fillCredentials()
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
-    await waitFor(() => expect(screen.getByText('Set up two-factor authentication')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Set up authenticator' })).toBeTruthy())
     expect(screen.getByText(/JBSW Y3DP EHPK 3PXP/)).toBeTruthy()
   })
 })

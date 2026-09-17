@@ -414,34 +414,50 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
 
         {tab === 'ai analysis' && (
           <div className="space-y-3">
+            {/* Model Stack + Fraud Gauge */}
             <div className="flex items-center gap-4">
               <FraudGauge score={item.fraud_score} />
               <div className={`flex-1 rounded-xl p-4 space-y-2 ${th.glass}`}>
                 <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>Model Stack</div>
-                {[['OCR','GOT-OCR2.0',item.ocr_confidence],['Vision','Qwen2-VL 72B',0.94],['Signature','Siamese SNN',item.sig_match_score??0],['Fraud','XGBoost',item.fraud_score]].map(([lbl,model,score]) => (
-                  <div key={lbl} className="flex items-center gap-3">
-                    <span className={`text-[10px] ${th.lbl} w-16`}>{lbl}</span>
-                    <div className={`flex-1 h-1.5 ${th.barBg} rounded-full overflow-hidden`}>
-                      <div className="h-full bg-gold-400/60 rounded-full" style={{ width: `${score * 100}%` }} />
+                {[
+                  { lbl: 'OCR',        model: 'GOT-OCR2.0',                                                              score: item.ocr_confidence,                            risk: false },
+                  { lbl: 'Alteration', model: `Qwen2-VL ${item.alteration_result?.cascade_level === 2 ? '72B' : '7B'}`, score: item.alteration_result?.tamper_risk_score ?? 0, risk: true  },
+                  { lbl: 'Signature',  model: 'Siamese SNN',                                                             score: item.sig_match_score ?? 0,                      risk: false },
+                  { lbl: 'Fraud',      model: 'XGBoost',                                                                 score: item.fraud_score,                               risk: true  },
+                ].map(({ lbl, model, score, risk }) => {
+                  const pct = score * 100
+                  const barColor = risk
+                    ? (pct >= 70 ? 'bg-red-400/70' : pct >= 40 ? 'bg-amber-400/70' : 'bg-emerald-400/60')
+                    : (pct >= 80 ? 'bg-emerald-400/60' : pct >= 60 ? 'bg-amber-400/70' : 'bg-red-400/70')
+                  return (
+                    <div key={lbl} className="flex items-center gap-3">
+                      <span className={`text-[10px] ${th.lbl} w-16`}>{lbl}</span>
+                      <div className={`flex-1 h-1.5 ${th.barBg} rounded-full overflow-hidden`}>
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={`text-[10px] font-mono ${th.lbl} w-8 text-right`}>{Math.round(pct)}%</span>
+                      <span className={`text-[10px] ${th.lbl} w-28 truncate`}>{model}</span>
                     </div>
-                    <span className={`text-[10px] font-mono ${th.lbl} w-8 text-right`}>{Math.round(score * 100)}%</span>
-                    <span className={`text-[10px] ${th.lbl} w-28 truncate`}>{model}</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
+
+            {/* SHAP */}
             <div className={`rounded-xl p-4 ${th.glass}`}>
               <ShapExplainer shapValues={item.shap_values} isDark={isDark} />
             </div>
+
+            {/* Security Print Features */}
             {item.security_features && (
               <div className={`rounded-xl p-4 ${th.glass}`}>
-                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Security Print Features</div>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Security Print Features · CTS-2010</div>
                 <div className="space-y-2">
                   {[
-                    { label: 'Void Pantograph',       key: 'void_pantograph'      },
-                    { label: '₹ Symbol',              key: 'rupee_symbol'         },
-                    { label: 'Micro-lettering',       key: 'micro_lettering'      },
-                    { label: 'Printer CTS-2010',      key: 'printer_name_cts2010' },
+                    { label: 'Void Pantograph',  key: 'void_pantograph'      },
+                    { label: '₹ Symbol',         key: 'rupee_symbol'         },
+                    { label: 'Micro-lettering',  key: 'micro_lettering'      },
+                    { label: 'Printer CTS-2010', key: 'printer_name_cts2010' },
                   ].map(({ label, key }) => {
                     const ok = item.security_features[key] === true
                     return (
@@ -454,6 +470,143 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                     )
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Alteration Detection */}
+            {item.alteration_result && (
+              <div className={`rounded-xl p-4 ${th.glass}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>
+                    Alteration Detection · Qwen2-VL {item.alteration_result.cascade_level === 2 ? '72B' : '7B'}
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    item.alteration_result.alteration_detected
+                      ? (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700')
+                      : (isDark ? 'bg-emerald-900/40 border-emerald-700/50 text-emerald-300' : 'bg-emerald-100 border-emerald-300 text-emerald-700')
+                  }`}>
+                    {item.alteration_result.alteration_detected ? '⚠ Alteration Detected' : '✓ No Alteration'}
+                  </span>
+                </div>
+
+                {/* Score pills */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {[
+                    { label: 'Tamper Risk',      score: item.alteration_result.tamper_risk_score    },
+                    { label: 'Physical Anomaly', score: item.alteration_result.physical_anomaly_score },
+                  ].map(({ label, score }) => {
+                    const pct = Math.round(score * 100)
+                    const color = pct >= 70 ? 'bg-red-400' : pct >= 40 ? 'bg-amber-400' : 'bg-emerald-400'
+                    const textC = pct >= 70
+                      ? (isDark ? 'text-red-400' : 'text-red-700')
+                      : pct >= 40
+                        ? (isDark ? 'text-amber-400' : 'text-amber-700')
+                        : (isDark ? 'text-emerald-400' : 'text-emerald-700')
+                    return (
+                      <div key={label} className={`rounded-lg p-2.5 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <div className={`text-[10px] ${th.lbl} mb-1`}>{label}</div>
+                        <div className={`text-xl font-bold font-mono ${textC}`}>{pct}%</div>
+                        <div className={`mt-1.5 h-1 ${th.barBg} rounded-full overflow-hidden`}>
+                          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Altered fields */}
+                {item.alteration_result.altered_fields?.length > 0 && (
+                  <div className="mb-3">
+                    <div className={`text-[10px] ${th.lbl} mb-1.5`}>Altered Fields</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.alteration_result.altered_fields.map(f => (
+                        <span key={f} className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isDark ? 'bg-red-900/30 border-red-700/40 text-red-300' : 'bg-red-100 border-red-300 text-red-700'}`}>
+                          {f.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-anomaly breakdown */}
+                {(() => {
+                  const TYPES = [
+                    { key: 'ink_physics_anomalies',      label: 'Ink Physics',      flags: a => [a.pressure_inconsistency && 'Pressure ↓', a.bleed_anomaly && 'Ink Bleed', a.flow_reversal && 'Flow ↺'].filter(Boolean) },
+                    { key: 'paper_fibre_anomalies',      label: 'Paper Fibre',      flags: a => [a.fibre_distortion_detected && 'Fibre Distortion', a.gloss_patch_detected && 'Gloss Patch'].filter(Boolean) },
+                    { key: 'correction_fluid_anomalies', label: 'Correction Fluid', flags: a => [a.luminance_spike_detected && 'Bright Patch', a.edge_sharpness_ratio > 2 && `Edge Ratio ${a.edge_sharpness_ratio?.toFixed(1)}`].filter(Boolean) },
+                    { key: 'chemical_alteration_anomalies', label: 'Chemical',      flags: a => [a.halo_detected && 'Halo', a.colour_shift_detected && 'Colour Shift'].filter(Boolean) },
+                  ]
+                  const rows = TYPES.flatMap(t =>
+                    (item.alteration_result[t.key] ?? []).map(a => ({ ...a, typeLabel: t.label, flags: t.flags(a) }))
+                  )
+                  if (!rows.length) return null
+                  return (
+                    <div className="space-y-1.5">
+                      <div className={`text-[10px] ${th.lbl} mb-1`}>Anomaly Breakdown</div>
+                      {rows.map((a, i) => (
+                        <div key={i} className={`flex items-center justify-between text-[11px] rounded-lg px-3 py-1.5 ${isDark ? 'bg-red-900/10 border border-red-800/20' : 'bg-red-50 border border-red-200'}`}>
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className={`font-semibold ${isDark ? 'text-red-300' : 'text-red-800'}`}>{a.typeLabel}</span>
+                            <span className={th.lbl}>· {a.field?.replace(/_/g, ' ')}</span>
+                            {a.flags.map(f => (
+                              <span key={f} className={`text-[9px] px-1.5 py-0.5 rounded ${isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700'}`}>{f}</span>
+                            ))}
+                          </div>
+                          <span className={`font-mono font-bold text-[11px] shrink-0 ml-2 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{Math.round(a.score * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {/* UV Security */}
+            {item.uv_security && (
+              <div className={`rounded-xl p-4 ${th.glass}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>UV Security Features · CTS-2010</div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    item.uv_security.uv_security_passed
+                      ? (isDark ? 'bg-emerald-900/40 border-emerald-700/50 text-emerald-300' : 'bg-emerald-100 border-emerald-300 text-emerald-700')
+                      : (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700')
+                  }`}>
+                    {item.uv_security.uv_security_passed ? '✓ All UV Checks Pass' : '⚠ UV Check Failed'}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Pentograph Pattern', ok: item.uv_security.pentograph_authentic,    confidence: item.uv_security.pentograph_confidence,       notes: item.uv_security.pentograph_notes },
+                    { label: 'Security Thread',    ok: item.uv_security.security_thread_present, confidence: item.uv_security.security_thread_confidence,  notes: item.uv_security.security_thread_notes,  extra: item.uv_security.security_thread_position },
+                    { label: 'UV Watermark',       ok: item.uv_security.uv_watermark_present,    confidence: item.uv_security.uv_watermark_confidence,     notes: item.uv_security.uv_watermark_notes },
+                  ].map(({ label, ok, confidence, notes, extra }) => (
+                    <div key={label} className={`rounded-lg px-3 py-2 flex items-start gap-3 ${
+                      ok
+                        ? (isDark ? 'bg-emerald-900/10 border border-emerald-800/20' : 'bg-emerald-50 border border-emerald-200')
+                        : (isDark ? 'bg-red-900/10 border border-red-800/20' : 'bg-red-50 border border-red-200')
+                    }`}>
+                      <span className={`text-base mt-0.5 ${ok ? 'text-emerald-400' : 'text-red-400'}`}>{ok ? '✓' : '✗'}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-[11px] font-semibold ${ok ? (isDark ? 'text-emerald-300' : 'text-emerald-800') : (isDark ? 'text-red-300' : 'text-red-800')}`}>{label}</span>
+                          <span className={`text-[10px] font-mono ${th.lbl}`}>{Math.round(confidence * 100)}% conf.</span>
+                        </div>
+                        {notes && <div className={`text-[10px] ${th.lbl} mt-0.5 truncate`}>{notes}</div>}
+                        {extra && <div className={`text-[10px] ${th.lbl} mt-0.5`}>{extra.replace(/_/g, ' ')}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {item.uv_security.uv_risk_score != null && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className={`text-[10px] ${th.lbl} shrink-0`}>UV Risk Score</span>
+                    <div className={`flex-1 h-1 ${th.barBg} rounded-full overflow-hidden`}>
+                      <div className={`h-full rounded-full ${item.uv_security.uv_risk_score >= 0.5 ? 'bg-red-400' : item.uv_security.uv_risk_score >= 0.2 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                        style={{ width: `${item.uv_security.uv_risk_score * 100}%` }} />
+                    </div>
+                    <span className={`text-[10px] font-mono ${th.lbl}`}>{Math.round(item.uv_security.uv_risk_score * 100)}%</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

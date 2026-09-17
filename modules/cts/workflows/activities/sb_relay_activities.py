@@ -19,7 +19,10 @@ from temporalio import activity
 
 from shared.event_bus.topics import CTS_SB_RELAY_OUTWARD
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ── resolve_crl_batch ─────────────────────────────────────────────────────────
@@ -47,60 +50,62 @@ async def resolve_crl_batch(
     Clearing Register Lookup (CRL) table in YugabyteDB.
     Degrades gracefully when db_pool is unavailable — marks all as failed.
     """
-    if db_pool is None:
-        log.warning(
-            "resolve_crl_batch.db_unavailable",
-            agency_id=inp.agency_id,
-            instrument_count=len(inp.instruments),
-        )
-        return CRLBatchResult(
-            resolved=[
-                {
-                    "instrument_id": ins["instrument_id"],
-                    "success": False,
-                    "error": "DB_UNAVAILABLE",
-                }
-                for ins in inp.instruments
-            ]
-        )
-
-    resolved: list[dict] = []
-    async with db_pool.acquire() as conn:
-        for ins in inp.instruments:
-            row = await conn.fetchrow(
-                """
-                SELECT pu_id
-                  FROM cts.crl_routing
-                 WHERE drawee_ifsc = $1
-                   AND agency_id   = $2
-                """,
-                ins["drawee_ifsc"],
-                inp.agency_id,
+    with tracer.start_as_current_span("activity.resolve_crl_batch") as span:
+        span.set_attribute("bank_id", inp.agency_id)
+        if db_pool is None:
+            log.warning(
+                "resolve_crl_batch.db_unavailable",
+                agency_id=inp.agency_id,
+                instrument_count=len(inp.instruments),
             )
-            if row:
-                resolved.append(
-                    {
-                        "instrument_id": ins["instrument_id"],
-                        "pu_id": row["pu_id"],
-                        "success": True,
-                    }
-                )
-            else:
-                resolved.append(
+            return CRLBatchResult(
+                resolved=[
                     {
                         "instrument_id": ins["instrument_id"],
                         "success": False,
-                        "error": f"NO_CRL_ENTRY:{ins['drawee_ifsc']}",
+                        "error": "DB_UNAVAILABLE",
                     }
-                )
+                    for ins in inp.instruments
+                ]
+            )
 
-    log.info(
-        "resolve_crl_batch.complete",
-        agency_id=inp.agency_id,
-        total=len(inp.instruments),
-        resolved_count=sum(1 for r in resolved if r["success"]),
-    )
-    return CRLBatchResult(resolved=resolved)
+        resolved: list[dict] = []
+        async with db_pool.acquire() as conn:
+            for ins in inp.instruments:
+                row = await conn.fetchrow(
+                    """
+                    SELECT pu_id
+                      FROM cts.crl_routing
+                     WHERE drawee_ifsc = $1
+                       AND agency_id   = $2
+                    """,
+                    ins["drawee_ifsc"],
+                    inp.agency_id,
+                )
+                if row:
+                    resolved.append(
+                        {
+                            "instrument_id": ins["instrument_id"],
+                            "pu_id": row["pu_id"],
+                            "success": True,
+                        }
+                    )
+                else:
+                    resolved.append(
+                        {
+                            "instrument_id": ins["instrument_id"],
+                            "success": False,
+                            "error": f"NO_CRL_ENTRY:{ins['drawee_ifsc']}",
+                        }
+                    )
+
+        log.info(
+            "resolve_crl_batch.complete",
+            agency_id=inp.agency_id,
+            total=len(inp.instruments),
+            resolved_count=sum(1 for r in resolved if r["success"]),
+        )
+        return CRLBatchResult(resolved=resolved)
 
 
 # ── publish_to_pu_queues ──────────────────────────────────────────────────────
@@ -129,24 +134,26 @@ async def publish_to_pu_queues(
     cts.inward.{bank_id} Kafka topic.  Degrades gracefully when event_producer
     is unavailable — all instruments are skipped (logged as warning).
     """
-    if event_producer is None:
-        log.warning(
-            "publish_to_pu_queues.producer_unavailable",
+    with tracer.start_as_current_span("activity.publish_to_pu_queues") as span:
+        span.set_attribute("bank_id", inp.agency_id)
+        if event_producer is None:
+            log.warning(
+                "publish_to_pu_queues.producer_unavailable",
+                agency_id=inp.agency_id,
+            )
+            return PublishToPUResult(published_count=0, degraded=True)
+
+        routable = [r for r in inp.resolved_instruments if r.get("success")]
+        for item in routable:
+            topic = f"cts.inward.{item['pu_id']}"
+            await event_producer.produce(topic, item)
+
+        log.info(
+            "publish_to_pu_queues.complete",
             agency_id=inp.agency_id,
+            published_count=len(routable),
         )
-        return PublishToPUResult(published_count=0, degraded=True)
-
-    routable = [r for r in inp.resolved_instruments if r.get("success")]
-    for item in routable:
-        topic = f"cts.inward.{item['pu_id']}"
-        await event_producer.produce(topic, item)
-
-    log.info(
-        "publish_to_pu_queues.complete",
-        agency_id=inp.agency_id,
-        published_count=len(routable),
-    )
-    return PublishToPUResult(published_count=len(routable), degraded=False)
+        return PublishToPUResult(published_count=len(routable), degraded=False)
 
 
 # ── build_lot_package ─────────────────────────────────────────────────────────
@@ -178,31 +185,33 @@ async def build_lot_package(
     Sponsor Bank.  lot_store is DI-injected at worker startup (reads from MinIO).
     Degrades gracefully when unavailable.
     """
-    if lot_store is None:
-        log.warning(
-            "build_lot_package.lot_store_unavailable",
+    with tracer.start_as_current_span("activity.build_lot_package") as span:
+        span.set_attribute("bank_id", inp.agency_id)
+        if lot_store is None:
+            log.warning(
+                "build_lot_package.lot_store_unavailable",
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                session_id=inp.session_id,
+            )
+            return BuildLotPackageResult(error="LOT_STORE_UNAVAILABLE")
+
+        package_path = await lot_store.assemble_package(
+            lot_numbers=inp.lot_numbers,
             agency_id=inp.agency_id,
             sb_bank_id=inp.sb_bank_id,
             session_id=inp.session_id,
         )
-        return BuildLotPackageResult(error="LOT_STORE_UNAVAILABLE")
 
-    package_path = await lot_store.assemble_package(
-        lot_numbers=inp.lot_numbers,
-        agency_id=inp.agency_id,
-        sb_bank_id=inp.sb_bank_id,
-        session_id=inp.session_id,
-    )
-
-    log.info(
-        "build_lot_package.complete",
-        agency_id=inp.agency_id,
-        sb_bank_id=inp.sb_bank_id,
-        session_id=inp.session_id,
-        lot_count=len(inp.lot_numbers),
-        package_path=package_path,
-    )
-    return BuildLotPackageResult(package_path=package_path)
+        log.info(
+            "build_lot_package.complete",
+            agency_id=inp.agency_id,
+            sb_bank_id=inp.sb_bank_id,
+            session_id=inp.session_id,
+            lot_count=len(inp.lot_numbers),
+            package_path=package_path,
+        )
+        return BuildLotPackageResult(package_path=package_path)
 
 
 # ── sb_submit_lot ─────────────────────────────────────────────────────────────
@@ -237,43 +246,45 @@ async def sb_submit_lot(
     SBConnector adapter (SFTP / BaNCS API / Nelito API).
     Degrades gracefully when sb_connector is None.
     """
-    if sb_connector is None:
-        log.warning(
-            "sb_submit_lot.connector_unavailable",
+    with tracer.start_as_current_span("activity.sb_submit_lot") as span:
+        span.set_attribute("bank_id", inp.agency_id)
+        if sb_connector is None:
+            log.warning(
+                "sb_submit_lot.connector_unavailable",
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                connector_type=inp.connector_type,
+            )
+            return SBSubmitResult(success=False, error_code="CONNECTOR_UNAVAILABLE")
+
+        raw = await sb_connector.submit_lot(
+            package_path=inp.package_path,
+            agency_id=inp.agency_id,
+            instrument_count=inp.instrument_count,
+        )
+
+        if not raw.get("success"):
+            error_code = raw.get("error_code", "SB_SUBMIT_FAILED")
+            log.error(
+                "sb_submit_lot.rejected",
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                error_code=error_code,
+            )
+            return SBSubmitResult(
+                success=False,
+                error_code=error_code,
+                error_message=raw.get("error_message"),
+            )
+
+        log.info(
+            "sb_submit_lot.submitted",
             agency_id=inp.agency_id,
             sb_bank_id=inp.sb_bank_id,
-            connector_type=inp.connector_type,
+            reference_number=raw.get("reference_number"),
+            instrument_count=inp.instrument_count,
         )
-        return SBSubmitResult(success=False, error_code="CONNECTOR_UNAVAILABLE")
-
-    raw = await sb_connector.submit_lot(
-        package_path=inp.package_path,
-        agency_id=inp.agency_id,
-        instrument_count=inp.instrument_count,
-    )
-
-    if not raw.get("success"):
-        error_code = raw.get("error_code", "SB_SUBMIT_FAILED")
-        log.error(
-            "sb_submit_lot.rejected",
-            agency_id=inp.agency_id,
-            sb_bank_id=inp.sb_bank_id,
-            error_code=error_code,
-        )
-        return SBSubmitResult(
-            success=False,
-            error_code=error_code,
-            error_message=raw.get("error_message"),
-        )
-
-    log.info(
-        "sb_submit_lot.submitted",
-        agency_id=inp.agency_id,
-        sb_bank_id=inp.sb_bank_id,
-        reference_number=raw.get("reference_number"),
-        instrument_count=inp.instrument_count,
-    )
-    return SBSubmitResult(success=True, reference_number=raw.get("reference_number"))
+        return SBSubmitResult(success=True, reference_number=raw.get("reference_number"))
 
 
 # ── publish_relay_event ───────────────────────────────────────────────────────
@@ -304,36 +315,38 @@ async def publish_relay_event(
     Publishes the relay completion event to the cts.sb.relay.outward Kafka topic.
     Degrades gracefully when event_producer is unavailable (non-critical).
     """
-    topic = CTS_SB_RELAY_OUTWARD.format(
-        agency_id=inp.agency_id,
-        sb_bank_id=inp.sb_bank_id,
-    )
+    with tracer.start_as_current_span("activity.publish_relay_event") as span:
+        span.set_attribute("bank_id", inp.agency_id)
+        topic = CTS_SB_RELAY_OUTWARD.format(
+            agency_id=inp.agency_id,
+            sb_bank_id=inp.sb_bank_id,
+        )
 
-    if event_producer is None:
-        log.warning(
-            "publish_relay_event.producer_unavailable",
+        if event_producer is None:
+            log.warning(
+                "publish_relay_event.producer_unavailable",
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                topic=topic,
+            )
+            return PublishRelayResult(published=False, topic=topic)
+
+        await event_producer.produce(
+            topic,
+            {
+                "agency_id": inp.agency_id,
+                "sb_bank_id": inp.sb_bank_id,
+                "session_id": inp.session_id,
+                "sb_reference": inp.sb_reference,
+                "instrument_count": inp.instrument_count,
+            },
+        )
+
+        log.info(
+            "publish_relay_event.published",
             agency_id=inp.agency_id,
             sb_bank_id=inp.sb_bank_id,
             topic=topic,
+            instrument_count=inp.instrument_count,
         )
-        return PublishRelayResult(published=False, topic=topic)
-
-    await event_producer.produce(
-        topic,
-        {
-            "agency_id": inp.agency_id,
-            "sb_bank_id": inp.sb_bank_id,
-            "session_id": inp.session_id,
-            "sb_reference": inp.sb_reference,
-            "instrument_count": inp.instrument_count,
-        },
-    )
-
-    log.info(
-        "publish_relay_event.published",
-        agency_id=inp.agency_id,
-        sb_bank_id=inp.sb_bank_id,
-        topic=topic,
-        instrument_count=inp.instrument_count,
-    )
-    return PublishRelayResult(published=True, topic=topic)
+        return PublishRelayResult(published=True, topic=topic)

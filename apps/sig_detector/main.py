@@ -35,8 +35,7 @@ try:
 except ImportError:
     pass
 
-if not os.environ.get("HF_TOKEN") and os.environ.get("ASTRA_DEMO_HF_TOKEN"):
-    os.environ["HF_TOKEN"] = os.environ["ASTRA_DEMO_HF_TOKEN"]
+# HF_TOKEN bootstrap moved to _startup() — resolved via config_service
 
 import numpy as np
 import structlog
@@ -50,7 +49,7 @@ log = structlog.get_logger()
 
 app = FastAPI(
     title="ASTRA Signature Detector",
-    docs_url="/docs" if os.environ.get("ENV", "production") == "development" else None,
+    docs_url=None,
     redoc_url=None,
 )
 
@@ -58,19 +57,41 @@ _yolo_model = None
 _mode: str = "pixel"
 _vision_url: str = ""           # vLLM endpoint for Qwen2-VL mode
 _immudb_client = None           # shared.audit.ImmudbClient, set at startup if IMMUDB_HOST set
+_detector_config: dict = {}     # populated in _startup from config_service
+
+
+async def _cfg_get(key: str, default: str = "") -> str:
+    """Fetch a config value from config_service, returning default on any error."""
+    try:
+        import sys, pathlib
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+        from shared.config.config_service import config_service
+        return str(await config_service.get(key))
+    except Exception:
+        pass
+    try:
+        from shared.config.config_service import config_service
+        return str(await config_service.get_secret(key))
+    except Exception:
+        return default
 
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _yolo_model, _mode, _vision_url, _immudb_client
+    global _yolo_model, _mode, _vision_url, _immudb_client, _detector_config
 
-    vision_url = os.environ.get("SIG_DETECTOR_VISION_URL", "").strip()
+    # Bootstrap HF_TOKEN via config_service (HuggingFace library reads HF_TOKEN from env)
+    hf_token = await _cfg_get("sig_detector.hf_token")
+    if hf_token:
+        os.environ.setdefault("HF_TOKEN", hf_token)
+
+    vision_url = (await _cfg_get("sig_detector.vision_url")).strip()
     if vision_url:
         _vision_url = vision_url
         _mode = "qwen2vl"
         log.info("sig_detector.ready", mode="qwen2vl", url=vision_url)
     else:
-        local_path = os.environ.get("SIG_DETECTOR_LOCAL_PATH", "").strip()
+        local_path = (await _cfg_get("sig_detector.local_path")).strip()
         if local_path:
             try:
                 from ultralytics import YOLO
@@ -83,8 +104,15 @@ async def _startup() -> None:
         else:
             log.info("sig_detector.ready", mode="pixel")
 
+    # Cache detector thresholds for sync callers
+    _detector_config["conf_thr"] = float(await _cfg_get("sig_detector.yolo_conf", "0.25"))
+    _detector_config["iou_thr"] = float(await _cfg_get("sig_detector.yolo_iou", "0.45"))
+    _detector_config["vision_model"] = (
+        await _cfg_get("sig_detector.vision_model", "Qwen/Qwen2-VL-72B-Instruct")
+    )
+
     # ImmuDB — optional; /inspect still runs without it, immudb_tx_id stays null
-    immudb_host = os.environ.get("IMMUDB_HOST", "").strip()
+    immudb_host = (await _cfg_get("sig_detector.immudb_host")).strip()
     if immudb_host:
         try:
             import sys, pathlib
@@ -93,11 +121,11 @@ async def _startup() -> None:
             _immudb_client = _SDK()
             _immudb_client.connect(
                 host=immudb_host,
-                port=int(os.environ.get("IMMUDB_PORT", "3322")),
-                bank_id=os.environ.get("IMMUDB_BANK_ID", "demo"),
+                port=int(await _cfg_get("sig_detector.immudb_port", "3322")),
+                bank_id=await _cfg_get("sig_detector.immudb_bank_id", "demo"),
                 collection="cts_events",
-                username=os.environ.get("IMMUDB_USER", "immudb"),
-                password=os.environ.get("IMMUDB_PASS", ""),
+                username=await _cfg_get("sig_detector.immudb_user", "immudb"),
+                password=await _cfg_get("sig_detector.immudb_pass", ""),
             )
             log.info("sig_detector.immudb.connected", host=immudb_host)
         except Exception as exc:
@@ -518,8 +546,8 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
 # ── YOLOv8 detector ───────────────────────────────────────────────────────────
 
 def _detect_yolo(img: Image.Image) -> list[dict]:
-    conf_thr = float(os.environ.get("SIG_DETECTOR_CONF", "0.25"))
-    iou_thr  = float(os.environ.get("SIG_DETECTOR_IOU",  "0.45"))
+    conf_thr = _detector_config.get("conf_thr", 0.25)
+    iou_thr  = _detector_config.get("iou_thr", 0.45)
     results  = _yolo_model.predict(img, conf=conf_thr, iou=iou_thr, verbose=False)
     detections = []
     for r in results:
@@ -556,7 +584,7 @@ def _detect_qwen2vl(img: Image.Image) -> list[dict]:
     img.save(buf, format="JPEG", quality=92)
     b64 = base64.b64encode(buf.getvalue()).decode()
 
-    model = os.environ.get("SIG_DETECTOR_VISION_MODEL", "Qwen/Qwen2-VL-72B-Instruct")
+    model = _detector_config.get("vision_model", "Qwen/Qwen2-VL-72B-Instruct")
     prompt = (
         "You are a cheque processing system. "
         "Identify every handwritten signature in this cheque image. "
@@ -688,7 +716,7 @@ def _inspect_qwen2vl(img: Image.Image) -> Optional[VisionAnalysis]:
     img.save(buf, format="JPEG", quality=92)
     b64 = base64.b64encode(buf.getvalue()).decode()
 
-    model = os.environ.get("SIG_DETECTOR_VISION_MODEL", "Qwen/Qwen2-VL-72B-Instruct")
+    model = _detector_config.get("vision_model", "Qwen/Qwen2-VL-72B-Instruct")
     payload = {
         "model": model,
         "messages": [{

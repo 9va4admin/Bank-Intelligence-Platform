@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useVaultPPS from '../hooks/useVaultPPS'
+import useVaultSyncStatus from '../hooks/useVaultSyncStatus'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -48,25 +50,26 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function StatusPill({ status }) {
-  const MAP = {
-    SUCCESS:        'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
-    PARTIAL:        'bg-amber-900/40   text-amber-300   border-amber-700/40',
-    FAILED:         'bg-red-900/40     text-red-300     border-red-700/40',
-    ACTIVE:         'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
-    EXPIRING_SOON:  'bg-amber-900/40   text-amber-300   border-amber-700/40',
-    EXPIRED:        'bg-slate-800      text-slate-400   border-slate-700',
-    REVOKED:        'bg-slate-800      text-slate-400   border-slate-700',
+function StatusPill({ status, isDark }) {
+  const DARK = {
+    SUCCESS:       'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+    PARTIAL:       'bg-amber-900/40   text-amber-300   border-amber-700/40',
+    FAILED:        'bg-red-900/40     text-red-300     border-red-700/40',
+    ACTIVE:        'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+    EXPIRING_SOON: 'bg-amber-900/40   text-amber-300   border-amber-700/40',
+    EXPIRED:       'bg-slate-800      text-slate-400   border-slate-700',
+    REVOKED:       'bg-slate-800      text-slate-400   border-slate-700',
   }
-  const LIGHT_MAP = {
-    SUCCESS:        'bg-emerald-50 text-emerald-700 border-emerald-200',
-    PARTIAL:        'bg-amber-50   text-amber-700   border-amber-200',
-    FAILED:         'bg-red-50     text-red-700     border-red-200',
-    ACTIVE:         'bg-emerald-50 text-emerald-700 border-emerald-200',
-    EXPIRING_SOON:  'bg-amber-50   text-amber-700   border-amber-200',
-    EXPIRED:        'bg-slate-100  text-slate-500   border-slate-200',
-    REVOKED:        'bg-slate-100  text-slate-500   border-slate-200',
+  const LIGHT = {
+    SUCCESS:       'bg-emerald-50 text-emerald-700 border-emerald-200',
+    PARTIAL:       'bg-amber-50   text-amber-700   border-amber-200',
+    FAILED:        'bg-red-50     text-red-700     border-red-200',
+    ACTIVE:        'bg-emerald-50 text-emerald-700 border-emerald-200',
+    EXPIRING_SOON: 'bg-amber-50   text-amber-700   border-amber-200',
+    EXPIRED:       'bg-slate-100  text-slate-500   border-slate-200',
+    REVOKED:       'bg-slate-100  text-slate-500   border-slate-200',
   }
+  const MAP = isDark ? DARK : LIGHT
   return (
     <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${MAP[status] ?? MAP.ACTIVE}`}>
       {status.replace('_', ' ')}
@@ -77,13 +80,16 @@ function StatusPill({ status }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function CTSVaultSync() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [tab, setTab] = useState('pps')
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState(null)
   const [ppsSearch, setPpsSearch] = useState('')
   const [stopSearch, setStopSearch] = useState('')
+
+  const { ppsEntries: livePPS, stopCheques: liveStop } = useVaultPPS({ pollEnabled: !isDemo })
+  const { syncStatus: liveSyncStatus, syncHistory: liveSyncHistory } = useVaultSyncStatus({ pollEnabled: !isDemo })
 
   const th = {
     page:    isDark ? '' : 'bg-slate-50',
@@ -126,13 +132,44 @@ export default function CTSVaultSync() {
 
   const ppsSource   = useDemoData(MOCK_PPS)
   const stopSource  = useDemoData(MOCK_STOP)
-  const syncStatus  = useDemoData(MOCK_SYNC_STATUS, { cbs_connector: '—', last_run_at: null, triggered_by: '—', pps_records_loaded: 0, stop_cheque_records_loaded: 0, next_scheduled: null })
-  const syncHistory = useDemoData(MOCK_SYNC_HISTORY)
-  const filteredPPS = ppsSource.filter((r) =>
-    !ppsSearch || r.account_display.includes(ppsSearch) || r.cheque_series_from.includes(ppsSearch)
+  // Demo invariant: use live data when available in non-demo mode
+  const syncStatus  = isDemo || !liveSyncStatus ? MOCK_SYNC_STATUS : liveSyncStatus
+  const syncHistory = isDemo || !liveSyncHistory || liveSyncHistory.length === 0 ? MOCK_SYNC_HISTORY : liveSyncHistory
+
+  // Demo invariant: use live data when available in non-demo mode
+  const activePPS  = useMemo(() => {
+    if (isDemo) return ppsSource
+    if (!livePPS || livePPS.length === 0) return []
+    // Map live PPSEntry to the shape the UI expects
+    return livePPS.map(e => ({
+      account_display: e.account_display,
+      cheque_series_from: e.cheque_number,
+      cheque_series_to: e.cheque_number,
+      amount: e.amount_range,
+      payee_display: '—',
+      valid_from: e.registered_at ? e.registered_at.slice(0, 10) : '—',
+      valid_to: e.expires_at || '—',
+      status: e.status === 'REGISTERED' ? 'ACTIVE' : e.status,
+    }))
+  }, [isDemo, livePPS, ppsSource])
+
+  const activeStop = useMemo(() => {
+    if (isDemo) return stopSource
+    if (!liveStop || liveStop.length === 0) return []
+    return liveStop.map(s => ({
+      account_display: s.account_display,
+      cheque_number: s.cheque_number || '—',
+      reason: s.reason,
+      requested_at: s.created_at,
+      status: s.status,
+    }))
+  }, [isDemo, liveStop, stopSource])
+
+  const filteredPPS = activePPS.filter((r) =>
+    !ppsSearch || r.account_display.includes(ppsSearch) || (r.cheque_series_from || '').includes(ppsSearch)
   )
-  const filteredStop = stopSource.filter((r) =>
-    !stopSearch || r.account_display.includes(stopSearch) || r.cheque_number.includes(stopSearch)
+  const filteredStop = activeStop.filter((r) =>
+    !stopSearch || r.account_display.includes(stopSearch) || (r.cheque_number || '').includes(stopSearch)
   )
 
   return (
@@ -253,7 +290,7 @@ export default function CTSVaultSync() {
                     <td className={`px-4 py-2.5 ${th.body}`}>{r.payee_display}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{r.valid_from}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{r.valid_to}</td>
-                    <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                    <td className="px-4 py-2.5"><StatusPill status={r.status} isDark={isDark} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -291,7 +328,7 @@ export default function CTSVaultSync() {
                     <td className={`px-4 py-2.5 font-mono ${th.body}`}>{r.cheque_number}</td>
                     <td className={`px-4 py-2.5 ${th.body}`}>{r.reason}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{fmtDate(r.requested_at)}</td>
-                    <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                    <td className="px-4 py-2.5"><StatusPill status={r.status} isDark={isDark} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -327,7 +364,7 @@ export default function CTSVaultSync() {
                           : (isDark ? 'bg-white/8 text-slate-400' : 'bg-slate-100 text-slate-500')
                       }`}>{r.triggered_by}</span>
                     </td>
-                    <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                    <td className="px-4 py-2.5"><StatusPill status={r.status} isDark={isDark} /></td>
                     <td className={`px-4 py-2.5 tabular-nums ${th.body}`}>{r.pps.toLocaleString('en-IN')}</td>
                     <td className={`px-4 py-2.5 tabular-nums ${th.body}`}>{r.stop.toLocaleString('en-IN')}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{r.duration}s</td>

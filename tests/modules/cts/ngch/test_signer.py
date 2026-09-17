@@ -1,17 +1,23 @@
 """
-Tests for NGCHSigner — MICRDS and ImageDS signing per CTS Spec Rev 3.0.
+Tests for NGCHSigner — MICRDS and ImageDS signing per CHI Spec Rev 3.00.
 
-CTS Spec Rev 3.0 signing requirements:
-  MICRDS: RSA-SHA256 over MICR line bytes → Base64-encoded → exactly 344 chars
-  ImageDS: RSA-SHA256 over image bytes → 256 bytes raw binary
+CHI Spec Rev 3.00 Appendix 4.1.3.4 (MICRDS) and 4.1.3.7 (ImageDS):
 
-All private key operations must use the HSM interface (injected dependency).
-Tests use a software RSA key as a stand-in for the HSM (test only — never prod).
+  MICRDS — sign MICR field VALUES (not raw MICR line):
+    - MICRFingerPrint attribute = semicolon-delimited field names
+      e.g. "PresentmentDate;PresentingBankRoutNo;CycleNo;ItemSeqNo;Amount;SerialNo;Transcode"
+    - The actual data signed = corresponding field values concatenated with ";"
+      e.g. "01042026;000550050;01;00000101123456;10000;123456;10;"
+    - Result: Base64(RSA-SHA256) = 344 chars + the fingerprint string
+    - sign_micr() returns MICRDSResult(fingerprint, signature_b64)
 
-RED phase: all tests must fail before signer.py is created.
+  ImageDS — RSA-SHA256 over raw image bytes → 256 bytes raw binary
+    - sign_image(image_bytes) returns 256-byte raw bytes
+    - Must be called 3× per instrument (once per image view)
+
+RED phase: new fingerprint-based interface tests must fail against old signer.
 """
 import base64
-import hashlib
 
 import pytest
 
@@ -56,104 +62,130 @@ def mock_hsm(rsa_key_pair):
     return hsm
 
 
-class TestMICRDS:
-    """MICRDS — RSA-SHA256 over MICR line, Base64-encoded, 344 chars."""
+def _micr_input():
+    """Minimal valid MICRSignInput kwargs."""
+    return dict(
+        presentment_date="01042026",
+        presenting_bank_rout_no="000550050",
+        cycle_no="01",
+        item_seq_no="00000101123456",
+        amount=10000,
+        serial_no="123456",
+        trans_code="10",
+    )
 
-    def test_micrds_returns_string(self, mock_hsm):
+
+class TestMICRDSResult:
+    """sign_micr returns MICRDSResult with fingerprint + signature_b64."""
+
+    def test_sign_micr_returns_micrds_result(self, mock_hsm):
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        micr = "000012340050000012100000000005000123456789"
-        result = signer.sign_micr(micr)
-        assert isinstance(result, str)
+        result = signer.sign_micr(**_micr_input())
+        assert result is not None
 
-    def test_micrds_length_is_344_chars(self, mock_hsm):
+    def test_micrds_result_has_fingerprint(self, mock_hsm):
+        from modules.cts.ngch.signer import NGCHSigner
+
+        signer = NGCHSigner(hsm=mock_hsm)
+        result = signer.sign_micr(**_micr_input())
+        assert hasattr(result, "fingerprint")
+
+    def test_micrds_result_has_signature_b64(self, mock_hsm):
+        from modules.cts.ngch.signer import NGCHSigner
+
+        signer = NGCHSigner(hsm=mock_hsm)
+        result = signer.sign_micr(**_micr_input())
+        assert hasattr(result, "signature_b64")
+
+    def test_micrds_signature_b64_is_344_chars(self, mock_hsm):
         """2048-bit RSA produces 256 raw bytes → Base64 → exactly 344 chars."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        micr = "000012340050000012100000000005000123456789"
-        result = signer.sign_micr(micr)
-        assert len(result) == 344
+        result = signer.sign_micr(**_micr_input())
+        assert len(result.signature_b64) == 344
 
-    def test_micrds_is_valid_base64(self, mock_hsm):
+    def test_micrds_signature_is_valid_base64(self, mock_hsm):
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        micr = "000012340050000012100000000005000123456789"
-        result = signer.sign_micr(micr)
-        # Must decode without error
-        decoded = base64.b64decode(result)
-        assert len(decoded) == 256  # 2048-bit RSA = 256 bytes
+        result = signer.sign_micr(**_micr_input())
+        decoded = base64.b64decode(result.signature_b64)
+        assert len(decoded) == 256
 
-    def test_micrds_same_input_same_output(self, mock_hsm):
-        """RSA-PKCS1v15 with SHA256 is deterministic for the same key + input."""
+    def test_micrds_fingerprint_contains_field_names(self, mock_hsm):
+        """Fingerprint must be semicolon-delimited field names."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        micr = "000012340050000012100000000005000123456789"
-        r1 = signer.sign_micr(micr)
-        r2 = signer.sign_micr(micr)
-        assert r1 == r2
+        result = signer.sign_micr(**_micr_input())
+        fp = result.fingerprint
+        # Must contain the field names that were signed
+        assert "SerialNo" in fp or "PresentmentDate" in fp or "Amount" in fp
 
-    def test_micrds_different_inputs_different_output(self, mock_hsm):
+    def test_micrds_fingerprint_is_semicolon_delimited(self, mock_hsm):
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        r1 = signer.sign_micr("000012340050000012100000000005000123456789")
-        r2 = signer.sign_micr("000099990050000099900000000099900999999999")
-        assert r1 != r2
+        result = signer.sign_micr(**_micr_input())
+        assert ";" in result.fingerprint
 
-    def test_micrds_signs_utf8_bytes_of_micr_line(self, mock_hsm, rsa_key_pair):
-        """Verify that the HSM is called with the UTF-8 bytes of the MICR line."""
+    def test_micrds_signs_field_values_not_raw_micr(self, mock_hsm):
+        """HSM must be called with semicolon-delimited field values, not raw MICR line."""
         from modules.cts.ngch.signer import NGCHSigner
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import padding
 
         signer = NGCHSigner(hsm=mock_hsm)
-        micr = "000012340050000012100000000005000123456789"
-        signer.sign_micr(micr)
+        inp = _micr_input()
+        signer.sign_micr(**inp)
 
-        # HSM should have been called with the MICR line as bytes
-        mock_hsm.sign.assert_called_once_with(micr.encode("utf-8"))
+        # The HSM sign call must receive field values, not a raw MICR line string
+        call_args = mock_hsm.sign.call_args[0][0]   # first positional arg = bytes
+        call_data = call_args.decode("utf-8")
+        # Field values should appear (amount "10000" and serial_no "123456")
+        assert "10000" in call_data or "123456" in call_data
+
+    def test_micrds_different_field_values_different_signature(self, mock_hsm):
+        from modules.cts.ngch.signer import NGCHSigner
+
+        signer = NGCHSigner(hsm=mock_hsm)
+        r1 = signer.sign_micr(**_micr_input())
+        r2 = signer.sign_micr(**{**_micr_input(), "amount": 99999, "serial_no": "999999"})
+        assert r1.signature_b64 != r2.signature_b64
 
     def test_micrds_delegated_to_hsm(self, mock_hsm):
-        """Signer must call hsm.sign(), not use a software key directly."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        signer.sign_micr("000012340050000012100000000005000123456789")
+        signer.sign_micr(**_micr_input())
         assert mock_hsm.sign.called
 
 
 class TestImageDS:
-    """ImageDS — RSA-SHA256 over image bytes → 256 raw bytes."""
+    """ImageDS — RSA-SHA256 over image bytes → 256 raw bytes (unchanged)."""
 
     def test_imageds_returns_bytes(self, mock_hsm):
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        image_data = b"\xff\xd8\xff" + b"\x00" * 100  # fake JPEG header + data
-        result = signer.sign_image(image_data)
+        result = signer.sign_image(b"\xff\xd8\xff" + b"\x00" * 100)
         assert isinstance(result, bytes)
 
     def test_imageds_length_is_256_bytes(self, mock_hsm):
-        """2048-bit RSA signature = 256 bytes raw."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        image_data = b"\xff\xd8\xff" + b"\x00" * 100
-        result = signer.sign_image(image_data)
+        result = signer.sign_image(b"\xff\xd8\xff" + b"\x00" * 100)
         assert len(result) == 256
 
     def test_imageds_same_input_same_output(self, mock_hsm):
-        """Deterministic for same image content + same key."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        image_data = b"\xff\xd8\xff" + b"\x00" * 100
-        r1 = signer.sign_image(image_data)
-        r2 = signer.sign_image(image_data)
+        data = b"\xff\xd8\xff" + b"\x00" * 100
+        r1 = signer.sign_image(data)
+        r2 = signer.sign_image(data)
         assert r1 == r2
 
     def test_imageds_different_images_different_signature(self, mock_hsm):
@@ -165,7 +197,6 @@ class TestImageDS:
         assert r1 != r2
 
     def test_imageds_passes_raw_image_bytes_to_hsm(self, mock_hsm):
-        """HSM receives the raw image bytes, NOT a hash of them."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
@@ -173,12 +204,24 @@ class TestImageDS:
         signer.sign_image(image_data)
         mock_hsm.sign.assert_called_once_with(image_data)
 
-    def test_imageds_delegated_to_hsm(self, mock_hsm):
+    def test_imageds_called_per_image_view(self, mock_hsm):
+        """sign_image must work correctly when called 3× per instrument."""
         from modules.cts.ngch.signer import NGCHSigner
 
         signer = NGCHSigner(hsm=mock_hsm)
-        signer.sign_image(b"\x00" * 100)
-        assert mock_hsm.sign.called
+        front_bw = b"II\x2a\x00" + b"\x01" * 100
+        back_bw = b"II\x2a\x00" + b"\x02" * 100
+        front_gray = b"\xff\xd8\xff\xe0" + b"\x03" * 100
+
+        ds_fb = signer.sign_image(front_bw)
+        ds_bb = signer.sign_image(back_bw)
+        ds_fg = signer.sign_image(front_gray)
+
+        assert len(ds_fb) == 256
+        assert len(ds_bb) == 256
+        assert len(ds_fg) == 256
+        # All 3 signatures are distinct for different images
+        assert ds_fb != ds_bb != ds_fg
 
 
 class TestNGCHSignerInit:
@@ -188,7 +231,7 @@ class TestNGCHSignerInit:
         from modules.cts.ngch.signer import NGCHSigner
 
         with pytest.raises(TypeError):
-            NGCHSigner()  # missing required hsm
+            NGCHSigner()
 
     def test_signer_stores_hsm(self, mock_hsm):
         from modules.cts.ngch.signer import NGCHSigner

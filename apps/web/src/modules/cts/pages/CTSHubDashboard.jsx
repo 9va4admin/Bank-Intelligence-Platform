@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useHubSummary from '../hooks/useHubSummary'
 import AppShell from '../../../shared/layout/AppShell'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { getBranchByIfsc } from '../../../shared/config/federalBankBranches'
@@ -406,17 +407,50 @@ function SealConfirmModal({ branch, lot, onConfirm, onCancel, isDark }) {
 export default function CTSHubDashboard() {
   const { isDark } = useTheme()
   const { bankId, bankName, isDemo } = useBankContext()
-  const [branches, setBranches] = useState(useDemoData(BRANCHES_MOCK))
+
+  // DEMO: rich mock data with lot management, session counters, EEH latency
+  // POC/PROD: live data from GET /v1/cts/outward/hub-summary (eeh_sessions + scanner_registrations)
+  const demoBranches = useDemoData(BRANCHES_MOCK)
+  const { branches: liveBranches, loading: liveLoading } = useHubSummary({ pollEnabled: !isDemo })
+  const [branches, setBranches] = useState([])
+  useEffect(() => {
+    setBranches(isDemo ? demoBranches : liveBranches)
+  }, [isDemo, demoBranches, liveBranches])
+
   const [countdown, setCountdown] = useState(isDemo ? windowCountdown(CLEARING_WINDOW.close_ts) : '—:—:—')
   const [sealTarget, setSealTarget] = useState(null)   // { branch, lot }
   const [sealAllPending, setSealAllPending] = useState(false)
+  const [ngchPending, setNgchPending] = useState(false)
   const [toast, setToast] = useState(null)
+  const [clearingWindow, setClearingWindow] = useState(null) // live window from backend
 
-  // Live countdown — only in DEMO mode; real clearing session comes from backend in POC/PROD
+  // DEMO: local countdown tick
   useEffect(() => {
     if (!isDemo) return
     const t = setInterval(() => setCountdown(windowCountdown(CLEARING_WINDOW.close_ts)), 1000)
     return () => clearInterval(t)
+  }, [isDemo])
+
+  // POC/PROD: fetch clearing window from backend, then tick countdown from close_time_utc
+  useEffect(() => {
+    if (isDemo) return
+    let timer = null
+    async function fetchWindow() {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/clearing-window`, { credentials: 'include' })
+        if (!res.ok) return
+        const data = await res.json()
+        setClearingWindow(data)
+        // build a Date for close time today and tick
+        const [closeH, closeM] = (data.close_time_utc ?? '14:00').split(':').map(Number)
+        const closeTs = new Date()
+        closeTs.setUTCHours(closeH, closeM, 0, 0)
+        timer = setInterval(() => setCountdown(windowCountdown(closeTs)), 1000)
+        setCountdown(windowCountdown(closeTs))
+      } catch { }
+    }
+    fetchWindow()
+    return () => { if (timer) clearInterval(timer) }
   }, [isDemo])
 
   // Auto-clear toast
@@ -437,25 +471,42 @@ export default function CTSHubDashboard() {
     theadTx: isDark ? 'text-slate-400'           : 'text-slate-500',
   }
 
-  // Derived stats
   const activeBranches  = branches.filter(b => b.session?.status === 'ACTIVE').length
   const noSessionCount  = branches.filter(b => !b.session).length
   const totalUploaded   = branches.reduce((s, b) => s + (b.session?.total_uploaded ?? 0), 0)
   const totalHeld       = branches.reduce((s, b) => s + (b.session?.total_held ?? 0), 0)
-  const totalSealed     = branches.reduce((s, b) => s + b.lots_sealed_today, 0)
+  const totalSealed     = branches.reduce((s, b) => s + (b.lots_sealed_today ?? 0), 0)
   const openLots        = branches.filter(b => b.current_lot?.status === 'OPEN')
+
+  const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
   function handleSealLot(branch, lot) {
     setSealTarget({ branch, lot })
   }
 
-  function confirmSeal() {
+  async function confirmSeal() {
     const { branch, lot } = sealTarget
+    if (!isDemo) {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/lots/${encodeURIComponent(lot.lot_id)}/seal`, {
+          method: 'PATCH', credentials: 'include',
+        })
+        if (!res.ok) {
+          setToast(`Seal failed: ${res.status}`)
+          setSealTarget(null)
+          return
+        }
+      } catch (e) {
+        setToast(`Seal error: ${e.message}`)
+        setSealTarget(null)
+        return
+      }
+    }
     setBranches(prev => prev.map(b =>
       b.branch_id !== branch.branch_id ? b : {
         ...b,
         current_lot: null,
-        lots_sealed_today: b.lots_sealed_today + 1,
+        lots_sealed_today: (b.lots_sealed_today ?? 0) + 1,
       }
     ))
     setToast(`Lot ${lot.lot_id.slice(-10)} sealed — ${branch.branch_name}`)
@@ -466,18 +517,64 @@ export default function CTSHubDashboard() {
     setSealAllPending(true)
   }
 
-  function confirmSealAll() {
+  async function confirmSealAll() {
+    if (!isDemo) {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/lots/seal-all`, {
+          method: 'POST', credentials: 'include',
+        })
+        if (!res.ok) {
+          setToast(`Seal-all failed: ${res.status}`)
+          setSealAllPending(false)
+          return
+        }
+      } catch (e) {
+        setToast(`Seal-all error: ${e.message}`)
+        setSealAllPending(false)
+        return
+      }
+    }
     setBranches(prev => prev.map(b => ({
       ...b,
-      lots_sealed_today: b.lots_sealed_today + (b.current_lot ? 1 : 0),
+      lots_sealed_today: (b.lots_sealed_today ?? 0) + (b.current_lot ? 1 : 0),
       current_lot: null,
     })))
     setToast(`All ${openLots.length} open lots sealed — ready for NGCH submission`)
     setSealAllPending(false)
   }
 
-  const windowStatusColor = CLEARING_WINDOW.status === 'ACTIVE'
-    ? 'text-emerald-400' : CLEARING_WINDOW.status === 'CLOSING' ? 'text-amber-400' : th.muted
+  const liveWindowOpen = clearingWindow?.is_open ?? true
+  const windowStatusColor = isDemo
+    ? (CLEARING_WINDOW.status === 'ACTIVE' ? 'text-emerald-400' : CLEARING_WINDOW.status === 'CLOSING' ? 'text-amber-400' : th.muted)
+    : (liveWindowOpen ? 'text-emerald-400' : th.muted)
+
+  async function submitToNGCH() {
+    if (isDemo) {
+      setToast('Demo mode — ClearingSessionWorkflow not triggered in demo')
+      return
+    }
+    setNgchPending(true)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const res = await fetch(`${API_BASE}/v1/cts/outward/clearing-session/submit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearing_date: today, session_type: 'MORNING', deployment_mode: 'SB_NGCH', pu_ids: [] }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setToast(`ClearingSessionWorkflow started — ${data.workflow_id}`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setToast(`Submit failed: ${err.detail ?? res.status}`)
+      }
+    } catch (e) {
+      setToast(`Submit error: ${e.message}`)
+    } finally {
+      setNgchPending(false)
+    }
+  }
 
   return (
     <AppShell>
@@ -596,14 +693,15 @@ export default function CTSHubDashboard() {
             </p>
           </div>
           <button
-            disabled={openLots.length > 0}
+            disabled={openLots.length > 0 || ngchPending}
+            onClick={submitToNGCH}
             className={`text-xs px-4 py-2 rounded font-medium transition-colors ${
-              openLots.length > 0
+              openLots.length > 0 || ngchPending
                 ? (isDark ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed')
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
             }`}
           >
-            Submit to NGCH
+            {ngchPending ? 'Submitting…' : 'Submit to NGCH'}
           </button>
         </div>
 

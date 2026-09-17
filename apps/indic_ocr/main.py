@@ -50,11 +50,7 @@ BACKEND_AI4BHARAT  = "ai4bharat"
 BACKEND_EASYOCR    = "easyocr"
 _VALID_BACKENDS    = {BACKEND_PADDLE, BACKEND_AI4BHARAT, BACKEND_EASYOCR}
 
-_SERVICE_DEFAULT: str = os.environ.get("INDIC_OCR_BACKEND", BACKEND_PADDLE).lower()
-if _SERVICE_DEFAULT not in _VALID_BACKENDS:
-    log.warning("indic_ocr.invalid_backend_env",
-                value=_SERVICE_DEFAULT, fallback=BACKEND_PADDLE)
-    _SERVICE_DEFAULT = BACKEND_PADDLE
+_SERVICE_DEFAULT: str = BACKEND_PADDLE  # overridden in startup from config_service
 
 # ── Script → PaddleOCR lang code mapping ─────────────────────────────────────
 # Keys match the script names returned by identify_indic_script() in zone_extractor.py.
@@ -249,9 +245,26 @@ app = FastAPI(
         "Scripts: devanagari, bengali, gurmukhi, gujarati, odia, tamil, telugu, kannada, malayalam."
     ),
     version="3.0.0",
-    docs_url="/docs" if os.environ.get("ASTRA_ENV", "dev") == "dev" else None,
+    docs_url=None,
     redoc_url=None,
 )
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    global _SERVICE_DEFAULT
+    try:
+        import sys, pathlib
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+        from shared.config.config_service import config_service
+        backend = str(await config_service.get("indic_ocr.backend")).lower()
+        if backend in _VALID_BACKENDS:
+            _SERVICE_DEFAULT = backend
+        else:
+            log.warning("indic_ocr.invalid_backend_config", value=backend, fallback=BACKEND_PADDLE)
+    except Exception:
+        pass
+
 
 # ── Response models ───────────────────────────────────────────────────────────
 

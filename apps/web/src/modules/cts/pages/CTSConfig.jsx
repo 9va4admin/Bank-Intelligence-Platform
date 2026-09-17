@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { getReturnReasons, saveReturnReasons, getDefaultReturnReasons } from '../data/returnReasons'
+import useConfigChanges from '../hooks/useConfigChanges'
 
 const LAYER3_CONFIG = [
   { key: 'iet_minutes',                  label: 'IET Window',                value: 180,      unit: 'minutes', desc: 'RBI mandated clearing window. Breach = deemed approval.',       editable: true,  warn: true  },
@@ -42,7 +43,7 @@ function nowStr() {
 }
 
 export default function CTSConfig() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [values, setValues] = useState(
     Object.fromEntries(LAYER3_CONFIG.map(c => [c.key, c.value]))
@@ -52,6 +53,45 @@ export default function CTSConfig() {
   )
   const [pendingChanges, setPendingChanges] = useState([])
   const [changeLog, setChangeLog] = useState(MOCK_CHANGE_LOG)
+
+  // Live change log — seed from API in POC/PROD; MOCK_CHANGE_LOG remains the fallback
+  // Fetch live Layer 3 config values on mount (non-demo only)
+  const fetchLiveConfig = useCallback(async () => {
+    if (isDemo) return
+    try {
+      const res = await fetch('/v1/admin/config/thresholds', { credentials: 'include' })
+      if (!res.ok) return
+      const data = await res.json()
+      const liveValues = {}
+      LAYER3_CONFIG.forEach(c => {
+        const entry = data.thresholds?.find(t => t.config_key === c.key)
+        if (entry) liveValues[c.key] = entry.current_value
+      })
+      if (Object.keys(liveValues).length > 0) {
+        setValues(v => ({ ...v, ...liveValues }))
+        setDraftValues(v => ({ ...v, ...liveValues }))
+      }
+    } catch { /* keep defaults */ }
+  }, [isDemo])
+  useEffect(() => { fetchLiveConfig() }, [fetchLiveConfig])
+
+  const { changes: liveChanges } = useConfigChanges()
+  useEffect(() => {
+    if (isDemo || !liveChanges || liveChanges.length === 0) return
+    setChangeLog(
+      liveChanges.map(c => ({
+        key:        c.config_key,
+        old:        c.old_value,
+        new:        c.new_value,
+        by:         c.submitted_by,
+        approvedBy: c.actioned_by ?? '—',
+        at:         c.actioned_at ?? c.submitted_at,
+        status:     c.status === 'APPROVED' ? 'APPROVED'
+                  : c.status === 'PENDING_APPROVAL' ? 'PENDING'
+                  : 'REJECTED',
+      }))
+    )
+  }, [liveChanges, isDemo])
 
   // Return reasons management
   const [returnReasons, setReturnReasons] = useState(() => getReturnReasons())
@@ -86,22 +126,41 @@ export default function CTSConfig() {
     saveReturnReasons(defaults)
   }
 
-  function handleSubmit(key) {
+  async function handleSubmit(key) {
+    if (isDemo) return
     const cfg = LAYER3_CONFIG.find(c => c.key === key)
     if (!cfg) return
     const oldValue = values[key]
     const newValue = draftValues[key]
     if (String(oldValue) === String(newValue)) return
-    // Replace any existing pending for this key
     setPendingChanges(prev => [
       ...prev.filter(p => p.key !== key),
-      { key, oldValue, newValue, submittedAt: nowStr(), submittedBy: 'ops_manager@svcb' },
+      { key, oldValue, newValue, submittedAt: nowStr(), submittedBy: 'ops_manager@svcb', changeId: null },
     ])
+    try {
+      const res = await fetch('/v1/admin/config/thresholds', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config_key: key,
+          new_value: String(newValue),
+          reason: 'Updated via ASTRA Admin UI',
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPendingChanges(prev =>
+          prev.map(p => p.key === key ? { ...p, changeId: data.change_id } : p)
+        )
+      }
+    } catch { /* pending change stays; approval will be blocked by null changeId guard */ }
   }
 
-  function handleApprove(key) {
+  async function handleApprove(key) {
+    if (isDemo) return
     const pending = pendingChanges.find(p => p.key === key)
-    if (!pending) return
+    if (!pending || !pending.changeId) return
     setValues(v => ({ ...v, [key]: pending.newValue }))
     setDraftValues(v => ({ ...v, [key]: pending.newValue }))
     setChangeLog(prev => [
@@ -117,6 +176,13 @@ export default function CTSConfig() {
       ...prev,
     ])
     setPendingChanges(prev => prev.filter(p => p.key !== key))
+    try {
+      await fetch(`/v1/admin/config/thresholds/${pending.changeId}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    } catch { /* non-blocking */ }
   }
 
   function handleReject(key) {
@@ -400,7 +466,13 @@ export default function CTSConfig() {
                     <td className={`px-4 py-2.5 ${th.muted}`}>{entry.approvedBy}</td>
                     <td className={`px-4 py-2.5 ${th.faint}`}>{entry.at}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide border ${
+                        entry.status === 'APPROVED'
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                          : entry.status === 'PENDING'
+                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                            : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>
                         {entry.status}
                       </span>
                     </td>

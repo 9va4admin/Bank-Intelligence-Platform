@@ -12,12 +12,13 @@ import AppShell from '../../../shared/layout/AppShell'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
-function useAlerts(bankId, limit) {
+function useAlerts(bankId, limit, { enabled = true } = {}) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
   const load = useCallback(async () => {
+    if (!enabled) return
     setLoading(true)
     setError(null)
     try {
@@ -29,9 +30,9 @@ function useAlerts(bankId, limit) {
     } finally {
       setLoading(false)
     }
-  }, [bankId, limit])
+  }, [bankId, limit, enabled])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (enabled) load() }, [load, enabled])
 
   return { data, loading, error, reload: load }
 }
@@ -69,9 +70,9 @@ function fmtTime(iso) {
 
 export default function AlertLog() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
+  const { bankId, isDemo } = useBankContext()
   const [limit, setLimit] = useState(25)
-  const { data, loading, error, reload } = useAlerts(bankId, limit)
+  const { data, loading, error, reload } = useAlerts(bankId, limit, { enabled: !isDemo })
 
   const th = {
     page:    isDark ? 'bg-navy-950'                 : 'bg-slate-50',

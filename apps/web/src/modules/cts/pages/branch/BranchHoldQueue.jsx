@@ -19,6 +19,35 @@ import { usePageHeader } from '../../../../shared/layout/PageHeaderContext'
 
 const _now = () => Date.now() / 1000
 
+// ─── Demo mock data ───────────────────────────────────────────────────────────
+
+const MOCK_HOLDS = [
+  {
+    instrument_id: 'CHQ-HOLD-001482',
+    cheque_number: '001482',
+    account_display: '****7823',
+    amount_range: '₹[1L-5L]',
+    payee_display: 'A*** T***',
+    hold_reason: 'SIGNATURE_QUERY',
+    branch_recommendation: null,
+    branch_note: null,
+    iet_deadline: _now() + 4800,
+    received_at: new Date(Date.now() - 900_000).toISOString(),
+  },
+  {
+    instrument_id: 'CHQ-HOLD-001519',
+    cheque_number: '001519',
+    account_display: '****4412',
+    amount_range: '₹[>1Cr]',
+    payee_display: 'M*** E***',
+    hold_reason: 'HIGH_VALUE_CONFIRM',
+    branch_recommendation: 'CONFIRM',
+    branch_note: 'Verified with account manager — authorized.',
+    iet_deadline: _now() + 2100,
+    received_at: new Date(Date.now() - 1_800_000).toISOString(),
+  },
+]
+
 // ─── IET countdown hook ───────────────────────────────────────────────────────
 
 function useCountdown(holds) {
@@ -174,7 +203,7 @@ export default function BranchHoldQueue() {
     retry: false,
   })
 
-  const holds = data?.items ?? []
+  const holds = isDemo ? MOCK_HOLDS : (data?.items ?? [])
 
   const recMutation = useMutation({
     mutationFn: async ({ instrumentId, note, rec }) => {

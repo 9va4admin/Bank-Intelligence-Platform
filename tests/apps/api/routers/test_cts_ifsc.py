@@ -46,7 +46,7 @@ def _make_entry(**kwargs):
 def _build_app(repo_mock):
     """Build a minimal FastAPI app with the CTS router and a mocked repo."""
     from fastapi import FastAPI
-    from apps.api.routers.cts import router_v1
+    from apps.api.routers.cts_admin_ops import router_v1
     from apps.api.dependencies import require_user_context
     from shared.auth.rbac import UserContext, Role, BankType
 
@@ -100,7 +100,7 @@ class TestListIFSCRegistry:
 
     def test_unauthenticated_returns_401(self):
         from fastapi import FastAPI
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_admin_ops import router_v1
         from apps.api.dependencies import require_user_context
         app = FastAPI()
         app.include_router(router_v1)
@@ -181,7 +181,7 @@ class TestCreateIFSCRegistry:
 class TestApproveIFSCRegistry:
     def test_bank_it_admin_can_approve(self):
         from fastapi import FastAPI
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_admin_ops import router_v1
         from apps.api.dependencies import require_user_context
         from shared.auth.rbac import UserContext, Role, BankType
 
@@ -204,7 +204,7 @@ class TestApproveIFSCRegistry:
 
     def test_ops_manager_cannot_approve(self):
         from fastapi import FastAPI
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_admin_ops import router_v1
         from apps.api.dependencies import require_user_context
         from shared.auth.rbac import UserContext, Role, BankType
 
@@ -226,7 +226,7 @@ class TestApproveIFSCRegistry:
 
     def test_approve_nonexistent_returns_404(self):
         from fastapi import FastAPI
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_admin_ops import router_v1
         from apps.api.dependencies import require_user_context
         from shared.auth.rbac import UserContext, Role, BankType
 
@@ -250,7 +250,7 @@ class TestApproveIFSCRegistry:
 class TestDeactivateIFSCRegistry:
     def test_bank_it_admin_can_deactivate(self):
         from fastapi import FastAPI
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_admin_ops import router_v1
         from apps.api.dependencies import require_user_context
         from shared.auth.rbac import UserContext, Role, BankType
 
@@ -273,7 +273,7 @@ class TestDeactivateIFSCRegistry:
 
     def test_ops_manager_cannot_deactivate(self):
         from fastapi import FastAPI
-        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts_admin_ops import router_v1
         from apps.api.dependencies import require_user_context
         from shared.auth.rbac import UserContext, Role, BankType
 
