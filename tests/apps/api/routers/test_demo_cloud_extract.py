@@ -159,14 +159,33 @@ class TestHappyPath:
             "signature_present": True,
             "signature_name": "RAJESH KUMAR",
         }
+        def _side_effect(*args, **kwargs):
+            # The main whole-image call gets the full JSON. The later
+            # zone-crop re-verification calls (_verify_numeric_fields_via_
+            # zone_crop) ask a narrow "just the digits" question against a
+            # tight crop -- must answer consistently with the amount above,
+            # or is_amount_matching's real recompute (see
+            # apps/api/routers/demo_cloud_extract.py) correctly flags a
+            # mismatch, which is the whole point of that fix and not a bug
+            # in it. Distinguish by a keyword unique to each zone prompt.
+            # "cropped close-up" only appears in the narrow zone-crop
+            # prompts (_verify_numeric_fields_via_zone_crop) -- CLOUD_EXTRACT_PROMPT
+            # itself mentions "MICR" several times in its own field
+            # descriptions, so checking for that alone false-matches the
+            # main whole-image call too.
+            prompt_text = str(kwargs.get("messages", args[0] if args else ""))
+            if "cropped close-up" in prompt_text:
+                if "MICR code line" in prompt_text:
+                    return _mock_hf_response("400002001")
+                return _mock_hf_response("10000")
+            return _mock_hf_response(json.dumps(extraction))
+
         with patch(
             "shared.config.config_service.config_service.get_secret",
             new=AsyncMock(return_value="hf_fake_token"),
         ), patch("openai.AsyncOpenAI") as mock_openai_cls:
             client_inst = AsyncMock()
-            client_inst.chat.completions.create = AsyncMock(
-                return_value=_mock_hf_response(json.dumps(extraction))
-            )
+            client_inst.chat.completions.create = AsyncMock(side_effect=_side_effect)
             mock_openai_cls.return_value = client_inst
 
             response = client.post("/v1/cts/demo/cloud-extract", files=_fake_image_file())
@@ -177,6 +196,50 @@ class TestHappyPath:
         assert body["is_amount_matching"] is True
         assert body["model_used"] == "qwen-72b"
         assert body["error"] is None
+
+    def test_is_amount_matching_is_recomputed_not_trusted_from_llm(self):
+        """Regression test for the real bug found 2026-09-17 via a 19-cheque
+        comparative run: the LLM's self-reported is_amount_matching disagreed
+        with the real deterministic parser on 7/19 real cheques (37%) --
+        it compares its own two readings against each other and means
+        nothing once either has been corrected. The LLM here claims
+        is_amount_matching=True for a figures/words pair that genuinely
+        does not match -- the real recompute must override it to False."""
+        client = _authed_client()
+        extraction = {
+            "bank_name": "State Bank of India",
+            "payee_name": "M/s Sunshine Traders",
+            "amount_words": "Ten Thousand Only",
+            "amount_numeric": "99999",   # genuinely does not match "Ten Thousand"
+            "is_amount_matching": True,  # LLM's self-report -- wrong, must be overridden
+            "account_number": "00123456789",
+            "ifsc_code": "SBIN0001234",
+            "cheque_number": "000001",
+            "micr_code": "400002001",
+            "signature_present": False,
+        }
+
+        def _side_effect(*args, **kwargs):
+            prompt_text = str(kwargs.get("messages", args[0] if args else ""))
+            if "cropped close-up" in prompt_text:
+                if "MICR code line" in prompt_text:
+                    return _mock_hf_response("400002001")
+                return _mock_hf_response("99999")  # zone-crop confirms the same (wrong-vs-words) figure
+            return _mock_hf_response(json.dumps(extraction))
+
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="hf_fake_token"),
+        ), patch("openai.AsyncOpenAI") as mock_openai_cls:
+            client_inst = AsyncMock()
+            client_inst.chat.completions.create = AsyncMock(side_effect=_side_effect)
+            mock_openai_cls.return_value = client_inst
+
+            response = client.post("/v1/cts/demo/cloud-extract", files=_fake_image_file())
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_amount_matching"] is False
 
     def test_selected_model_forwarded_to_hf(self):
         client = _authed_client()
@@ -481,3 +544,75 @@ class TestStripBoilerplateTextViaOCR:
         strip_top = int(ch * 0.60)
         sample = result.crop((0, strip_top, cw, ch)).getcolors()
         assert sample == [(sample[0][0], (255, 255, 255))]
+
+
+class TestRerouteIndicTextFieldsTriggersOnNull:
+    """Regression tests for the real bug fixed 2026-09-17: the reroute to
+    local IndicOCR only fired when the cloud VLM's own output already
+    contained visible Indic-script characters. Once the anti-hallucination
+    prompt fix (same session) made the VLM return null instead of guessing
+    for illegible handwriting, that trigger condition would never fire
+    again -- there's no script to detect in a null. The fix adds
+    "field is empty/'null'" as a second trigger condition alongside the
+    original "detected Indic script" one."""
+
+    @pytest.mark.asyncio
+    async def test_reroute_fires_when_field_is_none_not_just_when_indic_script_detected(self):
+        from apps.api.routers.demo_cloud_extract import _reroute_indic_text_fields
+
+        parsed = {"payee_name": None, "amount_words": "three thousand only"}
+        img = Image.new("RGB", (400, 200), "white")
+
+        with patch(
+            "apps.api.routers.demo_cloud_extract._call_indic_ocr_single_crop",
+            new=AsyncMock(return_value=(None, None)),
+        ), patch(
+            "apps.api.routers.demo_cloud_extract._call_indic_ocr_zones",
+            new=AsyncMock(return_value=({"payee_name": "ಕೈಲಾಸ", "script": "kannada", "backend": "paddle"}, True, None)),
+        ) as mock_zones:
+            updated, rerouted, error = await _reroute_indic_text_fields(parsed, img, "test-bank")
+
+        mock_zones.assert_called_once()
+        assert rerouted is not None and "payee_name" in rerouted
+        assert updated["payee_name"] == "ಕೈಲಾಸ"
+
+    @pytest.mark.asyncio
+    async def test_reroute_still_fires_on_detected_indic_script_original_condition(self):
+        """The original trigger condition (VLM hallucinated visible Indic
+        text) must keep working -- this fix only adds a second condition,
+        never removes the first."""
+        from apps.api.routers.demo_cloud_extract import _reroute_indic_text_fields
+
+        parsed = {"payee_name": "अभिलाष", "amount_words": "ten thousand only"}
+        img = Image.new("RGB", (400, 200), "white")
+
+        with patch(
+            "apps.api.routers.demo_cloud_extract._call_indic_ocr_single_crop",
+            new=AsyncMock(return_value=(None, None)),
+        ), patch(
+            "apps.api.routers.demo_cloud_extract._call_indic_ocr_zones",
+            new=AsyncMock(return_value=({"payee_name": "अभिलाष रेड्डी", "script": "devanagari", "backend": "paddle"}, True, None)),
+        ) as mock_zones:
+            updated, rerouted, error = await _reroute_indic_text_fields(parsed, img, "test-bank")
+
+        mock_zones.assert_called_once()
+        assert rerouted is not None and "payee_name" in rerouted
+
+    @pytest.mark.asyncio
+    async def test_no_reroute_when_all_fields_present_and_latin(self):
+        """Common case (English cheque) must never call the IndicOCR
+        service at all -- no wasted local OCR calls."""
+        from apps.api.routers.demo_cloud_extract import _reroute_indic_text_fields
+
+        parsed = {"payee_name": "JAGADISH.V", "amount_words": "Fourteen lakh only"}
+        img = Image.new("RGB", (400, 200), "white")
+
+        with patch(
+            "apps.api.routers.demo_cloud_extract._call_indic_ocr_zones",
+            new=AsyncMock(),
+        ) as mock_zones:
+            updated, rerouted, error = await _reroute_indic_text_fields(parsed, img, "test-bank")
+
+        mock_zones.assert_not_called()
+        assert rerouted is None
+        assert updated == parsed
