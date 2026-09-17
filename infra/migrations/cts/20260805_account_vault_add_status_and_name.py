@@ -10,6 +10,11 @@ Safe for rolling deploy: old pods read account_status as NULL → default "ACTIV
 from alembic import op
 import sqlalchemy as sa
 
+revision = "20260805_account_vault_add_status_and_name"
+down_revision = "20260803_add_outward_scan_events"
+branch_labels = None
+depends_on = None
+
 
 def upgrade() -> None:
     op.add_column(

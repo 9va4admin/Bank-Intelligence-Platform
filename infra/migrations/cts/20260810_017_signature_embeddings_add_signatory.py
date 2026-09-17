@@ -27,7 +27,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260810_017"
-down_revision = "20260723_015"
+down_revision = "20260818_add_model_retrain_runs"
 branch_labels = None
 depends_on = None
 

@@ -16,7 +16,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260701_add_mcp_connection_configs"
-down_revision = None   # set to previous migration revision in real chain
+down_revision = "20260916_018"
 branch_labels = None
 depends_on = None
 
