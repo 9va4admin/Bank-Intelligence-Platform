@@ -16,6 +16,7 @@ never EDIT/ADMIN — this is the ASTRA-04 fail-closed rule applied at issuance.
 """
 from __future__ import annotations
 
+import datetime
 from enum import Enum
 from typing import Optional, Protocol
 
@@ -72,6 +73,7 @@ class AuthService:
         connector=None,            # single AuthConnector — backward-compat / tests
         connector_factory=None,    # AuthConnectorFactory — production path
         dev_mode: bool = False,    # when True, password alone → full session (never in prod)
+        db_pool=None,              # asyncpg Pool — optional; absent → no DB writes (test mode)
     ) -> None:
         if connector is None and connector_factory is None:
             raise ValueError("either connector or connector_factory must be provided")
@@ -81,6 +83,63 @@ class AuthService:
         self._session = session_service
         self._accounts = account_store
         self._dev_mode = dev_mode
+        self._db = db_pool
+
+    # -- DB persistence helpers --------------------------------------------- #
+
+    async def _persist_session(self, session: IssuedSession, user_agent: str = "", ip_hash: str = "") -> None:
+        """INSERT full session into platform.user_sessions. Fire-and-forget on error."""
+        if self._db is None:
+            return
+        try:
+            expires_at = datetime.datetime.fromtimestamp(session.expires_at, tz=datetime.timezone.utc)
+            async with self._db.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO platform.user_sessions
+                        (session_id, user_id, bank_id, expires_at, user_agent, ip_hash)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (session_id) DO NOTHING
+                    """,
+                    session.session_id,
+                    session.claims.user_id,
+                    session.claims.bank_id,
+                    expires_at,
+                    user_agent or None,
+                    ip_hash or None,
+                )
+        except Exception:
+            log.warning("auth.session.persist_failed", session_id=session.session_id)
+
+    async def _log_event(
+        self,
+        *,
+        bank_id: str,
+        bank_type: str,
+        user_id: str,
+        event_type: str,
+        session_id: Optional[str] = None,
+        ip_hash: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        failure_reason: Optional[str] = None,
+    ) -> None:
+        """INSERT a row into platform.login_events. Fire-and-forget on error."""
+        if self._db is None:
+            return
+        try:
+            async with self._db.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO platform.login_events
+                        (bank_id, bank_type, user_id, event_type, ip_hash,
+                         user_agent, session_id, failure_reason)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    """,
+                    bank_id, bank_type, user_id, event_type,
+                    ip_hash, user_agent, session_id, failure_reason,
+                )
+        except Exception:
+            log.warning("auth.login_event.persist_failed", event_type=event_type, user_id=user_id)
 
     # -- stage 1: password -------------------------------------------------- #
 
@@ -104,14 +163,27 @@ class AuthService:
         else:
             connector = self._connector
 
-        identity: ASTRAIdentity = await connector.authenticate(
-            LocalCredentials(username=username, password=password, bank_id=bank_id)
-        )
+        try:
+            identity: ASTRAIdentity = await connector.authenticate(
+                LocalCredentials(username=username, password=password, bank_id=bank_id)
+            )
+        except AuthenticationError:
+            await self._log_event(
+                bank_id=bank_id, bank_type="SB", user_id=username,
+                event_type="LOGIN_FAILED", failure_reason="INVALID_CREDENTIALS",
+            )
+            raise
 
         # Dev bypass: skip MFA entirely and issue a full session immediately.
         # Never active in production — dev_mode is wired from ASTRA_ENV at startup.
         if self._dev_mode:
             full = self._issue_from_identity(identity, mfa_authenticated=True)
+            await self._persist_session(full)
+            await self._log_event(
+                bank_id=identity.bank_id, bank_type=_derive_bank_type(identity),
+                user_id=identity.user_id, event_type="LOGIN_SUCCESS",
+                session_id=full.session_id,
+            )
             log.warning(
                 "auth.login.dev_bypass",
                 user_id=identity.user_id, bank_id=identity.bank_id,
@@ -137,9 +209,21 @@ class AuthService:
         ok = await self._mfa.verify(interim.user_id, code)
         if not ok:
             log.warning("auth.mfa.verify_failed", user_id=interim.user_id)
+            await self._log_event(
+                bank_id=interim.bank_id, bank_type=interim.bank_type,
+                user_id=interim.user_id, event_type="TOTP_FAILED",
+                failure_reason="TOTP_MISMATCH",
+            )
             raise AuthenticationError("invalid MFA code")
         log.info("auth.mfa.verified", user_id=interim.user_id)
-        return self._issue_from_claims(interim, mfa_authenticated=True)
+        session = self._issue_from_claims(interim, mfa_authenticated=True)
+        await self._persist_session(session)
+        await self._log_event(
+            bank_id=interim.bank_id, bank_type=interim.bank_type,
+            user_id=interim.user_id, event_type="LOGIN_SUCCESS",
+            session_id=session.session_id,
+        )
+        return session
 
     # -- stage 2b: enrol then confirm (first login) ------------------------- #
 
@@ -152,10 +236,22 @@ class AuthService:
         ok = await self._mfa.confirm_enrollment(interim.user_id, code)
         if not ok:
             log.warning("auth.mfa.enroll_failed", user_id=interim.user_id)
+            await self._log_event(
+                bank_id=interim.bank_id, bank_type=interim.bank_type,
+                user_id=interim.user_id, event_type="TOTP_FAILED",
+                failure_reason="TOTP_MISMATCH",
+            )
             raise AuthenticationError("invalid enrolment code")
         await self._accounts.set_totp_enrolled(interim.user_id, True)
         log.info("auth.mfa.enrolled", user_id=interim.user_id)
-        return self._issue_from_claims(interim, mfa_authenticated=True)
+        session = self._issue_from_claims(interim, mfa_authenticated=True)
+        await self._persist_session(session)
+        await self._log_event(
+            bank_id=interim.bank_id, bank_type=interim.bank_type,
+            user_id=interim.user_id, event_type="LOGIN_SUCCESS",
+            session_id=session.session_id,
+        )
+        return session
 
     # -- refresh (full session -> full session, sliding expiry) ------------- #
 
