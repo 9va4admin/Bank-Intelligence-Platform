@@ -1,7 +1,48 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useNGCHRouting({ pollEnabled }) {
+  const [rules, setRules] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/admin/ngch-routing`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setRules(json.rules ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 5 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return rules
+}
+
+function useNGCHStatus({ pollEnabled }) {
+  const [status, setStatus] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/admin/ngch-status`, { credentials: 'include' })
+      if (!res.ok) return
+      setStatus(await res.json())
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return status
+}
 
 const ROUTING_RULES = [
   {
@@ -109,7 +150,26 @@ const TYPE_COLORS_L = {
 }
 
 export default function CTSNGCHRouting() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+
+  const liveRules  = useNGCHRouting({ pollEnabled: !isDemo })
+  const liveStatus = useNGCHStatus({ pollEnabled: !isDemo })
+  const ngchStatus = isDemo || !liveStatus ? NGCH_STATUS : liveStatus
+
+  const DISPLAY_RULES = useMemo(() => {
+    if (isDemo) return ROUTING_RULES
+    if (!liveRules || liveRules.length === 0) return []
+    return liveRules.map(r => ({
+      id: r.rule_id,
+      name: r.destination,
+      condition: `MICR prefix ${r.micr_prefix}`,
+      destination: r.destination,
+      grid: r.clearing_zone,
+      priority: r.priority,
+      type: 'ZONE',
+      status: r.active ? 'ACTIVE' : 'INACTIVE',
+    }))
+  }, [isDemo, liveRules])
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
@@ -141,16 +201,16 @@ export default function CTSNGCHRouting() {
             <span className={`text-xs font-semibold ${th.muted}`}>NGCH CONNECTIVITY</span>
             <span className={`flex items-center gap-1.5 text-xs font-medium ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {NGCH_STATUS.connectivity}
+              {ngchStatus.connectivity}
             </span>
           </div>
           <div className="grid grid-cols-5 gap-4 text-xs">
             {[
-              ['SFTP Host', NGCH_STATUS.sftp_host],
-              ['Filed Today', NGCH_STATUS.total_filed_today.toLocaleString()],
-              ['Pending Queue', NGCH_STATUS.pending_queue],
-              ['Avg ACK Latency', `${NGCH_STATUS.avg_ack_latency_ms} ms`],
-              ['Cert Expiry', NGCH_STATUS.cert_expiry],
+              ['SFTP Host', ngchStatus.sftp_host],
+              ['Filed Today', ngchStatus.total_filed_today.toLocaleString()],
+              ['Pending Queue', ngchStatus.pending_queue],
+              ['Avg ACK Latency', `${ngchStatus.avg_ack_latency_ms} ms`],
+              ['Cert Expiry', ngchStatus.cert_expiry],
             ].map(([label, val]) => (
               <div key={label}>
                 <div className={th.muted}>{label}</div>
@@ -159,7 +219,7 @@ export default function CTSNGCHRouting() {
             ))}
           </div>
           <div className={`mt-3 pt-3 border-t text-xs ${th.divider} ${th.muted}`}>
-            Last batch filed: <span className={`font-mono ${th.body}`}>{NGCH_STATUS.last_batch_filed}</span>
+            Last batch filed: <span className={`font-mono ${th.body}`}>{ngchStatus.last_batch_filed}</span>
           </div>
         </div>
 
@@ -177,7 +237,7 @@ export default function CTSNGCHRouting() {
               </tr>
             </thead>
             <tbody>
-              {ROUTING_RULES.sort((a, b) => a.priority - b.priority).map(r => (
+              {DISPLAY_RULES.sort((a, b) => a.priority - b.priority).map(r => (
                 <tr key={r.id} className={`border-b transition-colors ${th.row}`} onClick={() => setSelected(r)}>
                   <td className={`px-4 py-3 font-mono font-bold ${r.priority <= 3 ? (isDark ? 'text-red-300' : 'text-red-600') : th.heading}`}>
                     P{r.priority}

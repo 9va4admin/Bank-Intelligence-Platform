@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -7,18 +7,25 @@ import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
 
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
+function _todayPresentment() {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+}
 function makeSessions(bankIfsc, isSMB) {
   const ifsc = bankIfsc || 'BANK'
+  const td = _todayPresentment()
   if (isSMB) return [
-    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 78, accepted: 76, rejected: 2, returned: 1 },
-    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,  accepted: 0,  rejected: 0, returned: 0 },
+    { id: `SES-${ifsc}-${td}-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 78, accepted: 76, rejected: 2, returned: 1 },
+    { id: `SES-${ifsc}-${td}-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,  accepted: 0,  rejected: 0, returned: 0 },
   ]
   return [
-    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16, returned: 4 },
-    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
-    { id: `SES-${ifsc}-20260619-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+    { id: `SES-${ifsc}-${td}-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16, returned: 4 },
+    { id: `SES-${ifsc}-${td}-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+    { id: `SES-${ifsc}-${td}-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
   ]
 }
 
@@ -81,12 +88,12 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
         const draweeD = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
         if (ch === 'PAY_IN_SLIP')     return { depositor_name: payee, depositor_account: fullAcct, deposit_amount: amt, counter_token: `T-${String((idx % 99) + 1).padStart(4, '0')}`, date, branch: draweeD.branch }
         if (ch === 'BACK_ANNOTATION') return { extracted_account: fullAcct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
-        return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-20260619`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  19/06/2026` }
+        return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-${_todayPresentment()}`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  ${new Date().toLocaleDateString('en-GB')}` }
       })(),
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
-      date_on_cheque: '19-Jun-2026',
-      lot_number: `LOT_${bankIfsc}_20260619_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
+      date_on_cheque: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      lot_number: `LOT_${bankIfsc}_${_todayPresentment()}_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
       lot_seq: lotSeq,
       status,
       drawee_bank_name: drawee.name,
@@ -668,9 +675,105 @@ export default function CTSPresentment() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
-  const SESSIONS = useDemoData(demoSessions)
-  const demoInitialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, SESSIONS])
+  const demoInitialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', demoSessions[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, demoSessions])
   const initialBatch = useDemoData(demoInitialBatch)
+
+  // Live sessions + batch + pipeline scan events
+  const [liveSessions, setLiveSessions] = useState([])
+  const [liveBatch, setLiveBatch] = useState([])
+  const [liveScanEvents, setLiveScanEvents] = useState([])
+  const liveTimerRef = useRef(null)
+
+  const fetchLive = useCallback(async () => {
+    if (isDemo) return
+    try {
+      const [sesRes, lotsRes, pipeRes] = await Promise.all([
+        fetch(`${_API_BASE}/v1/cts/outward/sessions`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/outward/lots?status=OPEN&limit=5`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/outward/pipeline`, { credentials: 'include' }),
+      ])
+
+      // Individual scan events — always populate even when no lots exist
+      if (pipeRes.ok) {
+        const pipeData = await pipeRes.json()
+        setLiveScanEvents((pipeData.instruments ?? []).map(i => ({
+          instrument_id: i.id,
+          account_display: '****',
+          payee: i.drawee || '—',
+          amount: i.amount || '—',
+          micr: '—',
+          date_on_cheque: '—',
+          passed: !i.iqa_fail && !i.cts_violation && !i.amount_mismatch,
+          fail_code: i.iqa_fail ? 'IQA_FAIL' : i.cts_violation ? 'CTS_REJECTED' : i.amount_mismatch ? 'MISMATCH_HELD' : null,
+          fail_label: i.iqa_fail ? 'IQA Fail' : i.cts_violation ? 'CTS Violation' : i.amount_mismatch ? 'Amount Mismatch' : null,
+          status: i.stage,
+          lot_id: i.lot || null,
+          seq_in_batch: 0,
+          image_bw: null,
+          images_all: [],
+          arrived_at: null,
+          front_bw_url:   `${_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent((i.id || '').replace(/^INS-/, ''))}&view=front_bw`,
+          front_gray_url: `${_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent((i.id || '').replace(/^INS-/, ''))}&view=front_gray`,
+        })))
+      }
+      if (sesRes.ok) {
+        const sesData = await sesRes.json()
+        setLiveSessions((sesData.sessions ?? []).map(s => ({
+          id: s.session_id,
+          window: `${s.start_time ?? '—'} – ${s.end_time ?? '—'}`,
+          status: s.status,
+          submitted: s.submitted ?? 0,
+          accepted: s.accepted ?? 0,
+          rejected: s.rejected ?? 0,
+          returned: s.returned ?? 0,
+        })))
+      }
+      if (lotsRes.ok) {
+        const lotsData = await lotsRes.json()
+        const firstLot = (lotsData.lots ?? [])[0]
+        if (firstLot?.lot_id) {
+          const instrRes = await fetch(
+            `${_API_BASE}/v1/cts/outward/lots/${encodeURIComponent(firstLot.lot_id)}/instruments`,
+            { credentials: 'include' }
+          )
+          if (instrRes.ok) {
+            const instrData = await instrRes.json()
+            setLiveBatch((instrData.instruments ?? []).map((r, idx) => ({
+              instrument_id: r.instrument_id,
+              account_display: `****${r.micr_suffix ?? '0000'}`,
+              payee: r.payee_display ?? '—',
+              amount: r.amount_range ?? '—',
+              micr: r.micr_suffix ?? '—',
+              date_on_cheque: r.scanned_at ? new Date(r.scanned_at).toLocaleDateString('en-IN') : '—',
+              passed: r.outcome === 'ACCEPTED',
+              fail_code: r.outcome !== 'ACCEPTED' ? r.outcome : null,
+              fail_label: r.outcome !== 'ACCEPTED' ? r.outcome : null,
+              status: r.outcome ?? 'CAPTURED',
+              lot_id: firstLot.lot_id,
+              seq_in_batch: idx + 1,
+              image_bw: null,
+              images_all: [],
+              arrived_at: r.scanned_at,
+            })))
+          }
+        }
+      }
+    } catch { /* keep last */ }
+  }, [isDemo])
+
+  useEffect(() => {
+    if (isDemo) return
+    fetchLive()
+    liveTimerRef.current = setInterval(fetchLive, 15_000)
+    return () => clearInterval(liveTimerRef.current)
+  }, [isDemo, fetchLive])
+
+  const SESSIONS = useMemo(() => {
+    if (isDemo) return demoSessions
+    if (!liveSessions.length) return []
+    return liveSessions
+  }, [isDemo, liveSessions, demoSessions])
+
   const [batch, setBatch] = useState(() => initialBatch)
   const [selected, setSelected] = useState(() => initialBatch[0] ?? null)
   const [activeSession, setActiveSession] = useState(0)
@@ -679,8 +782,20 @@ export default function CTSPresentment() {
   const [search, setSearch] = useState('')
   const addedRef = useRef(isSMB ? 8 : 42)
 
+  // Sync batch from live data when available
   useEffect(() => {
-    if (!isDemo) { setBatch([]); setSelected(null); return }
+    if (!isDemo && liveBatch.length > 0) {
+      setBatch(liveBatch)
+      setSelected(liveBatch[0] ?? null)
+      return
+    }
+    // Fallback: use individual scan events from outward/pipeline when no lots exist
+    if (!isDemo && liveScanEvents.length > 0) {
+      setBatch(liveScanEvents)
+      setSelected(liveScanEvents[0] ?? null)
+      return
+    }
+    if (!isDemo) return
     const n = isSMB ? 8 : 42
     addedRef.current = n
     const b = makeBatch(n, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')
@@ -690,7 +805,7 @@ export default function CTSPresentment() {
     setFilterStatus('ALL')
     setFilterLot('ALL')
     setSearch('')
-  }, [isSMB, bankIfsc, isDemo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSMB, bankIfsc, isDemo, liveBatch, liveScanEvents]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
   useDemoInterval(() => {

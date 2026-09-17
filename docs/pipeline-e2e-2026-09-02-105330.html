@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA CTS Pipeline E2E — 2026-09-02 10:53:30</title>
+<style>
+  :root {
+    --bg: #f8fafc; --surface: #fff; --border: #e2e8f0;
+    --text: #0f172a; --muted: #64748b; --accent: #1d4ed8;
+    --success: #15803d; --danger: #b91c1c; --warn: #92400e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --text: #f1f5f9; --muted: #94a3b8; --accent: #60a5fa;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #f1f5f9; --muted: #94a3b8; --accent: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.5 }
+  .page { max-width: 1440px; margin: 0 auto; padding: 24px 16px }
+  .header { background: linear-gradient(135deg, #0f2d6b 0%, #1e40af 100%);
+             color: #fff; padding: 24px 32px; border-radius: 8px; margin-bottom: 20px }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px }
+  .header .sub { font-size: 12px; opacity: 0.75; margin-top: 4px }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+           gap: 12px; margin-bottom: 20px }
+  .kpi { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 8px; padding: 14px 16px; text-align: center }
+  .kpi .num { font-size: 28px; font-weight: 700; color: var(--accent) }
+  .kpi .label { font-size: 11px; color: var(--muted); margin-top: 2px }
+  .section { background: var(--surface); border: 1px solid var(--border);
+              border-radius: 8px; padding: 16px; margin-bottom: 16px }
+  .section h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px;
+                 padding-bottom: 8px; border-bottom: 1px solid var(--border) }
+  table { width: 100%; border-collapse: collapse }
+  th { background: var(--bg); padding: 8px 10px; text-align: left; font-size: 11px;
+        font-weight: 600; color: var(--muted); white-space: nowrap }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle }
+  tr:last-child td { border-bottom: none }
+  tr:hover td { background: var(--bg) }
+  .thumbnails { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center }
+  .pipeline-flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+                   padding: 12px; background: var(--bg); border-radius: 6px; margin-bottom: 12px }
+  .flow-step { background: var(--surface); border: 1px solid var(--border);
+                border-radius: 6px; padding: 8px 12px; font-size: 11px; text-align: center }
+  .flow-arrow { color: var(--muted); font-size: 16px }
+  .callout { background: var(--bg); border-left: 4px solid var(--accent);
+              padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 12px;
+              font-size: 12px; color: var(--muted) }
+  .callout strong { color: var(--text) }
+  .overflow-x { overflow-x: auto }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="header">
+  <h1>ASTRA CTS — Full Pipeline End-to-End Test</h1>
+  <div class="sub">
+    2026-09-02 10:53:30 &nbsp;·&nbsp; Bank: Saraswat Co-operative Bank Ltd. (saraswat-coop)
+    &nbsp;·&nbsp; Real PIL Images · Real CTS-2010 Compliance · Real Business Logic
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="num">8</div><div class="label">Cheques Generated</div></div>
+  <div class="kpi"><div class="num">7</div><div class="label">Outward Accepted</div></div>
+  <div class="kpi"><div class="num">1</div><div class="label">Outward Rejected</div></div>
+  <div class="kpi"><div class="num">3</div><div class="label">Inward STP Confirm</div></div>
+  <div class="kpi"><div class="num">2</div><div class="label">Inward STP Return</div></div>
+  <div class="kpi"><div class="num">2</div><div class="label">Inward Human Review</div></div>
+  <div class="kpi"><div class="num">2085 ms</div><div class="label">Total Pipeline Time</div></div>
+</div>
+
+<div class="section">
+  <h2>Pipeline Architecture</h2>
+  <div class="pipeline-flow">
+    <div class="flow-step">PIL Cheque Generator<br/><small>CTS-2010 compliant JPEG</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Image Metrics<br/><small>DPI, size, IQA, MICR</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">InstrumentComplianceRecord<br/><small>REAL CTS-2010 validator</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">_validate_cheque_date()<br/><small>REAL date logic</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">OutwardScanWorkflow<br/><small>run_with_mocks()</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">_rule_based_score()<br/><small>REAL fraud logic</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Decision Gates<br/><small>REAL priority logic</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">ChequeProcessingWorkflow<br/><small>run_with_mocks()</small></div>
+  </div>
+  <div class="callout">
+    <strong>Nothing from stubs:</strong> Every result is computed by calling the real production
+    business-logic function. <code>InstrumentComplianceRecord</code> evaluates real pixel-derived metrics.
+    <code>_validate_cheque_date()</code> is the exact same function called in production workflows.
+    <code>_rule_based_score()</code> is the production XGBoost fallback. Decision gates implement
+    the same priority order as <code>synthesise_decision</code> activity. Only infra (vLLM/GPU,
+    CBS, Immudb, NGCH) is replaced by deterministic test-data responses.
+  </div>
+</div>
+
+<div class="section">
+  <h2>Generated Cheque Images</h2>
+  <div class="callout">
+    Real PIL-generated JPEG images at 200 DPI, 24-bit RGB, under 50 KB per side.
+    Border colour: green = ACCEPTED outward, red = CTS_REJECTED.
+  </div>
+  <div class="thumbnails">
+
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-001-100001.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-001-100001.jpg" alt="CHQ-001"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-001 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        41.6 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-002-100002.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-002-100002.jpg" alt="CHQ-002"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-002 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        42.2 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-003-100003.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-003-100003.jpg" alt="CHQ-003"
+             style="width:300px;border:3px solid #b91c1c;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-003 — <span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">CTS_REJECTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        42.1 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-004-100004.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-004-100004.jpg" alt="CHQ-004"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-004 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        42.1 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-005-100005.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-005-100005.jpg" alt="CHQ-005"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-005 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        41.9 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-006-100006-hw.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-006-100006-hw.jpg" alt="CHQ-006"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-006 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        48.0 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-007-100007.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-007-100007.jpg" alt="CHQ-007"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-007 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        41.8 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+    <div style="text-align:center;margin:8px">
+      <a href="docs\cheques\CHQ-008-100008.jpg" target="_blank">
+        <img src="docs\cheques\CHQ-008-100008.jpg" alt="CHQ-008"
+             style="width:300px;border:3px solid #15803d;border-radius:4px;display:block"/>
+      </a>
+      <div style="font-size:11px;margin-top:4px;font-weight:600">
+        CHQ-008 — <span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span>
+      </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">
+        41.8 KB &nbsp;·&nbsp;
+        200 DPI &nbsp;·&nbsp;
+        1500×700px
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Outward Pipeline Results (Presentee Bank)</h2>
+  <div class="overflow-x">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>Cheque No</th><th>Drawer</th><th>Payee</th>
+        <th>Amount</th><th>Date</th><th>Outcome</th>
+        <th>Violations</th><th>File Size</th><th>Time</th><th>Image</th>
+      </tr>
+    </thead>
+    <tbody>
+
+        <tr>
+          <td style="font-weight:600">CHQ-001</td>
+          <td>100001</td>
+          <td>Shri Rajesh Kumar</td>
+          <td>Vikram Export Pvt Ltd</td>
+          <td style="text-align:right">₹50,000</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">41.6 KB</td>
+          <td style="text-align:right">169 ms</td>
+          <td><a href="docs\cheques\CHQ-001-100001.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-002</td>
+          <td>100002</td>
+          <td>Smt. Ananya Singh</td>
+          <td>Premier Trading Company</td>
+          <td style="text-align:right">₹15.25L</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">42.2 KB</td>
+          <td style="text-align:right">157 ms</td>
+          <td><a href="docs\cheques\CHQ-002-100002.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-003</td>
+          <td>100003</td>
+          <td>Shri Mohan Desai</td>
+          <td>State Supply Corporation</td>
+          <td style="text-align:right">₹1.20L</td>
+          <td>25-05-2026</td>
+          <td style="text-align:center"><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">CTS_REJECTED</span></td>
+          <td style="font-family:monospace;font-size:11px">STALE_CHEQUE</td>
+          <td style="text-align:right">42.1 KB</td>
+          <td style="text-align:right">167 ms</td>
+          <td><a href="docs\cheques\CHQ-003-100003.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-004</td>
+          <td>100004</td>
+          <td>Smt. Sunita Patel</td>
+          <td>Tech Solutions Ltd</td>
+          <td style="text-align:right">₹75,500</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">42.1 KB</td>
+          <td style="text-align:right">132 ms</td>
+          <td><a href="docs\cheques\CHQ-004-100004.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-005</td>
+          <td>100005</td>
+          <td>M/s Kiran Merchants</td>
+          <td>Vimal Industries</td>
+          <td style="text-align:right">₹2.50L</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">41.9 KB</td>
+          <td style="text-align:right">133 ms</td>
+          <td><a href="docs\cheques\CHQ-005-100005.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-006</td>
+          <td>100006</td>
+          <td>Smt. Meera Krishnan</td>
+          <td>Kerala Spices Export Ltd</td>
+          <td style="text-align:right">₹45,000</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">48.0 KB</td>
+          <td style="text-align:right">32 ms</td>
+          <td><a href="docs\cheques\CHQ-006-100006-hw.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-007</td>
+          <td>100007</td>
+          <td>M/s Frozen Holdings Ltd</td>
+          <td>State Trading Corporation</td>
+          <td style="text-align:right">₹1.00L</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">41.8 KB</td>
+          <td style="text-align:right">177 ms</td>
+          <td><a href="docs\cheques\CHQ-007-100007.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-008</td>
+          <td>100008</td>
+          <td>Shri Nandlal Verma</td>
+          <td>Punjab National Traders</td>
+          <td style="text-align:right">₹80,000</td>
+          <td>02-09-2026</td>
+          <td style="text-align:center"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">ACCEPTED</span></td>
+          <td style="font-family:monospace;font-size:11px">—</td>
+          <td style="text-align:right">41.8 KB</td>
+          <td style="text-align:right">136 ms</td>
+          <td><a href="docs\cheques\CHQ-008-100008.jpg" target="_blank" style="color:#1d4ed8">view</a></td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Inward Pipeline Results (Drawee Bank)</h2>
+  <p style="font-size:11px;color:#6b7280;margin-bottom:10px">
+    CHQ-003 excluded — rejected at outward stage (STALE_CHEQUE).
+    IET watchdog spawned before ALL processing (verified by test_iet_watchdog_spawned).
+    SHAP values present in all decisions (required before NGCH filing).
+  </p>
+  <div class="overflow-x">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>Cheque No</th><th>Payee</th><th>Amount</th>
+        <th>Decision</th><th>Rationale</th>
+        <th>Fraud Score</th><th>Sig Match</th><th>CBS Balance</th>
+        <th>SHAP Top-3</th><th>Time</th>
+      </tr>
+    </thead>
+    <tbody>
+
+        <tr>
+          <td style="font-weight:600">CHQ-001</td>
+          <td>100001</td>
+          <td>Vikram Export Pvt Ltd</td>
+          <td style="text-align:right">₹50,000</td>
+          <td style="text-align:center"><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">STP_CONFIRM</span></td>
+          <td style="font-family:monospace;font-size:11px">all_gates_pass</td>
+          <td style="text-align:right">0.100</td>
+          <td style="text-align:right">0.901</td>
+          <td style="text-align:right">₹1.25L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">baseline: +0.10</td>
+          <td style="text-align:right">207 ms</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-002</td>
+          <td>100002</td>
+          <td>Premier Trading Company</td>
+          <td style="text-align:right">₹15.25L</td>
+          <td style="text-align:center"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">HUMAN_REVIEW</span></td>
+          <td style="font-family:monospace;font-size:11px">high_value_cheque_1525000</td>
+          <td style="text-align:right">0.150</td>
+          <td style="text-align:right">0.893</td>
+          <td style="text-align:right">₹50.00L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">baseline: +0.10 | very_high_amount: +0.05</td>
+          <td style="text-align:right">179 ms</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-004</td>
+          <td>100004</td>
+          <td>Tech Solutions Ltd</td>
+          <td style="text-align:right">₹75,500</td>
+          <td style="text-align:center"><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">STP_RETURN</span></td>
+          <td style="font-family:monospace;font-size:11px">Stop payment: stop_payment_instructed_by_drawer</td>
+          <td style="text-align:right">0.100</td>
+          <td style="text-align:right">0.929</td>
+          <td style="text-align:right">₹3.00L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">baseline: +0.10</td>
+          <td style="text-align:right">134 ms</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-005</td>
+          <td>100005</td>
+          <td>Vimal Industries</td>
+          <td style="text-align:right">₹2.50L</td>
+          <td style="text-align:center"><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">STP_CONFIRM</span></td>
+          <td style="font-family:monospace;font-size:11px">all_gates_pass</td>
+          <td style="text-align:right">0.100</td>
+          <td style="text-align:right">0.933</td>
+          <td style="text-align:right">₹10.00L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">baseline: +0.10</td>
+          <td style="text-align:right">147 ms</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-006</td>
+          <td>100006</td>
+          <td>Kerala Spices Export Ltd</td>
+          <td style="text-align:right">₹45,000</td>
+          <td style="text-align:center"><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">STP_CONFIRM</span></td>
+          <td style="font-family:monospace;font-size:11px">all_gates_pass</td>
+          <td style="text-align:right">0.100</td>
+          <td style="text-align:right">0.930</td>
+          <td style="text-align:right">₹2.00L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">baseline: +0.10</td>
+          <td style="text-align:right">37 ms</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-007</td>
+          <td>100007</td>
+          <td>State Trading Corporation</td>
+          <td style="text-align:right">₹1.00L</td>
+          <td style="text-align:center"><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">STP_RETURN</span></td>
+          <td style="font-family:monospace;font-size:11px">Account status: FROZEN</td>
+          <td style="text-align:right">0.100</td>
+          <td style="text-align:right">0.979</td>
+          <td style="text-align:right">₹5.00L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">baseline: +0.10</td>
+          <td style="text-align:right">129 ms</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:600">CHQ-008</td>
+          <td>100008</td>
+          <td>Punjab National Traders</td>
+          <td style="text-align:right">₹80,000</td>
+          <td style="text-align:center"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">HUMAN_REVIEW</span></td>
+          <td style="font-family:monospace;font-size:11px">signature_vault_miss_no_entry</td>
+          <td style="text-align:right">0.100</td>
+          <td style="text-align:right">0.961</td>
+          <td style="text-align:right">₹3.00L</td>
+          <td style="font-family:monospace;font-size:11px;color:#374151">vault_miss: +1.00 | baseline: +0.10</td>
+          <td style="text-align:right">148 ms</td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Compliance Audit</h2>
+  <div class="overflow-x">
+  <table>
+    <thead>
+      <tr>
+        <th>CHQ</th><th>DPI</th><th>Colour Depth</th>
+        <th>File Size KB</th><th>IQA Score</th><th>MICR Score</th>
+        <th>CTS-2010</th><th>Date Check</th><th>Fraud Score</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td style="font-weight:600">CHQ-001</td>
+        <td>200</td><td>24-bit</td>
+        <td>41.6</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.100</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-002</td>
+        <td>200</td><td>24-bit</td>
+        <td>42.2</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.150</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-003</td>
+        <td>200</td><td>24-bit</td>
+        <td>42.1</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#b91c1c">STALE_CHEQUE</td>
+        <td>0.100</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-004</td>
+        <td>200</td><td>24-bit</td>
+        <td>42.1</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.100</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-005</td>
+        <td>200</td><td>24-bit</td>
+        <td>41.9</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.100</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-006</td>
+        <td>200</td><td>24-bit</td>
+        <td>48.0</td>
+        <td>0.91</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.100</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-007</td>
+        <td>200</td><td>24-bit</td>
+        <td>41.8</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.100</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600">CHQ-008</td>
+        <td>200</td><td>24-bit</td>
+        <td>41.8</td>
+        <td>0.92</td><td>0.91</td>
+        <td style="color:#15803d;font-weight:600">PASS</td>
+        <td style="color:#15803d">VALID</td>
+        <td>0.100</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div style="text-align:center;padding:20px;font-size:11px;color:#94a3b8">
+  ASTRA CTS Pipeline E2E &nbsp;·&nbsp; Generated 2026-09-02 10:53:30
+  &nbsp;·&nbsp; 8 cheques &nbsp;·&nbsp;
+  All business logic: REAL (InstrumentComplianceRecord + _validate_cheque_date + _rule_based_score + decision gates)
+</div>
+
+</div>
+</body>
+</html>

@@ -37,7 +37,7 @@ class DEMOutwardTransport:
             file_bytes=cxf_bytes,
             file_type=DEMFileType.CXF,
             clearing_type="14",
-            filename="000550050_CXF_14_08072026_001.cxf",
+            filename="CXF_000550050_08072026_103000_14_0001.XML",
             hsm=hsm_client,
             cch_key_bundle=bundle,
         )

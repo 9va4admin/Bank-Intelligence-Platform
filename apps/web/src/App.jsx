@@ -24,6 +24,8 @@ import CTSRPCConsolidation from './modules/cts/pages/CTSRPCConsolidation'
 import CTSSubMember from './modules/cts/pages/CTSSubMember'
 import CTSImageQuality from './modules/cts/pages/CTSImageQuality'
 import CTSPipelineVisualizer from './modules/cts/pages/CTSPipelineVisualizer'
+import CTSInwardMonitor from './modules/cts/pages/CTSInwardMonitor'
+import CTSOutwardPipelineMonitor from './modules/cts/pages/CTSOutwardPipelineMonitor'
 import CTSDiscrepancy from './modules/cts/pages/CTSDiscrepancy'
 import CTSBatches from './modules/cts/pages/CTSBatches'
 import CTSBusinessModel from './modules/cts/pages/CTSBusinessModel'
@@ -67,6 +69,7 @@ import CTSOCRFeedback from './modules/observability/pages/CTSOCRFeedback'
 import AlertLog from './modules/observability/pages/AlertLog'
 import SystemHealth from './modules/observability/pages/SystemHealth'
 import UserManagement from './modules/admin/pages/UserManagement'
+import ScannerSetupGuide from './modules/admin/pages/ScannerSetupGuide'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
 import OperationsConfig from './modules/admin/pages/OperationsConfig'
@@ -117,6 +120,8 @@ export default function App() {
         <Route path="/cts/sub-member" element={<CTSSubMember />} />
         <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
+        <Route path="/cts/inward-monitor" element={<CTSInwardMonitor />} />
+        <Route path="/cts/outward/pipeline-monitor" element={<CTSOutwardPipelineMonitor />} />
         <Route path="/cts/demo" element={<CTSDemoPipeline />} />
         <Route path="/cts/cloud-ai-demo" element={<CTSCloudAIDemo />} />
         <Route path="/cts/sig-batch-test" element={<CTSSigBatchTest />} />
@@ -164,6 +169,7 @@ export default function App() {
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
         <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
+        <Route path="/admin/scanner-setup-guide" element={<ScannerSetupGuide />} />
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />

@@ -4,6 +4,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import useSMBList from '../hooks/useSMBList'
 
 function smbZone(state) {
   if (['KL', 'TN', 'KA', 'AP', 'TG'].includes(state)) return 'SOUTH'
@@ -214,9 +215,12 @@ const RISK_COLORS_L = { LOW: 'bg-emerald-100 text-emerald-700 border-emerald-300
 
 export default function CTSSubMemberBanks() {
   const { isDark } = useTheme()
-  const { bankId, bankName, bankIfsc, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, isSB, isSMB, isDemo } = useBankContext()
   const [selected, setSelected] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
+
+  const { subMembers: liveSmbs } = useSMBList({ pollEnabled: !isDemo && isSB })
+  const smbs = isDemo || !liveSmbs ? MOCK_SUB_MEMBERS : liveSmbs
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
@@ -267,10 +271,10 @@ export default function CTSSubMemberBanks() {
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Sub-Members', value: MOCK_SUB_MEMBERS.length },
-            { label: 'Active', value: MOCK_SUB_MEMBERS.filter(s => s.status === 'ACTIVE').length },
-            { label: 'Cheques Today', value: MOCK_SUB_MEMBERS.reduce((a, s) => a + s.cheques_today, 0).toLocaleString() },
-            { label: 'Suspended', value: MOCK_SUB_MEMBERS.filter(s => s.status === 'SUSPENDED').length },
+            { label: 'Total Sub-Members', value: smbs.length },
+            { label: 'Active', value: smbs.filter(s => s.status === 'ACTIVE').length },
+            { label: 'Cheques Today', value: smbs.reduce((a, s) => a + (s.cheques_today ?? 0), 0).toLocaleString() },
+            { label: 'Suspended', value: smbs.filter(s => s.status === 'SUSPENDED').length },
           ].map(({ label, value }) => (
             <div key={label} className={`rounded-xl border px-4 py-3 ${th.card}`}>
               <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -290,7 +294,7 @@ export default function CTSSubMemberBanks() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_SUB_MEMBERS.map(sm => (
+              {smbs.map(sm => (
                 <tr key={sm.id} className={`border-b cursor-pointer transition-colors ${th.row}`} onClick={() => setSelected(sm)}>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{sm.name}</td>
                   <td className={`px-4 py-3 font-mono ${th.body}`}>{sm.ifsc_prefix}</td>

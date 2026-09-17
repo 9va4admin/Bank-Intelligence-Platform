@@ -6,6 +6,7 @@
  * and connection health to the EEH gateway.
  */
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
@@ -39,6 +40,22 @@ function StatusDot({ status }) {
     ? 'bg-emerald-400'
     : status === 'WARN' ? 'bg-amber-400' : 'bg-red-400'
   return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-1.5`} />
+}
+
+// Scanner agent state dot — three states only.
+function ScannerDot({ state }) {
+  const cls =
+    state === 'ACTIVE'  ? 'bg-emerald-400' :
+    state === 'OFFLINE' ? 'bg-red-400' :
+                          'bg-slate-500'   // IDLE or unknown
+  return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-1.5`} />
+}
+
+function scannerLabel(state, secondsAgo) {
+  if (state === 'ACTIVE')  return 'Scanning'
+  if (state === 'OFFLINE') return 'OFFLINE'
+  if (state === 'IDLE' && secondsAgo != null) return `Idle · ${secondsAgo}s ago`
+  return 'Idle'
 }
 
 function StatCard({ label, value, sub, accent, isDark }) {
@@ -77,10 +94,46 @@ function LotProgress({ filled, target, isDark }) {
 
 export default function BranchDashboard() {
   const { isDark } = useTheme()
-  const { bankId, bankName } = useBankContext()
-  const [session] = useState(SESSION_MOCK)
-  const [eehHealth] = useState(EEH_HEALTH)
+  const { bankId, bankName, isDemo } = useBankContext()
+
+  const { data: sessionData } = useQuery({
+    queryKey: ['branch-session', bankId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/branch/session?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 15_000,
+    retry: false,
+  })
+  const session = isDemo || !sessionData ? SESSION_MOCK : sessionData
+
+  const { data: eehData } = useQuery({
+    queryKey: ['eeh-health', bankId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/branch/eeh-health?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 15_000,
+    retry: false,
+  })
+  const eehHealth = isDemo || !eehData ? EEH_HEALTH : eehData
   const [elapsed, setElapsed] = useState(0)
+
+  const branchId = session?.branch_id ?? ''
+  const { data: scannerStatus } = useQuery({
+    queryKey: ['scanner-agent-status', bankId, branchId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/scanner/agent/status?branch_id=${encodeURIComponent(branchId)}`)
+      if (!res.ok) return null
+      return res.json()
+    },
+    refetchInterval: 15_000,
+    enabled: !!branchId,
+  })
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
@@ -117,6 +170,10 @@ export default function BranchDashboard() {
             <span className="flex items-center">
               <StatusDot status={eehHealth.status} />
               EEH {eehHealth.status} · {eehHealth.latency_ms}ms
+            </span>
+            <span className={`flex items-center ${scannerStatus?.state === 'OFFLINE' ? 'text-red-400' : ''}`}>
+              <ScannerDot state={scannerStatus?.state} />
+              Scanner · {scannerLabel(scannerStatus?.state, scannerStatus?.last_seen_seconds_ago)}
             </span>
             <Link
               to="/branch/scan"
@@ -221,7 +278,7 @@ export default function BranchDashboard() {
           <div className={`rounded-lg border p-4 ${th.card}`}>
             <p className={`text-sm font-medium ${th.heading}`}>EEH Status</p>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {eehHealth.status} · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping.slice(11, 16)}
+              {eehHealth.status} · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping?.slice(11, 16) ?? '—'}
             </p>
           </div>
         </div>

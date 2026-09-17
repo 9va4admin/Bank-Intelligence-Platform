@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
-from apps.api.routers import cts, audit, admin, notifications
+from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
 from apps.api.routers import observability
@@ -34,6 +34,16 @@ from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
 from apps.api.routers import vault_upload
 from apps.api.routers import msv
+from apps.api.routers import cts_ops
+from apps.api.routers import cts_dashboard
+from apps.api.routers import cts_smb
+from apps.api.routers import cts_holds
+from apps.api.routers import cts_scanner
+from apps.api.routers import cts_vault_ops
+from apps.api.routers import cts_admin_ops
+from apps.api.routers import cts_outward_data
+from apps.api.routers import cts_outward_core
+from apps.api.routers import cts_inward
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -104,8 +114,10 @@ async def lifespan(app: FastAPI):
         kafka_servers = await config_service.get_secret("kafka.bootstrap_servers")
         app.state.kafka_producer_cts = KafkaEventProducer(
             bootstrap_servers=kafka_servers,
+            bank_id=config_service.bank_id,
             module="cts",
         )
+        app.state.kafka_producer_cts.connect()
         log.info("api_gateway.kafka_cts_producer_ready")
     except Exception as exc:
         log.error("api_gateway.kafka_cts_producer_failed", error=str(exc))
@@ -184,8 +196,12 @@ async def lifespan(app: FastAPI):
     # --- Temporal client ---
     try:
         from temporalio.client import Client as TemporalClient
+        from shared.temporal.converter import pydantic_data_converter
         temporal_host = await config_service.get_secret("temporal.host")
-        app.state.temporal_client = await TemporalClient.connect(temporal_host)
+        app.state.temporal_client = await TemporalClient.connect(
+            temporal_host,
+            data_converter=pydantic_data_converter,
+        )
         log.info("api_gateway.temporal_connected", host=temporal_host)
     except Exception as exc:
         log.error("api_gateway.temporal_failed", error=str(exc))
@@ -237,11 +253,14 @@ async def lifespan(app: FastAPI):
 
         _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
 
+        import os as _os
+        _dev_mode = _os.environ.get("ASTRA_DEV_BYPASS_MFA", "false").lower() == "true"
         app.state.auth_service = AuthService(
             connector_factory=_connector_factory,
             mfa=_mfa,
             session_service=app.state.session_service,
             account_store=_enrollment_store,
+            dev_mode=_dev_mode,
         )
         log.info("api_gateway.auth_service_ready", bank_id=_bank_id)
     except Exception as exc:
@@ -410,7 +429,6 @@ app.add_middleware(AuthenticationMiddleware)
 
 # --- Routers ---
 app.include_router(auth_router.router_v1)
-app.include_router(cts.router_v1)
 app.include_router(audit.router_v1)
 app.include_router(admin.router_v1)
 app.include_router(notifications.router_v1)
@@ -427,6 +445,16 @@ app.include_router(scanner.router_v1)
 app.include_router(scanner_configs.router_v1)
 app.include_router(vault_upload.router_v1)
 app.include_router(msv.router_v1)
+app.include_router(cts_ops.router_v1)
+app.include_router(cts_dashboard.router_v1)
+app.include_router(cts_smb.router_v1)
+app.include_router(cts_holds.router_v1)
+app.include_router(cts_scanner.router_v1)
+app.include_router(cts_vault_ops.router_v1)
+app.include_router(cts_admin_ops.router_v1)
+app.include_router(cts_outward_data.router_v1)
+app.include_router(cts_outward_core.router_v1)
+app.include_router(cts_inward.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 

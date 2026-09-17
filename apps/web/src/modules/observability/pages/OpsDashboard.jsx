@@ -26,13 +26,14 @@ async function triggerVaultWarm() {
   return res.json()
 }
 
-function useOpsDashboard(bankId) {
+function useOpsDashboard(bankId, { enabled = true } = {}) {
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState(null)
   const [lastFetch, setLastFetch] = useState(null)
 
   const load = useCallback(async () => {
+    if (!enabled) return
     setLoading(true)
     setError(null)
     try {
@@ -48,13 +49,14 @@ function useOpsDashboard(bankId) {
     } finally {
       setLoading(false)
     }
-  }, [bankId])
+  }, [bankId, enabled])
 
   useEffect(() => {
+    if (!enabled) return
     load()
     const t = setInterval(load, REFRESH_MS)
     return () => clearInterval(t)
-  }, [load])
+  }, [load, enabled])
 
   return { data, loading, error, lastFetch, reload: load }
 }
@@ -198,8 +200,8 @@ function IETRiskBanner({ panel, isDark }) {
 
 export default function OpsDashboard() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
-  const { data, loading, error, lastFetch, reload } = useOpsDashboard(bankId)
+  const { bankId, isDemo } = useBankContext()
+  const { data, loading, error, lastFetch, reload } = useOpsDashboard(bankId, { enabled: !isDemo })
 
   const th = {
     page:    isDark ? 'bg-navy-950'           : 'bg-slate-50',

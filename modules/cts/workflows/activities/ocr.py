@@ -33,7 +33,10 @@ from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
 from shared.ai.model_cascade import CascadeOrchestrator
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class OCRActivityInput(BaseModel):
@@ -112,53 +115,64 @@ async def ocr_extract(
     Latin cheques: one GOT-OCR2 call, same latency as before.
     Indic cheques: one GOT-OCR2 call + targeted zone call(s) for Indic fields only.
     """
-    ai_config = await config_service.get_ai_config(inp.bank_id)
-    min_confidence: float = ai_config["ai.ocr.min_confidence"]
-    indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
-    indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
+    with tracer.start_as_current_span("activity.ocr_extract") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        ai_config = await config_service.get_ai_config(inp.bank_id)
+        min_confidence: float = ai_config["ai.ocr.min_confidence"]
+        indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
+        indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
 
-    # ── Stage 1: Full image → GOT-OCR2 ───────────────────────────────────────
-    raw = await _extract_got_ocr2(inp, orchestrator)
-    if raw is None:
-        return OCRActivityResult(
-            outcome="HUMAN_REVIEW", degraded=True,
-            low_confidence_reason="MODEL_UNAVAILABLE",
-            ocr_engines_used=["got-ocr2.0:unavailable"],
+        # ── Stage 1: Full image → GOT-OCR2 (GPU) or Tesseract (CPU fallback) ───
+        raw = await _extract_got_ocr2(inp, orchestrator)
+        if raw is None:
+            # vLLM unavailable — try Tesseract before giving up entirely
+            raw = await _extract_tesseract(inp)
+        if raw is None:
+            return OCRActivityResult(
+                outcome="HUMAN_REVIEW", degraded=True,
+                low_confidence_reason="MODEL_UNAVAILABLE",
+                ocr_engines_used=["got-ocr2.0:unavailable", "tesseract:unavailable"],
+            )
+
+        fields, cascade_level = raw
+
+        # cascade_level == -1 signals Tesseract ran (not vLLM cascade)
+        if cascade_level == -1:
+            engines_used = ["tesseract:cpu-fallback"]
+        else:
+            engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
+
+        # ── IndicOCR kill switch ──────────────────────────────────────────────────
+        # Fail-open: missing / unreadable config key = NONE (do not block OCR).
+        indic_ks_active = False
+        try:
+            indic_ks_raw = await config_service.get("cts.indic_ocr.kill_mode")
+            if indic_ks_raw == "KC":
+                indic_ks_active = True
+                log.warning("ocr.indic_ocr_kill_switch_active",
+                            instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+        except Exception:
+            pass
+
+        # ── Stage 2: Indic zone refinement (skipped when KC or URL absent) ───────
+        indic_refined: list[str] = []
+        if indic_ocr_url and not indic_ks_active:
+            indic_refined, indic_backend = await _refine_indic_zones(
+                inp.image_url, inp.instrument_id, fields,
+                indic_ocr_url, min_confidence, indic_min_confidence,
+            )
+            if indic_refined:
+                engines_used.append(indic_backend)
+        elif indic_ks_active:
+            log.info("ocr.indic_stage2_skipped_kill_switch",
+                     instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+
+        # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
+        return _build_result(
+            fields, min_confidence, cascade_level, indic_refined,
+            routing_table, inp, engines_used, indic_ks_active,
         )
-
-    fields, cascade_level = raw
-
-    engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
-
-    # ── IndicOCR kill switch ──────────────────────────────────────────────────
-    # Fail-open: missing / unreadable config key = NONE (do not block OCR).
-    indic_ks_active = False
-    try:
-        indic_ks_raw = await config_service.get("cts.indic_ocr.kill_mode")
-        if indic_ks_raw == "KC":
-            indic_ks_active = True
-            log.warning("ocr.indic_ocr_kill_switch_active",
-                        instrument_id=inp.instrument_id, bank_id=inp.bank_id)
-    except Exception:
-        pass
-
-    # ── Stage 2: Indic zone refinement (skipped when KC or URL absent) ───────
-    indic_refined: list[str] = []
-    if indic_ocr_url and not indic_ks_active:
-        indic_refined, indic_backend = await _refine_indic_zones(
-            inp, fields, indic_ocr_url, min_confidence, indic_min_confidence
-        )
-        if indic_refined:
-            engines_used.append(indic_backend)
-    elif indic_ks_active:
-        log.info("ocr.indic_stage2_skipped_kill_switch",
-                 instrument_id=inp.instrument_id, bank_id=inp.bank_id)
-
-    # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
-    return _build_result(
-        fields, min_confidence, cascade_level, indic_refined,
-        routing_table, inp, engines_used, indic_ks_active,
-    )
 
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────────
@@ -202,24 +216,154 @@ async def _extract_got_ocr2(
     return fields, cascade_result.cascade_level
 
 
+# ── Stage 1b: Tesseract CPU fallback ─────────────────────────────────────────
+
+async def _extract_tesseract(
+    inp: OCRActivityInput,
+) -> Optional[tuple[dict[str, tuple[Optional[str], float]], int]]:
+    """
+    Tesseract 5 CPU fallback when GOT-OCR2.0/vLLM is unavailable.
+
+    Returns (fields_dict, -1) on success (-1 signals Tesseract ran, not vLLM cascade).
+    Returns None if Tesseract itself is unavailable or fails.
+
+    Confidence for Tesseract results is set conservatively (0.55–0.70) so the
+    confidence gate in _build_result correctly routes to HUMAN_REVIEW.
+    Tesseract accuracy on handwritten Indian cheques is lower than GOT-OCR2.0 —
+    HUMAN_REVIEW is always the right outcome for Tesseract results.
+    """
+    import io
+    import re
+    try:
+        import httpx
+        from PIL import Image
+        import pytesseract
+        # Windows: winget installs to Program Files/Tesseract-OCR
+        import os as _os, platform as _plat
+        if _plat.system() == "Windows":
+            for _p in [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ]:
+                if _os.path.isfile(_p):
+                    pytesseract.pytesseract.tesseract_cmd = _p
+                    break
+    except ImportError:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(inp.image_url)
+            resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+
+        # PSM 6 = assume a single uniform block of text — reasonable for cheques
+        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
+        lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+
+        # ── Heuristic field extraction ────────────────────────────────────────
+        # Normalise: strip OCR noise chars, collapse whitespace
+        clean = re.sub(r'[^\x20-\x7E\n₹]', ' ', raw_text)
+
+        # Date: DD/MM/YYYY, DD-MM-YYYY, or box-digit format "0]7 [0]4] 2]0]2[4"
+        date_val: Optional[str] = None
+        # Standard delimited
+        m = re.search(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b', clean)
+        if m:
+            date_val = f"{m.group(1).zfill(2)}/{m.group(2).zfill(2)}/{m.group(3)}"
+        else:
+            # Box-digit: extract 8 consecutive digits from bracket-noise
+            digits_only = re.sub(r'[^0-9]', '', clean[:200])   # header area only
+            if len(digits_only) >= 8:
+                d = digits_only[:8]
+                date_val = f"{d[0:2]}/{d[2:4]}/{d[4:8]}"
+
+        # Amount figures: ₹/Rs prefix OR largest Indian-format number in the text
+        amount_figures: Optional[str] = None
+        m = re.search(r'(?:Rs\.?|₹)\s*([\d,\s]+(?:\.\d{1,2})?)', clean, re.IGNORECASE)
+        if m:
+            amount_figures = re.sub(r'[\s,]', '', m.group(1))
+        else:
+            # Indian format: 1,00,000 or 1, 00, 000 (spaces from box scan)
+            nums = re.findall(r'\b\d{1,2}(?:[,\s]\s*\d{2})+(?:\.\d{2})?\b', clean)
+            if nums:
+                amount_figures = re.sub(r'[\s,]', '', nums[0])
+
+        # Payee: line after "Pay" or "For" keyword (Indian cheques use "For" for account name)
+        payee_val: Optional[str] = None
+        for i, ln in enumerate(lines):
+            if re.search(r'\bPay\b', ln, re.IGNORECASE):
+                candidate = re.sub(r'\bPay\b', '', ln, flags=re.IGNORECASE).strip()
+                if not candidate and i + 1 < len(lines):
+                    candidate = lines[i + 1]
+                if candidate and len(candidate) > 2:
+                    payee_val = candidate
+                    break
+        if not payee_val:
+            # Fallback: "For <Name>" line (common on Indian cheques)
+            m = re.search(r'\bFor\s+([A-Z][A-Za-z0-9 .&,\'-]{3,60})', clean)
+            if m:
+                payee_val = m.group(1).strip()
+
+        # MICR line: digit-heavy line at the bottom (last 5 lines)
+        micr_val: Optional[str] = None
+        for ln in reversed(lines[-6:]):
+            digits = re.sub(r'\D', '', ln)
+            if len(digits) >= 15:   # MICR has cheque# + routing + account = ~27 digits
+                micr_val = ln.strip()
+                break
+
+        log.info(
+            "ocr.tesseract_fallback",
+            instrument_id=inp.instrument_id,
+            date=date_val,
+            amount=amount_figures,
+            payee_found=bool(payee_val),
+            micr_found=bool(micr_val),
+        )
+
+        # Conservative confidence — always routes to HUMAN_REVIEW via confidence gate
+        _CONF = 0.60
+        fields: dict[str, tuple[Optional[str], float]] = {
+            "micr_line":      (micr_val,      _CONF if micr_val else 0.0),
+            "amount_figures": (amount_figures, _CONF if amount_figures else 0.0),
+            "amount_words":   (None,           0.0),   # Tesseract can't parse words→numbers reliably
+            "date":           (date_val,       _CONF if date_val else 0.0),
+            "payee":          (payee_val,      _CONF if payee_val else 0.0),
+            "ifsc_code":      (None,           0.0),
+        }
+        return fields, -1   # -1 = Tesseract, not vLLM cascade level
+
+    except Exception as exc:
+        log.warning("ocr.tesseract_failed", instrument_id=inp.instrument_id, error=str(exc))
+        return None
+
+
 # ── Stage 2 ───────────────────────────────────────────────────────────────────
 
 async def _refine_indic_zones(
-    inp: OCRActivityInput,
+    image_url: str,
+    instrument_id: str,
     fields: dict[str, tuple[Optional[str], float]],
     indic_ocr_url: str,
     min_confidence: float,
     indic_min_confidence: float,
+    field_to_zone: Optional[dict[str, str]] = None,
 ) -> tuple[list[str], str]:
     """
     For each SCRIPT_ADAPTIVE result field that contains Indic text (or has low
     confidence), fetch the cheque image, crop the zone, and call IndicOCR.
     Mutates `fields` in place with the refined value when IndicOCR wins.
-    Returns (refined_field_names, engine_label) where engine_label is suitable
-    for inclusion in ocr_engines_used (e.g. "indic_ocr:paddle/devanagari").
+    Returns (refined_field_names, engine_label).
+
+    field_to_zone maps result-field names to zone names — defaults to the
+    inward _RESULT_FIELD_TO_ZONE mapping; callers on a different path (e.g.
+    outward vision_extract_and_check) may pass their own mapping.
     """
+    _ftz = field_to_zone if field_to_zone is not None else _RESULT_FIELD_TO_ZONE
+
     needs_refine: list[tuple[str, str, str]] = []
-    for result_field, zone_name in _RESULT_FIELD_TO_ZONE.items():
+    for result_field, zone_name in _ftz.items():
         text, conf = fields.get(result_field, (None, 0.0))
         script = identify_indic_script(text or "")
         if script is not None or (text is None and conf < min_confidence):
@@ -230,11 +374,11 @@ async def _refine_indic_zones(
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.get(inp.image_url)
+            resp = await client.get(image_url)
             resp.raise_for_status()
             img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as exc:
-        log.warning("ocr.indic_image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
+        log.warning("ocr.indic_image_fetch_failed", instrument_id=instrument_id, error=str(exc))
         return [], ""
 
     refined: list[str] = []
@@ -266,12 +410,12 @@ async def _refine_indic_zones(
                 refined.append(result_field)
                 scripts_seen.add(script)
                 log.info("ocr.indic_refined",
-                         instrument_id=inp.instrument_id, field=result_field,
+                         instrument_id=instrument_id, field=result_field,
                          script=script, confidence=indic_conf)
 
         except Exception as exc:
             log.warning("ocr.indic_zone_failed",
-                        instrument_id=inp.instrument_id, field=result_field, error=str(exc))
+                        instrument_id=instrument_id, field=result_field, error=str(exc))
 
     script_label = "+".join(sorted(scripts_seen)) if scripts_seen else "none"
     engine_label = f"indic_ocr:{backend_used}/{script_label}" if refined else ""

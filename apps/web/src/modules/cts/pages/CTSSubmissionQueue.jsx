@@ -2,15 +2,70 @@
  * CTSSubmissionQueue — Submission stage (Stage 3).
  * Cheque image visible in the detail panel via tabs: Front | Back | Pay-in Slip | Fields.
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
-import { MockChequeFront, MockChequeBack, MockPayinSlip } from '../components/MockCheque'
+import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useOutwardQueue({ pollEnabled }) {
+  const [items, setItems] = useState([])
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    if (!pollEnabled) return
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/human-review-queue?limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [pollEnabled])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
+
+function _scanImgUrl(instrumentId, view = 'front_bw') {
+  const scanId = (instrumentId ?? '').replace(/^INS-/, '')
+  return `${_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent(scanId)}&view=${view}`
+}
+
+function adaptQueueItem(d) {
+  // API field is `outcome` (not `status`) — use d.outcome throughout
+  const src = d.outcome === 'STP_RETURN' ? 'STP' : 'HUMAN_REVIEW'
+  return {
+    instrument_id: d.instrument_id,
+    drawee_bank: '—', drawee_branch: '—',
+    source_stage: src,
+    date: '—',
+    payee: d.payee_display ?? '—',
+    drawer_name: '—',
+    account_display: d.account_display ?? '—',
+    amount_figures: d.amount_range ?? '—',
+    amount_words: '—',
+    micr: '—',
+    alterations: false,
+    manual_fields: [],
+    iet_deadline: null,
+    lot_id: d.lot_id ?? '—',
+    status: d.outcome ?? 'HUMAN_REVIEW',
+    fraud_score: d.fraud_score ?? 0,
+    micr_confidence: d.ocr_confidence ?? 0.95,
+    checks: { cts_valid: true, date_valid: true, signature_present: true, amount_words_match: true },
+    front_bw_url:   _scanImgUrl(d.instrument_id, 'front_bw'),
+    front_gray_url: _scanImgUrl(d.instrument_id, 'front_gray'),
+  }
+}
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -201,10 +256,37 @@ const DEPOSIT_CHANNEL_CFG = {
   KIOSK:           { label: 'Kiosk/CDM',   icon: '🏧',  color: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    colorL: 'text-violet-700 bg-violet-50 border-violet-400'    },
 }
 
+// ── Viewer props helper ───────────────────────────────────────────────────────
+
+function _viewerProps(item, isInward) {
+  const views = [
+    { key: 'BFB', label: 'Front (B&W)',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_score ?? 0.94 },
+    { key: 'BBB', label: 'Back (B&W)',   url: item.front_gray_url ?? null, iqaScore: item.iqa_score ? item.iqa_score - 0.02 : 0.91 },
+    { key: 'BFG', label: 'Front (Gray)', url: null,                         iqaScore: item.iqa_score ? item.iqa_score - 0.03 : 0.89 },
+  ]
+  const fields = {
+    payee:          item.payee,
+    date:           item.date,
+    amount_figures: item.amount_figures,
+    amount_words:   item.amount_words,
+    micr:           item.micr,
+    alterations:    item.alterations,
+    drawer_name:    item.drawer_name,
+    bank_name:      item.drawee_bank,
+    bank_branch:    item.drawee_branch,
+    account_display: item.account_display,
+  }
+  const depositInfo = !isInward && item.deposit_data ? {
+    channel: item.deposit_channel,
+    data:    item.deposit_data,
+  } : undefined
+  return { views, fields, depositInfo }
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
 function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
-  const [imgTab, setImgTab] = useState('front')
+  const [imgTab, setImgTab] = useState('image')
   const [showReturnPicker, setShowReturnPicker] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -217,11 +299,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
   }
 
   const imgTabs = [
-    { id: 'front',       label: '▣ Front'       },
-    { id: 'back',        label: '▣ Back'         },
-    ...(!isInward && item.deposit_channel === 'PAY_IN_SLIP'
-      ? [{ id: 'payinslip', label: '🧾 Slip' }]
-      : []),
+    { id: 'image',       label: '▣ Image'        },
     { id: 'fields',      label: '📋 Fields'      },
     { id: 'ai_analysis', label: '🤖 AI Analysis' },
     { id: 'passport',    label: '🪪 Passport'    },
@@ -276,27 +354,13 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
-        {imgTab === 'front' && (
-          <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockChequeFront item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>CTS-2010 · Front of cheque — colour scan</div>
-          </div>
-        )}
-        {imgTab === 'back' && (
-          <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockChequeBack depositChannel={isInward ? undefined : item.deposit_channel} item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>
-              {item.deposit_channel === 'BACK_ANNOTATION' ? 'Customer handwrote A/c + mobile on back' :
-               item.deposit_channel === 'KIOSK'           ? 'CDM kiosk label affixed — details system-captured' :
-               'CTS-2010 · Back of cheque — endorsement area'}
-            </div>
-          </div>
-        )}
-        {imgTab === 'payinslip' && (
-          <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockPayinSlip item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>Pay-in / deposit slip captured at branch</div>
-          </div>
+        {imgTab === 'image' && (
+          <ChequeImageViewer
+            {..._viewerProps(item, isInward)}
+            isDark={isDark}
+            title={item.instrument_id}
+            compact
+          />
         )}
         {imgTab === 'fields' && (
           <div className="px-5 py-3">
@@ -530,12 +594,27 @@ function isHV(inst, threshold = MOCK_HV_THRESHOLD_SQ) {
 
 export default function CTSSubmissionQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
+  const { isDemo } = useBankContext()
   const isInward = mode === 'inward'
   const BASE = useDemoData(isInward ? MOCK_INWARD : MOCK_OUTWARD)
+
+  const liveOutward = useOutwardQueue({ pollEnabled: !isInward && !isDemo })
+  const prevLiveRef = useRef([])
 
   const [instruments, setInstruments] = useState(BASE)
   const [selected, setSelected]       = useState(BASE[0]?.instrument_id ?? null)
   const [filter, setFilter]           = useState('ALL')
+
+  useEffect(() => {
+    if (!isInward && liveOutward.length > 0 && liveOutward !== prevLiveRef.current) {
+      prevLiveRef.current = liveOutward
+      // Submission Queue only shows items ready for NGCH — exclude definitively rejected instruments
+      const submittable = liveOutward.filter(i => i.outcome !== 'CTS_REJECTED' && i.outcome !== 'WORKFLOW_ERROR' && i.outcome !== 'STP_RETURN')
+      const adapted = submittable.map(adaptQueueItem)
+      setInstruments(adapted)
+      setSelected(prev => adapted.find(i => i.instrument_id === prev) ? prev : adapted[0]?.instrument_id ?? null)
+    }
+  }, [liveOutward, isInward])
 
   const th = {
     page:    isDark ? 'bg-navy-950'       : 'bg-slate-50',

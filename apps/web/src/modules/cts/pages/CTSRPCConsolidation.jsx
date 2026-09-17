@@ -1,9 +1,30 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
-import useDemoData from '../../../shared/hooks/useDemoData'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useRPCZones({ pollEnabled }) {
+  const [zones, setZones] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/rpc/zones`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setZones(json.zones ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 5 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return zones
+}
 
 // ── Mock RPC data ─────────────────────────────────────────────────────────────
 const RPCS = [
@@ -39,8 +60,28 @@ const RPCS = [
   },
 ]
 
-const SESSION_DATE = '2026-06-19'
-const CLEARING_SESSION = 'AM-CLEARING-001'
+const SESSION_DATE = new Date().toISOString().split('T')[0]
+const CLEARING_SESSION = new Date().getHours() < 12 ? 'AM-CLEARING-001' : 'PM-CLEARING-001'
+
+function useCrossCentreAlerts({ pollEnabled }) {
+  const [alerts, setAlerts] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/rpc/cross-centre-alerts`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setAlerts(json.alerts ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return alerts
+}
 
 // Cross-centre fraud signals
 const CROSS_CENTRE_ALERTS = [
@@ -57,10 +98,33 @@ const CROSS_CENTRE_ALERTS = [
 
 
 export default function CTSRPCConsolidation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
-  const rpcs = useDemoData(RPCS)
+
+  const liveZones  = useRPCZones({ pollEnabled: !isDemo })
+  const liveAlerts = useCrossCentreAlerts({ pollEnabled: !isDemo })
+  const alerts = isDemo || !liveAlerts ? CROSS_CENTRE_ALERTS : liveAlerts
+  const rpcs = useMemo(() => {
+    if (isDemo) return RPCS
+    if (!liveZones || liveZones.length === 0) return []
+    return liveZones.map(z => ({
+      id: z.zone_id,
+      name: z.zone_name,
+      zone: z.zone_name.replace(' RPC', '').toUpperCase(),
+      ifsc_prefix: z.ngch_node || '—',
+      status: z.status === 'ACTIVE' ? 'ACTIVE' : 'DEGRADED',
+      inward: z.instrument_count_today ?? 0,
+      outward: z.settled_count ?? 0,
+      pending: z.pending_count ?? 0,
+      iet_risk: 0,
+      stp_rate: 0.0,
+      avg_decision_ms: 0,
+      last_sync: z.last_sync_at ? z.last_sync_at.slice(11, 19) : '—',
+      batches: 0,
+      lots: z.pending_count ?? 0,
+    }))
+  }, [isDemo, liveZones])
 
   // RPC — NGCH Gateway is SB-only — SMBs have no RPCs of their own
   if (isSMB) {
@@ -214,9 +278,9 @@ export default function CTSRPCConsolidation() {
         <div className={`border rounded-xl overflow-hidden ${th.card} mb-5`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
             <span className={`text-sm font-medium ${th.heading}`}>Cross-Centre Intelligence</span>
-            <span className={`text-[10px] ${th.muted}`}>{CROSS_CENTRE_ALERTS.length} signals</span>
+            <span className={`text-[10px] ${th.muted}`}>{alerts.length} signals</span>
           </div>
-          {CROSS_CENTRE_ALERTS.map(alert => (
+          {alerts.map(alert => (
             <div key={alert.id} className={`flex items-start gap-3 px-4 py-3 border-b ${th.row}`}>
               <span className={`text-[10px] px-2 py-0.5 rounded border font-medium shrink-0 ${sev[alert.severity]}`}>{alert.severity}</span>
               <div className="flex-1 min-w-0">

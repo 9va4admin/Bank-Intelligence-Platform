@@ -188,7 +188,21 @@ class OutwardScanWorkflow:
         _started_at = workflow.now().timestamp()
         wf_id = workflow.info().workflow_id
 
-        result = await self._run_impl(inp)
+        # Wrap _run_impl so record_outward_scan_event always executes even on failure.
+        # Without this, an uncaught exception in _run_impl causes the workflow to exit
+        # before the try/except blocks below, leaving no DB row for the instrument.
+        _impl_exc: Optional[Exception] = None
+        try:
+            result = await self._run_impl(inp)
+        except Exception as exc:
+            _impl_exc = exc
+            result = OutwardScanResult(
+                outcome="WORKFLOW_ERROR",
+                scan_id=inp.scan_id,
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                violations=[f"workflow_error:{str(exc)[:200]}"],
+            )
 
         # Branch monitor event (best-effort — never fail scan for event recording)
         try:
@@ -254,6 +268,8 @@ class OutwardScanWorkflow:
             log.warning("outward_scan_workflow.persist_digest_failed",
                         instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc))
 
+        if _impl_exc is not None:
+            raise _impl_exc
         return result
 
     async def _run_impl(self, inp: OutwardScanInput) -> OutwardScanResult:
@@ -451,8 +467,10 @@ class OutwardScanWorkflow:
                     pu_id=inp.pu_id,
                 )
 
-        # Step 2.1: Rear-image OCR → extract payee account + name (if deposit slip not pre-entered)
-        if inp.rear_image_ocr_required and inp.image_rear_url:
+        # Step 2.1: Rear-image OCR → extract payee account + name + mobile
+        # Runs whenever a rear image is present (rear_image_ocr_required is also honoured
+        # for legacy callers, but the standard path is: image present → always OCR it).
+        if inp.image_rear_url:
             from modules.cts.workflows.activities.outward_scan_activities import (
                 extract_rear_payee_details, RearPayeeExtractionInput,
             )
@@ -471,12 +489,16 @@ class OutwardScanWorkflow:
                 outcome="PASS",
                 extra={"account_extracted": bool(rear.account_number)},
             ))
-            # Merge OCR output into payee fields (don't override what teller pre-entered)
+            # Merge rear OCR into payee fields — never override what teller already entered
+            updates: dict = {}
             if not inp.payee_account_number and rear.account_number:
-                inp = inp.model_copy(update={
-                    "payee_account_number": rear.account_number,
-                    "payee_name_from_slip": rear.depositor_name or inp.payee_name_from_slip,
-                })
+                updates["payee_account_number"] = rear.account_number
+            if not inp.payee_name_from_slip and rear.depositor_name:
+                updates["payee_name_from_slip"] = rear.depositor_name
+            if not inp.payee_mobile and rear.mobile_number:
+                updates["payee_mobile"] = rear.mobile_number
+            if updates:
+                inp = inp.model_copy(update=updates)
 
         # Step 2.2: Payee account validation — Account Vault first, CBS on miss / for name match
         if inp.payee_account_number:
@@ -843,6 +865,7 @@ class OutwardScanWorkflow:
             CTS2010ValidationInput(
                 instrument_id=inp.instrument_id,
                 cheque_number=inp.cheque_number,
+                bank_id=inp.bank_id,
                 front_dpi=inp.front_dpi,
                 rear_dpi=inp.rear_dpi,
                 front_colour_depth=inp.front_colour_depth,

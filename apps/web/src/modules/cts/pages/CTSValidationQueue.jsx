@@ -4,10 +4,34 @@
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
  * Actions are icon buttons: ✓ approve · ↩ return (opens reason dropdown).
  */
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useOutwardDecisions from '../hooks/useOutwardDecisions'
+
+const _VQ_API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useInwardValidationQueue({ pollEnabled, bankId }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_VQ_API_BASE}/v1/cts/inward/human-review-queue?bank_id=${bankId}&limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [bankId])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 15_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
@@ -236,7 +260,7 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
             <ChequeImageViewer
               views={[
                 { key: 'BFB', label: 'BFB — Front Black', url: inst.front_bw_url   ?? null },
-                { key: 'BBB', label: 'BBB — Back Black',  url: null },
+                { key: 'BBB', label: 'BBB — Back Black',  url: inst.back_bw_url ?? null },
                 { key: 'BFG', label: 'BFG — Front Grey',  url: inst.front_gray_url ?? null },
               ]}
               fields={fields}
@@ -646,12 +670,91 @@ function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+// Maps outward scan event outcome codes to human-readable stage / source labels
+const _OUTCOME_STAGE = {
+  STP_CONFIRM:    { stage: 'STP',      label: 'STP Auto-Filed'         },
+  STP_RETURN:     { stage: 'REJECTED', label: 'STP Auto-Return'        },
+  MISMATCH_HELD:  { stage: 'HELD',     label: 'Amount Mismatch — Held' },
+  CTS_REJECTED:   { stage: 'REJECTED', label: 'CTS Compliance Fail'    },
+  WORKFLOW_ERROR: { stage: 'ERROR',    label: 'Processing Error'       },
+  HUMAN_REVIEW:   { stage: 'REVIEW',   label: 'Flagged for Review'     },
+  AI_EXTRACTED:   { stage: 'VERIFIED', label: 'AI Extracted'           },
+  IQA_PASS:       { stage: 'VERIFIED', label: 'IQA Passed'             },
+  IQA_FAIL:       { stage: 'REJECTED', label: 'IQA Failed'             },
+}
+
+// Adapts a live outward decision row into the instrument shape the page renders
+// scanId is derived by stripping the "INS-" prefix the scanner agent prepends.
+function _scanImageUrl(instrumentId, view = 'front_bw') {
+  const scanId = instrumentId.replace(/^INS-/, '')
+  return `${_VQ_API_BASE}/v1/cts/outward/scan/image?scan_id=${encodeURIComponent(scanId)}&view=${view}`
+}
+
+function adaptDecision(d) {
+  const meta = _OUTCOME_STAGE[d.decision] ?? { stage: d.decision ?? 'UNKNOWN', label: d.decision ?? 'Unknown' }
+  const src = meta.stage === 'STP' ? 'STP' : 'LIVE'
+  return {
+    instrument_id: d.instrument_id,
+    source_stage:  meta.stage,
+    outcome_label: meta.label,
+    front_bw_url: _scanImageUrl(d.instrument_id, 'front_bw'),
+    back_bw_url:   _scanImageUrl(d.instrument_id, 'rear_bw'),
+    front_gray_url: _scanImageUrl(d.instrument_id, 'front_gray'),
+    drawee_bank: '—', drawee_branch: '—',
+    drawee_ifsc: d.drawee_ifsc ?? '—', drawee_micr: '—',
+    drawer_name: '—',
+    account_display: d.account_last4 ? `****${d.account_last4}` : '****',
+    ocr_score: null, sig_score: null,
+    fraud_score: d.fraud_score ?? null,
+    iqa_score: null,
+    deposit_channel: null,
+    deposit_data: {},
+    name_match: null, name_match_cbs_name: '—',
+    fields_meta: {
+      date:           { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      payee:          { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      amount_figures: { extracted_value: d.amount_bucket ?? '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: d.amount_bucket ?? '—', source: src },
+      amount_words:   { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      micr:           { extracted_value: '—', extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: src },
+      alterations:    { extracted_value: false, extracted_confidence: null, extracted_by: 'GOT-OCR2.0', actual_value: false, source: src },
+    },
+    lot_number: d.lot_number ?? '—',
+    decision_reason: d.decision_reason,
+  }
+}
+
 export default function CTSValidationQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
+  const { bankId, isDemo } = useBankContext()
   const isInward = mode === 'inward'
+
+  // Live data for outward tab — polls /v1/cts/outward/decisions
+  const { decisions: liveDecisions } = useOutwardDecisions({ pollEnabled: !isInward && !isDemo })
+
+  // Live data for inward tab — polls /v1/cts/inward/human-review-queue
+  const liveInwardItems = useInwardValidationQueue({ pollEnabled: isInward && !isDemo, bankId })
 
   const BASE = useDemoData(isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD)
   const [instruments, setInstruments] = useState(() => BASE.map(i => ({ ...i, edits: {} })))
+
+  // Demo invariant: update instruments from live data when available
+  const prevLiveRef = useRef([])
+  useEffect(() => {
+    if (!isInward && liveDecisions.length > 0 && liveDecisions !== prevLiveRef.current) {
+      prevLiveRef.current = liveDecisions
+      setInstruments(liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} })))
+    }
+  }, [liveDecisions, isInward])
+
+  const prevInwardRef = useRef(null)
+  useEffect(() => {
+    if (isInward && liveInwardItems && liveInwardItems !== prevInwardRef.current) {
+      prevInwardRef.current = liveInwardItems
+      if (liveInwardItems.length > 0) {
+        setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
+      }
+    }
+  }, [liveInwardItems, isInward])
   const [filter, setFilter]           = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
   const [chequeViewId, setChequeViewId]   = useState(null)

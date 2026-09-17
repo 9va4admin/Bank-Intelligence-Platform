@@ -118,8 +118,11 @@ def test_login_enrolled_returns_mfa_required():
 
 
 def test_login_sets_httponly_secure_samesite_cookie():
-    c = _client(enrolled=["usr-001"], pre_secret=pyotp.random_base32())
-    r = c.post("/v1/auth/login", json={"username": "ops1", "password": "pw"})
+    import apps.api.routers.auth as _auth_mod
+    from unittest.mock import patch
+    with patch.object(_auth_mod, "_SECURE_COOKIE", True):
+        c = _client(enrolled=["usr-001"], pre_secret=pyotp.random_base32())
+        r = c.post("/v1/auth/login", json={"username": "ops1", "password": "pw"})
     setc = r.headers.get("set-cookie", "")
     assert "astra_session=" in setc
     assert "HttpOnly" in setc
