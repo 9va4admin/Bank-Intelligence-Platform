@@ -47,11 +47,17 @@ _HF_BASE_URL_FALLBACK = "https://router.huggingface.co/v1"
 
 _MODEL_MAPPING = {
     "qwen-32b": "Qwen/Qwen3-VL-32B-Instruct:featherless-ai",
-    # ovhcloud's hosting of this model is in HF's own inferenceProviderMapping
-    # "error" state (confirmed via https://huggingface.co/api/models/Qwen/Qwen2.5-VL-72B-Instruct
-    # ?expand[]=inferenceProviderMapping) -- featherless-ai is the only "live"
-    # provider for it, not an account-authorization gap.
-    "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:featherless-ai",
+    # Switched to ovhcloud (2026-09-17): featherless-ai returns 401/403
+    # (Cloudflare-blocked) for this account even with a valid, correctly-
+    # scoped token -- an account/provider-authorization gap on the
+    # featherless-ai side (see huggingface.co/settings/inference-providers),
+    # not a token or code problem. Re-checked live via
+    # https://huggingface.co/api/models/Qwen/Qwen2.5-VL-72B-Instruct
+    # ?expand[]=inferenceProviderMapping -- ovhcloud shows "status": "live"
+    # right now, contradicting the earlier note here that it was in an
+    # "error" state. Revert to featherless-ai (or try another provider) if
+    # ovhcloud regresses -- re-check the same URL first.
+    "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud",
     "gemma-27b": "google/gemma-3-27b-it:featherless-ai",
 }
 
