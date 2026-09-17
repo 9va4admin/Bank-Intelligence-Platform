@@ -71,7 +71,8 @@ log = structlog.get_logger()
 BACKEND_PADDLE     = "paddle"
 BACKEND_AI4BHARAT  = "ai4bharat"
 BACKEND_EASYOCR    = "easyocr"
-_VALID_BACKENDS    = {BACKEND_PADDLE, BACKEND_AI4BHARAT, BACKEND_EASYOCR}
+BACKEND_TESSERACT  = "tesseract"
+_VALID_BACKENDS    = {BACKEND_PADDLE, BACKEND_AI4BHARAT, BACKEND_EASYOCR, BACKEND_TESSERACT}
 
 _SERVICE_DEFAULT: str = BACKEND_PADDLE  # overridden in startup from config_service
 
@@ -101,17 +102,56 @@ _SERVICE_DEFAULT: str = BACKEND_PADDLE  # overridden in startup from config_serv
 _SCRIPT_TO_PADDLE_LANG: dict[str, Optional[str]] = {
     "latin":      "en",   # English/Latin — printed boilerplate text (signature-crop cleanup, etc.)
     "devanagari": "devanagari",   # Hindi, Marathi, Sanskrit
-    "bengali":    None,    # no paddleocr 2.7.3 model — falls through to ai4bharat/easyocr
-    "gurmukhi":   None,    # Punjabi — no paddleocr 2.7.3 model
-    "gujarati":   None,    # no paddleocr 2.7.3 model
-    "odia":       None,    # Oriya — no paddleocr 2.7.3 model
+    "bengali":    None,    # no paddleocr 2.7.3 model — cascades to tesseract
+    "gurmukhi":   None,    # Punjabi — no paddleocr 2.7.3 model — cascades to tesseract
+    "gujarati":   None,    # no paddleocr 2.7.3 model — cascades to tesseract
+    "odia":       None,    # Oriya — no paddleocr 2.7.3 model — cascades to tesseract
     "tamil":      "ta",
     "telugu":     "te",
     "kannada":    "ka",
-    "malayalam":  None,    # "ml" is paddleocr's Multilingual detector, NOT Malayalam — do not map here
+    "malayalam":  None,    # "ml" is paddleocr's Multilingual detector, NOT Malayalam — cascades to tesseract
 }
 
 _DEFAULT_PADDLE_LANG = "devanagari"   # fallback when script is unknown or absent -- "hi" is NOT a valid paddleocr key
+
+# ── Script → Tesseract lang code mapping ─────────────────────────────────────
+# Tesseract language codes (ISO 639-2/B based, NOT the same codes paddleocr
+# uses above). Model files: apps/indic_ocr/tessdata/*.traineddata — the
+# OFFICIAL tesseract-ocr/tessdata_fast project, not the community
+# indic-ocr/tessdata project (tested and rejected 2026-09-17: its files
+# throw "unichar ... in normproto file is not in unichar set" on load with
+# Tesseract 5.4.0 — a real, verified incompatibility, not a config issue —
+# and even where they load, output was unusable garbage; the official
+# tessdata_fast files load cleanly and produce recognisable Kannada Unicode
+# on a real cheque crop, confirmed by direct tesseract.exe testing).
+#
+# This is the ONLY backend in this service's cascade that genuinely covers
+# bengali/gurmukhi/gujarati/odia/malayalam — paddle has no model for them at
+# all, and easyocr is hardcoded to a single Hindi reader (see
+# _get_easyocr_reader below).
+_SCRIPT_TO_TESSERACT_LANG: dict[str, str] = {
+    "latin":      "eng",
+    "devanagari": "hin",
+    "bengali":    "ben",
+    "gurmukhi":   "pan",
+    "gujarati":   "guj",
+    "odia":       "ori",
+    "tamil":      "tam",
+    "telugu":     "tel",
+    "kannada":    "kan",
+    "malayalam":  "mal",
+}
+
+_TESSDATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tessdata")
+
+# pytesseract's default (bare "tesseract") only works if the binary is on
+# THIS process's PATH -- confirmed NOT the case for a venv launched the way
+# start-local-services.bat does it, even though the binary itself installs
+# fine system-wide via winget. Explicit path, overridable via env var for
+# non-Windows/non-default-install-path deployments.
+_TESSERACT_CMD = os.environ.get(
+    "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+)
 
 # ── CTS-2010 field zones ──────────────────────────────────────────────────────
 
@@ -312,7 +352,7 @@ def _run_paddle(arr: np.ndarray, script: Optional[str]) -> tuple[list[tuple[str,
     if lang is None:
         raise RuntimeError(
             f"No paddleocr 2.7.3 model for script '{script}' — "
-            f"cascade to easyocr/ai4bharat."
+            f"cascade to tesseract."
         )
     return _run_paddle_lang(arr, lang), lang
 
@@ -321,6 +361,45 @@ def _run_easyocr(arr: np.ndarray) -> list[tuple[str, float]]:
     reader = _get_easyocr_reader()
     raw    = reader.readtext(arr, detail=1) or []
     return [(r[1], float(r[2])) for r in raw if r[1]]
+
+
+def _resolve_tesseract_lang(script: Optional[str]) -> str:
+    if not script:
+        return "eng"
+    return _SCRIPT_TO_TESSERACT_LANG.get(script.lower(), "eng")
+
+
+def _run_tesseract(arr: np.ndarray, script: Optional[str]) -> tuple[list[tuple[str, float]], str]:
+    """
+    Runs the real, official tesseract-ocr/tessdata_fast models via pytesseract.
+    Returns ([(text, confidence)], resolved_tesseract_lang_code).
+
+    Uses TESSDATA_PREFIX pointed at apps/indic_ocr/tessdata/ (this repo's own
+    copy, not the system Tesseract install's tessdata dir, which only has
+    "eng"/"osd" and requires admin rights to write into on Windows).
+    """
+    import pytesseract
+    from PIL import Image as _PILImage
+
+    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD
+    lang = _resolve_tesseract_lang(script)
+    img = _PILImage.fromarray(arr)
+    data = pytesseract.image_to_data(
+        img,
+        lang=lang,
+        config=f"--tessdata-dir {_TESSDATA_DIR}",
+        output_type=pytesseract.Output.DICT,
+    )
+    pairs: list[tuple[str, float]] = []
+    for text, conf in zip(data.get("text", []), data.get("conf", [])):
+        text = (text or "").strip()
+        try:
+            conf_f = float(conf)
+        except (TypeError, ValueError):
+            continue
+        if text and conf_f >= 0:
+            pairs.append((text, conf_f / 100.0))
+    return pairs, lang
 
 
 def _run_ai4bharat(arr: np.ndarray) -> list[tuple[str, float]]:
@@ -333,16 +412,20 @@ def _run_ai4bharat(arr: np.ndarray) -> list[tuple[str, float]]:
     ]
 
 
-# Cascade order: PaddleOCR (best script coverage — 9 Indic langs) → EasyOCR
-# (Hindi-only, different engine/weights so it survives a Paddle-specific
-# failure) → AI4Bharat (Hindi-only, needs manual source-tree setup).
+# Cascade order: PaddleOCR (devanagari/tamil/telugu/kannada only — see
+# _SCRIPT_TO_PADDLE_LANG) → Tesseract (official tessdata_fast models, the
+# ONLY backend here that actually covers bengali/gurmukhi/gujarati/odia/
+# malayalam, and a same-script fallback for paddle's four) → EasyOCR
+# (Hindi-only reader, different engine/weights so it survives a
+# paddle+tesseract failure) → AI4Bharat (needs manual source-tree setup,
+# never actually installed as of 2026-09-17).
 # The caller's requested backend is tried FIRST (respecting an explicit
 # ?backend= override or INDIC_OCR_BACKEND), then the remaining backends are
 # tried in cascade order — so one backend's outage never means the request
 # silently comes back empty, it means it was answered by degrade-quality
 # engine and callers can inspect the "backend" field returned to know which
 # one actually served it.
-_CASCADE_ORDER = [BACKEND_PADDLE, BACKEND_EASYOCR, BACKEND_AI4BHARAT]
+_CASCADE_ORDER = [BACKEND_PADDLE, BACKEND_TESSERACT, BACKEND_EASYOCR, BACKEND_AI4BHARAT]
 
 
 def _run_ocr(
@@ -372,6 +455,9 @@ def _run_ocr(
             if candidate == BACKEND_PADDLE:
                 pairs, resolved_lang = _run_paddle(arr, script)
                 return pairs, BACKEND_PADDLE, resolved_lang
+            elif candidate == BACKEND_TESSERACT:
+                pairs, resolved_lang = _run_tesseract(arr, script)
+                return pairs, BACKEND_TESSERACT, resolved_lang
             elif candidate == BACKEND_EASYOCR:
                 return _run_easyocr(arr), BACKEND_EASYOCR, None
             else:
