@@ -33,15 +33,23 @@ depends_on = None
 def upgrade() -> None:
     # ── DROP TABLE cts.sb_connections ─────────────────────────────────────────
     # Zero Python / SQL refs. SB-to-SB routing handled by NGCH adapter + Istio.
-    op.drop_table("sb_connections", schema="cts")
+    # IF EXISTS: the 2026-09-16 audit ran against a live DB with more history
+    # than this migration chain reconstructs from scratch -- confirmed via a
+    # real fresh-database migration run that this table was never actually
+    # created by any earlier migration in this chain (this migration's own
+    # downgrade() proves it existed somewhere, just not here). The drop's
+    # intent (table gone) holds either way.
+    op.execute("DROP TABLE IF EXISTS cts.sb_connections")
 
     # ── DROP COLUMN cts.agent_decisions.human_review_routed_to ───────────────
     # Routing target captured in Temporal workflow state; never written to DB.
-    op.drop_column("agent_decisions", "human_review_routed_to", schema="cts")
+    # IF EXISTS: same situation as sb_connections above -- never actually
+    # added by any earlier migration in this chain.
+    op.execute("ALTER TABLE cts.agent_decisions DROP COLUMN IF EXISTS human_review_routed_to")
 
     # ── DROP COLUMN cts.cheque_instruments.vision_cascade_level ──────────────
     # Replaced by ocr_engines_used[] on agent_decisions row.
-    op.drop_column("cheque_instruments", "vision_cascade_level", schema="cts")
+    op.execute("ALTER TABLE cts.cheque_instruments DROP COLUMN IF EXISTS vision_cascade_level")
 
 
 def downgrade() -> None:
