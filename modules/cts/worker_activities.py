@@ -81,7 +81,10 @@ from modules.cts.workflows.activities.ocr import OCRActivityInput
 from modules.cts.workflows.activities.outward_scan_activities import (
     LotAssignmentInput,
     VisionPresentmentCheckInput,
+    VisionExtractAndCheckInput,
 )
+from modules.cts.workflows.activities.ifsc_validator import IFSCValidatorInput
+from modules.cts.workflows.activities.cheque_series import ChequeSeriesActivityInput
 from modules.cts.workflows.activities.pps import PPSActivityInput
 from modules.cts.workflows.activities.signature import SignatureActivityInput
 from modules.cts.workflows.activities.stop_payment import StopPaymentActivityInput
@@ -196,6 +199,17 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.pps import lookup_pps as _real
         return await _real(inp, vault=self._pps_vault)
 
+    @activity.defn(name="validate_ifsc")
+    async def validate_ifsc(self, inp: IFSCValidatorInput):
+        from modules.cts.workflows.activities.ifsc_validator import validate_ifsc as _real
+        # repo intentionally omitted — no IFSC registry backend exists in this
+        # repo yet; the activity's own graceful degradation (HUMAN_REVIEW,
+        # degraded=True) handles repo=None. Registered as a DI-wired bound
+        # method (not a bare NO_DI_ACTIVITIES function) to avoid the same
+        # dict-deserialization bug documented above for mark_leaf_* — any
+        # activity taking a second parameter beyond `inp` needs that.
+        return await _real(inp, repo=None)
+
     @activity.defn(name="detect_signatures")
     async def detect_signatures(self, inp):
         from modules.cts.workflows.activities.detect_signatures import (
@@ -302,6 +316,13 @@ class BoundCTSActivities:
             run_vision_presentment_check as _real,
         )
         return await _real(inp, orchestrator=self._orchestrator)
+
+    @activity.defn(name="vision_extract_and_check")
+    async def vision_extract_and_check(self, inp: VisionExtractAndCheckInput):
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check as _real,
+        )
+        return await _real(inp, orchestrator=self._orchestrator, config_service=self._config_service)
 
     # ------------------------------------------------------------------
     # Decision / audit / NGCH filing
@@ -527,6 +548,16 @@ class BoundCTSActivities:
     # cheque_leaf_vault parameter confused Temporal's arg-type inference).
     # ------------------------------------------------------------------
 
+    @activity.defn(name="validate_cheque_series")
+    async def validate_cheque_series(self, inp: ChequeSeriesActivityInput):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series as _real
+        return await _real(
+            inp,
+            cbs_connector=self._cbs_connector,
+            cheque_leaf_vault=self._cheque_leaf_vault,
+            config_service=self._config_service,
+        )
+
     @activity.defn(name="mark_leaf_presented")
     async def mark_leaf_presented(self, inp: MarkLeafPresentedInput) -> LeafLifecycleResult:
         return await _ll_mark_leaf_presented(inp, cheque_leaf_vault=self._cheque_leaf_vault)
@@ -544,10 +575,15 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     def activity_list(self) -> list:
-        """All 30 DI-needing activities as bound methods, ready for
-        Worker(activities=...). The one remaining registered CTS activity
-        (validate_cts2010) takes no injectable dependency and is registered
-        directly from worker.py as a bare function — see NO_DI_ACTIVITIES
+        """All DI-needing activities as bound methods, ready for
+        Worker(activities=...). validate_ifsc, validate_cheque_series, and
+        vision_extract_and_check are registered here (not as bare
+        NO_DI_ACTIVITIES functions) both because they take a second
+        parameter beyond `inp` (see mark_leaf_* comment above) and, for the
+        latter two, because real DI (cheque_leaf_vault, orchestrator) is
+        already built in build_bound_activities(). A handful of other CTS
+        activities that take no injectable dependency are registered
+        directly from worker.py as bare functions — see NO_DI_ACTIVITIES
         there."""
         return [
             self.check_cbs_balance,
@@ -555,6 +591,7 @@ class BoundCTSActivities:
             self.load_signatures_from_cbs,
             self.load_pps_from_cbs,
             self.lookup_pps,
+            self.validate_ifsc,
             self.detect_signatures,
             self.verify_signature,
             self.warm_redis_vault,
@@ -567,6 +604,7 @@ class BoundCTSActivities:
             self.detect_alteration,
             self.score_fraud,
             self.run_vision_presentment_check,
+            self.vision_extract_and_check,
             self.synthesise_decision,
             self.write_audit,
             self.file_to_ngch,
@@ -592,6 +630,7 @@ class BoundCTSActivities:
             # Decision persistence (cts.agent_decisions)
             self.persist_agent_decision,
             # Cheque leaf lifecycle (DI-wired — was bare function causing dict deserialization)
+            self.validate_cheque_series,
             self.mark_leaf_presented,
             self.mark_leaf_paid,
             self.mark_leaf_returned,
