@@ -55,6 +55,14 @@ def run_migrations_online() -> None:
             include_schemas=True,
             version_table_schema="cts",
         )
+        # See infra/migrations/platform/env.py's comment for the real
+        # situation: alembic's version_num column is hardcoded String(32)
+        # with no config override in installed alembic==1.18.5, and several
+        # ids in this directory are already >32 chars (e.g.
+        # "20260811_branches_add_scanner_input_mode" = 40). Fix applied
+        # operationally (upgrade to the last <=32-char id, widen the
+        # column, upgrade to head) rather than here -- the table doesn't
+        # exist yet on a fresh DB until run_migrations() below creates it.
         with context.begin_transaction():
             context.run_migrations()
 
