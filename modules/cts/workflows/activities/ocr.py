@@ -55,11 +55,31 @@ Extract all printed fields from this cheque image. Return JSON only, no explanat
   "amount_words": {"value": "...", "confidence": 0.0},
   "date": {"value": "...", "confidence": 0.0},
   "payee": {"value": "...", "confidence": 0.0},
+  "drawee_name": {"value": "...", "confidence": 0.0},
   "ifsc_code": {"value": "...", "confidence": 0.0}
 }
 If a field is illegible or not present, set value to null and confidence to 0.0.
 Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
 ifsc_code: the bank IFSC code printed on the cheque face (e.g. "SBIN0001234").
+
+payee: The name HANDWRITTEN on the "Pay" line only, immediately after the
+printed word "Pay". This is the RECIPIENT of the cheque, filled in by the
+account holder when writing it. Do NOT confuse this with any PRINTED
+company/business/person name found elsewhere on the cheque -- in
+particular, a printed name appearing near the signature above "Partner /
+Authorised Signatory" or after a printed "For" label identifies the
+DRAWEE (the account holder who owns this cheque and is issuing it), which
+is the opposite of the payee. If the handwriting on the Pay line is
+illegible or in an unfamiliar script, return null for payee -- never
+substitute the drawee's printed name or any other visible text as a guess.
+Guessing a plausible-looking value is worse than returning null.
+
+drawee_name: The PRINTED (not handwritten) account holder name, usually
+appearing near the bottom-right signature area after a printed "For"
+label (e.g. "For Asmita Construction") or directly above "Authorised
+Signatory" / "Proprietor" / "Partner". This is the person or company that
+OWNS this cheque and account -- never the payee. If no such printed name
+is visible, return null.
 """
 
 # SCRIPT_ADAPTIVE zone → field name mapping used when IndicOCR re-runs a zone.
@@ -85,6 +105,7 @@ class OCRActivityResult(BaseModel):
     amount_words: Optional[str] = None
     date: Optional[str] = None
     payee: Optional[str] = None
+    drawee_name: Optional[str] = None             # printed "For <name>" near signature — account owner, not payee
     ifsc_code: Optional[str] = None
     cheque_number: Optional[str] = None           # parsed from micr_line, MICRParser.parse_ocr_text
     bank_branch_code: Optional[str] = None        # parsed from micr_line
@@ -229,6 +250,7 @@ async def _extract_got_ocr2(
         "amount_words":   _field("amount_words"),
         "date":           _field("date"),
         "payee":          _field("payee"),
+        "drawee_name":    _field("drawee_name"),
         "ifsc_code":      _field("ifsc_code"),
     }
     return fields, cascade_result.cascade_level
@@ -280,7 +302,7 @@ async def _extract_hf_cloud(
         return None
 
     fields: dict[str, tuple[Optional[str], float]] = {}
-    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "ifsc_code"):
+    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "drawee_name", "ifsc_code"):
         entry = parsed.get(key) or {}
         value = entry.get("value") if isinstance(entry, dict) else None
         confidence = float(entry.get("confidence", 0.0)) if isinstance(entry, dict) else 0.0
@@ -369,7 +391,10 @@ async def _extract_tesseract(
             if nums:
                 amount_figures = re.sub(r'[\s,]', '', nums[0])
 
-        # Payee: line after "Pay" or "For" keyword (Indian cheques use "For" for account name)
+        # Payee: line after "Pay" keyword only. "For <Name>" is the DRAWEE
+        # (account holder issuing the cheque), the opposite of the payee —
+        # never substitute one for the other (real bug fixed 2026-09-18,
+        # same class of error as CLOUD_EXTRACT_PROMPT's payee_name rule).
         payee_val: Optional[str] = None
         for i, ln in enumerate(lines):
             if re.search(r'\bPay\b', ln, re.IGNORECASE):
@@ -379,11 +404,13 @@ async def _extract_tesseract(
                 if candidate and len(candidate) > 2:
                     payee_val = candidate
                     break
-        if not payee_val:
-            # Fallback: "For <Name>" line (common on Indian cheques)
-            m = re.search(r'\bFor\s+([A-Z][A-Za-z0-9 .&,\'-]{3,60})', clean)
-            if m:
-                payee_val = m.group(1).strip()
+
+        # Drawee name: printed "For <Name>" near the signature — the account
+        # holder/owner of the cheque, not the payee.
+        drawee_val: Optional[str] = None
+        m = re.search(r'\bFor\s+([A-Z][A-Za-z0-9 .&,\'-]{3,60})', clean)
+        if m:
+            drawee_val = m.group(1).strip()
 
         # MICR line: digit-heavy line at the bottom (last 5 lines)
         micr_val: Optional[str] = None
@@ -409,6 +436,7 @@ async def _extract_tesseract(
             "amount_figures": (amount_figures, _CONF if amount_figures else 0.0),
             "amount_words":   (None,           0.0),   # Tesseract can't parse words→numbers reliably
             "date":           (date_val,       _CONF if date_val else 0.0),
+            "drawee_name":    (drawee_val,     _CONF if drawee_val else 0.0),
             "payee":          (payee_val,      _CONF if payee_val else 0.0),
             "ifsc_code":      (None,           0.0),
         }
@@ -528,6 +556,7 @@ def _build_result(
     amt_words    = fields.get("amount_words",    (None, 0.0))[0]
     date_val     = fields.get("date",            (None, 0.0))[0]
     payee_val    = fields.get("payee",           (None, 0.0))[0]
+    drawee_val   = fields.get("drawee_name",     (None, 0.0))[0]
     ifsc_raw     = fields.get("ifsc_code",       (None, 0.0))
     ifsc_code    = (
         ifsc_raw[0].strip().upper()
@@ -553,6 +582,7 @@ def _build_result(
             amount_words=amt_words,
             date=date_val,
             payee=payee_val,
+            drawee_name=drawee_val,
             overall_confidence=overall,
             low_confidence_reason=f"low_confidence_fields: {low_fields}",
             cascade_level=cascade_level,
@@ -595,6 +625,7 @@ def _build_result(
         amount_words=amt_words,
         date=date_val,
         payee=payee_val,
+        drawee_name=drawee_val,
         ifsc_code=ifsc_code,
         overall_confidence=overall,
         cascade_level=cascade_level,
