@@ -62,6 +62,145 @@ Rules:
 Return ONLY valid JSON. No markdown, no explanation.
 """
 
+# CTS-2010 signature block is a fixed, standardised zone (lower-right) --
+# not something a vision model needs to search for across the whole
+# cheque. Cropping to it deterministically first, then asking the model
+# to count/classify ONLY within that small crop, is a strictly easier and
+# more constrained task than open-ended whole-image detection: the model
+# can no longer mistake handwriting elsewhere on the cheque (payee line,
+# amount in words) for a signature, and the crop is small enough that
+# printed captions ("For <Company>", "Authorised Signatory") are the only
+# real source of confusion left to guard against explicitly.
+_ZONE_DETECTION_PROMPT = """This image is a pre-cropped region from the lower-right
+signature area of a bank cheque -- it has already been located, so do not look
+for signatures anywhere else; only what is visible in this crop matters.
+
+Count every distinct HANDWRITTEN CURSIVE INK signature in this crop.
+
+Return JSON with exactly these fields:
+{
+  "signature_count": <integer>,
+  "signature_bboxes": [[x1, y1, x2, y2], ...],
+  "signature_fraud_flags": [<string>, ...]
+}
+
+Rules:
+- Do NOT count any of the following as a signature, even if positioned where a
+  signature would be expected:
+    * Printed text, e.g. "For <Company Name>", "Authorised Signatory",
+      "Please sign above", "Proprietor", "Partner", "Director", "Manager"
+    * Bank stamps, seals, or rubber-stamp text
+    * A printed account-holder name
+  If the entire crop contains only printed text and no genuine ink strokes,
+  return signature_count: 0 and an empty signature_bboxes array.
+- signature_bboxes: [x1, y1, x2, y2] as decimal fractions of THIS CROPPED
+  IMAGE (0.0-1.0) -- not the original full cheque.
+- signature_fraud_flags: same categories as before (OVERWRITTEN, SMUDGED,
+  MULTIPLE_INKS, FAINT_INK, MISALIGNED). Return [] if none apply.
+
+Return ONLY valid JSON. No markdown, no explanation.
+"""
+
+# Must match modules/cts/preprocessing/zone_extractor.py's CTS_ZONES["signature"]
+# -- kept as a local constant too since detect_signatures.py is documented as
+# self-contained within modules/cts/ (no cross-import requirement, but same
+# canonical coordinates).
+_SIGNATURE_ZONE = (0.52, 0.55, 1.00, 0.90)
+
+
+def _remap_bbox_to_full_image(bbox: list[float], zone: tuple[float, float, float, float]) -> list[float]:
+    """Convert a bbox expressed as a fraction of the CROPPED zone image back
+    into a fraction of the full original cheque image."""
+    zx1, zy1, zx2, zy2 = zone
+    bx1, by1, bx2, by2 = bbox
+    zw, zh = zx2 - zx1, zy2 - zy1
+    return [zx1 + bx1 * zw, zy1 + by1 * zh, zx1 + bx2 * zw, zy1 + by2 * zh]
+
+
+async def _detect_via_hf_cloud(
+    inp: DetectSignaturesInput,
+    config_service: Any,
+    zone_png: bytes,
+) -> Optional["DetectSignaturesResult"]:
+    """
+    Real HF-cloud vision fallback (config-gated, off by default — see
+    shared/ai/hf_cloud_fallback.py), tried before the pixel-analysis
+    fallback when the on-prem vLLM cluster is unreachable. In real bank
+    deployments this tier does not apply (CLAUDE.md: zero cloud
+    dependencies) — a bank without on-prem GPU falls straight to
+    _detect_via_sig_detector. This exists to validate the zone-crop +
+    vision-model approach against real cheques while no GPU cluster is
+    available in this dev environment; the eventual production
+    replacement for this tier is the bank's own on-prem vLLM cluster,
+    which vllm_client already serves above.
+    """
+    from shared.ai.hf_cloud_fallback import call_hf_vision, cloud_fallback_enabled
+
+    if not await cloud_fallback_enabled(config_service, inp.bank_id):
+        return None
+
+    content = await call_hf_vision(config_service, zone_png, _ZONE_DETECTION_PROMPT)
+    if content is None:
+        return None
+
+    try:
+        text = content.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        parsed = json.loads(text)
+    except Exception as exc:
+        log.warning("detect_signatures.hf_cloud_invalid_json", instrument_id=inp.instrument_id, error=str(exc))
+        return None
+
+    sig_count = int(parsed.get("signature_count", 0))
+    fraud_flags = list(parsed.get("signature_fraud_flags", []))
+    sig_bboxes = [
+        _remap_bbox_to_full_image([float(v) for v in bbox], _SIGNATURE_ZONE)
+        for bbox in (parsed.get("signature_bboxes") or [])
+        if isinstance(bbox, (list, tuple)) and len(bbox) == 4
+    ]
+
+    log.info(
+        "detect_signatures.hf_cloud_used",
+        instrument_id=inp.instrument_id,
+        bank_id=inp.bank_id,
+        sig_count=sig_count,
+    )
+
+    return DetectSignaturesResult(
+        outcome="PRESENT" if sig_count > 0 else "ABSENT",
+        sig_count=sig_count,
+        sig_bboxes=sig_bboxes,
+        fraud_flags=fraud_flags,
+        degraded=False,
+    )
+
+
+async def _crop_signature_zone(image_url: str) -> Optional[bytes]:
+    """Fetch the full cheque image and crop to the deterministic CTS-2010
+    signature zone. Returns PNG bytes, or None on any fetch/decode failure
+    (caller falls back to whole-image detection unchanged)."""
+    try:
+        from io import BytesIO
+        from PIL import Image
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(image_url)
+            resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content)).convert("RGB")
+        iw, ih = img.size
+        x1f, y1f, x2f, y2f = _SIGNATURE_ZONE
+        x1, y1 = max(0, int(x1f * iw)), max(0, int(y1f * ih))
+        x2, y2 = min(iw, int(x2f * iw)), min(ih, int(y2f * ih))
+        crop = img.crop((x1, y1, x2, y2))
+        buf = BytesIO()
+        crop.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception as exc:
+        log.warning("detect_signatures.zone_crop_failed", error=str(exc))
+        return None
+
 
 class DetectSignaturesInput(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -133,12 +272,25 @@ async def _detect_via_sig_detector(
         mode=mode,
     )
 
+    # Real, demonstrated failure rate found by manual review of actual KBL
+    # cheques 2026-09-18: the pixel-analysis heuristic (the only mode that
+    # runs without real trained weights) produced a false positive on a
+    # blank/unsigned cheque, and a mislocated bbox that missed the real
+    # signature entirely, on 2 of ~8 cheques spot-checked. Its sig_count/
+    # sig_bboxes are still returned for visual reference (the digest crop),
+    # but outcome/degraded must never claim this is a trustworthy PRESENT/
+    # ABSENT signal — treat it exactly like any other AI-unavailable path
+    # so downstream decision logic doesn't silently trust a wrong answer.
+    # YOLOv8 mode (real trained weights) would not have this caveat if
+    # SIG_DETECTOR_LOCAL_PATH is ever configured on that service.
+    is_heuristic_only = mode == "pixel"
+
     return DetectSignaturesResult(
-        outcome="PRESENT" if sig_count > 0 else "ABSENT",
+        outcome="DEGRADED" if is_heuristic_only else ("PRESENT" if sig_count > 0 else "ABSENT"),
         sig_count=sig_count,
         sig_bboxes=sig_bboxes,
         fraud_flags=[],   # pixel/yolo modes detect presence only, not ink-fraud patterns
-        degraded=False,
+        degraded=is_heuristic_only,
     )
 
 
@@ -176,9 +328,16 @@ async def detect_signatures(
                 bank_id=inp.bank_id,
             )
             if config_service is not None:
+                zone_png = await _crop_signature_zone(inp.image_url)
+                if zone_png is not None:
+                    hf_result = await _detect_via_hf_cloud(inp, config_service, zone_png)
+                    if hf_result is not None:
+                        span.set_attribute("degraded", False)
+                        span.set_attribute("fallback", "hf_cloud_zone_crop")
+                        return hf_result
                 fallback = await _detect_via_sig_detector(inp, config_service)
                 if fallback is not None:
-                    span.set_attribute("degraded", False)
+                    span.set_attribute("degraded", fallback.degraded)
                     span.set_attribute("fallback", "sig_detector")
                     return fallback
             span.set_attribute("degraded", True)
@@ -186,14 +345,31 @@ async def detect_signatures(
                 outcome="DEGRADED", sig_count=0, sig_bboxes=[], fraud_flags=[], degraded=True
             )
 
+        # Crop to the deterministic CTS-2010 signature zone first (see
+        # _crop_signature_zone / _ZONE_DETECTION_PROMPT docstrings): a
+        # strictly easier, more constrained task for the vision model than
+        # searching the whole cheque. Falls back to whole-image detection
+        # with the original prompt if the crop itself fails for any reason.
+        zone_png = await _crop_signature_zone(inp.image_url)
+        if zone_png is not None:
+            import base64
+            image_content = {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{base64.b64encode(zone_png).decode()}"},
+            }
+            prompt = _ZONE_DETECTION_PROMPT
+        else:
+            image_content = {"type": "image_url", "image_url": {"url": inp.image_url}}
+            prompt = _DETECTION_PROMPT
+
         try:
             response = await vllm_client.chat.completions.create(
                 model=_MODEL_NAME,
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "image_url", "image_url": {"url": inp.image_url}},
-                        {"type": "text", "text": _DETECTION_PROMPT},
+                        image_content,
+                        {"type": "text", "text": prompt},
                     ],
                 }],
                 extra_body={"queue": _QUEUE},
@@ -224,7 +400,7 @@ async def detect_signatures(
             if config_service is not None:
                 fallback = await _detect_via_sig_detector(inp, config_service)
                 if fallback is not None:
-                    span.set_attribute("degraded", False)
+                    span.set_attribute("degraded", fallback.degraded)
                     span.set_attribute("fallback", "sig_detector")
                     return fallback
             span.set_attribute("degraded", True)
@@ -240,6 +416,10 @@ async def detect_signatures(
             for bbox in (parsed.get("signature_bboxes") or [])
             if isinstance(bbox, (list, tuple)) and len(bbox) == 4
         ]
+        if zone_png is not None:
+            # Model saw only the cropped zone — bboxes are fractions of that
+            # crop and must be remapped back to full-cheque-image fractions.
+            sig_bboxes = [_remap_bbox_to_full_image(b, _SIGNATURE_ZONE) for b in sig_bboxes]
         outcome = "PRESENT" if sig_count > 0 else "ABSENT"
 
         span.set_attribute("sig_count", sig_count)
