@@ -284,11 +284,17 @@ class ConfigService:
             raise ConfigKeyNotFoundError(
                 f"Config key '{key}' not found — DB pool unavailable."
             )
+        # Key namespace convention (see infra/migrations/platform/versions/
+        # 20260618_002_platform_config_and_policies.py): "module.config_key",
+        # e.g. "cts.iet_minutes" -> module="cts", config_key="iet_minutes".
+        module, _, config_key = key.partition(".")
         async with self._db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT value, value_type FROM config.bank_config WHERE bank_id = $1 AND key = $2",
+                "SELECT config_value, value_type FROM platform.config_values "
+                "WHERE bank_id = $1 AND module = $2 AND config_key = $3",
                 self._bank_id,
-                key,
+                module,
+                config_key,
             )
         if row is None:
             # Row absent from DB — fall back to built-in defaults before raising.
@@ -299,7 +305,7 @@ class ConfigService:
                 f"Config key '{key}' not found for bank '{self._bank_id}'. "
                 f"Check Admin UI or infra/helm/values/_defaults.yaml."
             )
-        raw = row["value"]
+        raw = row["config_value"]
         vtype = row["value_type"]
         if vtype == "float":
             return float(raw)
@@ -394,16 +400,17 @@ class ConfigService:
         self._assert_ready()
         async with self._db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT value FROM config.user_preferences WHERE user_id = $1 AND key = $2",
+                "SELECT pref_value FROM platform.user_preferences "
+                "WHERE user_id = $1::uuid AND pref_key = $2",
                 user_id,
                 key,
             )
         if row is None:
             return None
         try:
-            return json.loads(row["value"])
+            return json.loads(row["pref_value"])
         except (json.JSONDecodeError, TypeError):
-            return row["value"]
+            return row["pref_value"]
 
     # ------------------------------------------------------------------
     # Convenience helpers used across CTS and EJ
