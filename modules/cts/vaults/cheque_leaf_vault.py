@@ -103,7 +103,7 @@ class ChequeLeafVault:
 
         # 1. Redis
         try:
-            raw = self._redis.hgetall(key)
+            raw = await self._redis.hgetall(key)
         except Exception as exc:
             log.warning(
                 "cheque_leaf_vault.redis_error",
@@ -142,7 +142,7 @@ class ChequeLeafVault:
                 return ChequeLeafVaultResult(outcome="HUMAN_REVIEW", degraded=True)
 
             if row:
-                self._backfill_redis(key, row)
+                await self._backfill_redis(key, row)
                 return ChequeLeafVaultResult(
                     outcome="FOUND",
                     status=row["status"],
@@ -358,7 +358,7 @@ class ChequeLeafVault:
         for leaf_num in [start_n, end_n]:
             cheque_number = str(leaf_num).zfill(len(series_start))
             key = self._make_key(account_number, cheque_number)
-            self._redis_set(key, "ACTIVE", str(issued_date))
+            await self._redis_set(key, "ACTIVE", str(issued_date))
 
         log.info(
             "cheque_leaf_vault.book_stored",
@@ -465,7 +465,7 @@ class ChequeLeafVault:
         # Update Redis
         key = self._make_key(account_number, cheque_number)
         try:
-            self._redis.hset(key, mapping={"status": resolved_status})
+            await self._redis.hset(key, mapping={"status": resolved_status})
         except Exception as exc:
             log.warning("cheque_leaf_vault.redis_update_failed",
                         cheque_number=cheque_number, error=str(exc))
@@ -516,7 +516,7 @@ class ChequeLeafVault:
             mapping["issued_date"] = issued_date
         if series_end:
             mapping["series_end"] = series_end
-        self._redis.hset(key, mapping=mapping)
+        await self._redis.hset(key, mapping=mapping)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -533,22 +533,22 @@ class ChequeLeafVault:
                 self._bank_id, account_hash, cheque_number,
             )
 
-    def _backfill_redis(self, key: str, row) -> None:
+    async def _backfill_redis(self, key: str, row) -> None:
         try:
             mapping = {"status": row["status"]}
             if row.get("issued_date"):
                 mapping["issued_date"] = str(row["issued_date"])
-            self._redis.hset(key, mapping=mapping)
+            await self._redis.hset(key, mapping=mapping)
         except Exception as exc:
             log.warning("cheque_leaf_vault.redis_backfill_failed",
                         key=key[:50], error=str(exc))
 
-    def _redis_set(self, key: str, status: str, issued_date: Optional[str] = None) -> None:
+    async def _redis_set(self, key: str, status: str, issued_date: Optional[str] = None) -> None:
         try:
             mapping: dict[str, str] = {"status": status}
             if issued_date:
                 mapping["issued_date"] = issued_date
-            self._redis.hset(key, mapping=mapping)
+            await self._redis.hset(key, mapping=mapping)
         except Exception as exc:
             log.warning("cheque_leaf_vault.redis_set_failed",
                         key=key[:50], error=str(exc))
@@ -572,7 +572,7 @@ class ChequeLeafVault:
         if self._db_pool is None:
             # Degrade gracefully: update Redis only (lost on restart but IET unblocked)
             key = self._make_key(account_number, cheque_number)
-            self._redis_set(key, new_status)
+            await self._redis_set(key, new_status)
             return
 
         async with self._db_pool.acquire() as conn:
@@ -600,7 +600,7 @@ class ChequeLeafVault:
                         cheque_number, new_status, instrument_id,
                     )
                     key = self._make_key(account_number, cheque_number)
-                    self._redis_set(key, new_status)
+                    await self._redis_set(key, new_status)
                     return
 
                 prev_status = row["status"]
@@ -646,7 +646,7 @@ class ChequeLeafVault:
                 )
 
         key = self._make_key(account_number, cheque_number)
-        self._redis_set(key, new_status)
+        await self._redis_set(key, new_status)
         log.info(
             "cheque_leaf_vault.astra_transition",
             cheque_number=cheque_number,

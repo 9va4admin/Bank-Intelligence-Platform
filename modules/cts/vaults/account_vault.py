@@ -134,7 +134,7 @@ class AccountVault:
 
         # 2. Redis
         try:
-            raw = self._redis.hgetall(key)
+            raw = await self._redis.hgetall(key)
         except Exception as exc:
             log.warning(
                 "account_vault.redis_error",
@@ -165,7 +165,7 @@ class AccountVault:
                 return AccountVaultResult(outcome="HUMAN_REVIEW", miss_reason="VAULT_ERROR")
 
             if row:
-                self._backfill_redis(key, dict(row))
+                await self._backfill_redis(key, dict(row))
                 self._cache[key] = dict(row)
                 log.info(
                     "account_vault.db_hit_redis_backfilled",
@@ -202,11 +202,11 @@ class AccountVault:
             )
         return dict(row) if row else None
 
-    def _backfill_redis(self, key: str, profile: dict[str, Any]) -> None:
+    async def _backfill_redis(self, key: str, profile: dict[str, Any]) -> None:
         try:
             pipe = self._redis.pipeline()
             pipe.hset(key, mapping={k: str(v) for k, v in profile.items()})
-            pipe.execute()
+            await pipe.execute()
         except Exception as exc:
             log.warning("account_vault.redis_backfill_failed", key=key[:30], error=str(exc))
 
@@ -293,7 +293,7 @@ class AccountVault:
             key = f"acct:{self._bank_id}:{account_hash}"
             self._cache.pop(key, None)
             pipe.hset(key, mapping={k: str(v) for k, v in contact_fields.items()})
-        pipe.execute()
+        await pipe.execute()
 
         count = len(rows)
         log.info(
@@ -367,7 +367,7 @@ class AccountVault:
         try:
             pipe = self._redis.pipeline()
             pipe.hset(key, mapping={k: str(v) for k, v in profile.items()})
-            pipe.execute()
+            await pipe.execute()
         except Exception as exc:
             log.warning(
                 "account_vault.redis_store_failed",

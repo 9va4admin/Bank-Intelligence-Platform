@@ -132,7 +132,7 @@ class SignatureVault:
 
             # 2. Redis
             try:
-                raw_list = self._redis.lrange(key, 0, -1)
+                raw_list = await self._redis.lrange(key, 0, -1)
             except Exception as exc:
                 log.warning(
                     "signature_vault.redis_error",
@@ -163,7 +163,7 @@ class SignatureVault:
                     continue
 
                 if embeddings:
-                    self._backfill_redis(key, embeddings)
+                    await self._backfill_redis(key, embeddings)
                     self._cache[key] = embeddings
                     result[sig_id] = embeddings
                     log.info(
@@ -250,7 +250,7 @@ class SignatureVault:
             return VaultResult(outcome="FOUND", embeddings=self._cache[primary_key])
 
         try:
-            raw_list = self._redis.lrange(primary_key, 0, -1)
+            raw_list = await self._redis.lrange(primary_key, 0, -1)
         except Exception as exc:
             log.warning(
                 "signature_vault.redis_error",
@@ -286,7 +286,7 @@ class SignatureVault:
                 return VaultResult(outcome="HUMAN_REVIEW", embeddings=[], miss_reason="VAULT_ERROR")
 
             if embeddings:
-                self._backfill_redis(primary_key, embeddings)
+                await self._backfill_redis(primary_key, embeddings)
                 self._cache[primary_key] = embeddings
                 log.info(
                     "signature_vault.db_hit_redis_backfilled",
@@ -368,7 +368,7 @@ class SignatureVault:
             pipe.delete(key)
             for emb in embeddings:
                 pipe.rpush(key, pack_embedding(emb))
-            pipe.execute()
+            await pipe.execute()
         except Exception as exc:
             log.warning(
                 "signature_vault.redis_store_failed",
@@ -419,12 +419,12 @@ class SignatureVault:
             )
         return [unpack_embedding(bytes(row["embedding"])) for row in rows]
 
-    def _backfill_redis(self, key: str, embeddings: list[list[float]]) -> None:
+    async def _backfill_redis(self, key: str, embeddings: list[list[float]]) -> None:
         try:
             pipe = self._redis.pipeline()
             pipe.delete(key)
             for emb in embeddings:
                 pipe.rpush(key, pack_embedding(emb))
-            pipe.execute()
+            await pipe.execute()
         except Exception as exc:
             log.warning("signature_vault.redis_backfill_failed", key=key[:60], error=str(exc))

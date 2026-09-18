@@ -62,7 +62,7 @@ def _mock_orchestrator(payload: dict | None = None):
 def _mock_config():
     """Return a config_service mock satisfying detect_alteration's config.get call."""
     config = AsyncMock()
-    config.get = AsyncMock(return_value=0.5)  # ai.tamper_risk_threshold
+    config.get = AsyncMock(return_value=0.5)  # cts.alteration_risk_threshold
     return config
 
 

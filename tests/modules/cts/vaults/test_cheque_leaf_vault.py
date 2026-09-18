@@ -10,7 +10,7 @@ Critical invariants:
   - Raw account number NEVER appears in the Redis key — HMAC hash only
 """
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 
 def _make_vault(bank_id="test-bank", pepper="test-pepper", redis_client=None):
@@ -25,7 +25,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_active_leaf_returns_found_with_active_status(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(return_value={b"status": b"ACTIVE", b"issued_date": b"2026-01-15"})
+        redis.hgetall = AsyncMock(return_value={b"status": b"ACTIVE", b"issued_date": b"2026-01-15"})
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "FOUND"
@@ -34,7 +34,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_lost_leaf_returns_found_with_lost_status(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(return_value={b"status": b"LOST", b"issued_date": b"2026-01-15"})
+        redis.hgetall = AsyncMock(return_value={b"status": b"LOST", b"issued_date": b"2026-01-15"})
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "FOUND"
@@ -43,7 +43,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_stolen_leaf_returns_found_with_stolen_status(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(return_value={b"status": b"STOLEN"})
+        redis.hgetall = AsyncMock(return_value={b"status": b"STOLEN"})
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "FOUND"
@@ -52,7 +52,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_cancelled_leaf_returns_found_with_cancelled_status(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(return_value={b"status": b"CANCELLED"})
+        redis.hgetall = AsyncMock(return_value={b"status": b"CANCELLED"})
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "FOUND"
@@ -61,7 +61,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_used_leaf_returns_found_with_used_status(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(return_value={b"status": b"USED"})
+        redis.hgetall = AsyncMock(return_value={b"status": b"USED"})
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "FOUND"
@@ -70,7 +70,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_miss_returns_not_found(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(return_value={})
+        redis.hgetall = AsyncMock(return_value={})
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "NOT_FOUND"
@@ -79,7 +79,7 @@ class TestChequeLeafVaultLookup:
     @pytest.mark.asyncio
     async def test_lookup_redis_error_returns_error_with_degraded_flag(self):
         redis = MagicMock()
-        redis.hgetall = MagicMock(side_effect=Exception("Redis connection refused"))
+        redis.hgetall = AsyncMock(side_effect=Exception("Redis connection refused"))
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
         assert result.outcome == "ERROR"
@@ -127,6 +127,7 @@ class TestChequeLeafVaultStore:
     @pytest.mark.asyncio
     async def test_store_writes_status_to_redis_hash(self):
         redis = MagicMock()
+        redis.hset = AsyncMock()
         vault = _make_vault(redis_client=redis)
         await vault.store("9876543210", "001234", status="ACTIVE", issued_date="2026-01-15")
         assert redis.hset.called
@@ -136,6 +137,7 @@ class TestChequeLeafVaultStore:
     @pytest.mark.asyncio
     async def test_store_includes_issued_date_when_provided(self):
         redis = MagicMock()
+        redis.hset = AsyncMock()
         vault = _make_vault(redis_client=redis)
         await vault.store("9876543210", "001234", status="ACTIVE", issued_date="2026-01-15")
         mapping = redis.hset.call_args[1]["mapping"]
@@ -144,6 +146,7 @@ class TestChequeLeafVaultStore:
     @pytest.mark.asyncio
     async def test_store_key_never_contains_raw_account_number(self):
         redis = MagicMock()
+        redis.hset = AsyncMock()
         vault = _make_vault(redis_client=redis)
         await vault.store("9876543210", "001234", status="ACTIVE")
         key = redis.hset.call_args[0][0]

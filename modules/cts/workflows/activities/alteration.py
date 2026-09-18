@@ -273,7 +273,7 @@ async def detect_alteration(
         span.set_attribute("instrument_id", inp.instrument_id)
         span.set_attribute("scan_dpi", inp.scan_dpi)
 
-        tamper_risk_threshold = await config_service.get("ai.tamper_risk_threshold")
+        tamper_risk_threshold = await config_service.get("cts.alteration_risk_threshold")
 
         # ── Kill-switch entry checkpoint (KC path) ─────────────────────────
         # Checked BEFORE any vLLM call. If KC is active, skip Vision AI entirely.
