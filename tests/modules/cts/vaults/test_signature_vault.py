@@ -53,15 +53,15 @@ def _expected_key(bank_id, account_number, signatory_id="PRIMARY", pepper="test-
 
 def _redis_miss():
     r = MagicMock()
-    r.lrange = MagicMock(return_value=[])
-    r.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=MagicMock()))
+    r.lrange = AsyncMock(return_value=[])
+    r.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=AsyncMock()))
     return r
 
 
 def _redis_hit(embeddings: list[list[float]], signatory_id="PRIMARY"):
     r = MagicMock()
-    r.lrange = MagicMock(return_value=[_pack(e) for e in embeddings])
-    r.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=MagicMock()))
+    r.lrange = AsyncMock(return_value=[_pack(e) for e in embeddings])
+    r.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=AsyncMock()))
     return r
 
 
@@ -167,7 +167,7 @@ class TestGetSpecimensBySignatory:
             if "JOINT_1" in key:
                 return [_pack(emb2)]
             return []
-        redis.lrange = MagicMock(side_effect=lrange_side)
+        redis.lrange = AsyncMock(side_effect=lrange_side)
         vault = _make_vault(redis_client=redis)
         # Inject signatory list via cache bypass: set up DB pool mock
         db_pool = _db_with_signatories(["PRIMARY", "JOINT_1"])
@@ -380,7 +380,7 @@ class TestGetSignaturesBackwardCompat:
             if "JOINT_1" in key:
                 return [_pack(emb3), _pack(emb4)]
             return []
-        redis.lrange = MagicMock(side_effect=lrange_side)
+        redis.lrange = AsyncMock(side_effect=lrange_side)
         db_pool = _db_with_signatories(["PRIMARY", "JOINT_1"])
         vault = _make_vault(redis_client=redis, db_pool=db_pool)
         result = await vault.get_signatures("ACC010", "test-bank")
@@ -396,6 +396,7 @@ class TestStoreEmbeddings:
     @pytest.mark.asyncio
     async def test_store_uses_correct_redis_key(self):
         pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
@@ -406,6 +407,7 @@ class TestStoreEmbeddings:
     @pytest.mark.asyncio
     async def test_store_joint_signatory_uses_joint_key(self):
         pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
@@ -416,6 +418,7 @@ class TestStoreEmbeddings:
     @pytest.mark.asyncio
     async def test_store_pushes_all_specimens(self):
         pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
@@ -426,6 +429,7 @@ class TestStoreEmbeddings:
     @pytest.mark.asyncio
     async def test_store_never_uses_raw_account_as_key(self):
         pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
@@ -438,6 +442,7 @@ class TestStoreEmbeddings:
     @pytest.mark.asyncio
     async def test_store_invalidates_local_cache(self):
         pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
@@ -449,6 +454,7 @@ class TestStoreEmbeddings:
     @pytest.mark.asyncio
     async def test_store_upserts_to_db_when_pool_provided(self):
         pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         conn = AsyncMock()
