@@ -67,3 +67,50 @@ class MICRParser:
             return None
         full = match.group(1).strip()
         return full[-4:] if len(full) >= 4 else full
+
+    @staticmethod
+    def parse_ocr_text(raw: str) -> dict:
+        """
+        Tolerant MICR parse for image-OCR text (GOT-OCR2/Tesseract/HF vision),
+        which reads printed MICR digits but has no way to reproduce the E-13B
+        delimiter glyphs (⑆ ⑈ ⑉) a physical MICR-reader head outputs — those
+        symbols only exist on the scanner-hardware path (see parse() above).
+
+        Indian CTS-2010 MICR band is a fixed-width digit string, standard
+        layout: 6 (cheque number) + 9 (city-bank-branch code) + 6 (account
+        number) + 2 (transaction code) = 23 digits. OCR noise (stray letters,
+        punctuation, misreads) is stripped first; the longest resulting
+        digit run is used. Positions are only trusted when the run is
+        exactly 23 digits — a shorter/longer run means OCR corruption, and
+        guessing positions on a corrupted run would fabricate an account
+        number, so all fields are returned as None instead.
+
+        Returns dict with keys: cheque_number, bank_branch_code,
+        account_number_fragment (last 4 digits only — PII rule, same as
+        parse() above), all None if no exactly-23-digit run is found.
+        """
+        empty = {
+            'cheque_number': None,
+            'bank_branch_code': None,
+            'account_number_fragment': None,
+        }
+        if not raw or not raw.strip():
+            return empty
+
+        # OCR/vision models frequently insert spaces between the MICR band's
+        # printed digit groups (cheque no. / city-bank-branch / account /
+        # transaction code) even though no space exists on the physical
+        # cheque -- strip everything non-digit and treat the whole line as
+        # one run rather than picking the single longest contiguous run.
+        run = re.sub(r'\D', '', raw)
+        if len(run) != 23:
+            return empty
+
+        cheque_number = run[0:6]
+        bank_branch_code = run[6:15]
+        account_number = run[15:21]
+        return {
+            'cheque_number': cheque_number,
+            'bank_branch_code': bank_branch_code,
+            'account_number_fragment': account_number[-4:],
+        }
