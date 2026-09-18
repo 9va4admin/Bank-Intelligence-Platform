@@ -28,6 +28,7 @@ from modules.cts.preprocessing.zone_extractor import (
     extract_zone,
     identify_indic_script,
 )
+from modules.cts.scanner.micr import MICRParser
 from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
@@ -85,6 +86,9 @@ class OCRActivityResult(BaseModel):
     date: Optional[str] = None
     payee: Optional[str] = None
     ifsc_code: Optional[str] = None
+    cheque_number: Optional[str] = None           # parsed from micr_line, MICRParser.parse_ocr_text
+    bank_branch_code: Optional[str] = None        # parsed from micr_line
+    account_number_last4: Optional[str] = None    # PII rule — never the full account number
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     degraded: bool = False
@@ -120,13 +124,25 @@ async def ocr_extract(
         span.set_attribute("instrument_id", inp.instrument_id)
         ai_config = await config_service.get_ai_config(inp.bank_id)
         min_confidence: float = ai_config["ai.ocr.min_confidence"]
-        indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
+        # NOT one of get_ai_config()'s fixed 8 keys — must be fetched directly,
+        # or it silently resolves to "" forever and IndicOCR never runs even
+        # when the service is genuinely up (real bug, fixed 2026-09-18).
+        # Fail-open on config errors — same as the kill-switch lookup below;
+        # a bad config read must not block OCR entirely.
+        try:
+            indic_ocr_url: str = await config_service.get("services.indic_ocr.url")
+        except Exception:
+            indic_ocr_url = ""
         indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
 
         # ── Stage 1: Full image → GOT-OCR2 (GPU) or Tesseract (CPU fallback) ───
         raw = await _extract_got_ocr2(inp, orchestrator)
         if raw is None:
-            # vLLM unavailable — try Tesseract before giving up entirely
+            # vLLM unavailable — try a real cloud vision fallback (config-gated,
+            # off by default: see shared/ai/hf_cloud_fallback.py) before the
+            # much weaker Tesseract-only path.
+            raw = await _extract_hf_cloud(inp, config_service)
+        if raw is None:
             raw = await _extract_tesseract(inp)
         if raw is None:
             return OCRActivityResult(
@@ -137,9 +153,11 @@ async def ocr_extract(
 
         fields, cascade_level = raw
 
-        # cascade_level == -1 signals Tesseract ran (not vLLM cascade)
+        # cascade_level == -1 signals Tesseract ran; -2 signals HF cloud fallback ran
         if cascade_level == -1:
             engines_used = ["tesseract:cpu-fallback"]
+        elif cascade_level == -2:
+            engines_used = ["hf-cloud:qwen2.5-vl-72b"]
         else:
             engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
 
@@ -214,6 +232,68 @@ async def _extract_got_ocr2(
         "ifsc_code":      _field("ifsc_code"),
     }
     return fields, cascade_result.cascade_level
+
+
+# ── Stage 1a: real cloud vision fallback (config-gated, off by default) ──────
+
+async def _extract_hf_cloud(
+    inp: OCRActivityInput,
+    config_service: Any,
+) -> Optional[tuple[dict[str, tuple[Optional[str], float]], int]]:
+    """
+    Real Hugging Face-hosted Qwen2.5-VL-72B call, used only when
+    cts.allow_cloud_ai_fallback is explicitly enabled for this bank (default
+    False — see shared/ai/hf_cloud_fallback.py's module docstring for why
+    this is a deliberate architecture exception, not the norm).
+
+    Returns (fields_dict, -2) on success, None if disabled/token missing/
+    call fails — callers fall through to Tesseract exactly as they do today
+    on any other vLLM-unavailable path.
+    """
+    from shared.ai.hf_cloud_fallback import call_hf_vision, cloud_fallback_enabled
+
+    if not await cloud_fallback_enabled(config_service, inp.bank_id):
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(inp.image_url)
+            resp.raise_for_status()
+        image_bytes = resp.content
+    except Exception as exc:
+        log.warning("ocr.hf_cloud_image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
+        return None
+
+    content = await call_hf_vision(config_service, image_bytes, _OCR_PROMPT)
+    if content is None:
+        return None
+
+    try:
+        text = content.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        parsed = json.loads(text)
+    except Exception as exc:
+        log.warning("ocr.hf_cloud_invalid_json", instrument_id=inp.instrument_id, error=str(exc))
+        return None
+
+    fields: dict[str, tuple[Optional[str], float]] = {}
+    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "ifsc_code"):
+        entry = parsed.get(key) or {}
+        value = entry.get("value") if isinstance(entry, dict) else None
+        confidence = float(entry.get("confidence", 0.0)) if isinstance(entry, dict) else 0.0
+        fields[key] = (value, confidence)
+
+    log.info(
+        "ocr.hf_cloud_fallback_used",
+        instrument_id=inp.instrument_id,
+        bank_id=inp.bank_id,
+        payee_found=bool(fields["payee"][0]),
+        micr_found=bool(fields["micr_line"][0]),
+    )
+    return fields, -2   # -2 = HF cloud fallback, not local vLLM cascade
 
 
 # ── Stage 1b: Tesseract CPU fallback ─────────────────────────────────────────
@@ -459,6 +539,10 @@ def _build_result(
     overall = sum(all_confs) / len(all_confs) if all_confs else 0.0
 
     principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)
+    micr_parsed = MICRParser.parse_ocr_text(micr_line or "")
+    cheque_number = micr_parsed["cheque_number"]
+    bank_branch_code = micr_parsed["bank_branch_code"]
+    account_number_last4 = micr_parsed["account_number_fragment"]
 
     if low_fields:
         log.info("ocr.low_confidence", instrument_id=inp.instrument_id, low_fields=low_fields)
@@ -477,6 +561,9 @@ def _build_result(
             indic_refined_fields=indic_refined,
             ocr_engines_used=_engines,
             indic_ocr_kill_switch_active=indic_ks_active,
+            cheque_number=cheque_number,
+            bank_branch_code=bank_branch_code,
+            account_number_last4=account_number_last4,
         )
 
     match = amounts_match(figures=amt_figures, words=amt_words)
@@ -496,6 +583,9 @@ def _build_result(
             indic_refined_fields=indic_refined,
             ocr_engines_used=_engines,
             indic_ocr_kill_switch_active=indic_ks_active,
+            cheque_number=cheque_number,
+            bank_branch_code=bank_branch_code,
+            account_number_last4=account_number_last4,
         )
 
     return OCRActivityResult(
@@ -513,6 +603,9 @@ def _build_result(
         indic_refined_fields=indic_refined,
         ocr_engines_used=_engines,
         indic_ocr_kill_switch_active=indic_ks_active,
+        cheque_number=cheque_number,
+        bank_branch_code=bank_branch_code,
+        account_number_last4=account_number_last4,
     )
 
 

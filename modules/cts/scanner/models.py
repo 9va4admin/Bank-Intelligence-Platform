@@ -63,8 +63,8 @@ class ScanResult:
 
     micr_raw:            str        # raw MICR line — never log in full (contains account data)
     bank_id:             str
-    branch_id:           Optional[str] = None   # ASTRA branch ID — set when edge agent sends it
     operator_id:         str
+    branch_id:           Optional[str] = None   # ASTRA branch ID — set when edge agent sends it
 
     # Optional scanner capability fields
     uv_image:             Optional[bytes] = None   # UV scan buffer — any UV-capable OEM

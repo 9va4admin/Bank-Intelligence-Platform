@@ -79,6 +79,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.outward_dormant_payee_action": "HUMAN_REVIEW",
     "cts.outward_npa_payee_action": "HUMAN_REVIEW",
     "cts.indic_ocr.kill_mode": "NONE",
+    # OFF everywhere by default — real cloud dependency, dev/test exception
+    # only. See shared/ai/hf_cloud_fallback.py's module docstring.
+    "cts.allow_cloud_ai_fallback": False,
     # ── AI thresholds ───────────────────────────────────────────────────────────
     "ai.ocr.min_confidence": 0.90,
     "ai.signature.min_match_score": 0.85,
@@ -88,6 +91,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "ai.drift.alert_pct_threshold": 2.0,
     "ai.drift.auto_tighten_pct_threshold": 5.0,
     "ai.drift.pull_from_prod_pct_threshold": 8.0,
+    # ── AI service endpoints ────────────────────────────────────────────────────
+    "services.indic_ocr.url": "http://localhost:8021",
+    "services.sig_detector.url": "http://localhost:8020",
     # ── Platform health ─────────────────────────────────────────────────────────
     "platform_health_check.cadence_seconds": 60,
     "platform_health_check.max_human_review_queue_depth": 50,
