@@ -23,8 +23,9 @@ The activity is self-contained within modules/cts/ — no import from modules/ms
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Any, Optional
 
+import httpx
 import structlog
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict
@@ -69,6 +70,78 @@ class DetectSignaturesInput(BaseModel):
     image_url: str
 
 
+async def _detect_via_sig_detector(
+    inp: DetectSignaturesInput,
+    config_service: Any,
+) -> Optional["DetectSignaturesResult"]:
+    """
+    Real fallback via apps/sig_detector — a standalone service that never
+    depends on vLLM (pixel-analysis mode works with zero model weights;
+    YOLOv8 mode is used automatically if SIG_DETECTOR_LOCAL_PATH is set on
+    that service). Used when the Qwen2-VL vision cascade is unreachable, so
+    signature presence/bbox detection doesn't go fully blind just because
+    the GPU cluster is down — matches how the real outward pipeline already
+    treats signature *presence* as independently checkable from OCR.
+
+    Returns None (never raises) if the service itself is unreachable —
+    caller falls through to the existing DEGRADED outcome unchanged.
+    """
+    try:
+        url = await config_service.get("services.sig_detector.url")
+    except Exception:
+        return None
+    if not url:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            img_resp = await client.get(inp.image_url)
+            img_resp.raise_for_status()
+            det_resp = await client.post(
+                f"{url}/detect",
+                files={"file": ("cheque.jpg", img_resp.content, "image/jpeg")},
+            )
+            det_resp.raise_for_status()
+            data = det_resp.json()
+    except Exception as exc:
+        log.warning(
+            "detect_signatures.sig_detector_unavailable",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            error=str(exc),
+        )
+        return None
+
+    detections = data.get("detections", [])
+
+    # sig_detector's /detect always returns already-fractional [0,1] bboxes
+    # (pixel mode divides by image dims before returning; YOLO mode uses
+    # ultralytics' .xyxyn) — do not re-divide by image_size here.
+    sig_bboxes = [
+        [float(v) for v in d["bbox"]]
+        for d in detections
+        if isinstance(d.get("bbox"), list) and len(d["bbox"]) == 4
+    ]
+    sig_count = len(sig_bboxes)
+    mode = data.get("mode", "pixel")
+
+    log.info(
+        "detect_signatures.sig_detector_used",
+        instrument_id=inp.instrument_id,
+        bank_id=inp.bank_id,
+        sig_count=sig_count,
+        mode=mode,
+    )
+
+    return DetectSignaturesResult(
+        outcome="PRESENT" if sig_count > 0 else "ABSENT",
+        sig_count=sig_count,
+        sig_bboxes=sig_bboxes,
+        fraud_flags=[],   # pixel/yolo modes detect presence only, not ink-fraud patterns
+        degraded=False,
+    )
+
+
 class DetectSignaturesResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     outcome: str                        # "PRESENT" | "ABSENT" | "DEGRADED"
@@ -82,6 +155,7 @@ class DetectSignaturesResult(BaseModel):
 async def detect_signatures(
     inp: DetectSignaturesInput,
     vllm_client=None,
+    config_service: Any = None,
 ) -> DetectSignaturesResult:
     """
     Detect the number and fraud indicators of ink signatures on a cheque image.
@@ -101,6 +175,12 @@ async def detect_signatures(
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
             )
+            if config_service is not None:
+                fallback = await _detect_via_sig_detector(inp, config_service)
+                if fallback is not None:
+                    span.set_attribute("degraded", False)
+                    span.set_attribute("fallback", "sig_detector")
+                    return fallback
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
                 outcome="DEGRADED", sig_count=0, sig_bboxes=[], fraud_flags=[], degraded=True
@@ -141,6 +221,12 @@ async def detect_signatures(
                 bank_id=inp.bank_id,
                 error=str(exc),
             )
+            if config_service is not None:
+                fallback = await _detect_via_sig_detector(inp, config_service)
+                if fallback is not None:
+                    span.set_attribute("degraded", False)
+                    span.set_attribute("fallback", "sig_detector")
+                    return fallback
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
                 outcome="DEGRADED", sig_count=0, sig_bboxes=[], fraud_flags=[], degraded=True
