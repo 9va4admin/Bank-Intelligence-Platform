@@ -152,8 +152,21 @@ def _refine_bbox_to_ink(zone_png: bytes, bbox: list[float]) -> list[float]:
 
         gray = np.array(zone_img)
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
 
+        # Dilate before labelling so natural intra-signature gaps (cursive
+        # letters/words routinely have a few px of whitespace between
+        # strokes -- confirmed the real cause of 3 more real cheques
+        # missing part of the ink: 533684 lost the last word, 567048 lost
+        # the first character, both separated from the rest by exactly
+        # this kind of small gap) merge into one component instead of
+        # being left as separate, unconnected blobs the overlap search
+        # never reaches. A signature's own letter/word gaps are small; the
+        # whitespace CTS-2010 layout puts between the signature line and
+        # its printed caption above/below is consistently larger, so this
+        # kernel bridges the former without reaching the latter.
+        dilate_kernel = np.ones((5, 5), np.uint8)
+        binary_dilated = cv2.dilate(binary, dilate_kernel, iterations=1)
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary_dilated, connectivity=8)
         # A little tolerance around the model's box -- ink touching but not
         # strictly inside it (the exact failure mode found: the box sits
         # just short of the real stroke) should still count as the same
@@ -166,8 +179,15 @@ def _refine_bbox_to_ink(zone_png: bytes, bbox: list[float]) -> list[float]:
         if not overlap_labels:
             return bbox
 
-        mask = np.isin(labels, list(overlap_labels))
+        # Intersect the dilated-label grouping with the ORIGINAL (non-
+        # dilated) ink mask -- dilation is only used to decide which real
+        # ink blobs belong together; measuring extent against the dilated
+        # pixels themselves would inflate the bbox by the dilation radius
+        # on every side, well beyond the real stroke.
+        mask = np.isin(labels, list(overlap_labels)) & (binary > 0)
         ys, xs = np.where(mask)
+        if len(ys) == 0:
+            return bbox
         # Union with the model's own box -- refinement only ever grows it.
         real_x1 = min(int(xs.min()), px1)
         real_y1 = min(int(ys.min()), py1)
