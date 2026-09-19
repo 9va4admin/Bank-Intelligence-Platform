@@ -115,7 +115,7 @@ class PPSVault:
 
         # 2. Redis
         try:
-            raw = self._redis.hgetall(key)
+            raw = await self._redis.hgetall(key)
         except Exception as exc:
             log.warning(
                 "pps_vault.redis_error",
@@ -156,7 +156,7 @@ class PPSVault:
                 if entry.get("cheque_date"):
                     entry["cheque_date"] = str(entry["cheque_date"])
                 self._cache[key] = entry
-                self._backfill_redis(key, entry)
+                await self._backfill_redis(key, entry)
                 log.info(
                     "pps_vault.db_hit_redis_backfilled",
                     account_last4=account_number[-4:],
@@ -296,7 +296,7 @@ class PPSVault:
         # Redis — plaintext for fast matching; TTL handles expiry automatically
         if action == "CANCEL":
             try:
-                self._redis.delete(key)
+                await self._redis.delete(key)
             except Exception as exc:
                 log.warning("pps_vault.redis_delete_failed",
                             cheque_number=cheque_number, error=str(exc))
@@ -310,8 +310,8 @@ class PPSVault:
             if npci_flag:
                 mapping["npci_flag"] = npci_flag
             try:
-                self._redis.hset(key, mapping=mapping)
-                self._redis.expire(key, ttl)
+                await self._redis.hset(key, mapping=mapping)
+                await self._redis.expire(key, ttl)
             except Exception as exc:
                 log.warning("pps_vault.redis_store_failed",
                             cheque_number=cheque_number, error=str(exc))
@@ -356,9 +356,9 @@ class PPSVault:
             mapping["cheque_date"] = str(cheque_date)
             ttl_seconds = self._compute_ttl(cheque_date)
 
-        self._redis.hset(key, mapping=mapping)
+        await self._redis.hset(key, mapping=mapping)
         if ttl_seconds:
-            self._redis.expire(key, ttl_seconds)
+            await self._redis.expire(key, ttl_seconds)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -377,7 +377,7 @@ class PPSVault:
                 self._bank_id, account_hash, cheque_number,
             )
 
-    def _backfill_redis(self, key: str, entry: dict) -> None:
+    async def _backfill_redis(self, key: str, entry: dict) -> None:
         try:
             mapping = {
                 "amount_paise": str(entry.get("amount_paise", 0)),
@@ -390,12 +390,12 @@ class PPSVault:
                 try:
                     cd = date.fromisoformat(str(cheque_date_raw))
                     ttl = self._compute_ttl(cd)
-                    self._redis.hset(key, mapping=mapping)
-                    self._redis.expire(key, ttl)
+                    await self._redis.hset(key, mapping=mapping)
+                    await self._redis.expire(key, ttl)
                     return
                 except (ValueError, TypeError):
                     pass
-            self._redis.hset(key, mapping=mapping)
+            await self._redis.hset(key, mapping=mapping)
         except Exception as exc:
             log.warning("pps_vault.redis_backfill_failed", key=key[:50], error=str(exc))
 

@@ -9,7 +9,7 @@ Critical invariant: vault miss MUST route to HUMAN_REVIEW, never AUTO_RETURN.
 """
 import hashlib
 import hmac
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -45,7 +45,7 @@ class TestPPSVaultInit:
         from modules.cts.vaults.pps_vault import PPSVault
         vault = PPSVault(bank_id="b", pepper="p")
         with pytest.raises(RuntimeError, match="connect"):
-            await vault.lookup("ACC001", "b", "100001")
+            await vault.lookup("ACC001", "100001")
 
     def test_connect_sets_ready(self):
         from modules.cts.vaults.pps_vault import PPSVault
@@ -104,7 +104,7 @@ class TestLookupCacheHit:
         key = vault._make_key("ACC001", "100001")
         vault._cache[key] = {"amount": 100000.0, "payee": "ACME Corp", "cheque_number": "100001"}
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.outcome == "FOUND"
 
     @pytest.mark.asyncio
@@ -114,7 +114,7 @@ class TestLookupCacheHit:
         key = vault._make_key("ACC001", "100001")
         vault._cache[key] = {"amount": 50000.0}
 
-        await vault.lookup("ACC001", "test-bank", "100001")
+        await vault.lookup("ACC001", "100001")
         mock_redis.hgetall.assert_not_called()
 
 
@@ -126,46 +126,46 @@ class TestLookupRedisHit:
     @pytest.mark.asyncio
     async def test_redis_hit_outcome_is_found(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={
+        mock_redis.hgetall = AsyncMock(return_value={
             b"amount": b"150000.00",
             b"payee": b"John Doe",
             b"cheque_number": b"100001",
         })
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.outcome == "FOUND"
 
     @pytest.mark.asyncio
     async def test_redis_hit_returns_amount_as_float(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={
+        mock_redis.hgetall = AsyncMock(return_value={
             b"amount": b"150000.50",
             b"payee": b"Jane",
             b"cheque_number": b"100001",
         })
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.pps_entry["amount"] == 150000.50
 
     @pytest.mark.asyncio
     async def test_redis_hit_uses_correct_key(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={b"amount": b"100.0", b"payee": b"x", b"cheque_number": b"1"})
+        mock_redis.hgetall = AsyncMock(return_value={b"amount": b"100.0", b"payee": b"x", b"cheque_number": b"1"})
         vault = _make_vault(redis_client=mock_redis)
 
-        await vault.lookup("ACC001", "test-bank", "100001")
+        await vault.lookup("ACC001", "100001")
         expected = vault._make_key("ACC001", "100001")
         mock_redis.hgetall.assert_called_once_with(expected)
 
     @pytest.mark.asyncio
     async def test_redis_hit_populates_cache(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={b"amount": b"100.0", b"payee": b"x", b"cheque_number": b"1"})
+        mock_redis.hgetall = AsyncMock(return_value={b"amount": b"100.0", b"payee": b"x", b"cheque_number": b"1"})
         vault = _make_vault(redis_client=mock_redis)
 
-        await vault.lookup("ACC001", "test-bank", "100001")
+        await vault.lookup("ACC001", "100001")
         key = vault._make_key("ACC001", "100001")
         assert key in vault._cache
 
@@ -179,37 +179,37 @@ class TestPPSVaultMiss:
     async def test_miss_outcome_is_human_review(self):
         """CRITICAL: PPS miss must never become AUTO_RETURN."""
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={})  # empty = not registered
+        mock_redis.hgetall = AsyncMock(return_value={})  # empty = not registered
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC_UNKNOWN", "test-bank", "999999")
+        result = await vault.lookup("ACC_UNKNOWN", "999999")
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
     async def test_miss_reason_is_pps_miss(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={})
+        mock_redis.hgetall = AsyncMock(return_value={})
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC_UNKNOWN", "test-bank", "999999")
+        result = await vault.lookup("ACC_UNKNOWN", "999999")
         assert result.miss_reason == "PPS_MISS"
 
     @pytest.mark.asyncio
     async def test_miss_outcome_is_never_auto_return(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={})
+        mock_redis.hgetall = AsyncMock(return_value={})
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC_UNKNOWN", "test-bank", "999999")
+        result = await vault.lookup("ACC_UNKNOWN", "999999")
         assert result.outcome != "AUTO_RETURN"
 
     @pytest.mark.asyncio
     async def test_miss_pps_entry_is_none(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(return_value={})
+        mock_redis.hgetall = AsyncMock(return_value={})
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC_UNKNOWN", "test-bank", "999999")
+        result = await vault.lookup("ACC_UNKNOWN", "999999")
         assert result.pps_entry is None
 
 
@@ -221,37 +221,37 @@ class TestPPSRedisError:
     @pytest.mark.asyncio
     async def test_redis_error_outcome_is_human_review(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(side_effect=Exception("Redis down"))
+        mock_redis.hgetall = AsyncMock(side_effect=Exception("Redis down"))
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
     async def test_redis_error_reason_is_vault_error(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(side_effect=ConnectionError("timeout"))
+        mock_redis.hgetall = AsyncMock(side_effect=ConnectionError("timeout"))
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.miss_reason == "VAULT_ERROR"
 
     @pytest.mark.asyncio
     async def test_redis_error_does_not_raise(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(side_effect=RuntimeError("unexpected"))
+        mock_redis.hgetall = AsyncMock(side_effect=RuntimeError("unexpected"))
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result is not None
 
     @pytest.mark.asyncio
     async def test_redis_error_outcome_is_never_auto_return(self):
         mock_redis = MagicMock()
-        mock_redis.hgetall = MagicMock(side_effect=Exception("gone"))
+        mock_redis.hgetall = AsyncMock(side_effect=Exception("gone"))
         vault = _make_vault(redis_client=mock_redis)
 
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.outcome != "AUTO_RETURN"
 
 
@@ -263,8 +263,8 @@ class TestStorePPS:
     @pytest.mark.asyncio
     async def test_store_uses_correct_key(self):
         mock_redis = MagicMock()
-        mock_redis.hset = MagicMock()
-        mock_redis.expire = MagicMock()
+        mock_redis.hset = AsyncMock()
+        mock_redis.expire = AsyncMock()
         vault = _make_vault(redis_client=mock_redis)
 
         await vault.store("ACC001", "100001", amount=50000.0, payee="ACME")
@@ -276,8 +276,8 @@ class TestStorePPS:
     @pytest.mark.asyncio
     async def test_store_does_not_use_raw_account_as_key(self):
         mock_redis = MagicMock()
-        mock_redis.hset = MagicMock()
-        mock_redis.expire = MagicMock()
+        mock_redis.hset = AsyncMock()
+        mock_redis.expire = AsyncMock()
         vault = _make_vault(redis_client=mock_redis)
 
         await vault.store("ACC_SECRET", "100001", amount=100.0, payee="Bob")
@@ -287,8 +287,8 @@ class TestStorePPS:
     @pytest.mark.asyncio
     async def test_store_sets_amount_and_payee(self):
         mock_redis = MagicMock()
-        mock_redis.hset = MagicMock()
-        mock_redis.expire = MagicMock()
+        mock_redis.hset = AsyncMock()
+        mock_redis.expire = AsyncMock()
         vault = _make_vault(redis_client=mock_redis)
 
         await vault.store("ACC001", "100001", amount=75000.0, payee="XYZ Ltd")
@@ -299,8 +299,8 @@ class TestStorePPS:
     @pytest.mark.asyncio
     async def test_store_invalidates_cache(self):
         mock_redis = MagicMock()
-        mock_redis.hset = MagicMock()
-        mock_redis.expire = MagicMock()
+        mock_redis.hset = AsyncMock()
+        mock_redis.expire = AsyncMock()
         vault = _make_vault(redis_client=mock_redis)
         key = vault._make_key("ACC001", "100001")
         vault._cache[key] = {"amount": 1.0}
@@ -313,7 +313,7 @@ class TestPPSVaultMissingBranches:
     def test_connect_without_redis_client_imports_redis(self, monkeypatch):
         """Covers lines 39-40: connect() with no redis_client imports redis module."""
         import sys
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock
         fake_redis_mod = MagicMock()
         fake_redis_instance = MagicMock()
         fake_redis_mod.Redis.return_value = fake_redis_instance
@@ -328,9 +328,10 @@ class TestPPSVaultMissingBranches:
     @pytest.mark.asyncio
     async def test_lookup_non_numeric_amount_passes_through(self):
         """Covers lines 94-95: ValueError when converting amount to float → pass."""
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock
         from modules.cts.vaults.pps_vault import PPSVault
         mock_redis = MagicMock()
+        mock_redis.hgetall = AsyncMock()
         mock_redis.hgetall.return_value = {
             b"amount": b"not-a-number",
             b"payee": b"Test Payee",
@@ -338,7 +339,7 @@ class TestPPSVaultMissingBranches:
         }
         vault = PPSVault(bank_id="test-bank", pepper="pepper")
         vault.connect(redis_client=mock_redis)
-        result = await vault.lookup("ACC001", "test-bank", "100001")
+        result = await vault.lookup("ACC001", "100001")
         assert result.outcome == "FOUND"
         # amount field stays as string "not-a-number" — no crash
         assert result.pps_entry["amount"] == "not-a-number"
@@ -346,9 +347,11 @@ class TestPPSVaultMissingBranches:
     @pytest.mark.asyncio
     async def test_store_with_ttl_calls_expire(self):
         """Covers line 119: store() with ttl_seconds calls redis.expire."""
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock
         from modules.cts.vaults.pps_vault import PPSVault
         mock_redis = MagicMock()
+        mock_redis.hset = AsyncMock()
+        mock_redis.expire = AsyncMock()
         vault = PPSVault(bank_id="test-bank", pepper="pepper")
         vault.connect(redis_client=mock_redis)
         await vault.store("ACC001", "100001", amount=5000.0, payee="Payee", ttl_seconds=3600)

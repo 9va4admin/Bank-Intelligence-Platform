@@ -32,7 +32,30 @@ Start:
 
 import io
 import os
+import sys
 from typing import Any, Optional
+
+# Windows' default console codepage (cp1252) can't encode Devanagari/other
+# Indic Unicode output — without this, every successful non-Latin OCR result
+# crashes the request with UnicodeEncodeError the moment it's logged, even
+# though the OCR call itself succeeded. Must run before structlog's first
+# log call. errors="replace" so a genuinely unencodable byte still logs
+# something rather than reintroducing the crash.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+    # PaddleOCR's import chain (paddleocr -> paddlex -> modelscope -> torch)
+    # loads torch AFTER paddle's own native DLLs are already on the process —
+    # on Windows this breaks torch's own DLL loading with
+    # "OSError: [WinError 127] The specified procedure could not be found"
+    # on torch/lib/shm.dll, even though `import torch` alone works fine.
+    # Importing torch here, before anything paddle-related, forces the
+    # working DLL load order. Confirmed: fails without this, works with it.
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        pass
 
 import numpy as np
 import structlog
@@ -41,6 +64,19 @@ from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict
 
+# This service used to keep its own copy of the CTS-2010 field-zone
+# percentages, which had silently drifted out of sync with the real,
+# properly-calibrated table in modules/cts/preprocessing/zone_extractor.py
+# (payee_name here was y=0.25-0.46; the real one is y=0.13-0.30). Confirmed
+# by direct testing on a real cheque 2026-09-17: the wrong copy's
+# payee_name zone bled into the amount_words line below it, and its
+# amount_words zone (y=0.44-0.63) missed the actual text entirely, landing
+# on the A/c No. table instead. Import the one real definition rather than
+# maintain a second copy that can drift again.
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from modules.cts.preprocessing.zone_extractor import CTS_ZONES as _CTS_ZONES
+
 log = structlog.get_logger()
 
 # ── Backend constants ─────────────────────────────────────────────────────────
@@ -48,36 +84,88 @@ log = structlog.get_logger()
 BACKEND_PADDLE     = "paddle"
 BACKEND_AI4BHARAT  = "ai4bharat"
 BACKEND_EASYOCR    = "easyocr"
-_VALID_BACKENDS    = {BACKEND_PADDLE, BACKEND_AI4BHARAT, BACKEND_EASYOCR}
+BACKEND_TESSERACT  = "tesseract"
+_VALID_BACKENDS    = {BACKEND_PADDLE, BACKEND_AI4BHARAT, BACKEND_EASYOCR, BACKEND_TESSERACT}
 
 _SERVICE_DEFAULT: str = BACKEND_PADDLE  # overridden in startup from config_service
 
 # ── Script → PaddleOCR lang code mapping ─────────────────────────────────────
 # Keys match the script names returned by identify_indic_script() in zone_extractor.py.
-# Values are PaddleOCR lang codes: https://paddlepaddle.github.io/PaddleOCR/latest/en/ppocr/blog/multi_languages.html
-
-_SCRIPT_TO_PADDLE_LANG: dict[str, str] = {
-    "devanagari": "hi",   # Hindi, Marathi (Devanagari)
-    "bengali":    "bn",
-    "gurmukhi":   "pa",   # Punjabi
-    "gujarati":   "gu",
-    "odia":       "or",   # Oriya
+#
+# IMPORTANT: these are NOT ISO 639-1 codes. paddleocr==2.7.3's actual
+# recognition MODEL_URLS (apps/indic_ocr/.venv/Lib/site-packages/paddleocr/
+# paddleocr.py) only ships models for: ch, en, korean, japan, chinese_cht,
+# ta, te, ka, latin, arabic, cyrillic, devanagari. Confirmed by hitting the
+# real "param lang must in dict_keys([...])" error from paddleocr itself.
+#
+# Two of the four Indic-relevant codes below were WRONG prior to 2026-09-17:
+#   devanagari was "hi"  -- not a valid paddleocr key; must be "devanagari" itself.
+#   kannada    was "kn"  -- not a valid paddleocr key; must be "ka".
+# Both failures were silent: _run_ocr's cascade caught the paddle error and
+# fell through to EasyOCR with the WRONG language pack (hardcoded "hi"),
+# producing near-zero-confidence garbage instead of a loud failure.
+#
+# bengali/gurmukhi/gujarati/odia/malayalam have NO working paddleocr 2.7.3
+# model at all -- not a code bug, a genuine gap in this library version.
+# "malayalam": "ml" was an especially dangerous false friend: "ml" IS a
+# valid paddleocr key, but it means the generic "Multilingual" detector,
+# not Malayalam -- it would have silently run the wrong model with no
+# error at all. Mapped to None below so these route to the ai4bharat/
+# easyocr cascade instead of a misleading paddle "success".
+_SCRIPT_TO_PADDLE_LANG: dict[str, Optional[str]] = {
+    "latin":      "en",   # English/Latin — printed boilerplate text (signature-crop cleanup, etc.)
+    "devanagari": "devanagari",   # Hindi, Marathi, Sanskrit
+    "bengali":    None,    # no paddleocr 2.7.3 model — cascades to tesseract
+    "gurmukhi":   None,    # Punjabi — no paddleocr 2.7.3 model — cascades to tesseract
+    "gujarati":   None,    # no paddleocr 2.7.3 model — cascades to tesseract
+    "odia":       None,    # Oriya — no paddleocr 2.7.3 model — cascades to tesseract
     "tamil":      "ta",
     "telugu":     "te",
-    "kannada":    "kn",
-    "malayalam":  "ml",
+    "kannada":    "ka",
+    "malayalam":  None,    # "ml" is paddleocr's Multilingual detector, NOT Malayalam — cascades to tesseract
 }
 
-_DEFAULT_PADDLE_LANG = "hi"   # fallback when script is unknown or absent
+_DEFAULT_PADDLE_LANG = "devanagari"   # fallback when script is unknown or absent -- "hi" is NOT a valid paddleocr key
 
-# ── CTS-2010 field zones ──────────────────────────────────────────────────────
-
-_CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
-    "bank_name":    (0.00, 0.00, 0.65, 0.20),
-    "date":         (0.62, 0.00, 1.00, 0.22),
-    "payee_name":   (0.05, 0.25, 0.88, 0.46),
-    "amount_words": (0.05, 0.44, 0.88, 0.63),
+# ── Script → Tesseract lang code mapping ─────────────────────────────────────
+# Tesseract language codes (ISO 639-2/B based, NOT the same codes paddleocr
+# uses above). Model files: apps/indic_ocr/tessdata/*.traineddata — the
+# OFFICIAL tesseract-ocr/tessdata_fast project, not the community
+# indic-ocr/tessdata project (tested and rejected 2026-09-17: its files
+# throw "unichar ... in normproto file is not in unichar set" on load with
+# Tesseract 5.4.0 — a real, verified incompatibility, not a config issue —
+# and even where they load, output was unusable garbage; the official
+# tessdata_fast files load cleanly and produce recognisable Kannada Unicode
+# on a real cheque crop, confirmed by direct tesseract.exe testing).
+#
+# This is the ONLY backend in this service's cascade that genuinely covers
+# bengali/gurmukhi/gujarati/odia/malayalam — paddle has no model for them at
+# all, and easyocr is hardcoded to a single Hindi reader (see
+# _get_easyocr_reader below).
+_SCRIPT_TO_TESSERACT_LANG: dict[str, str] = {
+    "latin":      "eng",
+    "devanagari": "hin",
+    "bengali":    "ben",
+    "gurmukhi":   "pan",
+    "gujarati":   "guj",
+    "odia":       "ori",
+    "tamil":      "tam",
+    "telugu":     "tel",
+    "kannada":    "kan",
+    "malayalam":  "mal",
 }
+
+_TESSDATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tessdata")
+
+# pytesseract's default (bare "tesseract") only works if the binary is on
+# THIS process's PATH -- confirmed NOT the case for a venv launched the way
+# start-local-services.bat does it, even though the binary itself installs
+# fine system-wide via winget. Explicit path, overridable via env var for
+# non-Windows/non-default-install-path deployments.
+_TESSERACT_CMD = os.environ.get(
+    "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+)
+
 
 # ── Lazy singletons ───────────────────────────────────────────────────────────
 # One PaddleOCR instance per lang code; created on first use and cached.
@@ -91,6 +179,19 @@ def _get_paddle_ocr(lang: str = _DEFAULT_PADDLE_LANG) -> Any:
     global _paddle_ocr_pool
     if lang not in _paddle_ocr_pool:
         try:
+            # paddleocr==2.7.3's transitive dependency `imgaug` reads
+            # np.sctypes, which NumPy 2.0 removed outright. Restore it as a
+            # shim scoped to this process only — the shared numpy install
+            # (used by torch/ultralytics/the whole API) is never downgraded.
+            # https://numpy.org/doc/stable/numpy_2_0_migration_guide.html
+            if not hasattr(np, "sctypes"):
+                np.sctypes = {
+                    "int":     [np.int8, np.int16, np.int32, np.int64],
+                    "uint":    [np.uint8, np.uint16, np.uint32, np.uint64],
+                    "float":   [np.float16, np.float32, np.float64, np.longdouble],
+                    "complex": [np.complex64, np.complex128, np.clongdouble],
+                    "others":  [bool, object, bytes, str, np.void],
+                }
             from paddleocr import PaddleOCR  # pip install paddlepaddle paddleocr
         except ImportError as exc:
             raise RuntimeError(
@@ -183,56 +284,199 @@ def _resolve_backend(override: Optional[str]) -> str:
     return _SERVICE_DEFAULT
 
 
-def _resolve_paddle_lang(script: Optional[str]) -> str:
-    """Map a script name (from identify_indic_script()) to a PaddleOCR lang code."""
+def _resolve_paddle_lang(script: Optional[str]) -> Optional[str]:
+    """
+    Map a script name (from identify_indic_script()) to a PaddleOCR lang code.
+    Returns None when the script has no paddleocr 2.7.3 model at all
+    (bengali/gurmukhi/gujarati/odia/malayalam) -- the caller must treat that
+    as "paddle can't serve this" and let it cascade to easyocr/ai4bharat,
+    never silently force an unrelated script's model onto it.
+    """
     if not script:
         return _DEFAULT_PADDLE_LANG
     return _SCRIPT_TO_PADDLE_LANG.get(script.lower(), _DEFAULT_PADDLE_LANG)
 
 
-def _run_ocr(arr: np.ndarray, backend: str, script: Optional[str] = None) -> list[tuple[str, float]]:
-    """
-    Run OCR on a (H, W, 3) uint8 numpy array.
-    Returns [(text, confidence)] regardless of backend.
+def _run_paddle_lang(arr: np.ndarray, lang: str) -> list[tuple[str, float]]:
+    ocr    = _get_paddle_ocr(lang)
+    result = ocr.ocr(arr, cls=True)
+    pairs: list[tuple[str, float]] = []
+    if result and result[0]:
+        for line in result[0]:
+            if line and len(line) >= 2:
+                text = line[1][0]
+                conf = float(line[1][1])
+                if text:
+                    pairs.append((text, conf))
+    return pairs
 
-    script: Indic script name from identify_indic_script() — used to select
-            the correct PaddleOCR language model. Ignored for easyocr/ai4bharat.
+
+def _paddle_score(pairs: list[tuple[str, float]]) -> float:
+    # confidence weighted by recognized length — rewards a model that reads
+    # more text at decent confidence over one that returns a single
+    # high-confidence noise token from forcing the wrong script's glyphs
+    # through its recognizer (which is exactly what happens when the wrong
+    # PaddleOCR language model is applied — it still returns *a* confidence
+    # score, just a meaningless one, so confidence alone is not enough).
+    return sum(conf * len(text) for text, conf in pairs)
+
+
+def _run_paddle_auto(arr: np.ndarray) -> tuple[list[tuple[str, float]], str]:
     """
-    if backend == BACKEND_AI4BHARAT:
+    Try every supported PaddleOCR language model against this zone crop and
+    keep whichever scores best (see _paddle_score). This is the fix for a
+    real failure mode: a caller (or an upstream cloud VLM) guessing the wrong
+    script confidently — asking PaddleOCR to run in a caller-guessed-wrong
+    language reproduces the same error in a different engine. Trying every
+    script and scoring the actual OCR output is the only way to find the
+    real script without trusting a guess that has already been shown wrong.
+
+    Returns ([(text, confidence)], winning_lang_code).
+    """
+    best_pairs: list[tuple[str, float]] = []
+    best_lang = _DEFAULT_PADDLE_LANG
+    best_score = -1.0
+    for lang in sorted({v for v in _SCRIPT_TO_PADDLE_LANG.values() if v is not None}):
         try:
-            reader  = _get_ai4bharat_reader()
-            bboxes  = reader.run(arr) or []
-            return [
-                (b["text"], float(b.get("confidence", 0.0)))
-                for b in bboxes
-                if b.get("text")
-            ]
-        except NotImplementedError:
-            log.warning("indic_ocr.ai4bharat_not_ready_falling_back_to_paddle")
-            backend = BACKEND_PADDLE   # graceful fallback
+            pairs = _run_paddle_lang(arr, lang)
         except Exception as exc:
-            log.warning("indic_ocr.ai4bharat_inference_error_falling_back_to_paddle",
-                        error=str(exc))
-            backend = BACKEND_PADDLE
+            log.warning("indic_ocr.auto_script_lang_failed", lang=lang, error=str(exc))
+            continue
+        score = _paddle_score(pairs)
+        if score > best_score:
+            best_score, best_pairs, best_lang = score, pairs, lang
+    log.info("indic_ocr.auto_script_selected", lang=best_lang, score=round(best_score, 2))
+    return best_pairs, best_lang
 
-    if backend == BACKEND_PADDLE:
-        lang   = _resolve_paddle_lang(script)
-        ocr    = _get_paddle_ocr(lang)
-        result = ocr.ocr(arr, cls=True)
-        pairs: list[tuple[str, float]] = []
-        if result and result[0]:
-            for line in result[0]:
-                if line and len(line) >= 2:
-                    text = line[1][0]
-                    conf = float(line[1][1])
-                    if text:
-                        pairs.append((text, conf))
-        return pairs
 
-    else:  # EASYOCR (always hi — lang pack is fixed on load)
-        reader = _get_easyocr_reader()
-        raw    = reader.readtext(arr, detail=1) or []
-        return [(r[1], float(r[2])) for r in raw if r[1]]
+def _run_paddle(arr: np.ndarray, script: Optional[str]) -> tuple[list[tuple[str, float]], str]:
+    """Returns ([(text, confidence)], resolved_paddle_lang_code)."""
+    if script and script.lower() == "auto":
+        return _run_paddle_auto(arr)
+    lang = _resolve_paddle_lang(script)
+    if lang is None:
+        raise RuntimeError(
+            f"No paddleocr 2.7.3 model for script '{script}' — "
+            f"cascade to tesseract."
+        )
+    return _run_paddle_lang(arr, lang), lang
+
+
+def _run_easyocr(arr: np.ndarray) -> list[tuple[str, float]]:
+    reader = _get_easyocr_reader()
+    raw    = reader.readtext(arr, detail=1) or []
+    return [(r[1], float(r[2])) for r in raw if r[1]]
+
+
+def _resolve_tesseract_lang(script: Optional[str]) -> str:
+    if not script:
+        return "eng"
+    return _SCRIPT_TO_TESSERACT_LANG.get(script.lower(), "eng")
+
+
+def _run_tesseract(arr: np.ndarray, script: Optional[str]) -> tuple[list[tuple[str, float]], str]:
+    """
+    Runs the real, official tesseract-ocr/tessdata_fast models via pytesseract.
+    Returns ([(text, confidence)], resolved_tesseract_lang_code).
+
+    Uses TESSDATA_PREFIX pointed at apps/indic_ocr/tessdata/ (this repo's own
+    copy, not the system Tesseract install's tessdata dir, which only has
+    "eng"/"osd" and requires admin rights to write into on Windows).
+    """
+    import pytesseract
+    from PIL import Image as _PILImage
+
+    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD
+    lang = _resolve_tesseract_lang(script)
+    img = _PILImage.fromarray(arr)
+    data = pytesseract.image_to_data(
+        img,
+        lang=lang,
+        config=f"--tessdata-dir {_TESSDATA_DIR}",
+        output_type=pytesseract.Output.DICT,
+    )
+    pairs: list[tuple[str, float]] = []
+    for text, conf in zip(data.get("text", []), data.get("conf", [])):
+        text = (text or "").strip()
+        try:
+            conf_f = float(conf)
+        except (TypeError, ValueError):
+            continue
+        if text and conf_f >= 0:
+            pairs.append((text, conf_f / 100.0))
+    return pairs, lang
+
+
+def _run_ai4bharat(arr: np.ndarray) -> list[tuple[str, float]]:
+    reader = _get_ai4bharat_reader()
+    bboxes = reader.run(arr) or []
+    return [
+        (b["text"], float(b.get("confidence", 0.0)))
+        for b in bboxes
+        if b.get("text")
+    ]
+
+
+# Cascade order: PaddleOCR (devanagari/tamil/telugu/kannada only — see
+# _SCRIPT_TO_PADDLE_LANG) → Tesseract (official tessdata_fast models, the
+# ONLY backend here that actually covers bengali/gurmukhi/gujarati/odia/
+# malayalam, and a same-script fallback for paddle's four) → EasyOCR
+# (Hindi-only reader, different engine/weights so it survives a
+# paddle+tesseract failure) → AI4Bharat (needs manual source-tree setup,
+# never actually installed as of 2026-09-17).
+# The caller's requested backend is tried FIRST (respecting an explicit
+# ?backend= override or INDIC_OCR_BACKEND), then the remaining backends are
+# tried in cascade order — so one backend's outage never means the request
+# silently comes back empty, it means it was answered by degrade-quality
+# engine and callers can inspect the "backend" field returned to know which
+# one actually served it.
+_CASCADE_ORDER = [BACKEND_PADDLE, BACKEND_TESSERACT, BACKEND_EASYOCR, BACKEND_AI4BHARAT]
+
+
+def _run_ocr(
+    arr: np.ndarray, backend: str, script: Optional[str] = None
+) -> tuple[list[tuple[str, float]], str, Optional[str]]:
+    """
+    Run OCR on a (H, W, 3) uint8 numpy array, cascading across backends on failure.
+
+    Returns ([(text, confidence)], backend_actually_used, resolved_paddle_lang).
+    resolved_paddle_lang is the actual PaddleOCR language code used — most
+    useful with script="auto", where it reports which script actually won
+    the confidence contest; it's None for the easyocr/ai4bharat backends
+    (they're single-language, nothing to resolve). Raises RuntimeError only
+    when every backend in the cascade has failed, with all individual errors
+    attached so the real cause is never swallowed into a silent blank.
+
+    script: Indic script name from identify_indic_script(), or "auto" to try
+            every supported PaddleOCR language and keep the best-scoring one
+            (see _run_paddle_auto) — used to select the PaddleOCR language
+            model. Ignored for easyocr/ai4bharat.
+    """
+    order = [backend] + [b for b in _CASCADE_ORDER if b != backend]
+    errors: list[str] = []
+
+    for candidate in order:
+        try:
+            if candidate == BACKEND_PADDLE:
+                pairs, resolved_lang = _run_paddle(arr, script)
+                return pairs, BACKEND_PADDLE, resolved_lang
+            elif candidate == BACKEND_TESSERACT:
+                pairs, resolved_lang = _run_tesseract(arr, script)
+                return pairs, BACKEND_TESSERACT, resolved_lang
+            elif candidate == BACKEND_EASYOCR:
+                return _run_easyocr(arr), BACKEND_EASYOCR, None
+            else:
+                return _run_ai4bharat(arr), BACKEND_AI4BHARAT, None
+        except NotImplementedError as exc:
+            log.warning("indic_ocr.backend_not_ready", backend=candidate, error=str(exc))
+            errors.append(f"{candidate}: {exc}")
+        except Exception as exc:
+            log.warning("indic_ocr.backend_failed_cascading", backend=candidate, error=str(exc))
+            errors.append(f"{candidate}: {exc}")
+
+    raise RuntimeError(
+        "All IndicOCR backends failed:\n" + "\n".join(errors)
+    )
 
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -381,22 +625,26 @@ async def ocr_image(
     except UnidentifiedImageError:
         raise HTTPException(status_code=422, detail="Unreadable image.")
 
-    arr   = np.array(img)
-    pairs = _run_ocr(arr, b, script)
+    arr = np.array(img)
+    try:
+        pairs, used_backend, resolved_lang = _run_ocr(arr, b, script)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    lang = resolved_lang or lang
 
     if not pairs:
-        return OcrResult(text="", confidence=0.0, backend=b, script=script, paddle_lang=lang)
+        return OcrResult(text="", confidence=0.0, backend=used_backend, script=script, paddle_lang=lang)
 
     texts = [p[0] for p in pairs]
     confs = [p[1] for p in pairs]
     avg   = sum(confs) / len(confs)
     log.info("indic_ocr.full_ocr_done",
-             backend=b, script=script, paddle_lang=lang,
+             requested_backend=b, backend=used_backend, script=script, paddle_lang=lang,
              text_preview=" ".join(texts)[:80], confidence=round(avg, 4))
     return OcrResult(
         text=        " ".join(texts),
         confidence=  round(avg, 4),
-        backend=     b,
+        backend=     used_backend,
         script=      script,
         paddle_lang= lang,
     )
@@ -425,8 +673,16 @@ async def ocr_zones(
     iw, ih       = img.size
     raw_results:  dict[str, list]          = {}
     field_text:   dict[str, Optional[str]] = {}
+    used_backend = b   # updated to whichever backend actually served a zone
+    resolved_script = script   # updated when script="auto" resolves to a real lang
 
-    for field, (x1f, y1f, x2f, y2f) in _CTS_ZONES.items():
+    # This endpoint only serves ZoneOcrResult's 4 text fields (bank_name,
+    # date, payee_name, amount_words) -- amount_figures/micr_band are also
+    # in the imported CTS_ZONES (they're used elsewhere, by
+    # _verify_numeric_fields_via_zone_crop's single-zone /ocr calls) but
+    # have no field on this response and would just waste an OCR pass here.
+    for field in ("bank_name", "date", "payee_name", "amount_words"):
+        x1f, y1f, x2f, y2f = _CTS_ZONES[field]
         x1 = max(0,  int(x1f * iw))
         y1 = max(0,  int(y1f * ih))
         x2 = min(iw, int(x2f * iw))
@@ -436,18 +692,31 @@ async def ocr_zones(
             raw_results[field] = []
             continue
 
-        zone  = img.crop((x1, y1, x2, y2))
-        arr   = np.array(zone)
-        pairs = _run_ocr(arr, b, script)
+        zone = img.crop((x1, y1, x2, y2))
+        arr  = np.array(zone)
+        try:
+            pairs, used_backend, field_resolved_lang = _run_ocr(arr, b, script)
+        except RuntimeError as exc:
+            log.error("indic_ocr.zone_all_backends_failed", field=field, error=str(exc))
+            field_text[field]  = None
+            raw_results[field] = []
+            continue
 
         if pairs:
+            # payee_name/amount_words are the fields this endpoint's callers
+            # actually care about the script of (bank_name/date are often
+            # numeric/Latin regardless of the cheque's handwriting script),
+            # so let their auto-resolved language be the one reported back.
+            if field_resolved_lang and field in ("payee_name", "amount_words"):
+                resolved_script = field_resolved_lang
             texts     = [p[0] for p in pairs]
             confs     = [p[1] for p in pairs]
             combined  = " ".join(texts)
             avg_conf  = sum(confs) / len(confs)
             field_text[field]  = combined
             raw_results[field] = [[t, round(c, 4)] for t, c in zip(texts, confs)]
-            log.info("indic_ocr.zone_done", backend=b, script=script, field=field,
+            log.info("indic_ocr.zone_done", requested_backend=b, backend=used_backend,
+                     script=script, resolved_lang=field_resolved_lang, field=field,
                      text=combined[:80], conf=round(avg_conf, 4))
         else:
             field_text[field]  = None
@@ -458,8 +727,8 @@ async def ocr_zones(
         date         = field_text.get("date"),
         payee_name   = field_text.get("payee_name"),
         amount_words = field_text.get("amount_words"),
-        backend      = b,
-        script       = script,
+        backend      = used_backend,
+        script       = resolved_script,
         raw          = raw_results,
     )
 

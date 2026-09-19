@@ -86,6 +86,26 @@ async def lifespan(app: FastAPI):
         session_manager = EEHSessionManager(redis=_redis, db=_db)
         sse_publisher = SSEPublisher(redis=_redis)
 
+    # gRPC server — EEHServicer handles streaming cheque uploads from branch scanners
+    _grpc_server = None
+    try:
+        from apps.eeh.grpc_server import EEHServicer, create_grpc_server
+        from shared.config.config_service import config_service as _cfg
+        _grpc_port = int(_cfg.get_platform("eeh.grpc_port") if hasattr(_cfg, "get_platform") else 50051)
+        _servicer = EEHServicer(
+            session_manager=session_manager,
+            sse_publisher=sse_publisher,
+            db=_db,
+        )
+        _grpc_server = create_grpc_server(servicer=_servicer, port=_grpc_port)
+        # grpc_aio.Server has .start() / .wait_for_termination(); ServerStub (test) is a no-op
+        if hasattr(_grpc_server, "start"):
+            await _grpc_server.start()
+        log.info("eeh.grpc_server_started", port=_grpc_port)
+    except Exception as exc:
+        log.warning("eeh.grpc_server_failed", error=str(exc))
+        _grpc_server = None
+
     # Mismatch bridge: consume cts.mismatch.* Kafka events and relay to Redis
     # Pub/Sub so the branch SSE feed picks them up in real-time.
     # Runs independently of session_manager — mismatch events must reach branches
@@ -108,6 +128,8 @@ async def lifespan(app: FastAPI):
     yield
 
     log.info("eeh.shutting_down", service=SERVICE_NAME)
+    if _grpc_server is not None and hasattr(_grpc_server, "stop"):
+        await _grpc_server.stop(grace=5)
     if _mismatch_bridge is not None:
         await _mismatch_bridge.stop()
     if _db is not None:

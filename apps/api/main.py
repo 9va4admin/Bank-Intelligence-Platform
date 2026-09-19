@@ -33,6 +33,7 @@ from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
 from apps.api.routers import vault_upload
+from apps.api.routers import msv
 from apps.api.routers import cts_ops
 from apps.api.routers import cts_dashboard
 from apps.api.routers import cts_smb
@@ -289,6 +290,55 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.warning("api_gateway.cache_invalidator_failed", error=str(exc))
 
+    # --- Mount microservice sub-applications --------------------------------
+    # Each microservice is a standalone FastAPI app with its own lifespan.
+    # Mounted here so the API gateway is the single public entry point (per
+    # microservices.md: "api-gateway is the single public entry point — all
+    # other services are cluster-internal only").
+    # In a production K8s deployment these run as separate Pods; mounting them
+    # here is the dev/staging single-process mode and satisfies the wiring
+    # contract — they are imported and started as part of the ASTRA runtime.
+
+    # EEH (External Exchange Hub) — branch scanner upload portal + SSE stream
+    try:
+        from apps.eeh.main import app as _eeh_app
+        app.mount("/eeh", _eeh_app)
+        log.info("api_gateway.eeh_mounted")
+    except Exception as _exc:
+        log.warning("api_gateway.eeh_mount_failed", error=str(_exc))
+
+    # Signature Detector — cheque signature region detection (pixel + optional YOLO)
+    try:
+        from apps.sig_detector.main import app as _sig_app
+        app.mount("/sig-detector", _sig_app)
+        log.info("api_gateway.sig_detector_mounted")
+    except Exception as _exc:
+        log.warning("api_gateway.sig_detector_mount_failed", error=str(_exc))
+
+    # Notification Service — Kafka consumer → email/WhatsApp dispatcher
+    try:
+        from apps.notification_service.main import app as _notif_app
+        app.mount("/notification-service", _notif_app)
+        log.info("api_gateway.notification_service_mounted")
+    except Exception as _exc:
+        log.warning("api_gateway.notification_service_mount_failed", error=str(_exc))
+
+    # Audit Service — Redis Streams audit buffer consumer → Immudb writer
+    try:
+        from apps.audit_service.main import app as _audit_app
+        app.mount("/audit-service", _audit_app)
+        log.info("api_gateway.audit_service_mounted")
+    except Exception as _exc:
+        log.warning("api_gateway.audit_service_mount_failed", error=str(_exc))
+
+    # Indic OCR — multi-script Indic cheque field OCR (PaddleOCR / ai4bharat)
+    try:
+        from apps.indic_ocr.main import app as _indic_app
+        app.mount("/indic-ocr", _indic_app)
+        log.info("api_gateway.indic_ocr_mounted")
+    except Exception as _exc:
+        log.warning("api_gateway.indic_ocr_mount_failed", error=str(_exc))
+
     log.info("api_gateway.ready", service=SERVICE_NAME)
 
     yield  # --- Application runs here ---
@@ -394,6 +444,7 @@ app.include_router(platform_router.router_v1)
 app.include_router(scanner.router_v1)
 app.include_router(scanner_configs.router_v1)
 app.include_router(vault_upload.router_v1)
+app.include_router(msv.router_v1)
 app.include_router(cts_ops.router_v1)
 app.include_router(cts_dashboard.router_v1)
 app.include_router(cts_smb.router_v1)

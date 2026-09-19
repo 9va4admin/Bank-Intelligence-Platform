@@ -32,6 +32,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from PIL import Image, ImageStat, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict
 
+from modules.cts.preprocessing.zone_extractor import identify_indic_script
+from modules.cts.preprocessing.payee_normalizer import transliterate_by_script
+from modules.cts.workflows.activities.amount_words_parser import amounts_match
+
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
 
@@ -43,11 +47,17 @@ _HF_BASE_URL_FALLBACK = "https://router.huggingface.co/v1"
 
 _MODEL_MAPPING = {
     "qwen-32b": "Qwen/Qwen3-VL-32B-Instruct:featherless-ai",
-    # ovhcloud's hosting of this model is in HF's own inferenceProviderMapping
-    # "error" state (confirmed via https://huggingface.co/api/models/Qwen/Qwen2.5-VL-72B-Instruct
-    # ?expand[]=inferenceProviderMapping) -- featherless-ai is the only "live"
-    # provider for it, not an account-authorization gap.
-    "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:featherless-ai",
+    # Switched to ovhcloud (2026-09-17): featherless-ai returns 401/403
+    # (Cloudflare-blocked) for this account even with a valid, correctly-
+    # scoped token -- an account/provider-authorization gap on the
+    # featherless-ai side (see huggingface.co/settings/inference-providers),
+    # not a token or code problem. Re-checked live via
+    # https://huggingface.co/api/models/Qwen/Qwen2.5-VL-72B-Instruct
+    # ?expand[]=inferenceProviderMapping -- ovhcloud shows "status": "live"
+    # right now, contradicting the earlier note here that it was in an
+    # "error" state. Revert to featherless-ai (or try another provider) if
+    # ovhcloud regresses -- re-check the same URL first.
+    "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud",
     "gemma-27b": "google/gemma-3-27b-it:featherless-ai",
 }
 
@@ -95,7 +105,13 @@ IMPORTANT INSTRUCTIONS:
 1. Read the ENTIRE cheque carefully.
 2. Extract all visible information exactly as written.
 3. Preserve leading zeros in cheque numbers, account numbers, MICR codes, and other numeric identifiers.
-4. If a field is not visible or cannot be determined confidently, return null.
+4. If a field is not visible, illegible, or cannot be determined confidently, return null. This applies
+   especially to handwritten text in a script you cannot confidently read (e.g. Kannada, Tamil, Telugu,
+   Malayalam, Bengali, Gujarati, Odia, Punjabi, Devanagari handwriting). NEVER substitute a different
+   piece of visible text as a guess when the true field is illegible — for example, if the handwritten
+   payee name after "Pay" is in a script you cannot read, return null for payee_name. Do NOT reuse the
+   drawer's printed business name (see payee_name rule below) or any other unrelated text as a fallback.
+   Guessing a plausible-looking value is worse than returning null — it is scored as a hallucination.
 5. Return ONLY valid JSON.
 6. Do not return markdown, comments, explanations, confidence scores, or extra text.
 
@@ -103,9 +119,32 @@ FIELD EXTRACTION RULES
 
 * bank_name: Full bank name printed on the cheque.
 * ifsc_code: Extract IFSC code exactly (format XXXX0XXXXXX, e.g. SBIN0001234).
-* date: Convert to DD/MM/YYYY format.
-* payee_name: Full name written after "Pay".
-* amount_words: Complete handwritten amount in words.
+* date: The instrument date, almost always printed as individual boxed digit cells in a
+  "D D M M Y Y Y Y" grid near the top-right corner (often directly below or beside text like
+  "Valid for three months from the date of issue/instrument"). Read each digit box carefully,
+  left to right, even if the boxes are faint, thin-bordered, or partially overlapped by other
+  printed text. Convert to DD/MM/YYYY format. Only return null if truly no date is visible anywhere
+  on the cheque — do not skip it just because the amount/payee fields were hard to read.
+* payee_name: The name handwritten on the "Pay" line only (immediately after the printed word "Pay").
+  This is the RECIPIENT of the cheque, filled in by the drawer when writing it. Do NOT confuse this
+  with any PRINTED company/business name found elsewhere on the cheque — in particular, a printed
+  name appearing near the signature above "Partner / Authorised Signatory" or "For <Company Name>"
+  identifies the DRAWER (the account holder issuing the cheque), which is the opposite of the payee.
+  If the handwriting on the Pay line is illegible or in an unfamiliar script, return null — never
+  substitute the drawer's printed name or any other visible text.
+* payee_bbox: The bounding box of the "Pay" line's handwritten text ONLY (not the printed word "Pay"
+  itself, not the "या धारक को / Or Bearer" text on the right), as [x1, y1, x2, y2] fractions of the
+  full image (0.0-1.0). Return your best estimate of WHERE this text is even when payee_name itself is
+  null because you can't read it — locating a region is a much easier and more reliable task than
+  reading unfamiliar handwriting, and lets a downstream OCR pass target the right zone.
+* amount_words: Complete handwritten amount in words, transcribed in whatever script it is actually
+  written in. If it is handwritten in a non-Latin script you cannot confidently transliterate, return
+  null — do NOT invent a plausible-sounding English phrase or infer it from amount_numeric. A fabricated
+  translation is a hallucination and is worse than returning null.
+* amount_words_bbox: The bounding box of the handwritten amount-in-words text ONLY (the "Rupees ___"
+  line, which may wrap onto a second line above the numeric amount box) as [x1, y1, x2, y2] fractions
+  of the full image. Same rule as payee_bbox: return your best location estimate even when
+  amount_words itself is null.
 * amount_numeric: Numeric amount from the amount box. Preserve commas and decimals exactly as written.
 * is_amount_matching: Compare amount_words and amount_numeric using semantic understanding — allow minor
   OCR mistakes and spelling variations (e.g. "One Thousnd Rupees Only" vs 1000 -> true). Only return false
@@ -150,7 +189,9 @@ Return ONLY valid JSON:
 "bank_name": "",
 "date": "",
 "payee_name": "",
+"payee_bbox": [0.10, 0.14, 0.55, 0.20],
 "amount_words": "",
+"amount_words_bbox": [0.05, 0.20, 0.88, 0.32],
 "amount_numeric": "",
 "is_amount_matching": true,
 "account_number": "",
@@ -173,7 +214,9 @@ class CloudExtractResponse(BaseModel):
     bank_name: Optional[str] = None
     date: Optional[str] = None
     payee_name: Optional[str] = None
+    payee_name_transliterated: Optional[str] = None   # Latin romanization, set when payee_name is Indic-script
     amount_words: Optional[str] = None
+    amount_words_transliterated: Optional[str] = None  # Latin romanization, set when amount_words is Indic-script
     amount_numeric: Optional[str] = None
     is_amount_matching: Optional[bool] = None
     account_number: Optional[str] = None
@@ -189,6 +232,9 @@ class CloudExtractResponse(BaseModel):
     signature_crops_estimated: Optional[bool] = None       # True when PIL ink-detect fallback was used
     signature_fraud_flags: Optional[list[str]] = None
     indic_backend: Optional[str] = None     # 'ai4bharat' | 'easyocr' — set for indic-devanagari mode
+    text_fields_rerouted: Optional[dict[str, str]] = None   # field -> backend that actually served it, when re-sourced from the cloud VLM's guess (e.g. {"payee_name": "paddle"})
+    text_fields_reroute_error: Optional[str] = None         # set when an Indic field was detected but local re-extraction failed — the cloud VLM's unverified guess is kept, flagged rather than silently trusted
+    numeric_fields_verified: Optional[dict[str, str]] = None   # field -> "confirmed" | "corrected", from the amount_figures/micr_band zone-crop re-check
     error: Optional[str] = None
     raw_response: Optional[str] = None
 
@@ -270,14 +316,29 @@ async def _call_indic_ocr_zones(
     pil_img: Image.Image,
     bank_id: str,
     backend: str | None = None,
-) -> tuple[dict, bool]:
-    """POST the full cheque to the IndicOCR service for Devanagari zone extraction.
+    script: str | None = None,
+) -> tuple[dict, bool, Optional[str]]:
+    """POST the full cheque to the IndicOCR service for zone extraction.
 
-    Returns ``(field_dict, service_available)``.
+    Returns ``(field_dict, service_available, error_message)``.
     field_dict has keys: bank_name, date, payee_name, amount_words, backend.
+    error_message is None on success — always set (never silently swallowed)
+    when service_available is False, distinguishing "service unreachable"
+    (connection refused / timeout) from "service reachable but every OCR
+    backend it tried failed" (HTTP 503 from /ocr_zones's own backend cascade)
+    so a caller never sees a blank result with no explanation.
 
     ``backend`` overrides the service-level INDIC_OCR_BACKEND default when supplied.
-    Omit (None) to let the microservice use its configured default (AI4Bharat).
+    Omit (None) to let the microservice use its configured default (PaddleOCR).
+
+    ``script`` selects the PaddleOCR language model — one of
+    identify_indic_script()'s script names (devanagari, kannada, tamil, ...).
+    Omitting this is NOT a neutral "auto-detect" — the service defaults to
+    devanagari/Hindi, so running e.g. a Kannada cheque through this with no
+    script produces confidently-wrong garbage (Kannada glyphs forced through
+    a Hindi-trained recognition model), not a graceful fallback. Callers that
+    know the script (from a prior OCR pass, or a user-supplied hint) MUST
+    pass it explicitly.
     """
     import httpx
 
@@ -286,7 +347,11 @@ async def _call_indic_ocr_zones(
     pil_img.save(buf, format="PNG")
     buf.seek(0)
 
-    params = {"backend": backend} if backend else {}
+    params: dict[str, str] = {}
+    if backend:
+        params["backend"] = backend
+    if script:
+        params["script"] = script
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as hc:
@@ -302,17 +367,377 @@ async def _call_indic_ocr_zones(
                 "date":         data.get("date"),
                 "payee_name":   data.get("payee_name"),
                 "amount_words": data.get("amount_words"),
-                "backend":      data.get("backend", "ai4bharat"),
+                "backend":      data.get("backend", "paddle"),
+                "script":       data.get("script") or script,
             }
             log.info("demo.cloud_extract.indic_ocr_done",
                      bank_id=bank_id,
                      backend=fields["backend"],
-                     fields_found=sum(v is not None for v in fields.values()) - 1)
-            return fields, True
+                     script=fields["script"],
+                     fields_found=sum(v is not None for k, v in fields.items()
+                                      if k not in ("backend", "script")))
+            return fields, True, None
+    except httpx.HTTPStatusError as exc:
+        # Service reachable but /ocr_zones itself failed — e.g. every backend
+        # in its cascade (paddle -> easyocr -> ai4bharat) errored. Surface the
+        # server's own detail message rather than a generic "unreachable".
+        detail = exc.response.text
+        log.warning("demo.cloud_extract.indic_ocr_backend_cascade_failed",
+                    bank_id=bank_id, url=url, status_code=exc.response.status_code, detail=detail)
+        return {}, False, f"INDIC_OCR_ALL_BACKENDS_FAILED — {detail}"
     except Exception as exc:
         log.warning("demo.cloud_extract.indic_ocr_unreachable",
                     bank_id=bank_id, url=url, error=str(exc))
-        return {}, False
+        return {}, False, (
+            f"INDIC_OCR_UNREACHABLE — start with: "
+            f"cd apps/indic_ocr; python main.py  (expected at {url}). Error: {exc}"
+        )
+
+
+async def _call_indic_ocr_single_crop(
+    crop: Image.Image, bank_id: str
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    OCR a single pre-cropped region (script="auto") via the plain /ocr
+    endpoint, rather than /ocr_zones's fixed-percentage field boxes.
+
+    Exists because _CTS_ZONES (apps/indic_ocr/main.py) uses hardcoded
+    percentage-of-image boxes calibrated against one reference cheque
+    layout — confirmed wrong on a real cheque with a taller letterhead
+    (2026-09-17): the fixed payee_name zone bled into the amount-words
+    line below it, and the fixed amount_words zone landed on the A/c No.
+    table further down, producing garbled mixed-field OCR output. A
+    dynamic bbox from the cloud VLM's own visual layout understanding
+    (payee_bbox/amount_words_bbox in CLOUD_EXTRACT_PROMPT — the VLM can
+    locate a field's position reliably even when it can't read unfamiliar
+    handwriting inside it) generalises across bank layouts where a fixed
+    percentage cannot.
+
+    Returns (text, resolved_script) or (None, None) on any failure.
+    """
+    try:
+        import httpx
+        url = await _resolve_indic_ocr_url(bank_id)
+        buf = io.BytesIO()
+        crop.convert("RGB").save(buf, format="PNG")
+        buf.seek(0)
+        async with httpx.AsyncClient(timeout=30.0) as hc:
+            resp = await hc.post(
+                f"{url}/ocr",
+                files={"file": ("zone.png", buf, "image/png")},
+                params={"backend": "paddle", "script": "auto"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            text = (data.get("text") or "").strip()
+            return (text or None), data.get("script")
+    except Exception as exc:
+        log.info("demo.cloud_extract.dynamic_bbox_ocr_failed", bank_id=bank_id, error=str(exc))
+        return None, None
+
+
+def _crop_from_bbox(
+    pil_img: Image.Image, bbox: Optional[list], pad: float = 0.02
+) -> Optional[Image.Image]:
+    """Crop pil_img using a [x1,y1,x2,y2] fractional bbox, with small padding.
+    Returns None if bbox is missing/malformed or the crop would be empty."""
+    if not bbox or len(bbox) != 4:
+        return None
+    try:
+        x1f, y1f, x2f, y2f = (float(v) for v in bbox)
+    except (TypeError, ValueError):
+        return None
+    iw, ih = pil_img.size
+    x1 = max(0, int((x1f - pad) * iw))
+    y1 = max(0, int((y1f - pad) * ih))
+    x2 = min(iw, int((x2f + pad) * iw))
+    y2 = min(ih, int((y2f + pad) * ih))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return pil_img.crop((x1, y1, x2, y2))
+
+
+# Fields where the cloud VLM is asked to freely generate non-Latin script
+# text. This is the specific weakness this reroute targets — Qwen/Gemma are
+# unreliable at transcribing Indic-script handwriting (confirmed: wrong-script
+# hallucination on Tamil/Kannada cheques, garbled/repeated-phrase output even
+# on clean Devanagari print) — everything else the cloud VLM returns (bank
+# name, IFSC, account/cheque/MICR digits, amount figures, English payee
+# names) has been reliable in practice and is left untouched.
+_INDIC_REROUTE_FIELDS = ("payee_name", "amount_words")
+
+
+async def _reroute_indic_text_fields(
+    parsed: dict, pil_img: Image.Image, bank_id: str
+) -> tuple[dict, Optional[dict[str, str]], Optional[str]]:
+    """
+    Re-source payee_name/amount_words through the local IndicOCR PaddleOCR
+    cascade whenever the cloud VLM's own answer for that field is actually in
+    an Indic script — replacing an unverified cloud guess with a real OCR
+    pass on the same cheque zone, rather than either trusting the cloud VLM's
+    non-Latin transcription or just hiding the problem from the response.
+
+    Also computes two things the earlier cloud-only response could not,
+    once the real script is known:
+      - payee_name_transliterated: Latin romanization via
+        payee_normalizer.transliterate_by_script(), for readability — NOT
+        compared against signature_name (that's the drawer, not the payee;
+        a real payee cross-check needs a CBS account-name lookup, out of
+        scope for this cloud-VLM-vs-local-OCR demo).
+      - is_amount_matching: recomputed via amount_words_parser.amounts_match()
+        — an actual per-script number-word parser (Hindi/Marathi + Tamil/
+        Telugu/Kannada/Malayalam/Gujarati/Bengali/Punjabi/Odia) comparing
+        against amount_numeric, replacing the cloud VLM's self-referential
+        field (which compares its own two, possibly both-hallucinated,
+        readings against each other and proves nothing once amount_words
+        has been replaced out from under it).
+
+    Returns (parsed_with_overrides, rerouted_backend_by_field, error_message).
+    rerouted_backend_by_field is None when no field needed rerouting (i.e.
+    every text field the VLM returned was Latin/English — the common case).
+    error_message is set when a reroute was needed but IndicOCR could not
+    serve it (service down / all backends failed) — the VLM's original,
+    unverified value is kept in that case, never silently swapped for null.
+    """
+    # Trigger on either: the VLM hallucinated visible Indic-script characters
+    # (original condition), OR the VLM returned nothing at all for the field.
+    # The second case is now the common one as of 2026-09-17's anti-
+    # hallucination prompt fix: the VLM is now told to return null rather
+    # than guess when it can't read non-Latin handwriting, which means the
+    # old "only reroute on detected Indic script" condition would never fire
+    # again -- there'd be no script to detect in a null. Rerouting on null
+    # too gives local OCR a real chance to read what the cloud VLM admitted
+    # it couldn't, instead of the field just staying empty.
+    fields_needing_reroute = [
+        f for f in _INDIC_REROUTE_FIELDS
+        if identify_indic_script(parsed.get(f) or "") is not None
+        or not parsed.get(f) or parsed.get(f) == "null"
+    ]
+    if not fields_needing_reroute:
+        return parsed, None, None
+
+    # Deliberately NOT using identify_indic_script() on the VLM's own output
+    # to pick which PaddleOCR language to run — that was tried and is wrong.
+    # A VLM that hallucinates the wrong script (confirmed: wrote Devanagari
+    # for a Tamil cheque) has already demonstrated its script guess can't be
+    # trusted; feeding that same wrong guess into PaddleOCR just reproduces
+    # the error in a second engine instead of correcting it. script="auto"
+    # runs every supported PaddleOCR language against the actual zone crop
+    # and keeps whichever one's real OCR output scores best — determining
+    # the script empirically from the cheque image itself, not from a guess
+    # that has already been shown unreliable.
+    #
+    # Per-field dynamic bbox first (payee_bbox/amount_words_bbox from the
+    # VLM's own layout understanding — generalises across bank letterhead
+    # heights where fixed _CTS_ZONES percentages don't, see
+    # _call_indic_ocr_single_crop's docstring for the confirmed failure this
+    # fixes). Falls back to the fixed-zone /ocr_zones call per field when no
+    # usable bbox was provided or the bbox-targeted OCR found nothing.
+    rerouted: dict[str, str] = {}
+    updated = dict(parsed)
+    resolved_script: Optional[str] = None
+    fields_still_needing_fixed_zone: list[str] = []
+
+    _BBOX_KEY = {"payee_name": "payee_bbox", "amount_words": "amount_words_bbox"}
+    for field in fields_needing_reroute:
+        bbox = parsed.get(_BBOX_KEY.get(field, ""))
+        crop = _crop_from_bbox(pil_img, bbox)
+        if crop is None:
+            fields_still_needing_fixed_zone.append(field)
+            continue
+        local_value, field_script = await _call_indic_ocr_single_crop(crop, bank_id)
+        if local_value:
+            updated[field] = local_value
+            rerouted[field] = "paddle"
+            resolved_script = resolved_script or field_script
+        else:
+            fields_still_needing_fixed_zone.append(field)
+
+    if fields_still_needing_fixed_zone:
+        indic_fields, indic_available, indic_error = await _call_indic_ocr_zones(
+            pil_img, bank_id, script="auto"
+        )
+        if not indic_available:
+            log.warning("demo.cloud_extract.indic_reroute_unavailable",
+                        bank_id=bank_id, fields=fields_still_needing_fixed_zone, error=indic_error)
+            if not rerouted:
+                return parsed, None, (
+                    f"INDIC_REROUTE_FAILED for {fields_needing_reroute} — "
+                    f"cloud VLM's unverified text kept. {indic_error}"
+                )
+        else:
+            resolved_script = resolved_script or indic_fields.get("script")
+            for field in fields_still_needing_fixed_zone:
+                local_value = indic_fields.get(field)
+                if local_value and local_value.strip():
+                    updated[field] = local_value
+                    rerouted[field] = indic_fields.get("backend", "paddle")
+                # else: IndicOCR ran but found nothing for this zone — keep
+                # the VLM's value rather than blanking a field that at least
+                # has *something*.
+
+    # Latin romanization for readability — real script now known empirically
+    # (via script="auto"), not guessed from the VLM's already-unreliable output.
+    # Shown alongside the native-script text, never replacing it — an
+    # operator who can't read Kannada/Tamil/etc. can at least sound out the
+    # name; one who can read it still sees the authoritative original.
+    if updated.get("payee_name") and resolved_script:
+        updated["payee_name_transliterated"] = transliterate_by_script(
+            updated["payee_name"], resolved_script
+        )
+    if updated.get("amount_words") and resolved_script:
+        updated["amount_words_transliterated"] = transliterate_by_script(
+            updated["amount_words"], resolved_script
+        )
+
+    # Real cross-check, replacing the cloud VLM's self-referential
+    # is_amount_matching (which compared its own two readings against each
+    # other and means nothing once amount_words has been replaced).
+    if "amount_words" in rerouted:
+        updated["is_amount_matching"] = amounts_match(
+            updated.get("amount_numeric"), updated.get("amount_words"),
+            script=resolved_script,
+        )
+
+    log.info("demo.cloud_extract.indic_reroute_done",
+             bank_id=bank_id, rerouted=rerouted)
+    return updated, (rerouted or None), None
+
+
+def _digits_only(text: Optional[str]) -> str:
+    import re
+    return re.sub(r"\D", "", text or "")
+
+
+def _clean_amount_digits(text: Optional[str]) -> Optional[str]:
+    """Strip everything but digits and one decimal point from a raw VLM digit reply."""
+    import re
+    if not text:
+        return None
+    match = re.search(r"\d[\d,]*(?:\.\d+)?", text)
+    if not match:
+        return None
+    return match.group(0).replace(",", "")
+
+
+def _split_micr_digits(raw_digits: str, known_cheque_number: Optional[str]) -> Optional[str]:
+    """
+    Deterministically extract the 9-digit MICR/routing code from a raw digit
+    string read off the cropped MICR band, using the fixed CTS-2010 structure:
+    6-digit cheque number + 9-digit MICR code + 6-digit serial + 2-digit
+    transaction code (23 digits total) — confirmed against every sample cheque
+    checked this session (HDFC, UCO, Karnataka Gramin, DCB all matched this
+    exact layout).
+
+    Anchoring on known_cheque_number (already reliably read elsewhere — this
+    session's cheques never got cheque_number wrong, only micr_code) is more
+    robust than assuming exactly 23 digits, since VLM misreads of the crop can
+    add/drop a stray digit anywhere in the string — anchoring on a known-good
+    prefix means the split point for the next 9 digits is still correct even
+    when the total length is off.
+    """
+    if not raw_digits:
+        return None
+    if known_cheque_number and raw_digits.startswith(known_cheque_number):
+        rest = raw_digits[len(known_cheque_number):]
+        if len(rest) >= 9:
+            return rest[:9]
+    if len(raw_digits) == 23:
+        return raw_digits[6:15]
+    return None
+
+
+async def _verify_numeric_fields_via_zone_crop(
+    pil_img: Image.Image, client, model_id: str, parsed: dict, bank_id: str
+) -> tuple[dict, Optional[dict[str, str]]]:
+    """
+    Re-verify amount_numeric and micr_code by cropping just their CTS-2010
+    zones and asking the cloud VLM a narrow, digits-only question about each
+    — instead of trusting the JSON fields it produced from a single whole-
+    cheque read. Confirmed failure mode this targets: the whole-image prompt
+    asks the VLM to directly label pre-split "cheque_number"/"micr_code"
+    fields from the full cheque, and it reliably mis-segments the MICR band's
+    packed E-13B digit groups (stray digit, or full field collapse) and
+    occasionally misreads a single amount digit (e.g. 2→9) even though every
+    other field on the same cheque came through correctly. A tight crop with
+    a single-purpose prompt has far less visual noise to get lost in.
+
+    Returns (parsed_with_overrides, verified_by_field). verified_by_field
+    maps a field name to "confirmed" (zone crop agreed with the whole-image
+    reading) or "corrected" (zone crop disagreed — the zone-crop value, which
+    has much less visual noise to misread, is trusted and substituted). A
+    field absent from the dict means the zone-crop call itself failed
+    (network/parse error) — original value kept, never silently blanked.
+    """
+    from modules.cts.preprocessing.zone_extractor import extract_zone, zone_to_data_uri
+
+    updated = dict(parsed)
+    verified: dict[str, str] = {}
+
+    async def _ask_digits(field: str, prompt: str) -> Optional[str]:
+        try:
+            zone = extract_zone(pil_img, field)
+            data_uri = zone_to_data_uri(zone)
+            resp = await client.chat.completions.create(
+                model=model_id,
+                messages=[{"role": "user", "content": [
+                    {"type": "text",      "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_uri}},
+                ]}],
+                temperature=0,
+                timeout=20,
+            )
+            return resp.choices[0].message.content
+        except Exception as exc:
+            log.warning("demo.cloud_extract.zone_verify_call_failed", bank_id=bank_id, field=field, error=str(exc))
+            return None
+
+    # ── Amount in figures ────────────────────────────────────────────────────
+    amount_raw = await _ask_digits(
+        "amount_figures",
+        "This is a cropped close-up of the numeric amount box on a bank cheque. "
+        "Read ONLY the digits (include a decimal point if paise are shown). "
+        "Respond with just the number — no currency symbol, no commas, no words, no explanation.",
+    )
+    zone_amount = _clean_amount_digits(amount_raw)
+    if zone_amount:
+        if zone_amount == (updated.get("amount_numeric") or "").replace(",", "").strip():
+            verified["amount_numeric"] = "confirmed"
+        else:
+            log.info("demo.cloud_extract.amount_zone_corrected", bank_id=bank_id,
+                     whole_image=updated.get("amount_numeric"), zone_crop=zone_amount)
+            updated["amount_numeric"] = zone_amount
+            verified["amount_numeric"] = "corrected"
+
+    # ── MICR code ────────────────────────────────────────────────────────────
+    micr_raw = await _ask_digits(
+        "micr_band",
+        "This is a cropped close-up of the MICR code line at the bottom of a bank cheque "
+        "(magnetic ink E-13B font, digit groups separated by special symbols). "
+        "Read and return ONLY the digits you see, left to right, with no spaces, "
+        "no symbols, and no explanation — just the raw digit sequence.",
+    )
+    zone_micr = _split_micr_digits(_digits_only(micr_raw), updated.get("cheque_number"))
+    if zone_micr:
+        if zone_micr == updated.get("micr_code"):
+            verified["micr_code"] = "confirmed"
+        else:
+            log.info("demo.cloud_extract.micr_zone_corrected", bank_id=bank_id,
+                     whole_image=updated.get("micr_code"), zone_crop=zone_micr)
+            updated["micr_code"] = zone_micr
+            verified["micr_code"] = "corrected"
+
+        # City code is the first 3 of the 9-digit MICR code (bank code = next
+        # 3, branch code = last 3 — see micr_validator.py's docstring). Only
+        # the city-code-000 anomaly is validated in production today; surface
+        # it here too now that this path produces a reliable, correctly-split
+        # micr_code to check it against.
+        if updated["micr_code"][:3] == "000":
+            verified["micr_code_city_code"] = "SUSPICIOUS_unassigned_000"
+            log.warning("demo.cloud_extract.micr_city_code_000",
+                        bank_id=bank_id, micr_code=updated["micr_code"])
+
+    return updated, (verified or None)
 
 
 async def _call_sig_detector(
@@ -1034,6 +1459,68 @@ def _has_real_signature(img: Image.Image) -> bool:
         return True  # on any error, don't suppress the crop
 
 
+_BOILERPLATE_KEYWORDS = frozenset({
+    "AUTHORISED", "AUTHORIZED", "SIGNATORY", "SIGNATORIES", "PLEASE",
+    "SIGN", "ABOVE", "PARTNER", "DIRECTOR", "PROPRIETOR", "MANAGER",
+})
+
+
+async def _strip_boilerplate_text_via_ocr(crop: Image.Image, bank_id: str) -> Image.Image:
+    """
+    Second-pass cleanup after _denoise_sig_crop's shape-based filter: actually
+    read the bottom strip of the crop via local PaddleOCR and, if it matches
+    known Indian-cheque boilerplate ("AUTHORISED SIGNATORIES", "PLEASE SIGN
+    ABOVE", etc.), whiteout everything from that strip's top edge down.
+
+    Exists because pure connected-component shape analysis (_denoise_sig_crop)
+    has an area-based escape hatch for large blobs — there to protect genuine
+    cursive strokes — that a bold multi-word printed caption can slip through
+    untouched if its letters merge into one large connected component
+    (confirmed failure mode: "AUTHORISED SIGNATORIES" surviving as one blob).
+    Reading the actual text and matching known phrases is far more reliable
+    than guessing from blob geometry for this specific, extremely common case.
+
+    Local-only — hits the IndicOCR microservice on this host (same one used
+    for Indic-script fields), no cloud call, so this stays consistent with
+    the no-HF-token signature paths that also call it. Best-effort: any
+    failure (service down, nothing recognizable) leaves the crop untouched —
+    this is a refinement layered on the existing heuristic, never the only
+    line of defence.
+    """
+    cw, ch = crop.size
+    if ch < 20:
+        return crop
+    strip_top = int(ch * 0.60)   # bottom ~40% — where a trailing caption would sit
+    strip = crop.crop((0, strip_top, cw, ch))
+
+    try:
+        import httpx
+        url = await _resolve_indic_ocr_url(bank_id)
+        buf = io.BytesIO()
+        strip.convert("RGB").save(buf, format="PNG")
+        buf.seek(0)
+        async with httpx.AsyncClient(timeout=10.0) as hc:
+            resp = await hc.post(
+                f"{url}/ocr",
+                files={"file": ("strip.png", buf, "image/png")},
+                params={"backend": "paddle", "script": "latin"},
+            )
+            resp.raise_for_status()
+            text = (resp.json().get("text") or "").upper()
+    except Exception as exc:
+        log.info("demo.cloud_extract.boilerplate_ocr_skipped", bank_id=bank_id, error=str(exc))
+        return crop
+
+    if not any(kw in text for kw in _BOILERPLATE_KEYWORDS):
+        return crop
+
+    log.info("demo.cloud_extract.boilerplate_text_stripped", bank_id=bank_id, matched_text=text[:80])
+    from PIL import ImageDraw
+    result = crop.copy()
+    ImageDraw.Draw(result).rectangle([(0, strip_top), (cw - 1, ch - 1)], fill=(255, 255, 255))
+    return result
+
+
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     """
     Remove printed uppercase name ("ANKIT KUMAR", "UMAR" etc.) and security
@@ -1104,15 +1591,24 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 removed += 1
                 continue
 
-            # Bottom-strip filter: lowest 30% of crop, small blobs → instruction text
-            if cy / ch > 0.70 and area < 1000:
+            # Bottom-strip filter: lowest 30% of crop, small-to-medium blobs →
+            # instruction text. Threshold raised from 1000 to 2500 — a bold
+            # multi-word printed caption ("AUTHORISED SIGNATORIES") can merge
+            # into one connected component exceeding the old ceiling and slip
+            # through untouched; a real signature's main body rarely sits
+            # this deep in the crop, so 2500 still leaves room for a genuine
+            # low-hanging flourish while catching merged caption text.
+            if cy / ch > 0.70 and area < 2500:
                 removed += 1
                 continue
 
             # Pass 2: solidity check for printed text anywhere in crop.
             # Printed chars are compact (solidity > 0.45); cursive strokes are open
-            # (solidity < 0.35) or large (area > 3000 even after erosion).
-            if area < 3000 and comp_h < ch * 0.35:
+            # (solidity < 0.35) or large (area > 6000 even after erosion).
+            # Ceiling raised from 3000 to 6000 for the same merged-caption reason
+            # as the bottom-strip filter above — otherwise a wide printed phrase
+            # skips the solidity check entirely by being "too big to be text".
+            if area < 6000 and comp_h < ch * 0.35:
                 blob_mask = (labels == i).astype(np.uint8) * 255
                 contours, _ = cv2.findContours(
                     blob_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
@@ -1236,6 +1732,24 @@ async def _extract_yolov8_sig(
             raw_response=raw_text,
         )
 
+    # Qwen is unreliable transcribing Indic-script handwriting (confirmed:
+    # wrong-script hallucination, garbled/repeated phrases) — re-source
+    # payee_name/amount_words via local PaddleOCR when they're actually in
+    # an Indic script. When amount_words gets replaced, is_amount_matching
+    # is recomputed inside _reroute_indic_text_fields via the real
+    # amounts_match() per-script parser — not left as Qwen's stale
+    # self-referential guess.
+    parsed, rerouted_fields, reroute_error = await _reroute_indic_text_fields(
+        parsed, pil_img, ctx.bank_id
+    )
+
+    # The whole-image prompt reliably mis-segments the packed MICR band and
+    # occasionally misreads a single amount digit — re-verify both against a
+    # tight, single-purpose zone crop rather than trusting the one-shot read.
+    parsed, numeric_verified = await _verify_numeric_fields_via_zone_crop(
+        pil_img, client, field_model_id, parsed, ctx.bank_id
+    )
+
     # ── Step 2: build sig crop from YOLOv8 bboxes ────────────────────────
     signature_crops: list[str] = []
     sig_bboxes_out: list[list[float]] = []
@@ -1255,6 +1769,7 @@ async def _extract_yolov8_sig(
         cy2 = min(ih, int((y2 + 0.035) * ih))     # 3.5 % bottom — captures descending curvature; denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
+        crop = await _strip_boilerplate_text_via_ocr(crop, ctx.bank_id)
         # Skip if denoised crop is nearly empty — no real handwritten signature
         if not _has_real_signature(crop):
             log.info("demo.cloud_extract.no_sig_after_denoise", bbox=bbox)
@@ -1274,11 +1789,15 @@ async def _extract_yolov8_sig(
 
     _STRIP = {"signature_crops", "signature_crops_estimated"}
     response_fields = {k: v for k, v in parsed.items() if k not in _STRIP}
+    combined_error = " | ".join(e for e in (sig_offline_error, reroute_error) if e) or None
     return CloudExtractResponse(
         model_used="yolov8-sig + qwen-32b",
         signature_crops=signature_crops if signature_crops else None,
         signature_crops_estimated=False,
-        error=sig_offline_error,
+        error=combined_error,
+        text_fields_rerouted=rerouted_fields,
+        text_fields_reroute_error=reroute_error,
+        numeric_fields_verified=numeric_verified,
         **response_fields,
     )
 
@@ -1325,6 +1844,7 @@ async def _extract_yolov8_sig_only(
         cy2 = min(ih, int((y2 + 0.035) * ih))     # 3.5 % bottom — captures descending curvature; denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
+        crop = await _strip_boilerplate_text_via_ocr(crop, ctx.bank_id)
         # Skip if denoised crop is nearly empty — no real handwritten signature
         if not _has_real_signature(crop):
             log.info("demo.cloud_extract.no_sig_after_denoise", bbox=bbox)
@@ -1348,17 +1868,26 @@ async def _extract_yolov8_sig_only(
 
 
 async def _extract_indic_devanagari(
-    file: UploadFile, ctx
+    file: UploadFile, ctx, script: str = "auto"
 ) -> CloudExtractResponse:
     """
-    Local-only Devanagari extraction — no HF token required:
-      1. IndicOCR (port 8021) — Devanagari text fields via CTS-2010 zone crops
+    Local-only Indic-script extraction — no HF token required:
+      1. IndicOCR (port 8021) — text fields via CTS-2010 zone crops
       2. YOLOv8 sig detector (port 8020) — signature bbox + clean crop
 
     Both calls run concurrently.  Each service failing independently is
     surfaced as a distinct error rather than silently returning partial data.
     MICR, cheque number, account number, and IFSC are NOT extracted here —
     those are English numerals/text and are outside Stage 1 scope.
+
+    ``script`` picks the PaddleOCR language model: "auto" (default) tries
+    every supported script against the zone crop and keeps whichever scores
+    best (see _run_paddle_auto in apps/indic_ocr/main.py), or an explicit
+    script name (devanagari/kannada/tamil/etc) to skip the contest when the
+    caller already knows it. Running a Kannada or Tamil cheque through a
+    hardcoded Hindi model produces confidently-wrong garbage, not a graceful
+    degradation — that's what this mode originally did, hence "auto" as the
+    default rather than devanagari now that empirical detection exists.
     """
     import asyncio
 
@@ -1367,7 +1896,7 @@ async def _extract_indic_devanagari(
     iw, ih = pil_img.size
 
     yolo_task  = asyncio.create_task(_call_sig_detector(pil_img, ctx.bank_id))
-    indic_task = asyncio.create_task(_call_indic_ocr_zones(pil_img, ctx.bank_id))
+    indic_task = asyncio.create_task(_call_indic_ocr_zones(pil_img, ctx.bank_id, script=script))
     yolo_result, indic_result = await asyncio.gather(
         yolo_task, indic_task, return_exceptions=True
     )
@@ -1380,35 +1909,40 @@ async def _extract_indic_devanagari(
 
     # Unpack IndicOCR result
     if isinstance(indic_result, Exception):
-        indic_fields, indic_available = {}, False
+        indic_fields, indic_available, indic_error = {}, False, str(indic_result)
     else:
-        indic_fields, indic_available = indic_result
+        indic_fields, indic_available, indic_error = indic_result
 
     # Both services down — nothing useful to return
     if not yolo_available and not indic_available:
         sig_url   = await _resolve_sig_detector_url(ctx.bank_id)
-        indic_url = await _resolve_indic_ocr_url(ctx.bank_id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 f"Both local services are unreachable. "
                 f"Start sig detector: cd apps/sig_detector; python main.py  "
                 f"(expected at {sig_url}). "
-                f"Start IndicOCR: cd apps/indic_ocr; python main.py  "
-                f"(expected at {indic_url})."
+                f"IndicOCR: {indic_error}"
             ),
         )
 
-    # Only YOLO down — IndicOCR fields still available; note the partial degradation
-    indic_sig_offline_error: Optional[str] = None
+    # One side down — the other's fields are still returned; combine whichever
+    # error(s) apply into one message so the caller never sees a blank field
+    # with no explanation of why.
+    error_parts: list[str] = []
     if not yolo_available:
         sig_url = await _resolve_sig_detector_url(ctx.bank_id)
-        indic_sig_offline_error = (
+        error_parts.append(
             f"SIG_DETECTOR_OFFLINE — start with: "
             f"cd apps/sig_detector; python main.py  (expected at {sig_url})"
         )
         log.warning("demo.cloud_extract.indic_sig_detector_offline",
                     bank_id=ctx.bank_id, url=sig_url)
+    if not indic_available:
+        error_parts.append(indic_error or "INDIC_OCR_FAILED — unknown error")
+        log.warning("demo.cloud_extract.indic_ocr_failed",
+                    bank_id=ctx.bank_id, error=indic_error)
+    indic_sig_offline_error: Optional[str] = " | ".join(error_parts) if error_parts else None
 
     # Build sig crops from YOLO detections
     signature_crops: list[str] = []
@@ -1523,6 +2057,7 @@ async def _extract_qwen2vl_sig(file: UploadFile, ctx) -> CloudExtractResponse:
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
     model: str = "qwen-72b",
+    script: str = "auto",   # only consulted for model=indic-devanagari
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
     _all_valid = (
@@ -1548,9 +2083,9 @@ async def cloud_extract_cheque(
     if model in _QWEN_SIG_MODELS:
         return await _extract_qwen2vl_sig(file, ctx)
 
-    # ── IndicOCR Devanagari + YOLO sig (local, no HF token) ─────────────────
+    # ── IndicOCR + YOLO sig (local, no HF token) ─────────────────────────────
     if model in _INDIC_DEVANAGARI_MODELS:
-        return await _extract_indic_devanagari(file, ctx)
+        return await _extract_indic_devanagari(file, ctx, script=script)
 
     from openai import AsyncOpenAI
 
@@ -1619,6 +2154,41 @@ async def cloud_extract_cheque(
 
     # pil_img captured at upload time by _convert_to_png() — no second open needed.
 
+    # Qwen/Gemma are unreliable transcribing Indic-script handwriting
+    # (confirmed: wrong-script hallucination, garbled/repeated phrases) —
+    # re-source payee_name/amount_words via local PaddleOCR when they're
+    # actually in an Indic script. When amount_words gets replaced,
+    # is_amount_matching is recomputed inside _reroute_indic_text_fields via
+    # the real amounts_match() per-script parser — not left as the model's
+    # stale self-referential guess.
+    parsed, rerouted_fields, reroute_error = await _reroute_indic_text_fields(
+        parsed, pil_img, ctx.bank_id
+    )
+
+    # The whole-image prompt reliably mis-segments the packed MICR band and
+    # occasionally misreads a single amount digit — re-verify both against a
+    # tight, single-purpose zone crop rather than trusting the one-shot read.
+    parsed, numeric_verified = await _verify_numeric_fields_via_zone_crop(
+        pil_img, client, model_id, parsed, ctx.bank_id
+    )
+
+    # Always re-verify is_amount_matching with the real deterministic parser
+    # -- never trust the cloud VLM's own self-report unconditionally. Found
+    # 2026-09-17 via a 19-cheque comparative run: the LLM's self-reported
+    # is_amount_matching disagreed with amounts_match() on 7/19 real cheques
+    # (37%) -- it compares its own two readings against each other and means
+    # nothing once either has been corrected by zone-crop verification above.
+    # Skipped only when _reroute_indic_text_fields already ran this exact
+    # check with a script hint (see amounts_match(..., script=resolved_script)
+    # there) -- redoing it here without that hint would be strictly less
+    # accurate for Indic-script amounts, not more.
+    if not (rerouted_fields and "amount_words" in rerouted_fields):
+        words = parsed.get("amount_words")
+        if parsed.get("amount_numeric") and words and words != "null":
+            parsed["is_amount_matching"] = amounts_match(
+                parsed.get("amount_numeric"), words
+            )
+
     # When the LLM confirms a signature exists, build the tightest possible
     # zone from the LLM's own signature_bboxes (preferred) so _focused_sig_crop
     # sees only the sig area with no surrounding cheque fields.  Fall back to
@@ -1652,6 +2222,7 @@ async def cloud_extract_cheque(
 
             # Send the crop to the LLM and ask where printed text starts.
             crop = await _whiteout_via_llm(crop, client, model_id, ctx.bank_id)
+            crop = await _strip_boilerplate_text_via_ocr(crop, ctx.bank_id)
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
             signature_crops.append(base64.b64encode(buf.getvalue()).decode())
@@ -1688,5 +2259,8 @@ async def cloud_extract_cheque(
         model_used=model,
         signature_crops=signature_crops if signature_crops else None,
         signature_crops_estimated=crops_estimated if crops_estimated else None,
+        text_fields_rerouted=rerouted_fields,
+        text_fields_reroute_error=reroute_error,
+        numeric_fields_verified=numeric_verified,
         **response_fields,
     )
