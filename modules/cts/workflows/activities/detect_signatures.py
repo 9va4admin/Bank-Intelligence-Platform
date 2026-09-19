@@ -117,6 +117,81 @@ def _remap_bbox_to_full_image(bbox: list[float], zone: tuple[float, float, float
     return [zx1 + bx1 * zw, zy1 + by1 * zh, zx1 + bx2 * zw, zy1 + by2 * zh]
 
 
+def _refine_bbox_to_ink(zone_png: bytes, bbox: list[float]) -> list[float]:
+    """Grow a vision-model bbox (fraction of the zone crop) to the full
+    extent of the real connected ink component(s) it overlaps.
+
+    Real, demonstrated gap found by manual review + systematic measurement
+    across 19 real cheques (2026-09-18/19): the vision model correctly
+    identifies WHICH ink is the signature (vs. printed captions), but its
+    bbox coordinates are frequently undersized -- LLM visual grounding is
+    not pixel-precise the way a trained detector is. 5 of 19 cheques had a
+    bbox missing real ink by more than 25% of the bbox's own size on at
+    least one side; 915526's bbox (54x26px) was smaller than the real
+    signature by ~30px on every side. Coarse localisation from the vision
+    model + deterministic boundary refinement from real pixel data is a
+    standard combination -- use the model for WHERE, use connected-
+    component analysis for the PRECISE extent once we're already looking
+    at approximately the right place.
+
+    Only grows the bbox (never shrinks below the model's own estimate) --
+    if the model's box already fully contains the ink, or ink detection
+    fails for any reason, returns the original bbox unchanged.
+    """
+    try:
+        import io as _io
+        import cv2
+        import numpy as np
+        from PIL import Image as _Image
+
+        zone_img = _Image.open(_io.BytesIO(zone_png)).convert("L")
+        zw, zh = zone_img.size
+        bx1, by1, bx2, by2 = bbox
+        px1, py1 = int(bx1 * zw), int(by1 * zh)
+        px2, py2 = int(bx2 * zw), int(by2 * zh)
+
+        gray = np.array(zone_img)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+
+        # A little tolerance around the model's box -- ink touching but not
+        # strictly inside it (the exact failure mode found: the box sits
+        # just short of the real stroke) should still count as the same
+        # component.
+        tol = 3
+        tx1, ty1 = max(0, px1 - tol), max(0, py1 - tol)
+        tx2, ty2 = min(zw, px2 + tol), min(zh, py2 + tol)
+        overlap_labels = set(np.unique(labels[ty1:ty2, tx1:tx2]))
+        overlap_labels.discard(0)
+        if not overlap_labels:
+            return bbox
+
+        mask = np.isin(labels, list(overlap_labels))
+        ys, xs = np.where(mask)
+        # Union with the model's own box -- refinement only ever grows it.
+        real_x1 = min(int(xs.min()), px1)
+        real_y1 = min(int(ys.min()), py1)
+        real_x2 = max(int(xs.max()) + 1, px2)
+        real_y2 = max(int(ys.max()) + 1, py2)
+
+        # Safety check found by direct visual review: when the model's own
+        # box sits mostly on a printed caption rather than the real ink
+        # (a worse failure than merely undersized -- 168376, 673677), the
+        # "nearest overlapping component" is the caption's own text blob,
+        # and growing to it produces a thin, wide strip -- a printed
+        # single text line, not a genuine handwritten signature in this
+        # dataset. Reject the growth in that case and fall back to the
+        # model's original box rather than confidently expand onto the
+        # wrong ink.
+        rh, rw = real_y2 - real_y1, real_x2 - real_x1
+        if rh < 20 and rw / max(rh, 1) > 5:
+            return bbox
+
+        return [real_x1 / zw, real_y1 / zh, real_x2 / zw, real_y2 / zh]
+    except Exception:
+        return bbox
+
+
 async def _detect_via_hf_cloud(
     inp: DetectSignaturesInput,
     config_service: Any,
@@ -157,7 +232,9 @@ async def _detect_via_hf_cloud(
     sig_count = int(parsed.get("signature_count", 0))
     fraud_flags = list(parsed.get("signature_fraud_flags", []))
     sig_bboxes = [
-        _remap_bbox_to_full_image([float(v) for v in bbox], _SIGNATURE_ZONE)
+        _remap_bbox_to_full_image(
+            _refine_bbox_to_ink(zone_png, [float(v) for v in bbox]), _SIGNATURE_ZONE
+        )
         for bbox in (parsed.get("signature_bboxes") or [])
         if isinstance(bbox, (list, tuple)) and len(bbox) == 4
     ]
@@ -418,8 +495,12 @@ async def detect_signatures(
         ]
         if zone_png is not None:
             # Model saw only the cropped zone — bboxes are fractions of that
-            # crop and must be remapped back to full-cheque-image fractions.
-            sig_bboxes = [_remap_bbox_to_full_image(b, _SIGNATURE_ZONE) for b in sig_bboxes]
+            # crop. Refine to the real ink extent (see _refine_bbox_to_ink)
+            # before remapping back to full-cheque-image fractions.
+            sig_bboxes = [
+                _remap_bbox_to_full_image(_refine_bbox_to_ink(zone_png, b), _SIGNATURE_ZONE)
+                for b in sig_bboxes
+            ]
         outcome = "PRESENT" if sig_count > 0 else "ABSENT"
 
         span.set_attribute("sig_count", sig_count)
