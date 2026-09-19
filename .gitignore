@@ -34,6 +34,7 @@ _test_*.jpg
 
 # Temp test-build helpers (content already merged into proper test files)
 tests/**/partial_image_tests_append.py
+apps/ai_server/ai-server
 
 # Edge scanner agent — compiled Windows binaries (distributed via release, not git)
 edge/cts-scanner-agent/*.exe
@@ -42,3 +43,9 @@ edge/cts-scanner-agent/scannned-chqs/
 .env.dev
 .dev/
 edge/cts-scanner-agent/token.dat
+
+# apps/indic_ocr needs its own isolated venv -- paddleocr/paddlepaddle pin
+# protobuf<=3.20.2 and a numpy1-ABI opencv build that conflict with the rest
+# of ASTRA's shared environment. Never commit this (torch/paddle alone are
+# multiple GB) -- see apps/indic_ocr/main.py's torch-preload comment.
+apps/indic_ocr/.venv/

@@ -10,6 +10,7 @@ scans QR fresh on next login.
 """
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 revision = "20260912_dev_pwd_reset"
@@ -45,15 +46,26 @@ _HASHES = {
 }
 
 
+_UPDATE_STMT = sa.text(
+    "UPDATE platform.local_auth_accounts "
+    "SET password_hash = :pwd_hash, totp_enrolled = false, "
+    "    failed_attempts = 0, locked_until = NULL "
+    "WHERE username = :username AND bank_id = :bank_id"
+)
+
+
 def upgrade() -> None:
+    # Real bug fixed 2026-09-17: this originally used raw psycopg2-style
+    # "%s" positional placeholders with a plain tuple, passed straight to
+    # SQLAlchemy Connection.execute() -- that calling convention isn't
+    # supported there (SQLAlchemy 2.x requires sa.text() with named binds
+    # and a dict/mapping of params). Confirmed via a real migration run:
+    # "ArgumentError: List argument must consist only of dictionaries".
     conn = op.get_bind()
     for (username, bank_id), pwd_hash in _HASHES.items():
         conn.execute(
-            "UPDATE platform.local_auth_accounts "
-            "SET password_hash = %s, totp_enrolled = false, "
-            "    failed_attempts = 0, locked_until = NULL "
-            "WHERE username = %s AND bank_id = %s",
-            (pwd_hash, username, bank_id),
+            _UPDATE_STMT,
+            {"pwd_hash": pwd_hash, "username": username, "bank_id": bank_id},
         )
 
 

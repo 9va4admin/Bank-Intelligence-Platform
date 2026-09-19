@@ -124,7 +124,7 @@ async def test_get_fetches_from_db_on_cache_miss(svc: ConfigService):
     svc._redis.get = AsyncMock(return_value=None)
 
     conn = svc._db_pool.acquire().__aenter__.return_value
-    conn.fetchrow = AsyncMock(return_value={"value": "0.92", "value_type": "float"})
+    conn.fetchrow = AsyncMock(return_value={"config_value": "0.92", "value_type": "float"})
 
     result = await svc.get("cts.stp_auto_confirm_threshold")
 
@@ -146,7 +146,7 @@ async def test_get_raises_for_missing_key(svc: ConfigService):
 async def test_get_deserialises_int(svc: ConfigService):
     svc._redis.get = AsyncMock(return_value=None)
     conn = svc._db_pool.acquire().__aenter__.return_value
-    conn.fetchrow = AsyncMock(return_value={"value": "180", "value_type": "int"})
+    conn.fetchrow = AsyncMock(return_value={"config_value": "180", "value_type": "int"})
 
     result = await svc.get("cts.iet_minutes")
     assert result == 180
@@ -157,7 +157,7 @@ async def test_get_deserialises_int(svc: ConfigService):
 async def test_get_deserialises_bool(svc: ConfigService):
     svc._redis.get = AsyncMock(return_value=None)
     conn = svc._db_pool.acquire().__aenter__.return_value
-    conn.fetchrow = AsyncMock(return_value={"value": "true", "value_type": "bool"})
+    conn.fetchrow = AsyncMock(return_value={"config_value": "true", "value_type": "bool"})
 
     result = await svc.get("feature.dual_approval_enabled")
     assert result is True
@@ -252,7 +252,7 @@ async def test_get_user_preference_returns_none_if_not_set(svc: ConfigService):
 @pytest.mark.asyncio
 async def test_get_user_preference_returns_deserialised_json(svc: ConfigService):
     conn = svc._db_pool.acquire().__aenter__.return_value
-    conn.fetchrow = AsyncMock(return_value={"value": '{"panels": ["queue", "metrics"]}'})
+    conn.fetchrow = AsyncMock(return_value={"pref_value": '{"panels": ["queue", "metrics"]}'})
 
     result = await svc.get_user_preference("user-123", "dashboard_layout")
     assert result == {"panels": ["queue", "metrics"]}
@@ -428,7 +428,7 @@ async def test_get_deserialises_json(svc: ConfigService):
     """_parse_db_value with vtype='json' → deserialised Python object."""
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
     conn.fetchrow.return_value = {
-        "value": '{"routes": ["GOVERNMENT"]}',
+        "config_value": '{"routes": ["GOVERNMENT"]}',
         "value_type": "json",
     }
     svc._redis.get.return_value = None
@@ -463,7 +463,7 @@ async def test_evaluate_policy_reraises_opa_unavailable(svc: ConfigService):
 async def test_get_user_preference_returns_raw_string_on_json_error(svc: ConfigService):
     """If stored value is not valid JSON, returns the raw string."""
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "plain-string-not-json"}
+    conn.fetchrow.return_value = {"pref_value": "plain-string-not-json"}
 
     result = await svc.get_user_preference("user123", "locale")
     assert result == "plain-string-not-json"
@@ -478,7 +478,7 @@ async def test_get_cts_config_returns_all_keys(svc: ConfigService):
     """get_cts_config() returns a dict with all CTS threshold keys."""
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "0.92", "value_type": "float"}
+    conn.fetchrow.return_value = {"config_value": "0.92", "value_type": "float"}
 
     result = await svc.get_cts_config()
     assert "cts.iet_minutes" in result
@@ -491,7 +491,7 @@ async def test_get_ej_config_returns_all_keys(svc: ConfigService):
     """get_ej_config() returns a dict with all EJ threshold keys."""
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "0.85", "value_type": "float"}
+    conn.fetchrow.return_value = {"config_value": "0.85", "value_type": "float"}
 
     result = await svc.get_ej_config()
     assert "ej.llm_field_min_confidence" in result
@@ -509,7 +509,7 @@ async def test_get_workflow_thresholds_returns_bare_key_names(svc: ConfigService
     not inp.cts_config.get("cts.human_review_max_wait_minutes")."""
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "55", "value_type": "int"}
+    conn.fetchrow.return_value = {"config_value": "55", "value_type": "int"}
 
     result = await svc.get_workflow_thresholds()
     for key in result:
@@ -523,7 +523,7 @@ async def test_get_workflow_thresholds_includes_human_review_timeout(svc: Config
     """human_review_max_wait_minutes must be present — this is the HIGH-1 fix."""
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "40", "value_type": "int"}
+    conn.fetchrow.return_value = {"config_value": "40", "value_type": "int"}
 
     result = await svc.get_workflow_thresholds()
     assert "human_review_max_wait_minutes" in result
@@ -536,7 +536,7 @@ async def test_get_workflow_thresholds_includes_stp_fields(svc: ConfigService):
     must all be present — they gate the supervised STP fast-path."""
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "FULL_MANUAL", "value_type": "str"}
+    conn.fetchrow.return_value = {"config_value": "FULL_MANUAL", "value_type": "str"}
 
     result = await svc.get_workflow_thresholds()
     assert "stp_mode" in result
@@ -559,7 +559,7 @@ async def test_get_workflow_thresholds_includes_all_decision_keys(svc: ConfigSer
     }
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "0.92", "value_type": "float"}
+    conn.fetchrow.return_value = {"config_value": "0.92", "value_type": "float"}
 
     result = await svc.get_workflow_thresholds()
     missing = required - result.keys()
@@ -571,7 +571,7 @@ async def test_get_ai_config_returns_all_keys(svc: ConfigService):
     """get_ai_config() returns a dict with all AI threshold keys."""
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "0.90", "value_type": "float"}
+    conn.fetchrow.return_value = {"config_value": "0.90", "value_type": "float"}
 
     result = await svc.get_ai_config()
     assert "ai.ocr.min_confidence" in result
@@ -591,7 +591,7 @@ def test_bank_id_property_returns_bank_id(svc: ConfigService):
 async def test_get_deserialises_string_type(svc: ConfigService):
     """_parse_db_value with vtype='string' → raw string returned."""
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchrow.return_value = {"value": "finacle", "value_type": "string"}
+    conn.fetchrow.return_value = {"config_value": "finacle", "value_type": "string"}
     svc._redis.get.return_value = None
 
     result = await svc.get("cbs.connector.type")
