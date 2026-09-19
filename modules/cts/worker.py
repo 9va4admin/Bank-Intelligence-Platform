@@ -203,6 +203,20 @@ from modules.cts.workflows.vault_file_drop_workflow import (
     archive_drop_file,
 )
 
+# MSV (Multi-Signature Validation) — workflow + activities registered here
+# alongside CTS so a single worker pod handles both. MSV uses its own task
+# queue prefix ("msv-processing-{bank_id}") to isolate MSV capacity from CTS
+# inward volume. Activities are registered via BoundMSVActivities built in
+# build_bound_activities (see worker_activities.py).
+try:
+    from modules.msv.workflows.msv_workflow import MSVValidationWorkflow
+    from modules.msv.workflows.activities.orchestrate import orchestrate_msv_validation
+    from modules.msv.workflows.activities.cbs_sync import sync_signatories_from_cbs
+    _MSV_AVAILABLE = True
+except ImportError as _msv_import_err:
+    log.warning("worker.msv_import_failed", error=str(_msv_import_err))
+    _MSV_AVAILABLE = False
+
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
     IETWatchdogWorkflow,
@@ -232,6 +246,10 @@ ALL_WORKFLOWS = [
     # Inward batch ingestion (NGCH delivers PXF + CXF + CIBF → parse → DB → fan-out)
     InwardBatchIngestionWorkflow,
 ]
+
+# Add MSV workflow when available
+if _MSV_AVAILABLE:
+    ALL_WORKFLOWS.append(MSVValidationWorkflow)
 
 # Every registered CTS activity name, for reference/introspection. This list
 # is NOT what gets passed to Worker() — see run_worker(), which combines
@@ -365,6 +383,15 @@ NO_DI_ACTIVITIES = [
     # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
     # all in BoundCTSActivities (db_pool injection required)
 ]
+
+# MSV activities — added when MSV package is available
+if _MSV_AVAILABLE:
+    NO_DI_ACTIVITIES.extend([
+        orchestrate_msv_validation,
+        sync_signatories_from_cbs,
+        # Note: MSVValidationWorkflow also calls write_audit — the CTS write_audit
+        # activity registered above (shared name "write_audit") serves both workflows.
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -524,6 +551,91 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
             reason="OutwardScanTrigger module unavailable",
         )
 
+    # DropFolderWatcher — monitors per-branch drop folders for OEM scanner output,
+    # maps files to ScannedChequeInput, and publishes BatchScannedEvents to Kafka.
+    # One WatcherConfig per branch entry in cts.scanner.watcher_configs (list of dicts).
+    # Each entry must carry: branch_id, pu_id, drop_folder, metadata_glob,
+    # stability_wait_seconds, scanner_config_id (looked up in scanner_configs table).
+    # ScannerDropFolderMapper requires a ScannerConfig (loaded from DB/config_service).
+    # ScannerFactory (adapters.py) resolves the hardware adapter per branch.
+    # Gracefully skipped when not configured or Kafka unavailable.
+    drop_watcher_tasks: list[asyncio.Task] = []
+    drop_watchers: list = []
+    try:
+        from pathlib import Path
+        from modules.cts.scanner.file_watcher import DropFolderWatcher, WatcherConfig
+        from modules.cts.scanner.mapper import ScannerDropFolderMapper, ScannerConfig
+        from modules.cts.scanner.adapters import ScannerFactory  # noqa: F401 — imported for wiring
+
+        kafka_bootstrap_for_watcher = config_service.get_platform("kafka.bootstrap_servers")
+        watcher_cfgs = config_service.get(f"cts.scanner.watcher_configs.{bank_id}", default=None)
+        if watcher_cfgs:
+            from shared.event_bus.producer import EventProducer as _KafkaProducer
+            for branch_cfg in watcher_cfgs:
+                branch_id = branch_cfg.get("branch_id", "")
+                pu_id = branch_cfg.get("pu_id", "")
+                drop_folder = Path(branch_cfg.get("drop_folder", f"/data/cts/scanner/{bank_id}/{branch_id}"))
+                metadata_glob = branch_cfg.get("metadata_glob", "*.dat")
+                stability_secs = int(branch_cfg.get("stability_wait_seconds", 2))
+                kafka_topic = f"cts.outward.scanned.{bank_id}"
+                scanner_config_dict = branch_cfg.get("scanner_config", {})
+
+                try:
+                    scanner_config = ScannerConfig(**{
+                        "scanner_config_id": scanner_config_dict.get("scanner_config_id", f"{bank_id}-{branch_id}"),
+                        "bank_id": bank_id,
+                        "branch_id": branch_id,
+                        "scanner_oem": scanner_config_dict.get("scanner_oem", "generic"),
+                        "scanner_model": scanner_config_dict.get("scanner_model", "generic"),
+                        "output_format": scanner_config_dict.get("output_format", "csv"),
+                        "date_format": scanner_config_dict.get("date_format", "%d%m%Y"),
+                        "amount_format": scanner_config_dict.get("amount_format", "DECIMAL_DOT"),
+                        "field_mapping": scanner_config_dict.get("field_mapping", {}),
+                        "image_naming_pattern": scanner_config_dict.get("image_naming_pattern", "{scan_id}"),
+                        "image_side_mapping": scanner_config_dict.get("image_side_mapping", {}),
+                        "drop_folder_path": str(drop_folder),
+                    })
+                    mapper = ScannerDropFolderMapper(scanner_config)
+                    watcher_kafka = _KafkaProducer(bootstrap_servers=kafka_bootstrap_for_watcher, module="cts")
+                    cfg = WatcherConfig(
+                        bank_id=bank_id,
+                        branch_id=branch_id,
+                        pu_id=pu_id,
+                        drop_folder=drop_folder,
+                        metadata_glob=metadata_glob,
+                        stability_wait_seconds=stability_secs,
+                        kafka_topic=kafka_topic,
+                    )
+                    watcher = DropFolderWatcher(config=cfg, mapper=mapper, kafka_producer=watcher_kafka)
+                    drop_watchers.append(watcher)
+                    log.info("worker.drop_folder_watcher_configured", bank_id=bank_id, branch_id=branch_id, drop_folder=str(drop_folder))
+                except Exception as _branch_exc:
+                    log.warning("worker.drop_folder_watcher_branch_failed", bank_id=bank_id, branch_id=branch_id, error=str(_branch_exc))
+        else:
+            log.info("worker.drop_folder_watcher_skipped", bank_id=bank_id, reason="no watcher configs under cts.scanner.watcher_configs")
+    except ConfigKeyNotFoundError:
+        log.info("worker.drop_folder_watcher_skipped", bank_id=bank_id, reason="kafka.bootstrap_servers not configured")
+    except Exception as exc:
+        log.warning("worker.drop_folder_watcher_init_failed", bank_id=bank_id, error=str(exc))
+
+    async def _run_watcher_loop(watcher: "DropFolderWatcher") -> None:
+        """Poll drop folder for new files every 2 seconds."""
+        import asyncio as _asyncio
+        from pathlib import Path as _Path
+        cfg = watcher._cfg
+        while not shutdown_event.is_set():
+            try:
+                for path in cfg.drop_folder.glob(cfg.metadata_glob):
+                    if not watcher.should_skip(path):
+                        prior = path.stat().st_size if path.exists() else -1
+                        await _asyncio.sleep(cfg.stability_wait_seconds)
+                        from modules.cts.scanner.file_watcher import is_file_stable
+                        if is_file_stable(path, prior_size=prior):
+                            await watcher.process_file(path)
+            except Exception as _exc:
+                log.warning("worker.drop_folder_poll_error", bank_id=bank_id, error=str(_exc))
+            await _asyncio.sleep(2)
+
     # Human review consumer — reads cts.human.review.{bank_id} Kafka topic.
     # In AUTO/HYBRID allocation_mode: auto-assigns or schedules deferred assign
     # immediately when an instrument enters the human review queue.
@@ -561,6 +673,12 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
             trigger_task = asyncio.create_task(trigger.run())
             log.info("worker.outward_scan_trigger_started", bank_id=bank_id)
 
+        for _watcher in drop_watchers:
+            _task = asyncio.create_task(_run_watcher_loop(_watcher))
+            drop_watcher_tasks.append(_task)
+        if drop_watcher_tasks:
+            log.info("worker.drop_folder_watchers_started", bank_id=bank_id, count=len(drop_watcher_tasks))
+
         log.info(
             "worker.ready",
             bank_id=bank_id,
@@ -583,6 +701,11 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 await asyncio.wait_for(trigger_task, timeout=5.0)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass
+        for _task in drop_watcher_tasks:
+            _task.cancel()
+        if drop_watcher_tasks:
+            await asyncio.gather(*drop_watcher_tasks, return_exceptions=True)
+
         if consumer_task is not None:
             consumer_task.cancel()
             try:

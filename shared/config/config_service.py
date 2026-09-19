@@ -79,6 +79,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.outward_dormant_payee_action": "HUMAN_REVIEW",
     "cts.outward_npa_payee_action": "HUMAN_REVIEW",
     "cts.indic_ocr.kill_mode": "NONE",
+    # OFF everywhere by default — real cloud dependency, dev/test exception
+    # only. See shared/ai/hf_cloud_fallback.py's module docstring.
+    "cts.allow_cloud_ai_fallback": False,
     # ── AI thresholds ───────────────────────────────────────────────────────────
     "ai.ocr.min_confidence": 0.90,
     "ai.signature.min_match_score": 0.85,
@@ -88,6 +91,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "ai.drift.alert_pct_threshold": 2.0,
     "ai.drift.auto_tighten_pct_threshold": 5.0,
     "ai.drift.pull_from_prod_pct_threshold": 8.0,
+    # ── AI service endpoints ────────────────────────────────────────────────────
+    "services.indic_ocr.url": "http://localhost:8021",
+    "services.sig_detector.url": "http://localhost:8020",
     # ── Platform health ─────────────────────────────────────────────────────────
     "platform_health_check.cadence_seconds": 60,
     "platform_health_check.max_human_review_queue_depth": 50,
@@ -284,11 +290,17 @@ class ConfigService:
             raise ConfigKeyNotFoundError(
                 f"Config key '{key}' not found — DB pool unavailable."
             )
+        # Key namespace convention (see infra/migrations/platform/versions/
+        # 20260618_002_platform_config_and_policies.py): "module.config_key",
+        # e.g. "cts.iet_minutes" -> module="cts", config_key="iet_minutes".
+        module, _, config_key = key.partition(".")
         async with self._db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT value, value_type FROM config.bank_config WHERE bank_id = $1 AND key = $2",
+                "SELECT config_value, value_type FROM platform.config_values "
+                "WHERE bank_id = $1 AND module = $2 AND config_key = $3",
                 self._bank_id,
-                key,
+                module,
+                config_key,
             )
         if row is None:
             # Row absent from DB — fall back to built-in defaults before raising.
@@ -299,7 +311,7 @@ class ConfigService:
                 f"Config key '{key}' not found for bank '{self._bank_id}'. "
                 f"Check Admin UI or infra/helm/values/_defaults.yaml."
             )
-        raw = row["value"]
+        raw = row["config_value"]
         vtype = row["value_type"]
         if vtype == "float":
             return float(raw)
@@ -394,16 +406,17 @@ class ConfigService:
         self._assert_ready()
         async with self._db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT value FROM config.user_preferences WHERE user_id = $1 AND key = $2",
+                "SELECT pref_value FROM platform.user_preferences "
+                "WHERE user_id = $1::uuid AND pref_key = $2",
                 user_id,
                 key,
             )
         if row is None:
             return None
         try:
-            return json.loads(row["value"])
+            return json.loads(row["pref_value"])
         except (json.JSONDecodeError, TypeError):
-            return row["value"]
+            return row["pref_value"]
 
     # ------------------------------------------------------------------
     # Convenience helpers used across CTS and EJ

@@ -133,6 +133,7 @@ def register_instrument():
         image_data: str = "",
         ocr_model: str = "GOT-OCR2.0",
         ocr_payee: str = "",
+        drawee_name: str = "",
         signature_data: str = "",
     ) -> None:
         _state.instruments.append({
@@ -149,6 +150,7 @@ def register_instrument():
             "image_data": image_data,
             "ocr_model": ocr_model,
             "ocr_payee": ocr_payee,
+            "drawee_name": drawee_name,
             "signature_data": signature_data,
             "registered_at": datetime.now(tz=timezone.utc).isoformat(),
         })
@@ -374,6 +376,12 @@ def _instrument_card(inst: dict, idx: int) -> str:
         f'<td class="mono small ocr-payee">{ocr_payee}</td></tr>'
     ) if ocr_payee else ""
 
+    drawee_name = _html.escape(inst.get("drawee_name", "") or "")
+    drawee_name_row = (
+        f'<tr><td class="fl">Drawee Name</td>'
+        f'<td class="mono small ocr-payee">{drawee_name}</td></tr>'
+    ) if drawee_name else ""
+
     def _fmt_inr(n: float) -> str:
         s = str(int(n))
         if len(s) <= 3:
@@ -410,6 +418,7 @@ def _instrument_card(inst: dict, idx: int) -> str:
         <tr><td class="fl">Amount</td><td class="amount">{amt_display}</td></tr>
         <tr><td class="fl">OCR Model</td><td class="mono small ocr-model">{ocr_model}</td></tr>
         {ocr_payee_row}
+        {drawee_name_row}
         <tr><td class="fl">Duration</td><td class="mono">{dur_str}</td></tr>
         <tr><td class="fl">Test</td><td class="small muted">{tname}</td></tr>
       </table>

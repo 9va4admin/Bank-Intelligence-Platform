@@ -38,6 +38,14 @@ CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
     "amount_figures": (0.57, 0.27, 0.99, 0.58),   # ₹ numeric box — right column, wide vertical
     "micr_band":      (0.00, 0.82, 1.00, 1.00),   # MICR E-13B strip — always bottom ~18%
 }
+# NOTE: signature zone (0.52, 0.55, 1.00, 0.90) intentionally NOT added here.
+# CTS_ZONES is specifically for OCR text fields, and every entry must be
+# classified as ALWAYS_LATIN or SCRIPT_ADAPTIVE for the Indic-script routing
+# pipeline (see TestFieldClassification) — a signature is ink, not OCR'd
+# text, so it doesn't belong in either category. The canonical signature
+# zone lives in modules/cts/workflows/activities/detect_signatures.py's
+# own _SIGNATURE_ZONE constant, matching apps/sig_detector/main.py's
+# already-deterministic crop.
 
 # Fields whose content is always Latin-script numerics or dates.
 # Skip Indic detection entirely — go straight to GOT-OCR2.

@@ -62,6 +62,17 @@ def run_migrations_online() -> None:
             include_schemas=True,
             version_table_schema="platform",
         )
+        # NOTE: alembic's version_num column is hardcoded String(32)
+        # (alembic/ddl/impl.py) with no config override in installed
+        # alembic==1.18.5 (confirmed against EnvironmentContext.configure's
+        # real signature). Several of this repo's migration ids exceed 32
+        # chars. Fix applied operationally, not here: run
+        #   alembic upgrade 20260719_p_secviol   (table created, ids so far all <=32 chars)
+        #   ALTER TABLE platform.alembic_version ALTER COLUMN version_num TYPE VARCHAR(128);
+        #   alembic upgrade head                 (remaining longer ids now fit)
+        # A fix inside this file can't help: the version table doesn't
+        # exist yet on a fresh DB until context.run_migrations() below
+        # creates it as a side effect of the first migration.
         with context.begin_transaction():
             context.run_migrations()
 

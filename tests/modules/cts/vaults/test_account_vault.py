@@ -104,6 +104,7 @@ class TestAccountVaultProcessCache:
     @pytest.mark.asyncio
     async def test_cache_hit_skips_redis(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         vault = _make_vault(redis_client=redis)
         key = vault._make_key("1234567890")
         vault._cache[key] = _sample_profile_dict()
@@ -138,6 +139,7 @@ class TestAccountVaultRedisHit:
     @pytest.mark.asyncio
     async def test_redis_hit_returns_found(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         profile = _sample_profile_dict()
         redis.hgetall.return_value = {
             k.encode(): v.encode() for k, v in profile.items()
@@ -152,6 +154,7 @@ class TestAccountVaultRedisHit:
     @pytest.mark.asyncio
     async def test_redis_hit_populates_process_cache(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         profile = _sample_profile_dict()
         redis.hgetall.return_value = {
             k.encode(): v.encode() for k, v in profile.items()
@@ -166,6 +169,7 @@ class TestAccountVaultRedisHit:
     @pytest.mark.asyncio
     async def test_redis_hit_second_call_uses_cache(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         profile = _sample_profile_dict()
         redis.hgetall.return_value = {
             k.encode(): v.encode() for k, v in profile.items()
@@ -186,6 +190,7 @@ class TestAccountVaultMiss:
     @pytest.mark.asyncio
     async def test_redis_miss_no_db_returns_human_review(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.return_value = {}
         vault = _make_vault(redis_client=redis)
 
@@ -197,6 +202,7 @@ class TestAccountVaultMiss:
     @pytest.mark.asyncio
     async def test_miss_outcome_is_never_auto_return(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.return_value = {}
         vault = _make_vault(redis_client=redis)
 
@@ -207,6 +213,7 @@ class TestAccountVaultMiss:
     @pytest.mark.asyncio
     async def test_miss_profile_is_none(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.return_value = {}
         vault = _make_vault(redis_client=redis)
 
@@ -223,6 +230,7 @@ class TestAccountVaultRedisError:
     @pytest.mark.asyncio
     async def test_redis_exception_returns_human_review(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.side_effect = ConnectionError("Redis unreachable")
         vault = _make_vault(redis_client=redis)
 
@@ -234,6 +242,7 @@ class TestAccountVaultRedisError:
     @pytest.mark.asyncio
     async def test_redis_error_outcome_never_auto_return(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.side_effect = RuntimeError("Redis timeout")
         vault = _make_vault(redis_client=redis)
 
@@ -250,6 +259,7 @@ class TestAccountVaultDbFallback:
     @pytest.mark.asyncio
     async def test_redis_miss_db_hit_returns_found(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.return_value = {}
 
         profile = _sample_profile_dict()
@@ -270,9 +280,10 @@ class TestAccountVaultDbFallback:
     @pytest.mark.asyncio
     async def test_redis_miss_db_hit_backfills_redis(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.return_value = {}
         redis.pipeline.return_value = MagicMock(
-            hset=MagicMock(), execute=MagicMock()
+            hset=MagicMock(), execute=AsyncMock()
         )
 
         profile = _sample_profile_dict()
@@ -292,6 +303,7 @@ class TestAccountVaultDbFallback:
     @pytest.mark.asyncio
     async def test_db_error_returns_human_review(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         redis.hgetall.return_value = {}
 
         mock_pool = AsyncMock()
@@ -315,7 +327,9 @@ class TestAccountVaultStore:
     @pytest.mark.asyncio
     async def test_store_writes_db_then_redis(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         pipe = MagicMock()
+        pipe.execute = AsyncMock()
         redis.pipeline.return_value = pipe
 
         mock_conn = AsyncMock()
@@ -336,7 +350,8 @@ class TestAccountVaultStore:
     @pytest.mark.asyncio
     async def test_store_invalidates_process_cache(self):
         redis = MagicMock()
-        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=MagicMock())
+        redis.hgetall = AsyncMock()
+        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=AsyncMock())
 
         mock_conn = AsyncMock()
         mock_pool = AsyncMock()
@@ -356,7 +371,9 @@ class TestAccountVaultStore:
     @pytest.mark.asyncio
     async def test_store_without_db_pool_still_writes_redis(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         pipe = MagicMock()
+        pipe.execute = AsyncMock()
         redis.pipeline.return_value = pipe
 
         vault = _make_vault(redis_client=redis, db_pool=None)
@@ -434,7 +451,8 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_returns_count_of_updated_accounts(self):
         redis = MagicMock()
-        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=MagicMock())
+        redis.hgetall = AsyncMock()
+        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=AsyncMock())
         mock_pool, _ = self._make_pool_with_accounts(["hash1", "hash2", "hash3"])
 
         vault = _make_vault(redis_client=redis, db_pool=mock_pool)
@@ -447,9 +465,10 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_writes_to_redis_for_each_account(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         pipe = MagicMock()
         pipe.hset = MagicMock()
-        pipe.execute = MagicMock()
+        pipe.execute = AsyncMock()
         redis.pipeline.return_value = pipe
 
         mock_pool, _ = self._make_pool_with_accounts(["hash1", "hash2"])
@@ -464,7 +483,8 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_updates_db(self):
         redis = MagicMock()
-        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=MagicMock())
+        redis.hgetall = AsyncMock()
+        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=AsyncMock())
         mock_pool, mock_conn = self._make_pool_with_accounts(["hash1"])
 
         vault = _make_vault(redis_client=redis, db_pool=mock_pool)
@@ -477,7 +497,8 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_invalidates_process_cache(self):
         redis = MagicMock()
-        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=MagicMock())
+        redis.hgetall = AsyncMock()
+        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=AsyncMock())
 
         account_hash = "deadbeef1234"
         mock_pool, _ = self._make_pool_with_accounts([account_hash])
@@ -495,7 +516,8 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_zero_accounts_returns_zero(self):
         redis = MagicMock()
-        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=MagicMock())
+        redis.hgetall = AsyncMock()
+        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=AsyncMock())
         mock_pool, _ = self._make_pool_with_accounts([])
 
         vault = _make_vault(redis_client=redis, db_pool=mock_pool)
@@ -508,6 +530,7 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_no_db_pool_returns_zero(self):
         redis = MagicMock()
+        redis.hgetall = AsyncMock()
         vault = _make_vault(redis_client=redis, db_pool=None)
         contact = self._make_contact_profile()
 
@@ -518,7 +541,8 @@ class TestAccountVaultUpdateBranchContacts:
     @pytest.mark.asyncio
     async def test_update_branch_contacts_db_error_raises(self):
         redis = MagicMock()
-        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=MagicMock())
+        redis.hgetall = AsyncMock()
+        redis.pipeline.return_value = MagicMock(hset=MagicMock(), execute=AsyncMock())
 
         mock_conn = AsyncMock()
         mock_conn.fetch = AsyncMock(side_effect=Exception("DB unreachable"))
