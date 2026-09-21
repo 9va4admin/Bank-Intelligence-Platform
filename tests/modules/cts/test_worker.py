@@ -221,3 +221,19 @@ class TestLoadTestStubHook:
         on = MagicMock(); on.get_platform = MagicMock(return_value="true")
         out = _maybe_apply_load_test_stubs(bound, on)
         assert out is not bound and type(out).__name__ == "LoadTestBoundActivities"
+
+
+class TestRegisteredActivities:
+    def test_every_bare_activity_is_registered_once_and_none_keeps_extra_params(self):
+        import inspect
+        from modules.cts.worker import NO_DI_ACTIVITIES, _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        b = BoundCTSActivities(bank_id="kbl")
+        acts = _registered_activities(b)
+        names = [a.__name__ for a in acts]
+        assert len(names) == len(set(names)), "an activity is registered twice"
+        assert len(acts) == len(NO_DI_ACTIVITIES) + len(b.activity_list())
+        bare = {f.__name__ for f in NO_DI_ACTIVITIES}
+        for a in acts:
+            if a.__name__ in bare:
+                assert len(inspect.signature(a).parameters) <= 1, a.__name__

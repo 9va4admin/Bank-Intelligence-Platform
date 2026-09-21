@@ -397,6 +397,15 @@ if _MSV_AVAILABLE:
 # Worker startup
 # ---------------------------------------------------------------------------
 
+def _registered_activities(bound_activities) -> list:
+    """Every activity the Worker registers: bare single-`inp` ones as-is, bare ones that
+    need dependencies wrapped by bind_di_activity (Temporal drops type hints and passes
+    a dict when an activity has extra params), plus the class-bound DI activities."""
+    from modules.cts.worker_activities import split_di_activities
+    wrapped, plain = split_di_activities(list(NO_DI_ACTIVITIES), bound_activities.di_dependencies())
+    return plain + wrapped + bound_activities.activity_list()
+
+
 def _maybe_apply_load_test_stubs(bound_activities, config_service):
     """DEV ONLY: swap the six AI activities for instant stubs when the
     cts.load_test_ai_stubs platform flag is "true". Refused outside development."""
@@ -462,7 +471,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     # modules/cts/worker_activities.py's module docstring.
     bound_activities = await build_bound_activities(bank_id, config_service)
     bound_activities = _maybe_apply_load_test_stubs(bound_activities, config_service)
-    worker_activities = NO_DI_ACTIVITIES + bound_activities.activity_list()
+    worker_activities = _registered_activities(bound_activities)
 
     client = await Client.connect(
         temporal_address,
