@@ -228,10 +228,16 @@ async def lifespan(app: FastAPI):
         _bank_id = config_service.bank_id
 
         if app.state.db_pool_cts is not None:
+            # Layer 2/3 "auth" block (SAML / LDAP per entity). Absent -> None -> local DB auth (dev/POC).
+            try:
+                _auth_config = await config_service.get("auth")
+            except Exception:
+                _auth_config = None
             _connector_factory = AuthConnectorFactory(
                 bank_id=_bank_id,
                 config_service=config_service,
                 db_pool=app.state.db_pool_cts,
+                auth_config=_auth_config,
             )
             app.state.connector_factory = _connector_factory
             _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)

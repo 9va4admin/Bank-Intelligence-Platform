@@ -31,6 +31,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.storage.image_fetch import fetch_image_bytes
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.detect_signatures")
 
@@ -282,10 +283,7 @@ async def _crop_signature_zone(image_url: str) -> Optional[bytes]:
     try:
         from io import BytesIO
         from PIL import Image
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(image_url)
-            resp.raise_for_status()
-        img = Image.open(BytesIO(resp.content)).convert("RGB")
+        img = Image.open(BytesIO(await fetch_image_bytes(image_url))).convert("RGB")
         iw, ih = img.size
         x1f, y1f, x2f, y2f = _SIGNATURE_ZONE
         x1, y1 = max(0, int(x1f * iw)), max(0, int(y1f * ih))
@@ -330,12 +328,11 @@ async def _detect_via_sig_detector(
         return None
 
     try:
+        image_bytes = await fetch_image_bytes(inp.image_url, timeout=20.0)
         async with httpx.AsyncClient(timeout=20.0) as client:
-            img_resp = await client.get(inp.image_url)
-            img_resp.raise_for_status()
             det_resp = await client.post(
                 f"{url}/detect",
-                files={"file": ("cheque.jpg", img_resp.content, "image/jpeg")},
+                files={"file": ("cheque.jpg", image_bytes, "image/jpeg")},
             )
             det_resp.raise_for_status()
             data = det_resp.json()

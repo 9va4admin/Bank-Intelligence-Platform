@@ -2884,3 +2884,17 @@ PU_BRANCH_REASSIGNED:
   variables: [branch_ifsc, from_pu_id, to_pu_id, reassigned_by]
   en: "Branch {branch_ifsc} reassigned from Processing Unit {from_pu_id} to {to_pu_id} by {reassigned_by} — instruments in-flight on old PU are unaffected."
   hi: ""
+
+CTS_IN_BATCH_INGESTED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [batch_id, instruments_started, failure_count]
+  en: "Inward batch {batch_id} ingested — {instruments_started} instrument workflows started, {failure_count} failed to start."
+  hi: ""
+
+CTS_IN_BATCH_INGEST_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [batch_id, reason]
+  en: "Inward batch {batch_id} could not be ingested and was dropped — {reason}."
+  hi: ""

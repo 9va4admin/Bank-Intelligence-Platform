@@ -225,6 +225,22 @@ def _build_routing_table() -> dict[AuditEventType, RoutingSpec]:
         E.VAULT_SYNC: _spec(
             E.VAULT_SYNC, P.P3, notify=False, create_incident=False,
         ),
+        # Routine audit-only records (no notification, no incident). They exist so that EVERY
+        # AuditEventType has exactly one spec — a missing one raised KeyError in the notification path.
+        **{
+            _e: _spec(_e, P.P3, notify=False, create_incident=False)
+            for _e in (
+                E.VAULT_SIG_STAGING_PURGED,          # CBS staging image deleted after embedding
+                E.CTS_HOLD_PLACED, E.CTS_HOLD_RELEASED,
+                E.CTS_LOCK_ACQUIRED, E.CTS_LOCK_RELEASED, E.CTS_LOCK_EXPIRED,
+                E.CTS_ALLOC_CLAIMED, E.CTS_ALLOC_AUTO_ASSIGNED, E.CTS_ALLOC_UNCLAIMED,
+                E.SCANNER_CONFIG_CREATED, E.SCANNER_CONFIG_UPDATED, E.SCANNER_CONFIG_DELETED,
+                E.BRANCH_CREATED, E.BRANCH_UPDATED, E.BRANCH_DELETED, E.BRANCH_BULK_IMPORTED,
+                E.PU_CREATED, E.PU_UPDATED, E.PU_DEACTIVATED, E.PU_BRANCH_ASSIGNED, E.PU_BRANCH_REASSIGNED,
+                E.CONFIG_L2_CHANGE_REQUESTED,        # visible in the maker-checker queue; same policy as CONFIG_CHANGE
+                E.SESSION_REPORT_GENERATED,
+            )
+        },
 
         # ── EJ module ──────────────────────────────────────────────────────────
         E.EJ_PARSED: _spec(

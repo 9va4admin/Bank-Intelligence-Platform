@@ -60,6 +60,7 @@ def ops_reviewer() -> UserContext:
         user_id="rev-001",
         role=Role.OPS_REVIEWER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
         clearing_zones=["MUMBAI"],
     )
 
@@ -70,6 +71,7 @@ def fraud_analyst() -> UserContext:
         user_id="fa-001",
         role=Role.FRAUD_ANALYST,
         bank_id="test-bank",
+        bank_type=BankType.SB,
     )
 
 
@@ -79,6 +81,7 @@ def ops_manager() -> UserContext:
         user_id="mgr-001",
         role=Role.OPS_MANAGER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
     )
 
 
@@ -88,6 +91,7 @@ def bank_it_admin() -> UserContext:
         user_id="admin-001",
         role=Role.BANK_IT_ADMIN,
         bank_id="test-bank",
+        bank_type=BankType.SB,
     )
 
 
@@ -97,6 +101,7 @@ def compliance_officer() -> UserContext:
         user_id="co-001",
         role=Role.COMPLIANCE_OFFICER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
     )
 
 
@@ -106,6 +111,7 @@ def rbi_examiner() -> UserContext:
         user_id="rbi-001",
         role=Role.RBI_EXAMINER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
         engagement_expires_at=time.time() + 3600,  # 1 hour from now
         engagement_date_from="2026-01-01",
         engagement_date_to="2026-06-17",
@@ -118,6 +124,7 @@ def ml_engineer() -> UserContext:
         user_id="ml-001",
         role=Role.ML_ENGINEER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
     )
 
 
@@ -291,6 +298,7 @@ def test_rbi_examiner_expired_engagement_raises():
         user_id="rbi-expired",
         role=Role.RBI_EXAMINER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
         engagement_expires_at=time.time() - 1,  # 1 second ago
         engagement_date_from="2026-01-01",
         engagement_date_to="2026-06-17",
@@ -305,6 +313,7 @@ def test_rbi_examiner_no_engagement_raises():
         user_id="rbi-no-eng",
         role=Role.RBI_EXAMINER,
         bank_id="test-bank",
+        bank_type=BankType.SB,
         # No engagement_expires_at set
     )
     policy = RBACPolicy()
@@ -416,14 +425,12 @@ class TestUserContextBankTypeAndPermissionLevel:
         )
         assert user.bank_type == BankType.SMB
 
-    def test_default_bank_type_is_sb_for_backward_compat(self):
-        # Existing UserContext without bank_type must not break — defaults to SB
-        user = UserContext(
-            user_id="u-old",
-            role=Role.OPS_REVIEWER,
-            bank_id="test-bank",
-        )
-        assert user.bank_type == BankType.SB
+    def test_bank_type_is_required_and_never_defaulted(self):
+        # VAPT decision: bank_type must be explicit in every JWT. Silently defaulting to SB would
+        # hand an SMB user Sponsor-Bank visibility (sb-smb-context rule), so omission is an error.
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            UserContext(user_id="u-old", role=Role.OPS_REVIEWER, bank_id="test-bank")
 
     def test_default_permission_level_is_read_only_least_privilege(self):
         # Least-privilege default: omitting permission_level gives READ_ONLY, not EDIT.
@@ -431,6 +438,7 @@ class TestUserContextBankTypeAndPermissionLevel:
             user_id="u-old",
             role=Role.OPS_REVIEWER,
             bank_id="test-bank",
+            bank_type=BankType.SB,
         )
         assert user.permission_level == PermissionLevel.READ_ONLY
 
@@ -819,6 +827,7 @@ class TestBranchManagerRole:
             user_id="bm-001",
             role=Role.BRANCH_MANAGER,
             bank_id="test-bank",
+            bank_type=BankType.SB,
             branch_code=branch_code,
         )
 
@@ -869,7 +878,7 @@ class TestBranchManagerRole:
 
     def test_user_context_branch_code_defaults_to_none(self):
         user = UserContext(
-            user_id="u", role=Role.OPS_MANAGER, bank_id="b"
+            user_id="u", role=Role.OPS_MANAGER, bank_id="b", bank_type=BankType.SB
         )
         assert user.branch_code is None
 
@@ -888,7 +897,7 @@ class TestBranchManagerRole:
     def test_assert_branch_access_passes_for_ops_manager(self):
         policy = RBACPolicy()
         user = UserContext(
-            user_id="mgr", role=Role.OPS_MANAGER, bank_id="test-bank"
+            user_id="mgr", role=Role.OPS_MANAGER, bank_id="test-bank", bank_type=BankType.SB,
         )
         policy.assert_branch_access(user, "ANY_BRANCH_CODE")  # no restriction
 
@@ -896,7 +905,7 @@ class TestBranchManagerRole:
         policy = RBACPolicy()
         user = UserContext(
             user_id="rev", role=Role.OPS_REVIEWER, bank_id="test-bank",
-            clearing_zones=["MUMBAI"]
+            clearing_zones=["MUMBAI"], bank_type=BankType.SB,
         )
         policy.assert_branch_access(user, "ANY_BRANCH_CODE")  # no restriction
 
@@ -905,7 +914,7 @@ class TestBranchManagerRole:
         policy = RBACPolicy()
         user = UserContext(
             user_id="bm", role=Role.BRANCH_MANAGER, bank_id="test-bank",
-            branch_code=None,
+            branch_code=None, bank_type=BankType.SB,
         )
         with pytest.raises(InsufficientZoneScopeError):
             policy.assert_branch_access(user, "SRCB0000034")

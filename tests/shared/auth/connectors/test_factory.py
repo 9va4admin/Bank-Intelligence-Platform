@@ -94,9 +94,9 @@ SMB_LDAP_OVERRIDE_CONFIG = {
 
 
 def _make_factory(config: dict, bank_id="saraswat-coop") -> AuthConnectorFactory:
-    mock_config_service = MagicMock()
-    mock_config_service.get.side_effect = lambda key: config
-    return AuthConnectorFactory(bank_id=bank_id, config_service=mock_config_service)
+    # auth config is handed to the factory (the API loads it from config at startup); nothing ever
+    # populated the old private `_auth_config_cache` attribute, so SAML/LDAP config was silently ignored
+    return AuthConnectorFactory(bank_id=bank_id, config_service=MagicMock(), auth_config=config)
 
 
 def test_sb_gets_saml_connector():
@@ -226,3 +226,9 @@ def test_db_pool_forwarded_to_the_connector():
     connector = factory.get_connector(entity_type="sb", entity_id="saraswat-coop")
 
     assert connector._pool is fake_pool
+
+
+def test_no_auth_config_falls_back_to_local_connector():
+    factory = AuthConnectorFactory(bank_id="b", config_service=MagicMock(), auth_config=None)
+    from shared.auth.connectors.local import LocalAuthConnector
+    assert isinstance(factory.get_connector("sb", "b"), LocalAuthConnector)

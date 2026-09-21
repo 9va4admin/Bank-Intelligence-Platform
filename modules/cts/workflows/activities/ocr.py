@@ -36,6 +36,7 @@ from shared.ai.model_cascade import CascadeOrchestrator
 
 from shared.observability.otel_setup import get_tracer
 
+from shared.storage.image_fetch import fetch_image_bytes
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
 
@@ -278,10 +279,7 @@ async def _extract_hf_cloud(
         return None
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(inp.image_url)
-            resp.raise_for_status()
-        image_bytes = resp.content
+        image_bytes = await fetch_image_bytes(inp.image_url)
     except Exception as exc:
         log.warning("ocr.hf_cloud_image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
         return None
@@ -354,10 +352,7 @@ async def _extract_tesseract(
         return None
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(inp.image_url)
-            resp.raise_for_status()
-        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(await fetch_image_bytes(inp.image_url))).convert("RGB")
 
         # PSM 6 = assume a single uniform block of text — reasonable for cheques
         raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
@@ -481,10 +476,7 @@ async def _refine_indic_zones(
         return [], ""
 
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.get(image_url)
-            resp.raise_for_status()
-            img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(await fetch_image_bytes(image_url, timeout=20.0))).convert("RGB")
     except Exception as exc:
         log.warning("ocr.indic_image_fetch_failed", instrument_id=instrument_id, error=str(exc))
         return [], ""

@@ -163,8 +163,10 @@ class TestRunOcrAI4Bharat:
     def _run(self, mock_reader, arr=None):
         import apps.indic_ocr.main as m
         m._ai4bharat_reader = mock_reader
-        return m._run_ocr(arr if arr is not None else _make_rgb_array(),
-                          m.BACKEND_AI4BHARAT, script="devanagari")
+        pairs, used, _lang = m._run_ocr(arr if arr is not None else _make_rgb_array(),
+                                        m.BACKEND_AI4BHARAT, script="devanagari")
+        assert used == m.BACKEND_AI4BHARAT      # the requested backend answered; no silent cascade
+        return pairs
 
     def test_happy_path_returns_text_confidence_pairs(self):
         mock_reader = MagicMock()
@@ -201,12 +203,13 @@ class TestRunOcrAI4Bharat:
             [[[[0, 0], [10, 0], [10, 5], [0, 5]], ("नमस्ते", 0.93)]]
         ]
         m._ai4bharat_reader = mock_a4b
-        m._paddle_ocr_pool["hi"] = mock_paddle
+        m._paddle_ocr_pool["devanagari"] = mock_paddle
 
-        pairs = m._run_ocr(_make_rgb_array(), m.BACKEND_AI4BHARAT,
-                            script="devanagari")
+        pairs, used, _lang = m._run_ocr(_make_rgb_array(), m.BACKEND_AI4BHARAT,
+                                        script="devanagari")
 
         assert pairs == [("नमस्ते", 0.93)]
+        assert used == m.BACKEND_PADDLE          # cascaded, and the caller is told which backend answered
         mock_paddle.ocr.assert_called_once()
 
     def test_not_implemented_falls_back_to_paddle(self, tmp_path):
@@ -218,14 +221,15 @@ class TestRunOcrAI4Bharat:
         mock_paddle.ocr.return_value = [
             [[[[0, 0], [10, 0], [10, 5], [0, 5]], ("नमस्ते", 0.92)]]
         ]
-        m._paddle_ocr_pool["hi"] = mock_paddle
+        m._paddle_ocr_pool["devanagari"] = mock_paddle
 
         # Patch only the os.path.isdir in the indic_ocr module namespace
         with patch("apps.indic_ocr.main.os.path.isdir", return_value=False):
-            pairs = m._run_ocr(_make_rgb_array(), m.BACKEND_AI4BHARAT,
-                               script="devanagari")
+            pairs, used, _lang = m._run_ocr(_make_rgb_array(), m.BACKEND_AI4BHARAT,
+                                            script="devanagari")
 
         assert pairs == [("नमस्ते", 0.92)]
+        assert used == m.BACKEND_PADDLE
 
     def test_confidence_cast_to_float(self):
         mock_reader = MagicMock()
@@ -311,7 +315,7 @@ class TestOcrEndpointAI4Bharat:
         mock_paddle.ocr.return_value = [
             [[[[0, 0], [10, 0], [10, 5], [0, 5]], ("नमस्ते", 0.88)]]
         ]
-        m._paddle_ocr_pool["hi"] = mock_paddle
+        m._paddle_ocr_pool["devanagari"] = mock_paddle
 
         with patch("apps.indic_ocr.main.os.path.isdir", return_value=False):
             resp = client.post(

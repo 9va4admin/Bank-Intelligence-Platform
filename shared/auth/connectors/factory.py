@@ -23,10 +23,15 @@ class AuthConnectorFactory:
     Config is read from config_service keyed at 'auth' (Layer 2 Helm values).
     """
 
-    def __init__(self, bank_id: str, config_service: Any, db_pool: Any = None) -> None:
+    def __init__(self, bank_id: str, config_service: Any, db_pool: Any = None,
+                 auth_config: dict | None = None) -> None:
         self.bank_id = bank_id
         self._config_service = config_service
         self._db_pool = db_pool
+        # {"auth": {...}} loaded once at startup by the caller (config_service.get is async and this
+        # factory is sync). None -> local DB auth. Previously this read a private attribute that no
+        # code ever set, so a bank's SAML/LDAP config was silently ignored.
+        self._auth_config = auth_config
         self._cache: dict[tuple[str, str], AuthConnector] = {}
 
     def get_connector(self, entity_type: str, entity_id: str) -> AuthConnector:
@@ -46,7 +51,7 @@ class AuthConnectorFactory:
     def _build_connector(self, entity_type: str, entity_id: str) -> AuthConnector:
         # config_service.get() is async; in dev/POC, Layer 2 Helm values are not wired
         # so the auth config is unavailable — fall back to local auth directly.
-        raw_auth_config = getattr(self._config_service, "_auth_config_cache", None)
+        raw_auth_config = self._auth_config
         if raw_auth_config is None:
             log.info(
                 "auth.factory.no_auth_config_fallback_to_local",
@@ -57,7 +62,9 @@ class AuthConnectorFactory:
 
         full_config = raw_auth_config
         if not full_config or "auth" not in full_config:
-            return self._build_local(entity_type, entity_id)
+            # a config WAS supplied but has no 'auth' block: refuse rather than silently downgrade to
+            # password login (None = no config at all = dev/POC, handled above)
+            raise AuthConnectorConfigError("auth config missing the 'auth' block")
 
         auth_root: dict = full_config["auth"]
 

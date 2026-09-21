@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict
 
 from temporalio import activity
 
+from shared.utils.instrument_uuid import to_instrument_uuid
 log = structlog.get_logger()
 _pylog = logging.getLogger(__name__)  # stdlib sink so pytest caplog can capture warnings
 tracer = trace.get_tracer(__name__)
@@ -115,7 +116,7 @@ async def persist_agent_decision(
         try:
             await db_conn.execute(
                 _SQL,
-                inp.instrument_id,
+                to_instrument_uuid(inp.bank_id, inp.instrument_id),   # UUID column
                 inp.bank_id,
                 inp.workflow_id,
                 inp.decision,
@@ -133,7 +134,7 @@ async def persist_agent_decision(
                 inp.pps_verdict,
                 inp.cbs_balance_status,
                 inp.degraded_mode,
-                _engines,
+                json.dumps(_engines),                                  # JSONB column needs a JSON string
                 inp.indic_ocr_kill_switch_active,
                 inp.iet_margin_seconds,
                 json.dumps(inp.steps_digest) if inp.steps_digest is not None else None,
