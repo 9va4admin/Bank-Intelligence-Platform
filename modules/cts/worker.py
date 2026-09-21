@@ -141,6 +141,7 @@ from modules.cts.workflows.activities.postdated_hold_activities import (
     mark_hold_cancelled,
 )
 from modules.cts.workflows.activities.security_features import check_security_features
+from modules.cts.workflows.activities.review_queue_activities import open_review_item
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
 from modules.cts.workflows.mismatch_resolution_workflow import (
     publish_mismatch_hold,
@@ -353,6 +354,7 @@ NO_DI_ACTIVITIES = [
     parse_and_validate_smb_push,
     update_smb_vault,
     # check_security_features is a BoundCTSActivities method (needs vllm client + config)
+    open_review_item,   # durable human-review queue (db_pool injected by the generic DI binder)
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,

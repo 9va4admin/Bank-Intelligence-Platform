@@ -143,6 +143,13 @@ class OutwardScanSubmitRequest(BaseModel):
     image_uv_url: Optional[str] = None
     pu_id: Optional[str] = None
     branch_id: Optional[str] = None
+    # Teller-entered deposit details (additive, optional — api-versioning: non-breaking).
+    # Take priority over rear-image OCR in OutwardScanWorkflow.
+    payee_account_number: Optional[str] = None
+    payee_name_from_slip: Optional[str] = None
+    payee_mobile: Optional[str] = None
+    registered_drawee_ifsc: Optional[str] = None
+    registered_amount_str: Optional[str] = None
 
 
 class OutwardScanSubmitResponse(BaseModel):
@@ -598,6 +605,11 @@ async def submit_outward_scan(
         image_uv_url=body.image_uv_url,
         pu_id=body.pu_id,
         branch_id=body.branch_id,
+        payee_account_number=body.payee_account_number,
+        payee_name_from_slip=body.payee_name_from_slip,
+        payee_mobile=body.payee_mobile,
+        registered_drawee_ifsc=body.registered_drawee_ifsc,
+        registered_amount_str=body.registered_amount_str,
     )
 
     temporal_client = getattr(request.app.state, "temporal_client", None)

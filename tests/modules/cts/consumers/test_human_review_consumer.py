@@ -467,3 +467,38 @@ class TestSelfModeAllocation:
             config_svc=None,
         )
         assert "hybrid-pending:saraswat-coop" not in redis._zsets
+
+
+class TestConsumerOpensDurableReviewItem:
+    """The review queue lived only in Redis/Kafka. The consumer now also records an INWARD item
+    (with tier and level 1) in cts.human_review_items so it survives a Redis flush and is queryable."""
+
+    @pytest.mark.asyncio
+    async def test_open_item_called_with_inward_direction_and_review_workflow_id(self, monkeypatch):
+        from modules.cts.consumers.human_review_consumer import handle_human_review_event
+        seen = {}
+
+        async def fake_open(conn, **kw):
+            seen.update(kw)
+        monkeypatch.setattr("modules.cts.consumers.human_review_consumer.open_item", fake_open)
+        conn = AsyncMock()
+        ctx = MagicMock(); ctx.__aenter__ = AsyncMock(return_value=conn); ctx.__aexit__ = AsyncMock(return_value=False)
+        db = MagicMock(); db.acquire = MagicMock(return_value=ctx)
+        await handle_human_review_event(_make_envelope(), immudb=AsyncMock(), db=db)
+        assert seen["direction"] == "INWARD"
+        assert seen["bank_id"] == "saraswat-coop"
+        assert seen["instrument_id"] == "INST-002"
+        assert seen["workflow_id"] == "cts-humanreview-saraswat-coop-INST-002"
+        assert seen["queue_tier"] in ("standard", "high_value", "very_high")
+
+    @pytest.mark.asyncio
+    async def test_open_item_failure_does_not_crash_the_consumer(self, monkeypatch):
+        from modules.cts.consumers.human_review_consumer import handle_human_review_event
+
+        async def boom(conn, **kw):
+            raise RuntimeError("db down")
+        monkeypatch.setattr("modules.cts.consumers.human_review_consumer.open_item", boom)
+        conn = AsyncMock()
+        ctx = MagicMock(); ctx.__aenter__ = AsyncMock(return_value=conn); ctx.__aexit__ = AsyncMock(return_value=False)
+        db = MagicMock(); db.acquire = MagicMock(return_value=ctx)
+        await handle_human_review_event(_make_envelope(), immudb=AsyncMock(), db=db)   # must not raise

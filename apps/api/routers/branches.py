@@ -827,7 +827,7 @@ def _write_audit(
                  getattr(request.app.state, "immudb_client", None)
         if immudb:
             event = AuditEvent(event_type=event_type, bank_id=bank_id, payload=payload)
-            immudb.write_event(event.to_json())
+            immudb.write_event(event.to_record())
     except Exception as exc:
         log.error("branches.audit_write_failed", event_type=event_type.value, error=str(exc))
 
@@ -844,6 +844,6 @@ def _write_pu_audit(
                  getattr(request.app.state, "immudb_client", None)
         if immudb:
             event = AuditEvent(event_type=event_type, bank_id=bank_id, payload=payload)
-            immudb.write_event(event.to_json())
+            immudb.write_event(event.to_record())
     except Exception as exc:
         log.error("branches.pu_audit_write_failed", event_type=event_type.value, error=str(exc))

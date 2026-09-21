@@ -327,6 +327,7 @@ async def test_initialise_raises_when_vault_not_authenticated():
 
     with patch.dict("os.environ", {
         "BANK_ID": "test-bank",
+        "ASTRA_SECRETS_BACKEND": "vault",     # the test targets the vault path; do not inherit the shell's backend
         "VAULT_ADDR": "http://vault:8200",
         "VAULT_TOKEN": "hvs.bad",
     }):
