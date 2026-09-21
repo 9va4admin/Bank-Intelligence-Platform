@@ -638,3 +638,13 @@ class TestDecisionConfigContractGuard:
         svc.get = fake_get
         supplied = set(await svc.get_workflow_thresholds("kbl"))
         assert required <= supplied, f"decision.py requires keys the workflow never supplies: {required - supplied}"
+
+
+class TestSafeComplianceDefault:
+    """CTS-2010 image compliance is RBI-mandatory. The in-code fallback (used wherever Helm
+    values are not injected) must match the Helm default: strict = true. A dev/UAT bank that
+    wants to run non-scanner photos must opt out explicitly via its own Layer 3 value."""
+
+    def test_strict_image_quality_defaults_to_true(self):
+        from shared.config.config_service import _LAYER3_DEFAULTS
+        assert str(_LAYER3_DEFAULTS["cts.strict_image_quality"]).lower() == "true"
