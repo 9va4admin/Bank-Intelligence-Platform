@@ -15,10 +15,13 @@ Usage:
         data_converter=pydantic_data_converter,
     )
 """
+import datetime as _dt
+import decimal as _decimal
 from typing import Any, Type
 
 import pydantic
 from temporalio.converter import (
+    AdvancedJSONEncoder,
     BinaryNullPayloadConverter,
     BinaryProtoPayloadConverter,
     CompositePayloadConverter,
@@ -42,6 +45,21 @@ class _PydanticV2TypeConverter(JSONTypeConverter):
         return JSONTypeConverter.Unhandled
 
 
+class _PydanticJSONEncoder(AdvancedJSONEncoder):
+    """Encode pydantic v2 models via model_dump(mode="json") so date/datetime/Decimal
+    fields serialise (the stock encoder raises "Object of type date is not JSON
+    serializable", which made workflow tasks fail and retry forever)."""
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, pydantic.BaseModel):
+            return o.model_dump(mode="json")
+        if isinstance(o, (_dt.datetime, _dt.date)):
+            return o.isoformat()
+        if isinstance(o, _decimal.Decimal):
+            return str(o)
+        return super().default(o)
+
+
 class _PydanticPayloadConverter(CompositePayloadConverter):
     """Drop-in replacement for DefaultPayloadConverter with pydantic v2 support."""
 
@@ -51,7 +69,8 @@ class _PydanticPayloadConverter(CompositePayloadConverter):
             BinaryProtoPayloadConverter(),
             JSONProtoPayloadConverter(),
             JSONPlainPayloadConverter(
-                custom_type_converters=[_PydanticV2TypeConverter()]
+                encoder=_PydanticJSONEncoder,
+                custom_type_converters=[_PydanticV2TypeConverter()],
             ),
         )
 
