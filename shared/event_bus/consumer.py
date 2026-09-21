@@ -143,3 +143,63 @@ class EventConsumer:
                 "EventConsumer.connect() has not been called. "
                 "Call it in the service startup before running the consumer."
             )
+
+
+class KafkaEventConsumer:
+    """Async-iterable Kafka consumer (raw messages) for background loops such as
+    CacheInvalidator (`async for message in consumer`).
+
+    kafka-python is synchronous: poll() runs in a worker thread so the event loop stays
+    free while the topic is idle. `consumer_factory` is injectable for tests.
+    """
+
+    def __init__(self, bootstrap_servers: str, group_id: str, topics: list[str],
+                 consumer_factory: "Callable[[], Any] | None" = None) -> None:
+        self._bootstrap_servers = bootstrap_servers
+        self._group_id = group_id
+        self._topics = list(topics)
+        self._factory = consumer_factory
+        self._consumer = None
+        self._running = False
+
+    def _ensure_consumer(self):
+        if self._consumer is None:
+            if self._factory is not None:
+                self._consumer = self._factory()
+            else:
+                try:
+                    from kafka import KafkaConsumer  # type: ignore[import]
+                    self._consumer = KafkaConsumer(
+                        bootstrap_servers=self._bootstrap_servers,
+                        group_id=self._group_id,
+                        auto_offset_reset="latest",   # cache invalidation only cares about new events
+                        enable_auto_commit=True,
+                        value_deserializer=lambda v: v,
+                    )
+                except Exception as exc:
+                    raise EventBusUnavailableError(f"Kafka consumer connect failed: {exc}") from exc
+            self._consumer.subscribe(self._topics)
+        return self._consumer
+
+    def stop(self) -> None:
+        self._running = False
+
+    def __aiter__(self):
+        return self._iterate()
+
+    async def _iterate(self):
+        consumer = self._ensure_consumer()
+        self._running = True
+        loop = asyncio.get_running_loop()
+        try:
+            while self._running:
+                batches = await loop.run_in_executor(
+                    None, lambda: consumer.poll(timeout_ms=_POLL_TIMEOUT_MS))
+                for messages in (batches or {}).values():
+                    for message in messages:
+                        yield message
+        finally:
+            try:
+                consumer.close()
+            except Exception:
+                pass

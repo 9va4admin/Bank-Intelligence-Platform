@@ -65,7 +65,9 @@ _HUB_SUMMARY_SQL = """
         b.branch_name,
         b.branch_ifsc,
         COALESCE(s.hub_type, 'EEH')         AS hub_type,
-        COALESCE(r.health, 'UNKNOWN')        AS scanner_health,
+        r.registration_id,
+        r.last_heartbeat_at,
+        r.heartbeat_interval_seconds,
         s.session_id,
         s.status                             AS session_status,
         s.opened_at,
@@ -303,6 +305,23 @@ class ClearingWindowResponse(BaseModel):
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
+def _scanner_health(row: dict) -> str:
+    """Derived from heartbeat fields (same thresholds as scanner.py::_compute_health); health is not a column."""
+    from datetime import datetime, timezone
+    if not row.get("registration_id"):
+        return "UNKNOWN"
+    last = row.get("last_heartbeat_at")
+    if not last:
+        return "PENDING"
+    if isinstance(last, str):
+        last = datetime.fromisoformat(last)
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    interval = row.get("heartbeat_interval_seconds") or 60
+    stale = (datetime.now(timezone.utc) - last).total_seconds()
+    return "ONLINE" if stale < interval * 2 else "DEGRADED" if stale < interval * 5 else "OFFLINE"
+
+
 def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
     session = None
     if row.get("session_id") is not None:
@@ -330,7 +349,7 @@ def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
         branch_name=row["branch_name"],
         branch_ifsc=row["branch_ifsc"],
         hub_type=row.get("hub_type") or "EEH",
-        scanner_health=row.get("scanner_health") or "UNKNOWN",
+        scanner_health=row.get("scanner_health") or _scanner_health(row),
         session=session,
         current_lot=current_lot,
         lots_sealed_today=row.get("lots_sealed_today") or 0,
