@@ -89,7 +89,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.shadow_credit_release_hours": 4,
     "cts.opa_required": True,
     "cts.rear_image_required": "false",
-    "cts.strict_image_quality": "false",   # POC/dev default — set "true" in production bank Helm values
+    "cts.strict_image_quality": "true",    # RBI CTS-2010 compliance ON by default (matches Helm _defaults.yaml); a dev/UAT bank opts OUT explicitly via its own Layer 3 value
     "cts.outward_frozen_payee_action": "HUMAN_REVIEW",
     "cts.outward_dormant_payee_action": "HUMAN_REVIEW",
     "cts.outward_npa_payee_action": "HUMAN_REVIEW",

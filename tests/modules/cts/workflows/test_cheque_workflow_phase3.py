@@ -645,7 +645,15 @@ async def _fake_persist_agent_decision(inp):
     return PersistDecisionResult(success=True)
 
 
+@activity.defn(name="mark_leaf_presented")
+async def _fake_mark_leaf_presented(inp):
+    # ChequeProcessingWorkflow's first step (duplicate-presentment guard) — the tests
+    # predate it; without a registered activity the workflow never reaches its later steps.
+    return None
+
+
 _HAPPY_PATH_ACTIVITIES = [
+    _fake_mark_leaf_presented,
     _fake_ocr_extract,
     _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_proceed,
     _fake_validate_ifsc, _fake_validate_cheque_series,
@@ -754,7 +762,7 @@ class TestChequeWorkflowRealRun:
             _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_return,
             _fake_check_security_features,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
-            _fake_persist_agent_decision,
+            _fake_persist_agent_decision, _fake_mark_leaf_presented,
         ]
 
         async with Worker(
@@ -809,7 +817,7 @@ class TestChequeWorkflowRealRun:
         activities = [
             _tampered, _fake_get_kill_switch_status,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
-            _fake_persist_agent_decision,
+            _fake_persist_agent_decision, _fake_mark_leaf_presented, _fake_ocr_extract,
         ]
 
         # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).
@@ -942,7 +950,7 @@ class TestChequeWorkflowKillSwitchWiring:
             _fake_score_fraud, _fake_check_cbs_balance, _fake_check_account_status,
             _synthesise_decision_forces_human_review_under_kc,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
-            _fake_persist_agent_decision,
+            _fake_persist_agent_decision, _fake_mark_leaf_presented, _fake_ocr_extract,
         ]
 
         # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).

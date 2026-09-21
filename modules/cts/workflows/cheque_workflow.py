@@ -93,21 +93,7 @@ def _make_early_stp_return(instrument_id: str, reason: str) -> _EarlyDecision:
 # OCR result parsing helpers (Temporal-safe: pure stdlib, no I/O)
 # ---------------------------------------------------------------------------
 
-_DATE_FORMATS = (
-    "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y",
-    "%d-%b-%Y", "%d %b %Y", "%d/%m/%y",
-)
-
-def _parse_cheque_date(raw: Optional[str]) -> Optional[_date_type]:
-    """Parse OCR-extracted date string to datetime.date. Returns None on failure."""
-    if not raw:
-        return None
-    for fmt in _DATE_FORMATS:
-        try:
-            return datetime.strptime(raw.strip(), fmt).date()
-        except ValueError:
-            continue
-    return None
+from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
 
 
 def _parse_amount_figures(raw: Optional[str]) -> Optional[float]:

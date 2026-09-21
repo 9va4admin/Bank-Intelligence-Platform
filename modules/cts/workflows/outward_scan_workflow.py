@@ -43,19 +43,9 @@ log = structlog.get_logger()
 
 # ── Date validation helpers ───────────────────────────────────────────────────
 
-_DATE_FORMATS = ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d")
 _STALE_DAYS = 90   # RBI: cheques older than 3 months cannot be presented
 
-
-def _parse_cheque_date(date_str: str):
-    """Parse cheque date string in common Indian formats. Returns date or None."""
-    from datetime import date as _date
-    for fmt in _DATE_FORMATS:
-        try:
-            return __import__("datetime").datetime.strptime(date_str.strip(), fmt).date()
-        except ValueError:
-            continue
-    return None
+from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
 
 
 def _validate_cheque_date(date_str):
