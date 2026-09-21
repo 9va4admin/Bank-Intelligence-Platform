@@ -19,6 +19,7 @@ from typing import Any, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
@@ -102,7 +103,7 @@ class RetrainRunEntry(BaseModel):
     model_config = ConfigDict(frozen=True, protected_namespaces=())
     run_id: str
     corpus_type: str
-    triggered_at: str
+    triggered_at: IsoTimestamp
     completed_at: Optional[str] = None
     status: str                     # RUNNING | PROMOTED | REJECTED | FAILED
     accuracy_before: Optional[float] = None
@@ -144,7 +145,7 @@ class AlertEntry(BaseModel):
     model_config = ConfigDict(frozen=True)
     event_type: str
     severity: str
-    occurred_at: str
+    occurred_at: IsoTimestamp
     acknowledged: bool = False
 
 

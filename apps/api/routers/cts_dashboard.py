@@ -13,6 +13,7 @@ from typing import List, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import get_current_user_context
 from shared.auth.rbac import UserContext
@@ -29,7 +30,7 @@ router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS v1"])
 class DashboardTodaySummary(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     sessions_count: int
     sessions_settled: int
     total_inward: int
@@ -66,7 +67,7 @@ class ExceptionItem(BaseModel):
     exception_type: str
     label: str
     severity: str
-    occurred_at: str
+    occurred_at: IsoTimestamp
     detail: str
     resolved: bool
     margin_seconds: Optional[int] = None
@@ -75,7 +76,7 @@ class ExceptionItem(BaseModel):
 class ExceptionsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     items: list[ExceptionItem]
     total: int
 

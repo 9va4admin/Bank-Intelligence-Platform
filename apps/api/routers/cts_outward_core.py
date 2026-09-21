@@ -27,6 +27,7 @@ import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     get_bank_id_scanner_or_user,
@@ -165,7 +166,7 @@ class BranchSessionInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id:      str
     status:          str
-    opened_at:       str
+    opened_at:       IsoTimestamp
     total_uploaded:  int
     total_accepted:  int
     total_rejected:  int
@@ -187,11 +188,11 @@ class BranchSessionSummary(BaseModel):
 class HubSummaryResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id:         str
-    clearing_date:   str
+    clearing_date:   IsoTimestamp
     branches:        list[BranchSessionSummary]
     total_branches:  int
     active_sessions: int
-    generated_at:    str
+    generated_at:    IsoTimestamp
 
 
 class SessionReportMeta(BaseModel):
@@ -200,9 +201,9 @@ class SessionReportMeta(BaseModel):
     session_id:       str
     bank_id:          str
     branch_ifsc:      str
-    clearing_date:    str
+    clearing_date:    IsoTimestamp
     session_type:     str
-    generated_at:     str
+    generated_at:     IsoTimestamp
     instrument_count: int
     accepted_count:   int
     rejected_count:   int
@@ -260,8 +261,8 @@ class ScannerSessionOpenResponse(BaseModel):
     bank_id: str
     hub_type: str
     status: Literal["ACTIVE"]
-    clearing_date: str
-    opened_at: str
+    clearing_date: IsoTimestamp
+    opened_at: IsoTimestamp
 
 
 class ScannerSessionCloseRequest(BaseModel):
@@ -273,12 +274,12 @@ class ScannerSessionCloseResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
     status: Literal["CLOSED"]
-    closed_at: str
+    closed_at: IsoTimestamp
 
 
 class ClearingSessionSubmitRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str = "MORNING"
     deployment_mode: str = "SB_NGCH"
     pu_ids: list[str] = []
@@ -288,7 +289,7 @@ class ClearingSessionSubmitResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     workflow_id: str
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str
     status: Literal["STARTED"]
     message: str
@@ -299,7 +300,7 @@ class ClearingWindowResponse(BaseModel):
     bank_id: str
     open_time_utc: str
     close_time_utc: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     is_open: bool
 
 

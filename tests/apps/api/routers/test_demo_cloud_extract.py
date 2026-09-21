@@ -372,7 +372,9 @@ class TestTiffNormalisedBeforeSend:
 
         assert response.status_code == 200
         sent_url = create_mock.call_args.kwargs["messages"][0]["content"][1]["image_url"]["url"]
-        assert sent_url.startswith("data:image/png;base64,")
+        # requirement: TIFF is never sent to the cloud model; PNG or JPEG data URL both satisfy it
+        assert sent_url.startswith(("data:image/png;base64,", "data:image/jpeg;base64,"))
+        assert "tiff" not in sent_url[:40].lower()
 
 
 class TestUnreadableFileRejected:

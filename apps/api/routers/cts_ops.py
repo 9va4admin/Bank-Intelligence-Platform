@@ -25,6 +25,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
@@ -59,7 +60,7 @@ class SMBOpsToday(BaseModel):
 
 class SMBOpsTrendPoint(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     total: int
 
 
@@ -171,7 +172,7 @@ class SMBSettlementLeg(BaseModel):
 
 class SMBSettlementResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     legs: list[SMBSettlementLeg]
     degraded: bool
 
@@ -225,7 +226,7 @@ class SMBReturnEvent(BaseModel):
     account_display: str
     decision: str
     decision_reason: str
-    returned_at: str
+    returned_at: IsoTimestamp
 
 
 class SMBReturnEventsResponse(BaseModel):
@@ -425,7 +426,7 @@ class HumanReviewItem(BaseModel):
     instrument_id: str
     account_display: str
     decision_reason: str
-    queued_at: str
+    queued_at: IsoTimestamp
 
 
 class HumanReviewQueueResponse(BaseModel):
@@ -619,7 +620,7 @@ class CrossCentreAlert(BaseModel):
     rpc_id: str
     description: str
     severity: str
-    detected_at: str
+    detected_at: IsoTimestamp
 
 
 class CrossCentreAlertsResponse(BaseModel):
@@ -652,7 +653,7 @@ class OutwardAuditEvent(BaseModel):
     branch_id: str
     outcome: str
     scan_id: str
-    scanned_at: str
+    scanned_at: IsoTimestamp
 
 
 class OutwardAuditEventsResponse(BaseModel):
@@ -810,13 +811,13 @@ class BranchSessionItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
     branch_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     status: str
     hub_type: str
     total_uploaded: int
     total_accepted: int
     total_rejected: int
-    opened_at: str
+    opened_at: IsoTimestamp
 
 
 class BranchSessionsResponse(BaseModel):
@@ -1019,7 +1020,7 @@ async def branch_eeh_health(
 
 class AgencyRelayStatsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     total_instruments: int
     submitted: int
     pending: int
@@ -1082,7 +1083,7 @@ class AgencyPushSession(BaseModel):
     outcome: str
     records_received: int
     records_processed: int
-    received_at: str
+    received_at: IsoTimestamp
 
 
 class AgencyPushSessionsResponse(BaseModel):

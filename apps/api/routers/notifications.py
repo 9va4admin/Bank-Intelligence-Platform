@@ -18,6 +18,7 @@ from typing import Any, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
@@ -76,7 +77,7 @@ class NotificationSendResponse(BaseModel):
     notification_id: str
     channel: Literal["email", "whatsapp"]
     status: Literal["QUEUED", "SENT", "FAILED"]
-    queued_at: str
+    queued_at: IsoTimestamp
 
 
 class NotificationSummary(BaseModel):
@@ -87,7 +88,7 @@ class NotificationSummary(BaseModel):
     recipient_ref: str          # user_id — never raw email/phone
     delivery_status: Literal["QUEUED", "SENT", "DELIVERED", "FAILED", "RETRYING"]
     attempt_count: int
-    created_at: str
+    created_at: IsoTimestamp
     # No message body in list view — only metadata
 
 
@@ -110,14 +111,14 @@ class NotificationDetail(BaseModel):
     last_attempt_at: Optional[str] = None
     delivered_at: Optional[str] = None
     error_code: Optional[str] = None
-    created_at: str
+    created_at: IsoTimestamp
 
 
 class NotificationRetryResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     notification_id: str
     status: Literal["QUEUED", "RETRYING"]
-    retried_at: str
+    retried_at: IsoTimestamp
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────

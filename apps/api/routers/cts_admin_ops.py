@@ -25,6 +25,7 @@ from typing import Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     _MICR_PREFIX_MAX_ROWS,
@@ -518,7 +519,7 @@ class AuthLogItem(BaseModel):
     success: bool
     failure_reason: Optional[str] = None
     mfa_used: bool
-    occurred_at: str
+    occurred_at: IsoTimestamp
 
 
 class AuthLogResponse(BaseModel):
@@ -606,7 +607,7 @@ class NGCHRoutingRule(BaseModel):
     destination: str
     priority: int
     active: bool
-    updated_at: str
+    updated_at: IsoTimestamp
 
 
 class NGCHRoutingResponse(BaseModel):
@@ -669,7 +670,7 @@ class MICRPrefixItem(BaseModel):
     bank_ifsc: str
     clearing_zone: str
     active: bool
-    updated_at: str
+    updated_at: IsoTimestamp
 
 
 class MICRPrefixesResponse(BaseModel):

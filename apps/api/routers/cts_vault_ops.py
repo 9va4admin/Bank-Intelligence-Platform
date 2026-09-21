@@ -17,6 +17,7 @@ from typing import List, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     get_current_bank_id,
@@ -88,7 +89,7 @@ class PPSEntry(BaseModel):
     amount_range: str
     status: str
     expires_at: Optional[str]
-    registered_at: str
+    registered_at: IsoTimestamp
     registration_channel: Optional[str]
 
 
@@ -107,7 +108,7 @@ class StopChequeInstruction(BaseModel):
     cheque_number: Optional[str]
     reason: str
     status: str
-    created_at: str
+    created_at: IsoTimestamp
 
 
 class StopChequesResponse(BaseModel):
@@ -118,7 +119,7 @@ class StopChequesResponse(BaseModel):
 
 
 class VaultSyncRun(BaseModel):
-    run_at: str
+    run_at: IsoTimestamp
     triggered_by: str
     status: str
     pps: int
