@@ -455,6 +455,7 @@ class TestBuildDbPool:
     @pytest.mark.asyncio
     async def test_creates_pool_with_established_sizing_convention(self):
         from modules.cts.worker_activities import _build_db_pool
+        from shared.db.codecs import register_lenient_codecs
 
         fake_cfg = MagicMock()
         fake_cfg.get_secret = AsyncMock(return_value="postgresql://user:pass@host/cts")
@@ -465,6 +466,7 @@ class TestBuildDbPool:
 
         mock_create_pool.assert_awaited_once_with(
             dsn="postgresql://user:pass@host/cts", min_size=2, max_size=10, command_timeout=30,
+            init=register_lenient_codecs,
         )
         assert pool is fake_pool
 
