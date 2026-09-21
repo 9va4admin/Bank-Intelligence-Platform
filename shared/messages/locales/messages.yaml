@@ -2898,3 +2898,10 @@ CTS_IN_BATCH_INGEST_FAILED:
   variables: [batch_id, reason]
   en: "Inward batch {batch_id} could not be ingested and was dropped — {reason}."
   hi: ""
+
+PLATFORM_BANK_ONBOARDED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [bank_id, onboarded_by]
+  en: "Bank {bank_id} was onboarded to the platform by {onboarded_by}."
+  hi: ""

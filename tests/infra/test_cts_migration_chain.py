@@ -35,10 +35,7 @@ def test_exactly_one_head():
 def test_consolidation_migration_is_the_head_and_creates_vault_tables():
     revs = _revs()
     assert "20260921_022" in revs, "consolidation migration missing"
-    referenced = set()
-    for _, (down, _, _) in revs.items():
-        referenced |= _down_ids(down)
-    assert "20260921_022" not in referenced          # nothing builds on it yet -> it is the head
+    # (later migrations may build on it; test_exactly_one_head guards the chain shape)
     assert "20260921_021" in revs and "20260921_021" in revs["20260921_022"][0]   # builds on the vault consolidation
     src = revs["20260921_022"][2]
     assert "begin_nested" in src                     # each legacy migration isolated in a savepoint

@@ -690,6 +690,15 @@ async def decide_outward_review(
         except Exception as exc:
             log.warning("cts.outward_review.db_update_failed", instrument_id=instrument_id, error=str(exc))
 
+    if db is not None:
+        try:
+            from modules.cts.review_queue import decide_by_instrument
+            async with db.acquire() as conn:
+                await decide_by_instrument(conn, bank_id=bank_id, direction="OUTWARD", instrument_ref=instrument_id,
+                                           decision=body.action, reviewer_id=ctx.user_id, notes=body.reason or "")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+
     log.info("cts.outward_review.decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
     return OutwardReviewDecisionResponse(
         instrument_id=instrument_id,

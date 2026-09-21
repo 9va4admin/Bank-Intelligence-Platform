@@ -36,6 +36,7 @@ from shared.auth.rbac import RBACPolicy, Role, UserContext
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
+from modules.cts.review_queue import decide_by_instrument  # noqa: E402
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS Inward v1"])
@@ -528,6 +529,15 @@ async def submit_review_decision(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Failed to send review signal",
             ) from exc
+
+    _db = getattr(request.app.state, "db_pool_cts", None)
+    if _db is not None:
+        try:
+            async with _db.acquire() as _conn:
+                await decide_by_instrument(_conn, bank_id=bank_id, direction="INWARD", instrument_ref=instrument_id,
+                                           decision=body.action, reviewer_id=reviewer_id, notes=decision.reason)
+        except Exception as exc:  # noqa: BLE001 - the workflow signal above is the authoritative action
+            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
 
     log.info(
         "cts.review_decision_submitted",

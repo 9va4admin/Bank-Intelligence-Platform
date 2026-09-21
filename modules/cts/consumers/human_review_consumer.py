@@ -18,6 +18,8 @@ import structlog
 
 from shared.event_bus.schemas import KafkaEventEnvelope
 
+from modules.cts.review_queue import open_item
+
 log = structlog.get_logger()
 
 _HANDLED_EVENT_TYPES = {"CTS_HUMAN_REVIEW_REQUIRED"}
@@ -101,6 +103,8 @@ async def handle_human_review_event(
                     instrument_id,
                     envelope.bank_id,
                 )
+                await _open_durable_item(conn, envelope.bank_id, instrument_id, workflow_id,
+                                         iet_deadline, payload, context_bundle)
         except Exception as exc:
             log.error(
                 "human_review_consumer.db_update_failed",
@@ -201,6 +205,28 @@ async def handle_human_review_event(
                 bank_id=envelope.bank_id,
                 error=str(exc),
             )
+
+
+async def _open_durable_item(conn, bank_id, instrument_id, workflow_id, iet_deadline, payload, context_bundle):
+    """Record the item in cts.human_review_items (INWARD, level 1). Never raises: the Redis/Kafka queue
+    remains the fast path; this is the durable record."""
+    from datetime import datetime, timedelta, timezone
+    try:
+        now = datetime.now(timezone.utc)
+        iet_dt = datetime.fromtimestamp(float(iet_deadline), tz=timezone.utc) if iet_deadline else None
+        await open_item(
+            conn, bank_id=bank_id, direction="INWARD", instrument_id=instrument_id,
+            workflow_id=f"cts-humanreview-{bank_id}-{instrument_id}",
+            parent_workflow_id=workflow_id or f"cts-{bank_id}-{instrument_id}",
+            escalation_reason=str(payload.get("reason") or payload.get("escalation_reason") or "HUMAN_REVIEW_REQUIRED"),
+            context_bundle=context_bundle or {},
+            review_deadline_at=iet_dt or (now + timedelta(minutes=55)),
+            iet_deadline_at=iet_dt,
+            queue_tier=str(payload.get("queue_tier") or "standard"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("human_review_consumer.durable_item_failed", instrument_id=instrument_id,
+                    bank_id=bank_id, error=str(exc))
 
 
 async def run_consumer(
