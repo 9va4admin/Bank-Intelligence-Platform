@@ -363,6 +363,8 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 **Completed:** Phases 1–15. Full phase-by-phase history: [docs/build-history.md](docs/build-history.md)
 
+**Live-code E2E test evidence:** [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md) — dated, append-only record of what was actually run against a real worker + real infra (last entry 2026-09-21 19:36 IST), the stand-ins used, raw result files in `docs/evidence/`, and an explicit **NOT covered** list. Do not describe any pipeline as "fully E2E tested" unless a new entry there says so with evidence. The pytest suite uses fake activities and is not a substitute.
+
 **Immediate Next (priority order):**
 1. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
 2. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)

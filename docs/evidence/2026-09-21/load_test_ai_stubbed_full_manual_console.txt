@@ -1,0 +1,4 @@
+N=20: wall 11.0s, 1.8/s, completed 20, failed 0, decisions {'HUMAN_REVIEW': 20}, ngch_filings 0
+N=100: wall 43.6s, 2.3/s, completed 100, failed 0, decisions {'HUMAN_REVIEW': 100}, ngch_filings 0
+N=500: wall 245.8s, 2.0/s, completed 500, failed 0, decisions {'HUMAN_REVIEW': 500}, ngch_filings 0
+LOAD-DONE

@@ -1,0 +1,119 @@
+{
+ "100": {
+  "n": 100,
+  "submit_s": 7.5,
+  "wall_s": 141.28,
+  "throughput_per_s": 0.7,
+  "completed": 100,
+  "failed": 0,
+  "errors": [],
+  "decisions": {
+   "STP_CONFIRM": 100
+  },
+  "ngch_filings": 100,
+  "per_activity": {
+   "mark_leaf_presented": {
+    "queue_p50": 0.113,
+    "queue_p95": 0.35,
+    "run_p50": 0.113,
+    "run_p95": 0.211
+   },
+   "ocr_extract": {
+    "queue_p50": 0.131,
+    "queue_p95": 0.486,
+    "run_p50": 0.075,
+    "run_p95": 0.272
+   },
+   "get_kill_switch_status": {
+    "queue_p50": 0.123,
+    "queue_p95": 0.38,
+    "run_p50": 0.1,
+    "run_p95": 0.213
+   },
+   "detect_alteration": {
+    "queue_p50": 0.138,
+    "queue_p95": 0.504,
+    "run_p50": 0.079,
+    "run_p95": 0.277
+   },
+   "check_security_features": {
+    "queue_p50": 0.124,
+    "queue_p95": 0.53,
+    "run_p50": 0.077,
+    "run_p95": 0.214
+   },
+   "check_stop_payment": {
+    "queue_p50": 0.131,
+    "queue_p95": 0.309,
+    "run_p50": 0.071,
+    "run_p95": 0.204
+   },
+   "lookup_pps": {
+    "queue_p50": 0.136,
+    "queue_p95": 0.329,
+    "run_p50": 0.073,
+    "run_p95": 0.187
+   },
+   "detect_signatures": {
+    "queue_p50": 0.127,
+    "queue_p95": 0.399,
+    "run_p50": 0.084,
+    "run_p95": 0.215
+   },
+   "verify_signature": {
+    "queue_p50": 0.129,
+    "queue_p95": 0.637,
+    "run_p50": 0.073,
+    "run_p95": 0.252
+   },
+   "score_fraud": {
+    "queue_p50": 0.116,
+    "queue_p95": 0.422,
+    "run_p50": 0.063,
+    "run_p95": 0.267
+   },
+   "validate_cheque_series": {
+    "queue_p50": 0.112,
+    "queue_p95": 0.373,
+    "run_p50": 0.071,
+    "run_p95": 0.25
+   },
+   "check_cbs_balance": {
+    "queue_p50": 0.125,
+    "queue_p95": 0.38,
+    "run_p50": 0.076,
+    "run_p95": 0.183
+   },
+   "check_account_status": {
+    "queue_p50": 0.117,
+    "queue_p95": 0.359,
+    "run_p50": 0.065,
+    "run_p95": 0.165
+   },
+   "synthesise_decision": {
+    "queue_p50": 0.119,
+    "queue_p95": 0.364,
+    "run_p50": 0.084,
+    "run_p95": 0.287
+   },
+   "persist_agent_decision": {
+    "queue_p50": 0.114,
+    "queue_p95": 0.392,
+    "run_p50": 0.071,
+    "run_p95": 0.214
+   },
+   "file_to_ngch": {
+    "queue_p50": 0.1,
+    "queue_p95": 0.278,
+    "run_p50": 0.066,
+    "run_p95": 0.218
+   },
+   "write_audit": {
+    "queue_p50": 0.136,
+    "queue_p95": 0.388,
+    "run_p50": 0.093,
+    "run_p95": 0.25
+   }
+  }
+ }
+}

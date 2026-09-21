@@ -1,0 +1,884 @@
+{
+ "086054.jpg": {
+  "workflow_id": "cts-kbl-086054-952b",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 14.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "134251.jpg": {
+  "workflow_id": "cts-kbl-134251-0232",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 14.3,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "134919.jpg": {
+  "workflow_id": "cts-kbl-134919-1a97",
+  "mutation": "PPS_AMOUNT_MISMATCH",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 17.8,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "168376.jpg": {
+  "workflow_id": "cts-kbl-168376-c0ed",
+  "mutation": "WRONG_SIGNATURE (vault holds another account's signature)",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 11.3,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "226663.jpg": {
+  "workflow_id": "cts-kbl-226663-db63",
+  "mutation": "STOPPED_CHEQUE",
+  "decision": "STP_RETURN",
+  "rationale": "Stop payment: dev_stub_fixture",
+  "seconds": 15.8,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "file_to_ngch",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 80
+ },
+ "121421.jpg": {
+  "workflow_id": "cts-kbl-121421-8477",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 30.3,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "496100.jpg": {
+  "workflow_id": "cts-kbl-496100-d286",
+  "mutation": "CHEQUE_LEAF_NOT_ISSUED",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['payee']",
+  "seconds": 12.7,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "567048.jpg": {
+  "workflow_id": "cts-kbl-567048-a289",
+  "mutation": "PPS_NOT_REGISTERED",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['payee']",
+  "seconds": 16.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "575867.jpg": {
+  "workflow_id": "cts-kbl-575867-0297",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 16.0,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "533684.jpg": {
+  "workflow_id": "cts-kbl-533684-4dce",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['payee', 'amount_words']",
+  "seconds": 18.1,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "513691.jpg": {
+  "workflow_id": "cts-kbl-513691-f713",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 26.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "673677.jpg": {
+  "workflow_id": "cts-kbl-673677-c5c6",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_NO_SIGNATURE_IN_VAULT",
+  "seconds": 22.5,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "589717.jpg": {
+  "workflow_id": "cts-kbl-589717-ea2d",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 28.4,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "644628.jpg": {
+  "workflow_id": "cts-kbl-644628-3381",
+  "mutation": null,
+  "decision": "STP_RETURN",
+  "rationale": "Undated cheque",
+  "seconds": 32.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "score_fraud",
+    "ok"
+   ],
+   [
+    "validate_cheque_series",
+    "ok"
+   ],
+   [
+    "check_cbs_balance",
+    "ok"
+   ],
+   [
+    "check_account_status",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "synthesise_decision",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "file_to_ngch",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 137
+ },
+ "671004.jpg": {
+  "workflow_id": "cts-kbl-671004-2e78",
+  "mutation": "FROZEN_ACCOUNT",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 35.5,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "915526.jpg": {
+  "workflow_id": "cts-kbl-915526-1d6d",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 11.3,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "953374.jpg": {
+  "workflow_id": "cts-kbl-953374-6c05",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 11.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "990134.jpg": {
+  "workflow_id": "cts-kbl-990134-146c",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 12.4,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "813125.jpg": {
+  "workflow_id": "cts-kbl-813125-76c9",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 25.0,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "997344.jpg": {
+  "workflow_id": "cts-kbl-997344-7376",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['amount_words']",
+  "seconds": 16.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ }
+}
