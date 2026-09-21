@@ -655,3 +655,30 @@ class TestVaultBuildersGetDbPoolAndAccountVaultExists:
     def test_account_vault_is_exposed_to_activities(self):
         av = MagicMock()
         assert _bound(account_vault=av).di_dependencies()["account_vault"] is av
+
+
+class TestWorkerMinioHonoursSecureFlag:
+    """The worker hard-coded secure=True, so against a plain-HTTP MinIO every worker-side MinIO call
+    failed with an SSL error (lot store, corpus, buckets). The API already reads minio.secure."""
+
+    @pytest.mark.asyncio
+    async def test_secure_false_when_platform_flag_false(self):
+        from modules.cts.worker_activities import _build_minio_client
+        cfg = MagicMock()
+        cfg.get_secret = AsyncMock(side_effect=lambda k: {"minio.endpoint": "localhost:19000",
+                                   "minio.access_key": "a", "minio.secret_key": "s"}[k])
+        cfg.get_platform = MagicMock(return_value="false")
+        with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
+            await _build_minio_client(cfg)
+        assert store_cls.call_args.kwargs["secure"] is False
+
+    @pytest.mark.asyncio
+    async def test_secure_true_by_default_when_flag_absent(self):
+        from modules.cts.worker_activities import _build_minio_client
+        from shared.config.exceptions import ConfigKeyNotFoundError
+        cfg = MagicMock()
+        cfg.get_secret = AsyncMock(return_value="x")
+        cfg.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("minio.secure"))
+        with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
+            await _build_minio_client(cfg)
+        assert store_cls.call_args.kwargs["secure"] is True
