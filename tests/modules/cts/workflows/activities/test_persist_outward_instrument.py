@@ -42,8 +42,8 @@ def _inp(**kw):
 
 
 def test_object_key_from_s3_and_http_urls():
-    assert object_key_from_url("s3://astra-cts/scans/a.tif") == "scans/a.tif"
-    assert object_key_from_url("http://localhost:19000/astra-cts/scans/a.tif?X-Amz=1") == "scans/a.tif"
+    assert object_key_from_url("s3://astra-cts/scans/a.tif") == "s3://astra-cts/scans/a.tif"
+    assert object_key_from_url("http://localhost:19000/astra-cts/scans/a.tif?X-Amz=1") == "s3://astra-cts/scans/a.tif"
 
 
 @pytest.mark.asyncio
@@ -57,7 +57,7 @@ async def test_inserts_outward_row_with_lot_and_keys(monkeypatch):
     assert res.instrument_uuid == str(to_instrument_uuid("kbl", "000787-0eec"))
     sql, args = conn.executed[0]
     assert "INSERT INTO cts.cheque_instruments" in sql and "'OUTWARD'" in sql
-    assert "LOT-1" in args and "scans/a_front.tif" in args and "scans/a_rear.tif" in args
+    assert "LOT-1" in args and "s3://astra-cts/scans/a_front.tif" in args and "s3://astra-cts/scans/a_rear.tif" in args
     assert 2500000 in args                       # paise
     assert date(2026, 9, 1) in args              # real date object, not str
     assert not any(a == "25000" for a in args)   # no raw amount string

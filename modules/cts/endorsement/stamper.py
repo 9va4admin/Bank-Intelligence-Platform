@@ -46,6 +46,44 @@ class EndorsementStamper:
 
         return record, stamped_bytes
 
+    def render_stamp(self, rear_image_bytes: bytes, record: EndorsementRecord) -> bytes:
+        """Draw the endorsement box (bank, branch, IFSC, date, text, account suffix) on the rear image and
+        return it in the original format. Raises ValueError if the bytes are not a decodable image."""
+        import io
+        from PIL import Image, ImageDraw, ImageFont
+        try:
+            img = Image.open(io.BytesIO(rear_image_bytes))
+            img.load()
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"rear image not decodable: {exc}") from exc
+        fmt = img.format or "TIFF"
+        work = img.convert("RGB")
+        w, h = work.size
+        draw = ImageDraw.Draw(work)
+        t = record.template
+        lines = [
+            t.endorsement_text,
+            f"{t.bank_name} - {t.branch_name}",
+            f"IFSC {t.bank_ifsc}   A/c ****{record.account_suffix}",
+            f"Presented {record.presentation_date.date().isoformat()}",
+        ]
+        try:
+            font = ImageFont.load_default(size=max(12, h // 28))
+        except TypeError:  # very old Pillow: fixed-size default font
+            font = ImageFont.load_default()
+        line_h = max(14, h // 22)
+        box_w, box_h = int(w * 0.62), line_h * len(lines) + 12
+        x0, y0 = int(w * 0.36), int(h * 0.42)
+        draw.rectangle([x0, y0, x0 + box_w, y0 + box_h], outline="black", width=max(2, h // 250))
+        for i, text in enumerate(lines):
+            draw.text((x0 + 8, y0 + 6 + i * line_h), text, fill="black", font=font)
+        out = io.BytesIO()
+        if fmt.upper() in ("JPEG", "JPG"):
+            work.save(out, "JPEG", quality=90)
+        else:
+            work.save(out, fmt)
+        return out.getvalue()
+
     def qr_data(self, record: EndorsementRecord) -> str:
         return (
             f"ASTRA-ENDORSE"

@@ -844,7 +844,10 @@ async def _build_lot_store(db_pool: Any, minio_client: Any, config_service: Any)
                 minio_ok=minio_client is not None,
             )
             return None
-        store = LotStore(db_pool=db_pool, minio_client=minio_client, bucket=bucket)
+        # LotStore speaks the raw synchronous minio.Minio API (get_object/put_object); the worker's
+        # MinioObjectStore is an async wrapper around it (found live: no attribute 'get_object').
+        raw_client = getattr(minio_client, "_client", minio_client)
+        store = LotStore(db_pool=db_pool, minio_client=raw_client, bucket=bucket)
         log.info("worker_activities.lot_store_ready", bucket=bucket)
         return store
     except Exception as exc:

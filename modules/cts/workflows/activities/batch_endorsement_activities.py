@@ -9,7 +9,7 @@ gracefully (ENDORSEMENT_FAILED outcome) rather than crashing the workflow.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import structlog
@@ -19,6 +19,7 @@ from temporalio import activity
 from shared.observability.otel_setup import get_tracer
 
 log = structlog.get_logger()
+ENDORSEMENT_TEXT = "Payee's Account Credited. Received for Collection."
 tracer = get_tracer(__name__)
 
 
@@ -69,13 +70,18 @@ async def stamp_endorsement(
 
         from modules.cts.endorsement.batch import BatchEndorsementProcessor
         from modules.cts.endorsement.models import EndorsementTemplate
+        from modules.cts.endorsement.stamper import EndorsementStamper
 
+        ctx = await lot_store.endorsement_context(inp.bank_id, inp.lot_number)
         template = EndorsementTemplate(
+            bank_name=ctx["bank_name"],
+            branch_name=ctx["branch_name"],
             bank_ifsc=inp.bank_ifsc,
-            presenter_name=f"ASTRA-{inp.bank_id}",
-            stamp_date=datetime.utcnow(),
+            endorsement_text=ENDORSEMENT_TEXT,
         )
         processor = BatchEndorsementProcessor(template=template)
+        stamper = EndorsementStamper(template)
+        now = datetime.now(timezone.utc)
 
         failed: list[str] = []
         endorsed: list[str] = []
@@ -83,7 +89,10 @@ async def stamp_endorsement(
         items = await lot_store.fetch_instrument_images(inp.lot_number, inp.bank_id)
         for instrument_id, account_suffix, front_bytes, rear_bytes in items:
             try:
-                processor.process([(instrument_id, account_suffix, front_bytes, rear_bytes)])
+                records = processor.process([(instrument_id, account_suffix, front_bytes, rear_bytes)],
+                                            presentation_date=now)
+                stamped = stamper.render_stamp(rear_bytes, records[0])
+                await lot_store.store_endorsed_rear(inp.bank_id, instrument_id, stamped)
                 endorsed.append(instrument_id)
                 log.debug(
                     "stamp_endorsement.stamped",
@@ -152,7 +161,7 @@ async def update_lot_status(
                        endorsed_count = $2,
                        endorsement_failed_count = $3,
                        endorsed_at = NOW()
-                 WHERE lot_number = $4 AND bank_id = $5
+                 WHERE lot_id = $4 AND bank_id = $5
                 """,
                 inp.outcome,
                 inp.endorsed_count,

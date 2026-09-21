@@ -138,6 +138,54 @@ class LotStore:
     # DB helpers
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Endorsement support (called from stamp_endorsement activity)
+    # ------------------------------------------------------------------
+
+    async def fetch_instrument_images(self, lot_number: str, bank_id: str) -> List[tuple]:
+        """[(instrument_id, account_last4, front_bytes, rear_bytes)] for every instrument in the lot."""
+        import asyncio
+        async with self._db.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT instrument_id::text AS instrument_id, account_last4, image_front_bw_key, image_back_bw_key "
+                "FROM cts.cheque_instruments WHERE lot_id = $1 AND bank_id = $2 AND direction = 'OUTWARD' "
+                "ORDER BY received_at LIMIT 100",
+                lot_number, bank_id,
+            )
+        out = []
+        for r in rows:
+            front = await asyncio.to_thread(self._fetch_image, r["image_front_bw_key"])
+            rear = await asyncio.to_thread(self._fetch_image, r["image_back_bw_key"])
+            out.append((r["instrument_id"], r["account_last4"], front, rear))
+        return out
+
+    async def store_endorsed_rear(self, bank_id: str, instrument_id: str, data: bytes) -> str:
+        """Upload the stamped rear image and record its key on the instrument row."""
+        import asyncio
+        key = f"{bank_id}/outward/endorsed/{instrument_id}/back_endorsed.tiff"
+        await asyncio.to_thread(self._upload, key, data, "image/tiff")
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                "UPDATE cts.cheque_instruments SET image_back_endorsed_key = $1 "
+                "WHERE instrument_id = $2::uuid AND bank_id = $3",
+                key, instrument_id, bank_id,
+            )
+        return key
+
+    async def endorsement_context(self, bank_id: str, lot_number: str) -> dict:
+        async with self._db.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT b.bank_name AS bank_name, COALESCE(br.branch_name, '') AS branch_name "
+                "FROM platform.banks b "
+                "LEFT JOIN cts.lots l ON l.lot_id = $2 AND l.bank_id = b.bank_id "
+                "LEFT JOIN cts.branches br ON br.branch_id = l.branch_id "
+                "WHERE b.bank_id = $1",
+                bank_id, lot_number,
+            )
+        if row is None:
+            raise ValueError(f"bank {bank_id} not found in platform.banks")
+        return {"bank_name": row["bank_name"], "branch_name": row["branch_name"]}
+
     async def _fetch_lot_instrument_ids(self, bank_id: str, lot_number: str) -> List[str]:
         """Returns instrument_ids for ACCEPTED events in this lot."""
         async with self._db.acquire() as conn:
@@ -247,7 +295,10 @@ class LotStore:
 
     def _fetch_image(self, object_key: str) -> bytes:
         """Fetch image bytes from MinIO by object key."""
-        response = self._minio.get_object(self._bucket, object_key)
+        bucket, key = self._bucket, object_key
+        if object_key.startswith("s3://"):
+            bucket, _, key = object_key[len("s3://"):].partition("/")
+        response = self._minio.get_object(bucket, key)
         return response.read()
 
     def _upload(self, object_key: str, data: bytes, content_type: str = "application/xml") -> None:
