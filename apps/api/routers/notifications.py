@@ -108,8 +108,8 @@ class NotificationDetail(BaseModel):
     recipient_ref: str          # user_id — never raw email/phone
     delivery_status: Literal["QUEUED", "SENT", "DELIVERED", "FAILED", "RETRYING"]
     attempt_count: int
-    last_attempt_at: Optional[str] = None
-    delivered_at: Optional[str] = None
+    last_attempt_at: OptIsoTimestamp = None
+    delivered_at: OptIsoTimestamp = None
     error_code: Optional[str] = None
     created_at: IsoTimestamp
 

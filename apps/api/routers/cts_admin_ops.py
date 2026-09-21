@@ -740,7 +740,7 @@ class RPCZoneItem(BaseModel):
     settled_count: int
     pending_count: int
     status: str
-    last_sync_at: Optional[str] = None
+    last_sync_at: OptIsoTimestamp = None
 
 
 class RPCZonesResponse(BaseModel):

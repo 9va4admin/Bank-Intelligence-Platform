@@ -270,7 +270,7 @@ class InwardSessionItem(BaseModel):
     pending_review: int
     iet_at_risk: int
     opened_at: IsoTimestamp
-    closed_at: Optional[str] = None
+    closed_at: OptIsoTimestamp = None
 
 
 class InwardSessionsResponse(BaseModel):

@@ -135,7 +135,7 @@ class PUResponse(BaseModel):
     max_agent_swarm_size: int
     is_active: bool
     created_at: IsoTimestamp
-    updated_at: Optional[str]
+    updated_at: OptIsoTimestamp
     created_by: str
 
 

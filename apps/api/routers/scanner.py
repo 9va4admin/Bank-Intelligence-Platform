@@ -151,8 +151,8 @@ class RegistrationSummary(BaseModel):
     sdk_version: Optional[str]
     status: str
     health: str
-    last_heartbeat_at: Optional[str]
-    last_scan_submitted_at: Optional[str]
+    last_heartbeat_at: OptIsoTimestamp
+    last_scan_submitted_at: OptIsoTimestamp
     heartbeat_interval_seconds: int
     scans_today: int
     errors_today: int

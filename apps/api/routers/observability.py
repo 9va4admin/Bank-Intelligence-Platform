@@ -104,7 +104,7 @@ class RetrainRunEntry(BaseModel):
     run_id: str
     corpus_type: str
     triggered_at: IsoTimestamp
-    completed_at: Optional[str] = None
+    completed_at: OptIsoTimestamp = None
     status: str                     # RUNNING | PROMOTED | REJECTED | FAILED
     accuracy_before: Optional[float] = None
     accuracy_after: Optional[float] = None

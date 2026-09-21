@@ -144,7 +144,7 @@ class SessionSettlementRow(BaseModel):
     total_rejected: int
     total_held: int
     opened_at: IsoTimestamp
-    closed_at: Optional[str] = None
+    closed_at: OptIsoTimestamp = None
 
 
 class SettlementResponse(BaseModel):
@@ -205,8 +205,8 @@ class ReconciliationSessionSummary(BaseModel):
     astra_instrument_count: Optional[int]
     ngch_instrument_count: Optional[int]
     discrepancy_count: int
-    started_at: Optional[str]
-    completed_at: Optional[str]
+    started_at: OptIsoTimestamp
+    completed_at: OptIsoTimestamp
 
 
 class DiscrepancyItem(BaseModel):
@@ -241,7 +241,7 @@ class LotSummaryRow(BaseModel):
     instrument_count: int
     max_instruments: int
     created_at: IsoTimestamp
-    sealed_at: Optional[str]
+    sealed_at: OptIsoTimestamp
 
 
 class LotsListResponse(BaseModel):
@@ -262,8 +262,8 @@ class ClearingSessionItem(BaseModel):
     total_instruments: int
     ngch_reference: Optional[str] = None
     opened_at: IsoTimestamp
-    closed_at: Optional[str] = None
-    submitted_at: Optional[str] = None
+    closed_at: OptIsoTimestamp = None
+    submitted_at: OptIsoTimestamp = None
 
 
 class ClearingSessionsResponse(BaseModel):
@@ -318,7 +318,7 @@ class OutwardDecisionItem(BaseModel):
     amount_bucket: Optional[str] = None
     drawee_ifsc: Optional[str] = None
     lot_number: Optional[str] = None
-    processing_started_at: Optional[str] = None
+    processing_started_at: OptIsoTimestamp = None
 
 
 class OutwardDecisionsResponse(BaseModel):
@@ -703,7 +703,7 @@ async def decide_outward_review(
 async def get_outward_settlement(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    clearing_date: Optional[str] = None,
+    clearing_date: OptIsoTimestamp = None,
 ) -> SettlementResponse:
     if ctx.role.value not in {"ops_manager", "bank_it_admin", "compliance_officer"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -895,7 +895,7 @@ async def get_outward_analytics_daily(
 async def get_outward_reconciliation(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    recon_date: Optional[str] = None,
+    recon_date: OptIsoTimestamp = None,
     limit: int = Query(200, ge=1, le=500),
 ) -> ReconciliationOverviewResponse:
     if ctx.role.value not in _RECON_READ_ROLES:
@@ -981,7 +981,7 @@ async def get_outward_reconciliation(
 async def list_outward_lots(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    clearing_date: Optional[str] = None,
+    clearing_date: OptIsoTimestamp = None,
 ) -> LotsListResponse:
     if ctx.role.value not in _LOTS_LIST_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")

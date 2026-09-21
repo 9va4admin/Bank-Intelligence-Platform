@@ -211,7 +211,7 @@ class ThresholdEntry(BaseModel):
     current_value: str
     layer: Literal["LAYER_1", "LAYER_2", "LAYER_3"]
     description: str
-    last_changed_at: Optional[str] = None
+    last_changed_at: OptIsoTimestamp = None
     last_changed_by: Optional[str] = None
 
 
@@ -710,7 +710,7 @@ class ConfigChangeEntry(BaseModel):
     submitted_by: str
     submitted_at: IsoTimestamp
     actioned_by: Optional[str] = None
-    actioned_at: Optional[str] = None
+    actioned_at: OptIsoTimestamp = None
 
 
 class ConfigChangesListResponse(BaseModel):
@@ -1190,7 +1190,7 @@ class VaultSigSyncStatusResponse(BaseModel):
     redis_sig_keys: int
     coverage_pct: float
     gap_accounts: int
-    last_sync_at: Optional[str] = None
+    last_sync_at: OptIsoTimestamp = None
     request_id: str
 
 

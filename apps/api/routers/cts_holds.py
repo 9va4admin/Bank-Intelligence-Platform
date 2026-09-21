@@ -161,7 +161,7 @@ class AllocationStatusItem(BaseModel):
     instrument_id: str
     reviewer_id: str
     tier: Optional[str] = None
-    claimed_at: Optional[str] = None
+    claimed_at: OptIsoTimestamp = None
 
 
 class AllocationStatusResponse(BaseModel):
