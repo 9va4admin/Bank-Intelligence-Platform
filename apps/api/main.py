@@ -146,12 +146,14 @@ async def lifespan(app: FastAPI):
     # Isolated from EJ schema — pgbouncer-cts has access to cts schema only.
     try:
         import asyncpg
+        from shared.db.codecs import register_lenient_codecs
         db_cts_dsn = await config_service.get_secret("db.cts.dsn")
         app.state.db_pool_cts = await asyncpg.create_pool(
             dsn=db_cts_dsn,
             min_size=2,
             max_size=10,  # matches pgbouncer-cts max_connections per pod
             command_timeout=30,
+            init=register_lenient_codecs,
         )
         log.info("api_gateway.db_pool_cts_ready")
         # In dev/staging: auto-create all management tables so the API starts
