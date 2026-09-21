@@ -550,6 +550,25 @@ class BoundCTSActivities:
         async with self._db_pool.acquire() as conn:
             return await _real(inp, db_conn=conn)
 
+    @activity.defn(name="validate_cheque_series")
+    async def validate_cheque_series(self, inp):
+        from modules.cts.workflows.activities.cheque_series import (
+            validate_cheque_series as _real, ChequeSeriesActivityInput,
+        )
+        if isinstance(inp, dict):
+            inp = ChequeSeriesActivityInput(**inp)
+        return await _real(inp, cbs_connector=self._cbs_connector,
+                           cheque_leaf_vault=self._cheque_leaf_vault, config_service=self._config_service)
+
+    @activity.defn(name="validate_ifsc")
+    async def validate_ifsc(self, inp):
+        from modules.cts.workflows.activities.ifsc_validator import validate_ifsc as _real, IFSCValidatorInput
+        from modules.cts.ifsc.repository import IFSCRepository
+        if isinstance(inp, dict):
+            inp = IFSCValidatorInput(**inp)
+        repo = IFSCRepository(self._db_pool) if self._db_pool is not None else None
+        return await _real(inp, repo=repo)
+
     @activity.defn(name="persist_mismatch_hold_db")
     async def persist_mismatch_hold_db(self, inp: PersistMismatchHoldInput):
         from modules.cts.workflows.mismatch_resolution_workflow import persist_mismatch_hold_db as _real
@@ -706,6 +725,8 @@ class BoundCTSActivities:
             # Decision persistence (cts.agent_decisions)
             self.persist_agent_decision,
             self.persist_mismatch_hold_db,
+            self.validate_cheque_series,
+            self.validate_ifsc,
             self.resolve_mismatch_db,
             # Cheque leaf lifecycle (DI-wired — was bare function causing dict deserialization)
             self.mark_leaf_presented,
