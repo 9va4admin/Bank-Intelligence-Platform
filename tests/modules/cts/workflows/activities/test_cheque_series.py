@@ -262,3 +262,17 @@ class TestValidateChequeSeriesVaultMode:
             config_service=_mock_config("CBS"),
         )
         assert result.outcome == "PROCEED"   # CBS wins in CBS mode
+
+
+class TestPresentedStatusIsOwnMark:
+    """Found by the real 20-cheque run: ChequeProcessingWorkflow marks the leaf PRESENTED
+    in its first step (the duplicate-presentment guard); the later series check then
+    saw its own mark as UNKNOWN_CBS_STATUS:PRESENTED and sent every cheque that passed
+    all earlier gates to human review."""
+
+    def test_presented_leaf_proceeds(self):
+        from modules.cts.workflows.activities.cheque_series import (
+            ChequeSeriesActivityInput, _route_by_status,
+        )
+        inp = ChequeSeriesActivityInput(instrument_id="i", bank_id="b", account_number="a", cheque_number="c")
+        assert _route_by_status(inp, "PRESENTED").outcome == "PROCEED"
