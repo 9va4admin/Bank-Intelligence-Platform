@@ -149,3 +149,34 @@ consumer class missing · no MinIO bucket was ever created · worker MinIO clien
    after each API restart).
 7. Unchanged from the earlier entry: real CBS/NGCH/HSM/GPU-vLLM, trained signature and fraud models,
    scanner-grade images, RedisBloom module.
+
+---
+
+## 2026-09-21 22:15 IST — Outward clearing stage via the real API (INCOMPLETE — blocked)
+
+Run: real API (127.0.0.1:8010, login+TOTP MFA), real Temporal worker, YugabyteDB, MinIO. Nothing mocked except the
+labelled dev CBS/NGCH stand-ins.
+
+**Verified working live:** 5 scans through `/scan/upload-url` → MinIO PUT → `/scan/submit` → all ACCEPTED;
+`/lots/seal-all` sealed a lot; `GET /outward/lots` now returns lots (fixed by commit `d423d46`, lenient asyncpg DATE
+codec — previously every `$N::date` query with an ISO-string argument raised inside a swallowed try/except and
+returned an empty list; ~15 such queries exist in the API routers). `POST /endorsement/batch` returned 202 and
+started `BatchEndorsementWorkflow`.
+
+**Failed live (not fixed yet):**
+1. `stamp_endorsement` raised `TypeError: EndorsementTemplate.__init__() got an unexpected keyword argument
+   'presenter_name'` (activity and dataclass disagree: dataclass needs bank_name, branch_name, bank_ifsc,
+   endorsement_text). Never executed against real code before.
+2. `LotStore.fetch_instrument_images` (called by the activity) does not exist.
+3. `EndorsementStamper` only appends bytes to the image; the stamped image is discarded and never stored.
+4. The outward scan path persists only a masked row in `cts.outward_scan_events` (no full MICR, amount, cheque
+   date, image keys); `lot_id` on those rows is NULL; **no row is written to `cts.cheque_instruments`**. The
+   lot → NGCH-file builder (`LotStore._fetch_instrument_details`) selects columns that do not exist in that table
+   (`image_front_bw_key`, `image_back_bw_key`, `image_front_gray_key`, `width_px`, `height_px`, `dpi`, `bit_depth`,
+   `cycle_no`, `payor_bank_rout_no`, `presenting_bank_rout_no`, `trans_code`, `doc_type`).
+5. Clearing-session submit was not exercised (test request used an invalid `deployment_mode`; valid values are
+   `SB_NGCH` / `AGENCY_SB_RELAY`).
+
+**Not tested:** endorsement result, clearing-session submit, NGCH submission, session reconciliation, RRF.
+**Status: outward clearing stage is NOT working end to end.** Fixing it needs an outward instrument record (table or
+columns for MICR, amount, date, image keys, lot assignment) written at scan-accept time.
