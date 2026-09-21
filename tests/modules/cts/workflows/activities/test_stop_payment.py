@@ -321,3 +321,15 @@ class TestStopPaymentResult:
         assert r.degraded is False
         assert r.bloom_hit is False
         assert r.stop_reason is None
+
+
+class TestNoCbsConnectorBound:
+    """Found running the real worker: with no CBS connector bound the activity
+    hit None.check_stop_payment and reported a misleading 'unexpected_error'."""
+
+    @pytest.mark.asyncio
+    async def test_none_cbs_connector_reports_cbs_unavailable_degraded(self):
+        result = await check_stop_payment(_make_input(), cbs_connector=None, bloom_client=None)
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.stop_reason == "cbs_unavailable"
+        assert result.degraded is True
