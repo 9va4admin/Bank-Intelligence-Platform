@@ -1203,6 +1203,7 @@ async def submit_clearing_session(
         SessionType,
     )
     import uuid as _uuid
+    from temporalio.common import WorkflowIDReusePolicy
 
     clearing_date = body.clearing_date
     session_type = body.session_type
@@ -1221,7 +1222,7 @@ async def submit_clearing_session(
         inp,
         id=workflow_id,
         task_queue=f"cts-processing-{bank_id}",
-        id_reuse_policy="ALLOW_DUPLICATE_FAILED_ONLY",
+        id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
     )
     log.info("cts.clearing_session.submitted", workflow_id=workflow_id, bank_id=bank_id)
     return ClearingSessionSubmitResponse(
