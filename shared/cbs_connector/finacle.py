@@ -45,11 +45,7 @@ class FinacleCBSConnector(CBSConnector):
         else:
             import httpx  # type: ignore[import]
             self._http = httpx.AsyncClient(timeout=10.0)
-        if not self._pepper:
-            from shared.config.config_service import config_service
-            self._pepper = config_service.get_secret(
-                f"banks.{self._bank_id}.pii_hash_pepper"
-            )
+        # pepper is injected via the constructor (get_secret is async; connect() is sync)
         self._ready = True
         log.info("cbs.finacle.connected", base_url=self._base_url, bank_id=self._bank_id)
 
