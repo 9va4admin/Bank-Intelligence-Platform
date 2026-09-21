@@ -45,7 +45,7 @@ def _make_clean_signals(
         available_balance=200000.0,
         cheque_amount=50000.0,
         shap_values={"amount_feature": 0.1},
-        cheque_date=resolved_date,
+        cheque_date=resolved_date.isoformat() if hasattr(resolved_date, 'isoformat') else resolved_date,
     )
 
 
@@ -219,7 +219,7 @@ class TestCBSReturnCodes:
             available_balance=0.0,
             cheque_amount=50000.0,
             shap_values={},
-            cheque_date=today,
+            cheque_date=today.isoformat(),
         )
         result = await synthesise_decision(inp, config=_make_config())
         assert result.decision == "STP_RETURN"
@@ -243,7 +243,7 @@ class TestCBSReturnCodes:
             available_balance=100000.0,
             cheque_amount=50000.0,
             shap_values={},
-            cheque_date=today,
+            cheque_date=today.isoformat(),
         )
         result = await synthesise_decision(inp, config=_make_config())
         assert result.decision == "STP_RETURN"
@@ -267,7 +267,7 @@ class TestCBSReturnCodes:
             available_balance=100000.0,
             cheque_amount=50000.0,
             shap_values={},
-            cheque_date=today,
+            cheque_date=today.isoformat(),
         )
         result = await synthesise_decision(inp, config=_make_config())
         assert result.decision == "STP_RETURN"

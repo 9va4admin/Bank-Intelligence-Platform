@@ -575,22 +575,24 @@ class TestOCRPartialImageMode:
         assert result.outcome == "PROCEED"
 
     @pytest.mark.asyncio
-    async def test_partial_image_mode_fetches_image_via_httpx(self):
+    async def test_partial_image_mode_fetches_image_via_shared_fetcher(self):
         from modules.cts.workflows.activities.ocr import ocr_extract
         fake_bytes = _make_fake_jpeg_bytes()
         mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("mock", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        fetch = AsyncMock(return_value=fake_bytes)
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=fetch):
             await ocr_extract(
                 _make_input(image_url="http://minio/bucket/cheque.jpg"),
                 orchestrator=orchestrator,
                 config_service=_mock_config_partial(),
             )
 
-        client = mock_client_cls.return_value
-        client.get.assert_called()
+        fetch.assert_awaited()
+        assert fetch.await_args.args[0] == "http://minio/bucket/cheque.jpg"
 
     @pytest.mark.asyncio
     async def test_image_fetch_failure_for_indic_does_not_crash(self):
@@ -666,7 +668,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback-got", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -684,7 +687,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result(got_payee, 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -702,7 +706,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback", 0.90))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -747,7 +752,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -765,7 +771,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Abhilash", 0.94))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -825,7 +832,8 @@ class TestIndicOCRKillSwitch:
         fake_bytes = _make_fake_jpeg_bytes()
         mock_client_cls = _mock_httpx(fake_bytes, indic_text="अभिलाष", indic_conf=0.88)
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             await ocr_extract(
                 _make_input(),
                 orchestrator=_mock_orchestrator(_make_vllm_response(confidence=0.97)),
@@ -918,7 +926,8 @@ class TestOCREngineProvenance:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -972,7 +981,8 @@ class TestOCREngineProvenance:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Ram", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,

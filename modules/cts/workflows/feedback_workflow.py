@@ -358,7 +358,8 @@ class FeedbackEmitWorkflow:
                 workflow_id=accumulator_id,
             )
 
-            # feedback_types.FeedbackEmitInput (inline fields) — from ChequeProcessingWorkflow
+            # feedback_types.FeedbackEmitInput (inline fields) — from ChequeProcessingWorkflow.
+            # The run() signature is typed to this model only, so no other payload shape can arrive.
             if hasattr(inp, "ocr_payee"):
                 await handle.signal(
                     FeedbackAccumulatorWorkflow.receive_payee_signal,
@@ -375,18 +376,6 @@ class FeedbackEmitWorkflow:
                         cbs_display_initial=getattr(inp, "cbs_display_initial", None),
                     ),
                 )
-            # Legacy FeedbackEmitInput (nested payee_msg / micr_msg)
-            elif hasattr(inp, "signal_type"):
-                if inp.signal_type == "payee" and inp.payee_msg is not None:
-                    await handle.signal(
-                        FeedbackAccumulatorWorkflow.receive_payee_signal,
-                        inp.payee_msg,
-                    )
-                elif inp.signal_type == "micr" and inp.micr_msg is not None:
-                    await handle.signal(
-                        FeedbackAccumulatorWorkflow.receive_micr_signal,
-                        inp.micr_msg,
-                    )
         except BaseException as exc:
             # Accumulator not running (new bank, restart, test env) — acceptable loss.
             # BaseException (not just Exception) to catch Temporal's CancelledError too.

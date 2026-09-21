@@ -24,6 +24,7 @@ from shared.ai.model_cascade import CascadeOrchestrator
 
 from shared.observability.otel_setup import get_tracer
 
+from shared.storage.image_fetch import fetch_image_bytes
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
 
@@ -225,11 +226,7 @@ class VisionPresentmentCheckResult(BaseModel):
 
 
 async def _fetch_image_bytes(url: str) -> bytes:
-    import httpx
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return resp.content
+    return await fetch_image_bytes(url)
 
 
 def _amount_from_vision_text(text: Optional[str]) -> Optional[str]:
@@ -430,10 +427,7 @@ async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractA
                     break
 
         # Fetch the image from MinIO
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(inp.image_front_url)
-            resp.raise_for_status()
-        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(await fetch_image_bytes(inp.image_front_url))).convert("RGB")
 
         # Full-page PSM 6 (uniform block of text) — works reasonably for cheques
         raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
@@ -944,10 +938,7 @@ async def _rear_tesseract_fallback(image_url: str, instrument_id: str) -> Option
     _CONF = 0.55   # Tesseract on handwritten cheque backs is lower accuracy than front
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(image_url)
-            resp.raise_for_status()
-        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(await fetch_image_bytes(image_url))).convert("RGB")
         raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
         clean = re.sub(r'[^\x20-\x7E\n]', ' ', raw_text)
         lines = [ln.strip() for ln in clean.splitlines() if ln.strip()]
