@@ -4,7 +4,9 @@ handler dispatch, and error paths.
 
 TDD: written BEFORE the implementation.
 """
+import asyncio
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -34,6 +36,14 @@ def _make_kafka_message(payload: dict, schema_version: str = "1.0", event_type: 
     return msg
 
 
+def _feed_one_batch(consumer, messages):
+    """poll() returns one batch of messages, then stops the loop."""
+    def _poll(timeout_ms=0):
+        consumer.stop()
+        return {"tp": messages}
+    consumer._consumer.poll = _poll
+
+
 @pytest.fixture
 def consumer() -> EventConsumer:
     c = EventConsumer(
@@ -43,7 +53,6 @@ def consumer() -> EventConsumer:
         topics=["cts.inward.test-bank"],
     )
     mock_kafka = MagicMock()
-    mock_kafka.__iter__ = MagicMock(return_value=iter([]))
     mock_kafka.commit = MagicMock()
     c._consumer = mock_kafka
     c._ready = True
@@ -229,7 +238,7 @@ async def test_run_dispatches_two_messages(consumer):
 
     msg1 = _make_kafka_message({"instrument_id": "instr-001"})
     msg2 = _make_kafka_message({"instrument_id": "instr-002"})
-    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg1, msg2]))
+    _feed_one_batch(consumer, [msg1, msg2])
 
     await consumer.run()
 
@@ -246,7 +255,7 @@ async def test_run_skips_unknown_schema_version(consumer):
 
     consumer.register_handler("CTS_INWARD", bad_handler)
     msg = _make_kafka_message({"instrument_id": "instr-001"})
-    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg]))
+    _feed_one_batch(consumer, [msg])
 
     # Must not raise — the loop handles UnknownSchemaVersionError internally
     await consumer.run()
@@ -260,7 +269,7 @@ async def test_run_handles_generic_exception_without_crashing(consumer):
 
     consumer.register_handler("CTS_INWARD", failing_handler)
     msg = _make_kafka_message({"instrument_id": "instr-001"})
-    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg]))
+    _feed_one_batch(consumer, [msg])
 
     # Must not raise
     await consumer.run()
@@ -285,9 +294,61 @@ async def test_run_skips_message_for_different_bank(consumer):
     msg.partition = 0
     msg.offset = 99
 
-    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg]))
+    _feed_one_batch(consumer, [msg])
 
     await consumer.run()
 
     # Handler must NOT have been called — message was skipped
     handler.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# run() must never block the event loop
+#
+# Real bug found 2026-09-21 by starting the real CTS worker: run() iterated
+# kafka-python's synchronous KafkaConsumer directly inside a coroutine. On an
+# idle topic that iterator blocks the calling thread indefinitely, so the
+# whole event loop froze -- including the Temporal worker sharing that loop.
+# The worker logged "worker.ready" but had zero pollers on every task queue,
+# so no cheque workflow was ever picked up.
+# ---------------------------------------------------------------------------
+
+class _BlockingKafkaFake:
+    """Behaves like kafka-python on an idle topic: both iterating and
+    poll() block the calling THREAD (no yield to an event loop)."""
+
+    def __init__(self):
+        self.commit = MagicMock()
+
+    def __iter__(self):
+        for _ in range(3):
+            time.sleep(0.2)          # blocking, like a real idle iterator
+        return
+        yield  # pragma: no cover  (makes this a generator)
+
+    def poll(self, timeout_ms=0):
+        time.sleep((timeout_ms or 200) / 1000.0)
+        return {}
+
+
+@pytest.mark.asyncio
+async def test_run_does_not_block_the_event_loop(consumer):
+    consumer._consumer = _BlockingKafkaFake()
+    ticks = 0
+
+    async def heartbeat():
+        nonlocal ticks
+        while True:
+            await asyncio.sleep(0.01)
+            ticks += 1
+
+    hb = asyncio.create_task(heartbeat())
+    runner = asyncio.create_task(consumer.run())
+    await asyncio.sleep(0.6)
+
+    # A free loop ticks ~60 times in 0.6s; a blocked one ticks 0-2 times.
+    assert ticks >= 20, f"event loop was starved: only {ticks} heartbeat ticks in 0.6s"
+
+    consumer.stop()
+    await asyncio.wait_for(runner, timeout=3)
+    hb.cancel()
