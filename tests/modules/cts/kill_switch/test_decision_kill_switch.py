@@ -36,7 +36,7 @@ def _make_signals(**kwargs):
         shap_values={"amount_feature": 0.1},
         kill_switch_mode="NONE",
         kill_switch_scope=None,
-        cheque_date=date.today(),  # required by date-validation gate; None → STP_RETURN "Undated"
+        cheque_date=date.today().isoformat(),  # required by date-validation gate; None → STP_RETURN "Undated"
     )
     defaults.update(kwargs)
     return DecisionInput(**defaults)

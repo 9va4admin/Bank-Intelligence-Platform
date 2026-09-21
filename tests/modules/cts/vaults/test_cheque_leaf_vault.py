@@ -77,12 +77,12 @@ class TestChequeLeafVaultLookup:
         assert result.status is None
 
     @pytest.mark.asyncio
-    async def test_lookup_redis_error_returns_error_with_degraded_flag(self):
+    async def test_lookup_redis_error_routes_to_human_review_with_degraded_flag(self):
         redis = MagicMock()
         redis.hgetall = AsyncMock(side_effect=Exception("Redis connection refused"))
         vault = _make_vault(redis_client=redis)
         result = await vault.lookup("9876543210", "001234")
-        assert result.outcome == "ERROR"
+        assert result.outcome == "HUMAN_REVIEW"   # vault error must never auto-decide
         assert result.degraded is True
         assert result.status is None
 

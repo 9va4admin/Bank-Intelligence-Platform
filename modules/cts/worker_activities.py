@@ -1087,7 +1087,7 @@ async def _build_bloom_client(redis_client: Any, bank_id: str, config_service: A
             expected_items=expected_items,
             false_positive_rate=false_positive_rate,
         )
-        client.initialize()  # sync, idempotent — BF.RESERVE with the configured capacity/fpr
+        await client.initialize()  # idempotent — BF.RESERVE with the configured capacity/fpr
         log.info("worker_activities.bloom_client_ready")
         return client
     except Exception as exc:

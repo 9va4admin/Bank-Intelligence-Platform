@@ -62,7 +62,7 @@ async def check_stop_payment(
         # Fast path: Bloom filter pre-check before CBS round-trip
         if bloom_client is not None:
             try:
-                if bloom_client.check_serial(inp.cheque_number):
+                if await bloom_client.check_serial(inp.cheque_number):
                     log.info(
                         "stop_payment.bloom_hit",
                         instrument_id=inp.instrument_id,
