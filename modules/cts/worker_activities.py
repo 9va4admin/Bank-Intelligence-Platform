@@ -126,6 +126,7 @@ class BoundCTSActivities:
         ngch_adapter: Any = None,
         opa_client: Any = None,
         signature_vault: Any = None,
+        account_vault: Any = None,
         embedding_model: Any = None,
         pps_vault: Any = None,
         bloom_client: Any = None,
@@ -147,6 +148,7 @@ class BoundCTSActivities:
         self._ngch_adapter = ngch_adapter
         self._opa_client = opa_client
         self._signature_vault = signature_vault
+        self._account_vault = account_vault
         self._embedding_model = embedding_model
         self._pps_vault = pps_vault
         self._bloom_client = bloom_client
@@ -790,8 +792,9 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     minio_client = await _build_minio_client(config_service)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
-    signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
-    pps_vault = _build_pps_vault(bank_id, pepper, redis_client)
+    signature_vault = _build_signature_vault(bank_id, pepper, redis_client, db_pool)
+    pps_vault = _build_pps_vault(bank_id, pepper, redis_client, db_pool)
+    account_vault = _build_account_vault(bank_id, pepper, redis_client, db_pool)
     bloom_client = await _build_bloom_client(redis_client, bank_id, config_service)
     cheque_leaf_vault = _build_cheque_leaf_vault(bank_id, pepper, db_pool, bloom_client, redis_client)
 
@@ -806,6 +809,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         ngch_adapter=ngch_adapter,
         opa_client=opa_client,
         signature_vault=signature_vault,
+        account_vault=account_vault,
         embedding_model=await _build_embedding_model(),
         pps_vault=pps_vault,
         bloom_client=bloom_client,
@@ -1063,13 +1067,13 @@ async def _get_pii_pepper(config_service: Any, bank_id: str) -> str:
         return ""
 
 
-def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
+def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
     if not pepper:
         log.warning("worker_activities.signature_vault_skipped_no_pepper", bank_id=bank_id)
         return None
     try:
         from modules.cts.vaults.signature_vault import SignatureVault
-        vault = SignatureVault(bank_id=bank_id, pepper=pepper)
+        vault = SignatureVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
         vault.connect(redis_client=redis_client)  # sync
         log.info("worker_activities.signature_vault_ready")
         return vault
@@ -1078,13 +1082,28 @@ def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
         return None
 
 
-def _build_pps_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
+def _build_account_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
+    if not pepper:
+        log.warning("worker_activities.account_vault_skipped_no_pepper", bank_id=bank_id)
+        return None
+    try:
+        from modules.cts.vaults.account_vault import AccountVault
+        vault = AccountVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
+        vault.connect(redis_client=redis_client)  # sync
+        log.info("worker_activities.account_vault_ready")
+        return vault
+    except Exception as exc:
+        log.warning("worker_activities.account_vault_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+def _build_pps_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
     if not pepper:
         log.warning("worker_activities.pps_vault_skipped_no_pepper", bank_id=bank_id)
         return None
     try:
         from modules.cts.vaults.pps_vault import PPSVault
-        vault = PPSVault(bank_id=bank_id, pepper=pepper)
+        vault = PPSVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
         vault.connect(redis_client=redis_client)  # sync
         log.info("worker_activities.pps_vault_ready")
         return vault
