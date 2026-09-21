@@ -352,3 +352,67 @@ async def test_run_does_not_block_the_event_loop(consumer):
     consumer.stop()
     await asyncio.wait_for(runner, timeout=3)
     hb.cancel()
+
+
+# ---------------------------------------------------------------------------
+# KafkaEventConsumer — async-iterable consumer used by CacheInvalidator (apps/api/main.py)
+# Found by the real API start: `from shared.event_bus.consumer import KafkaEventConsumer`
+# raised ImportError, so Layer 3 config hot-reload never ran in the API process.
+# ---------------------------------------------------------------------------
+
+class _FakePollKafka:
+    def __init__(self, batches, block_s=0.0):
+        self._batches, self._block, self.closed = list(batches), block_s, False
+        self.subscribed = None
+
+    def subscribe(self, topics):
+        self.subscribed = list(topics)
+
+    def poll(self, timeout_ms=0):
+        time.sleep(self._block)
+        return self._batches.pop(0) if self._batches else {}
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.mark.asyncio
+async def test_kafka_event_consumer_yields_messages_from_poll():
+    from shared.event_bus.consumer import KafkaEventConsumer
+    m1, m2 = MagicMock(value=b"a"), MagicMock(value=b"b")
+    fake = _FakePollKafka([{"tp": [m1]}, {"tp": [m2]}])
+    c = KafkaEventConsumer("kafka:9092", "g", ["platform.config.changed", "platform.cache.invalidation"],
+                           consumer_factory=lambda: fake)
+    got = []
+    async for msg in c:
+        got.append(msg)
+        if len(got) == 2:
+            break
+    assert got == [m1, m2]
+    assert fake.subscribed == ["platform.config.changed", "platform.cache.invalidation"]
+
+
+@pytest.mark.asyncio
+async def test_kafka_event_consumer_does_not_block_the_event_loop():
+    from shared.event_bus.consumer import KafkaEventConsumer
+    fake = _FakePollKafka([], block_s=0.2)          # idle topic: poll() blocks its thread
+    c = KafkaEventConsumer("kafka:9092", "g", ["t"], consumer_factory=lambda: fake)
+    ticks = 0
+
+    async def heartbeat():
+        nonlocal ticks
+        while True:
+            await asyncio.sleep(0.01)
+            ticks += 1
+
+    async def drain():
+        async for _ in c:
+            pass
+
+    hb, dr = asyncio.create_task(heartbeat()), asyncio.create_task(drain())
+    await asyncio.sleep(0.6)
+    assert ticks >= 20, f"event loop starved: {ticks} ticks"
+    c.stop()
+    await asyncio.wait_for(dr, timeout=3)
+    hb.cancel()
+    assert fake.closed is True
