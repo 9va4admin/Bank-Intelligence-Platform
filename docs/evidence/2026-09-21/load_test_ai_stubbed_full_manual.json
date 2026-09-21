@@ -1,0 +1,335 @@
+{
+ "20": {
+  "n": 20,
+  "submit_s": 1.16,
+  "wall_s": 11.0,
+  "throughput_per_s": 1.8,
+  "completed": 20,
+  "failed": 0,
+  "errors": [],
+  "decisions": {
+   "HUMAN_REVIEW": 20
+  },
+  "ngch_filings": 0,
+  "per_activity": {
+   "mark_leaf_presented": {
+    "queue_p50": 0.056,
+    "queue_p95": 0.158,
+    "run_p50": 0.122,
+    "run_p95": 0.512
+   },
+   "ocr_extract": {
+    "queue_p50": 0.07,
+    "queue_p95": 0.186,
+    "run_p50": 0.09,
+    "run_p95": 0.133
+   },
+   "get_kill_switch_status": {
+    "queue_p50": 0.112,
+    "queue_p95": 0.198,
+    "run_p50": 0.109,
+    "run_p95": 0.181
+   },
+   "detect_alteration": {
+    "queue_p50": 0.119,
+    "queue_p95": 0.205,
+    "run_p50": 0.074,
+    "run_p95": 0.117
+   },
+   "check_security_features": {
+    "queue_p50": 0.088,
+    "queue_p95": 0.244,
+    "run_p50": 0.07,
+    "run_p95": 0.1
+   },
+   "check_stop_payment": {
+    "queue_p50": 0.092,
+    "queue_p95": 0.132,
+    "run_p50": 0.077,
+    "run_p95": 0.112
+   },
+   "lookup_pps": {
+    "queue_p50": 0.127,
+    "queue_p95": 0.213,
+    "run_p50": 0.064,
+    "run_p95": 0.12
+   },
+   "detect_signatures": {
+    "queue_p50": 0.097,
+    "queue_p95": 0.215,
+    "run_p50": 0.072,
+    "run_p95": 0.117
+   },
+   "verify_signature": {
+    "queue_p50": 0.115,
+    "queue_p95": 0.331,
+    "run_p50": 0.073,
+    "run_p95": 0.468
+   },
+   "score_fraud": {
+    "queue_p50": 0.09,
+    "queue_p95": 0.189,
+    "run_p50": 0.091,
+    "run_p95": 0.517
+   },
+   "validate_cheque_series": {
+    "queue_p50": 0.11,
+    "queue_p95": 0.204,
+    "run_p50": 0.097,
+    "run_p95": 0.481
+   },
+   "check_cbs_balance": {
+    "queue_p50": 0.117,
+    "queue_p95": 0.456,
+    "run_p50": 0.101,
+    "run_p95": 0.137
+   },
+   "check_account_status": {
+    "queue_p50": 0.138,
+    "queue_p95": 0.321,
+    "run_p50": 0.097,
+    "run_p95": 0.452
+   },
+   "synthesise_decision": {
+    "queue_p50": 0.114,
+    "queue_p95": 0.243,
+    "run_p50": 0.1,
+    "run_p95": 0.501
+   },
+   "persist_agent_decision": {
+    "queue_p50": 0.116,
+    "queue_p95": 0.279,
+    "run_p50": 0.099,
+    "run_p95": 0.163
+   },
+   "write_audit": {
+    "queue_p50": 0.097,
+    "queue_p95": 0.147,
+    "run_p50": 0.108,
+    "run_p95": 0.495
+   }
+  }
+ },
+ "100": {
+  "n": 100,
+  "submit_s": 8.56,
+  "wall_s": 43.55,
+  "throughput_per_s": 2.3,
+  "completed": 100,
+  "failed": 0,
+  "errors": [],
+  "decisions": {
+   "HUMAN_REVIEW": 100
+  },
+  "ngch_filings": 0,
+  "per_activity": {
+   "mark_leaf_presented": {
+    "queue_p50": 0.128,
+    "queue_p95": 0.427,
+    "run_p50": 0.116,
+    "run_p95": 0.202
+   },
+   "ocr_extract": {
+    "queue_p50": 0.146,
+    "queue_p95": 0.577,
+    "run_p50": 0.071,
+    "run_p95": 0.164
+   },
+   "get_kill_switch_status": {
+    "queue_p50": 0.125,
+    "queue_p95": 0.398,
+    "run_p50": 0.098,
+    "run_p95": 0.191
+   },
+   "detect_alteration": {
+    "queue_p50": 0.128,
+    "queue_p95": 0.406,
+    "run_p50": 0.076,
+    "run_p95": 0.178
+   },
+   "check_security_features": {
+    "queue_p50": 0.136,
+    "queue_p95": 0.548,
+    "run_p50": 0.073,
+    "run_p95": 0.193
+   },
+   "check_stop_payment": {
+    "queue_p50": 0.145,
+    "queue_p95": 0.383,
+    "run_p50": 0.075,
+    "run_p95": 0.204
+   },
+   "lookup_pps": {
+    "queue_p50": 0.14,
+    "queue_p95": 0.468,
+    "run_p50": 0.074,
+    "run_p95": 0.183
+   },
+   "detect_signatures": {
+    "queue_p50": 0.138,
+    "queue_p95": 0.473,
+    "run_p50": 0.076,
+    "run_p95": 0.16
+   },
+   "verify_signature": {
+    "queue_p50": 0.129,
+    "queue_p95": 0.461,
+    "run_p50": 0.071,
+    "run_p95": 0.173
+   },
+   "score_fraud": {
+    "queue_p50": 0.127,
+    "queue_p95": 0.478,
+    "run_p50": 0.073,
+    "run_p95": 0.148
+   },
+   "validate_cheque_series": {
+    "queue_p50": 0.144,
+    "queue_p95": 0.372,
+    "run_p50": 0.076,
+    "run_p95": 0.168
+   },
+   "check_cbs_balance": {
+    "queue_p50": 0.119,
+    "queue_p95": 0.329,
+    "run_p50": 0.064,
+    "run_p95": 0.175
+   },
+   "check_account_status": {
+    "queue_p50": 0.128,
+    "queue_p95": 0.427,
+    "run_p50": 0.071,
+    "run_p95": 0.175
+   },
+   "synthesise_decision": {
+    "queue_p50": 0.118,
+    "queue_p95": 0.408,
+    "run_p50": 0.088,
+    "run_p95": 0.182
+   },
+   "persist_agent_decision": {
+    "queue_p50": 0.116,
+    "queue_p95": 0.354,
+    "run_p50": 0.09,
+    "run_p95": 0.183
+   },
+   "write_audit": {
+    "queue_p50": 0.119,
+    "queue_p95": 0.302,
+    "run_p50": 0.106,
+    "run_p95": 0.203
+   }
+  }
+ },
+ "500": {
+  "n": 500,
+  "submit_s": 44.73,
+  "wall_s": 245.8,
+  "throughput_per_s": 2.0,
+  "completed": 500,
+  "failed": 0,
+  "errors": [],
+  "decisions": {
+   "HUMAN_REVIEW": 500
+  },
+  "ngch_filings": 0,
+  "per_activity": {
+   "mark_leaf_presented": {
+    "queue_p50": 0.143,
+    "queue_p95": 0.538,
+    "run_p50": 0.109,
+    "run_p95": 0.231
+   },
+   "ocr_extract": {
+    "queue_p50": 0.15,
+    "queue_p95": 0.547,
+    "run_p50": 0.076,
+    "run_p95": 0.193
+   },
+   "get_kill_switch_status": {
+    "queue_p50": 0.144,
+    "queue_p95": 0.432,
+    "run_p50": 0.102,
+    "run_p95": 0.264
+   },
+   "detect_alteration": {
+    "queue_p50": 0.146,
+    "queue_p95": 0.485,
+    "run_p50": 0.079,
+    "run_p95": 0.19
+   },
+   "check_security_features": {
+    "queue_p50": 0.144,
+    "queue_p95": 0.459,
+    "run_p50": 0.071,
+    "run_p95": 0.199
+   },
+   "check_stop_payment": {
+    "queue_p50": 0.134,
+    "queue_p95": 0.406,
+    "run_p50": 0.068,
+    "run_p95": 0.181
+   },
+   "lookup_pps": {
+    "queue_p50": 0.141,
+    "queue_p95": 0.45,
+    "run_p50": 0.073,
+    "run_p95": 0.182
+   },
+   "detect_signatures": {
+    "queue_p50": 0.139,
+    "queue_p95": 0.441,
+    "run_p50": 0.071,
+    "run_p95": 0.192
+   },
+   "verify_signature": {
+    "queue_p50": 0.139,
+    "queue_p95": 0.473,
+    "run_p50": 0.078,
+    "run_p95": 0.192
+   },
+   "score_fraud": {
+    "queue_p50": 0.139,
+    "queue_p95": 0.401,
+    "run_p50": 0.073,
+    "run_p95": 0.201
+   },
+   "validate_cheque_series": {
+    "queue_p50": 0.129,
+    "queue_p95": 0.47,
+    "run_p50": 0.084,
+    "run_p95": 0.264
+   },
+   "check_cbs_balance": {
+    "queue_p50": 0.139,
+    "queue_p95": 0.541,
+    "run_p50": 0.079,
+    "run_p95": 0.24
+   },
+   "check_account_status": {
+    "queue_p50": 0.136,
+    "queue_p95": 0.484,
+    "run_p50": 0.08,
+    "run_p95": 0.244
+   },
+   "synthesise_decision": {
+    "queue_p50": 0.146,
+    "queue_p95": 0.489,
+    "run_p50": 0.097,
+    "run_p95": 0.3
+   },
+   "persist_agent_decision": {
+    "queue_p50": 0.145,
+    "queue_p95": 0.45,
+    "run_p50": 0.091,
+    "run_p95": 0.31
+   },
+   "write_audit": {
+    "queue_p50": 0.124,
+    "queue_p95": 0.539,
+    "run_p50": 0.109,
+    "run_p95": 0.339
+   }
+  }
+ }
+}

@@ -1,0 +1,4 @@
+N=20: wall 15.0s, 1.3/s, completed 20, failed 0, decisions {'STP_CONFIRM': 20}, ngch_filings 20
+N=100: wall 55.1s, 1.8/s, completed 100, failed 0, decisions {'STP_CONFIRM': 100}, ngch_filings 100
+N=500: wall 252.1s, 2.0/s, completed 500, failed 0, decisions {'STP_CONFIRM': 500}, ngch_filings 500
+LOAD-DONE
