@@ -180,3 +180,53 @@ started `BatchEndorsementWorkflow`.
 **Not tested:** endorsement result, clearing-session submit, NGCH submission, session reconciliation, RRF.
 **Status: outward clearing stage is NOT working end to end.** Fixing it needs an outward instrument record (table or
 columns for MICR, amount, date, image keys, lot assignment) written at scan-accept time.
+
+---
+
+## 2026-09-21 23:40 IST — Outward clearing stage, continued (still INCOMPLETE)
+
+Same setup as the 22:15 entry (real API + Temporal worker + YugabyteDB + MinIO; dev CBS/NGCH stand-ins).
+
+**Now verified live, end to end through the API:**
+- 3 scans ACCEPTED → each wrote one full `cts.cheque_instruments` row (`direction=OUTWARD`: cheque no, 9-digit MICR
+  code, transaction code, amount in paise, cheque date, image refs, lot id) — migration 025.
+- Lot assignment now happens on ACCEPT only (was: counted at submit, including rejected scans).
+- A scan whose OCR MICR cannot be parsed (`620339 560226375`) is held for human repair (`MICR_UNREADABLE`), not errored.
+- `POST /endorsement/batch` → `BatchEndorsementWorkflow` **COMPLETED**: stamp_endorsement, update_lot_status,
+  write_audit all ok; lot status ENDORSED (3/3, 0 failed); stamped rear images stored in MinIO
+  (`docs/evidence/2026-09-21/endorsed_rear_sample.png`). Note: the test cheque set has no rear images, so a front
+  image stands in for the rear and the stamp overlaps printed text.
+
+**Defects found and fixed in this stretch (all with tests, all committed):**
+lenient asyncpg DATE codec (`d423d46`); `cheque_instruments` had no partition from 2026-09-01 so every inward and
+outward insert failed (migration 026: months to 2028-12 + DEFAULT partition; NO scheduled partition-maintenance job
+exists yet); Temporal could not decode `date` fields of dataclass inputs (post-dated hold); five
+`RetryPolicy(maximum_attempts=None)` (invalid in this SDK, 0 = unlimited) that made workflow tasks fail forever;
+plain-digit / noisy OCR MICR parsing; LotStore was given the async MinIO wrapper instead of the raw client; scan
+images live in bucket `cts-images` but LotStore read `astra-cts`; `update_lot_status` wrote non-existent columns
+(migration 027); `EndorsementTemplate` constructor mismatch; `fetch_instrument_images` missing; stamper never
+stamped; clearing-session submit passed `id_reuse_policy` as a string (request errored/hung).
+Stale tests fixed: SMB push parser (17), DEM CT=01, retry-constant assertions.
+
+**Clearing session (`ClearingSessionWorkflow.run`) — real path NEVER worked; found live, NOT yet fixed:**
+1. API generates a random `session_id` (`clearsess-xxxx`); `seal_all_lots` looks up `cts.lots.session_id = that id`
+   (lots carry the scanner session id) → always EMPTY_SESSION. Live result: workflow "COMPLETED" with EMPTY_SESSION,
+   nothing submitted.
+2. `seal_all_lots` selects `status='SEALED'` but endorsement moves lots to `ENDORSED`.
+3. SB path submits ONE "consolidated" lot (`{session_id}-consolidated`, empty IFSC) although the NGCH file builder is
+   per lot; `NGCHSubmissionInput` requires `routing_no` and `clearing_type`, which the caller never passes (validation
+   error the moment a non-empty session reaches it).
+4. `update_session_status` writes `cts.clearing_sessions.npci_ack_ref` / `updated_at`, which do not exist (table has
+   `ngch_session_ref`), and the workflow passes `ngch_reference=` to a model whose field is `npci_ack_ref` (silently
+   dropped). No code inserts the `cts.clearing_sessions` row (0 rows; `center_id` UUID NOT NULL).
+5. Agency path reads `lot["lot_number"]`; lots have `lot_id`.
+6. The existing unit tests exercise only `run_with_mocks`, never `run`.
+
+**Also open:** concurrent scans contend on the single `cts.lots` row (YugabyteDB serialization errors; Temporal
+retries succeed but 500-way concurrency is untested); stored endorsed image key ends `.tiff` although the bytes are
+JPEG when the source is JPEG; `platform.banks.bank_name` still carries the "DEV SEED" label so it prints on stamps;
+`cts.cheque_dedup` table referenced by the dedup module does not exist; one intermittent failure of
+`test_real_run_mismatch_held_spawns_child_workflow` (TIMEOUT_AUTO_REJECTED) was seen once and not reproduced in 6 reruns.
+
+**Not tested:** clearing-session submission of lots, NGCH file build (CXF/CIBF, HSM signing), NGCH submission,
+session reconciliation, RRF. **Status: outward pipeline works through ENDORSEMENT only.**

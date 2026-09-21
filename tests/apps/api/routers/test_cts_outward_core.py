@@ -458,6 +458,24 @@ class TestClearingSessionSubmit:
             resp = c.post("/v1/cts/outward/clearing-session/submit", json=self._body)
         assert resp.status_code == 503
 
+    def test_starts_workflow_with_sdk_reuse_policy_enum(self):
+        """Found live: id_reuse_policy was the plain string "ALLOW_DUPLICATE_FAILED_ONLY"; the SDK needs the
+        WorkflowIDReusePolicy enum (int()) so the request errored / hung and no session workflow started."""
+        from temporalio.common import WorkflowIDReusePolicy
+        calls = []
+
+        class FakeTemporal:
+            async def start_workflow(self, fn, inp, *, id, task_queue, id_reuse_policy=None, **kw):
+                assert isinstance(id_reuse_policy, WorkflowIDReusePolicy), id_reuse_policy
+                calls.append((id, task_queue))
+
+        app = _make_app()
+        app.state.temporal_client = FakeTemporal()
+        with TestClient(app) as c:
+            resp = c.post("/v1/cts/outward/clearing-session/submit", json=self._body)
+        assert resp.status_code == 202, resp.text
+        assert calls == [("cts-clearsess-testbank-2026-09-12-MORNING", "cts-processing-testbank")]
+
 
 # ── 14. GET /outward/clearing-window ─────────────────────────────────────────
 
