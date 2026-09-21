@@ -342,7 +342,7 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.decision import synthesise_decision as _real
         from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillScope
         if not config:
-            config = await self._config_service.get_cts_config(inp.bank_id)
+            config = await self._config_service.get_workflow_thresholds(inp.bank_id)
         # Workflow passes KillSwitchLookupResult (Pydantic) — convert to KillSwitchStatus dataclass here
         kill_switch_status: Optional[KillSwitchStatus] = None
         if ks_lookup is not None:
