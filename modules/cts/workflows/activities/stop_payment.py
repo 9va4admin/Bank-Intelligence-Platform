@@ -86,6 +86,19 @@ async def check_stop_payment(
                 )
 
         # Authoritative CBS lookup
+        if cbs_connector is None:
+            log.warning(
+                "stop_payment.cbs_not_bound",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return StopPaymentActivityResult(
+                outcome="HUMAN_REVIEW",
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                stop_reason="cbs_unavailable",
+                degraded=True,
+            )
         try:
             result = await cbs_connector.check_stop_payment(
                 inp.account_number, inp.cheque_number, inp.bank_id
