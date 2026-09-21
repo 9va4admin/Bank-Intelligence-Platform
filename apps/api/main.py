@@ -189,6 +189,10 @@ async def lifespan(app: FastAPI):
             secure=minio_secure,
         )
         log.info("api_gateway.minio_store_ready", endpoint=minio_endpoint)
+        from shared.storage.buckets import ensure_required_buckets
+        _failed_buckets = await ensure_required_buckets(app.state.minio_store)
+        if _failed_buckets:
+            log.warning("api_gateway.buckets_not_ensured", buckets=_failed_buckets)
     except Exception as exc:
         log.error("api_gateway.minio_store_failed", error=str(exc))
         app.state.minio_store = None

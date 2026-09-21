@@ -790,6 +790,9 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     db_pool = await _build_db_pool(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
     minio_client = await _build_minio_client(config_service)
+    if minio_client is not None:
+        from shared.storage.buckets import ensure_required_buckets
+        await ensure_required_buckets(minio_client)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
     signature_vault = _build_signature_vault(bank_id, pepper, redis_client, db_pool)
