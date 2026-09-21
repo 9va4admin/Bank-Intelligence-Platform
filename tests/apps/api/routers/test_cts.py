@@ -201,6 +201,12 @@ def _patch_temporalio():
     import sys
     from types import ModuleType
 
+    try:
+        import temporalio.client  # noqa: F401  -- the real SDK is installed: never shadow it globally
+        return
+    except ImportError:
+        pass
+
     # Build a minimal temporalio stub
     temporalio = ModuleType("temporalio")
     temporalio_client = ModuleType("temporalio.client")

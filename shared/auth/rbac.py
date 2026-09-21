@@ -216,7 +216,9 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.LOGIN_LOG_READ,
     }),
     # Platform admin has every permission — used only for bootstrap and support.
-    Role.PLATFORM_ADMIN: frozenset(Permission),
+    # every permission EXCEPT login_log:delete — audit/login-log immutability holds for every role,
+    # including the cross-bank super admin (see the invariant above _ROLE_PERMISSIONS)
+    Role.PLATFORM_ADMIN: frozenset(p for p in Permission if p is not Permission.LOGIN_LOG_DELETE),
 }
 
 

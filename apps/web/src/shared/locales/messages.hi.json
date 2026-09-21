@@ -4447,5 +4447,30 @@
       "to_pu_id",
       "reassigned_by"
     ]
+  },
+  "CTS_IN_BATCH_INGESTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "batch_id",
+      "instruments_started",
+      "failure_count"
+    ]
+  },
+  "CTS_IN_BATCH_INGEST_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "batch_id",
+      "reason"
+    ]
   }
 }
