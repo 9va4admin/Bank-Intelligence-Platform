@@ -126,6 +126,7 @@ class BoundCTSActivities:
         ngch_adapter: Any = None,
         opa_client: Any = None,
         signature_vault: Any = None,
+        embedding_model: Any = None,
         pps_vault: Any = None,
         bloom_client: Any = None,
         orchestrator: Any = None,
@@ -146,6 +147,7 @@ class BoundCTSActivities:
         self._ngch_adapter = ngch_adapter
         self._opa_client = opa_client
         self._signature_vault = signature_vault
+        self._embedding_model = embedding_model
         self._pps_vault = pps_vault
         self._bloom_client = bloom_client
         self._orchestrator = orchestrator
@@ -241,6 +243,7 @@ class BoundCTSActivities:
             vault=self._signature_vault,
             cbs_connector=self._cbs_connector,
             config_service=self._config_service,
+            embedding_model=self._embedding_model,
         )
 
     # ------------------------------------------------------------------
@@ -765,6 +768,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         ngch_adapter=ngch_adapter,
         opa_client=opa_client,
         signature_vault=signature_vault,
+        embedding_model=await _build_embedding_model(),
         pps_vault=pps_vault,
         bloom_client=bloom_client,
         orchestrator=orchestrator,
@@ -1115,4 +1119,17 @@ async def _build_minio_client(config_service: Any) -> Any:
         return client
     except Exception as exc:
         log.warning("worker_activities.minio_client_unavailable", error=str(exc))
+        return None
+
+
+async def _build_embedding_model() -> Any:
+    """Local CPU signature embedder (generic backbone — see its module docstring)."""
+    try:
+        import asyncio
+        from shared.ai.local_signature_embedder import LocalSignatureEmbedder
+        model = await asyncio.to_thread(LocalSignatureEmbedder)
+        log.info("worker_activities.embedding_model_ready", model="resnet18-imagenet-generic")
+        return model
+    except Exception as exc:
+        log.warning("worker_activities.embedding_model_unavailable", error=str(exc))
         return None
