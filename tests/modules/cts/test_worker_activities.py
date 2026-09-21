@@ -308,7 +308,7 @@ class TestActivityListCompleteness:
     def test_returns_exactly_30_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 53
+        assert len(activities) == 55
 
     def test_no_duplicate_names(self):
         bound = _bound()
@@ -539,3 +539,32 @@ class TestVisionClientInterface:
         client = await _build_vision_vllm_client(cfg)
         assert client is not None
         assert callable(client.chat.completions.create)
+
+
+class TestInwardWorkflowActivitiesRegistered:
+    """ChequeProcessingWorkflow calls validate_cheque_series and validate_ifsc, but the
+    worker never registered them -> any cheque that reached step 7 failed the workflow
+    with 'Activity function ... is not registered on this worker'."""
+
+    @pytest.mark.asyncio
+    async def test_validate_cheque_series_bound_with_leaf_vault_cbs_config(self):
+        vault, cbs, cfg = MagicMock(), MagicMock(), MagicMock()
+        bound = _bound(cheque_leaf_vault=vault, cbs_connector=cbs, config_service=cfg)
+        with patch("modules.cts.workflows.activities.cheque_series.validate_cheque_series",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.validate_cheque_series({"instrument_id": "i", "bank_id": "b",
+                                                       "account_number": "a", "cheque_number": "c"}) == "R"
+        assert real.await_args.kwargs == {"cbs_connector": cbs, "cheque_leaf_vault": vault, "config_service": cfg}
+        assert real.await_args.args[0].bank_id == "b"
+
+    @pytest.mark.asyncio
+    async def test_validate_ifsc_bound_with_db_backed_repo(self):
+        bound = _bound(db_pool=MagicMock())
+        with patch("modules.cts.workflows.activities.ifsc_validator.validate_ifsc",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.validate_ifsc("INP") == "R"
+        assert real.await_args.kwargs["repo"] is not None
+
+    def test_both_in_activity_list(self):
+        names = {a.__name__ for a in _bound().activity_list()}
+        assert {"validate_cheque_series", "validate_ifsc"} <= names
