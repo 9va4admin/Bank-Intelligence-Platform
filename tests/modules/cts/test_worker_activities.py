@@ -629,3 +629,29 @@ class TestPublicDependencyProperties:
     def test_db_pool_property_exposed(self):
         pool = MagicMock()
         assert _bound(db_pool=pool).db_pool is pool
+
+
+class TestVaultBuildersGetDbPoolAndAccountVaultExists:
+    """Signature/PPS vaults were built without a db_pool, so their write-through to
+    YugabyteDB never happened (Redis-only, lost on flush). The worker also never built
+    an AccountVault at all, so payee-account lookups always missed."""
+
+    def test_signature_and_pps_vaults_receive_db_pool(self):
+        from modules.cts.worker_activities import _build_signature_vault, _build_pps_vault
+        pool = MagicMock()
+        assert _build_signature_vault("kbl", "pep", MagicMock(), pool)._db_pool is pool
+        assert _build_pps_vault("kbl", "pep", MagicMock(), pool)._db_pool is pool
+
+    def test_account_vault_built_with_pool_and_redis(self):
+        from modules.cts.worker_activities import _build_account_vault
+        pool = MagicMock()
+        v = _build_account_vault("kbl", "pep", MagicMock(), pool)
+        assert v is not None and v._db_pool is pool
+
+    def test_account_vault_skipped_without_pepper(self):
+        from modules.cts.worker_activities import _build_account_vault
+        assert _build_account_vault("kbl", "", MagicMock(), MagicMock()) is None
+
+    def test_account_vault_is_exposed_to_activities(self):
+        av = MagicMock()
+        assert _bound(account_vault=av).di_dependencies()["account_vault"] is av
