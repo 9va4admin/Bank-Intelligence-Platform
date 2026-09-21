@@ -235,6 +235,7 @@ class TestOutwardScanP3MismatchIdGeneration:
 # MismatchResolutionWorkflow as a real ABANDON child on a Vision mismatch.
 # ---------------------------------------------------------------------------
 
+import asyncio
 import uuid
 from temporalio import activity as _activity
 from temporalio.testing import WorkflowEnvironment
@@ -286,6 +287,18 @@ async def _fake_ocr_degraded(inp):
     return OCRActivityResult(
         outcome="HUMAN_REVIEW", degraded=True, low_confidence_reason="MODEL_UNAVAILABLE",
         date=valid_date,
+    )
+
+
+@_activity.defn(name="ocr_extract")
+async def _fake_ocr_slash_dash_amount(inp):
+    # real OCR text as printed on Indian cheques: lakh-style commas and a trailing "/-"
+    from datetime import date, timedelta
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="PROCEED", micr_line="123456789", amount_figures="10,00,000/-",
+        overall_confidence=0.95, degraded=False,
+        date=(date.today() - timedelta(days=10)).strftime("%d-%m-%Y"),
     )
 
 
@@ -398,6 +411,26 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )
+
+
+class TestOutwardScanWorkflowRealRunAmountFormats:
+    @pytest.fixture(autouse=True)
+    def _bank_env(self, monkeypatch):
+        monkeypatch.setenv("BANK_ID", "saraswat-coop")
+        monkeypatch.setenv("ASTRA_SECRETS_BACKEND", "env")
+
+    @pytest.mark.asyncio
+    async def test_slash_dash_lakh_amount_does_not_crash_the_workflow_task(self):
+        """Regression: float('10,00,000/-') raised inside the workflow task, which Temporal
+        retries forever (real outward cheques 284250 / 307384 / 956963 hung for >5 min)."""
+        from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _worker(env, task_queue, _fake_ocr_slash_dash_amount, _fake_vision_match):
+                result = await asyncio.wait_for(env.client.execute_workflow(
+                    OutwardScanWorkflow.run, _compliant_input(),
+                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}", task_queue=task_queue), timeout=60)
+        assert result.outcome in ("ACCEPTED", "MISMATCH_HELD")
 
 
 class TestOutwardScanWorkflowRealRun:

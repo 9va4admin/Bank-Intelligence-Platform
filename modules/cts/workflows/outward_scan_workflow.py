@@ -46,6 +46,7 @@ log = structlog.get_logger()
 _STALE_DAYS = 90   # RBI: cheques older than 3 months cannot be presented
 
 from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
+from shared.utils.cheque_amount import parse_amount_figures  # noqa: E402
 
 
 def _validate_cheque_date(date_str):
@@ -305,6 +306,9 @@ class OutwardScanWorkflow:
         )
         micr_line = ocr_result.micr_line
         scanner_amount_str = ocr_result.amount_figures
+        # Normalised numeric form ("10,00,000/-" -> "1000000"); None when OCR text is not an amount.
+        _amt = parse_amount_figures(scanner_amount_str)
+        scanner_amount_norm = str(_amt) if _amt is not None else None
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
         _ocr_engines = getattr(ocr_result, "ocr_engines_used", [])
         _indic_ks = getattr(ocr_result, "indic_ocr_kill_switch_active", False)
@@ -773,12 +777,12 @@ class OutwardScanWorkflow:
 
         # Step 4: Vision cross-check (lot assignment deferred to ClearingSessionWorkflow)
         vision_result = None
-        if scanner_amount_str is not None:
+        if scanner_amount_norm is not None:
             vision_result = await workflow.execute_activity(
                 run_vision_presentment_check,
                 VisionPresentmentCheckInput(
                     instrument_id=inp.instrument_id, image_front_url=inp.image_front_url,
-                    scanner_amount_str=scanner_amount_str, cheque_amount=float(scanner_amount_str),
+                    scanner_amount_str=scanner_amount_norm, cheque_amount=float(scanner_amount_norm),
                     bank_id=inp.bank_id,
                 ),
                 start_to_close_timeout=timedelta(seconds=120), retry_policy=_AI_RETRY,
@@ -798,7 +802,7 @@ class OutwardScanWorkflow:
             ))
             return await self._spawn_mismatch(
                 inp, None, micr_line,
-                scanner_amount_str or "", vision_result.vision_amount_str or "",
+                scanner_amount_norm or "", vision_result.vision_amount_str or "",
                 vision_result.mismatch_fields,
                 write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
             )
