@@ -590,3 +590,21 @@ class TestPolicyEngineIsDefault:
         cfg = MagicMock()
         cfg.get_platform = MagicMock(return_value="http://opa.bank.internal:8181")
         assert isinstance(await _build_opa_client(cfg), OPAClient)
+
+
+class TestSynthesiseDecisionConfigShape:
+    """Found live: with no config passed, the bound method used get_cts_config (keys
+    prefixed 'cts.') but decision.py reads bare keys like config['ocr_min_confidence']
+    -> KeyError on every cheque that reached the decision step."""
+
+    @pytest.mark.asyncio
+    async def test_empty_config_loads_bare_key_workflow_thresholds(self):
+        cfg = MagicMock()
+        cfg.get_workflow_thresholds = AsyncMock(return_value={"ocr_min_confidence": 0.9})
+        cfg.get_cts_config = AsyncMock(return_value={"cts.ocr_min_confidence": 0.9})
+        inp = MagicMock(bank_id="kbl")
+        bound = _bound(config_service=cfg)
+        with patch("modules.cts.workflows.activities.decision.synthesise_decision",
+                   new=AsyncMock(return_value="R")) as real:
+            await bound.synthesise_decision(inp, {})
+        assert real.await_args.args[1] == {"ocr_min_confidence": 0.9}
