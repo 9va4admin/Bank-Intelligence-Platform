@@ -692,7 +692,7 @@ async def get_hub_summary(
 
     try:
         async with db_pool.acquire() as conn:
-            rows = await conn.fetch(_HUB_SUMMARY_SQL, bank_id, today)
+            rows = await conn.fetch(_HUB_SUMMARY_SQL, bank_id, date.today())   # DATE column needs a date, not a str
     except Exception as exc:
         log.error("cts.hub_summary.db_error", bank_id=bank_id, error=str(exc))
         raise HTTPException(status_code=500, detail="Database error")
