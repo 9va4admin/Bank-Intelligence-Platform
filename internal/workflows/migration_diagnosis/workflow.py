@@ -33,7 +33,7 @@ _PARSE_RETRY_KWARGS = dict(maximum_attempts=3, initial_interval=timedelta(second
 _LLM_RETRY_KWARGS = dict(maximum_attempts=2, initial_interval=timedelta(seconds=5),
                          backoff_coefficient=2.0,
                          non_retryable_error_types=["DiagnosisError"]) if _TEMPORAL_AVAILABLE else {}
-_AUDIT_RETRY_KWARGS = dict(maximum_attempts=None, initial_interval=timedelta(seconds=1),
+_AUDIT_RETRY_KWARGS = dict(maximum_attempts=0, initial_interval=timedelta(seconds=1),
                            maximum_interval=timedelta(minutes=5)) if _TEMPORAL_AVAILABLE else {}
 
 

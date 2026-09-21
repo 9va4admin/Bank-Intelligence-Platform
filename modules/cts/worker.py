@@ -56,7 +56,7 @@ try:
     )
 
     AUDIT_RETRY = RetryPolicy(
-        maximum_attempts=None,   # unlimited — audit must succeed
+        maximum_attempts=0,      # 0 = unlimited in the Temporal Python SDK (None is invalid)
         initial_interval=timedelta(seconds=1),
         maximum_interval=timedelta(minutes=5),
     )

@@ -42,6 +42,12 @@ class _PydanticV2TypeConverter(JSONTypeConverter):
             and isinstance(value, dict)
         ):
             return hint.model_validate(value)
+        # ISO strings back into date/datetime fields of plain dataclasses (the stock decoder raises
+        # "Unserializable type ... datetime.date", failing the workflow task).
+        if hint is _dt.datetime and isinstance(value, str):
+            return _dt.datetime.fromisoformat(value)
+        if hint is _dt.date and isinstance(value, str):
+            return _dt.date.fromisoformat(value)
         return JSONTypeConverter.Unhandled
 
 
