@@ -5,6 +5,7 @@ ensure_required_buckets is a no-op wherever infra (Helm/mc) already created them
 WORM/ILM policy stays an infra concern. Bucket creation failure is reported, never raised: a
 missing bucket must degrade the feature that needs it, not stop the service.
 """
+import asyncio
 from typing import Any
 
 import structlog
@@ -24,15 +25,18 @@ REQUIRED_BUCKETS: tuple[str, ...] = (
 )
 
 
-async def ensure_required_buckets(store: Any) -> list[str]:
-    """Create any missing bucket. Returns the names that could not be ensured."""
+async def ensure_required_buckets(store: Any, per_bucket_timeout: float = 5.0) -> list[str]:
+    """Create any missing bucket, concurrently and time-bounded. Returns the names not ensured."""
     if store is None:
         return list(REQUIRED_BUCKETS)
-    failed: list[str] = []
-    for name in REQUIRED_BUCKETS:
+
+    async def _one(name: str) -> bool:
         try:
-            await store.ensure_bucket(name)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("storage.bucket_ensure_failed", bucket=name, error=str(exc))
-            failed.append(name)
-    return failed
+            await asyncio.wait_for(store.ensure_bucket(name), timeout=per_bucket_timeout)
+            return True
+        except Exception as exc:  # noqa: BLE001  (includes TimeoutError)
+            log.warning("storage.bucket_ensure_failed", bucket=name, error=str(exc)[:160])
+            return False
+
+    results = await asyncio.gather(*[_one(n) for n in REQUIRED_BUCKETS])
+    return [n for n, ok in zip(REQUIRED_BUCKETS, results) if not ok]

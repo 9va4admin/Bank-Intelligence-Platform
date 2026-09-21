@@ -36,3 +36,19 @@ async def test_one_failing_bucket_does_not_stop_the_rest():
 @pytest.mark.asyncio
 async def test_none_store_returns_all_as_failed_without_raising():
     assert set(await ensure_required_buckets(None)) == set(REQUIRED_BUCKETS)
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_is_bounded_so_a_dead_minio_cannot_hold_startup_hostage():
+    """Found live: an unreachable/TLS-mismatched MinIO made each bucket call retry for ~9s, so 9 buckets
+    stalled worker startup for over a minute. Buckets are ensured concurrently with a per-bucket timeout."""
+    import asyncio, time
+    store = MagicMock()
+
+    async def _slow(name, **kw):
+        await asyncio.sleep(30)
+    store.ensure_bucket = AsyncMock(side_effect=_slow)
+    t0 = time.monotonic()
+    failed = await ensure_required_buckets(store, per_bucket_timeout=0.3)
+    assert time.monotonic() - t0 < 3
+    assert set(failed) == set(REQUIRED_BUCKETS)
