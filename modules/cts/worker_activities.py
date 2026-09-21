@@ -675,6 +675,11 @@ class BoundCTSActivities:
         """Expose immudb_client for use by co-process consumers."""
         return self._immudb_client
 
+    @property
+    def db_pool(self):
+        """Expose db_pool for co-process consumers (human_review_consumer status update)."""
+        return self._db_pool
+
     def activity_list(self) -> list:
         """All 30 DI-needing activities as bound methods, ready for
         Worker(activities=...). The one remaining registered CTS activity

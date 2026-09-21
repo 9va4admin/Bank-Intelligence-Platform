@@ -66,9 +66,11 @@ async def handle_human_review_event(
     # 1. Immudb audit write — every routing to human review is RBI-auditable
     if immudb is not None:
         try:
-            await immudb.write_event(
+            await immudb.write(
+                collection=f"cts_{envelope.bank_id}",
                 event_type="CTS_REVIEW_ASSIGNED",
                 bank_id=envelope.bank_id,
+                instrument_id=instrument_id,
                 payload={
                     "instrument_id": instrument_id,
                     "workflow_id": workflow_id,
@@ -93,7 +95,7 @@ async def handle_human_review_event(
     # 2. YugabyteDB — move instrument to IN_HUMAN_REVIEW so ops UI shows it
     if db is not None:
         try:
-            async with await db.acquire() as conn:
+            async with db.acquire() as conn:
                 await conn.execute(
                     _UPDATE_STATUS_SQL,
                     instrument_id,

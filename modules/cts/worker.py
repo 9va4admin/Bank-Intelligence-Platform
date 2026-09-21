@@ -666,6 +666,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 bank_id=bank_id,
                 bootstrap_servers=kafka_bootstrap,
                 immudb=bound_activities.immudb_client,
+                db=bound_activities.db_pool,
                 redis=bound_activities.redis_client,
                 config_svc=config_service,
             )
