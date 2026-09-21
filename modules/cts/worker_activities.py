@@ -822,11 +822,13 @@ async def _build_cbs_connector(config_service: Any, bank_id: str) -> Any:
     from shared.cbs_connector.finacle import FinacleCBSConnector
     from shared.cbs_connector.bancs import BaNCSCBSConnector
     from shared.cbs_connector.flexcube import FlexCubeCBSConnector
+    from shared.cbs_connector.dev_stub import DevStubCBSConnector
 
     _CONNECTOR_CLASSES = {
         "finacle": FinacleCBSConnector,
         "bancs": BaNCSCBSConnector,
         "flexcube": FlexCubeCBSConnector,
+        "dev_stub": DevStubCBSConnector,   # dev/test only — refuses outside ASTRA_ENV=development
     }
     try:
         connector_type = config_service.get_platform("cbs.connector.type")
@@ -835,7 +837,8 @@ async def _build_cbs_connector(config_service: Any, bank_id: str) -> Any:
         if cls is None:
             log.warning("worker_activities.cbs_connector_unknown_type", connector_type=connector_type)
             return None
-        connector = cls(base_url=base_url, bank_id=bank_id)
+        pepper = await _get_pii_pepper(config_service, bank_id)
+        connector = cls(base_url=base_url, bank_id=bank_id, pepper=pepper)
         connector.connect()  # sync — all three CBS connectors expose a sync connect()
         log.info("worker_activities.cbs_connector_ready", connector_type=connector_type)
         return connector

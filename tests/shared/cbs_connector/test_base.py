@@ -110,6 +110,13 @@ class _StubCBS(CBSConnector):
     async def get_pps_entries(self, account_number: str, bank_id: str):
         return []
 
+    async def validate_beneficiary(self, account_number, inquiry_name, bank_id,
+                                   name_match_threshold=0.80, high_confidence_threshold=None):
+        raise NotImplementedError
+
+    async def get_branch_contacts(self, branch_code, bank_id):
+        raise NotImplementedError
+
     async def get_cheque_status(self, account_number: str, cheque_number: str, bank_id: str):
         return None
 

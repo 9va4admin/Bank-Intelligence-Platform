@@ -421,10 +421,11 @@ class TestCBSConnectorSelection:
         fake_connector_instance = MagicMock()
         fake_connector_cls = MagicMock(return_value=fake_connector_instance)
 
-        with patch("shared.cbs_connector.finacle.FinacleCBSConnector", fake_connector_cls):
+        with patch("shared.cbs_connector.finacle.FinacleCBSConnector", fake_connector_cls),              patch("modules.cts.worker_activities._get_pii_pepper", new=AsyncMock(return_value="pep")):
             connector = await _build_cbs_connector(fake_cfg, "test-bank")
 
-        fake_connector_cls.assert_called_once_with(base_url="https://cbs.example.internal", bank_id="test-bank")
+        fake_connector_cls.assert_called_once_with(
+            base_url="https://cbs.example.internal", bank_id="test-bank", pepper="pep")
         fake_connector_instance.connect.assert_called_once_with()  # sync, not awaited
         assert connector is fake_connector_instance
 

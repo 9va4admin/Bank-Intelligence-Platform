@@ -138,7 +138,8 @@ def _make_soap_mock(response_text: str, raise_exc=None):
 @pytest.fixture
 def connector() -> FlexCubeCBSConnector:
     return FlexCubeCBSConnector(
-        base_url="http://flexcube.bank.internal:8080", bank_id="test-bank"
+        base_url="http://flexcube.bank.internal:8080", bank_id="test-bank",
+        pepper="test-pepper",
     )
 
 
