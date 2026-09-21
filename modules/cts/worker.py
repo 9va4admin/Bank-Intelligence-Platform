@@ -136,6 +136,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     validate_payee_account,
 )
 from modules.cts.workflows.activities.outward_payee_check import check_outward_payee
+from modules.cts.workflows.activities.persist_outward_instrument import persist_outward_instrument
 from modules.cts.workflows.activities.postdated_hold_activities import (
     store_postdated_hold,
     mark_hold_cancelled,
@@ -363,6 +364,7 @@ NO_DI_ACTIVITIES = [
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
+    persist_outward_instrument,
     # Hold escalation (HoldEscalationWorkflow) — notification-only, no NGCH touch
     send_hold_reminder,
     send_hold_critical_alert,
