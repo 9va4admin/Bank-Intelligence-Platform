@@ -333,7 +333,7 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.outward_scan_activities import (
             run_vision_presentment_check as _real,
         )
-        return await _real(inp, orchestrator=self._orchestrator)
+        return await _real(inp, orchestrator=self._orchestrator, config_service=self._config_service)
 
     # ------------------------------------------------------------------
     # Decision / audit / NGCH filing
