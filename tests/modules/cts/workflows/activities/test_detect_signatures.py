@@ -293,3 +293,26 @@ class TestDetectSignaturesBboxes:
         result = await detect_signatures(_make_input(), vllm_client=client)
 
         assert result.sig_bboxes == []
+
+
+class TestVllmErrorTriesCloudBeforePixelFallback:
+    """Found running the real worker: when the vLLM call raised, the activity went
+    straight to the degraded pixel detector and never tried the (config-gated)
+    HF cloud fallback that the no-client branch does try."""
+
+    @pytest.mark.asyncio
+    async def test_vllm_error_uses_hf_cloud_result_when_available(self, monkeypatch):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities import detect_signatures as ds
+
+        client = MagicMock()
+        client.chat.completions.create = AsyncMock(side_effect=ConnectionError("vllm down"))
+        cloud = ds.DetectSignaturesResult(outcome="PRESENT", sig_count=1,
+                                          sig_bboxes=[[0.6, 0.6, 0.9, 0.8]], fraud_flags=[], degraded=False)
+        with patch.object(ds, "_crop_signature_zone", new=AsyncMock(return_value=b"png")), \
+             patch.object(ds, "_detect_via_hf_cloud", new=AsyncMock(return_value=cloud)) as hf, \
+             patch.object(ds, "_detect_via_sig_detector", new=AsyncMock()) as pixel:
+            result = await ds.detect_signatures(_make_input(), vllm_client=client, config_service=MagicMock())
+        assert result is cloud and result.degraded is False
+        hf.assert_awaited_once()
+        pixel.assert_not_awaited()

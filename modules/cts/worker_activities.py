@@ -985,9 +985,11 @@ async def _build_vision_vllm_client(config_service: Any) -> Any:
     (Qwen2-VL 7B — fast L1 pass).  Same HeadroomVLLMClient as the fraud
     client; the queue is specified per-call in extra_body, not here."""
     try:
-        from apps.ai_server.headroom_client import HeadroomVLLMClient
+        # OpenAI-compatible client: the vision activities call
+        # .chat.completions.create(extra_body={"queue": ...}) per ai-inference rules.
+        from openai import AsyncOpenAI
         base_url = await config_service.get("vllm.url")
-        client = HeadroomVLLMClient(base_url=base_url)
+        client = AsyncOpenAI(base_url=f"{base_url.rstrip('/')}/v1", api_key="x-istio", max_retries=0)
         log.info("worker_activities.vision_vllm_client_ready")
         return client
     except Exception as exc:

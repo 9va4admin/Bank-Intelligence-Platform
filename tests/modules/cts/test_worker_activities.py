@@ -524,3 +524,18 @@ class TestBuildImmudbClient:
 
         assert tx_id == "99"
         mock_write_event.assert_called_once()
+
+
+class TestVisionClientInterface:
+    """Real bug: worker bound HeadroomVLLMClient (exposes .chat()) but the vision
+    activities call OpenAI-style .chat.completions.create(), so every vision
+    call raised "'function' object has no attribute 'completions'"."""
+
+    @pytest.mark.asyncio
+    async def test_vision_client_exposes_openai_chat_completions(self):
+        from modules.cts.worker_activities import _build_vision_vllm_client
+        cfg = MagicMock()
+        cfg.get = AsyncMock(return_value="http://vllm.internal:8000")
+        client = await _build_vision_vllm_client(cfg)
+        assert client is not None
+        assert callable(client.chat.completions.create)

@@ -176,3 +176,17 @@ class TestNGCHFilerNetworkError:
 
         with pytest.raises(NGCHUnavailableError):
             await file_to_ngch(_make_input(), ngch_adapter=mock_adapter, event_producer=mock_producer)
+
+
+class TestNoNgchAdapterBound:
+    """Found running the real worker: with no NGCH adapter bound the activity died
+    with AttributeError('NoneType'...) and failed the whole workflow. NGCH being
+    unreachable must be the retryable NGCHUnavailableError so Temporal keeps the
+    filing queued (IET watchdog stays armed) instead of failing the cheque."""
+
+    @pytest.mark.asyncio
+    async def test_none_adapter_raises_retryable_unavailable(self):
+        from modules.cts.workflows.activities.ngch_filer import file_to_ngch
+        from modules.cts.mcp.ngch_adapter import NGCHUnavailableError
+        with pytest.raises(NGCHUnavailableError):
+            await file_to_ngch(_make_input(), ngch_adapter=None, event_producer=MagicMock())

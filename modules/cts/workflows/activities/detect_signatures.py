@@ -400,6 +400,23 @@ class DetectSignaturesResult(BaseModel):
     degraded: bool = False
 
 
+async def _fallback_chain(inp, config_service, span) -> Optional[DetectSignaturesResult]:
+    """vLLM unavailable/failed: config-gated HF cloud on the CTS-2010 zone crop,
+    then the pixel-analysis sig_detector (degraded). None if neither yields."""
+    zone_png = await _crop_signature_zone(inp.image_url)
+    if zone_png is not None:
+        hf_result = await _detect_via_hf_cloud(inp, config_service, zone_png)
+        if hf_result is not None:
+            span.set_attribute("degraded", False)
+            span.set_attribute("fallback", "hf_cloud_zone_crop")
+            return hf_result
+    fallback = await _detect_via_sig_detector(inp, config_service)
+    if fallback is not None:
+        span.set_attribute("degraded", fallback.degraded)
+        span.set_attribute("fallback", "sig_detector")
+    return fallback
+
+
 @activity.defn
 async def detect_signatures(
     inp: DetectSignaturesInput,
@@ -425,17 +442,8 @@ async def detect_signatures(
                 bank_id=inp.bank_id,
             )
             if config_service is not None:
-                zone_png = await _crop_signature_zone(inp.image_url)
-                if zone_png is not None:
-                    hf_result = await _detect_via_hf_cloud(inp, config_service, zone_png)
-                    if hf_result is not None:
-                        span.set_attribute("degraded", False)
-                        span.set_attribute("fallback", "hf_cloud_zone_crop")
-                        return hf_result
-                fallback = await _detect_via_sig_detector(inp, config_service)
+                fallback = await _fallback_chain(inp, config_service, span)
                 if fallback is not None:
-                    span.set_attribute("degraded", fallback.degraded)
-                    span.set_attribute("fallback", "sig_detector")
                     return fallback
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
@@ -495,10 +503,8 @@ async def detect_signatures(
                 error=str(exc),
             )
             if config_service is not None:
-                fallback = await _detect_via_sig_detector(inp, config_service)
+                fallback = await _fallback_chain(inp, config_service, span)
                 if fallback is not None:
-                    span.set_attribute("degraded", fallback.degraded)
-                    span.set_attribute("fallback", "sig_detector")
                     return fallback
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
