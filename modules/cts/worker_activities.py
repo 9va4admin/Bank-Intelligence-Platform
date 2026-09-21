@@ -923,6 +923,17 @@ async def _build_event_producer(config_service: Any, bank_id: str) -> Any:
 async def _build_ngch_adapter(config_service: Any, bank_id: str) -> Any:
     try:
         from modules.cts.mcp.ngch_adapter import NGCHAdapter
+        from shared.config.config_service import ConfigKeyNotFoundError
+        try:
+            dev_stub = config_service.get_platform("ngch.dev_stub").lower() == "true"
+        except ConfigKeyNotFoundError:
+            dev_stub = False
+        if dev_stub:   # dev/test stand-in — refuses to connect outside ASTRA_ENV=development
+            from modules.cts.mcp.dev_stub_ngch import DevStubNGCHAdapter
+            stub = DevStubNGCHAdapter(bank_id=bank_id)
+            stub.connect()
+            log.warning("worker_activities.ngch_dev_stub_active", bank_id=bank_id)
+            return stub
         base_url = config_service.get_platform("ngch.rest_base_url")
         adapter = NGCHAdapter(bank_id=bank_id, base_url=base_url)
         await adapter.connect(config_service=config_service)

@@ -608,3 +608,15 @@ class TestSynthesiseDecisionConfigShape:
                    new=AsyncMock(return_value="R")) as real:
             await bound.synthesise_decision(inp, {})
         assert real.await_args.args[1] == {"ocr_min_confidence": 0.9}
+
+
+class TestNgchStandInSelection:
+    @pytest.mark.asyncio
+    async def test_dev_stub_when_platform_flag_set(self):
+        from modules.cts.worker_activities import _build_ngch_adapter
+        from modules.cts.mcp.dev_stub_ngch import DevStubNGCHAdapter
+        cfg = MagicMock()
+        cfg.get_platform = MagicMock(side_effect=lambda k: {"ngch.dev_stub": "true"}[k])
+        import os
+        os.environ["ASTRA_ENV"] = "development"
+        assert isinstance(await _build_ngch_adapter(cfg, "kbl"), DevStubNGCHAdapter)
