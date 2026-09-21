@@ -162,7 +162,7 @@ async def update_bloom_filter(
         )
         return {"serials_added": 0, "degraded": True}
 
-    bloom_client.add_bulk(serials)
+    await bloom_client.add_bulk(serials)
 
     log.info(
         "delta_sync.bloom_updated",
