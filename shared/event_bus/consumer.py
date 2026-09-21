@@ -13,8 +13,9 @@ Usage:
     )
     consumer.connect()
     consumer.register_handler("CTS_INWARD", handle_inward_cheque)
-    await consumer.run()   # blocking poll loop
+    await consumer.run()   # non-blocking poll loop; consumer.stop() to end
 """
+import asyncio
 import json
 from typing import Any, Callable, Coroutine
 
@@ -24,6 +25,8 @@ from shared.event_bus.exceptions import EventBusUnavailableError, UnknownSchemaV
 from shared.event_bus.schemas import KafkaEventEnvelope
 
 log = structlog.get_logger()
+
+_POLL_TIMEOUT_MS = 500
 
 Handler = Callable[[KafkaEventEnvelope], Coroutine[Any, Any, None]]
 
@@ -42,6 +45,7 @@ class EventConsumer:
         self._topics = topics
         self._consumer = None
         self._ready = False
+        self._running = False
         self._handlers: dict[str, Handler] = {}
 
     def connect(self) -> None:
@@ -66,22 +70,41 @@ class EventConsumer:
         """Register an async handler for a specific event_type."""
         self._handlers[event_type] = handler
 
+    def stop(self) -> None:
+        """Ask the poll loop to exit after the current poll returns."""
+        self._running = False
+
     async def run(self) -> None:
-        """Poll loop — runs until cancelled."""
+        """Poll loop — runs until stop() or cancellation.
+
+        kafka-python is synchronous: poll() blocks its calling thread. It is run
+        in a worker thread so the event loop (shared with the Temporal worker)
+        keeps serving other coroutines while the topic is idle.
+        """
         self._assert_ready()
-        for message in self._consumer:
-            try:
-                envelope = self._deserialise(message)
-                if not self._should_process(envelope):
-                    continue
-                await self._dispatch(envelope)
-                self._consumer.commit()
-            except UnknownSchemaVersionError:
-                log.error("event_bus.unknown_schema",
-                          topic=message.topic, offset=message.offset)
-            except Exception as exc:
-                log.error("event_bus.processing_error",
-                          topic=message.topic, offset=message.offset, error=str(exc))
+        self._running = True
+        loop = asyncio.get_running_loop()
+        while self._running:
+            batches = await loop.run_in_executor(
+                None, lambda: self._consumer.poll(timeout_ms=_POLL_TIMEOUT_MS)
+            )
+            for messages in (batches or {}).values():
+                for message in messages:
+                    await self._handle_message(message)
+
+    async def _handle_message(self, message) -> None:
+        try:
+            envelope = self._deserialise(message)
+            if not self._should_process(envelope):
+                return
+            await self._dispatch(envelope)
+            self._consumer.commit()
+        except UnknownSchemaVersionError:
+            log.error("event_bus.unknown_schema",
+                      topic=message.topic, offset=message.offset)
+        except Exception as exc:
+            log.error("event_bus.processing_error",
+                      topic=message.topic, offset=message.offset, error=str(exc))
 
     # ------------------------------------------------------------------
     # Internal helpers (public for testability)
