@@ -73,6 +73,14 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 
 **Standing rule:** Before adding any new OSS Docker container to the mandatory stack, ask: "Can YugabyteDB + Redis + FastAPI + React handle this well enough?" If yes, build it internally.
 
+### 2.6 Policy Engine — In-Process, No OPA Container by Default
+
+**Decision (2026-09-21):** The OPA container is dropped from the mandatory stack (same CAB/image-approval reasoning as §2.5). Layer 4 business-policy rules are evaluated in-process by `shared/policy_engine.py` (`PolicyEngine.decide(OPAInput) → OPAResult`, same contract as `OPAClient`). Rules are Layer 3 config data — JSON under `cts.policy_rules` in `platform.config_values` — so they hot-reload via config_service (30 s), are audited, and go through maker-checker. Defaults are ported from the former `cts_routing.rego` triggers.
+
+**Structural safety invariants:** a rule can only yield `HUMAN_REVIEW` or `AUTO_RETURN` (never a confirm) · `HUMAN_REVIEW` beats `AUTO_RETURN` · rules unavailable/malformed → `HUMAN_REVIEW` · no match → `PROCEED` (downstream gates still apply).
+
+**External OPA remains optional:** a bank that already runs OPA may set the `opa.url` platform value and the worker will use `OPAClient` instead. The `.rego` files stay as the reference for that path.
+
 ---
 
 ## 3. Technology Stack (Final — Locked)
@@ -122,7 +130,7 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 | Event Bus | Apache Kafka (Strimzi) + MirrorMaker 2 (DC replication) |
 | Secrets | HashiCorp Vault (dynamic, 24hr rotation) |
 | HSM | FIPS 140-2 Level 3 (NGCH PKI signing) |
-| Policy Engine | OPA (Rego, business rules) |
+| Policy Engine | In-process `PolicyEngine` (rules = Layer 3 config; §2.6). External OPA optional via `opa.url` |
 | Identity | Bank IdP via SAML 2.0 |
 | Observability | OpenTelemetry (instrumentation only, zero Docker cost) + ASTRA Ops Dashboard (React) + alert engine → dispatcher.py · Optional: `astra-observability` Helm chart for dev debugging |
 | Notifications | Postal (email) + Meta WhatsApp Business API |
