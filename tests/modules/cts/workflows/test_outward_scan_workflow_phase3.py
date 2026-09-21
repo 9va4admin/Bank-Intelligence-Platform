@@ -369,6 +369,19 @@ async def _fake_resolve_mismatch_db(inp):
     return None
 
 
+@_activity.defn(name="extract_rear_payee_details")
+async def _fake_extract_rear_payee_details(inp):
+    # workflow runs rear-image OCR on every scan now; no rear details -> continue
+    from modules.cts.workflows.activities.outward_scan_activities import RearPayeeExtractionResult
+    return RearPayeeExtractionResult(degraded=True)
+
+
+@_activity.defn(name="persist_agent_decision")
+async def _fake_persist_agent_decision_outward(inp):
+    from modules.cts.workflows.activities.persist_decision import PersistDecisionResult
+    return PersistDecisionResult(success=True)
+
+
 def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
     from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
     from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
@@ -381,12 +394,20 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
             _fake_check_security_features, _fake_cross_check,
             _fake_check_cheque_dedup, _fake_record_outward_scan_event,
             _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db,
+            _fake_extract_rear_payee_details, _fake_persist_agent_decision_outward,
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )
 
 
 class TestOutwardScanWorkflowRealRun:
+    @pytest.fixture(autouse=True)
+    def _bank_env(self, monkeypatch):
+        # real validate_cts2010 reads its thresholds through config_service, which is
+        # keyed by BANK_ID (Helm-injected in production)
+        monkeypatch.setenv("BANK_ID", "saraswat-coop")
+        monkeypatch.setenv("ASTRA_SECRETS_BACKEND", "env")
+
     @pytest.mark.asyncio
     async def test_real_run_accepted_on_vision_match(self):
         from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow

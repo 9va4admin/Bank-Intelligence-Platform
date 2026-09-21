@@ -40,7 +40,7 @@ def _make_signals(
         available_balance=available_balance,
         cheque_amount=amount,
         shap_values={"amount_feature": 0.1, "drawer_history": -0.05},
-        cheque_date=date.today(),   # valid date — tests focus on other gates
+        cheque_date=date.today().isoformat(),   # valid date — tests focus on other gates
     )
 
 
@@ -150,7 +150,7 @@ class TestSTPReturn:
             available_balance=100000.0,
             cheque_amount=50000.0,
             shap_values={"f": 0.1},
-            cheque_date=date.today(),
+            cheque_date=date.today().isoformat(),
         )
         result = await synthesise_decision(inp, config=_make_config())
         assert result.decision == "STP_RETURN"
