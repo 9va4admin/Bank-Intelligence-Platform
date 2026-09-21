@@ -85,10 +85,10 @@ class PPSEntry(BaseModel):
     entry_id: str
     account_display: str
     cheque_number: str
-    cheque_date: Optional[str]
+    cheque_date: OptIsoTimestamp
     amount_range: str
     status: str
-    expires_at: Optional[str]
+    expires_at: OptIsoTimestamp
     registered_at: IsoTimestamp
     registration_channel: Optional[str]
 
@@ -128,7 +128,7 @@ class VaultSyncRun(BaseModel):
 
 
 class VaultSyncStatusData(BaseModel):
-    last_run_at: Optional[str] = None
+    last_run_at: OptIsoTimestamp = None
     triggered_by: str = "SCHEDULED"
     duration_seconds: Optional[int] = None
     pps_records_loaded: int = 0

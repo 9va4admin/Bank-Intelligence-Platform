@@ -65,7 +65,7 @@ class BatchSummary(BaseModel):
     rows_processed: Optional[int]
     rows_failed: Optional[int]
     created_at: IsoTimestamp
-    completed_at: Optional[str]
+    completed_at: OptIsoTimestamp
 
 
 class BatchListResponse(BaseModel):

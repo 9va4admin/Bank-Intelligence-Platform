@@ -112,8 +112,8 @@ class SMBForwardingLogItem(BaseModel):
     forwarding_status: str
     iet_deadline_utc: str
     received_at: IsoTimestamp
-    forwarded_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    forwarded_at: OptIsoTimestamp = None
+    completed_at: OptIsoTimestamp = None
     terminal_decision: Optional[str] = None
 
 
@@ -166,8 +166,8 @@ class SBForwardingLogItem(BaseModel):
     terminal_decision: Optional[str] = None
     iet_deadline_utc: str
     received_at: IsoTimestamp
-    forwarded_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    forwarded_at: OptIsoTimestamp = None
+    completed_at: OptIsoTimestamp = None
     iet_seconds_remaining: Optional[int] = None
     failure_reason: Optional[str] = None
 
@@ -403,7 +403,7 @@ async def get_smb_session_ledger(
     sub_member_id: str,
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    session_date: Optional[str] = None,
+    session_date: OptIsoTimestamp = None,
 ) -> SMBLedgerResponse:
     """Return batch ledger for a Sub-Member Bank."""
     if ctx.bank_type == BankType.SMB and ctx.bank_id != sub_member_id:
@@ -509,7 +509,7 @@ async def trigger_smb_vault_sync(
 async def get_all_smb_ledgers(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    session_date: Optional[str] = None,
+    session_date: OptIsoTimestamp = None,
 ) -> SMBAllLedgersResponse:
     """Returns batch ledger for ALL sub-members under this SB bank. SB-only, restricted roles."""
     if ctx.bank_type != BankType.SB:
