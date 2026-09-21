@@ -107,7 +107,9 @@ from modules.cts.workflows.activities.leaf_lifecycle import (
     mark_leaf_returned as _ll_mark_leaf_returned,
 )
 from modules.cts.workflows.human_review_workflow import HumanReviewInput
-from modules.cts.workflows.mismatch_resolution_workflow import PublishMismatchHoldInput
+from modules.cts.workflows.mismatch_resolution_workflow import (
+    PersistMismatchHoldInput, PublishMismatchHoldInput, ResolveMismatchDbInput,
+)
 
 log = structlog.get_logger()
 
@@ -215,7 +217,18 @@ class BoundCTSActivities:
         )
         if isinstance(inp, dict):
             inp = DetectSignaturesInput(**inp)
-        return await _real(inp, vllm_client=self._vllm_client)
+        return await _real(inp, vllm_client=self._vllm_client, config_service=self._config_service)
+
+    @activity.defn(name="check_security_features")
+    async def check_security_features(self, inp):
+        # Bound method (single `inp` param) — a bare activity with extra
+        # DI params makes Temporal drop type hints and pass a dict.
+        from modules.cts.workflows.activities.security_features import (
+            check_security_features as _real, SecurityFeaturesInput,
+        )
+        if isinstance(inp, dict):
+            inp = SecurityFeaturesInput(**inp)
+        return await _real(inp, vllm_client=self._vllm_client, config_service=self._config_service)
 
     @activity.defn(name="verify_signature")
     async def verify_signature(self, inp: SignatureActivityInput):
@@ -534,6 +547,16 @@ class BoundCTSActivities:
         async with self._db_pool.acquire() as conn:
             return await _real(inp, db_conn=conn)
 
+    @activity.defn(name="persist_mismatch_hold_db")
+    async def persist_mismatch_hold_db(self, inp: PersistMismatchHoldInput):
+        from modules.cts.workflows.mismatch_resolution_workflow import persist_mismatch_hold_db as _real
+        return await _real(inp, db_pool=self._db_pool)
+
+    @activity.defn(name="resolve_mismatch_db")
+    async def resolve_mismatch_db(self, inp: ResolveMismatchDbInput):
+        from modules.cts.workflows.mismatch_resolution_workflow import resolve_mismatch_db as _real
+        return await _real(inp, db_pool=self._db_pool)
+
     # ------------------------------------------------------------------
     # Cheque leaf lifecycle — DI-wired so Temporal's pydantic_data_converter
     # correctly deserialises MarkLeafPresentedInput (bare functions in
@@ -643,6 +666,7 @@ class BoundCTSActivities:
             self.load_pps_from_cbs,
             self.lookup_pps,
             self.detect_signatures,
+            self.check_security_features,
             self.verify_signature,
             self.warm_redis_vault,
             self.verify_vault_integrity,
@@ -678,6 +702,8 @@ class BoundCTSActivities:
             self.run_shadow_evaluation,
             # Decision persistence (cts.agent_decisions)
             self.persist_agent_decision,
+            self.persist_mismatch_hold_db,
+            self.resolve_mismatch_db,
             # Cheque leaf lifecycle (DI-wired — was bare function causing dict deserialization)
             self.mark_leaf_presented,
             self.mark_leaf_paid,

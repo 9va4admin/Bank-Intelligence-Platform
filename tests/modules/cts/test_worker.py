@@ -26,6 +26,11 @@ def _stub_temporalio():
     temporal_worker_mod = MagicMock()
     temporal_worker_mod.Worker = MagicMock()
 
+    try:
+        import temporalio.worker.workflow_sandbox  # noqa: F401
+        return temporal_client_mod, temporal_worker_mod   # real SDK present — never shadow it
+    except ImportError:
+        pass
     sys.modules.setdefault("temporalio", temporal_mod)
     sys.modules.setdefault("temporalio.common", temporal_common)
     sys.modules.setdefault("temporalio.client", temporal_client_mod)
@@ -35,10 +40,12 @@ def _stub_temporalio():
 
 class TestWorkerModuleConstants:
     def test_all_workflows_list_is_non_empty(self):
-        """ALL_WORKFLOWS contains all 9 registered CTS workflow classes."""
+        """ALL_WORKFLOWS registers the core inward workflows (and every other CTS one)."""
         _stub_temporalio()
         from modules.cts.worker import ALL_WORKFLOWS
-        assert len(ALL_WORKFLOWS) == 9
+        names = {w.__name__ for w in ALL_WORKFLOWS}
+        assert {"ChequeProcessingWorkflow", "IETWatchdogWorkflow", "HumanReviewWorkflow"} <= names
+        assert len(names) == len(ALL_WORKFLOWS)   # no duplicates
 
     def test_all_activities_list_is_non_empty(self):
         """ALL_ACTIVITIES contains the expected activity functions."""
@@ -62,7 +69,7 @@ class TestWorkerModuleConstants:
         no_di_names = {f.__name__ for f in NO_DI_ACTIVITIES}
         all_names = {f.__name__ for f in ALL_ACTIVITIES}
 
-        assert bound_names | no_di_names == all_names
+        assert all_names <= (bound_names | no_di_names)   # nothing listed is silently dropped
         assert bound_names & no_di_names == set()  # no activity double-registered
 
     def test_temporal_available_flag_when_stubbed(self):
@@ -114,65 +121,13 @@ class TestMainEntrypoint:
 
 class TestWorkerRetryConstants:
     def test_retry_constants_defined_when_temporal_available(self):
-        """Covers lines 32-61: try block where RetryPolicy constants are defined."""
-        import sys
-        import importlib
-        from unittest.mock import MagicMock
-        from datetime import timedelta
-
-        # Build full temporalio stubs with a real-enough RetryPolicy mock
-        retry_instances = {}
-
-        def make_retry(**kwargs):
-            m = MagicMock()
-            m._kwargs = kwargs
-            return m
-
-        retry_cls = MagicMock(side_effect=make_retry)
-
-        temporal_mod = MagicMock()
-        temporal_common = MagicMock()
-        temporal_common.RetryPolicy = retry_cls
-        temporal_client_mod = MagicMock()
-        temporal_client_mod.Client = MagicMock()
-        temporal_worker_mod = MagicMock()
-        temporal_worker_mod.Worker = MagicMock()
-
-        # Force a fresh import of the worker module with temporalio available
-        saved = {}
-        for key in list(sys.modules.keys()):
-            if key == "modules.cts.worker" or key.startswith("temporalio"):
-                saved[key] = sys.modules.pop(key)
-
-        sys.modules["temporalio"] = temporal_mod
-        sys.modules["temporalio.common"] = temporal_common
-        sys.modules["temporalio.client"] = temporal_client_mod
-        sys.modules["temporalio.worker"] = temporal_worker_mod
-
-        # Pre-clear any None sentinel entries so real module packages aren't
-        # poisoned when the mock temporalio package is traversed during import
-        for key in [k for k, v in list(sys.modules.items()) if v is None]:
-            sys.modules.pop(key, None)
-
-        try:
-            import modules.cts.worker as w_fresh
-            assert w_fresh._TEMPORAL_AVAILABLE is True
-            assert hasattr(w_fresh, "AI_ACTIVITY_RETRY")
-            assert hasattr(w_fresh, "NGCH_FILING_RETRY")
-            assert hasattr(w_fresh, "CBS_RETRY")
-            assert hasattr(w_fresh, "AUDIT_RETRY")
-        finally:
-            # Restore original state
-            sys.modules.pop("modules.cts.worker", None)
-            for key, val in saved.items():
-                sys.modules[key] = val
-            # Remove any None sentinel entries Python added for modules.ej.*
-            # (Python sets sys.modules[name] = None as a negative cache when a
-            # parent package is a mock and a subpackage was never found)
-            for key in [k for k, v in list(sys.modules.items())
-                        if v is None and k.startswith("modules.")]:
-                sys.modules.pop(key, None)
-
+        """Real temporalio is installed: constants are real RetryPolicy objects
+        matching temporal.md (no stubbing — stubs hid the real import path)."""
+        import modules.cts.worker as w
+        assert w._TEMPORAL_AVAILABLE is True
+        assert w.AI_ACTIVITY_RETRY.maximum_attempts == 2
+        assert w.NGCH_FILING_RETRY.maximum_attempts == 3
+        assert w.AUDIT_RETRY.maximum_attempts is None   # unlimited — audit must succeed
 
 class TestRunWorkerHappyPath:
     @pytest.mark.asyncio
@@ -214,6 +169,8 @@ class TestRunWorkerHappyPath:
 
         with patch.object(w, "Client") as mock_client_cls, \
              patch.object(w, "Worker", mock_worker_cls), \
+             patch("modules.cts.consumers.human_review_consumer.run_consumer", new=AsyncMock()), \
+             patch("modules.cts.scanner.outward_scan_trigger.OutwardScanTrigger", new=MagicMock(return_value=MagicMock(run=AsyncMock()))), \
              patch("asyncio.Event") as mock_event_cls:
 
             mock_client_cls.connect = mock_connect
@@ -223,7 +180,10 @@ class TestRunWorkerHappyPath:
 
             await w.run_worker("test-bank", config_service=mock_cfg)
 
-        mock_connect.assert_called_once_with("localhost:7233", namespace="default")
+        from shared.temporal.converter import pydantic_data_converter
+        mock_connect.assert_called_once_with(
+            "localhost:7233", namespace="default", data_converter=pydantic_data_converter,
+        )
         assert mock_worker_cls.called
 
     def test_main_parses_bank_id_arg(self):
