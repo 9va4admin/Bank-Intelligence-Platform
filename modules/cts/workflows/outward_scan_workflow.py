@@ -731,17 +731,12 @@ class OutwardScanWorkflow:
         )
         sec_result = await workflow.execute_activity(
             check_security_features,
-            args=[
-                SecurityFeaturesInput(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    image_url=inp.image_front_url,
-                    smb_id=inp.smb_id if hasattr(inp, "smb_id") else None,
-                ),
-                None,   # vllm_client — worker-level DI
-                None,   # config_service — worker-level DI
-                None,   # langfuse — worker-level DI
-            ],
+            SecurityFeaturesInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                image_url=inp.image_front_url,
+                smb_id=inp.smb_id if hasattr(inp, "smb_id") else None,
+            ),
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_RETRY,
         )
