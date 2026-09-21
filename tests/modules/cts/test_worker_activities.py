@@ -568,3 +568,25 @@ class TestInwardWorkflowActivitiesRegistered:
     def test_both_in_activity_list(self):
         names = {a.__name__ for a in _bound().activity_list()}
         assert {"validate_cheque_series", "validate_ifsc"} <= names
+
+
+class TestPolicyEngineIsDefault:
+    """CLAUDE.md §2.6: no OPA container by default — the in-process PolicyEngine is bound
+    unless a bank explicitly sets opa.url."""
+
+    @pytest.mark.asyncio
+    async def test_policy_engine_when_no_opa_url(self):
+        from modules.cts.worker_activities import _build_opa_client
+        from shared.config.config_service import ConfigKeyNotFoundError
+        from shared.policy_engine import PolicyEngine
+        cfg = MagicMock()
+        cfg.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("opa.url"))
+        assert isinstance(await _build_opa_client(cfg), PolicyEngine)
+
+    @pytest.mark.asyncio
+    async def test_external_opa_only_when_url_set(self):
+        from modules.cts.worker_activities import _build_opa_client
+        from shared.opa_client import OPAClient
+        cfg = MagicMock()
+        cfg.get_platform = MagicMock(return_value="http://opa.bank.internal:8181")
+        assert isinstance(await _build_opa_client(cfg), OPAClient)

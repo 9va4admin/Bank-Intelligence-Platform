@@ -934,13 +934,22 @@ async def _build_ngch_adapter(config_service: Any, bank_id: str) -> Any:
 
 
 async def _build_opa_client(config_service: Any) -> Any:
+    """Layer 4 business policy. Default: in-process PolicyEngine (rules are Layer 3
+    config — no extra container, CLAUDE.md §2.6). An external OPA is used only when a
+    bank explicitly sets the opa.url platform value."""
     try:
+        from shared.config.config_service import ConfigKeyNotFoundError
+        try:
+            opa_url = config_service.get_platform("opa.url")
+        except ConfigKeyNotFoundError:
+            from shared.policy_engine import PolicyEngine
+            log.info("worker_activities.policy_engine_ready")
+            return PolicyEngine(config_service)
         import httpx
         from shared.opa_client import OPAClient
-        opa_url = config_service.get_platform("opa.url")
-        opa_client = OPAClient(opa_url=opa_url, http_client=httpx.AsyncClient(timeout=2.0))
+        client = OPAClient(opa_url=opa_url, http_client=httpx.AsyncClient(timeout=2.0))
         log.info("worker_activities.opa_client_ready")
-        return opa_client
+        return client
     except Exception as exc:
         log.warning("worker_activities.opa_client_unavailable", error=str(exc))
         return None
