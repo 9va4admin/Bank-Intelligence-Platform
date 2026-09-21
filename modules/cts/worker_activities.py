@@ -1191,13 +1191,18 @@ async def _build_minio_client(config_service: Any) -> Any:
         endpoint = await config_service.get_secret("minio.endpoint")
         access_key = await config_service.get_secret("minio.access_key")
         secret_key = await config_service.get_secret("minio.secret_key")
+        from shared.config.exceptions import ConfigKeyNotFoundError
+        try:   # same platform flag the API reads; secure by default when unset
+            secure = str(config_service.get_platform("minio.secure")).lower() in ("true", "1")
+        except ConfigKeyNotFoundError:
+            secure = True
         client = MinioObjectStore(
             endpoint=endpoint,
             access_key=access_key,
             secret_key=secret_key,
-            secure=True,
+            secure=secure,
         )
-        log.info("worker_activities.minio_client_ready")
+        log.info("worker_activities.minio_client_ready", secure=secure)
         return client
     except Exception as exc:
         log.warning("worker_activities.minio_client_unavailable", error=str(exc))
