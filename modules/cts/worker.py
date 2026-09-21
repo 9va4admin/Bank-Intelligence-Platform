@@ -352,8 +352,7 @@ NO_DI_ACTIVITIES = [
     # SMB vault push (SMBVaultPushWorkflow)
     parse_and_validate_smb_push,
     update_smb_vault,
-    # CTS-2010 security print detection (ChequeProcessingWorkflow + OutwardScanWorkflow)
-    check_security_features,
+    # check_security_features is a BoundCTSActivities method (needs vllm client + config)
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
@@ -568,7 +567,10 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         from modules.cts.scanner.adapters import ScannerFactory  # noqa: F401 — imported for wiring
 
         kafka_bootstrap_for_watcher = config_service.get_platform("kafka.bootstrap_servers")
-        watcher_cfgs = config_service.get(f"cts.scanner.watcher_configs.{bank_id}", default=None)
+        try:
+            watcher_cfgs = await config_service.get(f"cts.scanner.watcher_configs.{bank_id}")
+        except Exception:
+            watcher_cfgs = None   # not configured for this bank — watcher simply not started
         if watcher_cfgs:
             from shared.event_bus.producer import EventProducer as _KafkaProducer
             for branch_cfg in watcher_cfgs:

@@ -81,10 +81,10 @@ class TestBoundMethodDelegation:
         fake_opa = MagicMock()
         bound = _bound(immudb_client=fake_immudb, opa_client=fake_opa)
         with patch("modules.cts.workflows.activities.decision.synthesise_decision", new=AsyncMock(return_value="RESULT")) as mock_real:
-            result = await bound.synthesise_decision("INPUT", {"cfg": 1}, kill_switch_status="ELEVATED")
+            result = await bound.synthesise_decision("INPUT", {"cfg": 1})
         mock_real.assert_awaited_once_with(
             "INPUT", {"cfg": 1},
-            kill_switch_status="ELEVATED",
+            kill_switch_status=None,
             immudb_client=fake_immudb,
             opa_client=fake_opa,
         )
@@ -237,11 +237,67 @@ class TestLotManagerCaching:
         assert r1.lot_number == r2.lot_number
 
 
+class TestVisionActivitiesReceiveClientAndConfig:
+    """Real bug found 2026-09-21: Temporal drops type hints when an activity has
+    more parameters than payloads, so check_security_features (extra
+    vllm_client/config_service/langfuse params) received a plain dict and
+    crashed. It must be a bound method taking only `inp`, with DI injected."""
+
+    @pytest.mark.asyncio
+    async def test_check_security_features_bound_and_injected(self):
+        fake_vllm, fake_cfg = MagicMock(), MagicMock()
+        bound = _bound(vision_vllm_client=fake_vllm, config_service=fake_cfg)
+        with patch("modules.cts.workflows.activities.security_features.check_security_features",
+                   new=AsyncMock(return_value="RESULT")) as mock_real:
+            result = await bound.check_security_features({"instrument_id": "i", "bank_id": "b", "image_url": "u"})
+        args, kwargs = mock_real.await_args
+        assert args[0].bank_id == "b"          # dict coerced to the pydantic model
+        assert kwargs == {"vllm_client": fake_vllm, "config_service": fake_cfg}
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_detect_signatures_receives_config_service_for_cloud_fallback(self):
+        fake_vllm, fake_cfg = MagicMock(), MagicMock()
+        bound = _bound(vision_vllm_client=fake_vllm, config_service=fake_cfg)
+        with patch("modules.cts.workflows.activities.detect_signatures.detect_signatures",
+                   new=AsyncMock(return_value="RESULT")) as mock_real:
+            await bound.detect_signatures({"instrument_id": "i", "bank_id": "b", "image_url": "u"})
+        assert mock_real.await_args.kwargs == {"vllm_client": fake_vllm, "config_service": fake_cfg}
+
+
+class TestMismatchActivitiesRegistered:
+    """persist_mismatch_hold_db / resolve_mismatch_db were imported and listed
+    but never registered with the Worker, so MismatchResolutionWorkflow could
+    not run. They need db_pool, so they must be bound methods."""
+
+    @pytest.mark.asyncio
+    async def test_persist_mismatch_hold_db_bound_with_pool(self):
+        pool = MagicMock()
+        bound = _bound(db_pool=pool)
+        with patch("modules.cts.workflows.mismatch_resolution_workflow.persist_mismatch_hold_db",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.persist_mismatch_hold_db("INP") == "R"
+        real.assert_awaited_once_with("INP", db_pool=pool)
+
+    @pytest.mark.asyncio
+    async def test_resolve_mismatch_db_bound_with_pool(self):
+        pool = MagicMock()
+        bound = _bound(db_pool=pool)
+        with patch("modules.cts.workflows.mismatch_resolution_workflow.resolve_mismatch_db",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.resolve_mismatch_db("INP") == "R"
+        real.assert_awaited_once_with("INP", db_pool=pool)
+
+    def test_registered_in_activity_list(self):
+        names = {a.__name__ for a in _bound().activity_list()}
+        assert {"persist_mismatch_hold_db", "resolve_mismatch_db"} <= names
+
+
 class TestActivityListCompleteness:
     def test_returns_exactly_30_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 31
+        assert len(activities) == 53
 
     def test_no_duplicate_names(self):
         bound = _bound()
