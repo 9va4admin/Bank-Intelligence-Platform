@@ -22,6 +22,7 @@ from typing import Any, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
@@ -92,7 +93,7 @@ class SmokeTestRunResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id:    str
     entity:     str
-    run_at:     str
+    run_at:     IsoTimestamp
     results:    list[SmokeTestResult]
     summary:    dict[str, int]
 

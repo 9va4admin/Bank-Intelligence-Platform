@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from fastapi.security import HTTPBearer
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
@@ -165,7 +166,7 @@ class BranchResponse(BaseModel):
     scanner_input_mode: str
     is_scanning_enabled: bool
     is_active: bool
-    created_at: str
+    created_at: IsoTimestamp
     updated_at: Optional[str]
     created_by: str
 

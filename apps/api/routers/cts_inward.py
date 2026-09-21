@@ -19,6 +19,7 @@ from typing import List, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     _safe_temporal_param,
@@ -247,7 +248,7 @@ class LiveFlowItem(BaseModel):
     elapsed_ms: Optional[int] = None
     decision: Optional[str] = None
     fraud_score: Optional[float] = None
-    started_at: str
+    started_at: IsoTimestamp
 
 
 class LiveFlowResponse(BaseModel):
@@ -260,7 +261,7 @@ class LiveFlowResponse(BaseModel):
 class InwardSessionItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str
     status: str
     total_received: int
@@ -268,7 +269,7 @@ class InwardSessionItem(BaseModel):
     stp_returned: int
     pending_review: int
     iet_at_risk: int
-    opened_at: str
+    opened_at: IsoTimestamp
     closed_at: Optional[str] = None
 
 
