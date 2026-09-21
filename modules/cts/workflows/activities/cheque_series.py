@@ -44,6 +44,7 @@ _STOLEN_LOST_STATUSES = {"LOST", "STOLEN"}
 _CANCELLED_STATUS = "CANCELLED"
 _ACTIVE_STATUS = "ACTIVE"
 _USED_STATUS = "USED"
+_PRESENTED_STATUS = "PRESENTED"   # set by this workflow's own mark_leaf_presented step
 
 
 class ChequeSeriesActivityInput(BaseModel):
@@ -200,7 +201,9 @@ def _route_by_status(
     inp: ChequeSeriesActivityInput,
     status_upper: str,
 ) -> ChequeSeriesActivityResult:
-    if status_upper == _ACTIVE_STATUS:
+    # PRESENTED = the mark this same workflow wrote in step 0; a *second* presentment
+    # is rejected there (DuplicatePresentmentError), so it is not re-checked here.
+    if status_upper in (_ACTIVE_STATUS, _PRESENTED_STATUS):
         log.info("cheque_series.active", instrument_id=inp.instrument_id, bank_id=inp.bank_id)
         return ChequeSeriesActivityResult(outcome="PROCEED")
 
