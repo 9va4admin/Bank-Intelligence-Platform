@@ -62,7 +62,7 @@ class TestReqtypeRU:
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
             SFTPPort="22",
-            FileClearingType="CXF_14,CXF_01",
+            FileClearingType="CXF_14,CXF_99",
             SessionRef="SES-TEST-001",
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
@@ -92,7 +92,7 @@ class TestReqtypeRU:
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
             SFTPPort="22",
-            FileClearingType="CXF_01",
+            FileClearingType="CXF_14",
             SessionRef="SES-TEST-001",
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
@@ -107,14 +107,14 @@ class TestReqtypeRU:
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
             SFTPPort="22",
-            FileClearingType="CXF_14,CXF_01",
+            FileClearingType="CXF_14,CXF_99",
             SessionRef="SES-TEST-001",
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = ru_response
             result = await client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
         assert FileClearingType.CXF_14 in result.allowed_clearing_types
-        assert FileClearingType.CXF_01 in result.allowed_clearing_types
+        assert FileClearingType.CXF_99 in result.allowed_clearing_types
 
     @pytest.mark.asyncio
     async def test_non_zero_status_raises(self):
