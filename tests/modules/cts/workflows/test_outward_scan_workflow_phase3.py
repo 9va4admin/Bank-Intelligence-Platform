@@ -372,6 +372,12 @@ async def _fake_record_outward_scan_event(inp):
     return None
 
 
+@_activity.defn(name="persist_outward_instrument")
+async def _fake_persist_outward_instrument(inp):
+    from modules.cts.workflows.activities.persist_outward_instrument import PersistOutwardInstrumentResult
+    return PersistOutwardInstrumentResult(instrument_uuid="00000000-0000-0000-0000-000000000001", lot_id="LOT-TEST-1", inserted=True)
+
+
 @_activity.defn(name="persist_mismatch_hold_db")
 async def _fake_persist_mismatch_hold_db(inp):
     return None
@@ -410,7 +416,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
             ocr_fake, compliance_fake, _fake_lot, vision_fake,
             _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
             _fake_check_security_features, _fake_cross_check,
-            _fake_check_cheque_dedup, _fake_record_outward_scan_event,
+            _fake_check_cheque_dedup, _fake_record_outward_scan_event, _fake_persist_outward_instrument,
             _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db,
             _fake_extract_rear_payee_details, _fake_persist_agent_decision_outward, _fake_open_review_item,
         ],
@@ -462,7 +468,7 @@ class TestOutwardScanWorkflowRealRun:
 
         assert result.outcome == "ACCEPTED"
         assert result.micr_line == "123456789"
-        assert result.lot_number is None   # lot assigned later by ClearingSessionWorkflow
+        assert result.lot_number == "LOT-TEST-1"   # lot assigned on ACCEPT by persist_outward_instrument
         assert result.audit_written is True
 
     @pytest.mark.asyncio

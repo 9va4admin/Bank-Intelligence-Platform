@@ -364,56 +364,7 @@ def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
     )
 
 
-async def _ensure_open_lot(
-    conn,
-    bank_id: str,
-    branch_id: str,
-    session_id: str,
-    clearing_date,
-    max_instruments: int = 25,
-) -> tuple[str, int]:
-    """Find or create the OPEN scanning batch lot. Auto-seals and opens next when full."""
-    row = await conn.fetchrow(
-        "SELECT lot_id, instrument_count, max_instruments "
-        "FROM cts.lots "
-        "WHERE branch_id = $1 AND clearing_date = $2 AND status = 'OPEN'",
-        branch_id, clearing_date,
-    )
-
-    if row is None:
-        seq_row = await conn.fetchrow(
-            "SELECT COALESCE(MAX(sequence_number), 0) AS max_seq "
-            "FROM cts.lots WHERE branch_id = $1 AND clearing_date = $2",
-            branch_id, clearing_date,
-        )
-        seq = (seq_row["max_seq"] or 0) + 1
-        date_str = clearing_date.strftime("%Y%m%d") if hasattr(clearing_date, "strftime") else str(clearing_date).replace("-", "")
-        lot_id = f"LOT-{branch_id}-{date_str}-{seq:04d}"
-        await conn.execute(
-            "INSERT INTO cts.lots "
-            "(lot_id, bank_id, branch_id, session_id, clearing_date, sequence_number, "
-            " status, instrument_count, max_instruments) "
-            "VALUES ($1, $2, $3, $4, $5, $6, 'OPEN', 1, $7)",
-            lot_id, bank_id, branch_id, session_id, clearing_date, seq, max_instruments,
-        )
-        return lot_id, 1
-
-    lot_id = row["lot_id"]
-    new_count = row["instrument_count"] + 1
-
-    if new_count >= row["max_instruments"]:
-        await conn.execute(
-            "UPDATE cts.lots SET status='SEALED', instrument_count=$1, sealed_at=NOW() "
-            "WHERE lot_id=$2",
-            new_count, lot_id,
-        )
-        return await _ensure_open_lot(conn, bank_id, branch_id, session_id, clearing_date, max_instruments)
-
-    await conn.execute(
-        "UPDATE cts.lots SET instrument_count=$1 WHERE lot_id=$2",
-        new_count, lot_id,
-    )
-    return lot_id, new_count
+from modules.cts.lot.db_lots import ensure_open_lot as _ensure_open_lot  # noqa: E402  (moved; alias kept)
 
 
 def _vault_status(rows_processed: int, rows_failed: int) -> str:
@@ -651,13 +602,8 @@ async def submit_outward_scan(
                         "WHERE session_id = $1",
                         body.session_id,
                     )
-                    await _ensure_open_lot(
-                        _conn,
-                        bank_id=bank_id,
-                        branch_id=body.branch_id,
-                        session_id=body.session_id,
-                        clearing_date=date.today(),
-                    )
+                    # Lot assignment happens in the workflow (persist_outward_instrument) on ACCEPT only —
+                    # counting here also counted rejected / held scans.
             except Exception as _lot_exc:
                 log.warning(
                     "cts.outward_scan.lot_tracking_error",

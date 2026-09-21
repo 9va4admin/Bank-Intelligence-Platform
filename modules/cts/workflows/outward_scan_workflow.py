@@ -832,6 +832,8 @@ class OutwardScanWorkflow:
 
         log.info("outward_scan_workflow.accepted_pending_lot",
                  scan_id=inp.scan_id, bank_id=inp.bank_id)
+        lot_id = await self._persist_instrument(
+            inp, micr_line, scanner_amount_norm or scanner_amount_str, getattr(ocr_result, "date", None))
         await workflow.execute_activity(
             write_audit,
             WriteAuditInput(event_type="CTS_OUT_INSTRUMENT_PENDING", bank_id=inp.bank_id,
@@ -847,9 +849,35 @@ class OutwardScanWorkflow:
         self._outward_steps.append(StepResult(step_id="audit_write", outcome="PASS"))
         return OutwardScanResult(
             outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-            instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+            instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=lot_id,
             violations=None, audit_written=True, pu_id=inp.pu_id,
         )
+
+    async def _persist_instrument(self, inp, micr_line, amount_str, date_str) -> Optional[str]:
+        """Write the full outward record + lot assignment on ACCEPT. Returns the lot id.
+        Raises on failure (Temporal retries it, then the run() wrapper reports WORKFLOW_ERROR) — never silent."""
+        from modules.cts.workflows.activities.persist_outward_instrument import (
+            persist_outward_instrument, PersistOutwardInstrumentInput,
+        )
+        parsed_date = _parse_cheque_date(date_str or "")
+        parsed_amt = parse_amount_figures(amount_str)
+        res = await workflow.execute_activity(
+            persist_outward_instrument,
+            PersistOutwardInstrumentInput(
+                bank_id=inp.bank_id, instrument_id=inp.instrument_id, scan_id=inp.scan_id,
+                bank_ifsc=inp.bank_ifsc, session_id=inp.session_id, branch_id=inp.branch_id, pu_id=inp.pu_id,
+                micr_line=micr_line or "", cheque_number=inp.cheque_number,
+                amount_str=str(parsed_amt) if parsed_amt is not None else None,
+                cheque_date=parsed_date.isoformat() if parsed_date is not None else None,
+                registered_drawee_ifsc=inp.registered_drawee_ifsc,
+                image_front_url=inp.image_front_url, image_rear_url=inp.image_rear_url,
+                image_front_gray_url=inp.image_front_gray_url, front_dpi=inp.front_dpi,
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_INFRA_RETRY,
+        )
+        self._outward_steps.append(StepResult(step_id="persist_instrument", outcome="PASS"))
+        return res.lot_id
 
     async def _run_cr120_path(
         self, inp: "OutwardScanInput",
@@ -1074,6 +1102,8 @@ class OutwardScanWorkflow:
             )
 
         # PROCEED — accepted, pending lot assignment at clearing session time
+        lot_id = await self._persist_instrument(
+            inp, inp.micr_hardware_raw, vision_result.amount_figures, vision_result.date)
         log.info("outward_scan_workflow.cr120.accepted_pending_lot",
                  scan_id=inp.scan_id, bank_id=inp.bank_id,
                  micr_validated=vision_result.micr_validated)
@@ -1089,7 +1119,7 @@ class OutwardScanWorkflow:
         return OutwardScanResult(
             outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
             instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
-            lot_number=None, violations=None, audit_written=True, pu_id=inp.pu_id,
+            lot_number=lot_id, violations=None, audit_written=True, pu_id=inp.pu_id,
         )
 
     async def _spawn_mismatch(
