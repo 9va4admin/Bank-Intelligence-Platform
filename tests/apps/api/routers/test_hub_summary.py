@@ -353,3 +353,20 @@ class TestScannerHealthDerivedNotStored:
         assert _row_to_branch_summary(self._row(registration_id="R1", last_heartbeat_at=now)).scanner_health == "ONLINE"
         old = now - timedelta(hours=2)
         assert _row_to_branch_summary(self._row(registration_id="R1", last_heartbeat_at=old)).scanner_health == "OFFLINE"
+
+
+class TestHubSummaryQueryArgumentTypes:
+    """Found by the real API run against real YugabyteDB: the route passed the clearing date as an
+    ISO *string* to a DATE comparison; asyncpg raised "'str' object has no attribute 'toordinal'"
+    and every call returned 500. Mock connections accept anything, so only a type check catches it."""
+
+    @pytest.mark.asyncio
+    async def test_clearing_date_query_argument_is_a_date_object(self):
+        from datetime import date
+        conn = AsyncMock(); conn.fetch = AsyncMock(return_value=[])
+        pool = AsyncMock()
+        pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=conn), __aexit__=AsyncMock(return_value=False)))
+        await get_hub_summary(request=_make_request(pool), ctx=_make_ctx())
+        args = conn.fetch.call_args[0]
+        assert isinstance(args[2], date) and not isinstance(args[2], str)
