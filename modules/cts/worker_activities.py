@@ -675,6 +675,18 @@ class BoundCTSActivities:
         """Expose immudb_client for use by co-process consumers."""
         return self._immudb_client
 
+    def di_dependencies(self) -> dict:
+        """name -> live dependency, for bind_di_activity. Names an activity may ask for
+        that this worker does not have (sb_connector, dispatcher, enroller ...) are
+        simply absent -> the activity receives None and degrades as coded."""
+        return {
+            "db_pool": self._db_pool, "lot_store": self._lot_store,
+            "event_producer": self._event_producer, "redis_client": self._redis_client,
+            "orchestrator": self._orchestrator, "config_service": self._config_service,
+            "cbs_connector": self._cbs_connector, "minio_client": self._minio_client,
+            "account_vault": getattr(self, "_account_vault", None),
+        }
+
     @property
     def db_pool(self):
         """Expose db_pool for co-process consumers (human_review_consumer status update)."""
@@ -1181,3 +1193,41 @@ async def _build_embedding_model() -> Any:
     except Exception as exc:
         log.warning("worker_activities.embedding_model_unavailable", error=str(exc))
         return None
+
+
+def bind_di_activity(fn: Any, deps: dict) -> Any:
+    """Turn a bare activity `fn(inp, dep1=None, dep2=None, ...)` into a single-`inp`
+    activity with `deps` injected. Needed because Temporal drops parameter type hints
+    when an activity has more parameters than payloads, so the bare function received
+    a plain dict and no dependencies."""
+    import inspect
+    import typing
+    from pydantic import BaseModel
+    from temporalio import activity as _activity
+
+    params = list(inspect.signature(fn).parameters.values())
+    extras = [p.name for p in params[1:]]
+    hints = typing.get_type_hints(fn)
+    model = hints.get(params[0].name)
+
+    async def _wrapper(inp):
+        if isinstance(inp, dict) and isinstance(model, type) and issubclass(model, BaseModel):
+            inp = model.model_validate(inp)
+        return await fn(inp, **{name: deps.get(name) for name in extras})
+
+    _wrapper.__name__ = fn.__name__
+    _wrapper.__qualname__ = fn.__name__
+    _wrapper.__annotations__ = {"inp": model, "return": hints.get("return")} if model else {}
+    return _activity.defn(name=fn.__name__)(_wrapper)
+
+
+def split_di_activities(bare: list, deps: dict) -> tuple[list, list]:
+    """(bound wrappers for activities that take extra params, untouched single-param ones)."""
+    import inspect
+    bound, plain = [], []
+    for fn in bare:
+        if len(inspect.signature(fn).parameters) > 1:
+            bound.append(bind_di_activity(fn, deps))
+        else:
+            plain.append(fn)
+    return bound, plain
