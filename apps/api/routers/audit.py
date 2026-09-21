@@ -14,6 +14,7 @@ from typing import Any, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
@@ -55,7 +56,7 @@ class AuditEventSummary(BaseModel):
     severity: Literal["INFO", "WARN", "CRITICAL"]
     service_name: str
     bank_id: str
-    occurred_at: str
+    occurred_at: IsoTimestamp
     immudb_verified: bool
 
 
@@ -71,7 +72,7 @@ class AuditEventDetail(BaseModel):
     event_data: dict[str, Any]   # non-PII payload — no account numbers, masked amounts
     immudb_tx_id: Optional[int] = None
     immudb_verified: bool
-    occurred_at: str
+    occurred_at: IsoTimestamp
 
 
 class AuditEventsListResponse(BaseModel):
@@ -88,7 +89,7 @@ class ImmudbVerifyResponse(BaseModel):
     verified: bool
     immudb_tx_id: Optional[int] = None
     merkle_proof_valid: Optional[bool] = None
-    checked_at: str
+    checked_at: IsoTimestamp
 
 
 class ComplianceSummaryResponse(BaseModel):

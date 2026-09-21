@@ -23,6 +23,7 @@ from typing import Any, Callable, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
@@ -235,7 +236,7 @@ class ThresholdChangeResponse(BaseModel):
     new_value: str
     status: Literal["PENDING_APPROVAL", "APPROVED", "REJECTED"]
     submitted_by: str
-    submitted_at: str
+    submitted_at: IsoTimestamp
 
 
 class ChangeActionResponse(BaseModel):
@@ -243,7 +244,7 @@ class ChangeActionResponse(BaseModel):
     change_id: str
     status: Literal["APPROVED", "REJECTED"]
     actioned_by: str
-    actioned_at: str
+    actioned_at: IsoTimestamp
 
 
 class RejectBody(BaseModel):
@@ -267,7 +268,7 @@ class Layer2ChangeResponse(BaseModel):
     requested_value: str
     status: Literal["PENDING_ASTRA_REVIEW"]
     submitted_by: str
-    submitted_at: str
+    submitted_at: IsoTimestamp
     cab_ticket: str
 
 
@@ -304,7 +305,7 @@ class RoleAssignResponse(BaseModel):
     user_id: str
     role: str
     assigned_by: str
-    assigned_at: str
+    assigned_at: IsoTimestamp
 
 
 class ServiceHealthEntry(BaseModel):
@@ -319,7 +320,7 @@ class HealthResponse(BaseModel):
     overall_status: Literal["HEALTHY", "DEGRADED", "UNKNOWN"]
     services: list[ServiceHealthEntry]
     bank_id: str
-    checked_at: str
+    checked_at: IsoTimestamp
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -707,7 +708,7 @@ class ConfigChangeEntry(BaseModel):
     reason: str
     status: Literal["PENDING_APPROVAL", "APPROVED", "REJECTED"]
     submitted_by: str
-    submitted_at: str
+    submitted_at: IsoTimestamp
     actioned_by: Optional[str] = None
     actioned_at: Optional[str] = None
 
@@ -877,7 +878,7 @@ class Layer2ChangeEntry(BaseModel):
     cab_ticket: str
     status: str
     submitted_by: str
-    submitted_at: str
+    submitted_at: IsoTimestamp
 
 
 class Layer2ChangesListResponse(BaseModel):
@@ -1197,7 +1198,7 @@ class VaultWarmRedisResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     workflow_id: str
     status: str
-    triggered_at: str
+    triggered_at: IsoTimestamp
     request_id: str
 
 

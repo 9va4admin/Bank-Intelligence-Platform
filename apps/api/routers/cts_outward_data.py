@@ -30,6 +30,7 @@ from typing import List, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from shared.auth.rbac import UserContext
 
@@ -103,7 +104,7 @@ class OutwardQueueItem(BaseModel):
     fraud_score: Optional[float] = None
     ocr_confidence: Optional[float] = None
     review_reason: Optional[str] = None
-    received_at: str
+    received_at: IsoTimestamp
     branch_id: Optional[str] = None
     lot_id: Optional[str] = None
 
@@ -136,20 +137,20 @@ class SessionSettlementRow(BaseModel):
     branch_id: str
     branch_name: Optional[str] = None
     status: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     hub_type: str
     total_uploaded: int
     total_accepted: int
     total_rejected: int
     total_held: int
-    opened_at: str
+    opened_at: IsoTimestamp
     closed_at: Optional[str] = None
 
 
 class SettlementResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     sessions: list[SessionSettlementRow]
     total_instruments: int
     total_accepted: int
@@ -165,7 +166,7 @@ class LotInstrumentRow(BaseModel):
     payee_display: Optional[str]
     amount_range: Optional[str]
     outcome: str
-    scanned_at: str
+    scanned_at: IsoTimestamp
 
 
 class LotInstrumentsResponse(BaseModel):
@@ -218,13 +219,13 @@ class DiscrepancyItem(BaseModel):
     astra_value: Optional[dict]
     ngch_value: Optional[dict]
     status: str
-    created_at: str
+    created_at: IsoTimestamp
 
 
 class ReconciliationOverviewResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    recon_date: str
+    recon_date: IsoTimestamp
     sessions: list[ReconciliationSessionSummary]
     discrepancies: list[DiscrepancyItem]
 
@@ -239,28 +240,28 @@ class LotSummaryRow(BaseModel):
     status: str
     instrument_count: int
     max_instruments: int
-    created_at: str
+    created_at: IsoTimestamp
     sealed_at: Optional[str]
 
 
 class LotsListResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     lots: list[LotSummaryRow]
 
 
 class ClearingSessionItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str
     status: str
     label: str
     total_lots: int
     total_instruments: int
     ngch_reference: Optional[str] = None
-    opened_at: str
+    opened_at: IsoTimestamp
     closed_at: Optional[str] = None
     submitted_at: Optional[str] = None
 
@@ -279,13 +280,13 @@ class ComplianceCheckItem(BaseModel):
     check_type: str
     result: str
     detail: Optional[str] = None
-    occurred_at: str
+    occurred_at: IsoTimestamp
 
 
 class OutwardComplianceResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     total_checked: int
     pass_count: int
     fail_count: int
@@ -335,7 +336,7 @@ class IQAResultItem(BaseModel):
     status: str
     fail_reason: Optional[str]
     fail_label: Optional[str]
-    scanned_at: str
+    scanned_at: IsoTimestamp
     ocr_conf: Optional[str]
     dpi: Optional[int]
 

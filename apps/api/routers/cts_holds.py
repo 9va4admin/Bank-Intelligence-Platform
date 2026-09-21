@@ -20,6 +20,7 @@ from typing import Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import get_current_user_context
 from shared.auth.rbac import UserContext
@@ -112,7 +113,7 @@ class MismatchItem(BaseModel):
     mismatch_id: str
     instrument_id: str
     branch_id: str
-    held_at: str
+    held_at: IsoTimestamp
     status: str
     mismatch_fields: list[str]
     scanner_amount: str

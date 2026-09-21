@@ -18,6 +18,7 @@ import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict  # noqa: F401 (ConfigDict used in response models)
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import Role, UserContext
@@ -63,7 +64,7 @@ class BatchSummary(BaseModel):
     rows_total: Optional[int]
     rows_processed: Optional[int]
     rows_failed: Optional[int]
-    created_at: str
+    created_at: IsoTimestamp
     completed_at: Optional[str]
 
 
