@@ -265,6 +265,17 @@ class TestVisionActivitiesReceiveClientAndConfig:
         assert mock_real.await_args.kwargs == {"vllm_client": fake_vllm, "config_service": fake_cfg}
 
 
+class TestVerifySignatureGetsEmbedder:
+    @pytest.mark.asyncio
+    async def test_embedding_model_injected(self):
+        emb, vault, cfg = MagicMock(), MagicMock(), MagicMock()
+        bound = _bound(embedding_model=emb, signature_vault=vault, config_service=cfg)
+        with patch("modules.cts.workflows.activities.signature.verify_signature",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.verify_signature("INP") == "R"
+        assert real.await_args.kwargs["embedding_model"] is emb
+
+
 class TestMismatchActivitiesRegistered:
     """persist_mismatch_hold_db / resolve_mismatch_db were imported and listed
     but never registered with the Worker, so MismatchResolutionWorkflow could
