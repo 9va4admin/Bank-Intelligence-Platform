@@ -55,12 +55,12 @@ class PersistOutwardInstrumentResult(BaseModel):
 
 
 def object_key_from_url(url: str) -> str:
-    """s3://bucket/key or http(s)://host/bucket/key?sig -> key."""
+    """Bucket-qualified reference: s3://bucket/key, or http(s)://host/bucket/key?sig -> s3://bucket/key.
+    Scans are uploaded to a different bucket than the lot store's own, so the bucket must travel with the key."""
     p = urlparse(url)
-    path = p.path.lstrip("/")
     if p.scheme == "s3":
-        return path
-    return path.split("/", 1)[1] if "/" in path else path
+        return f"s3://{p.netloc}{p.path}"
+    return "s3://" + p.path.lstrip("/")
 
 
 def parse_micr(micr_line: str, cheque_number: str = ""):
