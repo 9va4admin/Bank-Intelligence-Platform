@@ -628,7 +628,8 @@ class TestDecisionConfigContractGuard:
         import re, pathlib
         from shared.config.config_service import ConfigService
         src = pathlib.Path("modules/cts/workflows/activities/decision.py").read_text(encoding="utf-8")
-        required = set(re.findall(r'config\["([a-z_]+)"\]', src))
+        code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+        required = set(re.findall(r'config\["([a-z_]+)"\]', code))
         assert required, "guard found no required keys — pattern out of date"
         svc = ConfigService.__new__(ConfigService)
 
