@@ -70,6 +70,21 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.human_review_max_wait_minutes": 55,
     "cts.cheque_validity_days": 90,
     "cts.pps_mandatory_threshold": 500000,
+    # Layer 4 business-policy rules (CLAUDE.md §2.6) — evaluated by shared.policy_engine.
+    # Ported from the former infra/opa/policies/cts_routing.rego triggers.
+    "cts.policy_rules": [
+        {"id": "government_cheque", "outcome": "HUMAN_REVIEW", "reason": "government_cheque",
+         "when": [{"field": "has_government_flag", "op": "eq", "value": True}]},
+        {"id": "court_order", "outcome": "HUMAN_REVIEW", "reason": "court_order_cheque",
+         "when": [{"field": "has_court_order_flag", "op": "eq", "value": True}]},
+        {"id": "high_value_first_day", "outcome": "HUMAN_REVIEW", "reason": "high_value_first_clearing_day",
+         "when": [{"field": "amount", "op": "gt", "value": "$cfg.high_value_amount_threshold"},
+                  {"field": "is_first_clearing_day", "op": "eq", "value": True}]},
+        {"id": "account_frozen", "outcome": "HUMAN_REVIEW", "reason": "account_frozen",
+         "when": [{"field": "account_status", "op": "eq", "value": "FROZEN"}]},
+        {"id": "account_closed", "outcome": "AUTO_RETURN", "reason": "account_closed",
+         "when": [{"field": "account_status", "op": "eq", "value": "CLOSED"}]},
+    ],
     "cts.clearing_session": "MORNING",
     "cts.shadow_credit_release_hours": 4,
     "cts.opa_required": True,
