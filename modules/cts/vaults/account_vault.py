@@ -43,6 +43,16 @@ from shared.utils.pii_crypto import hash_account_number
 log = structlog.get_logger()
 
 
+def _to_timestamptz(value):
+    """asyncpg needs a datetime for TIMESTAMPTZ; accept an ISO string (incl. trailing Z) or None (= now)."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return datetime.now(timezone.utc)
+    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 @dataclass(frozen=True)
 class AccountVaultProfile:
     account_number_last4: str
@@ -284,7 +294,7 @@ class AccountVault:
                 contact.branch_manager_email,
                 contact.branch_contact_email,
                 contact.branch_contact_phone,
-                contact.last_updated_in_cbs,
+                _to_timestamptz(contact.last_updated_in_cbs),
             )
 
         pipe = self._redis.pipeline()
@@ -359,7 +369,7 @@ class AccountVault:
                     profile.get("branch_manager_email", ""),
                     profile.get("branch_contact_email", ""),
                     profile.get("branch_contact_phone", ""),
-                    profile.get("last_synced_at", datetime.now(timezone.utc).isoformat()),
+                    _to_timestamptz(profile.get("last_synced_at")),
                     source,
                 )
 
