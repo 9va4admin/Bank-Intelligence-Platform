@@ -221,53 +221,92 @@ class VisionPresentmentCheckResult(BaseModel):
     has_mismatch: bool
     mismatch_fields: list[str]
     vision_amount_str: Optional[str]
+    degraded: bool = False     # True: no vision model was reachable; scanner stays authoritative
+
+
+async def _fetch_image_bytes(url: str) -> bytes:
+    import httpx
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return resp.content
+
+
+def _amount_from_vision_text(text: Optional[str]) -> Optional[str]:
+    """Pull amount_figures out of a model reply (plain JSON or ```json fenced)."""
+    import json
+    import re
+    if not text:
+        return None
+    m = re.search(r"\{.*\}", text, re.S)
+    try:
+        return json.loads(m.group(0)).get("amount_figures") if m else None
+    except (json.JSONDecodeError, AttributeError):
+        return None
 
 
 @activity.defn
 async def run_vision_presentment_check(
     inp: VisionPresentmentCheckInput,
     orchestrator: Optional[CascadeOrchestrator] = None,
+    config_service: Any = None,
 ) -> VisionPresentmentCheckResult:
     """
     Presentment-side sanity cross-check: Vision LLM re-reads the amount from
     the cheque image and compares against what the scanner already read.
-    Scanner is authoritative for presentment (see outward_scan_workflow.py
-    module docstring) — Vision is a cross-check only, run LAST after lot
-    assignment so most cheques never need it.
+    Scanner is authoritative for presentment — Vision is a cross-check only.
 
-    orchestrator is worker-level DI (out of this fix's scope, same precedent
-    as detect_alteration's vllm_client in cheque_workflow.py). Without a real
-    orchestrator injected, this activity cannot run for real — that is
-    correct and matches every other AI-calling activity in this codebase.
+    Never raises. Order: on-prem vLLM orchestrator -> config-gated HF cloud
+    (dev/test only, same gate as OCR) -> degrade: no mismatch is asserted, the
+    scanner amount stands, and the result is flagged degraded=True.
     """
     if isinstance(inp, dict):
         inp = VisionPresentmentCheckInput(**inp)
     with tracer.start_as_current_span("activity.run_vision_presentment_check") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
-        import json
 
-        result = await orchestrator.call_vision(
-            image_url=inp.image_front_url,
-            prompt=_PRESENTMENT_PROMPT,
-            cheque_amount=inp.cheque_amount,
-        )
+        vision_amount_str: Optional[str] = None
+        reachable = False
+        source = ""
 
-        try:
-            parsed = json.loads(result.content)
-            vision_amount_str = parsed.get("amount_figures")
-        except (json.JSONDecodeError, AttributeError):
-            vision_amount_str = None
+        if orchestrator is not None:
+            try:
+                result = await orchestrator.call_vision(
+                    image_url=inp.image_front_url,
+                    prompt=_PRESENTMENT_PROMPT,
+                    cheque_amount=inp.cheque_amount,
+                )
+                vision_amount_str = _amount_from_vision_text(getattr(result, "content", None))
+                reachable, source = True, "orchestrator"
+            except Exception as exc:
+                log.warning("run_vision_presentment_check.orchestrator_failed",
+                            instrument_id=inp.instrument_id, error=str(exc))
+
+        if not reachable and config_service is not None:
+            try:
+                from shared.ai.hf_cloud_fallback import call_hf_vision, cloud_fallback_enabled
+                if await cloud_fallback_enabled(config_service, inp.bank_id):
+                    image = await _fetch_image_bytes(inp.image_front_url)
+                    text = await call_hf_vision(config_service, image, _PRESENTMENT_PROMPT)
+                    vision_amount_str = _amount_from_vision_text(text)
+                    reachable, source = True, "hf-cloud"
+            except Exception as exc:
+                log.warning("run_vision_presentment_check.cloud_failed",
+                            instrument_id=inp.instrument_id, error=str(exc))
+
+        if not reachable:
+            log.warning("run_vision_presentment_check.degraded_no_vision_model",
+                        instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+            span.set_attribute("degraded", True)
+            return VisionPresentmentCheckResult(
+                has_mismatch=False, mismatch_fields=[], vision_amount_str=None, degraded=True,
+            )
 
         if vision_amount_str is None:
-            # Vision couldn't read it at all — cannot confirm a match, but this is
-            # not the same as a confirmed mismatch either. Degrade to no-mismatch
-            # (scanner remains authoritative for presentment) rather than holding
-            # every cheque Vision merely failed to read.
-            log.warning(
-                "run_vision_presentment_check.vision_unreadable",
-                instrument_id=inp.instrument_id,
-            )
+            # Model answered but could not read an amount — not a confirmed mismatch;
+            # scanner remains authoritative rather than holding every unreadable cheque.
+            log.warning("run_vision_presentment_check.vision_unreadable", instrument_id=inp.instrument_id)
             return VisionPresentmentCheckResult(
                 has_mismatch=False, mismatch_fields=[], vision_amount_str=None,
             )
@@ -280,7 +319,7 @@ async def run_vision_presentment_check(
             scanner_amount=inp.scanner_amount_str,
             vision_amount=vision_amount_str,
             has_mismatch=has_mismatch,
-            cascade_level=result.cascade_level,
+            source=source,
         )
 
         return VisionPresentmentCheckResult(
