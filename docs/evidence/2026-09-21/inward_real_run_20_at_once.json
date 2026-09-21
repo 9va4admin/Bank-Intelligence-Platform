@@ -1,0 +1,883 @@
+{
+ "134919.jpg": {
+  "workflow_id": "cts-kbl-134919-10d6",
+  "mutation": "PPS_AMOUNT_MISMATCH",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 31.4,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "575867.jpg": {
+  "workflow_id": "cts-kbl-575867-56b1",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 31.5,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "915526.jpg": {
+  "workflow_id": "cts-kbl-915526-0333",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 31.6,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "134251.jpg": {
+  "workflow_id": "cts-kbl-134251-e572",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 33.9,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "226663.jpg": {
+  "workflow_id": "cts-kbl-226663-28b2",
+  "mutation": "STOPPED_CHEQUE",
+  "decision": "STP_RETURN",
+  "rationale": "Stop payment: dev_stub_fixture",
+  "seconds": 38.1,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "file_to_ngch",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 80
+ },
+ "673677.jpg": {
+  "workflow_id": "cts-kbl-673677-48f2",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['amount_words']",
+  "seconds": 38.1,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "168376.jpg": {
+  "workflow_id": "cts-kbl-168376-6173",
+  "mutation": "WRONG_SIGNATURE (vault holds another account's signature)",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 56.9,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "953374.jpg": {
+  "workflow_id": "cts-kbl-953374-01ac",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_amount_figures_words_mismatch",
+  "seconds": 56.9,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "567048.jpg": {
+  "workflow_id": "cts-kbl-567048-5ab6",
+  "mutation": "PPS_NOT_REGISTERED",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['payee']",
+  "seconds": 59.0,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "121421.jpg": {
+  "workflow_id": "cts-kbl-121421-bcac",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 61.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "086054.jpg": {
+  "workflow_id": "cts-kbl-086054-6002",
+  "mutation": null,
+  "decision": "STP_RETURN",
+  "rationale": "no_signature_on_cheque",
+  "seconds": 61.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "file_to_ngch",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 95
+ },
+ "496100.jpg": {
+  "workflow_id": "cts-kbl-496100-8891",
+  "mutation": "CHEQUE_LEAF_NOT_ISSUED",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['payee']",
+  "seconds": 64.0,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "990134.jpg": {
+  "workflow_id": "cts-kbl-990134-309e",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['date']",
+  "seconds": 63.9,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "813125.jpg": {
+  "workflow_id": "cts-kbl-813125-4d7f",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 69.9,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "997344.jpg": {
+  "workflow_id": "cts-kbl-997344-d511",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['amount_words']",
+  "seconds": 72.0,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "589717.jpg": {
+  "workflow_id": "cts-kbl-589717-1ccc",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 72.2,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "513691.jpg": {
+  "workflow_id": "cts-kbl-513691-17f6",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 72.4,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "533684.jpg": {
+  "workflow_id": "cts-kbl-533684-dd7c",
+  "mutation": null,
+  "decision": "HUMAN_REVIEW",
+  "rationale": "ocr_quality_low_confidence_fields: ['payee']",
+  "seconds": 72.7,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 44
+ },
+ "671004.jpg": {
+  "workflow_id": "cts-kbl-671004-3abf",
+  "mutation": "FROZEN_ACCOUNT",
+  "decision": "HUMAN_REVIEW",
+  "rationale": "signature_vault_miss_SIG_VERIFICATION_FAILED",
+  "seconds": 72.8,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "HumanReviewWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 86
+ },
+ "644628.jpg": {
+  "workflow_id": "cts-kbl-644628-e9e3",
+  "mutation": null,
+  "decision": "STP_RETURN",
+  "rationale": "Undated cheque",
+  "seconds": 76.4,
+  "activities": [
+   [
+    "mark_leaf_presented",
+    "ok"
+   ],
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "detect_alteration",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "check_stop_payment",
+    "ok"
+   ],
+   [
+    "lookup_pps",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "verify_signature",
+    "ok"
+   ],
+   [
+    "score_fraud",
+    "ok"
+   ],
+   [
+    "validate_cheque_series",
+    "ok"
+   ],
+   [
+    "check_cbs_balance",
+    "ok"
+   ],
+   [
+    "check_account_status",
+    "ok"
+   ],
+   [
+    "get_kill_switch_status",
+    "ok"
+   ],
+   [
+    "synthesise_decision",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ],
+   [
+    "file_to_ngch",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ]
+  ],
+  "children": [
+   "IETWatchdogWorkflow",
+   "FeedbackEmitWorkflow"
+  ],
+  "wf_error": null,
+  "history_events": 137
+ }
+}
