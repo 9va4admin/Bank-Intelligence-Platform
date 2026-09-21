@@ -205,3 +205,19 @@ class TestRunWorkerHappyPath:
             w.main()
 
         assert "coro" in captured
+
+
+class TestLoadTestStubHook:
+    def test_stubs_applied_only_when_platform_flag_true(self, monkeypatch):
+        from modules.cts.worker import _maybe_apply_load_test_stubs
+        from modules.cts.worker_activities import BoundCTSActivities
+        from shared.config.config_service import ConfigKeyNotFoundError
+        monkeypatch.setenv("ASTRA_ENV", "development")
+        bound = BoundCTSActivities(bank_id="kbl")
+
+        off = MagicMock(); off.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("x"))
+        assert _maybe_apply_load_test_stubs(bound, off) is bound
+
+        on = MagicMock(); on.get_platform = MagicMock(return_value="true")
+        out = _maybe_apply_load_test_stubs(bound, on)
+        assert out is not bound and type(out).__name__ == "LoadTestBoundActivities"

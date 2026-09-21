@@ -397,6 +397,20 @@ if _MSV_AVAILABLE:
 # Worker startup
 # ---------------------------------------------------------------------------
 
+def _maybe_apply_load_test_stubs(bound_activities, config_service):
+    """DEV ONLY: swap the six AI activities for instant stubs when the
+    cts.load_test_ai_stubs platform flag is "true". Refused outside development."""
+    try:
+        enabled = str(config_service.get_platform("cts.load_test_ai_stubs")).lower() == "true"
+    except ConfigKeyNotFoundError:
+        enabled = False
+    if not enabled:
+        return bound_activities
+    from modules.cts.dev.load_test_activities import apply_load_test_stubs
+    log.warning("worker.load_test_ai_stubs_active", note="AI activities are STUBS — pipeline load test only")
+    return apply_load_test_stubs(bound_activities)
+
+
 async def run_worker(bank_id: str, config_service: Optional[ConfigService] = None) -> None:
     if not _TEMPORAL_AVAILABLE:
         log.error("worker.temporal_not_installed", bank_id=bank_id)
@@ -447,6 +461,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     # dependency degrades independently to None on failure; see
     # modules/cts/worker_activities.py's module docstring.
     bound_activities = await build_bound_activities(bank_id, config_service)
+    bound_activities = _maybe_apply_load_test_stubs(bound_activities, config_service)
     worker_activities = NO_DI_ACTIVITIES + bound_activities.activity_list()
 
     client = await Client.connect(
