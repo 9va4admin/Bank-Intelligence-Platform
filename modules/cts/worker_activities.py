@@ -1203,6 +1203,8 @@ async def _build_minio_client(config_service: Any) -> Any:
             secure=secure,
         )
         log.info("worker_activities.minio_client_ready", secure=secure)
+        from shared.storage.image_fetch import configure_default_store
+        configure_default_store(client)        # s3:// image URLs resolve through this store
         return client
     except Exception as exc:
         log.warning("worker_activities.minio_client_unavailable", error=str(exc))

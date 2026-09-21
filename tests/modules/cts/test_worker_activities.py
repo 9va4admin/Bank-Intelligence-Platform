@@ -682,3 +682,22 @@ class TestWorkerMinioHonoursSecureFlag:
         with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
             await _build_minio_client(cfg)
         assert store_cls.call_args.kwargs["secure"] is True
+
+
+class TestWorkerRegistersItsStoreForImageFetching:
+    """fetch_image_bytes resolves s3:// through a default store. Found live: the worker built its MinIO
+    client but never registered it, so the fetcher fell back to an uninitialised global config and every
+    s3:// image failed ('config_service.initialise() has not been awaited')."""
+
+    @pytest.mark.asyncio
+    async def test_built_minio_client_becomes_the_default_image_store(self):
+        from modules.cts.worker_activities import _build_minio_client
+        from shared.storage import image_fetch
+        from shared.config.exceptions import ConfigKeyNotFoundError
+        cfg = MagicMock()
+        cfg.get_secret = AsyncMock(return_value="x")
+        cfg.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("minio.secure"))
+        image_fetch.configure_default_store(None)
+        with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
+            client = await _build_minio_client(cfg)
+        assert image_fetch._default_store is client is store_cls.return_value
