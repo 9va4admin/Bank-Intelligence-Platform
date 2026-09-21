@@ -127,7 +127,7 @@ class TestWorkerRetryConstants:
         assert w._TEMPORAL_AVAILABLE is True
         assert w.AI_ACTIVITY_RETRY.maximum_attempts == 2
         assert w.NGCH_FILING_RETRY.maximum_attempts == 3
-        assert w.AUDIT_RETRY.maximum_attempts is None   # unlimited — audit must succeed
+        assert w.AUDIT_RETRY.maximum_attempts == 0   # 0 = unlimited in the Temporal SDK (None is invalid)
 
 class TestRunWorkerHappyPath:
     @pytest.mark.asyncio

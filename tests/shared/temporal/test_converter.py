@@ -33,3 +33,11 @@ def test_plain_dict_and_primitives_still_work():
     pc = pydantic_data_converter.payload_converter
     assert pc.from_payloads(pc.to_payloads([{"a": 1, "b": [1, 2]}]), [dict])[0] == {"a": 1, "b": [1, 2]}
     assert pc.from_payloads(pc.to_payloads(["x"]), [str])[0] == "x"
+
+
+def test_dataclass_with_date_field_round_trips():
+    """Real worker failure: 'Failed converting field release_date on dataclass PostDatedHoldInput'."""
+    from modules.cts.workflows.postdated_hold_workflow import PostDatedHoldInput
+    v = PostDatedHoldInput(instrument_id="i", bank_id="kbl", release_date=date(2026, 10, 9),
+                           original_workflow_data={"k": "v"})
+    assert _round_trip(v) == v

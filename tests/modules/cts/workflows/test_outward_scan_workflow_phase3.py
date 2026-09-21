@@ -406,7 +406,7 @@ async def _fake_open_review_item(inp):
     return True
 
 
-def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
+def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass, persist_fake=None):
     from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
     from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
     return Worker(
@@ -416,7 +416,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
             ocr_fake, compliance_fake, _fake_lot, vision_fake,
             _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
             _fake_check_security_features, _fake_cross_check,
-            _fake_check_cheque_dedup, _fake_record_outward_scan_event, _fake_persist_outward_instrument,
+            _fake_check_cheque_dedup, _fake_record_outward_scan_event, persist_fake or _fake_persist_outward_instrument,
             _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db,
             _fake_extract_rear_payee_details, _fake_persist_agent_decision_outward, _fake_open_review_item,
         ],
@@ -576,3 +576,31 @@ class TestOutwardScanWorkflowRealRun:
 
         assert result.outcome == "CTS_REJECTED"
         assert result.violations == ["MISSING_IMAGE_METRICS"]
+
+
+@_activity.defn(name="persist_outward_instrument")
+async def _fake_persist_micr_unreadable(inp):
+    from temporalio.exceptions import ApplicationError
+    raise ApplicationError("MICR line not parseable", type="MICR_UNPARSEABLE", non_retryable=True)
+
+
+class TestUnreadableMicrIsHeldNotErrored:
+    @pytest.fixture(autouse=True)
+    def _bank_env(self, monkeypatch):
+        monkeypatch.setenv("BANK_ID", "saraswat-coop")
+        monkeypatch.setenv("ASTRA_SECRETS_BACKEND", "env")
+
+    @pytest.mark.asyncio
+    async def test_unparseable_micr_goes_to_human_review(self):
+        """OCR MICR that cannot be split into cheque no / MICR code / tx code needs a human MICR repair;
+        it must not surface as WORKFLOW_ERROR nor be accepted with junk data."""
+        from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _worker(env, task_queue, _fake_ocr_matching, _fake_vision_match,
+                               persist_fake=_fake_persist_micr_unreadable):
+                result = await env.client.execute_workflow(
+                    OutwardScanWorkflow.run, _compliant_input(),
+                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}", task_queue=task_queue)
+        assert result.outcome == "MISMATCH_HELD"
+        assert result.violations == ["MICR_UNREADABLE"]
