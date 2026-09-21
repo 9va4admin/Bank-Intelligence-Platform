@@ -72,7 +72,7 @@ Schema audit (2026-09-16). Classification:
     to NPCI API Modernisation Phase B. Table kept; wire-up tracked as WIRE-UP-FUTURE.
 
 Revision ID: 20260916_drop_dead_schema
-Revises: 20260916_platform_local_auth_cols
+Revises: 20260916_platform_local_auth
 Create Date: 2026-09-16
 """
 from alembic import op
@@ -80,7 +80,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 revision = "20260916_drop_dead_schema"
-down_revision = "20260916_platform_local_auth_cols"
+down_revision = "20260916_platform_local_auth"
 branch_labels = None
 depends_on = None
 

@@ -8,14 +8,14 @@ The LocalAuthConnector (shared/auth/connectors/local.py) selects both columns
 in its _COLS constant. Without this migration, any bank using local-auth login
 gets a PostgreSQL column-not-found error at runtime.
 
-Revision ID: 20260916_platform_local_auth_cols
+Revision ID: 20260916_platform_local_auth
 Revises: 20260719_p_secviol
 Create Date: 2026-09-16
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "20260916_platform_local_auth_cols"
+revision = "20260916_platform_local_auth"
 down_revision = "20260719_p_secviol"
 branch_labels = None
 depends_on = None
