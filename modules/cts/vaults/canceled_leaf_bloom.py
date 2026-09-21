@@ -56,10 +56,10 @@ class CanceledLeafBloom:
 
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
-    def initialize(self) -> None:
+    async def initialize(self) -> None:
         """Create the Bloom filter in Redis. Safe to call multiple times (idempotent)."""
         try:
-            self._redis.execute_command(
+            await self._redis.execute_command(
                 "BF.RESERVE",
                 self.redis_key,
                 self._fpr,
@@ -78,26 +78,26 @@ class CanceledLeafBloom:
             else:
                 log.warning("bloom.init_error", key=self.redis_key, error=str(exc))
 
-    def clear(self) -> None:
+    async def clear(self) -> None:
         """Delete the Bloom filter from Redis (full sync will rebuild it)."""
-        self._redis.delete(self.redis_key)
+        await self._redis.delete(self.redis_key)
         log.info("bloom.cleared", key=self.redis_key)
 
     # ── Write path ────────────────────────────────────────────────────────
 
-    def add_serial(self, serial: str) -> None:
+    async def add_serial(self, serial: str) -> None:
         """Add a single canceled cheque serial number to the filter."""
         try:
-            self._redis.execute_command("BF.ADD", self.redis_key, serial)
+            await self._redis.execute_command("BF.ADD", self.redis_key, serial)
         except Exception as exc:
             log.warning("bloom.add_error", key=self.redis_key, error=str(exc))
 
-    def add_bulk(self, serials: list[str]) -> None:
+    async def add_bulk(self, serials: list[str]) -> None:
         """Add multiple serials efficiently using BF.MADD."""
         if not serials:
             return
         try:
-            self._redis.execute_command("BF.MADD", self.redis_key, *serials)
+            await self._redis.execute_command("BF.MADD", self.redis_key, *serials)
             log.info("bloom.bulk_added", key=self.redis_key, count=len(serials))
         except Exception as exc:
             log.warning(
@@ -108,11 +108,11 @@ class CanceledLeafBloom:
             )
             # Fallback: individual adds
             for serial in serials:
-                self.add_serial(serial)
+                await self.add_serial(serial)
 
     # ── Read path ────────────────────────────────────────────────────────
 
-    def check_serial(self, serial: str) -> bool:
+    async def check_serial(self, serial: str) -> bool:
         """
         Check if a cheque serial is likely canceled.
 
@@ -123,7 +123,7 @@ class CanceledLeafBloom:
         On Redis error: returns False (safe default — never block processing on Redis failure).
         """
         try:
-            result = self._redis.execute_command("BF.EXISTS", self.redis_key, serial)
+            result = await self._redis.execute_command("BF.EXISTS", self.redis_key, serial)
             return bool(result)
         except Exception as exc:
             log.warning(
@@ -136,10 +136,10 @@ class CanceledLeafBloom:
 
     # ── Observability ────────────────────────────────────────────────────
 
-    def stats(self) -> dict:
+    async def stats(self) -> dict:
         """Return Bloom filter statistics from Redis (for Prometheus / Grafana)."""
         try:
-            raw = self._redis.execute_command("BF.INFO", self.redis_key)
+            raw = await self._redis.execute_command("BF.INFO", self.redis_key)
             # BF.INFO returns flat list: [key, value, key, value, ...]
             result = {}
             if raw:

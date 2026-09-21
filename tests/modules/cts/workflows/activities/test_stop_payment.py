@@ -72,6 +72,7 @@ class TestStopPaymentNotStopped:
         cbs = AsyncMock()
         cbs.check_stop_payment.return_value = _make_stop_payment_result(is_stopped=False)
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -84,6 +85,7 @@ class TestStopPaymentNotStopped:
         cbs = AsyncMock()
         cbs.check_stop_payment.return_value = _make_stop_payment_result(is_stopped=False)
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -104,6 +106,7 @@ class TestStopPaymentStopped:
             is_stopped=True, reason="Customer instruction via branch"
         )
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -118,6 +121,7 @@ class TestStopPaymentStopped:
             is_stopped=True, reason="Cheque reported lost"
         )
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -131,6 +135,7 @@ class TestStopPaymentStopped:
         cbs = AsyncMock()
         cbs.check_stop_payment.return_value = _make_stop_payment_result(is_stopped=True)
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -149,6 +154,7 @@ class TestBloomFilterHit:
 
         cbs = AsyncMock()
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = True   # Bloom says: possibly stopped
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -161,6 +167,7 @@ class TestBloomFilterHit:
 
         cbs = AsyncMock()
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = True
 
         await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -172,6 +179,7 @@ class TestBloomFilterHit:
         from modules.cts.workflows.activities.stop_payment import check_stop_payment
 
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = True
 
         result = await check_stop_payment(_make_input(), cbs_connector=AsyncMock(), bloom_client=bloom)
@@ -182,6 +190,7 @@ class TestBloomFilterHit:
         from modules.cts.workflows.activities.stop_payment import check_stop_payment
 
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = True
 
         result = await check_stop_payment(_make_input(), cbs_connector=AsyncMock(), bloom_client=bloom)
@@ -201,6 +210,7 @@ class TestCBSUnavailable:
         cbs = AsyncMock()
         cbs.check_stop_payment.side_effect = CBSUnavailableError("Connection refused")
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -215,6 +225,7 @@ class TestCBSUnavailable:
         cbs = AsyncMock()
         cbs.check_stop_payment.side_effect = CBSUnavailableError("Timeout")
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -228,6 +239,7 @@ class TestCBSUnavailable:
         cbs = AsyncMock()
         cbs.check_stop_payment.side_effect = CBSUnavailableError("CBS down")
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -241,6 +253,7 @@ class TestCBSUnavailable:
         cbs = AsyncMock()
         cbs.check_stop_payment.side_effect = RuntimeError("Unexpected CBS error")
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         result = await check_stop_payment(_make_input(), cbs_connector=cbs, bloom_client=bloom)
@@ -255,6 +268,7 @@ class TestCBSUnavailable:
         cbs = AsyncMock()
         cbs.check_stop_payment.side_effect = CBSUnavailableError("CBS down")
         bloom = MagicMock()
+        bloom.check_serial = AsyncMock()
         bloom.check_serial.return_value = False
 
         # Must not raise

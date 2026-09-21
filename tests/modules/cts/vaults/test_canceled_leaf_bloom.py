@@ -59,33 +59,37 @@ class TestCanceledLeafBloomInit:
 # ---------------------------------------------------------------------------
 
 class TestAddSerial:
-    def test_add_serial_calls_redis(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_add_serial_calls_redis(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis)
-        bloom.add_serial("123456789")
+        await bloom.add_serial("123456789")
         redis.execute_command.assert_called_once()
 
-    def test_add_serial_uses_correct_key(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_add_serial_uses_correct_key(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis, bank_id="kotak-mah")
-        bloom.add_serial("999888777")
+        await bloom.add_serial("999888777")
         call_args = redis.execute_command.call_args
         assert "bloom:canceled:kotak-mah" in str(call_args)
 
-    def test_add_serial_sends_bf_add_command(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_add_serial_sends_bf_add_command(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis)
-        bloom.add_serial("SERIAL001")
+        await bloom.add_serial("SERIAL001")
         call_args = redis.execute_command.call_args
         assert "BF.ADD" in str(call_args) or "bf.add" in str(call_args).lower()
 
-    def test_add_bulk_serials(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_add_bulk_serials(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis)
         serials = ["S001", "S002", "S003", "S004", "S005"]
-        bloom.add_bulk(serials)
+        await bloom.add_bulk(serials)
         # Should use pipeline or BF.MADD for efficiency
-        assert redis.execute_command.called or redis.pipeline.called
+        assert redis.execute_command.await_count >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -93,46 +97,51 @@ class TestAddSerial:
 # ---------------------------------------------------------------------------
 
 class TestCheckSerial:
-    def test_known_canceled_serial_returns_true(self):
+    @pytest.mark.asyncio
+    async def test_known_canceled_serial_returns_true(self):
         """A serial added to the filter must be detected."""
-        redis = MagicMock()
+        redis = AsyncMock()
         # Simulate BF.EXISTS returning 1 (present)
         redis.execute_command.return_value = 1
         bloom = _make_bloom(redis_client=redis)
-        result = bloom.check_serial("CANCELED-SERIAL-001")
+        result = await bloom.check_serial("CANCELED-SERIAL-001")
         assert result is True
 
-    def test_unknown_serial_returns_false(self):
+    @pytest.mark.asyncio
+    async def test_unknown_serial_returns_false(self):
         """A serial not in the filter must return False."""
-        redis = MagicMock()
+        redis = AsyncMock()
         # Simulate BF.EXISTS returning 0 (not present)
         redis.execute_command.return_value = 0
         bloom = _make_bloom(redis_client=redis)
-        result = bloom.check_serial("VALID-SERIAL-001")
+        result = await bloom.check_serial("VALID-SERIAL-001")
         assert result is False
 
-    def test_check_serial_uses_bf_exists_command(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_check_serial_uses_bf_exists_command(self):
+        redis = AsyncMock()
         redis.execute_command.return_value = 0
         bloom = _make_bloom(redis_client=redis)
-        bloom.check_serial("ANY-SERIAL")
+        await bloom.check_serial("ANY-SERIAL")
         call_args = redis.execute_command.call_args
         assert "BF.EXISTS" in str(call_args) or "bf.exists" in str(call_args).lower()
 
-    def test_check_serial_uses_correct_key(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_check_serial_uses_correct_key(self):
+        redis = AsyncMock()
         redis.execute_command.return_value = 0
         bloom = _make_bloom(redis_client=redis, bank_id="hdfc-bank")
-        bloom.check_serial("S001")
+        await bloom.check_serial("S001")
         call_args = redis.execute_command.call_args
         assert "bloom:canceled:hdfc-bank" in str(call_args)
 
-    def test_redis_error_returns_false_safe_default(self):
+    @pytest.mark.asyncio
+    async def test_redis_error_returns_false_safe_default(self):
         """If Redis is unavailable, check_serial must return False (never block processing)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.execute_command.side_effect = Exception("Redis unavailable")
         bloom = _make_bloom(redis_client=redis)
-        result = bloom.check_serial("SOME-SERIAL")
+        result = await bloom.check_serial("SOME-SERIAL")
         # Safe default: False = don't block on Redis failure
         assert result is False
 
@@ -142,28 +151,31 @@ class TestCheckSerial:
 # ---------------------------------------------------------------------------
 
 class TestInitialize:
-    def test_initialize_creates_bloom_filter(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_initialize_creates_bloom_filter(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis)
-        bloom.initialize()
+        await bloom.initialize()
         # Should call BF.RESERVE or BF.INSERT with CAPACITY and ERROR RATE
         redis.execute_command.assert_called()
 
-    def test_initialize_uses_expected_items_and_fpr(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_initialize_uses_expected_items_and_fpr(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis, capacity=200_000)
-        bloom.initialize()
+        await bloom.initialize()
         call_args = str(redis.execute_command.call_args)
         # Must include the capacity in the command
         assert "200000" in call_args or "bloom:canceled:test-bank" in call_args
 
-    def test_initialize_tolerates_already_exists(self):
+    @pytest.mark.asyncio
+    async def test_initialize_tolerates_already_exists(self):
         """BF.RESERVE fails if filter already exists — must be ignored gracefully."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.execute_command.side_effect = Exception("ERR item exists")
         bloom = _make_bloom(redis_client=redis)
         # Must not raise — idempotent initialization
-        bloom.initialize()
+        await bloom.initialize()
 
 
 # ---------------------------------------------------------------------------
@@ -171,11 +183,12 @@ class TestInitialize:
 # ---------------------------------------------------------------------------
 
 class TestClear:
-    def test_clear_deletes_redis_key(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_clear_deletes_redis_key(self):
+        redis = AsyncMock()
         bloom = _make_bloom(redis_client=redis, bank_id="sbi-main")
-        bloom.clear()
-        redis.delete.assert_called_once_with("bloom:canceled:sbi-main")
+        await bloom.clear()
+        redis.delete.assert_awaited_once_with("bloom:canceled:sbi-main")
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +196,9 @@ class TestClear:
 # ---------------------------------------------------------------------------
 
 class TestStats:
-    def test_stats_returns_dict(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_stats_returns_dict(self):
+        redis = AsyncMock()
         redis.execute_command.return_value = [
             b"Capacity", b"100000",
             b"Size", b"1234",
@@ -193,12 +207,13 @@ class TestStats:
             b"Expansion rate", b"2",
         ]
         bloom = _make_bloom(redis_client=redis)
-        stats = bloom.stats()
+        stats = await bloom.stats()
         assert isinstance(stats, dict)
 
-    def test_stats_redis_error_returns_empty_dict(self):
-        redis = MagicMock()
+    @pytest.mark.asyncio
+    async def test_stats_redis_error_returns_empty_dict(self):
+        redis = AsyncMock()
         redis.execute_command.side_effect = Exception("Redis error")
         bloom = _make_bloom(redis_client=redis)
-        stats = bloom.stats()
+        stats = await bloom.stats()
         assert stats == {}
