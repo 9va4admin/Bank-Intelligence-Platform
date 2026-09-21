@@ -19,7 +19,7 @@ def _engine(rules, cfg=None):
     from shared.policy_engine import PolicyEngine
     cs = MagicMock()
     cs.get = AsyncMock(return_value=rules)
-    cs.get_cts_config = AsyncMock(return_value=cfg or {"high_value_amount_threshold": 500000})
+    cs.get_cts_config = AsyncMock(return_value=cfg or {"cts.high_value_amount_threshold": 500000})
     return PolicyEngine(cs)
 
 
@@ -47,7 +47,7 @@ async def test_matching_rule_returns_its_outcome_and_reason():
 
 @pytest.mark.asyncio
 async def test_all_conditions_must_hold_and_cfg_reference_resolves():
-    eng = _engine([R_FIRSTDAY], cfg={"high_value_amount_threshold": 5000})
+    eng = _engine([R_FIRSTDAY], cfg={"cts.high_value_amount_threshold": 5000})
     assert (await eng.decide(_inp(amount=9000, is_first_clearing_day=True))).decision == "HUMAN_REVIEW"
     assert (await eng.decide(_inp(amount=9000, is_first_clearing_day=False))).decision == "PROCEED"
     assert (await eng.decide(_inp(amount=100, is_first_clearing_day=True))).decision == "PROCEED"

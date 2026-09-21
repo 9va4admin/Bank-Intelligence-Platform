@@ -41,6 +41,11 @@ class _InvalidRule(Exception):
     pass
 
 
+def _cfg_value(cfg: dict, key: str):
+    """get_cts_config keys are module-prefixed ("cts.<key>"); accept either form."""
+    return cfg[key] if key in cfg else cfg[f"cts.{key}"]
+
+
 class PolicyEngine:
     def __init__(self, config_service: Any) -> None:
         self._config = config_service
@@ -78,7 +83,7 @@ class PolicyEngine:
             if field not in _FIELDS or op not in _OPS:
                 raise _InvalidRule(f"field/op {field!r}/{op!r}")
             if isinstance(want, str) and want.startswith("$cfg."):
-                want = cfg[want[len("$cfg."):]]
+                want = _cfg_value(cfg, want[len("$cfg."):])
             if not _OPS[op](getattr(inp, field), want):
                 return False
         return True
