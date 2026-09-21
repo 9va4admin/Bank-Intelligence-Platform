@@ -859,7 +859,9 @@ async def _build_db_pool(config_service: Any) -> Any:
     try:
         import asyncpg
         dsn = await config_service.get_secret("db.cts.dsn")
-        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, command_timeout=30)
+        from shared.db.codecs import register_lenient_codecs
+        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, command_timeout=30,
+                                         init=register_lenient_codecs)
         log.info("worker_activities.db_pool_ready")
         return pool
     except Exception as exc:
