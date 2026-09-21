@@ -473,6 +473,9 @@ class ConfigService:
             "stp_supervised_confirm_threshold":  "cts.stp_supervised_confirm_threshold",
             "stp_supervised_review_timeout_minutes": "cts.stp_supervised_review_timeout_minutes",
             "clearing_session":                  "cts.clearing_session",
+            # read by synthesise_decision from the workflow's cts_config
+            "ocr_min_confidence":                "cts.ocr_min_confidence",
+            "sig_min_match_score":               "cts.signature_min_match_score",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

@@ -596,3 +596,44 @@ async def test_get_deserialises_string_type(svc: ConfigService):
 
     result = await svc.get("cbs.connector.type")
     assert result == "finacle"
+
+
+class TestWorkflowThresholdsCoverDecisionActivity:
+    """Found live: synthesise_decision reads config['ocr_min_confidence'] and
+    config['sig_min_match_score'] from the workflow's cts_config, but
+    get_workflow_thresholds() never supplied them -> KeyError at the decision step."""
+
+    @pytest.mark.asyncio
+    async def test_thresholds_include_keys_decision_reads(self):
+        from shared.config.config_service import ConfigService
+        svc = ConfigService.__new__(ConfigService)
+        seen = {}
+
+        async def fake_get(key):
+            seen[key] = True
+            return 0.5
+        svc.get = fake_get
+        out = await svc.get_workflow_thresholds("kbl")
+        assert out["ocr_min_confidence"] == 0.5
+        assert out["sig_min_match_score"] == 0.5
+        assert "cts.ocr_min_confidence" in seen and "cts.signature_min_match_score" in seen
+
+
+class TestDecisionConfigContractGuard:
+    """Contract guard: every config["<key>"] that decision.py hard-requires must be
+    supplied by get_workflow_thresholds (the config the workflow actually passes)."""
+
+    @pytest.mark.asyncio
+    async def test_every_required_decision_key_is_supplied(self):
+        import re, pathlib
+        from shared.config.config_service import ConfigService
+        src = pathlib.Path("modules/cts/workflows/activities/decision.py").read_text(encoding="utf-8")
+        required = set(re.findall(r'config\["([a-z_]+)"\]', src))
+        assert required, "guard found no required keys — pattern out of date"
+        svc = ConfigService.__new__(ConfigService)
+
+        async def fake_get(key):
+            return 1
+        svc.get = fake_get
+        supplied = set(await svc.get_workflow_thresholds("kbl"))
+        assert required <= supplied, f"decision.py requires keys the workflow never supplies: {required - supplied}"
