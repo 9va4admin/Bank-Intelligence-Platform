@@ -329,6 +329,7 @@ class TestNoCbsConnectorBound:
 
     @pytest.mark.asyncio
     async def test_none_cbs_connector_reports_cbs_unavailable_degraded(self):
+        from modules.cts.workflows.activities.stop_payment import check_stop_payment
         result = await check_stop_payment(_make_input(), cbs_connector=None, bloom_client=None)
         assert result.outcome == "HUMAN_REVIEW"
         assert result.stop_reason == "cbs_unavailable"
