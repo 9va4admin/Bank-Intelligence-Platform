@@ -110,3 +110,42 @@ git log --oneline --since=2026-09-21   # commits behind every claim above
 ```
 The raw per-cheque histories in `docs/evidence/2026-09-21/` list each activity that ran, taken from
 Temporal, so a claim can be checked against the workflow history, not against this prose.
+
+---
+
+## Entry 2026-09-21 — recorded 21:26 IST (UTC+05:30), repo HEAD `7a071f8`
+
+### What was run (real API + real worker + real infrastructure)
+- Real FastAPI process (`uvicorn apps.api.main:app`) with **real password login and real TOTP MFA enrolment**
+  (no `DEV_BYPASS`), real endpoints for onboarding (branch, processing unit, link), scanner-session open,
+  scan upload-url, image PUT to MinIO, scan submit — which starts the real `OutwardScanWorkflow`.
+- Confirmed live: 1 API-submitted scan → workflow COMPLETED → OCR read the image fetched from `s3://`
+  (`ocr.hf_cloud_fallback_used micr_found=True payee_found=True`) → first row ever written to
+  `cts.agent_decisions` (count 0 → 1).
+
+### Defects found by this real run and fixed (each has a regression test; see git log `2e7f369`..`7a071f8`)
+Fresh-database migration failed (33-char revision id; ~35 legacy migrations never in the chain: 12 tables and 9
+columns missing in the dev DB) · hub-summary SQL referenced a non-existent column · date passed as str to a DATE
+param · 122 response fields typed `str` for timestamps/dates (HTTP 500 against a real DB) · config hot-reload
+consumer class missing · no MinIO bucket was ever created · worker MinIO client hard-coded HTTPS · API issues
+`s3://` URLs but every image-reading activity used an HTTP client (every API scan was read as blank) ·
+`persist_agent_decision` failed silently on every call (UUID column, JSONB param) so decisions were never stored ·
+`PLATFORM_ADMIN` could delete login logs · bank SAML/LDAP config was never read by the auth factory ·
+22 audit events had no notification routing · dev bank `kbl` was not in `platform.banks` (FK).
+
+### Still NOT covered / open (do not claim otherwise)
+1. **Outward clearing stage not run through the API**: lot sealing, endorsement, clearing-session submit, NGCH
+   submission, reconciliation. The API-driven path exists (`/outward/lots/seal-all`, `/endorsement/batch`,
+   `/outward/clearing-session/submit`) but has not been exercised.
+2. **Inward pipeline not re-run** after the date/amount/UUID/persist fixes; only the earlier direct-to-Temporal
+   inward runs exist (they pre-date these fixes).
+3. `OutwardScanSubmitRequest` has **no fields for teller-entered depositor details**, so via the API the payee
+   check depends on rear-image OCR only (no rear images exist in the test set).
+4. **No bank-onboarding endpoint or workflow exists**: `platform.banks` is filled only by a dev seed script.
+   `kbl` was inserted by hand (labelled DEV SEED).
+5. `cts.human_review_items` is referenced only by its migration — nothing reads or writes it; the human-review
+   queue has no durable DB record (Redis/Kafka only). Needs a design decision.
+6. TOTP secrets live in API memory unless Vault is the secrets backend (dev limitation; MFA flag must be reset
+   after each API restart).
+7. Unchanged from the earlier entry: real CBS/NGCH/HSM/GPU-vLLM, trained signature and fraud models,
+   scanner-grade images, RedisBloom module.
