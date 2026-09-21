@@ -6,6 +6,7 @@ MICR, amount, date, image keys and the lot assignment. Idempotent per instrument
 """
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
@@ -62,11 +63,36 @@ def object_key_from_url(url: str) -> str:
     return path.split("/", 1)[1] if "/" in path else path
 
 
+def parse_micr(micr_line: str, cheque_number: str = ""):
+    """Symbol-delimited MICR (validate_micr_line) or the plain digit groups OCR returns, e.g.
+    '307384 5860150031 0030511 31' = cheque no (6) | MICR code (9) | account | transaction code (2).
+    Noisy OCR (bank-name prefix, unspaced digits) is handled by anchoring on the known cheque number.
+    Anything that cannot yield cheque no + 9-digit MICR code + 2-digit transaction code raises ValueError
+    (needs a human MICR repair)."""
+    m = validate_micr_line(micr_line or "")
+    if m.micr_code is not None and m.cheque_number:
+        return m
+    tokens = re.findall(r"\d+", micr_line or "")
+    flat = "".join(tokens)
+    if cheque_number and len(cheque_number) == 6 and cheque_number in flat:
+        pos = flat.index(cheque_number)
+    elif tokens and len(tokens[0]) == 6:
+        pos = 0
+    else:
+        raise ValueError(f"MICR line not parseable: {micr_line!r}")
+    rest = flat[pos + 6:]
+    if len(rest) < 9 + 2:
+        raise ValueError(f"MICR line too short: {micr_line!r}")
+    m.cheque_number = flat[pos:pos + 6]
+    m.micr_code = rest[:9]
+    m.transaction_code, m.account_field = rest[-2:], rest[9:-2]
+    m.decision = "VALID"
+    return m
+
+
 async def persist_outward_instrument_row(conn, inp: PersistOutwardInstrumentInput, pepper: str,
                                          today: Optional[date] = None) -> PersistOutwardInstrumentResult:
-    micr = validate_micr_line(inp.micr_line)
-    if micr.micr_code is None or not (micr.cheque_number or inp.cheque_number):
-        raise ValueError(f"MICR line not parseable for {inp.instrument_id}: {micr.flags}")
+    micr = parse_micr(inp.micr_line, inp.cheque_number)
     if not inp.cheque_date:
         raise ValueError(f"cheque_date missing for {inp.instrument_id}")
     if inp.amount_str is None:
@@ -135,6 +161,20 @@ async def persist_outward_instrument_row(conn, inp: PersistOutwardInstrumentInpu
     return PersistOutwardInstrumentResult(instrument_uuid=str(iid), lot_id=lot_id, inserted=True)
 
 
+async def persist_outward_instrument_or_hold(conn, inp, pepper, today=None):
+    """As persist_outward_instrument_row, but unusable data is a NON-retryable ApplicationError so the workflow
+    can hold the instrument for human repair instead of retrying forever or erroring."""
+    from temporalio.exceptions import ApplicationError
+    try:
+        parse_micr(inp.micr_line, inp.cheque_number)
+    except ValueError as exc:
+        raise ApplicationError(str(exc), type="MICR_UNPARSEABLE", non_retryable=True) from exc
+    if not inp.cheque_date or inp.amount_str is None:
+        raise ApplicationError(f"date/amount missing for {inp.instrument_id}",
+                               type="INSTRUMENT_DATA_MISSING", non_retryable=True)
+    return await persist_outward_instrument_row(conn, inp, pepper, today)
+
+
 @activity.defn(name="persist_outward_instrument")
 async def persist_outward_instrument(inp: PersistOutwardInstrumentInput) -> PersistOutwardInstrumentResult:
     if isinstance(inp, dict):
@@ -151,6 +191,6 @@ async def persist_outward_instrument(inp: PersistOutwardInstrumentInput) -> Pers
         conn = await asyncpg.connect(dsn)          # raises on failure -> Temporal retries; never a silent skip
         try:
             await register_lenient_codecs(conn)
-            return await persist_outward_instrument_row(conn, inp, pepper)
+            return await persist_outward_instrument_or_hold(conn, inp, pepper)
         finally:
             await conn.close()

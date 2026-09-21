@@ -35,6 +35,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError
 from temporalio.workflow import ParentClosePolicy
 
 from modules.cts.pipeline.models import StepResult, build_digest
@@ -156,6 +157,9 @@ class OutwardScanResult(BaseModel):
     pu_id: Optional[str] = None         # Phase 3: PU that processed this instrument
     mismatch_id: Optional[str] = None   # Phase 3: set when outcome=MISMATCH_HELD
     mismatch_fields: Optional[list[str]] = None   # Phase 3: fields that mismatched
+
+
+_HELD = "__HELD__"   # sentinel: instrument held for human repair (see _persist_instrument)
 
 
 @workflow.defn
@@ -832,8 +836,13 @@ class OutwardScanWorkflow:
 
         log.info("outward_scan_workflow.accepted_pending_lot",
                  scan_id=inp.scan_id, bank_id=inp.bank_id)
-        lot_id = await self._persist_instrument(
+        lot_id, _viol = await self._persist_instrument(
             inp, micr_line, scanner_amount_norm or scanner_amount_str, getattr(ocr_result, "date", None))
+        if lot_id is _HELD:
+            return OutwardScanResult(
+                outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                micr_line=micr_line, lot_number=None, violations=[_viol], mismatch_fields=["micr_line"],
+                audit_written=True, pu_id=inp.pu_id)
         await workflow.execute_activity(
             write_audit,
             WriteAuditInput(event_type="CTS_OUT_INSTRUMENT_PENDING", bank_id=inp.bank_id,
@@ -853,15 +862,17 @@ class OutwardScanWorkflow:
             violations=None, audit_written=True, pu_id=inp.pu_id,
         )
 
-    async def _persist_instrument(self, inp, micr_line, amount_str, date_str) -> Optional[str]:
-        """Write the full outward record + lot assignment on ACCEPT. Returns the lot id.
-        Raises on failure (Temporal retries it, then the run() wrapper reports WORKFLOW_ERROR) — never silent."""
+    async def _persist_instrument(self, inp, micr_line, amount_str, date_str):
+        """Write the full outward record + lot assignment on ACCEPT. Returns (lot_id, None), or (_HELD, violation)
+        when the MICR / amount / date cannot be turned into a presentable instrument (held for human repair).
+        Other failures raise (Temporal retries, then the run() wrapper reports WORKFLOW_ERROR) — never silent."""
         from modules.cts.workflows.activities.persist_outward_instrument import (
             persist_outward_instrument, PersistOutwardInstrumentInput,
         )
         parsed_date = _parse_cheque_date(date_str or "")
         parsed_amt = parse_amount_figures(amount_str)
-        res = await workflow.execute_activity(
+        try:
+            res = await workflow.execute_activity(
             persist_outward_instrument,
             PersistOutwardInstrumentInput(
                 bank_id=inp.bank_id, instrument_id=inp.instrument_id, scan_id=inp.scan_id,
@@ -875,9 +886,18 @@ class OutwardScanWorkflow:
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_INFRA_RETRY,
-        )
+            )
+        except ActivityError as exc:
+            cause = getattr(exc, "cause", None)
+            kind = getattr(cause, "type", None)
+            if kind not in ("MICR_UNPARSEABLE", "INSTRUMENT_DATA_MISSING"):
+                raise
+            violation = "MICR_UNREADABLE" if kind == "MICR_UNPARSEABLE" else "INSTRUMENT_DATA_MISSING"
+            self._outward_steps.append(StepResult(step_id="persist_instrument", outcome="FAIL", reason=violation))
+            await self._open_review(inp, violation, {"micr_line_masked": (micr_line or "")[-4:]})
+            return _HELD, violation
         self._outward_steps.append(StepResult(step_id="persist_instrument", outcome="PASS"))
-        return res.lot_id
+        return res.lot_id, None
 
     async def _run_cr120_path(
         self, inp: "OutwardScanInput",
@@ -1102,8 +1122,13 @@ class OutwardScanWorkflow:
             )
 
         # PROCEED — accepted, pending lot assignment at clearing session time
-        lot_id = await self._persist_instrument(
+        lot_id, _viol = await self._persist_instrument(
             inp, inp.micr_hardware_raw, vision_result.amount_figures, vision_result.date)
+        if lot_id is _HELD:
+            return OutwardScanResult(
+                outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                micr_line=inp.micr_hardware_raw, lot_number=None, violations=[_viol], mismatch_fields=["micr_line"],
+                audit_written=True, pu_id=inp.pu_id)
         log.info("outward_scan_workflow.cr120.accepted_pending_lot",
                  scan_id=inp.scan_id, bank_id=inp.bank_id,
                  micr_validated=vision_result.micr_validated)

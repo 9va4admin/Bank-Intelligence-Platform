@@ -85,3 +85,49 @@ async def test_unparseable_micr_raises_not_silent():
 async def test_missing_date_raises(monkeypatch):
     with pytest.raises(ValueError):
         await persist_outward_instrument_row(FakeConn(), _inp(cheque_date=None), pepper="p", today=date(2026, 9, 21))
+
+
+def test_plain_digit_micr_from_ocr_is_parsed():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    m = parse_micr("307384 5860150031 0030511 31")
+    assert (m.cheque_number, m.micr_code, m.transaction_code) == ("307384", "586015003", "31")
+    assert m.account_field == "10030511"
+
+
+def test_symbol_micr_still_parsed():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    assert parse_micr(MICR).cheque_number == "000787"
+
+
+@pytest.mark.parametrize("bad", ["", "garbage", "12345 678"])
+def test_parse_micr_rejects_short_or_garbage(bad):
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    with pytest.raises(ValueError):
+        parse_micr(bad)
+
+
+def test_micr_anchored_on_known_cheque_number_continuous_digits():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    m = parse_micr("00078757602800200033630", cheque_number="000787")
+    assert (m.cheque_number, m.micr_code, m.transaction_code, m.account_field) == ("000787", "576028002", "30", "000336")
+
+
+def test_micr_with_bank_text_prefix_anchored_on_cheque_number():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    m = parse_micr("KBL Karnatak Bank Ltd. 052 101701 4000150441 003116 29", cheque_number="101701")
+    assert (m.cheque_number, m.micr_code, m.transaction_code) == ("101701", "400015044", "29")
+
+
+def test_truncated_micr_is_rejected_for_repair():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    with pytest.raises(ValueError):
+        parse_micr("620339 560226375", cheque_number="620339")
+
+
+@pytest.mark.asyncio
+async def test_activity_raises_non_retryable_for_bad_micr(monkeypatch):
+    from temporalio.exceptions import ApplicationError
+    from modules.cts.workflows.activities import persist_outward_instrument as mod
+    with pytest.raises(ApplicationError) as ei:
+        await mod.persist_outward_instrument_or_hold(FakeConn(), _inp(micr_line="620339 560226375"), pepper="p")
+    assert ei.value.non_retryable and ei.value.type == "MICR_UNPARSEABLE"
