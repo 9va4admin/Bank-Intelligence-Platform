@@ -620,3 +620,12 @@ class TestNgchStandInSelection:
         import os
         os.environ["ASTRA_ENV"] = "development"
         assert isinstance(await _build_ngch_adapter(cfg, "kbl"), DevStubNGCHAdapter)
+
+
+class TestPublicDependencyProperties:
+    """worker.run_worker hands these to the human-review consumer; missing property
+    would raise AttributeError at worker startup."""
+
+    def test_db_pool_property_exposed(self):
+        pool = MagicMock()
+        assert _bound(db_pool=pool).db_pool is pool
