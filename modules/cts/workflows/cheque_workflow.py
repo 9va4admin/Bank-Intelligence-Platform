@@ -97,14 +97,10 @@ from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # 
 
 
 def _parse_amount_figures(raw: Optional[str]) -> Optional[float]:
-    """Parse OCR-extracted amount string ('45,000.00' or '45000') to float."""
-    if not raw:
-        return None
-    cleaned = re.sub(r"[₹,\s]", "", raw.strip())
-    try:
-        return float(cleaned)
-    except ValueError:
-        return None
+    """Parse OCR-extracted amount ('45,000.00', '10,00,000/-', 'Rs. 5,800/-') to float; None if unreadable."""
+    from shared.utils.cheque_amount import parse_amount_figures
+    amount = parse_amount_figures(raw)
+    return float(amount) if amount is not None else None
 
 
 class ChequeWorkflowInput(BaseModel):
