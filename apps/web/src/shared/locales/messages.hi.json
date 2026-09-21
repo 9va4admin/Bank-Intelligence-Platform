@@ -4472,5 +4472,17 @@
       "batch_id",
       "reason"
     ]
+  },
+  "PLATFORM_BANK_ONBOARDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "onboarded_by"
+    ]
   }
 }

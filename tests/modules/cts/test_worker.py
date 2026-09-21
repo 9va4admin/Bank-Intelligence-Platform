@@ -237,3 +237,13 @@ class TestRegisteredActivities:
         for a in acts:
             if a.__name__ in bare:
                 assert len(inspect.signature(a).parameters) <= 1, a.__name__
+
+
+class TestReviewQueueActivityRegistered:
+    def test_open_review_item_is_registered_and_takes_only_inp(self):
+        import inspect
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        acts = {a.__name__: a for a in _registered_activities(BoundCTSActivities(bank_id="kbl"))}
+        assert "open_review_item" in acts
+        assert len(inspect.signature(acts["open_review_item"]).parameters) == 1

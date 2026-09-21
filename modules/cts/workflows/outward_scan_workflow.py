@@ -160,6 +160,26 @@ class OutwardScanResult(BaseModel):
 
 @workflow.defn
 class OutwardScanWorkflow:
+    async def _open_review(self, inp, reason: str, context: dict) -> None:
+        """Durable human-review queue item for a held instrument (never breaks the workflow)."""
+        from modules.cts.workflows.activities.review_queue_activities import (
+            OpenReviewItemInput, open_review_item,
+        )
+        try:
+            await workflow.execute_activity(
+                open_review_item,
+                OpenReviewItemInput(
+                    bank_id=inp.bank_id, direction="OUTWARD", instrument_id=inp.instrument_id,
+                    workflow_id=f"cts-outreview-{inp.bank_id}-{inp.instrument_id}",
+                    parent_workflow_id=f"cts-outscan-{inp.bank_id}-{inp.scan_id}",
+                    escalation_reason=reason, context=context,
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=RetryPolicy(maximum_attempts=2),
+            )
+        except Exception:  # noqa: BLE001 - queue write must never fail clearing
+            pass
+
     def workflow_id(self, bank_id: str, scan_id: str, pu_id: Optional[str] = None) -> str:
         if pu_id:
             return f"cts-outscan-{bank_id}-{pu_id}-{scan_id}"
@@ -556,6 +576,7 @@ class OutwardScanWorkflow:
                                                  "account_status": acct_status, "action": "HUMAN_REVIEW"}),
                         start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
                     )
+                    await self._open_review(inp, f"PAYEE_ACCOUNT_{acct_status}", {"account_status": acct_status})
                     return OutwardScanResult(
                         outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
                         instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
@@ -591,6 +612,8 @@ class OutwardScanWorkflow:
                                              "payee_display": payee_result.payee_display}),
                     start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
                 )
+                await self._open_review(inp, "PAYEE_NAME_MISMATCH",
+                                        {"name_match_score": payee_result.name_match_score})
                 return OutwardScanResult(
                     outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,

@@ -277,6 +277,12 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.auth_service_failed", error=str(exc))
         app.state.auth_service = None
 
+    # --- ImmuDB: API-side audit (branch / PU / scanner-config / bank onboarding ...) ---
+    # Routers guard audit writes with `if app.state.immudb_client`; it was never set, so every
+    # API-side audit event was silently dropped.
+    from shared.audit.immudb_bootstrap import build_sync_immudb_client
+    app.state.immudb_client = await build_sync_immudb_client(config_service, config_service.bank_id)
+
     # --- Cache invalidation consumer (platform.config.changed → Redis DEL) ---
     # Runs in background — Kafka consumer that deletes stale config cache entries
     cache_invalidator_task = None

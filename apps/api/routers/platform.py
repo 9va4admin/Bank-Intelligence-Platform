@@ -21,7 +21,7 @@ from typing import Any, Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
@@ -874,3 +874,104 @@ async def start_service(
     if service_id not in _DOCKER_SERVICE_MAP and service_id not in _HF_HOSTED_SERVICES:
         raise HTTPException(status_code=400, detail=f"Unknown service: {service_id}")
     return await _start_single(service_id)
+
+
+
+# ── Bank onboarding (platform_admin only) ────────────────────────────────────
+
+_BANK_TYPES = ("COOPERATIVE", "PRIVATE", "PUBLIC_SECTOR", "SFB", "RRB", "FOREIGN")
+
+
+class BankOnboardRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    bank_id: str = Field(..., pattern=r"^[a-z0-9][a-z0-9-]{2,39}$", description="stable tenant id, e.g. kbl")
+    bank_name: str = Field(..., min_length=1, max_length=200)
+    bank_code: str = Field(default="", max_length=16)
+    ifsc_prefix: str = Field(..., pattern=r"^[A-Z]{4}$")
+    bank_type: str = "COOPERATIVE"
+    ngch_member_code: Optional[str] = Field(default=None, max_length=32)
+
+    @field_validator("bank_type")
+    @classmethod
+    def _valid_type(cls, v: str) -> str:
+        if v not in _BANK_TYPES:
+            raise ValueError(f"bank_type must be one of {list(_BANK_TYPES)}")
+        return v
+
+
+class BankResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    bank_name: str
+    bank_code: str
+    ifsc_prefix: str
+    bank_type: str
+    ngch_member_code: Optional[str] = None
+    is_active: bool
+    onboarded_at: OptIsoTimestamp = None
+
+
+class BankListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    banks: list[BankResponse]
+
+
+_BANK_COLS = "bank_id, bank_name, bank_code, ifsc_prefix, bank_type, ngch_member_code, is_active, onboarded_at"
+
+
+def _require_platform_admin(ctx: UserContext) -> None:
+    from shared.auth.rbac import Role
+    if ctx.role != Role.PLATFORM_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required")
+
+
+def _bank_response(row) -> BankResponse:
+    return BankResponse(**{k: row[k] for k in ("bank_id", "bank_name", "bank_code", "ifsc_prefix", "bank_type",
+                                               "ngch_member_code", "is_active", "onboarded_at")})
+
+
+@router_v1.post("/banks", response_model=BankResponse, status_code=status.HTTP_201_CREATED)
+async def onboard_bank(
+    body: BankOnboardRequest,
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+) -> BankResponse:
+    _require_platform_admin(ctx)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            f"INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type, ngch_member_code) "
+            f"VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (bank_id) DO NOTHING RETURNING {_BANK_COLS}",
+            body.bank_id, body.bank_name, body.bank_code, body.ifsc_prefix, body.bank_type, body.ngch_member_code,
+        )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"bank {body.bank_id} already exists")
+    try:
+        immudb = getattr(request.app.state, "immudb_client", None)
+        if immudb:
+            from shared.audit.audit_event import AuditEvent, AuditEventType
+            immudb.write_event(AuditEvent(
+                event_type=AuditEventType.BANK_ONBOARDED, bank_id=body.bank_id,
+                payload={"bank_name": body.bank_name, "bank_type": body.bank_type, "onboarded_by": ctx.user_id},
+            ).to_record())
+    except Exception as exc:  # noqa: BLE001
+        log.error("platform.bank_onboard.audit_failed", bank_id=body.bank_id, error=str(exc))
+    log.info("platform.bank_onboarded", bank_id=body.bank_id, by=ctx.user_id)
+    return _bank_response(row)
+
+
+@router_v1.get("/banks", response_model=BankListResponse)
+async def list_banks(
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+) -> BankListResponse:
+    _require_platform_admin(ctx)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+    async with db.acquire() as conn:
+        rows = await conn.fetch(f"SELECT {_BANK_COLS} FROM platform.banks ORDER BY bank_id LIMIT 100")
+    return BankListResponse(banks=[_bank_response(r) for r in rows])
