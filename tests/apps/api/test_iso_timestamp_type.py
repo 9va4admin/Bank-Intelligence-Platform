@@ -36,7 +36,7 @@ def test_optional_none_and_datetime():
     assert _M(at="x", maybe=datetime(2026, 1, 2, 3, 4, 5)).maybe == "2026-01-02T03:04:05"
 
 
-_RAW = re.compile(r"^\s+\w+_(?:at|date)\s*:\s*(?:Optional\[str\]|str)\b", re.M)
+_RAW = re.compile(r"^\s+\w+_(?:at|date)\s*:\s*(?:Optional\[str\]|str)(?![\w\[])", re.M)
 
 
 def test_no_router_response_model_declares_a_raw_str_timestamp():

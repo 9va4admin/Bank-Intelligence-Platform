@@ -648,13 +648,13 @@ class MCPConnectionResponse(BaseModel):
     endpoint_url_masked: Optional[str]
     vault_secret_ref: Optional[str]
     status: str
-    last_tested_at: Optional[str]
+    last_tested_at: OptIsoTimestamp
     last_test_latency_ms: Optional[int]
-    last_sync_at: Optional[str]
+    last_sync_at: OptIsoTimestamp
     vault_record_count: Optional[int]
     error_message: Optional[str]
     created_at: IsoTimestamp
-    updated_at: Optional[str]
+    updated_at: OptIsoTimestamp
     created_by: str
 
 

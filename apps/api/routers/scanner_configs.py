@@ -149,7 +149,7 @@ class ScannerConfigResponse(BaseModel):
     drop_folder_path: str
     is_active: bool
     created_at: IsoTimestamp
-    updated_at: Optional[str]
+    updated_at: OptIsoTimestamp
     created_by: str
 
 

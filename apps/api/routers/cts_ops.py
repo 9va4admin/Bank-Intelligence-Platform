@@ -493,7 +493,7 @@ async def inward_human_review_queue(
 
 class NGCHStatusResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
-    last_submission_at: Optional[str]
+    last_submission_at: OptIsoTimestamp
     last_status: Optional[str]
     pending_count: int
     submitted_today: int
@@ -722,8 +722,8 @@ class BranchSessionResponse(BaseModel):
     branch_id: Optional[str]
     status: Optional[str]
     hub_type: Optional[str]
-    clearing_date: Optional[str]
-    opened_at: Optional[str]
+    clearing_date: OptIsoTimestamp
+    opened_at: OptIsoTimestamp
     total_uploaded: int
     total_accepted: int
     total_rejected: int
@@ -938,7 +938,7 @@ class EEHHealthScanner(BaseModel):
     status: str
     scans_today: int
     errors_today: int
-    last_heartbeat_at: Optional[str]
+    last_heartbeat_at: OptIsoTimestamp
 
 
 class EEHHealthResponse(BaseModel):
