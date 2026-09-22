@@ -53,14 +53,29 @@ def _mock_config(min_confidence=0.85):
 
 
 def _mock_config_with_indic(min_confidence=0.85, indic_ocr_url="http://indic-ocr-test:8021",
-                             min_indic_confidence=0.60):
-    """Config mock with IndicOCR enabled (services.indic_ocr.url set)."""
+                             min_indic_confidence=0.60, allow_cloud_fallback=False):
+    """Config mock with IndicOCR enabled (services.indic_ocr.url set).
+
+    allow_cloud_fallback defaults False, matching the real cts.allow_cloud_ai_fallback default —
+    an unconfigured AsyncMock().get(...) is truthy, which would silently enable the cloud-VLM
+    Indic fallback in every test that doesn't care about it. Explicit default keeps that off.
+    """
     config = AsyncMock()
     config.get_ai_config = AsyncMock(return_value={
         "ai.ocr.min_confidence": min_confidence,
         "services.indic_ocr.url": indic_ocr_url,
         "ai.ocr.min_indic_confidence": min_indic_confidence,
     })
+
+    async def _get(key, *a, **kw):
+        if key == "cts.allow_cloud_ai_fallback":
+            return allow_cloud_fallback
+        if key == "services.indic_ocr.url":
+            return indic_ocr_url
+        if key == "cts.indic_ocr.kill_mode":
+            return "NONE"
+        return None
+    config.get = AsyncMock(side_effect=_get)
     return config
 
 
@@ -761,6 +776,101 @@ class TestOCRPartialImageMode:
             )
 
         assert result.outcome == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_indic_ocr_tries_cloud_vlm_when_enabled(self):
+        """Real live-run finding (2026-09-22): PaddleOCR/Tesseract both fail on handwritten Indic
+        script (confirmed on a real cheque: PaddleOCR returned 'YPhg be ?', Tesseract returned
+        empty text). The cloud VLM (already used as the Stage 1 fallback) reads the same crop
+        correctly. When IndicOCR's own result is too low-confidence and cts.allow_cloud_ai_fallback
+        is explicitly enabled for the bank, retry that zone against the cloud VLM before giving up."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        cloud_payee = "सुमति शेट्टी"
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision",
+                   new=AsyncMock(return_value=json.dumps({"value": cloud_payee, "confidence": 0.8}))) as mock_cloud:
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=True),
+            )
+
+        mock_cloud.assert_awaited()
+        assert result.payee == cloud_payee
+        # Real finding: the cloud VLM can confidently hallucinate wrong text on illegible
+        # handwriting (self-reported 0.9 confidence on text unrelated to the actual image,
+        # observed live). A cloud-VLM-sourced reading must never look like a trusted
+        # high-confidence extraction -- it must still clear (or fail) the normal min_confidence
+        # gate like everything else, never bypass it.
+        assert result.low_confidence_reason is not None or result.outcome == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_cloud_vlm_reading_confidence_is_capped_never_trusted_at_face_value(self):
+        """Real finding, live: the cloud VLM self-reported 0.9 confidence for Devanagari text that
+        had nothing to do with the actual (Kannada, illegible-handwriting) image -- a confident
+        hallucination, not a low-confidence miss. A cloud-VLM-sourced field's stored confidence
+        must be capped well below a typical min_confidence gate (0.85+) regardless of what the
+        model itself claims, so it can never look like a trusted high-confidence extraction."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision",
+                   new=AsyncMock(return_value=json.dumps({"value": "श्री राम", "confidence": 0.95}))):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=True, min_confidence=0.85),
+            )
+
+        assert result.payee is not None  # the reading is still captured
+        assert result.outcome == "HUMAN_REVIEW"  # but never auto-trusted past the confidence gate
+        assert "payee" in (result.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_indic_ocr_does_not_try_cloud_vlm_when_disabled(self):
+        """cts.allow_cloud_ai_fallback defaults False -- the cloud VLM must never be called for a
+        bank that hasn't explicitly opted in, matching the existing Stage 1 fallback's own gate."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision", new=AsyncMock()) as mock_cloud:
+            await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=False),
+            )
+
+        mock_cloud.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cloud_vlm_indic_result_used_only_when_genuinely_indic_script(self):
+        """A cloud VLM reply that isn't real Indic script (e.g. it also failed to read the crop)
+        must not be accepted as a refinement -- same bar as the IndicOCR service result."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Abhilash", 0.94))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision",
+                   new=AsyncMock(return_value=json.dumps({"value": None, "confidence": 0.0}))):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=True),
+            )
+
+        orchestrator.call_ocr.assert_called()
 
     @pytest.mark.asyncio
     async def test_indic_low_confidence_falls_back_to_got_ocr(self):
