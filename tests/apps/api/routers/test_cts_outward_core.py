@@ -476,6 +476,23 @@ class TestClearingSessionSubmit:
         assert resp.status_code == 202, resp.text
         assert calls == [("cts-clearsess-testbank-2026-09-12-MORNING", "cts-processing-testbank")]
 
+    def test_already_started_deterministic_workflow_still_returns_202(self):
+        """Real live-run bug: retriggering the same (bank, date, session_type) hits the deterministic
+        workflow id; with a COMPLETED prior run and ALLOW_DUPLICATE_FAILED_ONLY the SDK raises
+        WorkflowAlreadyStartedError. The handler never caught it, so it propagated as an unhandled 500
+        (and, compounded by the rate-limit middleware bug, as a client-visible hang)."""
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+
+        class FakeTemporal:
+            async def start_workflow(self, fn, inp, *, id, task_queue, id_reuse_policy=None, **kw):
+                raise WorkflowAlreadyStartedError(id, "ClearingSessionWorkflow")
+
+        app = _make_app()
+        app.state.temporal_client = FakeTemporal()
+        with TestClient(app) as c:
+            resp = c.post("/v1/cts/outward/clearing-session/submit", json=self._body)
+        assert resp.status_code == 202, resp.text
+
 
 # ── 14. GET /outward/clearing-window ─────────────────────────────────────────
 

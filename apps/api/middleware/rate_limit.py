@@ -159,6 +159,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             span.set_attribute("endpoint_slug", slug)
             span.set_attribute("limit", limit)
 
+            # Redis is fail-open DoS protection, not a safety gate: only ITS OWN failure falls through to
+            # call_next unrate-limited. An exception raised by call_next (the real route) must propagate —
+            # calling call_next a second time here previously hung every such request forever, because
+            # Starlette's request stream is only good for one call_next invocation.
             try:
                 key = _window_key(scope_id, slug)
                 pipe = redis.pipeline()
@@ -166,40 +170,39 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 pipe.expire(key, 61)  # 1 extra second to avoid edge-case expiry
                 results = await pipe.execute()
                 current_count = results[0]
-
-                span.set_attribute("current_count", current_count)
-                span.set_attribute("rate_limited", current_count > limit)
-
-                if current_count > limit:
-                    log.warning(
-                        "rate_limit.exceeded",
-                        slug=slug,
-                        scope_id=scope_id,
-                        count=current_count,
-                        limit=limit,
-                    )
-                    return JSONResponse(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        content={
-                            "error_code": "RATE_LIMIT_EXCEEDED",
-                            "message": f"Too many requests. Limit: {limit}/min for {slug}.",
-                            "limit": limit,
-                            "window": "60s",
-                        },
-                        headers={
-                            "X-RateLimit-Limit": str(limit),
-                            "X-RateLimit-Remaining": "0",
-                            "X-RateLimit-Reset": str((int(time.time()) // 60 + 1) * 60),
-                            "Retry-After": "60",
-                        },
-                    )
-
-                response = await call_next(request)
-                response.headers["X-RateLimit-Limit"] = str(limit)
-                response.headers["X-RateLimit-Remaining"] = str(max(0, limit - current_count))
-                response.headers["X-RateLimit-Reset"] = str((int(time.time()) // 60 + 1) * 60)
-                return response
-
             except Exception as exc:
                 log.warning("rate_limit.error", slug=slug, error=str(exc))
                 return await call_next(request)
+
+            span.set_attribute("current_count", current_count)
+            span.set_attribute("rate_limited", current_count > limit)
+
+            if current_count > limit:
+                log.warning(
+                    "rate_limit.exceeded",
+                    slug=slug,
+                    scope_id=scope_id,
+                    count=current_count,
+                    limit=limit,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error_code": "RATE_LIMIT_EXCEEDED",
+                        "message": f"Too many requests. Limit: {limit}/min for {slug}.",
+                        "limit": limit,
+                        "window": "60s",
+                    },
+                    headers={
+                        "X-RateLimit-Limit": str(limit),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": str((int(time.time()) // 60 + 1) * 60),
+                        "Retry-After": "60",
+                    },
+                )
+
+            response = await call_next(request)
+            response.headers["X-RateLimit-Limit"] = str(limit)
+            response.headers["X-RateLimit-Remaining"] = str(max(0, limit - current_count))
+            response.headers["X-RateLimit-Reset"] = str((int(time.time()) // 60 + 1) * 60)
+            return response

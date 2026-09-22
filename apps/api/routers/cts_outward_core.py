@@ -1217,13 +1217,19 @@ async def submit_clearing_session(
         deployment_mode=DeploymentMode(body.deployment_mode),
         pu_ids=body.pu_ids,
     )
-    await temporal.start_workflow(
-        ClearingSessionWorkflow.run,
-        inp,
-        id=workflow_id,
-        task_queue=f"cts-processing-{bank_id}",
-        id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
-    )
+    from temporalio.exceptions import WorkflowAlreadyStartedError
+    try:
+        await temporal.start_workflow(
+            ClearingSessionWorkflow.run,
+            inp,
+            id=workflow_id,
+            task_queue=f"cts-processing-{bank_id}",
+            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
+        )
+    except WorkflowAlreadyStartedError:
+        # Expected on a retriggered (bank, date, session_type): the workflow id is deterministic. The prior
+        # run's outcome stands; the caller should query it rather than expecting a new one.
+        log.info("cts.clearing_session.already_started", workflow_id=workflow_id, bank_id=bank_id)
     log.info("cts.clearing_session.submitted", workflow_id=workflow_id, bank_id=bank_id)
     return ClearingSessionSubmitResponse(
         workflow_id=workflow_id,
