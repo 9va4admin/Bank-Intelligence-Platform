@@ -12,6 +12,7 @@ Parent isolation: ABANDON — this workflow outlives the inward scan session.
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import date, timedelta, datetime
 from typing import Any, Literal
@@ -92,7 +93,21 @@ class PostDatedHoldWorkflow:
         days_remaining = (input.release_date - now_date).days
 
         if days_remaining > 0:
-            await workflow.sleep(timedelta(days=days_remaining))
+            # temporalio has no workflow.sleep() (confirmed against the installed SDK,
+            # 1.7.1 — .claude/rules/temporal.md's example of it was never actually run).
+            # The deterministic-sleep idiom is wait_condition() with a timeout: it returns
+            # normally the moment the condition (cancel_hold arriving) becomes true, or
+            # raises asyncio.TimeoutError once the release date is reached — whichever is
+            # first, matching this workflow's own stated cancel-before-release contract,
+            # which workflow.sleep() could never have honoured even if it existed (a plain
+            # sleep isn't interruptible by a signal).
+            try:
+                await workflow.wait_condition(
+                    lambda: self._cancelled,
+                    timeout=timedelta(days=days_remaining),
+                )
+            except asyncio.TimeoutError:
+                pass
 
         # 3. Check if cancelled during sleep
         if self._cancelled:
