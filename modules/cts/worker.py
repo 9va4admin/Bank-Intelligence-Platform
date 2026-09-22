@@ -161,6 +161,7 @@ from modules.cts.workflows.activities.ngch_submission_activities import (
 from modules.cts.workflows.activities.clearing_session_activities import (
     seal_all_lots,
     update_session_status,
+    mark_lots_submitted,
 )
 from modules.cts.workflows.activities.session_reconciliation_activities import (
     fetch_ngch_settlement_report,
@@ -302,6 +303,7 @@ ALL_ACTIVITIES = [
     confirm_acknowledgement,
     seal_all_lots,
     update_session_status,
+    mark_lots_submitted,
     fetch_ngch_settlement_report,
     match_submitted_vs_settled,
     generate_rrf,
@@ -342,6 +344,7 @@ NO_DI_ACTIVITIES = [
     # Clearing session (ClearingSessionWorkflow)
     seal_all_lots,
     update_session_status,
+    mark_lots_submitted,
     # Session reconciliation (SessionReconciliationWorkflow)
     match_submitted_vs_settled,
     generate_rrf,

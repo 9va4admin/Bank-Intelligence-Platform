@@ -323,3 +323,147 @@ class TestInstrumentCountAggregation:
         }
         result = await wf.run_with_mocks(inp, mocks)
         assert result.total_instruments == 350
+
+
+# --------------------------------------------------------------------------- #
+# Real run() — Temporal test environment, real workflow + activity signatures.
+# Regression coverage for the live-run defects fixed 2026-09-22:
+#   - seal_all_lots is no longer looked up by a scanner/API session id
+#   - one NGCH child workflow is started per lot, not one fake "consolidated" lot
+#   - update_session_status receives npci_ack_ref (was silently dropped)
+#   - successfully filed lots are marked SUBMITTED
+# --------------------------------------------------------------------------- #
+import asyncio
+import uuid
+
+from temporalio import activity as _activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+
+
+def _lot(lot_id, count=3):
+    return {"lot_id": lot_id, "sequence_number": 1, "instrument_count": count, "branch_id": "br-1",
+            "branch_ifsc": "KARB0000001", "pu_id": "KBL-PU-01", "routing_no": "KARB", "zone_id": "CHENNAI"}
+
+
+def _seal_all_lots_fake(lots):
+    @_activity.defn(name="seal_all_lots")
+    async def fake(inp):
+        from modules.cts.workflows.activities.clearing_session_activities import SealAllLotsResult
+        return SealAllLotsResult(sealed_lots=lots, session_uuid="11111111-1111-1111-1111-111111111111",
+                                 status="OK")
+    return fake
+
+
+@_activity.defn(name="build_and_upload_ngch_files")
+async def _fake_build_ngch(inp):
+    from modules.cts.workflows.activities.ngch_lot_assembly_activity import FetchAndBuildInput, FetchAndBuildResult
+    if isinstance(inp, dict):
+        inp = FetchAndBuildInput(**inp)
+    return FetchAndBuildResult(cxf_minio_key=f"cxf/{inp.lot_number}", cibf_minio_key=f"cibf/{inp.lot_number}",
+                               cxf_filename="CXF_1", cibf_filename="CIBF_1", instrument_count=3)
+
+
+def _submit_to_ngch_fake(outcome_by_lot):
+    @_activity.defn(name="submit_to_ngch")
+    async def fake(inp):
+        from modules.cts.workflows.activities.ngch_submission_activities import SubmitToNGCHInput, SubmitToNGCHResult
+        if isinstance(inp, dict):
+            inp = SubmitToNGCHInput(**inp)
+        ok = outcome_by_lot.get(inp.lot_number, True)
+        return SubmitToNGCHResult(submitted=ok, ngch_reference=f"NGCH-{inp.lot_number}" if ok else None,
+                                  failure_reason=None if ok else "NGCH_REJECTED")
+    return fake
+
+
+def _confirm_ack_fake(outcome_by_lot):
+    @_activity.defn(name="confirm_acknowledgement")
+    async def fake(inp):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            ConfirmAcknowledgementInput, ConfirmAcknowledgementResult,
+        )
+        if isinstance(inp, dict):
+            inp = ConfirmAcknowledgementInput(**inp)
+        ok = outcome_by_lot.get(inp.lot_number, True)
+        return ConfirmAcknowledgementResult(acknowledged=ok, reason=None if ok else "NGCH_REJECTED")
+    return fake
+
+
+@_activity.defn(name="write_audit")
+async def _fake_write_audit_cs(inp):
+    return None
+
+
+def _update_status_recorder(calls):
+    @_activity.defn(name="update_session_status")
+    async def fake(inp):
+        from modules.cts.workflows.activities.clearing_session_activities import (
+            UpdateSessionStatusInput, UpdateSessionStatusResult,
+        )
+        if isinstance(inp, dict):
+            inp = UpdateSessionStatusInput(**inp)
+        calls.append(inp)
+        return UpdateSessionStatusResult(updated=True, status=inp.status)
+    return fake
+
+
+def _mark_submitted_recorder(calls):
+    @_activity.defn(name="mark_lots_submitted")
+    async def fake(inp):
+        from modules.cts.workflows.activities.clearing_session_activities import MarkLotsSubmittedInput
+        if isinstance(inp, dict):
+            inp = MarkLotsSubmittedInput(**inp)
+        calls.append(inp)
+    return fake
+
+
+def _cs_worker(env, task_queue, seal_fake, status_calls, submitted_calls, outcome_by_lot):
+    from modules.cts.workflows.clearing_session_workflow import ClearingSessionWorkflow
+    from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
+    return Worker(
+        env.client, task_queue=task_queue,
+        workflows=[ClearingSessionWorkflow, NGCHSubmissionWorkflow],
+        activities=[
+            seal_fake, _update_status_recorder(status_calls), _mark_submitted_recorder(submitted_calls),
+            _fake_write_audit_cs, _fake_build_ngch,
+            _submit_to_ngch_fake(outcome_by_lot), _confirm_ack_fake(outcome_by_lot),
+        ],
+        workflow_runner=UnsandboxedWorkflowRunner(),
+    )
+
+
+class TestClearingSessionWorkflowRealRun:
+    async def _run(self, lots, outcome_by_lot):
+        status_calls, submitted_calls = [], []
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _cs_worker(env, task_queue, _seal_all_lots_fake(lots), status_calls, submitted_calls,
+                                   outcome_by_lot):
+                result = await asyncio.wait_for(env.client.execute_workflow(
+                    ClearingSessionWorkflow.run,
+                    ClearingSessionInput(session_id="clearsess-xyz", bank_id="kbl", clearing_date="2026-09-21",
+                                         session_type=SessionType.MORNING, deployment_mode=DeploymentMode.SB_NGCH,
+                                         pu_ids=["KBL-PU-01"]),
+                    id=f"cts-clearsess-real-{uuid.uuid4().hex[:8]}", task_queue=task_queue), timeout=60)
+        return result, status_calls, submitted_calls
+
+    @pytest.mark.asyncio
+    async def test_all_lots_submitted(self):
+        lots = [_lot("LOT-1"), _lot("LOT-2")]
+        result, status_calls, submitted_calls = await self._run(lots, {"LOT-1": True, "LOT-2": True})
+        assert result.outcome == "SUBMITTED"
+        assert result.session_id == "11111111-1111-1111-1111-111111111111"
+        assert {r["lot_id"] for r in result.lot_results} == {"LOT-1", "LOT-2"}
+        assert result.ngch_reference == "NGCH-LOT-1,NGCH-LOT-2"
+        # update_session_status must receive the ack refs via npci_ack_ref (was silently dropped before)
+        assert status_calls[-1].npci_ack_ref == "NGCH-LOT-1,NGCH-LOT-2"
+        assert status_calls[-1].status == "SUBMITTED"
+        assert set(submitted_calls[-1].lot_ids) == {"LOT-1", "LOT-2"}
+
+    @pytest.mark.asyncio
+    async def test_one_lot_fails_overall_exception_but_good_lot_still_marked_submitted(self):
+        lots = [_lot("LOT-1"), _lot("LOT-2")]
+        result, status_calls, submitted_calls = await self._run(lots, {"LOT-1": True, "LOT-2": False})
+        assert result.outcome == "EXCEPTION"
+        assert "LOT-2" in result.failure_reason
+        assert submitted_calls[-1].lot_ids == ["LOT-1"]

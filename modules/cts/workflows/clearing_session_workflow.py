@@ -74,12 +74,13 @@ class ClearingSessionResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     outcome: str                     # "SUBMITTED" | "SUBMITTED_TO_SB" | "EXCEPTION" | "EMPTY_SESSION"
-    session_id: str
+    session_id: str                  # resolved cts.clearing_sessions.session_id (uuid) — the real DB identity
     bank_id: str
     total_instruments: int
-    ngch_reference: Optional[str] = None    # NGCH ack ref (SB_NGCH) or SB relay ref (AGENCY)
+    ngch_reference: Optional[str] = None    # comma-joined per-lot NGCH ack refs (SB_NGCH) or SB relay ref (AGENCY)
     failure_reason: Optional[str] = None
     audit_written: bool = False
+    lot_results: list[dict] = []     # [{lot_id, outcome, ngch_reference, failure_reason}, ...] — SB_NGCH only
 
 
 @workflow.defn
@@ -99,14 +100,18 @@ class ClearingSessionWorkflow:
     @workflow.run
     async def run(self, inp: ClearingSessionInput) -> ClearingSessionResult:
         from modules.cts.workflows.activities.clearing_session_activities import (
+            MarkLotsSubmittedInput,
             SealAllLotsInput,
             UpdateSessionStatusInput,
+            mark_lots_submitted,
             seal_all_lots,
             update_session_status,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
 
-        # Step 1: Collect sealed lots from all PUs
+        # Step 1: Resolve ENDORSED lots for this bank/date (not by a caller-supplied session id — lots are
+        # tagged with the scanner session, never the clearing-session's own id). Also ensures the
+        # cts.clearing_sessions row (and the zone/center it requires) exists.
         seal_result = await workflow.execute_activity(
             seal_all_lots,
             SealAllLotsInput(
@@ -114,12 +119,14 @@ class ClearingSessionWorkflow:
                 bank_id=inp.bank_id,
                 pu_ids=inp.pu_ids,
                 clearing_date=inp.clearing_date,
+                session_type=inp.session_type.value,
             ),
             start_to_close_timeout=timedelta(seconds=60),
             retry_policy=_CBS_RETRY,
         )
         sealed_lots = seal_result.sealed_lots
         total_instruments = sum(lot.get("instrument_count", 0) for lot in sealed_lots)
+        session_uuid = seal_result.session_uuid or inp.session_id
 
         if not sealed_lots:
             await workflow.execute_activity(
@@ -127,40 +134,62 @@ class ClearingSessionWorkflow:
                 WriteAuditInput(
                     event_type="CTS_OUT_SESSION_EMPTY",
                     bank_id=inp.bank_id,
-                    payload={"session_id": inp.session_id, "outcome": "EMPTY_SESSION"},
+                    payload={"session_id": session_uuid, "outcome": "EMPTY_SESSION"},
                 ),
                 start_to_close_timeout=timedelta(seconds=15),
                 retry_policy=_AUDIT_RETRY,
             )
             return ClearingSessionResult(
                 outcome="EMPTY_SESSION",
-                session_id=inp.session_id,
+                session_id=session_uuid,
                 bank_id=inp.bank_id,
                 total_instruments=0,
                 audit_written=True,
             )
 
         # Step 2: Route to correct submission path
+        lot_results: list[dict] = []
         if inp.deployment_mode == DeploymentMode.SB_NGCH:
             from modules.cts.workflows.ngch_submission_workflow import (
                 NGCHSubmissionInput,
                 NGCHSubmissionWorkflow,
             )
-            ngch_result = await workflow.execute_child_workflow(
-                NGCHSubmissionWorkflow.run,
-                NGCHSubmissionInput(
-                    lot_number=f"{inp.session_id}-consolidated",
-                    bank_id=inp.bank_id,
-                    bank_ifsc="",
-                    session_id=inp.session_id,
-                    clearing_date=inp.clearing_date,
-                    instrument_count=total_instruments,
-                ),
-                id=f"cts-ngchsub-{inp.bank_id}-{inp.session_id}",
-            )
-            outcome = ngch_result.outcome
-            ngch_reference = ngch_result.ngch_reference
-            failure_reason = ngch_result.failure_reason
+            # One NGCH file per lot (LotStore/build_ngch_file works per lot_id) — a session aggregates the
+            # lots, it does not become one pseudo-lot.
+            for lot in sealed_lots:
+                result = await workflow.execute_child_workflow(
+                    NGCHSubmissionWorkflow.run,
+                    NGCHSubmissionInput(
+                        lot_number=lot["lot_id"],
+                        bank_id=inp.bank_id,
+                        bank_ifsc=lot["branch_ifsc"],
+                        session_id=session_uuid,
+                        clearing_date=inp.clearing_date,
+                        instrument_count=lot["instrument_count"],
+                        routing_no=lot["routing_no"] or "",
+                        clearing_type="14",
+                    ),
+                    id=f"cts-ngchsub-{inp.bank_id}-{lot['lot_id']}",
+                )
+                lot_results.append({
+                    "lot_id": lot["lot_id"], "outcome": result.outcome,
+                    "ngch_reference": result.ngch_reference, "failure_reason": result.failure_reason,
+                })
+
+            submitted_lots = [r["lot_id"] for r in lot_results if r["outcome"] == "SUBMITTED"]
+            outcome = "SUBMITTED" if len(submitted_lots) == len(lot_results) else "EXCEPTION"
+            ngch_reference = ",".join(r["ngch_reference"] for r in lot_results if r["ngch_reference"]) or None
+            failure_reason = "; ".join(
+                f"{r['lot_id']}:{r['failure_reason']}" for r in lot_results if r["failure_reason"]
+            ) or None
+
+            if submitted_lots:
+                await workflow.execute_activity(
+                    mark_lots_submitted,
+                    MarkLotsSubmittedInput(bank_id=inp.bank_id, lot_ids=submitted_lots),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=_CBS_RETRY,
+                )
         else:
             from modules.cts.workflows.agency_cc_workflow import (
                 AgencyCCInput,
@@ -172,12 +201,12 @@ class ClearingSessionWorkflow:
                     agency_id=inp.bank_id,
                     sb_connection_id=inp.sb_connection_id or "",
                     sb_bank_id=inp.sb_bank_id or "",
-                    session_id=inp.session_id,
-                    lot_numbers=[lot["lot_number"] for lot in sealed_lots],
+                    session_id=session_uuid,
+                    lot_numbers=[lot["lot_id"] for lot in sealed_lots],
                     instrument_count=total_instruments,
                     connector_type="SFTP_GENERIC",
                 ),
-                id=f"cts-agencycc-{inp.bank_id}-{inp.session_id}",
+                id=f"cts-agencycc-{inp.bank_id}-{session_uuid}",
             )
             if agency_result.outcome == "SUBMITTED_TO_SB":
                 outcome = "SUBMITTED_TO_SB"
@@ -190,10 +219,10 @@ class ClearingSessionWorkflow:
         await workflow.execute_activity(
             update_session_status,
             UpdateSessionStatusInput(
-                session_id=inp.session_id,
+                session_id=session_uuid,
                 bank_id=inp.bank_id,
                 status=outcome,
-                ngch_reference=ngch_reference,
+                npci_ack_ref=ngch_reference,
                 failure_reason=failure_reason,
             ),
             start_to_close_timeout=timedelta(seconds=15),
@@ -208,11 +237,12 @@ class ClearingSessionWorkflow:
                 event_type=event_type,
                 bank_id=inp.bank_id,
                 payload={
-                    "session_id": inp.session_id,
+                    "session_id": session_uuid,
                     "outcome": outcome,
                     "total_instruments": total_instruments,
                     "ngch_reference": ngch_reference,
                     "failure_reason": failure_reason,
+                    "lot_results": lot_results,
                 },
             ),
             start_to_close_timeout=timedelta(seconds=15),
@@ -220,8 +250,9 @@ class ClearingSessionWorkflow:
         )
 
         return ClearingSessionResult(
+            lot_results=lot_results,
             outcome=outcome,
-            session_id=inp.session_id,
+            session_id=session_uuid,
             bank_id=inp.bank_id,
             total_instruments=total_instruments,
             ngch_reference=ngch_reference,
