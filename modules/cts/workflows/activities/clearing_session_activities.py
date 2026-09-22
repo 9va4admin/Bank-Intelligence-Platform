@@ -163,11 +163,13 @@ class MarkLotsSubmittedInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
     lot_ids: list[str]
+    lot_refs: dict[str, str] = {}     # lot_id -> ngch_reference (best-effort; shared across the lot's instruments)
 
 
 @activity.defn
 async def mark_lots_submitted(inp: MarkLotsSubmittedInput, db_pool: Any = None) -> None:
-    """Move successfully-filed lots past ENDORSED so a later session on the same date never re-picks them."""
+    """Move successfully-filed lots past ENDORSED, and their instruments past ACCEPTED, so a later session on
+    the same date never re-picks them and reconciliation has a filed timestamp + NGCH reference to match on."""
     if isinstance(inp, dict):
         inp = MarkLotsSubmittedInput(**inp)
     if db_pool is None or not inp.lot_ids:
@@ -177,6 +179,16 @@ async def mark_lots_submitted(inp: MarkLotsSubmittedInput, db_pool: Any = None) 
             "UPDATE cts.lots SET status = 'SUBMITTED' WHERE bank_id = $1 AND lot_id = ANY($2::text[])",
             inp.bank_id, inp.lot_ids,
         )
+        for lot_id in inp.lot_ids:
+            await conn.execute(
+                """
+                UPDATE cts.cheque_instruments
+                   SET status = 'FILED', processing_stage = 'FILED', processing_status = 'FILED',
+                       filed_at = NOW(), ngch_instrument_ref = $1
+                 WHERE bank_id = $2 AND lot_id = $3 AND direction = 'OUTWARD'
+                """,
+                inp.lot_refs.get(lot_id), inp.bank_id, lot_id,
+            )
 
 
 # ── update_session_status ─────────────────────────────────────────────────────
