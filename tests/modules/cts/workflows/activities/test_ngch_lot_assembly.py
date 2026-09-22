@@ -512,27 +512,26 @@ class TestOTelSpan:
 # ── NGCHSubmissionWorkflow wiring ──────────────────────────────────────────────
 
 class TestNGCHSubmissionWorkflowWiring:
-    def test_workflow_imports_new_activity(self):
-        """The workflow module must reference the new lot assembly activity."""
-        import inspect
-        import modules.cts.workflows.ngch_submission_workflow as wf_mod
-        src = inspect.getsource(wf_mod)
-        assert "build_and_upload_ngch_files" in src, (
-            "NGCHSubmissionWorkflow must call build_and_upload_ngch_files, "
-            "not the old stub build_ngch_file from ngch_submission_activities"
-        )
+    """Corrected 2026-09-22: these tests previously asserted the reverse of reality — that the workflow
+    must call build_and_upload_ngch_files (this module) and must NOT use build_ngch_file from
+    ngch_submission_activities. A real outward run proved the opposite: build_and_upload_ngch_files queries
+    cts.cheque_image_metadata and cross-references cts.outward_scan_events' text ids against the UUID
+    cheque_instruments.instrument_id column — it has never worked for a real outward lot. build_ngch_file
+    (ngch_submission_activities.py) delegates to LotStore.build_ngch_file, the actual CHI-spec-compliant,
+    exercised (tests/modules/cts/lot/test_lot_store.py) implementation. The workflow now calls that one."""
 
-    def test_workflow_does_not_use_old_stub(self):
-        """The old stub BuildNGCHFileInput from ngch_submission_activities must not be used."""
+    def test_workflow_uses_lot_store_backed_activity(self):
         import inspect
         import modules.cts.workflows.ngch_submission_workflow as wf_mod
         src = inspect.getsource(wf_mod)
-        assert "ngch_submission_activities" not in src or (
-            "BuildNGCHFileInput" not in src
-        ), (
-            "NGCHSubmissionWorkflow still imports BuildNGCHFileInput from "
-            "ngch_submission_activities — this is the old stub, not spec-compliant"
-        )
+        assert "build_ngch_file" in src and "BuildNGCHFileInput" in src
+
+    def test_workflow_does_not_call_the_broken_legacy_activity(self):
+        import inspect
+        import modules.cts.workflows.ngch_submission_workflow as wf_mod
+        assert wf_mod.NGCHSubmissionWorkflow.run.__code__.co_names.count(
+            "build_and_upload_ngch_files"
+        ) == 0, "the run() method must not call the legacy build_and_upload_ngch_files activity"
 
     def test_submit_to_ngch_input_has_cibf_path(self):
         """SubmitToNGCHInput must carry cibf_file_path for dual-file NGCH submission."""

@@ -5,7 +5,7 @@ Packages an endorsed lot into a CTS-compliant NGCH file and submits it
 to the National Grid Clearing House for settlement.
 
 Activity sequence:
-  1. build_and_upload_ngch_files — DB query + image download + CHI-spec build + MinIO upload
+  1. build_ngch_file             — LotStore: DB query + image download + CHI-spec build + MinIO upload
   2. submit_to_ngch              — NGCH adapter delivers CXF + CIBF (SFTP or REST)
   3. confirm_acknowledgement     — parse NGCH response / ACK message
   4. write_audit                 — Immudb audit (ALL terminal outcomes)
@@ -70,44 +70,54 @@ class NGCHSubmissionWorkflow:
 
     @workflow.run
     async def run(self, inp: NGCHSubmissionInput) -> NGCHSubmissionResult:
-        from modules.cts.workflows.activities.ngch_lot_assembly_activity import (
-            FetchAndBuildInput,
-            build_and_upload_ngch_files,
-        )
         from modules.cts.workflows.activities.ngch_submission_activities import (
+            BuildNGCHFileInput,
             ConfirmAcknowledgementInput,
             SubmitToNGCHInput,
+            build_ngch_file,
             confirm_acknowledgement,
             submit_to_ngch,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
         from shared.event_bus.topics import CTS_OUTWARD_SUBMITTED
 
-        # Step 1: Fetch instruments from DB, download images, build spec-compliant
-        #         CXF + CIBF, upload both to MinIO — returns MinIO keys + filenames
+        # Step 1: Build spec-compliant CXF + CIBF from the lot's instruments (via LotStore, DI-injected) and
+        # upload both to MinIO — returns the CXF key + checksum.
+        #
+        # This used to call build_and_upload_ngch_files (ngch_lot_assembly_activity.py), a second, independent
+        # implementation of the same job written against the INWARD data model (cts.cheque_image_metadata,
+        # instrument ids sourced from cts.outward_scan_events joined against a UUID column) — it always failed
+        # for a real outward lot. build_ngch_file (below) is the CHI-spec implementation LotStore actually
+        # supports and that is exercised by tests/modules/cts/lot/test_lot_store.py.
         build_result = await workflow.execute_activity(
-            build_and_upload_ngch_files,
-            FetchAndBuildInput(
-                bank_id=inp.bank_id,
+            build_ngch_file,
+            BuildNGCHFileInput(
                 lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                bank_ifsc=inp.bank_ifsc,
                 session_id=inp.session_id,
                 clearing_date=inp.clearing_date,
-                bank_ifsc=inp.bank_ifsc,
+                instrument_count=inp.instrument_count,
+                routing_no=inp.routing_no,
+                clearing_type=inp.clearing_type,
+                file_id=inp.file_id,
             ),
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_NGCH_RETRY,
         )
 
-        # Step 2: Submit to NGCH via adapter (CXF + CIBF as separate files)
+        # Step 2: Submit to NGCH via adapter.
+        # KNOWN GAP: build_ngch_file only returns the CXF key (LotStore uploads the CIBF image bundle
+        # internally but does not return its key) — cibf_file_path is None until that's plumbed through.
         submit_result = await workflow.execute_activity(
             submit_to_ngch,
             SubmitToNGCHInput(
                 lot_number=inp.lot_number,
                 bank_id=inp.bank_id,
                 bank_ifsc=inp.bank_ifsc,
-                file_path=build_result.cxf_minio_key,
-                cibf_file_path=build_result.cibf_minio_key,
-                checksum_sha256="",         # checksum verified at NGCH via file content
+                file_path=build_result.file_path,
+                cibf_file_path=None,
+                checksum_sha256=build_result.checksum_sha256,
                 instrument_count=build_result.instrument_count,
             ),
             start_to_close_timeout=timedelta(seconds=30),

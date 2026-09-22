@@ -355,13 +355,13 @@ def _seal_all_lots_fake(lots):
     return fake
 
 
-@_activity.defn(name="build_and_upload_ngch_files")
+@_activity.defn(name="build_ngch_file")
 async def _fake_build_ngch(inp):
-    from modules.cts.workflows.activities.ngch_lot_assembly_activity import FetchAndBuildInput, FetchAndBuildResult
+    from modules.cts.workflows.activities.ngch_submission_activities import BuildNGCHFileInput, BuildNGCHFileResult
     if isinstance(inp, dict):
-        inp = FetchAndBuildInput(**inp)
-    return FetchAndBuildResult(cxf_minio_key=f"cxf/{inp.lot_number}", cibf_minio_key=f"cibf/{inp.lot_number}",
-                               cxf_filename="CXF_1", cibf_filename="CIBF_1", instrument_count=3)
+        inp = BuildNGCHFileInput(**inp)
+    return BuildNGCHFileResult(file_path=f"cxf/{inp.lot_number}", checksum_sha256="deadbeef",
+                               instrument_count=inp.instrument_count, cxf_filename="CXF_1", cibf_filename="CIBF_1")
 
 
 def _submit_to_ngch_fake(outcome_by_lot):
