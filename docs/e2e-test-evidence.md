@@ -423,3 +423,68 @@ deterministic-sleep API, which may mean that rule needs correcting too. **`PostD
 currently complete a real run past this point** — the DB write happens (confirmed above), but the workflow
 then fails its task repeatedly. This is the actual current status: the persistence layer this entry set out
 to fix is fixed and verified; the workflow that calls it is separately broken one level up.
+
+---
+
+## 2026-09-23 — `PostDatedHoldWorkflow.run()` fix: `workflow.sleep()` does not exist in this SDK
+
+Follow-up to the previous entry's 5th finding. **`.claude/rules/temporal.md` was itself wrong** — it stated
+"`asyncio.sleep()` inside a workflow — use `await workflow.sleep()` (deterministic)". Checked directly
+against the installed SDK: `temporalio==1.7.1` has no `workflow.sleep` attribute at all. That rule's own
+example had apparently never been run for real before this. Corrected in the same change (new "Deterministic
+Sleep" section in the rules file), and it now also flags that the same broken call exists, unfixed, in two
+other workflows (`feedback_workflow.py:302`, `platform_health_check_workflow.py:204` — spawned as
+`task_87a6ffd2`, out of scope here).
+
+**Root cause, and why this was never caught:** every call to the missing `workflow.sleep()` fails the
+workflow *task* (not the workflow itself, and not an activity) — Temporal retries a failing workflow task
+forever by default, so the workflow never reaches a terminal FAILED state. A plain `await
+client.execute_workflow(...)` therefore hangs forever rather than raising, and the project's existing test
+file for this workflow (`tests/modules/cts/workflows/test_postdated_hold_workflow.py`) tested only pure
+helper functions and dataclasses, never `.run()` against a real Temporal environment — so nothing could have
+caught this before a live run.
+
+**Fix:** `workflow.wait_condition(lambda: self._cancelled, timeout=timedelta(days=days_remaining))`, wrapped
+in `try/except asyncio.TimeoutError: pass` — the same idiom already used correctly elsewhere in this
+codebase (`hold_escalation_workflow.py`, `human_review_workflow.py`, `iet_watchdog_workflow.py`). **Not just
+an API rename — a real behavioural fix**: the old code (even if `workflow.sleep()` had existed) only checked
+`self._cancelled` *after* a full, uninterruptible sleep; `wait_condition` wakes the workflow the instant
+`cancel_hold` arrives, which is what this workflow's own docstring already claimed ("accepts a cancel_hold
+signal … before its release date") but never actually did.
+
+**TDD, against a real Temporal time-skipping environment (not mocked)** —
+`tests/modules/cts/workflows/test_postdated_hold_workflow.py::TestPostDatedHoldWorkflowRealRun`, 2 new tests
+(`test_sleep_to_release_date_completes_and_releases`, `test_cancel_signal_wakes_the_wait_before_the_release_date`),
+each confirmed RED first. **The RED confirmation itself needed a different approach than usual**, because of
+the "retries forever" failure mode above: a plain `await handle.result()` against the buggy code never
+returns, so a bounded check was used instead — `asyncio.wait_for(handle.result(), timeout=15)`, then on
+timeout, `fetch_history()` inspected for a `workflow_task_failed_event_attributes` event whose message
+contains `"has no attribute 'sleep'"`. Confirmed present against the unfixed code; confirmed absent, with a
+fast correct result, after the fix. Also required pointing the test's `WorkflowEnvironment` at
+`shared.temporal.converter.pydantic_data_converter` — the default converter can't encode
+`PostDatedHoldInput.release_date` (a plain `date` field) at all, a separate (harmless here) gap the default
+test setup would otherwise hit first.
+
+**Verified live, against the real Temporal docker stack — no mocks, no time-skipping:** started a real
+`PostDatedHoldWorkflow` with `release_date` 30 days out (so the fix's fast-wake behaviour, not just "it
+doesn't crash," is what's actually being proven), signalled `cancel_hold` after 3 real seconds, received
+`PostDatedHoldResult(status='CANCELLED', released_at=None)` in seconds — not 30 days. Confirmed the real row
+in `cts.postdated_holds`:
+```
+{'instrument_id': 'SLEEPFIX-LIVE-VERIFY-001', 'bank_id': 'kbl', 'status': 'CANCELLED',
+ 'cancel_reason': 'live-verify stop-payment',
+ 'held_at': datetime.datetime(2026, 9, 22, 21, 26, 42, ...),
+ 'cancelled_at': datetime.datetime(2026, 9, 22, 21, 26, 45, ...)}  # ~3s later, matching the live test
+```
+The RELEASED path's child-`ChequeProcessingWorkflow`-start was **not** separately live-verified in this
+entry (it needs a real `ChequeWorkflowInput`-shaped `original_workflow_data`, which is a different concern
+from this fix) — the cancel path already exercises the same `wait_condition` fix this entry is about, against
+real infra, without that dependency.
+
+16/16 tests in the file pass; wider `tests/modules/cts/workflows/` suite: 1582 passed, 0 regressions.
+Commit (fix + tests + rules correction) pending push alongside this entry.
+
+**Status: `PostDatedHoldWorkflow` now genuinely completes a real run past the sleep line.** Combined with the
+previous entry, both `store_postdated_hold` (persistence) and the workflow's own orchestration are fixed and
+live-verified end to end for the cancel path. The release (no-cancel) path's full chain into
+`ChequeProcessingWorkflow` remains untested.
