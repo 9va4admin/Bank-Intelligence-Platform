@@ -128,6 +128,35 @@ class TestPlaceHold:
         assert r.status_code in (201, 500)  # 500 only if HoldResult import fails
 
 
+    def test_escalation_already_started_does_not_fail_the_hold(self):
+        """Real bug class: HoldEscalationWorkflow's id is deterministic per instrument
+        (cts-hold-escalation-{bank_id}-{instrument_id}); retriggering a hold on an instrument already being
+        escalated must not be treated as a failure."""
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+
+        class FakeTemporalClient:
+            async def start_workflow(self, fn, inp, *, id, task_queue):
+                raise WorkflowAlreadyStartedError(id, "HoldEscalationWorkflow")
+
+        ctx = _make_ctx(role=Role.OPS_REVIEWER)
+        with patch("modules.cts.hold.hold_service.HoldService.place_hold", new_callable=AsyncMock) as mock_place,              patch("temporalio.client.Client.connect", new=AsyncMock(return_value=FakeTemporalClient())),              patch("shared.config.config_service.config_service.get", new=AsyncMock(return_value="localhost:7233")):
+            from modules.cts.hold.hold_service import HoldRecord
+            mock_place.return_value = HoldRecord(
+                instrument_id="INST-004", bank_id="saraswat-coop",
+                held_by="reviewer1", held_at=1234567890.0,
+                iet_deadline=9999999999.0, hold_reason="TEST",
+            )
+            with patch("apps.api.routers.cts_holds.log") as mock_log:
+                client = TestClient(_make_app(ctx=ctx, db_pool=None))
+                r = client.post("/v1/cts/holds/INST-004", json=self._payload)
+        assert r.status_code == 201
+        # Must be logged as an expected, benign re-trigger — not as an escalation start failure.
+        warn_calls = [c.args[0] for c in mock_log.warning.call_args_list]
+        assert "hold.escalation.start_failed" not in warn_calls
+        info_calls = [c.args[0] for c in mock_log.info.call_args_list]
+        assert "hold.escalation.already_started" in info_calls
+
+
 # ---------------------------------------------------------------------------
 # GET /v1/cts/holds
 # ---------------------------------------------------------------------------
