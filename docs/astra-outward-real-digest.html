@@ -15,6 +15,7 @@ table.extract{width:100%;font-size:12px;border-collapse:collapse;margin:4px 0 8p
 table.extract td{padding:2px 6px;color:var(--fg);vertical-align:top}
 table.extract td:first-child{color:var(--mut);width:220px}
 .na{color:#b45309;font-style:italic}
+.xlit{color:#2563eb;font-style:italic}
 .trail{list-style:none;padding:0;margin:0;columns:2;font-size:12.5px} .trail li{padding:1px 0;break-inside:avoid}
 .p{color:#16a34a} .f{color:#dc2626;font-weight:600} .n{color:var(--mut)}
 .downstream{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
@@ -25,10 +26,11 @@ table.extract td:first-child{color:var(--mut);width:220px}
 @media(max-width:760px){.card{grid-template-columns:1fr}.trail{columns:1}.downstream{flex-direction:column}}
 </style></head><body>
 <h1>ASTRA — Outward pipeline, real-run digest</h1>
-<div class="sub">Generated 22 Sep 2026 13:30 · ALL 19 real KBL outward cheque images through the real <code>OutwardScanWorkflow</code> on a real Temporal worker; the 6 ACCEPTED went on through real endorsement, clearing session and NGCH submission · <span class='pill ok'>ACCEPTED: 6</span> <span class='pill rej'>CTS_REJECTED: 6</span> <span class='pill hold'>MISMATCH_HELD: 5</span> <span class='pill hold'>POST_DATED_HELD: 2</span> </div>
+<div class="sub">Generated 22 Sep 2026 13:56 · ALL 19 real KBL outward cheque images through the real <code>OutwardScanWorkflow</code> on a real Temporal worker; the 6 ACCEPTED went on through real endorsement, clearing session and NGCH submission · <span class='pill ok'>ACCEPTED: 6</span> <span class='pill rej'>CTS_REJECTED: 6</span> <span class='pill hold'>MISMATCH_HELD: 5</span> <span class='pill hold'>POST_DATED_HELD: 2</span> </div>
 <div class="box"><b>What is real:</b> Temporal workflow + worker, activities, cloud OCR on the actual images, AccountVault (Redis + YugabyteDB), Redis, ImmuDB audit writes, MinIO, Kafka, lot assignment, endorsement stamping, clearing-session + NGCH submission (dev-stub NGCH — no NPCI sandbox exists).<br>
 <b>Stand-ins (labelled):</b> CBS = dev stub with seeded accounts · NGCH = dev stub · depositor account numbers are synthetic and entered teller-style (no deposit slips exist) · payee name shown as "not extracted by OCR" where the OCR model genuinely did not return one — not hidden or fabricated.<br>
 <b>AI model honesty:</b> no local GPU/vLLM models are running in this dev environment. OCR falls back to HF cloud (Qwen2.5-VL) — labelled per cheque above with confidence + engines used. ‡ Signature detection, security-feature checks and the vision amount cross-check have no local vision model either; they run their documented graceful-degradation path (see check&nbsp;=&nbsp;activity completed, not necessarily a genuine trained-model validation). A green checkmark means the real Temporal activity ran and returned PROCEED — it does not by itself mean a trained AI model examined the image.<br>
+<b>Multi-script OCR (real, confirmed live):</b> Indic-script zone refinement (GOT-OCR2/HF-cloud &rarr; detect script &rarr; crop the field's zone &rarr; call the IndicOCR sidecar) genuinely ran tonight and replaced one field (<code>amount_words</code> on 058475, devanagari, confirmed in the worker log). Only 3 of 19 cheques had any Indic-script text in an extracted field at all — most payee names on this real cheque set were printed in Latin script already. Zone refinement depends on the field's expected pixel region matching a standard cheque layout; these are photographs of different banks' real cheques (DCB, Canara, UCO, Indian Bank, Karnataka Bank...), not standardised scans, so it does not fire for every non-Latin field. Where OCR returned Indic-script text (<span class='xlit'>blue italic</span>), an English transliteration is now shown alongside it — generated live from the real <code>payee_normalizer.transliterate_by_script()</code> already in this codebase, using its dependency-free phonemic engine (the optional neural transliterator, <code>ai4bharat-transliteration</code>, is not installed in this dev environment — confirmed by the <code>indicxlit_unavailable_phonemic_fallback</code> log line). This is an approximation, not a trained model: e.g. राजू पटेल &rarr; "raju patela" (a native speaker would write "Raju Patel").<br>
 <b>Limitations:</b> * no rear images exist, so the front image is passed as the rear — the endorsement stamp is deliberately small and confined to the top-left corner so it never lands on the signature/amount/payee · † images are photos, not scanner captures, so <code>cts.strict_image_quality=false</code> is set for the dev bank only (explicit config row, never a default).</div>
 
 <div class="card hold">
@@ -38,7 +40,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>00000 24 560 2400 231 075480 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹1,462,500</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹1,462,500</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Fourteen lakh Sixty two thousand &amp; five hundred only</td></tr>
       <tr><td>Date (OCR)</td><td>09-10-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>JAGADISH.V</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -57,7 +60,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>00078757602800200033630</code></td></tr>
       <tr><td>MICR (persisted, canonical)</td><td><code>cheque 000787 &middot; routing 576028002 &middot; tx 30</code></td></tr><tr><td>Account (masked, persisted)</td><td><code>****0336</code></td></tr><tr><td>Amount (persisted, paise-exact)</td><td>₹2,334.00</td></tr><tr><td>Cheque date (persisted)</td><td>2026-09-15</td></tr>
-      <tr><td>Amount (OCR)</td><td>₹2,334</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹2,334</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Two Thousand Three Hundred Thirty Four Only</td></tr>
       <tr><td>Date (OCR)</td><td>15-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>SRI KRISHNA AGENCY</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -86,7 +90,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>0107521 573697007 0120831 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹1,425,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹1,425,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Date (OCR)</td><td>10-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -105,7 +110,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>027776 5776976501 010518 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹3,050</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹3,050</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>three thousand fifty only</td></tr>
       <tr><td>Date (OCR)</td><td>01-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>Shringar Vastira Bhandar.</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -124,7 +130,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>058475 5600720041 099288 29</code></td></tr>
       <tr><td>MICR (persisted, canonical)</td><td><code>cheque 058475 &middot; routing 560072004 &middot; tx 29</code></td></tr><tr><td>Account (masked, persisted)</td><td><code>****9288</code></td></tr><tr><td>Amount (persisted, paise-exact)</td><td>₹6,885.00</td></tr><tr><td>Cheque date (persisted)</td><td>2026-09-11</td></tr>
-      <tr><td>Amount (OCR)</td><td>₹6,885</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹6,885</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>अदा करें। [₹| €&#x27; <span class='xlit'>(English, approx.: ada karen [₹| €&#x27;)</span></td></tr>
       <tr><td>Date (OCR)</td><td>11-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -153,7 +160,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>09597 6000160230 00005629</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹42,518</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹42,518</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Rupees Forty Two Thousand Five Hundred Eighteen Only</td></tr>
       <tr><td>Date (OCR)</td><td>15-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>M/s Radha Stores</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -172,7 +180,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>KBL Karnatak Bank Ltd. 052 101701 4000150441 003116 29</code></td></tr>
       <tr><td>MICR (persisted, canonical)</td><td><code>cheque 101701 &middot; routing 400015044 &middot; tx 29</code></td></tr><tr><td>Account (masked, persisted)</td><td><code>****3116</code></td></tr><tr><td>Amount (persisted, paise-exact)</td><td>₹5,000.00</td></tr><tr><td>Cheque date (persisted)</td><td>2026-09-10</td></tr>
-      <tr><td>Amount (OCR)</td><td>₹5,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹5,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>पाच हजार एकमेव शून्य पैसे केल <span class='xlit'>(English, approx.: pacha hajara ekameva shunya paise kela)</span></td></tr>
       <tr><td>Date (OCR)</td><td>10-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -201,7 +210,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>154120 5730155390 003133 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹500,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹500,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Date (OCR)</td><td>30-08-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -220,7 +230,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>284250 5600150741 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹1,000,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹1,000,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Ten Lakh rupees only</td></tr>
       <tr><td>Date (OCR)</td><td>10-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>Parvathi</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -239,7 +250,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>307384 5860150031 0030511 31</code></td></tr>
       <tr><td>MICR (persisted, canonical)</td><td><code>cheque 307384 &middot; routing 586015003 &middot; tx 31</code></td></tr><tr><td>Account (masked, persisted)</td><td><code>****0511</code></td></tr><tr><td>Amount (persisted, paise-exact)</td><td>₹2,309,700.00</td></tr><tr><td>Cheque date (persisted)</td><td>2026-09-09</td></tr>
-      <tr><td>Amount (OCR)</td><td>₹2,309,700</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹2,309,700</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Date (OCR)</td><td>09-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -268,9 +280,10 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>990900001 353138 400019025 372948 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹30,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹30,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>RUPEES तीस हजार सोला <span class='xlit'>(English, approx.: RUPEES tisa hajara sola)</span></td></tr>
       <tr><td>Date (OCR)</td><td>10-09-2026</td></tr>
-      <tr><td>Payee (OCR, printed on cheque)</td><td>राजू पटेल</td></tr>
+      <tr><td>Payee (OCR, printed on cheque)</td><td>राजू पटेल <span class='xlit'>(English, approx.: raju patela)</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
           <td>राजू पटेल &middot; a/c 7011353138 (synthetic)</td></tr>
       <tr><td>Drawee / bank text (OCR, may be noisy)</td><td>ANITA DEVI</td></tr>
@@ -287,7 +300,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>361125 585002015 000058 30</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹9,080</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹9,080</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Nine Thousand Eighty Only</td></tr>
       <tr><td>Date (OCR)</td><td>17-10-2020</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>Adinath</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -306,7 +320,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>374098 560013008 0199226 11</code></td></tr>
       <tr><td>MICR (persisted, canonical)</td><td><code>cheque 374098 &middot; routing 560013008 &middot; tx 11</code></td></tr><tr><td>Account (masked, persisted)</td><td><code>****9226</code></td></tr><tr><td>Amount (persisted, paise-exact)</td><td>₹14,000.00</td></tr><tr><td>Cheque date (persisted)</td><td>2026-09-10</td></tr>
-      <tr><td>Amount (OCR)</td><td>₹14,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹14,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>fourteen thousand only</td></tr>
       <tr><td>Date (OCR)</td><td>10-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>KBMPARAJA</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -335,7 +350,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>432440 577015210 001189 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹177,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹177,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>ONE LAKH SEVENTY SEVEN ONLY</td></tr>
       <tr><td>Date (OCR)</td><td>— (not extracted)</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -354,7 +370,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>620339 560226375</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹900,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹900,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>NINE LAKH ONLY</td></tr>
       <tr><td>Date (OCR)</td><td>15-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>NARASIMHA MURHY.C</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -373,7 +390,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>721153 5710026031 002727 31</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹9,200</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹9,200</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Rupees Ninety Two Thousand Only</td></tr>
       <tr><td>Date (OCR)</td><td>03-02-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -392,7 +410,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>84139056001901918373831</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹325,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹325,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Three lakh twenty five thousands only</td></tr>
       <tr><td>Date (OCR)</td><td>10-09-2027</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>N. Chander Mohan</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -411,7 +430,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>956963 560012007 20198316</code></td></tr>
       <tr><td>MICR (persisted, canonical)</td><td><code>cheque 956963 &middot; routing 560012007 &middot; tx 16</code></td></tr><tr><td>Account (masked, persisted)</td><td><code>****1983</code></td></tr><tr><td>Amount (persisted, paise-exact)</td><td>₹75,600.00</td></tr><tr><td>Cheque date (persisted)</td><td>2026-09-05</td></tr>
-      <tr><td>Amount (OCR)</td><td>₹7,560,000</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹7,560,000</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Seventy Five Thousand Six Hundred only</td></tr>
       <tr><td>Date (OCR)</td><td>05-09-2026</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td><span class='na'>not extracted by OCR</span></td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
@@ -440,7 +460,8 @@ table.extract td:first-child{color:var(--mut);width:220px}
     <table class="extract">
       <tr><td>MICR line (raw OCR)</td><td><code>9901221 560176005 010173 29</code></td></tr>
       
-      <tr><td>Amount (OCR)</td><td>₹17,464</td></tr>
+      <tr><td>Amount (OCR figures)</td><td>₹17,464</td></tr>
+      <tr><td>Amount (OCR, in words)</td><td>Seventeen thousand four hundred sixty four only</td></tr>
       <tr><td>Date (OCR)</td><td>12-09-2024</td></tr>
       <tr><td>Payee (OCR, printed on cheque)</td><td>M/S NECESSITY RUBBER PRODUCTS</td></tr>
       <tr><td>Depositor (teller-entered, real input)</td>
