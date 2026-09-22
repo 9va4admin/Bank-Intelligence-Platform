@@ -88,12 +88,11 @@ class LotStore:
         if time_hhmmss is None:
             time_hhmmss = datetime.now(timezone.utc).strftime("%H%M%S")
 
-        instrument_ids = await self._fetch_lot_instrument_ids(bank_id, lot_number)
+        instrument_rows = await self._fetch_lot_instruments(bank_id, lot_number)
 
-        if not instrument_ids:
+        if not instrument_rows:
             return self._upload_empty_lot(lot_number, bank_id, bank_ifsc, clearing_date)
 
-        instrument_rows = await self._fetch_instrument_details(bank_id, instrument_ids)
         instrument_inputs = self._build_instrument_inputs(instrument_rows, date_ddmmyyyy, lot_number)
 
         # Import here to avoid circular imports at module load time
@@ -186,37 +185,26 @@ class LotStore:
             raise ValueError(f"bank {bank_id} not found in platform.banks")
         return {"bank_name": row["bank_name"], "branch_name": row["branch_name"]}
 
-    async def _fetch_lot_instrument_ids(self, bank_id: str, lot_number: str) -> List[str]:
-        """Returns instrument_ids for ACCEPTED events in this lot."""
-        async with self._db.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT instrument_id
-                FROM cts.outward_scan_events
-                WHERE lot_id = $1
-                  AND bank_id = $2
-                  AND outcome = 'ACCEPTED'
-                  AND instrument_id IS NOT NULL
-                ORDER BY scanned_at
-                """,
-                lot_number,
-                bank_id,
-            )
-        return [r["instrument_id"] for r in rows]
-
-    async def _fetch_instrument_details(self, bank_id: str, instrument_ids: List[str]) -> List[dict]:
+    async def _fetch_lot_instruments(self, bank_id: str, lot_number: str) -> List[dict]:
         """
-        Fetches all CHI Spec Rev 3.00 fields needed by InstrumentBuildInput.
+        Fetches all CHI Spec Rev 3.00 fields needed by InstrumentBuildInput, for every instrument in this lot.
 
-        Columns: standard cts.cheque_instruments fields plus the extended columns
-        added for CHI Spec compliance (payor_bank_rout_no, presenting_bank_rout_no,
-        trans_code, doc_type, image MinIO keys, image dimensions).
+        Historical bug (found live): this used to look up instrument_ids from cts.outward_scan_events (which
+        carries the scan's own text id, e.g. "058475-fc7a") and then query cheque_instruments by
+        `instrument_id = ANY(those ids)` — but cheque_instruments.instrument_id is a UUID column
+        (persist_outward_instrument.py maps the scan id through to_instrument_uuid), so the query raised
+        "invalid UUID" the moment a real lot reached this path. cheque_instruments already carries its own
+        lot_id (added alongside that mapping), so this queries it directly — one lookup, no id translation.
+
+        Columns: standard cts.cheque_instruments fields plus the extended columns added for CHI Spec
+        compliance (payor_bank_rout_no, presenting_bank_rout_no, trans_code, doc_type, image MinIO keys,
+        image dimensions).
         """
         async with self._db.acquire() as conn:
             rows = await conn.fetch(
                 """
                 SELECT
-                    instrument_id,
+                    instrument_id::text AS instrument_id,
                     cheque_number,
                     micr_code,
                     drawee_ifsc,
@@ -237,11 +225,12 @@ class LotStore:
                     bit_depth,
                     cycle_no
                 FROM cts.cheque_instruments
-                WHERE instrument_id = ANY($1)
+                WHERE lot_id = $1
                   AND bank_id = $2
-                ORDER BY array_position($1::text[], instrument_id)
+                  AND direction = 'OUTWARD'
+                ORDER BY received_at
                 """,
-                instrument_ids,
+                lot_number,
                 bank_id,
             )
         return [dict(r) for r in rows]
