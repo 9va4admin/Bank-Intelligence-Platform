@@ -1161,6 +1161,11 @@ def _build_hsm_signer(config_service: Any, bank_id: str) -> Any:
         return signer
     except Exception as exc:
         log.warning("worker_activities.hsm_signer_unavailable", bank_id=bank_id, error=str(exc))
+        import os
+        if os.environ.get("ASTRA_ENV", "").lower() == "development":
+            from shared.hsm.dev_stub_hsm import DevStubHSMSigner
+            log.warning("worker_activities.hsm_dev_stub_active", bank_id=bank_id)
+            return DevStubHSMSigner()
         return None
 
 
