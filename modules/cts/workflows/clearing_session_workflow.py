@@ -186,7 +186,11 @@ class ClearingSessionWorkflow:
             if submitted_lots:
                 await workflow.execute_activity(
                     mark_lots_submitted,
-                    MarkLotsSubmittedInput(bank_id=inp.bank_id, lot_ids=submitted_lots),
+                    MarkLotsSubmittedInput(
+                        bank_id=inp.bank_id, lot_ids=submitted_lots,
+                        lot_refs={r["lot_id"]: r["ngch_reference"] for r in lot_results
+                                 if r["outcome"] == "SUBMITTED" and r["ngch_reference"]},
+                    ),
                     start_to_close_timeout=timedelta(seconds=15),
                     retry_policy=_CBS_RETRY,
                 )

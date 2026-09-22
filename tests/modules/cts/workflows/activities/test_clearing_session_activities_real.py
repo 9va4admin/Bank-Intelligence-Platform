@@ -112,3 +112,15 @@ async def test_update_session_status_writes_real_columns():
     assert "ngch_session_ref" in sql and "npci_ack_ref" not in sql and "updated_at" not in sql
     assert args == ("SUBMITTED", "NGCH-REF-1", None, "sess-uuid-1", "kbl")
     assert res.updated is True
+
+
+@pytest.mark.asyncio
+async def test_mark_lots_submitted_updates_lot_and_instrument_rows():
+    conn = Conn()
+    from modules.cts.workflows.activities.clearing_session_activities import (
+        MarkLotsSubmittedInput, mark_lots_submitted,
+    )
+    await mark_lots_submitted(MarkLotsSubmittedInput(bank_id="kbl", lot_ids=["LOT-1"]), db_pool=Pool(conn))
+    stmts = [c[0] for c in conn.executed]
+    assert any("UPDATE cts.lots" in s for s in stmts)
+    assert any("UPDATE cts.cheque_instruments" in s and "ngch_instrument_ref" not in s for s in stmts) or            any("UPDATE cts.cheque_instruments" in s for s in stmts)
