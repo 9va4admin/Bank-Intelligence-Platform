@@ -80,33 +80,45 @@ class TestMSVValidateRoute:
         }, headers=_auth_headers())
         assert resp.status_code == 200
 
+    def _account_meta(self):
+        from modules.msv.mandates.models import AccountMandateMeta, MandateRule, MandateRuleType
+        return AccountMandateMeta(
+            account_hash="hash123", bank_id="kotak-mah", operation_type="S",
+            mandate=MandateRule(rule_type=MandateRuleType.ALL_OF, mandatory_ids=["SIG-1"]),
+            signatories=[],
+        )
+
     def test_already_started_deterministic_workflow_returns_started_not_pending(self):
         """Real bug class: MSVValidationWorkflow's id is deterministic per instrument
         (msv-{bank_id}-{instrument_id}). Before this fix, a retriggered validation hit
         WorkflowAlreadyStartedError, which the bare `except Exception` treated the same as Temporal being
         unreachable — the caller was told WORKFLOW_PENDING (nothing started) when a validation was in fact
-        already running."""
+        already running. Exercises the REAL MSVWorkflowInput/MSVInput construction (msv.py used to build it
+        with the wrong flat-field shape entirely; fixed the same day as this test)."""
         from apps.api.routers.msv import router_v1, get_current_user_context
         from shared.auth.rbac import Role, UserContext
         from temporalio.exceptions import WorkflowAlreadyStartedError
 
+        captured = {}
+
         class FakeTemporal:
             async def start_workflow(self, fn, inp, *, id, task_queue):
+                captured["inp"] = inp
                 raise WorkflowAlreadyStartedError(id, "MSVValidationWorkflow")
 
         app = FastAPI()
         app.include_router(router_v1)
         app.state.temporal_client = FakeTemporal()
+        app.state.db_pool_cts = MagicMock()
+        app.state.config_service = MagicMock()
         app.dependency_overrides[get_current_user_context] = lambda: UserContext(
             user_id="test-user", role=Role.OPS_MANAGER,
             bank_id="kotak-mah", bank_type="SB",
         )
         client = TestClient(app, raise_server_exceptions=False)
 
-        # MSVWorkflowInput actually needs nested msv_input/account_meta objects — a separate, pre-existing
-        # bug in this handler's construction call (out of scope here; flagged separately). Stub it so this
-        # test isolates the WorkflowAlreadyStartedError handling this fix targets.
-        with patch("modules.msv.workflows.msv_workflow.MSVWorkflowInput", side_effect=lambda **kw: kw):
+        with patch("modules.msv.mandates.repository.load_account_mandate_meta",
+                   new=AsyncMock(return_value=self._account_meta())):
             resp = client.post("/v1/msv/validate", json={
                 "instrument_id": "CHQ-002",
                 "bank_id": "kotak-mah",
@@ -115,6 +127,37 @@ class TestMSVValidateRoute:
             }, headers=_auth_headers())
         assert resp.status_code == 200
         assert resp.json()["reason_code"] == "WORKFLOW_STARTED"
+        # The real MSVWorkflowInput/MSVInput pydantic models must round-trip without error.
+        assert captured["inp"].msv_input.instrument_id == "CHQ-002"
+        assert captured["inp"].account_meta.account_hash == "hash123"
+
+    def test_mandate_not_found_routes_to_human_review_not_a_default(self):
+        """Vault-miss philosophy: no mandate on record must never be treated as a permissive pass, and
+        must not be conflated with Temporal being unavailable."""
+        from apps.api.routers.msv import router_v1, get_current_user_context
+        from modules.msv.mandates.repository import MandateNotFoundError
+        from shared.auth.rbac import Role, UserContext
+
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.state.temporal_client = MagicMock()
+        app.state.db_pool_cts = MagicMock()
+        app.state.config_service = MagicMock()
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="test-user", role=Role.OPS_MANAGER,
+            bank_id="kotak-mah", bank_type="SB",
+        )
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.msv.mandates.repository.load_account_mandate_meta",
+                   new=AsyncMock(side_effect=MandateNotFoundError("no row"))):
+            resp = client.post("/v1/msv/validate", json={
+                "instrument_id": "CHQ-003", "bank_id": "kotak-mah",
+                "account_number": "1234567890", "cheque_image_url": "minio://bucket/img.jpg",
+            }, headers=_auth_headers())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["outcome"] == "AMBER" and body["reason_code"] == "MANDATE_NOT_FOUND"
 
     def test_missing_instrument_id_returns_422(self):
         from apps.api.routers.msv import router_v1, get_current_user_context
