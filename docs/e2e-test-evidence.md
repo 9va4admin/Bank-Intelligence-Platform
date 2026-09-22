@@ -355,3 +355,71 @@ in this real sample stopped at the OCR-quality gate — consistent with the 2026
 that OCR quality, not pipeline logic, is the dominant blocker on this photographed, sub-CTS-2010-DPI image set),
 `HumanReviewWorkflow`'s reviewer-decision signal path (queued but not actioned in this run), `IETWatchdogWorkflow`
 actually firing (no cheque ran past its IET deadline in this run).
+
+---
+
+## 2026-09-22 21:20–21:35 IST — `store_postdated_hold` fix: 4 stacked bugs, each found live by fixing the last
+
+Follow-up to the `store_postdated_hold.db_error` finding flagged in the previous entry. Real stack throughout:
+real Temporal worker (bank_id=kbl), real YugabyteDB, real `PostDatedHoldWorkflow` started directly via a real
+Temporal client (`shared.temporal.converter.pydantic_data_converter` — required for the workflow's `date`-typed
+input field to encode at all). No mocks anywhere in this verification pass; each fix below was confirmed live
+before moving to the next, not assumed from the diff.
+
+**Bug 1 (the one reported):** `store_postdated_hold` / `mark_hold_cancelled`
+(`modules/cts/workflows/activities/postdated_hold_activities.py`) called `config_service.get("db.cts.dsn")`
+without awaiting it — `config_service.get` is a coroutine function, so `dsn` was a `coroutine` object, not a
+string. `asyncpg.connect(dsn)` then failed deep inside asyncpg's own DSN parsing:
+`'coroutine' object has no attribute 'decode'`, exactly as reported. Fixed by switching to
+`await config_service.get_secret("db.cts.dsn")` — both the missing `await` and the correct method, matching
+the convention `worker_activities.py`'s `_build_db_pool` already uses for this same key.
+
+**Bug 2 (found live immediately after fixing bug 1):** the very next live run failed differently —
+`RuntimeError: config_service.initialise() has not been awaited`. This activity imports the raw
+`config_service` module-level singleton with no defensive check, unlike `outward_scan_activities.py`'s
+`validate_cts2010` and `persist_outward_instrument.py`, which already carry `if not config_service._ready:
+await config_service.initialise()` for exactly this reason. Bug 1's coroutine error had been masking this
+entirely — a plain `config_service.get(...)` call (unawaited) never actually executes the method body, so
+`_assert_ready()` was never reached until bug 1 was fixed. Fixed with the same established guard.
+
+**Bug 3 (found live immediately after fixing bug 2):** `conn.execute(...)` then failed on the `$3::date`
+argument: `invalid input for query argument $3: '2026-09-27' ('str' object has no attribute 'toordinal')` —
+asyncpg's default DATE codec only binds from a real `date` object, and `release_date` is passed through as
+the ISO string it already is on the activity's dict input. Same failure mode already solved elsewhere in this
+codebase (`shared/db/codecs.py`'s `register_lenient_codecs`, commit `d423d46`, used by
+`persist_outward_instrument.py`) — just never applied to this module. Fixed by calling
+`register_lenient_codecs(conn)` right after connecting, in both activities.
+
+**Bug 4 (found live immediately after fixing bug 3):** the next argument failed the same way —
+`invalid input for query argument $4: '...' (expected a datetime.date or datetime.datetime instance, got
+'str')` for `held_at`/`cancelled_at`. `register_lenient_codecs` only registers a codec for the DATE type, not
+TIMESTAMPTZ. Fixed locally in this module (`_parse_timestamptz()`, not by widening the shared codec, to keep
+the blast radius to what was actually tested here) for both fields.
+
+**Verified live, end to end, after all 4 fixes:** started a real `PostDatedHoldWorkflow` via a real Temporal
+client against the real worker; the real `store_postdated_hold` activity wrote a real row to
+`cts.postdated_holds`:
+```
+{'instrument_id': 'POSTDATED-FIX-VERIFY-FINAL2', 'bank_id': 'kbl',
+ 'release_date': datetime.date(2026, 9, 27), 'status': 'PENDING',
+ 'held_at': datetime.datetime(2026, 9, 22, 16, 5, 35, 585926, tzinfo=datetime.timezone.utc),
+ 'cancel_reason': None, 'cancelled_at': None,
+ 'created_at': datetime.datetime(2026, 9, 22, 16, 5, 35, 793870, tzinfo=datetime.timezone.utc)}
+```
+Correct types throughout — a real `date` and real `datetime` objects, not strings. Commit `f03e470`.
+10 regression tests (`tests/modules/cts/workflows/activities/test_postdated_hold_activities.py`), each
+confirmed RED against the pre-fix code before being fixed GREEN (bug 2's guard tests were reverted and
+re-run live to confirm RED, per TDD discipline — bugs 1/3/4 were reproduced RED naturally since the test file
+was written before each corresponding fix). Wider suite: `tests/modules/cts/workflows/` 1580 passed, 0
+regressions.
+
+**A 5th, separate bug found in this same live verification, NOT fixed here (out of scope, flagged
+separately, `task_c127dd2a`):** with the activity now genuinely persisting, the *workflow* itself
+(`PostDatedHoldWorkflow.run`, `modules/cts/workflows/postdated_hold_workflow.py:95`) then failed its own
+workflow task: `AttributeError: module 'temporalio.workflow' has no attribute 'sleep'` on
+`await workflow.sleep(timedelta(days=days_remaining))`. This is a wrong/nonexistent Temporal SDK API call,
+not an activity-layer bug — `.claude/rules/temporal.md` itself documents `workflow.sleep()` as the correct
+deterministic-sleep API, which may mean that rule needs correcting too. **`PostDatedHoldWorkflow` cannot
+currently complete a real run past this point** — the DB write happens (confirmed above), but the workflow
+then fails its task repeatedly. This is the actual current status: the persistence layer this entry set out
+to fix is fixed and verified; the workflow that calls it is separately broken one level up.
