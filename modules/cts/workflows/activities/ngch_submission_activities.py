@@ -220,7 +220,7 @@ async def confirm_acknowledgement(
             )
 
         try:
-            ack = await ngch_client.query_status(reference=inp.ngch_reference)
+            ack = await ngch_client.query_status_outward(reference=inp.ngch_reference)
             acknowledged = getattr(ack, "acknowledged", False)
             log.info(
                 "confirm_acknowledgement.result",
