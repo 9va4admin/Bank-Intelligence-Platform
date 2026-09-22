@@ -703,3 +703,29 @@ class TestWorkerRegistersItsStoreForImageFetching:
         with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
             client = await _build_minio_client(cfg)
         assert image_fetch._default_store is client is store_cls.return_value
+
+
+class TestBuildHsmSigner:
+    """Real live run: VaultTransitSigner.from_env() has no Vault Transit key in dev, so
+    _build_hsm_signer returned None, and NGCHSigner crashed with 'NoneType' object has no attribute 'sign'
+    the first time a real outward lot reached HSM signing. In ASTRA_ENV=development, fall back to
+    DevStubHSMSigner instead of None."""
+
+    def test_falls_back_to_dev_stub_when_vault_unavailable_in_development(self, monkeypatch):
+        monkeypatch.setenv("ASTRA_ENV", "development")
+        from modules.cts.worker_activities import _build_hsm_signer
+        from shared.hsm.dev_stub_hsm import DevStubHSMSigner
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=Exception("no vault key configured"))
+        signer = _build_hsm_signer(fake_cfg, "kbl")
+        assert isinstance(signer, DevStubHSMSigner)
+        assert len(signer.sign(b"x")) == 256
+
+    def test_returns_none_outside_development_when_vault_unavailable(self, monkeypatch):
+        monkeypatch.setenv("ASTRA_ENV", "production")
+        from modules.cts.worker_activities import _build_hsm_signer
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=Exception("no vault key configured"))
+        assert _build_hsm_signer(fake_cfg, "kbl") is None
