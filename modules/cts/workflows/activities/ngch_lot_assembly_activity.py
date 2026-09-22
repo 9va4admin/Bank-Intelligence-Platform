@@ -66,6 +66,8 @@ async def build_and_upload_ngch_files(
     Raises ValueError when no ACCEPTED instruments are found for the lot (caller
     must not submit an empty lot to NGCH).
     """
+    if isinstance(inp, dict):
+        inp = FetchAndBuildInput(**inp)
     with tracer.start_as_current_span("activity.build_and_upload_ngch_files") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("lot_number", inp.lot_number)

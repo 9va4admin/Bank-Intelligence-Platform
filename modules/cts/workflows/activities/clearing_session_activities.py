@@ -96,6 +96,8 @@ async def seal_all_lots(
     ensure the clearing_sessions row exists, and return the lots with the routing metadata NGCH filing needs.
     Degrades gracefully when db_pool is None.
     """
+    if isinstance(inp, dict):
+        inp = SealAllLotsInput(**inp)
     with tracer.start_as_current_span("activity.seal_all_lots") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if db_pool is None:
@@ -166,6 +168,8 @@ class MarkLotsSubmittedInput(BaseModel):
 @activity.defn
 async def mark_lots_submitted(inp: MarkLotsSubmittedInput, db_pool: Any = None) -> None:
     """Move successfully-filed lots past ENDORSED so a later session on the same date never re-picks them."""
+    if isinstance(inp, dict):
+        inp = MarkLotsSubmittedInput(**inp)
     if db_pool is None or not inp.lot_ids:
         return
     async with db_pool.acquire() as conn:
@@ -203,6 +207,8 @@ async def update_session_status(
     Mark the clearing session record in YugabyteDB with its terminal status.
     Degrades gracefully when db_pool is None.
     """
+    if isinstance(inp, dict):
+        inp = UpdateSessionStatusInput(**inp)
     with tracer.start_as_current_span("activity.update_session_status") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if db_pool is None:
