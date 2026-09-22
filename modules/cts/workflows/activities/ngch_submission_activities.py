@@ -42,6 +42,8 @@ class BuildNGCHFileResult(BaseModel):
     file_path: str           # MinIO object key for the CXF file
     checksum_sha256: str
     instrument_count: int
+    cxf_filename: str = ""
+    cibf_filename: str = ""
 
 
 @activity.defn
@@ -57,6 +59,8 @@ async def build_ngch_file(
     lot_store and hsm are DI-injected. Falls back to a stub path when unavailable
     (submission will still be attempted — NGCH will reject if file is bad).
     """
+    if isinstance(inp, dict):
+        inp = BuildNGCHFileInput(**inp)
     with tracer.start_as_current_span("activity.build_ngch_file") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if lot_store is None:
@@ -92,6 +96,7 @@ async def build_ngch_file(
             file_path=file_path,
             checksum_sha256=checksum,
             instrument_count=inp.instrument_count,
+            cxf_filename=file_path.rsplit("/", 1)[-1],
         )
 
 
