@@ -247,3 +247,51 @@ class TestRateLimitMiddleware:
         assert resp.status_code != 429
         # Redis should not have been called for unknown paths
         redis_mock.pipeline.assert_not_called()
+
+
+class TestRateLimitDoesNotDoubleInvokeCallNext:
+    """Real live-run bug: an exception raised by the wrapped ROUTE (not by Redis) was caught by the same
+    `except Exception` as the Redis pipeline, which then called `call_next(request)` a SECOND time. Starlette's
+    request body/receive stream is only good for one call_next; the second call hangs forever, so every route
+    exception turned into a client-visible timeout instead of an error response."""
+
+    def test_route_exception_does_not_hang_or_call_route_twice(self):
+        redis_mock = AsyncMock()
+        pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock(return_value=[1, True])
+        redis_mock.pipeline = MagicMock(return_value=pipe_mock)
+
+        app = FastAPI()
+        app.state.redis_cts = redis_mock
+        calls = []
+
+        @app.get("/v1/cts/decisions/boom")
+        async def boom():
+            calls.append(1)
+            raise RuntimeError("Workflow execution already started")
+
+        app.add_middleware(RateLimitMiddleware)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/v1/cts/decisions/boom", headers={"Authorization": "Bearer test-token-hdfc"})
+
+        assert calls == [1], f"route handler invoked {len(calls)} times, expected exactly once"
+        assert resp.status_code == 500
+
+    def test_redis_pipeline_failure_still_falls_through_to_the_route(self):
+        """Regression guard: the legitimate fail-open path (Redis itself erroring) must keep working."""
+        redis_mock = AsyncMock()
+        pipe_mock = MagicMock()
+        pipe_mock.execute = AsyncMock(side_effect=ConnectionError("redis down"))
+        redis_mock.pipeline = MagicMock(return_value=pipe_mock)
+
+        app = FastAPI()
+        app.state.redis_cts = redis_mock
+
+        @app.get("/v1/cts/decisions/ok")
+        async def ok():
+            return PlainTextResponse("ok")
+
+        app.add_middleware(RateLimitMiddleware)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/v1/cts/decisions/ok", headers={"Authorization": "Bearer test-token-hdfc"})
+        assert resp.status_code == 200
