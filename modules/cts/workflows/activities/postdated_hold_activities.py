@@ -9,6 +9,8 @@ mark_hold_cancelled:  called when cancel_hold signal arrives before release date
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 import structlog
 from temporalio import activity
 
@@ -18,6 +20,16 @@ log = structlog.get_logger()
 tracer = get_tracer(__name__)
 
 
+def _parse_timestamptz(value):
+    """asyncpg's default TIMESTAMPTZ codec only binds from a real datetime object, not an
+    ISO string (confirmed live: 'invalid input for query argument ... expected a
+    datetime.date or datetime.datetime instance, got str'). register_lenient_codecs only
+    covers the DATE type, so this module converts its own timestamptz inputs explicitly."""
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value)
+
+
 @activity.defn(name="store_postdated_hold")
 async def store_postdated_hold(data: dict) -> None:
     """Persist a new post-dated cheque hold to YugabyteDB cts.postdated_holds."""
@@ -25,17 +37,21 @@ async def store_postdated_hold(data: dict) -> None:
         span.set_attribute("bank_id", data.get("bank_id", ""))
         span.set_attribute("instrument_id", data.get("instrument_id", ""))
         from shared.config.config_service import config_service
+        if not config_service._ready:
+            await config_service.initialise()
 
         instrument_id = data.get("instrument_id", "")
         bank_id = data.get("bank_id", "")
         release_date = data.get("release_date", "")
-        held_at = data.get("held_at", "")
+        held_at = _parse_timestamptz(data.get("held_at", ""))
 
-        dsn = config_service.get("db.cts.dsn")
+        dsn = await config_service.get_secret("db.cts.dsn")
         try:
             import asyncpg
+            from shared.db.codecs import register_lenient_codecs
             conn = await asyncpg.connect(dsn)
             try:
+                await register_lenient_codecs(conn)
                 await conn.execute(
                     """
                     INSERT INTO cts.postdated_holds
@@ -71,17 +87,21 @@ async def mark_hold_cancelled(data: dict) -> None:
         span.set_attribute("bank_id", data.get("bank_id", ""))
         span.set_attribute("instrument_id", data.get("instrument_id", ""))
         from shared.config.config_service import config_service
+        if not config_service._ready:
+            await config_service.initialise()
 
         instrument_id = data.get("instrument_id", "")
         bank_id = data.get("bank_id", "")
         cancel_reason = data.get("cancel_reason", "")
-        cancelled_at = data.get("cancelled_at", "")
+        cancelled_at = _parse_timestamptz(data.get("cancelled_at", ""))
 
-        dsn = config_service.get("db.cts.dsn")
+        dsn = await config_service.get_secret("db.cts.dsn")
         try:
             import asyncpg
+            from shared.db.codecs import register_lenient_codecs
             conn = await asyncpg.connect(dsn)
             try:
+                await register_lenient_codecs(conn)
                 await conn.execute(
                     """
                     UPDATE cts.postdated_holds
