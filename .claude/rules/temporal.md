@@ -122,8 +122,34 @@ worker = Worker(
 )
 ```
 
+## Deterministic Sleep — `workflow.sleep()` Does Not Exist in This SDK
+
+**Correction (2026-09-23):** an earlier version of this rule said "use `await workflow.sleep()`
+(deterministic)". Checked against the installed SDK (`temporalio==1.7.1`): there is no
+`workflow.sleep` — confirmed live, `PostDatedHoldWorkflow` failed its workflow task with
+`AttributeError: module 'temporalio.workflow' has no attribute 'sleep'` the first time that line
+ever actually ran. The correct deterministic-sleep idiom in this SDK is `workflow.wait_condition`
+with a `timeout`, which also composes correctly with a cancel/interrupt signal (a plain sleep
+cannot wake up early on a signal at all):
+
+```python
+try:
+    await workflow.wait_condition(
+        lambda: self._cancelled,   # or `lambda: False` for a pure, uninterruptible sleep
+        timeout=timedelta(days=days_remaining),
+    )
+except asyncio.TimeoutError:
+    pass   # timeout reached before the condition became true — this is the normal "woke up" path
+```
+
+Already used this way in `hold_escalation_workflow.py`, `human_review_workflow.py`,
+`iet_watchdog_workflow.py`. **Two other workflows still use the broken `workflow.sleep()` call and
+have never been verified to run past it: `feedback_workflow.py`, `platform_health_check_workflow.py`
+— open, not yet fixed.**
+
 ## Forbidden Patterns
-- `asyncio.sleep()` inside a workflow — use `await workflow.sleep()` (deterministic)
+- `asyncio.sleep()` inside a workflow, **and `workflow.sleep()` — it does not exist in this SDK
+  version** — use `await workflow.wait_condition(fn, timeout=...)` (see above)
 - `datetime.now()` inside a workflow — use `workflow.now()` (deterministic replay)
 - `random.random()` inside a workflow — use `workflow.random()` (deterministic replay)
 - Calling activities directly without retry policy (use standard retry constants above)
