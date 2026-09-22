@@ -67,9 +67,8 @@ def _mock_db(n_instruments: int = 2):
     pool = AsyncMock()
     pool.acquire = MagicMock(return_value=conn)
 
-    scan_rows = [{"instrument_id": f"INST-{i:03d}"} for i in range(1, n_instruments + 1)]
     instr_rows = [_instr_row(i) for i in range(1, n_instruments + 1)]
-    conn.fetch = AsyncMock(side_effect=[scan_rows, instr_rows])
+    conn.fetch = AsyncMock(return_value=instr_rows)
     return pool, conn
 
 
@@ -306,7 +305,7 @@ class TestEmptyLot:
         conn = AsyncMock()
         conn.__aenter__ = AsyncMock(return_value=conn)
         conn.__aexit__ = AsyncMock(return_value=False)
-        conn.fetch = AsyncMock(side_effect=[[], []])
+        conn.fetch = AsyncMock(return_value=[])
         pool = AsyncMock()
         pool.acquire = MagicMock(return_value=conn)
 
@@ -326,7 +325,7 @@ class TestEmptyLot:
         conn = AsyncMock()
         conn.__aenter__ = AsyncMock(return_value=conn)
         conn.__aexit__ = AsyncMock(return_value=False)
-        conn.fetch = AsyncMock(side_effect=[[], []])
+        conn.fetch = AsyncMock(return_value=[])
         pool = AsyncMock()
         pool.acquire = MagicMock(return_value=conn)
 
