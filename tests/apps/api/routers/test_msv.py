@@ -14,7 +14,7 @@ Security:
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _make_app():
@@ -79,6 +79,42 @@ class TestMSVValidateRoute:
             "cheque_image_url": "minio://bucket/img.jpg",
         }, headers=_auth_headers())
         assert resp.status_code == 200
+
+    def test_already_started_deterministic_workflow_returns_started_not_pending(self):
+        """Real bug class: MSVValidationWorkflow's id is deterministic per instrument
+        (msv-{bank_id}-{instrument_id}). Before this fix, a retriggered validation hit
+        WorkflowAlreadyStartedError, which the bare `except Exception` treated the same as Temporal being
+        unreachable — the caller was told WORKFLOW_PENDING (nothing started) when a validation was in fact
+        already running."""
+        from apps.api.routers.msv import router_v1, get_current_user_context
+        from shared.auth.rbac import Role, UserContext
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+
+        class FakeTemporal:
+            async def start_workflow(self, fn, inp, *, id, task_queue):
+                raise WorkflowAlreadyStartedError(id, "MSVValidationWorkflow")
+
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.state.temporal_client = FakeTemporal()
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="test-user", role=Role.OPS_MANAGER,
+            bank_id="kotak-mah", bank_type="SB",
+        )
+        client = TestClient(app, raise_server_exceptions=False)
+
+        # MSVWorkflowInput actually needs nested msv_input/account_meta objects — a separate, pre-existing
+        # bug in this handler's construction call (out of scope here; flagged separately). Stub it so this
+        # test isolates the WorkflowAlreadyStartedError handling this fix targets.
+        with patch("modules.msv.workflows.msv_workflow.MSVWorkflowInput", side_effect=lambda **kw: kw):
+            resp = client.post("/v1/msv/validate", json={
+                "instrument_id": "CHQ-002",
+                "bank_id": "kotak-mah",
+                "account_number": "1234567890",
+                "cheque_image_url": "minio://bucket/img.jpg",
+            }, headers=_auth_headers())
+        assert resp.status_code == 200
+        assert resp.json()["reason_code"] == "WORKFLOW_STARTED"
 
     def test_missing_instrument_id_returns_422(self):
         from apps.api.routers.msv import router_v1, get_current_user_context

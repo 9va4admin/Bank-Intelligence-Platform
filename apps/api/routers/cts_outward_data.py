@@ -431,18 +431,24 @@ async def endorse_batch(
             from modules.cts.workflows.batch_endorsement_workflow import (
                 BatchEndorsementWorkflow, BatchEndorsementInput,
             )
-            await temporal_client.start_workflow(
-                BatchEndorsementWorkflow.run,
-                BatchEndorsementInput(
-                    lot_number=body.lot_number,
-                    bank_id=bank_id,
-                    bank_ifsc=body.bank_ifsc,
-                    session_id=session_id,
-                    instrument_ids=body.instrument_ids,
-                ),
-                id=workflow_id,
-                task_queue=f"cts-processing-{bank_id}",
-            )
+            from temporalio.exceptions import WorkflowAlreadyStartedError
+            try:
+                await temporal_client.start_workflow(
+                    BatchEndorsementWorkflow.run,
+                    BatchEndorsementInput(
+                        lot_number=body.lot_number,
+                        bank_id=bank_id,
+                        bank_ifsc=body.bank_ifsc,
+                        session_id=session_id,
+                        instrument_ids=body.instrument_ids,
+                    ),
+                    id=workflow_id,
+                    task_queue=f"cts-processing-{bank_id}",
+                )
+            except WorkflowAlreadyStartedError:
+                # Expected on a retriggered lot: the workflow id is deterministic (per lot). The prior
+                # run's outcome stands; the caller should query it rather than expecting a new one.
+                log.info("cts.endorsement.already_started", lot_number=body.lot_number, workflow_id=workflow_id)
         except Exception as exc:
             log.error("cts.endorsement_trigger_failed", lot_number=body.lot_number, error=str(exc))
             raise HTTPException(

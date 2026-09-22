@@ -290,6 +290,7 @@ async def place_hold(
 
     try:
         from temporalio.client import Client as TemporalClient
+        from temporalio.exceptions import WorkflowAlreadyStartedError
         from modules.cts.workflows.hold_escalation_workflow import (
             HoldEscalationWorkflow, HoldEscalationInput,
         )
@@ -304,12 +305,17 @@ async def place_hold(
             held_at=record.held_at,
             branch_email=body.branch_email,
         )
-        await temporal_client.start_workflow(
-            HoldEscalationWorkflow.run,
-            escalation_input,
-            id=f"cts-hold-escalation-{bank_id}-{instrument_id}",
-            task_queue=f"cts-processing-{bank_id}",
-        )
+        try:
+            await temporal_client.start_workflow(
+                HoldEscalationWorkflow.run,
+                escalation_input,
+                id=f"cts-hold-escalation-{bank_id}-{instrument_id}",
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except WorkflowAlreadyStartedError:
+            # Expected on a retriggered hold: the workflow id is deterministic (per instrument). The prior
+            # escalation stands; this is not a failure.
+            log.info("hold.escalation.already_started", instrument_id=instrument_id, bank_id=bank_id)
     except Exception as _exc:
         log.warning("hold.escalation.start_failed", instrument_id=instrument_id,
                     bank_id=bank_id, error=str(_exc))

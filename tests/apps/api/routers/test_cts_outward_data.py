@@ -101,6 +101,22 @@ class TestEndorsementBatch:
             resp = c.post("/v1/cts/endorsement/batch", json=self._body)
         assert resp.status_code == 503
 
+    def test_already_started_deterministic_workflow_still_returns_202(self):
+        """Real bug class: BatchEndorsementWorkflow's id is deterministic per lot
+        (cts-endorse-{bank_id}-{lot_number}); retriggering endorsement for the same lot must succeed, not
+        surface WorkflowAlreadyStartedError as an unhandled 503."""
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+
+        class FakeTemporal:
+            async def start_workflow(self, fn, inp, *, id, task_queue):
+                raise WorkflowAlreadyStartedError(id, "BatchEndorsementWorkflow")
+
+        app = _make_app()
+        app.state.temporal_client = FakeTemporal()
+        with TestClient(app) as c:
+            resp = c.post("/v1/cts/endorsement/batch", json=self._body)
+        assert resp.status_code == 202, resp.text
+
 
 # ── 2. GET /outward/files/{filename}/download-url ─────────────────────────────
 

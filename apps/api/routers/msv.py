@@ -132,18 +132,25 @@ async def validate_signatures(
     if temporal_client is not None:
         try:
             from modules.msv.workflows.msv_workflow import MSVValidationWorkflow, MSVWorkflowInput
+            from temporalio.exceptions import WorkflowAlreadyStartedError
             workflow_id = f"msv-{body.bank_id}-{body.instrument_id}"
-            handle = await temporal_client.start_workflow(
-                MSVValidationWorkflow.run,
-                MSVWorkflowInput(
-                    instrument_id=body.instrument_id,
-                    bank_id=body.bank_id,
-                    account_number=body.account_number,
-                    cheque_image_url=body.cheque_image_url,
-                ),
-                id=workflow_id,
-                task_queue=f"msv-processing-{body.bank_id}",
-            )
+            try:
+                await temporal_client.start_workflow(
+                    MSVValidationWorkflow.run,
+                    MSVWorkflowInput(
+                        instrument_id=body.instrument_id,
+                        bank_id=body.bank_id,
+                        account_number=body.account_number,
+                        cheque_image_url=body.cheque_image_url,
+                    ),
+                    id=workflow_id,
+                    task_queue=f"msv-processing-{body.bank_id}",
+                )
+            except WorkflowAlreadyStartedError:
+                # Expected on a retriggered validation: the workflow id is deterministic (per instrument).
+                # The prior run's outcome stands; the caller should poll it rather than expecting a new one.
+                log.info("msv.workflow.already_started", workflow_id=workflow_id,
+                         instrument_id=body.instrument_id)
             log.info(
                 "msv.workflow.started",
                 workflow_id=workflow_id,
