@@ -65,11 +65,14 @@ class TestSealAllLotsDegraded:
             seal_all_lots, SealAllLotsInput,
         )
         fake_rows = [
-            {"pu_id": "PU-01", "lot_number": "LOT-001", "instrument_count": 5},
-            {"pu_id": "PU-02", "lot_number": "LOT-002", "instrument_count": 3},
+            {"pu_id": "PU-01", "lot_id": "LOT-001", "instrument_count": 5, "sequence_number": 1,
+             "branch_id": "br-1", "branch_ifsc": "TEST0000001", "routing_no": "TEST", "zone_id": "ZONE-1"},
+            {"pu_id": "PU-02", "lot_id": "LOT-002", "instrument_count": 3, "sequence_number": 1,
+             "branch_id": "br-2", "branch_ifsc": "TEST0000002", "routing_no": "TEST", "zone_id": "ZONE-1"},
         ]
         fake_conn = AsyncMock()
         fake_conn.fetch.return_value = fake_rows
+        fake_conn.fetchrow.return_value = {"zone_id": "ZONE-1", "center_id": "center-1"}
         db_pool = MagicMock()
         db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
         db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
