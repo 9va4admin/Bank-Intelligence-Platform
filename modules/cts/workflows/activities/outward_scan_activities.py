@@ -589,6 +589,7 @@ async def vision_extract_and_check(
                 indic_refined_fields, _ = await _refine_indic_zones(
                     inp.image_front_url, inp.instrument_id,
                     _indic_fields, indic_ocr_url, min_confidence, indic_min_confidence,
+                    bank_id=inp.bank_id, config_service=config_service,
                 )
                 if "payee" in indic_refined_fields:
                     payee = _indic_fields["payee"][0]

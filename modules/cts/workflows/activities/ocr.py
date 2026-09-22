@@ -32,6 +32,7 @@ from modules.cts.scanner.micr import MICRParser
 from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
+from shared.ai.hf_cloud_fallback import call_hf_vision, cloud_fallback_enabled
 from shared.ai.model_cascade import CascadeOrchestrator
 
 from shared.observability.otel_setup import get_tracer
@@ -201,6 +202,7 @@ async def ocr_extract(
             indic_refined, indic_backend = await _refine_indic_zones(
                 inp.image_url, inp.instrument_id, fields,
                 indic_ocr_url, min_confidence, indic_min_confidence,
+                bank_id=inp.bank_id, config_service=config_service,
             )
             if indic_refined:
                 engines_used.append(indic_backend)
@@ -444,6 +446,60 @@ async def _extract_tesseract(
 
 # ── Stage 2 ───────────────────────────────────────────────────────────────────
 
+_CLOUD_VLM_INDIC_CONFIDENCE_CAP = 0.65   # below any realistic min_confidence gate — see docstring
+
+
+async def _cloud_vlm_refine_zone(
+    zone_bytes: bytes, field: str, config_service: Any,
+) -> Optional[tuple[str, float]]:
+    """Last-resort zone-level retry against the cloud VLM when the IndicOCR service's own result
+    doesn't clear indic_min_confidence.
+
+    Found live 2026-09-22: PaddleOCR and Tesseract both fail on handwritten Indic script — tested
+    against a real cheque's handwritten Kannada payee name, PaddleOCR returned garbage
+    ("YPhg be ?"), Tesseract returned empty text. The cloud VLM (already the Stage 1 fallback) read
+    the same crop correctly. Gated by cts.allow_cloud_ai_fallback — same opt-in, off-by-default
+    config used by _extract_hf_cloud; never called unless the bank has explicitly enabled it.
+    Returns None on any failure or when the model itself reports it couldn't read the text —
+    never fabricates a value.
+    """
+    _field_hint = {
+        "payee": "the PAYEE NAME only — the person or company being paid, usually after 'Pay' — "
+                 "ignore any amount, currency figure, or amount-in-words also visible in this crop",
+        "amount_words": "the AMOUNT WRITTEN IN WORDS only — ignore any payee name also visible in this crop",
+    }.get(field, field)
+    prompt = (
+        f"This is a small crop from an Indian bank cheque, in an Indic script. Read {_field_hint}, "
+        f"exactly as handwritten or printed, in its native script — do not translate or "
+        f"transliterate it. Respond in JSON only: "
+        f'{{"value": "<native-script text, or null if illegible or not present in this crop>", '
+        f'"confidence": <0.0-1.0>}}.'
+    )
+    try:
+        content = await call_hf_vision(config_service, zone_bytes, prompt)
+        if content is None:
+            return None
+        text = content.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        data = json.loads(text)
+        value = data.get("value")
+        confidence = float(data.get("confidence", 0.0))
+    except Exception:
+        return None
+    if not value or detect_script(value) != "indic":
+        return None
+    # Never trust the model's self-reported confidence at face value: observed live, it can
+    # confidently (0.9+) hallucinate fluent-looking text with no relation to the actual image on
+    # illegible handwriting. Cap well under any realistic min_confidence gate so a cloud-VLM
+    # reading always still needs the same human-review path a genuine low-confidence OCR result
+    # would get — it is a best-effort assist, never an authoritative replacement.
+    capped_confidence = min(confidence, _CLOUD_VLM_INDIC_CONFIDENCE_CAP)
+    return value, capped_confidence
+
+
 async def _refine_indic_zones(
     image_url: str,
     instrument_id: str,
@@ -452,6 +508,8 @@ async def _refine_indic_zones(
     min_confidence: float,
     indic_min_confidence: float,
     field_to_zone: Optional[dict[str, str]] = None,
+    bank_id: str = "",
+    config_service: Any = None,
 ) -> tuple[list[str], str]:
     """
     For each SCRIPT_ADAPTIVE result field that contains Indic text (or has low
@@ -462,6 +520,9 @@ async def _refine_indic_zones(
     field_to_zone maps result-field names to zone names — defaults to the
     inward _RESULT_FIELD_TO_ZONE mapping; callers on a different path (e.g.
     outward vision_extract_and_check) may pass their own mapping.
+
+    bank_id/config_service: when given, a field that IndicOCR could not confidently read is
+    retried once against the cloud VLM (see _cloud_vlm_refine_zone) before being left as-is.
     """
     _ftz = field_to_zone if field_to_zone is not None else _RESULT_FIELD_TO_ZONE
 
@@ -512,6 +573,18 @@ async def _refine_indic_zones(
                 log.info("ocr.indic_refined",
                          instrument_id=instrument_id, field=result_field,
                          script=script, confidence=indic_conf)
+            elif config_service is not None and await cloud_fallback_enabled(config_service, bank_id):
+                cloud_result = await _cloud_vlm_refine_zone(buf.getvalue(), result_field, config_service)
+                if cloud_result is not None:
+                    cloud_text, cloud_conf = cloud_result
+                    fields[result_field] = (cloud_text, cloud_conf)
+                    refined.append(result_field)
+                    scripts_seen.add(script)
+                    backend_used = "hf-cloud-indic"
+                    log.info("ocr.indic_refined_via_cloud_vlm",
+                             instrument_id=instrument_id, field=result_field,
+                             script=script, confidence=cloud_conf,
+                             indic_ocr_confidence=indic_conf)
 
         except Exception as exc:
             log.warning("ocr.indic_zone_failed",
