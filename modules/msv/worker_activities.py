@@ -17,6 +17,13 @@ to it under the exact same name the workflow calls.
 Each real dependency is constructed independently; one failing must never
 prevent others from starting. Failed dependency → None → activity's own
 graceful-degradation path already handles None.
+
+2026-09-22 rewrite: every dependency construction below was previously called with the wrong
+constructor signature (SignatoryRegistry(), AccountEnroller(), SignatureDetector(),
+SignatureEmbeddingModel() all with zero args; a nonexistent shared.cbs_connector.factory module;
+ImmudbClient.connect(collection=...) missing host/port/username/password) — all silently swallowed
+by broad except blocks, so this module has never actually initialised a working dependency in any
+real run. No test file existed for it before today.
 """
 from __future__ import annotations
 
@@ -95,6 +102,106 @@ class BoundMSVActivities:
         ]
 
 
+async def _get_pii_pepper(config_service: Any, bank_id: str) -> str:
+    try:
+        return await config_service.get_secret("pii_hash_pepper")
+    except Exception as exc:
+        log.warning("msv.worker.pii_pepper_unavailable", bank_id=bank_id, error=str(exc))
+        return ""
+
+
+async def _build_db_pool(config_service: Any) -> Any:
+    """asyncpg pool for the msv schema tables — same DSN as CTS (one YugabyteDB cluster,
+    separate schema, per infra/migrations/msv/20260709_create_msv_schema.py)."""
+    try:
+        import asyncpg
+        dsn = await config_service.get_secret("db.cts.dsn")
+        from shared.db.codecs import register_lenient_codecs
+        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, command_timeout=30,
+                                         init=register_lenient_codecs)
+        log.info("msv.worker.db_pool_ready")
+        return pool
+    except Exception as exc:
+        log.warning("msv.worker.db_pool_unavailable", error=str(exc))
+        return None
+
+
+async def _build_redis_client(config_service: Any) -> Any:
+    try:
+        import redis.asyncio as aioredis
+        redis_url = await config_service.get_secret("redis.cts.url")
+        client = aioredis.from_url(redis_url, decode_responses=False)
+        await client.ping()
+        log.info("msv.worker.redis_client_ready")
+        return client
+    except Exception as exc:
+        log.warning("msv.worker.redis_client_unavailable", error=str(exc))
+        return None
+
+
+async def _build_immudb_client(config_service: Any, bank_id: str) -> Any:
+    try:
+        from shared.audit.immudb_client import ImmudbClient
+        from shared.audit.immudb_writer import AsyncImmudbWriter
+        host = config_service.get_platform("immudb.host")
+        port = int(config_service.get_platform("immudb.port"))
+        username = await config_service.get_secret("immudb.username")
+        password = await config_service.get_secret("immudb.password")
+        client = ImmudbClient()
+        client.connect(host=host, port=port, bank_id=bank_id, collection=f"msv_{bank_id}",
+                       username=username, password=password)  # sync — immudb-py is sync
+        log.info("msv.worker.immudb_ready", bank_id=bank_id)
+        return AsyncImmudbWriter(client)
+    except Exception as exc:
+        log.warning("msv.worker.immudb_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+async def _build_cbs_connector(config_service: Any, bank_id: str) -> Any:
+    """Same _CONNECTOR_CLASSES pattern as modules/cts/worker_activities.py._build_cbs_connector —
+    the module this used to import (shared.cbs_connector.factory) does not exist."""
+    from shared.cbs_connector.finacle import FinacleCBSConnector
+    from shared.cbs_connector.bancs import BaNCSCBSConnector
+    from shared.cbs_connector.flexcube import FlexCubeCBSConnector
+    from shared.cbs_connector.dev_stub import DevStubCBSConnector
+
+    _CONNECTOR_CLASSES = {
+        "finacle": FinacleCBSConnector,
+        "bancs": BaNCSCBSConnector,
+        "flexcube": FlexCubeCBSConnector,
+        "dev_stub": DevStubCBSConnector,   # dev/test only — refuses outside ASTRA_ENV=development
+    }
+    try:
+        connector_type = config_service.get_platform("cbs.connector.type")
+        base_url = config_service.get_platform("cbs.base_url")
+        cls = _CONNECTOR_CLASSES.get(connector_type.lower())
+        if cls is None:
+            log.warning("msv.worker.cbs_connector_unknown_type", connector_type=connector_type)
+            return None
+        pepper = await _get_pii_pepper(config_service, bank_id)
+        connector = cls(base_url=base_url, bank_id=bank_id, pepper=pepper)
+        connector.connect()  # sync — all three CBS connectors expose a sync connect()
+        log.info("msv.worker.cbs_ready", bank_id=bank_id, cbs_type=connector_type)
+        return connector
+    except Exception as exc:
+        log.warning("msv.worker.cbs_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+async def _build_vllm_client(config_service: Any) -> Any:
+    """OpenAI-compatible client shared by SignatureDetector and SignatureEmbeddingModel — same
+    vLLM server as CTS, MSV-specific queues (msv-detect / msv-embeddings) passed per-call."""
+    try:
+        from openai import AsyncOpenAI
+        base_url = await config_service.get("vllm.url")
+        client = AsyncOpenAI(base_url=f"{base_url.rstrip('/')}/v1", api_key="x-istio", max_retries=0)
+        log.info("msv.worker.vllm_client_ready")
+        return client
+    except Exception as exc:
+        log.warning("msv.worker.vllm_client_unavailable", error=str(exc))
+        return None
+
+
 async def build_bound_activities(
     bank_id: str,
     config_service=None,
@@ -111,30 +218,16 @@ async def build_bound_activities(
     cbs_connector = None
     enroller = None
 
-    # ── Immudb writer ────────────────────────────────────────────────────────
-    try:
-        from shared.audit.immudb_writer import AsyncImmudbWriter
-        from shared.audit.immudb_client import ImmudbClient
+    db_pool = await _build_db_pool(config_service) if config_service else None
+    redis_client = await _build_redis_client(config_service) if config_service else None
 
-        raw_client = ImmudbClient()
-        raw_client.connect(collection=f"msv_{bank_id}")
-        immudb_client = AsyncImmudbWriter(raw_client)
-        log.info("msv.worker.immudb_ready", bank_id=bank_id)
-    except Exception as exc:
-        log.warning("msv.worker.immudb_unavailable", bank_id=bank_id, error=str(exc))
+    # ── Immudb writer ────────────────────────────────────────────────────────
+    if config_service:
+        immudb_client = await _build_immudb_client(config_service, bank_id)
 
     # ── CBS connector ────────────────────────────────────────────────────────
-    try:
-        from shared.cbs_connector.factory import build_cbs_connector  # type: ignore
-        cbs_type = (
-            config_service.get_platform("cbs_connector_type")
-            if config_service
-            else "finacle"
-        )
-        cbs_connector = build_cbs_connector(cbs_type, bank_id=bank_id)
-        log.info("msv.worker.cbs_ready", bank_id=bank_id, cbs_type=cbs_type)
-    except Exception as exc:
-        log.warning("msv.worker.cbs_unavailable", bank_id=bank_id, error=str(exc))
+    if config_service:
+        cbs_connector = await _build_cbs_connector(config_service, bank_id)
 
     # ── SignatureOrchestrator (needs detector + embedding model + registry + BRE) ─
     try:
@@ -144,9 +237,10 @@ async def build_bound_activities(
         from modules.msv.vaults.signatory_registry import SignatoryRegistry
         from modules.msv.mandates.bre_engine import BREEngine
 
-        detector = SignatureDetector()
-        embedding_model = SignatureEmbeddingModel()
-        registry = SignatoryRegistry()
+        vllm_client = await _build_vllm_client(config_service) if config_service else None
+        detector = SignatureDetector(vllm_client)
+        embedding_model = SignatureEmbeddingModel(vllm_client)
+        registry = SignatoryRegistry(redis_client, db_pool, config_service)
         bre_engine = BREEngine()
         orchestrator = SignatureOrchestrator(
             detector=detector,
@@ -162,7 +256,18 @@ async def build_bound_activities(
     # ── AccountEnroller ──────────────────────────────────────────────────────
     try:
         from modules.msv.enrollment.account_enroller import AccountEnroller
-        enroller = AccountEnroller()
+        from modules.msv.enrollment.progress_tracker import EnrollmentProgressTracker
+        from modules.msv.ai.signature_detector import SignatureDetector
+        from modules.msv.ai.embedding_model import SignatureEmbeddingModel
+        from modules.msv.vaults.signatory_registry import SignatoryRegistry
+
+        # Independent instances from the orchestrator's — a failure building the orchestrator above
+        # must not also take down enrollment (and vice versa).
+        enroll_vllm_client = await _build_vllm_client(config_service) if config_service else None
+        enroll_embedding_model = SignatureEmbeddingModel(enroll_vllm_client)
+        enroll_registry = SignatoryRegistry(redis_client, db_pool, config_service)
+        progress_tracker = EnrollmentProgressTracker(db_pool)
+        enroller = AccountEnroller(cbs_connector, enroll_embedding_model, enroll_registry, progress_tracker)
         log.info("msv.worker.enroller_ready", bank_id=bank_id)
     except Exception as exc:
         log.warning("msv.worker.enroller_unavailable", bank_id=bank_id, error=str(exc))
