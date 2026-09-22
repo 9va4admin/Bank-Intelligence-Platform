@@ -81,6 +81,14 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 
 **External OPA remains optional:** a bank that already runs OPA may set the `opa.url` platform value and the worker will use `OPAClient` instead. The `.rego` files stay as the reference for that path.
 
+### 2.7 IndicOCR Sidecar — PaddleOCR Was Never Installed (fixed 2026-09-22); Handwritten Accuracy Is Open
+
+**Found on a real run (2026-09-22):** `apps/indic_ocr` (the Stage 2 Indic OCR sidecar) had no `requirements.txt` and no Dockerfile — it only ever ran from a hand-assembled local `.venv`, so `paddlepaddle`/`paddleocr` (the primary multi-script engine the whole service exists for) were never installed anywhere. Every real Indic OCR call in dev fell back to Tesseract, confirmed live by `indic_ocr.backend_failed_cascading backend=paddle error='PaddleOCR not installed.'` on every request.
+
+**Fixed:** `apps/indic_ocr/requirements.txt` + `Dockerfile` added. Install is two steps (see the requirements.txt header comment for why): `pip install -r requirements.txt` then `pip install --force-reinstall --no-deps "opencv-contrib-python>=4.9,<5"` — paddleocr 2.7.3 pins an opencv build that predates NumPy 2.0 and crashes on import; a single-pass install leaves three conflicting `cv2` packages on disk. Verified from a clean venv, and against the real `tests/integration/test_indic_ocr_real_service.py` suite (7/7 passing against the live restarted service, not mocked).
+
+**Open, unsolved:** PaddleOCR's and Tesseract's stock models are both trained on printed text. Tested live against a real handwritten Kannada payee name (from an actual KBL cheque): PaddleOCR returned `"YPhg be ?"` (wrong), Tesseract returned empty text, both near-zero genuine confidence. Neither backend reliably reads handwritten Indic script today — this is model capability, not a wiring bug, and remains open. Candidate direction: route handwritten Indic zones to the cloud vision-LLM fallback (already used for Stage 1) instead of a classical OCR engine, not yet implemented.
+
 ---
 
 ## 3. Technology Stack (Final — Locked)
@@ -116,7 +124,7 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 | LLM Inference Server | vLLM (on-prem GPU, OpenAI-compatible API) |
 | Vision LLM (cheque) | Qwen2-VL 72B → `cts-vision` queue |
 | OCR — Stage 1 | GOT-OCR2.0 (MICR, handwriting, all fields) → `cts-ocr` queue |
-| OCR — Stage 2 (Indic) | IndicOCR / PaddleOCR v3 — 9 scripts (hi bn pa gu or ta te kn ml) → Direct HTTP, CPU sidecar, port 8021 · kill switch: `cts.indic_ocr.kill_mode` (KP/KC) · triggered when Indic script detected in Stage 1 |
+| OCR — Stage 2 (Indic) | IndicOCR (`apps/indic_ocr`) — cascades PaddleOCR 2.7.3 (devanagari/tamil/telugu/kannada; needs `apps/indic_ocr/requirements.txt` install — see §2.7) → Tesseract 5 + tessdata_fast (covers bengali/gurmukhi/gujarati/odia/malayalam, plus the paddle fallback for the other four) → EasyOCR → CPU sidecar, port 8021 · kill switch: `cts.indic_ocr.kill_mode` (KP/KC) · triggered when Indic script detected in Stage 1 · **printed text only — neither backend reliably reads handwritten Indic script yet, open item, see §2.7** |
 | Reasoning LLM | Llama 3.3 70B → `cts-reasoning` queue |
 | Signature Verification | Siamese Neural Network (PyTorch, custom trained) |
 | Fraud Scoring | XGBoost ensemble + SHAP + LLM explainer |
