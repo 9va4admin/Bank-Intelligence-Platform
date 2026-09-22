@@ -230,3 +230,68 @@ JPEG when the source is JPEG; `platform.banks.bank_name` still carries the "DEV 
 
 **Not tested:** clearing-session submission of lots, NGCH file build (CXF/CIBF, HSM signing), NGCH submission,
 session reconciliation, RRF. **Status: outward pipeline works through ENDORSEMENT only.**
+
+---
+
+## 2026-09-22 10:15 IST — Outward clearing session + NGCH submission — WORKING end to end (dev-stub NGCH)
+
+Same real stack as the 22:15/23:40 entries (real API, Temporal worker, YugabyteDB, MinIO; dev CBS/NGCH stand-ins
+only). Continuation of the 2026-09-21 23:40 entry, which left the clearing-session stage completely broken.
+
+**Verified live, in this order, through the real API:** scan (3 cheques ACCEPTED, one full `cheque_instruments`
+row each) → lot sealed → `POST /endorsement/batch` (BatchEndorsementWorkflow COMPLETED, real stamped image in
+MinIO) → `POST /outward/clearing-session/submit` → `ClearingSessionWorkflow` COMPLETED with
+**outcome=SUBMITTED**, a real dev-stub NGCH reference (`NGCH-DEV-E58E231286845AC1`), `cts.lots.status='SUBMITTED'`,
+`cts.clearing_sessions.status='SUBMITTED'` with `ngch_session_ref` set, and (fixed in the same stretch, verified
+by unit test only — see below) `cts.cheque_instruments` moved to `status='FILED'` with `ngch_instrument_ref` set.
+
+**Every one of these was a real, previously-unexamined bug — the clearing-session code path had never worked
+before today.** Each was found by an actual run against real infra, fixed with a failing-then-passing test, and
+re-run live:
+1. `seal_all_lots` looked up lots by a caller-invented session id no lot ever carried, and by `status='SEALED'`
+   after endorsement had already moved them to `ENDORSED` — always returned zero lots.
+2. `cts.clearing_sessions.center_id` is a required FK to `cts.processing_centers` → `cts.clearing_zones`, and
+   nothing anywhere creates either — self-healing get-or-create added.
+3. The session submitted ONE fake "consolidated" lot with an empty IFSC to NGCH; fixed to submit one
+   `NGCHSubmissionWorkflow` per real lot.
+4. `update_session_status` called with `ngch_reference=` against a model field named `npci_ack_ref` — pydantic
+   silently dropped it; and the SQL wrote columns (`npci_ack_ref`, `updated_at`) that don't exist on the table.
+5. **`cts.cheque_instruments` had no partitions from 2026-09-01 onward** — every insert (inward AND outward)
+   was failing platform-wide until migration 026.
+6. Temporal's data converter could not decode a `date` field on a plain dataclass — the post-dated-cheque hold
+   workflow was silently broken.
+7. Five `RetryPolicy(maximum_attempts=None)` across the workflow modules are invalid in this Temporal SDK
+   (`0` means unlimited) — every one made its workflow task fail forever on that activity.
+8. `NGCHSubmissionWorkflow` called `build_and_upload_ngch_files`, a second, independent, never-working
+   implementation written against the inward data model (`cts.cheque_image_metadata`, ids cross-referenced
+   against a UUID column) — rewired to the actually-tested `build_ngch_file` (LotStore-backed). Two existing
+   unit tests had encoded the wrong one as correct; corrected.
+9. HSM signer: no Vault Transit key exists in dev, so `_build_hsm_signer` returned `None` and NGCH signing
+   crashed — added `DevStubHSMSigner` (labelled, `ASTRA_ENV=development`-gated, same pattern as the CBS/NGCH
+   dev stubs).
+10. **Outward NGCH submission had no adapter method at all** — `submit_outward_lot` / `query_status_outward`
+    existed on neither `DevStubNGCHAdapter` nor the real `NGCHAdapter`. Added to the dev stub (auto-acknowledges);
+    the real adapter now raises `NotImplementedError` with a clear message (there is no NPCI-facing outward
+    transport yet — matches `docs/npci-readiness-plan.md`).
+11. Separately: the rate-limit middleware called `call_next(request)` a second time whenever the wrapped route
+    raised — this silently turned every unhandled route exception across the ENTIRE API into a client-visible
+    hang instead of a 500. Also fixed clearing-session submit not catching `WorkflowAlreadyStartedError` on its
+    deterministic workflow id.
+12. `mark_lots_submitted` only updated the lot row, leaving `cheque_instruments` stuck at `ACCEPTED` forever —
+    fixed to also set `status='FILED'`, `filed_at`, `ngch_instrument_ref`. **Verified by unit test only — not
+    re-run live** (would need a fresh scanner session for 2026-09-22; the existing lot was already consumed by
+    the successful run above).
+
+**Known, documented, un-fixed gaps in this same path:**
+- `submit_to_ngch`'s `cibf_file_path` is always `None` — `LotStore.build_ngch_file` uploads the CIBF image
+  bundle to MinIO but does not return its key.
+- Real NGCH concurrency (multiple lots/sessions racing on `cts.lots` row updates) produced YugabyteDB
+  serialization errors during earlier concurrent scanning; Temporal retries absorbed them for low concurrency,
+  untested at scale.
+- `cts.processing_centers` / `cts.clearing_zones` are populated only by this self-healing code path — no
+  onboarding flow creates them ahead of time.
+- `platform.banks.bank_name` for `kbl` still carries a "DEV SEED" label, visible on the endorsement stamp.
+
+**Not yet tested at all:** session reconciliation (`fetch_ngch_settlement_report` / `match_submitted_vs_settled`),
+RRF generation. **Status: outward pipeline is verified working end-to-end through NGCH submission. Reconciliation
+and RRF are the next untested stage.**
