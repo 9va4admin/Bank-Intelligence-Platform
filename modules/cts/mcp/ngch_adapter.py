@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import ssl
 import tempfile
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 import structlog
 
@@ -189,6 +189,22 @@ class NGCHAdapter:
         except Exception as exc:
             log.error("ngch_adapter.query_status.failed", instrument_id=instrument_id, error=str(exc))
             raise NGCHUnavailableError(f"NGCH query_status failed: {exc}") from exc
+
+    async def submit_outward_lot(self, bank_ifsc: str, lot_number: str, file_path: str,
+                                 cibf_file_path: Optional[str], checksum: str) -> str:
+        """Outward clearing (CXF/CIBF filing) has no NPCI-facing transport yet — see
+        docs/npci-readiness-plan.md. Fail loudly rather than AttributeError so a bank running this
+        adapter without ngch.dev_stub gets a clear, actionable error instead of a confusing crash."""
+        raise NotImplementedError(
+            "NGCHAdapter.submit_outward_lot: NPCI outward transport (SFTP/API filing of CXF+CIBF) is not "
+            "yet implemented — see docs/npci-readiness-plan.md. Use ngch.dev_stub for non-production testing."
+        )
+
+    async def query_status_outward(self, reference: str) -> None:
+        raise NotImplementedError(
+            "NGCHAdapter.query_status_outward: NPCI outward transport is not yet implemented — "
+            "see docs/npci-readiness-plan.md."
+        )
 
     def get_inward_instruments(self, pxf_xml_bytes: bytes) -> List["InwardInstrument"]:
         """Parse a PXF XML payload from NGCH and return per-instrument records.

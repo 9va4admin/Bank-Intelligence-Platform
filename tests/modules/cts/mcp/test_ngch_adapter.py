@@ -345,3 +345,23 @@ class TestNGCHAdapterConnectWithConfigService:
             await adapter.connect(config_service=config_service)
 
         assert adapter._ready is False
+
+
+class TestOutwardNotImplemented:
+    """Outward NGCH filing has no real NPCI transport yet — must fail loudly (NotImplementedError), not
+    AttributeError, so a misconfigured bank gets an actionable message instead of a crash."""
+
+    @pytest.mark.asyncio
+    async def test_submit_outward_lot_raises_not_implemented(self):
+        from modules.cts.mcp.ngch_adapter import NGCHAdapter
+        a = NGCHAdapter(bank_id="kbl", base_url="https://example.invalid")
+        with pytest.raises(NotImplementedError):
+            await a.submit_outward_lot(bank_ifsc="KARB0000001", lot_number="LOT-1", file_path="x",
+                                       cibf_file_path=None, checksum="c")
+
+    @pytest.mark.asyncio
+    async def test_query_status_outward_raises_not_implemented(self):
+        from modules.cts.mcp.ngch_adapter import NGCHAdapter
+        a = NGCHAdapter(bank_id="kbl", base_url="https://example.invalid")
+        with pytest.raises(NotImplementedError):
+            await a.query_status_outward(reference="NGCH-1")

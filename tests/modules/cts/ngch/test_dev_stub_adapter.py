@@ -45,3 +45,43 @@ def test_refuses_outside_development(monkeypatch):
     monkeypatch.setenv("ASTRA_ENV", "production")
     with pytest.raises(RuntimeError, match="development"):
         DevStubNGCHAdapter(bank_id="kbl").connect()
+
+
+# ---------------------------------------------------------------------------
+# Outward: submit_outward_lot / query_status_outward
+#
+# Real live-run bug: NGCHSubmissionWorkflow's submit_to_ngch/confirm_acknowledgement activities call
+# these two methods, which existed on neither the dev stub nor the real NGCHAdapter — outward NGCH
+# submission had never been exercised end to end. The dev stub auto-acknowledges (no async NGCH
+# pipeline to simulate), matching every other dev stand-in's spirit of "just enough to complete
+# end-to-end", and stays idempotent per lot_number.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_submit_outward_lot_returns_a_reference(stub):
+    ref = await stub.submit_outward_lot(bank_ifsc="KARB0000001", lot_number="LOT-1",
+                                        file_path="cxf/LOT-1", cibf_file_path=None, checksum="abc")
+    assert ref.startswith("NGCH-DEV-")
+
+
+@pytest.mark.asyncio
+async def test_submit_outward_lot_idempotent_per_lot(stub):
+    ref1 = await stub.submit_outward_lot(bank_ifsc="KARB0000001", lot_number="LOT-1",
+                                         file_path="cxf/LOT-1", cibf_file_path=None, checksum="abc")
+    ref2 = await stub.submit_outward_lot(bank_ifsc="KARB0000001", lot_number="LOT-1",
+                                         file_path="cxf/LOT-1", cibf_file_path=None, checksum="abc")
+    assert ref1 == ref2
+
+
+@pytest.mark.asyncio
+async def test_query_status_outward_acknowledged_after_submit(stub):
+    ref = await stub.submit_outward_lot(bank_ifsc="KARB0000001", lot_number="LOT-2",
+                                        file_path="cxf/LOT-2", cibf_file_path=None, checksum="abc")
+    ack = await stub.query_status_outward(reference=ref)
+    assert ack.acknowledged is True and ack.reason is None
+
+
+@pytest.mark.asyncio
+async def test_query_status_outward_unknown_reference_not_acknowledged(stub):
+    ack = await stub.query_status_outward(reference="NGCH-DEV-never-submitted")
+    assert ack.acknowledged is False and ack.reason
