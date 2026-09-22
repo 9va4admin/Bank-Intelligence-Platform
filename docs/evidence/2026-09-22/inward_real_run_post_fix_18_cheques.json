@@ -1,0 +1,128 @@
+{
+  "086054": {
+    "instrument_id": "IW-kbl-086054",
+    "workflow_id": "cts-kbl-IW-kbl-086054",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "121421": {
+    "instrument_id": "IW-kbl-121421",
+    "workflow_id": "cts-kbl-IW-kbl-121421",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "134251": {
+    "instrument_id": "IW-kbl-134251",
+    "workflow_id": "cts-kbl-IW-kbl-134251",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "134919": {
+    "instrument_id": "IW-kbl-134919",
+    "workflow_id": "cts-kbl-IW-kbl-134919",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "168376": {
+    "instrument_id": "IW-kbl-168376",
+    "workflow_id": "cts-kbl-IW-kbl-168376",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "226663": {
+    "instrument_id": "IW-kbl-226663",
+    "workflow_id": "cts-kbl-IW-kbl-226663",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "496100": {
+    "instrument_id": "IW-kbl-496100",
+    "workflow_id": "cts-kbl-IW-kbl-496100",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_MODEL_UNAVAILABLE"
+  },
+  "513691": {
+    "instrument_id": "IW-kbl-513691",
+    "workflow_id": "cts-kbl-IW-kbl-513691",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "533684": {
+    "instrument_id": "IW-kbl-533684",
+    "workflow_id": "cts-kbl-IW-kbl-533684",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "567048": {
+    "instrument_id": "IW-kbl-567048",
+    "workflow_id": "cts-kbl-IW-kbl-567048",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "644628": {
+    "instrument_id": "IW-kbl-644628",
+    "workflow_id": "cts-kbl-IW-kbl-644628",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_MODEL_UNAVAILABLE"
+  },
+  "671004": {
+    "instrument_id": "IW-kbl-671004",
+    "workflow_id": "cts-kbl-IW-kbl-671004",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "673677": {
+    "instrument_id": "IW-kbl-673677",
+    "workflow_id": "cts-kbl-IW-kbl-673677",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "813125": {
+    "instrument_id": "IW-kbl-813125",
+    "workflow_id": "cts-kbl-IW-kbl-813125",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "915526": {
+    "instrument_id": "IW-kbl-915526",
+    "workflow_id": "cts-kbl-IW-kbl-915526",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_MODEL_UNAVAILABLE"
+  },
+  "953374": {
+    "instrument_id": "IW-kbl-953374",
+    "workflow_id": "cts-kbl-IW-kbl-953374",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "990134": {
+    "instrument_id": "IW-kbl-990134",
+    "workflow_id": "cts-kbl-IW-kbl-990134",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  },
+  "997344": {
+    "instrument_id": "IW-kbl-997344",
+    "workflow_id": "cts-kbl-IW-kbl-997344",
+    "workflow_status": "HUMAN_REVIEW",
+    "decision": "HUMAN_REVIEW",
+    "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']"
+  }
+}
