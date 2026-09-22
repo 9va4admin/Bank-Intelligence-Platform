@@ -127,21 +127,58 @@ async def validate_signatures(
         user_id=ctx.user_id,
     )
 
+    # Load the account's real mandate + enrolled signatories before starting the workflow —
+    # MSVWorkflowInput needs both (msv_input + account_meta), not the four flat fields this handler used
+    # to pass directly to it (a pydantic ValidationError every real call, silently swallowed below).
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    redis_client = getattr(request.app.state, "redis_cts", None)
+    config_svc = getattr(request.app.state, "config_service", None)
+    if db_pool is not None and config_svc is not None:
+        try:
+            from modules.msv.mandates.repository import MandateNotFoundError, load_account_mandate_meta
+            from modules.msv.vaults.signatory_registry import SignatoryRegistry
+            registry = SignatoryRegistry(redis_client, db_pool, config_svc)
+            account_meta = await load_account_mandate_meta(
+                bank_id=body.bank_id, account_number=body.account_number,
+                db_pool=db_pool, registry=registry,
+            )
+        except MandateNotFoundError:
+            # Vault-miss philosophy (CLAUDE.md): no mandate on record → human review, never a fabricated
+            # permissive default and never silently treated the same as "Temporal unavailable".
+            log.warning("msv.mandate.not_found", instrument_id=body.instrument_id, bank_id=body.bank_id)
+            return MSVValidateResponse(
+                instrument_id=body.instrument_id, outcome="AMBER", confidence=0.0,
+                reason_code="MANDATE_NOT_FOUND",
+                reason_message="No mandate on record for this account — routed to human review.",
+                matched_signatories=[], detected_sig_count=0, mandate_rule_type="UNKNOWN",
+                audit_tx_id=None, request_id=request_id,
+            )
+        except Exception as exc:
+            log.error("msv.mandate.load_failed", instrument_id=body.instrument_id, error=str(exc))
+            account_meta = None
+    else:
+        account_meta = None
+
     # Start MSVValidationWorkflow via Temporal client when available.
     temporal_client = getattr(request.app.state, "temporal_client", None)
-    if temporal_client is not None:
+    if temporal_client is not None and account_meta is not None:
         try:
-            from modules.msv.workflows.msv_workflow import MSVValidationWorkflow, MSVWorkflowInput
+            from modules.msv.workflows.msv_workflow import (
+                MSVInput, MSVValidationWorkflow, MSVWorkflowInput,
+            )
             from temporalio.exceptions import WorkflowAlreadyStartedError
             workflow_id = f"msv-{body.bank_id}-{body.instrument_id}"
             try:
                 await temporal_client.start_workflow(
                     MSVValidationWorkflow.run,
                     MSVWorkflowInput(
-                        instrument_id=body.instrument_id,
-                        bank_id=body.bank_id,
-                        account_number=body.account_number,
-                        cheque_image_url=body.cheque_image_url,
+                        msv_input=MSVInput(
+                            instrument_id=body.instrument_id,
+                            bank_id=body.bank_id,
+                            account_number=body.account_number,
+                            cheque_image_url=body.cheque_image_url,
+                        ),
+                        account_meta=account_meta,
                     ),
                     id=workflow_id,
                     task_queue=f"msv-processing-{body.bank_id}",
