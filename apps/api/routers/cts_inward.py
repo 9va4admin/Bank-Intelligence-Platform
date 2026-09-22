@@ -447,12 +447,23 @@ async def get_decision(
 
             if wf_status == WorkflowExecutionStatus.COMPLETED:
                 result = await handle.result()
+                # ChequeProcessingWorkflow.run returns a plain dict (no dataclass return type),
+                # so Temporal's default converter hands this back as a dict, not an object with
+                # .decision/.rationale attributes. Confirmed live 2026-09-22: attribute access
+                # here raised AttributeError on every completed workflow, silently swallowed by
+                # the except below, which reported "RUNNING" for cheques that had already decided.
+                if isinstance(result, dict):
+                    decision = result.get("decision")
+                    rationale = result.get("rationale")
+                else:
+                    decision = result.decision
+                    rationale = result.rationale
                 return ChequeDecisionResponse(
                     instrument_id=instrument_id,
                     workflow_id=workflow_id,
-                    workflow_status=result.decision,
-                    decision=result.decision,
-                    rationale=result.rationale,
+                    workflow_status=decision,
+                    decision=decision,
+                    rationale=rationale,
                 )
             elif wf_status in (
                 WorkflowExecutionStatus.FAILED,
@@ -472,8 +483,15 @@ async def get_decision(
                     workflow_id=workflow_id,
                     workflow_status="RUNNING",
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Never swallow silently (rules: no silent failure) — this previously masked the
+            # dict-vs-attribute bug above as an innocuous "still RUNNING" response.
+            log.warning(
+                "cts.get_decision_temporal_lookup_failed",
+                instrument_id=instrument_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
 
     return ChequeDecisionResponse(
         instrument_id=instrument_id,
