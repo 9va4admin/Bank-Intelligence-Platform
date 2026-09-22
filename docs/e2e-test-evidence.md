@@ -295,3 +295,63 @@ re-run live:
 **Not yet tested at all:** session reconciliation (`fetch_ngch_settlement_report` / `match_submitted_vs_settled`),
 RRF generation. **Status: outward pipeline is verified working end-to-end through NGCH submission. Reconciliation
 and RRF are the next untested stage.**
+
+---
+
+## 2026-09-22 20:20–20:45 IST — Inward pipeline, real re-run through the real API (post date/amount/UUID/persist fixes)
+
+Real stack: real Temporal worker (bank_id=kbl, all dependencies genuinely connected — CBS dev-stub fixture,
+Redis, YugabyteDB, MinIO, Immudb, Kafka; no mocks), real FastAPI on :8010 with real password+TOTP login. This is
+the first inward run **through the real API** (all earlier inward runs went direct-to-Temporal) and the first
+inward run since the date-parser/amount-parser/UUID/strict-compliance fixes landed.
+
+**What was run:** 18 real KBL inward cheques (`docs/cheques/KBL/IW CHQ/`), account numbers and amounts read by eye
+off each image (not OCR-derived) and seeded into a CBS dev-stub fixture (`scratchpad/cbs_dev_fixture_kbl.json`,
+all ACTIVE with sufficient balance — this run exercises the OCR/decision path, not CBS edge cases). Images
+uploaded to the real MinIO (`s3://cts-images/inward/kbl/{cheque_no}.jpg`), submitted one per instrument via
+`POST /v1/cts/inward/{instrument_id}/submit`, results read back via `GET /v1/cts/decisions/{instrument_id}` (see
+defect below) and cross-checked directly against Temporal (`handle.result()`) for ground truth.
+
+**Result:** 18/18 workflows COMPLETED, 0 failures, 0 timeouts. **18/18 decision = HUMAN_REVIEW, 0 STP_CONFIRM.**
+14 for `ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']`; 4
+(`496100`, `644628`, `915526`, and one more) for `ocr_quality_MODEL_UNAVAILABLE` (the HF cloud OCR fallback got
+401'd — this dev environment's worker process did not have `ASTRA_SECRET_DEMO_HF_TOKEN` set, a real environment
+gap in this run, not a pipeline defect; local GOT-OCR2 is also down in this dev environment, so these 4 fell
+through to Tesseract-only quality). Raw per-cheque results:
+`docs/evidence/2026-09-22/inward_real_run_post_fix_18_cheques.json`.
+
+**A real defect found and fixed in this run:** `GET /v1/cts/decisions/{instrument_id}`
+(`apps/api/routers/cts_inward.py`) reported `workflow_status: "RUNNING"` for **every single one of the 18
+cheques**, despite Temporal confirming all 18 had genuinely COMPLETED with a real decision. Root cause:
+`ChequeProcessingWorkflow.run` returns a plain `dict` (no dataclass return type), so the route's
+`result.decision` / `result.rationale` (attribute access) raised `AttributeError` on every completed workflow —
+silently swallowed by a bare `except Exception: pass`, which fell through to the `"RUNNING"` default. Confirmed
+live by querying Temporal directly (`handle.result()` returned `{"decision": "HUMAN_REVIEW", ...}`, a dict) while
+the API endpoint simultaneously reported `RUNNING` for the same workflow. **This endpoint had never correctly
+reported a completed inward decision before this run — every prior "it works" claim about this endpoint was
+untested against a real completed workflow.** Fixed: dict-key access (with an attribute-access fallback), and
+the bare `except` now logs a warning instead of swallowing silently. Regression test:
+`test_completed_workflow_with_dict_result_reports_the_real_decision`. Verified live, post-fix, against the same
+18 real completed workflows — all 18 now report the correct `HUMAN_REVIEW` status and rationale. Commit `1c297f9`.
+
+**Also observed, NOT fixed in this run (flagged separately, `task_b93686f5`):** `store_postdated_hold.db_error
+error="'coroutine' object has no attribute 'decode'"` fired repeatedly for instrument `841390-*` — this is an
+**outward** cheque number, picked up via a leftover Kafka outward-scan-trigger message from an earlier session,
+not one of this run's 18 inward submissions. Confirms a real, currently-broken "forgot to await" bug in
+`store_postdated_hold`, out of scope for this entry, spawned as a separate follow-up task.
+
+**Known gaps in this specific run (labelled, not hidden):**
+- HF cloud OCR fallback token not configured in this worker process → 4/18 cheques fell to Tesseract-only OCR
+  quality (`ocr_quality_MODEL_UNAVAILABLE`), correctly routed to human review either way.
+- `feedback_emit.accumulator_unreachable` (×4) — `FeedbackAccumulatorWorkflow` is not running in this dev
+  environment; each cheque's decision signal had nowhere to land. Known, pre-existing gap.
+- `worker_activities.cascade_orchestrator_unavailable` — no local vLLM cluster; expected in this dev environment.
+- CBS fixture is hand-seeded with all-ACTIVE accounts (teller-style stand-in, same as the outward runs) — this
+  run validates the OCR-quality → human-review path, not CBS status/stop-payment/PPS edge cases.
+
+**Still NOT covered for inward:** signature/PPS vault HIT scenarios (fixture has no seeded signatures), a
+cheque that actually clears the OCR-confidence gate and reaches STP_CONFIRM or an AUTO_RETURN outcome (all 18
+in this real sample stopped at the OCR-quality gate — consistent with the 2026-09-21 direct-to-Temporal finding
+that OCR quality, not pipeline logic, is the dominant blocker on this photographed, sub-CTS-2010-DPI image set),
+`HumanReviewWorkflow`'s reviewer-decision signal path (queued but not actioned in this run), `IETWatchdogWorkflow`
+actually firing (no cheque ran past its IET deadline in this run).
