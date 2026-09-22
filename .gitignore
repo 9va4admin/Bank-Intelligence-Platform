@@ -49,3 +49,5 @@ edge/cts-scanner-agent/token.dat
 # of ASTRA's shared environment. Never commit this (torch/paddle alone are
 # multiple GB) -- see apps/indic_ocr/main.py's torch-preload comment.
 apps/indic_ocr/.venv/
+
+apps/indic_ocr/.venv_test/

@@ -1,0 +1,42 @@
+# ASTRA IndicOCR microservice runtime dependencies.
+#
+# Regression: this file did not exist before 2026-09-22 — the service ran only from a
+# hand-assembled local .venv, so `paddlepaddle`/`paddleocr` (the actual multi-script engine;
+# the whole reason this service exists) were never installed anywhere. Every real OCR call in
+# this dev environment fell back to Tesseract, confirmed live by
+# "indic_ocr.backend_failed_cascading backend=paddle error='PaddleOCR not installed.'" on every
+# single request. Fixed here — the service now genuinely runs PaddleOCR.
+#
+# INSTALL IN TWO STEPS — a single `pip install -r requirements.txt` is not enough (see Dockerfile
+# for the exact commands; both steps must run):
+#   1. pip install -r requirements.txt
+#   2. pip install --force-reinstall --no-deps "opencv-contrib-python>=4.9,<5"
+#
+# Why step 2 is required: paddleocr==2.7.3 declares opencv-python<=4.6.0.66 AND
+# opencv-contrib-python<=4.6.0.66 as its own dependencies. That build predates NumPy 2.0 and
+# crashes on import ("module compiled against ABI version ... numpy is 0x2000000"). Confirmed
+# from a clean venv: step 1 alone installs three separate opencv-* packages (from paddleocr and
+# its other transitive deps), all occupying the same `cv2` import namespace — the result is a
+# broken, partially-overwritten `cv2` (confirmed: cv2.INTER_NEAREST missing). Step 2 removes all
+# of them and installs exactly one NumPy-2.0-compatible build. paddleocr's own upper-bound pin is
+# conservative, not a real API break — confirmed working against paddleocr 2.7.3's actual code.
+#
+# numpy: kept at whatever this installs (2.x) — main.py shims `np.sctypes` (removed in NumPy 2.0,
+# still read by paddleocr's `imgaug` transitive dependency) rather than downgrading numpy, which
+# would affect torch/ultralytics/the rest of the API if this venv were ever shared.
+
+numpy>=2.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+Pillow>=10.0.0
+pydantic>=2.0.0
+structlog>=24.0.0
+python-multipart>=0.0.9
+
+torch>=2.0.0
+paddlepaddle==2.6.2
+paddleocr==2.7.3
+pytesseract>=0.3.10
+
+# Optional — only used when INDIC_OCR_BACKEND=easyocr:
+# easyocr>=1.7.0
