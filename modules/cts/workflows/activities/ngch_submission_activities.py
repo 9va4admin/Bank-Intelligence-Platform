@@ -126,6 +126,8 @@ async def submit_to_ngch(
     Submits the NGCH file via the ngch_adapter MCP tool.
     ngch_client is injected at worker startup.
     """
+    if isinstance(inp, dict):
+        inp = SubmitToNGCHInput(**inp)
     with tracer.start_as_current_span("activity.submit_to_ngch") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if ngch_client is None:
@@ -191,6 +193,8 @@ async def confirm_acknowledgement(
     Polls NGCH for acknowledgement of the submitted lot.
     If ngch_reference is None (submission failed), returns not-acknowledged immediately.
     """
+    if isinstance(inp, dict):
+        inp = ConfirmAcknowledgementInput(**inp)
     with tracer.start_as_current_span("activity.confirm_acknowledgement") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if inp.ngch_reference is None:
