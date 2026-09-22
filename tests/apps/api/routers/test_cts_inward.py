@@ -103,6 +103,41 @@ class TestGetDecision:
             resp = c.get("/v1/cts/decisions/INS-999")
         assert resp.json()["instrument_id"] == "INS-999"
 
+    def test_completed_workflow_with_dict_result_reports_the_real_decision(self):
+        """Regression (found live 2026-09-22, real inward run): ChequeProcessingWorkflow.run
+        returns a plain dict (Temporal's default converter for a dataclass-less return), so
+        `result.decision` / `result.rationale` (attribute access) raised AttributeError on every
+        completed workflow. The broad `except Exception: pass` swallowed it silently and this
+        endpoint reported "RUNNING" forever, even for cheques that had already decided. Confirmed
+        live against 18 real inward cheques: Temporal showed all 18 COMPLETED with a real decision,
+        this endpoint reported "RUNNING" for all 18."""
+        from temporalio.client import WorkflowExecutionStatus
+
+        mock_desc = MagicMock()
+        mock_desc.status = WorkflowExecutionStatus.COMPLETED
+
+        mock_handle = MagicMock()
+        mock_handle.describe = AsyncMock(return_value=mock_desc)
+        mock_handle.result = AsyncMock(return_value={
+            "decision": "HUMAN_REVIEW",
+            "rationale": "ocr_quality_low_confidence_fields: ['date', 'payee']",
+            "instrument_id": "INS-001",
+            "bank_id": "testbank",
+        })
+
+        mock_temporal = MagicMock()
+        mock_temporal.get_workflow_handle = MagicMock(return_value=mock_handle)
+
+        app = _make_app()
+        app.state.temporal_client = mock_temporal
+        with TestClient(app) as c:
+            resp = c.get("/v1/cts/decisions/INS-001")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["workflow_status"] == "HUMAN_REVIEW"
+        assert body["decision"] == "HUMAN_REVIEW"
+        assert body["rationale"] == "ocr_quality_low_confidence_fields: ['date', 'payee']"
+
 
 # ── 3. POST /review/{instrument_id}/decide ────────────────────────────────────
 
