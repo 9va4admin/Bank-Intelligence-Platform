@@ -48,6 +48,8 @@ async def fetch_ngch_settlement_report(
     Fetches settlement report for the session from NGCH adapter.
     Degrades gracefully when ngch_client is unavailable.
     """
+    if isinstance(inp, dict):
+        inp = FetchSettlementInput(**inp)
     with tracer.start_as_current_span("activity.fetch_ngch_settlement_report") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if ngch_client is None:

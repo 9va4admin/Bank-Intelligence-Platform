@@ -105,3 +105,23 @@ async def test_generate_rrf_uploads_xml_to_minio_before_recording_path():
     # DB row recorded the same path the file actually lives at.
     assert len(db_pool.conn.executed) == 1
     assert result.rrf_path in db_pool.conn.executed[0]
+
+
+@pytest.mark.asyncio
+async def test_fetch_ngch_settlement_report_accepts_dict_input():
+    """Real live bug found 2026-09-23: Temporal drops type hints on this hand-written
+    bound-method activity (no generic bind_di_activity wrapper here), so inp can arrive
+    as a plain dict -- accessing inp.bank_id then raised AttributeError in production."""
+    from modules.cts.workflows.activities.session_reconciliation_activities import (
+        fetch_ngch_settlement_report,
+    )
+
+    class _FakeNgchClient:
+        async def fetch_settlement_report(self, session_id, clearing_date, bank_ifsc):
+            return [{"instrument_id": "IW-1", "status": "SETTLED"}]
+
+    inp_dict = {"session_id": "s1", "bank_id": "kbl", "clearing_date": "2026-09-22",
+                "bank_ifsc": "KARB0000001"}
+    result = await fetch_ngch_settlement_report(inp_dict, ngch_client=_FakeNgchClient())
+    assert result.degraded is False
+    assert result.rows == [{"instrument_id": "IW-1", "status": "SETTLED"}]

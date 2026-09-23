@@ -685,6 +685,53 @@ specific to activities.
 
 ---
 
+## 2026-09-23 (correction) — The "dispatch stall" was an environment variable, not a Windows/SDK bug
+
+**This corrects the two entries above and the "Follow-up sighting" note.** Root-caused for real while trying to
+get the STP-rescue 18-cheque re-run and the outward reconciliation run to complete live (see both entries
+below). Every symptom described above — zero pollers on `DescribeTaskQueue` despite `worker.ready` logging,
+workflows stuck forever at `WORKFLOW_TASK_SCHEDULED`, activities stuck at `ACTIVITY_TASK_SCHEDULED` — had one
+single, mundane cause: this session's own shell had a stray `TEMPORAL_NAMESPACE=cts` environment variable set
+(origin unclear — likely from an earlier ad-hoc debugging attempt, never unset), silently inherited by every
+worker process launched from it. `config_service.get_platform("temporal.namespace")` read that env var and
+handed the real worker `"cts"` — a Temporal namespace that was never created (only `default` exists in this
+dev stack). `Worker.run()`'s own internal validation call (`describe_namespace`) then fails immediately with
+`NotFound`, before the worker ever registers as a poller for anything — silently, because
+`modules/cts/worker.py` awaited each worker's `run()` as a bare background task with nothing checking whether
+it errored. `worker.ready` still logs because that log line lives in the caller, oblivious to the background
+tasks' fate.
+
+**Confirmed with direct evidence:** added a done-callback to each of the 4 background `Worker.run()` tasks
+(temporary diagnostic, since removed except where it's a genuine improvement — see below) and it immediately
+surfaced the real error on every one of them: `RuntimeError('Worker validation failed ... Namespace cts is not
+found.')`. Unsetting `TEMPORAL_NAMESPACE` (or exporting it as `default`) made the exact same worker code
+register real pollers instantly and process real workflows correctly.
+
+**Why the earlier "3 distinct activity types" threshold looked so precise and reproducible:** almost certainly
+the same confound, not a real SDK/Windows limit. The isolated single-`Worker()` tests in that investigation
+each independently constructed their own `Client.connect(...)`, and at least one of them (confirmed for
+certain in this later investigation) explicitly hardcoded `namespace="default"`, bypassing the poisoned env
+var — while the real multi-worker `run_worker()` path always read it from `config_service`. A namespace
+mismatch would produce exactly this pattern of "isolated repro works, real worker doesn't" that both
+investigations independently observed. The "exactly 3 activities, always the 4th" threshold was never
+re-tested with the environment variable confirmed clean; it should be re-run before trusting it as a real SDK
+limitation. `task_9cdaf7e6` should be re-opened with this note rather than treated as a confirmed Windows/SDK
+bug.
+
+**Kept from this investigation, as genuine improvements independent of the real cause:**
+`modules/cts/worker.py`'s `run_worker()` no longer combines the 4 `Worker` instances in a single
+`async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:` — each now runs
+as its own `asyncio.create_task(worker.run())`, shut down independently via `worker.shutdown()`, with a
+done-callback that logs (`worker.run_task_failed`) instead of failing silently. This is a real fix in its own
+right — one worker's fatal error should never have been able to leave the others in an undiagnosable state —
+even though it was not, on its own, sufficient to fix today's incident (the namespace mismatch affected all 4
+workers identically, independent of how they were combined).
+
+**Lesson for future sessions:** always `env | grep -i temporal` before trusting a "dispatch stall" diagnosis
+that looks like an SDK bug — check the mundane explanation before the exotic one.
+
+---
+
 ## 2026-09-23 — STP architecture fix: multisignal rescue for weak-OCR-but-otherwise-clean cheques
 
 User's standing priority, stated directly: STP rate is the actual product thesis, not a side metric — if the
@@ -856,3 +903,60 @@ dispatch-stall bug blocks starting any workflow at all on this dev machine right
 specific to this fix. This is a materially different, better state than "never run, at all" — the code path
 that never existed now exists, is exercised by tests that fail without it and pass with it, and is one
 infrastructure-reliability fix (tracked separately) away from a live run.
+
+---
+
+## 2026-09-23 (later) — Both blockers above closed for real: live runs completed, not just built
+
+Direct follow-up, same day, after the user pushed back hard on "not yet demonstrated live." Found and fixed
+the actual causes (see the correction entry above this one for the full root-cause writeup) and re-ran both.
+
+**Inward — full 18-cheque STP-rescue re-run, completed live end to end.** Same 18 real KBL cheques as the
+2026-09-22 entry, resubmitted through the real API against the fixed worker (fresh instrument IDs,
+`-r0923c` suffix, so each got a genuine new workflow execution under today's code, not a replay). All 18
+completed. Result: **18/18 `HUMAN_REVIEW`, identical rationale to before the fix**
+(`ocr_quality_low_confidence_fields: ['date', 'payee', 'amount_words', 'amount_figures']` on every one).
+Zero STP improvement — confirmed now with a completed run instead of a stalled one, so this is the actual
+answer, not a placeholder. Consistent with every earlier analysis in this log: this specific 18-cheque photo
+dataset has no cheque where only `payee`/`amount_words` are weak while `date`/`amount_figures` are clean —
+the exact pattern the rescue is scoped to help. The fix's correctness (the positive case) remains proven by
+the TDD suite's real-Temporal-environment test, not by this dataset, because this dataset still doesn't
+contain the qualifying case.
+
+**Outward — session reconciliation, completed live end to end for the first time ever.** Fixed one more real
+bug found only once live dispatch actually started working: `fetch_ngch_settlement_report`,
+`notify_representation_pending`, and `re_submit_to_ngch_for_representation` are hand-written bound-method
+activities on `BoundCTSActivities` (they bypass the generic `bind_di_activity` dict→Pydantic-model wrapper
+that the `NO_DI_ACTIVITIES` path already has). Confirmed live: Temporal delivered `inp` as a plain dict to
+`fetch_ngch_settlement_report`, and the pre-fix code crashed with `AttributeError: 'dict' object has no
+attribute 'bank_id'` — this is exactly the same class of gap `submit_to_ngch` already carries a defensive
+`if isinstance(inp, dict): inp = SubmitToNGCHInput(**inp)` guard for; the newer reconciliation/representation
+activities just never got that same guard added. Added it to all three (RED-confirmed against the pre-fix
+code via 4 new tests: `test_fetch_ngch_settlement_report_accepts_dict_input` in
+`test_session_reconciliation_activities.py`, and 3 tests in new file
+`test_representation_activities.py`). Then ran `SessionReconciliationWorkflow` live against the real
+session `16e423fa-d334-5a6c-b368-6e0d87e12bae` (bank_id=kbl, its 6 real `FILED` outward instruments, still
+present and untouched since 2026-09-22):
+```
+RESULT: {
+  "outcome": "RECONCILED", "session_id": "16e423fa-d334-5a6c-b368-6e0d87e12bae", "bank_id": "kbl",
+  "matched_count": 6, "exception_count": 0, "rrf_generated": false, "audit_written": true,
+  "representation_workflows_spawned": 0
+}
+```
+Correctly `RECONCILED` with 0 exceptions (the dev-stub NGCH adapter auto-settles every instrument it already
+accepted for the session — documented, expected behaviour, see its module docstring) and correctly
+`rrf_generated: false` (nothing to generate an RRF for when there are no exceptions). This exercises the real
+chain: `fetch_ngch_settlement_report` (real DB lookup via the dev stub) → `match_submitted_vs_settled` →
+`generate_rrf`'s skip-path → `write_audit`, against real YugabyteDB, real Temporal, real worker. The
+MinIO-upload path inside `generate_rrf` and the `ChequeRepresentationWorkflow` child-spawn path remain
+proven only at the unit/activity level (TDD, real fakes) — this specific real session has no reconciliation
+exception to naturally exercise them live, exactly as the dev-stub's own documented limitation says.
+
+**Full `tests/modules/cts/` suite after all of today's fixes: run again, clean, 0 unexplained failures**
+(exact count in the commit this entry ships with).
+
+**What today actually demonstrated, stated plainly:** the STP-rescue mechanism is correct but has not yet
+helped a single real cheque, because this dataset doesn't contain its target case — that is an honest,
+un-improved number, not a success dressed up. The reconciliation pipeline, previously never run at all, now
+runs correctly end to end against real infrastructure and real data. Both statements are true at once.

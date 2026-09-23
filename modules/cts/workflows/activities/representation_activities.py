@@ -47,6 +47,8 @@ async def notify_representation_pending(
     Notifies ops team that the instrument needs to be fixed and re-presented.
     Degrades gracefully when dispatcher is unavailable.
     """
+    if isinstance(inp, dict):
+        inp = NotifyRepresentationInput(**inp)
     with tracer.start_as_current_span("activity.notify_representation_pending") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -110,6 +112,8 @@ async def re_submit_to_ngch_for_representation(
     Re-files the instrument to NGCH via the ngch_filer pathway.
     Degrades gracefully when ngch_client is unavailable.
     """
+    if isinstance(inp, dict):
+        inp = ResubmitNgchInput(**inp)
     with tracer.start_as_current_span("activity.re_submit_to_ngch_for_representation") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
