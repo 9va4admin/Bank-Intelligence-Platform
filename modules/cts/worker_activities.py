@@ -645,6 +645,24 @@ class BoundCTSActivities:
         )
         return await _real(inp, ngch_client=self._ngch_adapter)
 
+    @activity.defn(name="notify_representation_pending")
+    async def notify_representation_pending(self, inp):
+        from modules.cts.workflows.activities.representation_activities import (
+            notify_representation_pending as _real,
+        )
+        # No dispatcher is currently wired on this worker (see di_dependencies
+        # docstring) — the activity degrades to notified=False, same as every
+        # other unwired-dependency activity in this codebase, until a real
+        # run needs a live WhatsApp/email notification for this event.
+        return await _real(inp)
+
+    @activity.defn(name="re_submit_to_ngch_for_representation")
+    async def re_submit_to_ngch_for_representation(self, inp):
+        from modules.cts.workflows.activities.representation_activities import (
+            re_submit_to_ngch_for_representation as _real,
+        )
+        return await _real(inp, ngch_client=self._ngch_adapter)
+
     # ------------------------------------------------------------------
     # Inward batch ingestion (InwardBatchIngestionWorkflow)
     # ------------------------------------------------------------------
@@ -757,6 +775,8 @@ class BoundCTSActivities:
             self.submit_to_ngch,
             self.confirm_acknowledgement,
             self.fetch_ngch_settlement_report,
+            self.notify_representation_pending,
+            self.re_submit_to_ngch_for_representation,
             # Inward batch ingestion
             self.parse_inward_batch,
             self.upload_instrument_images,
@@ -782,12 +802,12 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     redis_client = await _build_redis_client(config_service)
     immudb_client = await _build_immudb_client(config_service, bank_id)
     event_producer = await _build_event_producer(config_service, bank_id)
-    ngch_adapter = await _build_ngch_adapter(config_service, bank_id)
+    db_pool = await _build_db_pool(config_service)
+    ngch_adapter = await _build_ngch_adapter(config_service, bank_id, db_pool)
     opa_client = await _build_opa_client(config_service)
     orchestrator = await _build_cascade_orchestrator(config_service, bank_id)
     fraud_vllm_client = await _build_fraud_vllm_client(config_service)
     vision_vllm_client = await _build_vision_vllm_client(config_service)
-    db_pool = await _build_db_pool(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
     minio_client = await _build_minio_client(config_service)
     if minio_client is not None:
@@ -949,7 +969,7 @@ async def _build_event_producer(config_service: Any, bank_id: str) -> Any:
         return None
 
 
-async def _build_ngch_adapter(config_service: Any, bank_id: str) -> Any:
+async def _build_ngch_adapter(config_service: Any, bank_id: str, db_pool: Any = None) -> Any:
     try:
         from modules.cts.mcp.ngch_adapter import NGCHAdapter
         from shared.config.config_service import ConfigKeyNotFoundError
@@ -959,7 +979,7 @@ async def _build_ngch_adapter(config_service: Any, bank_id: str) -> Any:
             dev_stub = False
         if dev_stub:   # dev/test stand-in — refuses to connect outside ASTRA_ENV=development
             from modules.cts.mcp.dev_stub_ngch import DevStubNGCHAdapter
-            stub = DevStubNGCHAdapter(bank_id=bank_id)
+            stub = DevStubNGCHAdapter(bank_id=bank_id, db_pool=db_pool)
             stub.connect()
             log.warning("worker_activities.ngch_dev_stub_active", bank_id=bank_id)
             return stub
