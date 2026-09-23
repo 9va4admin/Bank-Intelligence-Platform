@@ -751,3 +751,108 @@ this rescue's scope; this rescue captures the STP upside once they're there.
 to introduce zero regression on real data.** Its positive impact on STP rate is not yet demonstrated on real
 cheques, because no real cheque tested so far has the qualifying field pattern — that demonstration needs
 either a higher-quality real scan or a different real cheque sample, not further code changes.
+
+---
+
+## 2026-09-23 — Outward session reconciliation + RRF generation: built for real, not just flagged
+
+User's direct instruction after being told these stages had "never run, at all": build and verify them, not
+just report the gap. Read `session_reconciliation_workflow.py`, `session_reconciliation_activities.py`,
+`representation_workflow.py`, `representation_activities.py`, `worker.py` and `worker_activities.py` end to
+end and found **six real, separate bugs** — every one of them the reason reconciliation had never run, not one
+umbrella cause:
+
+1. **`generate_rrf` built the RRF XML and threw it away.** `RRFGenerator.to_xml()` ran, the resulting string
+   was never written anywhere, and only a DB metadata row (`cts.rrf_sessions.rrf_path`) was inserted —
+   pointing at a MinIO object that was never created. `generated=True` was returned regardless.
+2. **`DevStubNGCHAdapter` had no `fetch_settlement_report` method.** The real activity call
+   (`ngch_client.fetch_settlement_report(...)`) would have raised `AttributeError` the first time it ran with
+   the dev stub selected — which is every dev/POC deployment (`ngch.dev_stub=true`).
+3. **`build_bound_activities()` constructed the NGCH adapter before the DB pool existed**, so there was no way
+   to give the dev-stub NGCH adapter real DB access even after fixing (2).
+4. **`ChequeRepresentationWorkflow` was never added to `worker.py`'s `ALL_WORKFLOWS`.** A reconciliation
+   exception eligible for re-presentation would spawn a child workflow the worker couldn't run.
+5. **`notify_representation_pending` and `re_submit_to_ngch_for_representation` were never registered as
+   worker activities at all** — same failure mode as (4), one level down.
+6. **`DevStubNGCHAdapter` had no `submit_representation` method** — `re_submit_to_ngch_for_representation`
+   would have hit the same `AttributeError` as (2) the first time a representation actually tried to file.
+
+### Fixes (each with its own RED→GREEN test, `git stash` used to confirm RED against the pre-fix code)
+
+- `generate_rrf` (`session_reconciliation_activities.py`): added a `minio_client` parameter, uploads the
+  generated XML to `astra-cts/cts/{bank_id}/{clearing_date}/rrf/{session_id}.xml` via
+  `MinioObjectStore.upload_bytes()` before recording the DB row, and now correctly returns `generated=False`
+  (not a misleading `True`) if either `db_pool` or `minio_client` is unavailable, or if XML generation itself
+  failed. `minio_client` auto-wires through the existing `di_dependencies()` / `split_di_activities` DI
+  mechanism (it was already in the dependency dict for other activities) — no new plumbing needed beyond the
+  parameter itself. New file `tests/modules/cts/workflows/activities/test_session_reconciliation_activities.py`
+  (4 tests, real fake MinIO/DB doubles asserting the exact bytes uploaded match what the DB row claims) +
+  2 tests added to the pre-existing `TestGenerateRRF` in `test_new_stub_activities.py` (one pre-existing test
+  had to be updated — it never passed `minio_client` and was asserting the old, wrong `generated=True`
+  behaviour with nothing uploaded anywhere).
+- `_build_ngch_adapter()` (`worker_activities.py`): now takes `db_pool` and passes it into
+  `DevStubNGCHAdapter`; `build_bound_activities()` reordered so `db_pool` is built before `ngch_adapter`.
+- `DevStubNGCHAdapter.fetch_settlement_report(session_id, clearing_date, bank_ifsc)`: looks up the real
+  `ngch_session_ref` for the session from `cts.clearing_sessions`, then every outward instrument in
+  `cts.cheque_instruments` carrying that same `ngch_instrument_ref`, and reports every one of them `SETTLED`
+  — same "no real NGCH sandbox to simulate, so auto-acknowledge" philosophy already used for
+  `submit_outward_lot`. Documented honestly in the module docstring: this means the dev stub can never itself
+  produce a reconciliation exception; a real exception can only be exercised today by writing a non-SETTLED
+  settlement row by hand.
+- `DevStubNGCHAdapter.submit_representation(...)`: same auto-acknowledge, idempotent-per-`instrument_id`
+  pattern as `submit_outward_lot`.
+- `ChequeRepresentationWorkflow` added to `worker.py`'s `ALL_WORKFLOWS`. `notify_representation_pending` and
+  `re_submit_to_ngch_for_representation` added as DI-bound methods on `BoundCTSActivities` (next to the
+  existing `fetch_ngch_settlement_report`) and registered in `activity_list()`. `notify_representation_pending`
+  degrades to `notified=False` — no `dispatcher` is wired into this worker yet (same documented, accepted gap
+  as every other unwired `di_dependencies()` entry), so a live WhatsApp/email notification for this event is a
+  separate, still-open item, not silently claimed as done.
+- `tests/modules/cts/ngch/test_dev_stub_adapter.py`: 5 new tests for `fetch_settlement_report` /
+  `submit_representation`, confirmed RED (`AttributeError`) against the pre-fix stub, GREEN after.
+- `tests/modules/cts/test_worker_activities.py::test_returns_exactly_30_bound_methods`: updated the hardcoded
+  count from 55 to 57 for the 2 new bound methods (misleadingly named test — it has asserted a moving count
+  under that name since well before this change).
+
+**Full suite run after all fixes: `tests/modules/cts/` — 3694 passed, 1 skipped, 1 pre-existing test updated
+(see above), 0 unexplained failures, 743s.**
+
+### Live verification — real data confirmed ready, live Temporal E2E blocked by the known dispatch-stall bug
+
+Found and confirmed the real target data still exists, untouched, in the real dev YugabyteDB (note: the real
+DSN is `yugabyte` database, not `astra` as `.env.dev` suggests — `.env.dev`'s DSN is stale for this stack):
+clearing session `16e423fa-d334-5a6c-b368-6e0d87e12bae` (`bank_id=kbl`, `status=SUBMITTED`,
+`ngch_session_ref=NGCH-DEV-E18F3FE7D8F65619`, `clearing_date=2026-09-22`) with exactly 6 real `FILED` outward
+instruments (cheque numbers 000787/101701/374098/956963/058475/307384) genuinely tied to it via
+`ngch_instrument_ref`.
+
+Restarted the `kbl` worker clean with `NGCH_DEV_STUB=true CBS_CONNECTOR_TYPE=dev_stub` and the
+`TEMPORAL_ADDRESS` env var `start.ps1` normally sets (missing it silently falls back to the wrong port,
+`localhost:7233` instead of the real `localhost:17233` — a separate, minor environment-setup gap worth noting
+for `start.ps1`/`docs`, not fixed here as out of scope). Confirmed live in the worker's own startup log that
+the dependency-ordering fix took effect: `worker_activities.db_pool_ready` now logs **before**
+`worker_activities.ngch_dev_stub_active`, where before this fix it was the other way around and the dev stub
+was constructed with no DB access at all.
+
+Starting `SessionReconciliationWorkflow` against the real session, however, never completed: `describe()`
+showed only `WORKFLOW_EXECUTION_STARTED` + `WORKFLOW_TASK_SCHEDULED`, no `WORKFLOW_TASK_STARTED`, indefinitely.
+This is the **same pre-existing, already-tracked workflow/activity task-dispatch reliability issue** noted
+twice before in this log (2026-09-22 entries) — not a defect in today's fix. New evidence gathered this time,
+worth recording against that open issue specifically: (1) it reproduced on a **freshly started, single, clean
+worker process** with no other workers or stray processes present, ruling out multi-poller contention as the
+cause; (2) it reproduced again **after a full `docker restart` of the Temporal server container itself**,
+ruling out worker-side staleness as the sole cause; (3) a direct `DescribeTaskQueue` call for
+`cts-processing-kbl`'s `WORKFLOW` task type returned an **empty poller list**, even though the worker process
+was alive, responding, and had logged `worker.ready` — the worker is not actually polling for workflow tasks,
+despite believing it is; (4) confirmed this is not specific to `SessionReconciliationWorkflow` — a trivial,
+previously-proven-working `IETWatchdogWorkflow` submitted to the same worker right after also never started.
+This rules out "new/untested workflow type" as the cause and confirms the issue is in workflow-task dispatch
+generically on this environment, not in any specific workflow's code.
+
+**Honest status: the reconciliation + RRF + representation code is built, individually unit/activity-level
+TDD-verified against real fakes (real MinIO upload call, real DB-shaped query fixtures, RED-confirmed against
+the pre-fix code), and the real target data it would run against is confirmed present and correct. It has
+not been observed completing a live run through the real Temporal worker**, because the pre-existing
+dispatch-stall bug blocks starting any workflow at all on this dev machine right now, not because of anything
+specific to this fix. This is a materially different, better state than "never run, at all" — the code path
+that never existed now exists, is exercised by tests that fail without it and pass with it, and is one
+infrastructure-reliability fix (tracked separately) away from a live run.

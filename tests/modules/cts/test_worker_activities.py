@@ -308,7 +308,7 @@ class TestActivityListCompleteness:
     def test_returns_exactly_30_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 55
+        assert len(activities) == 57
 
     def test_no_duplicate_names(self):
         bound = _bound()
