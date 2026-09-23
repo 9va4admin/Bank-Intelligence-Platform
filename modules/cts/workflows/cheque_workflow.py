@@ -67,6 +67,17 @@ _AUDIT_RETRY = RetryPolicy(
 
 _IET_EMERGENCY_BUFFER_SECONDS = 30
 
+# STP architecture fix (2026-09-23, cts.ocr_multisignal_rescue_enabled): fields whose
+# low confidence alone is safe to let through to signature/CBS/fraud corroboration and
+# synthesise_decision's own multi-signal soft gate, instead of hard-exiting to
+# HUMAN_REVIEW before those signals ever run. Deliberately excludes "date" and
+# "amount_figures" — both feed decision.py's HARD auto-return gates (undated/post-
+# dated/stale; amount words-vs-figures mismatch), where a wrong OCR reading could file
+# an incorrect STP_RETURN. The cheque's actual paid amount is always
+# inp.presented_amount (from NGCH), never OCR's reading, so amount_words weakness
+# carries no payment-amount risk — it only affects a corroboration signal.
+_MULTISIGNAL_RESCUE_FIELDS = frozenset({"payee", "amount_words"})
+
 
 # ---------------------------------------------------------------------------
 # Lightweight early-exit decision stubs (used when workflow short-circuits
@@ -580,15 +591,47 @@ class ChequeProcessingWorkflow:
         ))
 
         if ocr_result.outcome == "HUMAN_REVIEW":
-            return await finalise(
-                "HUMAN_REVIEW",
-                f"ocr_quality_{ocr_result.low_confidence_reason or 'low_confidence'}",
-                context_extra={
-                    "ocr_engines_used": _ocr_engines_used,
-                    "indic_ks_active": _indic_ks_active,
-                    "degraded": ocr_result.degraded,
-                },
+            # Multisignal rescue: don't hard-exit yet if the ONLY weak fields are
+            # payee/amount_words (never feed a hard auto-return gate — see
+            # _MULTISIGNAL_RESCUE_FIELDS) and we have a usable MICR/account number
+            # to actually run CBS/signature/fraud corroboration with. Falls through
+            # to the normal pipeline below; synthesise_decision's existing
+            # ocr_confidence soft gate + combined_confidence formula makes the real
+            # call using ALL signals, not just this one. Any other low-confidence
+            # cause (date, amount_figures, amount mismatch, MODEL_UNAVAILABLE, no
+            # usable MICR) still exits immediately exactly as before.
+            _rescue_enabled = bool(inp.cts_config.get("ocr_multisignal_rescue_enabled", True))
+            _rescuable = (
+                _rescue_enabled
+                and bool(ocr_result.low_confidence_fields)
+                and set(ocr_result.low_confidence_fields) <= _MULTISIGNAL_RESCUE_FIELDS
+                and not ocr_result.amount_mismatch
+                and not ocr_result.degraded
+                and bool(ocr_result.account_number_last4)
             )
+            if not _rescuable:
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"ocr_quality_{ocr_result.low_confidence_reason or 'low_confidence'}",
+                    context_extra={
+                        "ocr_engines_used": _ocr_engines_used,
+                        "indic_ks_active": _indic_ks_active,
+                        "degraded": ocr_result.degraded,
+                    },
+                )
+            log.info(
+                "ocr.multisignal_rescue_attempted",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                low_confidence_fields=ocr_result.low_confidence_fields,
+                ocr_confidence=_ocr_confidence,
+            )
+            _steps.append(StepResult(
+                step_id="ocr_multisignal_rescue",
+                outcome="PASS",
+                reason=f"weak_fields={ocr_result.low_confidence_fields} — deferred to synthesise_decision",
+                score=_ocr_confidence,
+            ))
 
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
         # Kill-switch checkpoint 1: resolved fresh right before the Vision LLM

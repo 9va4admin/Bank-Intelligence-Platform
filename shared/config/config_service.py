@@ -65,6 +65,18 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.vault_miss_action": "HUMAN_REVIEW",
     "cts.ocr_min_confidence": 0.90,
     "cts.signature_min_match_score": 0.85,
+    # STP architecture fix (2026-09-23): previously ANY low-confidence field among
+    # date/payee/amount_words/amount_figures hard-exited the workflow to HUMAN_REVIEW
+    # before signature/CBS/fraud ever ran — so those signals could never corroborate a
+    # cheque whose only weakness was handwriting OCR (payee name / amount-in-words),
+    # even when everything else was clean. See modules/cts/workflows/cheque_workflow.py's
+    # _MULTISIGNAL_RESCUE_FIELDS for the exact, conservative scope: only payee and
+    # amount_words are eligible (neither feeds a hard auto-return gate in decision.py —
+    # the actual paid amount is always inp.presented_amount from NGCH, never OCR's
+    # reading); date and amount_figures weakness still early-exits exactly as before,
+    # since those feed decision.py's undated/post-dated/stale and amount-mismatch hard
+    # gates and a wrong auto-return is worse than an unnecessary human review.
+    "cts.ocr_multisignal_rescue_enabled": True,
     "cts.alteration_risk_threshold": 0.65,
     "cts.iet_emergency_buffer_seconds": 30,
     "cts.human_review_max_wait_minutes": 55,
@@ -476,6 +488,7 @@ class ConfigService:
             # read by synthesise_decision from the workflow's cts_config
             "ocr_min_confidence":                "cts.ocr_min_confidence",
             "sig_min_match_score":               "cts.signature_min_match_score",
+            "ocr_multisignal_rescue_enabled":    "cts.ocr_multisignal_rescue_enabled",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

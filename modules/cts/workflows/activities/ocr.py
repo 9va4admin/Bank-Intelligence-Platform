@@ -114,6 +114,9 @@ class OCRActivityResult(BaseModel):
     account_number_last4: Optional[str] = None    # PII rule — never the full account number
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
+    # Structured form of low_confidence_reason's field list — cheque_workflow.py's
+    # multisignal-rescue check needs to test set membership, not parse a log string.
+    low_confidence_fields: list[str] = []
     degraded: bool = False
     cascade_level: int = 2
     principal_tag: Optional[str] = None
@@ -650,6 +653,7 @@ def _build_result(
             drawee_name=drawee_val,
             overall_confidence=overall,
             low_confidence_reason=f"low_confidence_fields: {low_fields}",
+            low_confidence_fields=low_fields,
             cascade_level=cascade_level,
             principal_tag=principal_tag,
             sub_member_id=sub_member_id,
