@@ -636,3 +636,41 @@ event loop on Windows specifically.
 Kubernetes/Linux per `CLAUDE.md` §2.1) or would also affect a Linux deployment — that's the key open question,
 since it changes whether this is a real production risk or a dev-environment-only limitation. Re-scoped and
 re-flagged (`task_9cdaf7e6`) with this precise framing, replacing the earlier, less-targeted `task_31cafdcb`.
+
+---
+
+## 2026-09-23 (later) — Activity-dispatch stall narrowed to an exact, reproducible threshold
+
+Continued bisection on `task_9cdaf7e6`, all against the real Temporal docker server, each test isolated in its
+own minimal `Worker()` (no multi-worker complexity — already ruled out above). Every variable tested one at a
+time, holding the rest fixed at "full 94-real-activity registration, single worker, no Kafka/trigger":
+
+| Test | Result |
+|---|---|
+| 5 **dummy** activities in sequence, full 94-real-activity registration alongside | ✅ all 5 complete |
+| 1 real activity (`check_iet_risk_for_alert`) called **10×** in a row | ✅ all 10 complete |
+| **2** distinct real activities in sequence | ✅ both complete |
+| **3** distinct real activities in sequence | ✅ all 3 complete |
+| **4** distinct real activities in sequence | ❌ stalls after 3 — the 4th's `ACTIVITY_TASK_SCHEDULED` never gets an `ACTIVITY_TASK_STARTED` |
+| 5 distinct (the real `PlatformHealthCheckWorkflow` pattern) | ❌ same stall, confirmed twice independently |
+| 4 distinct, with `max_concurrent_activity_task_polls` raised from its default (5) to 20 | ❌ still stalls at the same point — ruled out as a poll-slot exhaustion issue |
+
+**Exact, reproducible threshold: 3 distinct real activity types dispatch fine, every time; the 4th distinct
+type, called within the same workflow execution, never starts.** This is independent of:
+- Registration list size (94 activities registered in every test, including the passing ones)
+- Worker count, Kafka consumer, outward-scan trigger (already ruled out in the entry above)
+- Repeating the *same* activity type many times (10× one type is fine — it's specifically about distinct
+  *types*, not call count)
+- `max_concurrent_activity_task_polls` (tested at both the SDK default of 5 and at 20)
+
+A targeted search of `temporalio/sdk-python`'s GitHub issues turned up nothing matching this exact symptom
+(closest was [sdk-python#150](https://github.com/temporalio/sdk-python/issues/150), a different bug about
+`asyncio.gather()` activity failures dropping results — shares the same benign
+`"Activity not found on completion"` log line seen incidentally in this repo's own worker logs, but is not
+confirmed to be the same root cause).
+
+**Not yet tested:** whether the threshold is exactly 3 regardless of *which* 3 activities are chosen (only one
+specific ordering — IET, HR, vault — was tried), and whether this reproduces on Linux/WSL. Further
+root-causing from here likely needs either Rust-core-level tracing of `temporalio`'s pyo3/tokio bridge or a
+Linux comparison run — both beyond what was practical in this pass. Handed off with this precise, narrowed
+finding on `task_9cdaf7e6`.
