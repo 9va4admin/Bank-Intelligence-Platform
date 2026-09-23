@@ -22,6 +22,7 @@ Workflow IDs:
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
@@ -299,7 +300,14 @@ class ModelRetrainWorkflow:
         eval_result: Optional[ShadowEvalResult] = None
 
         while elapsed < _SHADOW_MAX_WAIT:
-            await workflow.sleep(_SHADOW_POLL_INTERVAL)
+            # temporalio has no workflow.sleep() (confirmed against the installed SDK,
+            # 1.7.1 — see .claude/rules/temporal.md's "Deterministic Sleep" section,
+            # 2026-09-23). No signal interrupts this poll, so a pure wait_condition
+            # timeout is the deterministic-sleep idiom here.
+            try:
+                await workflow.wait_condition(lambda: False, timeout=_SHADOW_POLL_INTERVAL)
+            except asyncio.TimeoutError:
+                pass
             elapsed += _SHADOW_POLL_INTERVAL
 
             eval_result = await workflow.execute_activity(
