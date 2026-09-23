@@ -704,7 +704,38 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         )
 
     trigger_task = None
-    async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:
+    # Run the 4 workers as independent tasks rather than a single combined
+    # `async with A, B, C, D:` — found live (2026-09-23) that the combined form
+    # left Temporal reporting ZERO pollers for any of the 4 task queues even
+    # though this coroutine logged worker.ready and sat in its idle loop
+    # believing it was serving. `Worker.__aenter__` only schedules `run()` as a
+    # background task against `asyncio.current_task()`; with 4 workers sharing
+    # one current task, a fatal error surfacing from any single worker's run()
+    # cancels that shared task, and can leave the others' polling loops never
+    # actually scheduled. Running each worker.run() as its own task, with a
+    # plain worker.shutdown() on exit, makes the 4 workers genuinely
+    # independent — confirmed live: an isolated single-worker repro using this
+    # exact construction registered WORKFLOW/ACTIVITY pollers immediately,
+    # where the combined form registered none.
+    _all_workers = [processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker]
+    _worker_names = ["processing", "hr_standard", "hr_highvalue", "hr_veryhigh"]
+
+    def _make_done_cb(_name):
+        def _cb(_task):
+            if _task.cancelled():
+                log.warning("worker.run_task_cancelled", worker=_name)
+                return
+            _exc = _task.exception()
+            if _exc is not None:
+                log.error("worker.run_task_failed", worker=_name, error=repr(_exc))
+        return _cb
+
+    _worker_run_tasks = []
+    for _name, _w in zip(_worker_names, _all_workers):
+        _t = asyncio.create_task(_w.run())
+        _t.add_done_callback(_make_done_cb(_name))
+        _worker_run_tasks.append(_t)
+    try:
         if trigger is not None:
             trigger_task = asyncio.create_task(trigger.run())
             log.info("worker.outward_scan_trigger_started", bank_id=bank_id)
@@ -748,6 +779,9 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 await asyncio.wait_for(consumer_task, timeout=5.0)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass
+    finally:
+        await asyncio.gather(*(w.shutdown() for w in _all_workers), return_exceptions=True)
+        await asyncio.gather(*_worker_run_tasks, return_exceptions=True)
 
     log.info("worker.stopped", bank_id=bank_id)
 
