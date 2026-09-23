@@ -75,6 +75,10 @@ $env:ASTRA_SECRETS_BACKEND      = "env"
 $env:ENV                        = "development"
 $env:MINIO_ENDPOINT             = "localhost:19000"
 $env:MINIO_SECURE               = "false"
+$env:IMMUDB_HOST                = "localhost"
+$env:IMMUDB_PORT                = "13322"
+$env:CBS_CONNECTOR_TYPE         = "dev_stub"
+$env:CBS_BASE_URL               = "$RepoRoot\\scripts\\dev_cbs_fixture.json"
 
 # Config-service internal connections
 $env:ASTRA_SECRET_REDIS_CONFIG_URL  = "redis://localhost:16379/1"
@@ -95,17 +99,24 @@ $env:ASTRA_SECRET_DB_CTS_DSN     = "postgresql://yugabyte:yugabyte@localhost:154
 $env:ASTRA_SECRET_KAFKA_BOOTSTRAP_SERVERS = "localhost:19092"
 
 # MinIO
+$env:ASTRA_SECRET_MINIO_ENDPOINT    = "localhost:19000"
 $env:ASTRA_SECRET_MINIO_ACCESS_KEY  = "astra-dev"
 $env:ASTRA_SECRET_MINIO_SECRET_KEY  = "astra-dev-secret"
 
 # Temporal
 $env:ASTRA_SECRET_TEMPORAL_HOST  = "localhost:17233"
 
-# ImmuDB
-$env:ASTRA_SECRET_IMMUDB_ADMIN_PASSWORD = "astra-dev-immudb"
+# ImmuDB — must match astra-immudb container's real IMMUDB_ADMIN_PASSWORD (docker inspect
+# astra-immudb); "astra-dev-immudb" here previously was never a real credential anywhere,
+# so worker_activities.immudb_client_unavailable fired on every real run using this script.
+$env:ASTRA_SECRET_IMMUDB_USERNAME = "immudb"
+$env:ASTRA_SECRET_IMMUDB_PASSWORD = "immudb"
 
-# PII hash pepper (change before handling real customer data)
-$env:ASTRA_SECRET_BANKS_{bank_id.upper().replace('-', '_')}_PII_HASH_PEPPER = "{pepper}"
+# PII hash pepper — config_service.get_secret("pii_hash_pepper") reads this exact
+# (bank-agnostic) key; a bank-namespaced key here was silently never read, which meant
+# signature/PPS/account vaults never initialised (worker_activities.*_vault_skipped_no_pepper)
+# on every real run using this script.
+$env:ASTRA_SECRET_PII_HASH_PEPPER = "{pepper}"
 
 # NGCH — pilot placeholder (no live NGCH filing in POC)
 $env:ASTRA_SECRET_NGCH_API_KEY         = "pilot-placeholder"
@@ -137,6 +148,10 @@ export ASTRA_SECRETS_BACKEND="env"
 export ENV="development"
 export MINIO_ENDPOINT="localhost:19000"
 export MINIO_SECURE="false"
+export IMMUDB_HOST="localhost"
+export IMMUDB_PORT="13322"
+export CBS_CONNECTOR_TYPE="dev_stub"
+export CBS_BASE_URL="$_REPO/scripts/dev_cbs_fixture.json"
 
 # Platform Layer 1/2 config — read by config_service.get_platform()
 export TEMPORAL_ADDRESS="localhost:17233"
@@ -154,11 +169,13 @@ export ASTRA_SECRET_REDIS_CTS_URL="redis://localhost:16379/0"
 export ASTRA_SECRET_REDIS_EJ_URL="redis://localhost:16380/0"
 export ASTRA_SECRET_DB_CTS_DSN="postgresql://yugabyte:yugabyte@localhost:15433/yugabyte"
 export ASTRA_SECRET_KAFKA_BOOTSTRAP_SERVERS="localhost:19092"
+export ASTRA_SECRET_MINIO_ENDPOINT="localhost:19000"
 export ASTRA_SECRET_MINIO_ACCESS_KEY="astra-dev"
 export ASTRA_SECRET_MINIO_SECRET_KEY="astra-dev-secret"
 export ASTRA_SECRET_TEMPORAL_HOST="localhost:17233"
-export ASTRA_SECRET_IMMUDB_ADMIN_PASSWORD="astra-dev-immudb"
-export ASTRA_SECRET_BANKS_{bank_id.upper().replace('-', '_')}_PII_HASH_PEPPER="{pepper}"
+export ASTRA_SECRET_IMMUDB_USERNAME="immudb"
+export ASTRA_SECRET_IMMUDB_PASSWORD="immudb"
+export ASTRA_SECRET_PII_HASH_PEPPER="{pepper}"
 export ASTRA_SECRET_NGCH_API_KEY="pilot-placeholder"
 export ASTRA_SECRET_NGCH_SFTP_PRIVATE_KEY=""
 export ASTRA_SECRET_CBS_FINACLE_PASSWORD=""
@@ -169,6 +186,28 @@ echo "[env] ASTRA environment loaded (BANK_ID=$BANK_ID)"
 """
     ENV_DEV.write_text(content, encoding="utf-8")
     print("  [OK] Wrote scripts/.env.dev")
+
+
+def write_cbs_fixture():
+    """DevStubCBSConnector fixture — CBS_BASE_URL points here (shared/cbs_connector/dev_stub.py).
+
+    Without this file, every real run left the CBS connector permanently unavailable
+    (worker_activities.cbs_connector_unavailable), so every cheque's account/balance/
+    stop-payment/PPS check silently degraded. Generic and empty by design: real cheque
+    accounts won't be found (AccountNotFoundError → routes to human review, never a
+    silent pass), which is the safe default. Add real dev accounts here by hand if a
+    specific test scenario needs them.
+    """
+    import json
+    fixture_path = REPO_ROOT / "scripts" / "dev_cbs_fixture.json"
+    if fixture_path.exists():
+        print("  [OK] scripts/dev_cbs_fixture.json already exists — leaving it as is")
+        return
+    fixture_path.write_text(
+        json.dumps({"accounts": {}, "stopped_cheques": {}, "pps": {}}, indent=2),
+        encoding="utf-8",
+    )
+    print("  [OK] Wrote scripts/dev_cbs_fixture.json (empty — add accounts by hand as needed)")
 
 
 # ── 3. DB schema ──────────────────────────────────────────────────────────────
@@ -246,6 +285,7 @@ async def main():
     print("\n[2/4] Writing environment files ...")
     write_env_ps1(bank_id)
     write_env_dev(bank_id)
+    write_cbs_fixture()
 
     print("\n[3/4] Applying DB schema ...")
     try:
@@ -270,9 +310,9 @@ async def main():
 {'='*56}
 
   Default credentials (change after first login):
-    admin     / Admin@Astra2026!   (bank_it_admin)
-    ops       / Ops@Astra2026!    (ops_manager)
-    reviewer  / Rev@Astra2026!    (ops_reviewer)
+    admin     / Astra@1212   (bank_it_admin)
+    ops       / Astra@1212   (ops_manager)
+    reviewer  / Astra@1212   (ops_reviewer)
 
   To start everything: run  scripts\\start.ps1
 {'='*56}

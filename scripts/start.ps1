@@ -210,8 +210,24 @@ Start-Sleep 2
 Write-Info "Opening CTS Worker window ..."
 Start-ServiceWindow -Title "ASTRA - CTS Worker" -Command "`$env:TEMPORAL_ADDRESS = `$env:ASTRA_SECRET_TEMPORAL_HOST; python -m modules.cts.worker --bank-id $BankId"
 
-Write-Info "Opening Frontend window  (Vite :5173) ..."
-Start-ServiceWindow -Title "ASTRA - Frontend :5173" -Command "Set-Location '$RepoRoot\apps\web'; npm run dev"
+Start-Sleep 1
+
+# AI sidecars — the worker calls these over HTTP (services.indic_ocr.url,
+# services.sig_detector.url), so they must be running as their own processes, not just
+# "mounted" as proxy routes inside the API gateway.
+Write-Info "Opening IndicOCR sidecar window (:8021) ..."
+$indicOcrVenv = "$RepoRoot\apps\indic_ocr\.venv\Scripts\python.exe"
+if (Test-Path $indicOcrVenv) {
+    Start-ServiceWindow -Title "ASTRA - IndicOCR :8021" -Command "Set-Location '$RepoRoot\apps\indic_ocr'; & '$indicOcrVenv' main.py"
+} else {
+    Write-Warn "apps\indic_ocr\.venv not found — skipping (Indic-script OCR zone refinement will be unavailable). See apps/indic_ocr/requirements.txt to set it up."
+}
+
+Write-Info "Opening Signature Detector sidecar window (:8020) ..."
+Start-ServiceWindow -Title "ASTRA - SigDetector :8020" -Command "Set-Location '$RepoRoot\apps\sig_detector'; python main.py"
+
+Write-Info "Opening Frontend window  (Vite :4000) ..."
+Start-ServiceWindow -Title "ASTRA - Frontend :4000" -Command "Set-Location '$RepoRoot\apps\web'; npm run dev"
 
 # ---------------------------------------------------------------------------
 # STEP 7 - Done
@@ -227,6 +243,8 @@ Write-Host "  |   Web UI    ->  http://localhost:4000            |" -ForegroundC
 Write-Host "  |   API       ->  http://localhost:8010            |" -ForegroundColor Green
 Write-Host "  |   Temporal  ->  http://localhost:18088           |" -ForegroundColor Green
 Write-Host "  |   MinIO     ->  http://localhost:19091           |" -ForegroundColor Green
+Write-Host "  |   IndicOCR  ->  http://localhost:8021 (sidecar)  |" -ForegroundColor Green
+Write-Host "  |   SigDetect ->  http://localhost:8020 (sidecar)  |" -ForegroundColor Green
 Write-Host "  |                                                  |" -ForegroundColor Green
 Write-Host "  |   Login:  ops           / Astra@1212              |" -ForegroundColor Green
 Write-Host "  |           admin         / Astra@1212              |" -ForegroundColor Green
