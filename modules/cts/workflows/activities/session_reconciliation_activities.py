@@ -165,11 +165,13 @@ class GenerateRRFResult(BaseModel):
 async def generate_rrf(
     inp: GenerateRRFInput,
     db_pool: Any = None,
+    minio_client: Any = None,
 ) -> GenerateRRFResult:
     """
-    Generates the Return Reason File (RRF) for instruments returned by NGCH.
+    Generates the Return Reason File (RRF) for instruments returned by NGCH,
+    uploads the XML to MinIO, and records the path in cts.rrf_sessions.
     Skips generation when there are no exceptions.
-    Degrades gracefully when db_pool is unavailable.
+    Degrades gracefully when db_pool or minio_client is unavailable.
     """
     with tracer.start_as_current_span("activity.generate_rrf") as span:
         span.set_attribute("bank_id", inp.bank_id)
@@ -181,11 +183,13 @@ async def generate_rrf(
             )
             return GenerateRRFResult(generated=False)
 
-        if db_pool is None:
+        if db_pool is None or minio_client is None:
             log.warning(
-                "generate_rrf.db_unavailable",
+                "generate_rrf.dependency_unavailable",
                 session_id=inp.session_id,
                 bank_id=inp.bank_id,
+                db_pool_ok=db_pool is not None,
+                minio_ok=minio_client is not None,
             )
             return GenerateRRFResult(generated=False)
 
@@ -195,6 +199,7 @@ async def generate_rrf(
         # RRFDocument; items with incomplete metadata fall back to a placeholder XML comment
         # so the file is always generated even from partial data.
         from datetime import datetime, timezone as _tz
+        _xml: Optional[str] = None
         try:
             from modules.cts.rrf.generator import RRFGenerator
             from modules.cts.rrf.models import RRFDocument, ReturnItem, RBIReturnCode
@@ -235,8 +240,16 @@ async def generate_rrf(
         except Exception as _rrf_exc:
             log.warning("generate_rrf.xml_generation_failed", session_id=inp.session_id, bank_id=inp.bank_id, error=str(_rrf_exc))
 
+        if _xml is None:
+            # XML generation itself failed (not just individual items) — nothing to upload,
+            # never record a rrf_path that points at a file that doesn't exist.
+            return GenerateRRFResult(generated=False)
+
         rrf_path = (
             f"cts/{inp.bank_id}/{inp.clearing_date}/rrf/{inp.session_id}.xml"
+        )
+        await minio_client.upload_bytes(
+            "astra-cts", rrf_path, _xml.encode("utf-8"), content_type="application/xml",
         )
         async with db_pool.acquire() as conn:
             await conn.execute(

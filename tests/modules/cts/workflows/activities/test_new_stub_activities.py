@@ -282,6 +282,7 @@ class TestGenerateRRF:
         db_pool = MagicMock()
         db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
         db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        minio_client = AsyncMock()
 
         inp = GenerateRRFInput(
             session_id="SESS-001",
@@ -290,9 +291,31 @@ class TestGenerateRRF:
             clearing_date="2026-07-21",
             exception_instruments=[{"instrument_id": "INS-002", "reason": "RETURNED"}],
         )
-        result = await generate_rrf(inp, db_pool=db_pool)
+        result = await generate_rrf(inp, db_pool=db_pool, minio_client=minio_client)
         assert result.generated is True
         assert result.rrf_path is not None
+        # The XML must actually be uploaded, not just discarded after being built in memory.
+        minio_client.upload_bytes.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_with_exceptions_but_no_minio_degrades_to_not_generated(self):
+        """Real gap found reading the outward pipeline: generate_rrf used to build the RRF
+        XML in memory and discard it -- only a DB metadata row pointed at a file that never
+        existed. It must not report generated=True when it has nowhere to put the file."""
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            generate_rrf, GenerateRRFInput,
+        )
+        db_pool = MagicMock()
+
+        inp = GenerateRRFInput(
+            session_id="SESS-001",
+            bank_id="test-bank",
+            bank_ifsc="SARA0000001",
+            clearing_date="2026-07-21",
+            exception_instruments=[{"instrument_id": "INS-002", "reason": "RETURNED"}],
+        )
+        result = await generate_rrf(inp, db_pool=db_pool, minio_client=None)
+        assert result.generated is False
 
 
 # ═══════════════════════════════════════════════════════════════════════════

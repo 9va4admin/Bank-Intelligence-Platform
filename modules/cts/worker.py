@@ -86,6 +86,7 @@ from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWor
 from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
 from modules.cts.workflows.clearing_session_workflow import ClearingSessionWorkflow
 from modules.cts.workflows.session_reconciliation_workflow import SessionReconciliationWorkflow
+from modules.cts.workflows.representation_workflow import ChequeRepresentationWorkflow
 from modules.cts.workflows.sb_inward_forwarding_workflow import SBInwardForwardingWorkflow
 from modules.cts.workflows.smb_vault_push_workflow import SMBVaultPushWorkflow
 from modules.cts.workflows.agency_cc_workflow import AgencyCCWorkflow
@@ -234,6 +235,7 @@ ALL_WORKFLOWS = [
     NGCHSubmissionWorkflow,
     ClearingSessionWorkflow,
     SessionReconciliationWorkflow,
+    ChequeRepresentationWorkflow,
     SBInwardForwardingWorkflow,
     SMBVaultPushWorkflow,
     AgencyCCWorkflow,
