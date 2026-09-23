@@ -95,6 +95,20 @@ Added a third tier: `_cloud_vlm_refine_zone()` in `modules/cts/workflows/activit
 
 **Resolution vs. model-choice, tested and ruled on (2026-09-22):** full evidence in [docs/indic-ocr-handwriting-evidence.md](docs/indic-ocr-handwriting-evidence.md). Short version: interpolating a low-DPI photo up to 200-DPI pixel count does not help (still wrong, both local and cloud engines) — but the same engines read Devanagari correctly at ~1.0 confidence on clean text rendered at genuine 200 DPI, so the failure is handwriting-stroke ambiguity, not missing script support. Newer models (Qwen3-VL-8B/32B, and Qwen2.5-VL-72B again) were tested against 3 real Devanagari cheques with eye-verified ground truth: 0/3 correct across every model tried. Gemma 4 31B and Qwen3.8-27B are real, recent models but have no inference provider currently serving them — not tested, not claimed. A genuine 200-DPI scanner capture (not a photo, not an upscale) remains the one untested, credible next lever.
 
+### 2.8 STP Multisignal Rescue — Don't Hard-Gate on OCR Confidence Alone (2026-09-23)
+
+**Decision:** `cheque_workflow.py` no longer hard-exits to `HUMAN_REVIEW` the instant OCR confidence is low
+on payee or amount_words specifically — it defers to `synthesise_decision`'s existing multi-signal gate
+(fraud + OCR + signature + CBS + PPS together) instead, as long as a usable MICR/account number exists.
+`date` and `amount_figures` weakness still exits immediately — both feed `decision.py`'s hard auto-return
+gates, where a wrong OCR reading could file an incorrect `STP_RETURN`. See
+`modules/cts/workflows/cheque_workflow.py`'s `_MULTISIGNAL_RESCUE_FIELDS` for the exact scope and reasoning,
+and [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md)'s 2026-09-23 entry for the full finding, TDD
+proof, and honest live-verification result (zero regression confirmed on real data; positive STP impact
+proven via TDD, not yet demonstrated live — this repo's current real cheque sample has no cheque where only
+payee/amount_words are weak). Bank-configurable: `cts.ocr_multisignal_rescue_enabled` (Layer 3, default
+`True`, hot-reload).
+
 ---
 
 ## 3. Technology Stack (Final — Locked)
