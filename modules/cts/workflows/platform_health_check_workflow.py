@@ -18,6 +18,7 @@ can exercise it synchronously at full speed.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from typing import Any, Optional
 
@@ -201,7 +202,16 @@ class PlatformHealthCheckWorkflow:
                     start_to_close_timeout=_ACTIVITY_TIMEOUT,
                 )
 
-            await workflow.sleep(timedelta(seconds=_HEALTH_CHECK_INTERVAL_S))
+            # temporalio has no workflow.sleep() (confirmed against the installed SDK,
+            # 1.7.1 — see .claude/rules/temporal.md's "Deterministic Sleep" section,
+            # 2026-09-23). No signal interrupts this loop, so a pure wait_condition
+            # timeout is the deterministic-sleep idiom here.
+            try:
+                await workflow.wait_condition(
+                    lambda: False, timeout=timedelta(seconds=_HEALTH_CHECK_INTERVAL_S)
+                )
+            except asyncio.TimeoutError:
+                pass
 
     # -----------------------------------------------------------------------
     # Testable orchestration — same branch logic, no Temporal machinery
