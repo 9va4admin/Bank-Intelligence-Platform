@@ -72,3 +72,42 @@ everything else here has now actually been tried.
 
 ### Raw evidence
 All 5 crop images referenced above are committed at `docs/evidence/2026-09-22/hindi_ocr_dpi_test/`.
+
+---
+
+## Entry 2026-09-23 — IndicPhotoOCR (Bhashini/IIT Jodhpur), tested both hosted and self-hosted
+
+A real, MIT-licensed, self-hostable scene-text OCR toolkit
+([Bhashini-IITJ/IndicPhotoOCR](https://github.com/Bhashini-IITJ/IndicPhotoOCR), TextBPN++ detection → ViT
+script ID → PARseq recognition) was suggested as a candidate. Strategically distinct from every VLM tested so
+far: it doesn't require the `cts.allow_cloud_ai_fallback` exception to CLAUDE.md §2.1 ("zero cloud
+dependencies") — it can run entirely on-prem. Tested twice, independently:
+
+**1. Hosted HF Space** (`Bhashini-IITJ/IndicPhotoOCR`, via its Gradio API) — on `353138.jpg` (ground truth
+payee: **राजू पंडीत / Raju Pandit**): a tight field crop returned empty output across all 11 language
+settings (this is a *scene-text* detector, built for full-photo context, not a pre-isolated single line — a
+real usage-pattern finding, not a model failure). On the **full cheque image**, it read almost the entire
+printed layout correctly (bank name, address, IFSC, account number) and read the handwritten payee as
+`राजू डी` — first name exactly right, surname wrong.
+
+**2. Self-hosted, local install** (cloned + `pip install -e .` into an isolated venv, weights downloaded for
+real — not the hosted demo) — same full cheque image, same `identifier_lang="hindi"`: printed text again read
+correctly (`इंडियन बैंक`, `karnataka bank ltd`, `50401372948`, …), but the handwritten payee field this time
+came back as `হালু`, `પડી` — Bengali and Gujarati script fragments, not even Devanagari. The amount-words
+field came back as `वेल`, `੬੫੮` (Gurmukhi digits), `धारक` — also wrong, also mixed-script.
+
+**Same crop, same declared language, two runs of the same underlying model family — two different, both
+wrong, both differently-scripted answers.** This is the same "wrong-script confidence" failure mode found in
+Qwen3-VL on 2026-09-22, now confirmed in a second, independent, self-hostable model family. It reinforces
+rather than changes the standing verdict: printed-text recognition is genuinely strong and reliable in this
+toolkit; handwritten payee/amount-words recognition is not solved by it, and is not even consistent run to
+run on identical input.
+
+**Install note (self-hosted path):** the repo's `pip install -e .` bulk dependency resolve was flaky in this
+environment — twice, pip reported `Successfully installed` for the full ~60-package set (including `torch`,
+`transformers`, `timm`, …) but `pip show torch` immediately after showed nothing installed. Root cause not
+fully isolated (suspected stale/corrupted wheel cache from earlier interrupted install attempts); worked
+around by installing the large dependency set as an explicit, `--no-cache-dir` batch separately from the
+editable package registration (`pip install -e . --no-deps`). Not an IndicPhotoOCR defect — noted here only
+because it cost real time and could recur for anyone else trying a local install of this or a similarly
+heavy PyTorch-based toolkit in this environment.
