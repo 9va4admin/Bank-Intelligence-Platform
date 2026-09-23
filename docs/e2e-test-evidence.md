@@ -488,3 +488,54 @@ Commit (fix + tests + rules correction) pending push alongside this entry.
 previous entry, both `store_postdated_hold` (persistence) and the workflow's own orchestration are fixed and
 live-verified end to end for the cancel path. The release (no-cancel) path's full chain into
 `ChequeProcessingWorkflow` remains untested.
+
+---
+
+## 2026-09-23 — The "one-click" launcher (`scripts/start.ps1` / `dev-init.py`) never actually worked either
+
+User asked for a single script to reliably bring up the whole platform. Checked `scripts/start.ps1` +
+`scripts/dev-init.py` (the generator behind it) against everything a real worker actually needs — found the
+"official" env generator had almost the same class of gap this week's manual sessions kept hitting: **6 real,
+silent-degradation bugs**, none of them raising an error a user would notice.
+
+1. Immudb: generator wrote `ASTRA_SECRET_IMMUDB_ADMIN_PASSWORD` (never read anywhere); the real code needs
+   `IMMUDB_HOST`/`IMMUDB_PORT` (plain) + `ASTRA_SECRET_IMMUDB_USERNAME`/`PASSWORD` — none of the four were set.
+   Every launcher-started worker had `immudb_client_unavailable` — no audit trail, silently.
+2. MinIO: `ASTRA_SECRET_MINIO_ENDPOINT` was never set (only the access/secret keys) —
+   `minio_client_unavailable` on every run; lot storage and the OCR feedback corpus never worked.
+3. PII pepper: generator wrote a bank-namespaced key; the code reads a plain `ASTRA_SECRET_PII_HASH_PEPPER`.
+   Signature/PPS/account vaults never initialised on any launcher-started run.
+4. CBS: `CBS_CONNECTOR_TYPE`/`CBS_BASE_URL` were never set — the dev-stub CBS connector never loaded, so
+   every real cheque's account/balance/stop-payment/PPS check silently degraded.
+5. `dev-init.py`'s final banner printed passwords (`Admin@Astra2026!` etc.) that do not match the actual
+   seeded password (`Astra@1212`, confirmed against `seed_users()`'s own `ph.hash()` calls) — anyone
+   following the printed instructions literally could not log in.
+6. `start.ps1` never launched `apps/sig_detector` or `apps/indic_ocr` at all — both are real HTTP services
+   the worker calls directly (`services.sig_detector.url`, `services.indic_ocr.url`), not routes the API
+   gateway merely proxies. Signature detection and Indic-script OCR refinement were silently unavailable
+   from every launcher-started session. Also fixed a stale `:5173` frontend label (real port is 4000, per
+   `apps/web/vite.config.js`).
+
+**Fixed** in `scripts/dev-init.py` (correct keys for all of the above, plus a new
+`scripts/dev_cbs_fixture.json` generator — empty and safe by default: unknown accounts route to human
+review, never a silent pass) and `scripts/start.ps1` (launches both AI sidecars too).
+
+**Verified live, for real, end to end — not just read the diff:** killed every python/node process, ran
+`python scripts/dev-init.py --bank-id kbl` (regenerating all three files from the fixed generator, zero
+manual overrides), then `powershell scripts/start.ps1 -BankId kbl` as one real command. All five components
+came up healthy from that single run:
+- API `/health/ready`: `{"config_service":true,"redis_cts":true,"temporal":true,"kafka_cts":true,"session_service":true}`
+- CTS worker: confirmed actually polling (`cts-processing-kbl` shows a live poller via Temporal's own
+  task-queue API, not just a log line)
+- IndicOCR sidecar (:8021): `{"status":"ready","backend":"paddle"}`
+- Signature Detector sidecar (:8020): `{"status":"ok"}`
+- Vite frontend (:4000): HTTP 200
+
+Then logged in through the **real browser UI** — password + a real TOTP QR enrollment (secret read directly
+from the live page's DOM, code computed with `pyotp`, not guessed) — to the real Clearing Operations
+Dashboard. Commit: fix(scripts) landed alongside this entry.
+
+**Not covered by this fix:** the dashboard's own header shows "Saraswat" demo-data branding regardless of
+`--bank-id kbl` — a cosmetic seed-data labelling detail, not touched here. `dev-init.py`'s separate
+`apps.api.dev_auth_server` "PLATFORM SUPER ADMIN" banner (a different, parallel auth mechanism from the
+`seed_users()` DB accounts fixed here) was not reconciled — both exist, out of scope for this fix.
