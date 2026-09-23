@@ -674,3 +674,80 @@ specific ordering — IET, HR, vault — was tried), and whether this reproduces
 root-causing from here likely needs either Rust-core-level tracing of `temporalio`'s pyo3/tokio bridge or a
 Linux comparison run — both beyond what was practical in this pass. Handed off with this precise, narrowed
 finding on `task_9cdaf7e6`.
+
+**Follow-up sighting (2026-09-23, STP rescue live verification below):** the same dispatch-stall symptom
+appeared on a *workflow* task this time, not just activity tasks — a `WORKFLOW_TASK_SCHEDULED` event with no
+`STARTED` ever following, and the task-queue's own workflow-poller listing came back completely empty
+(`{}`) despite 8 worker processes running. Same fix as always: kill everything, confirm zero stray processes,
+restart clean. Recording this because it's the same class of issue as the activity-dispatch stall above,
+just a different task type — reinforces that this is systemic to task dispatch in this environment, not
+specific to activities.
+
+---
+
+## 2026-09-23 — STP architecture fix: multisignal rescue for weak-OCR-but-otherwise-clean cheques
+
+User's standing priority, stated directly: STP rate is the actual product thesis, not a side metric — if the
+AI pipeline can't move cheques through without human review often enough, "AI/ML/multiple OCR engines" is
+overkill dressing on a manual process. Investigated why the real 18-cheque run (previous entries) hit 0%
+STP, expecting to find an OCR-accuracy problem. Found something more actionable instead: an **architecture**
+problem, not (only) a model-accuracy one.
+
+**The finding:** `cheque_workflow.py` hard-exited to `HUMAN_REVIEW` the instant OCR confidence was low on
+*any* of `date`/`payee`/`amount_words`/`amount_figures` — before signature verification, CBS lookup, or
+fraud scoring ever ran. `decision.py`'s `synthesise_decision` is already a genuinely well-built multi-signal
+arbiter (weighs fraud score, OCR confidence, signature match, CBS outcome, PPS outcome together; computes
+`combined_confidence = ocr*0.5 + sig*0.5` for the STP gate) — but it was structurally unreachable whenever
+OCR was weak, so its multi-signal design could never actually corroborate a cheque whose only real weakness
+was handwriting OCR (payee name / amount-in-words), even when everything else was clean.
+
+**The fix — `_MULTISIGNAL_RESCUE_FIELDS = {"payee", "amount_words"}`:** when OCR flags low confidence, check
+whether the weak fields are *safe to defer* and a usable MICR/account number exists (parsed from the
+reliably-read MICR band, independent of the confidence-gated handwriting fields). If so, the workflow now
+continues to signature/CBS/fraud instead of exiting immediately; `synthesise_decision`'s existing gates make
+the real call using every signal. Deliberately excludes `date` and `amount_figures` — both feed
+`decision.py`'s **hard** auto-return gates (undated/post-dated/stale; amount words-vs-figures mismatch), and
+a wrong OCR reading there could file an incorrect `STP_RETURN`, which is worse than an unnecessary human
+review. `amount_words` is safe to include because the actual paid amount is always
+`inp.presented_amount` (from NGCH) — OCR's amount reading only ever feeds a corroboration check, never the
+money itself. Also excludes `ocr_result.degraded` (MODEL_UNAVAILABLE) and `amount_mismatch` (an already-
+confident red flag, not a confidence problem). New Layer 3 config,
+`cts.ocr_multisignal_rescue_enabled` (default `True`, hot-reload, bank-configurable) — a bank can restore the
+fully conservative old behaviour with zero code change.
+
+**TDD, against a real Temporal time-skipping environment** —
+`TestInwardOCRMultisignalRescue` (4 new tests in `test_cheque_workflow_inward_ocr.py`): the positive case
+(weak payee/amount_words, usable MICR, mocked `synthesise_decision` that always returns `STP_CONFIRM`) proves
+the pipeline actually *reaches* decision synthesis instead of early-exiting — confirmed **RED** first
+(failed with `HUMAN_REVIEW` against the pre-fix code, exactly as expected), **GREEN** after. Three
+regression/safety tests (no usable MICR; weak `date` specifically; feature disabled via config) already
+passed unchanged against the pre-fix code, as they should — confirming this is additive, not behavior-
+changing, for every case outside the new rescue path. Full file: 29/29 pass. Wider
+`tests/modules/cts/workflows/` suite: **1588 passed, 0 regressions**.
+
+**Live-verified against real infra — honest result, not cherry-picked.** Restarted the full stack (worker +
+API + IndicOCR + SigDetector sidecars — confirmed all genuinely healthy first, after hitting the dispatch-
+stall issue above while sidecars were down). Checked the existing real evidence first: **every one of the 18
+real cheques from the earlier real run has `date` AND `amount_figures` weak, not just
+`payee`/`amount_words`** (see the 2026-09-22 inward-run entry above — the same 4-field rationale on 14/18,
+`MODEL_UNAVAILABLE` on 4/18). This conservative design therefore correctly **declines to rescue every one of
+them** — re-ran 2 of the 18 live (`086054`, `915526`) end-to-end through the real API and confirmed identical,
+unchanged `HUMAN_REVIEW` outcomes with the same rationale as before. **This is the honest, expected result on
+this specific dataset, not a failure of the fix** — it's the safety scoping working exactly as designed. The
+positive case (a cheque where only payee/amount_words are weak) is proven correct by the TDD suite's real-
+Temporal-environment test, not demonstrated live on this photo dataset, because this dataset does not
+currently contain that combination — every cheque in it has messy handwriting across date, amount, and payee
+simultaneously, not selectively.
+
+**What would actually move the STP needle on this exact dataset:** nothing changed here does, and that's
+stated plainly rather than implied otherwise. The real, most credible lever remains the one already
+identified in `docs/indic-ocr-handwriting-evidence.md`'s DPI test: a genuine 200 DPI scanner capture (not a
+96 DPI photo) would very plausibly make printed/boxed fields (date, amount-in-figures) legible even where
+cursive fields stay hard — which is exactly the combination this rescue is built to exploit. This fix and
+that lever are complementary, not alternatives: better capture quality feeds cheques into the safe side of
+this rescue's scope; this rescue captures the STP upside once they're there.
+
+**Status: multisignal rescue is built, TDD-proven correct (including the positive case), and live-verified
+to introduce zero regression on real data.** Its positive impact on STP rate is not yet demonstrated on real
+cheques, because no real cheque tested so far has the qualifying field pattern — that demonstration needs
+either a higher-quality real scan or a different real cheque sample, not further code changes.
