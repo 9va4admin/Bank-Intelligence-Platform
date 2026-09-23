@@ -931,3 +931,123 @@ class TestRunWithMocksScannerFleet:
             },
         )
         assert not any(d["event_type"] == "SCANNER_BRANCH_OFFLINE" for d in dispatched)
+
+
+# ---------------------------------------------------------------------------
+# Regression (found live, 2026-09-23): PlatformHealthCheckWorkflow.run() called
+# `await workflow.sleep(timedelta(seconds=_HEALTH_CHECK_INTERVAL_S))`, which does not
+# exist on `temporalio.workflow` in the installed SDK (1.7.1) — same bug already found
+# and fixed in postdated_hold_workflow.py and feedback_workflow.py the same day. Every
+# test above drives run_with_mocks() (deliberately bypasses Temporal) or activities
+# directly — none ever executed the real .run() loop, exactly why this was never
+# caught before a live run.
+#
+# Fixed with workflow.wait_condition(lambda: False, timeout=...) wrapped in
+# try/except asyncio.TimeoutError — a pure, uninterruptible sleep (this loop has no
+# signal to react to).
+# ---------------------------------------------------------------------------
+
+import uuid
+import pytest_asyncio
+from temporalio import activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+from temporalio.client import WorkflowExecutionStatus
+
+from modules.cts.workflows.platform_health_check_workflow import (
+    PlatformHealthCheckWorkflow, PlatformHealthInput,
+)
+from modules.cts.workflows.activities.platform_health_activities import (
+    CheckIETInput, IETCheckResult,
+    CheckHRInput, HRCheckResult,
+    CheckVaultCoverageInput, VaultCoverageCheckResult,
+    CheckScannerFleetInput, ScannerFleetCheckResult,
+    StuckWorkflowSweepInput, StuckWorkflowSweepResult,
+    DispatchAlertInput, DispatchAlertResult,
+)
+
+
+@activity.defn(name="check_iet_risk_for_alert")
+async def _fake_check_iet(inp: CheckIETInput) -> IETCheckResult:
+    return IETCheckResult(bank_id=inp.bank_id)
+
+
+@activity.defn(name="check_human_review_for_alert")
+async def _fake_check_hr(inp: CheckHRInput) -> HRCheckResult:
+    return HRCheckResult(bank_id=inp.bank_id)
+
+
+@activity.defn(name="check_vault_redis_coverage_for_alert")
+async def _fake_check_vault(inp: CheckVaultCoverageInput) -> VaultCoverageCheckResult:
+    return VaultCoverageCheckResult(bank_id=inp.bank_id)
+
+
+@activity.defn(name="check_scanner_fleet_for_alert")
+async def _fake_check_scanner(inp: CheckScannerFleetInput) -> ScannerFleetCheckResult:
+    return ScannerFleetCheckResult(bank_id=inp.bank_id)
+
+
+@activity.defn(name="sweep_stuck_workflows")
+async def _fake_sweep(inp: StuckWorkflowSweepInput) -> StuckWorkflowSweepResult:
+    return StuckWorkflowSweepResult(bank_id=inp.bank_id)
+
+
+@activity.defn(name="dispatch_platform_alert")
+async def _fake_dispatch_alert(inp: DispatchAlertInput) -> DispatchAlertResult:
+    raise AssertionError("no check should need_alert in this test — nothing should dispatch")
+
+
+_FAKE_HEALTH_ACTIVITIES = [
+    _fake_check_iet, _fake_check_hr, _fake_check_vault,
+    _fake_check_scanner, _fake_sweep, _fake_dispatch_alert,
+]
+
+
+@pytest_asyncio.fixture(scope="module")
+async def health_temporal_env():
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        yield env
+
+
+class TestPlatformHealthCheckWorkflowRealRun:
+    """Runs PlatformHealthCheckWorkflow.run() for real against a Temporal
+    time-skipping server — the class of test that would have caught the
+    workflow.sleep() bug."""
+
+    @pytest.mark.asyncio(loop_scope="module")
+    async def test_tick_completes_and_sleeps_without_error(self, health_temporal_env):
+        """Direct regression case: one full tick (all 5 checks, no alerts) must reach
+        the sleep line and actually sleep, not crash the workflow task. Since this
+        workflow is `while True` by design (a singleton per-bank loop, per its own
+        docstring), we don't await completion — we confirm it's still healthily
+        RUNNING (not failed) after letting a tick elapse, then cancel it."""
+        inp = PlatformHealthInput(bank_id="kbl")
+        tq = f"tq-health-{uuid.uuid4().hex[:8]}"
+        async with Worker(
+            health_temporal_env.client,
+            task_queue=tq,
+            workflows=[PlatformHealthCheckWorkflow],
+            activities=_FAKE_HEALTH_ACTIVITIES,
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            handle = await health_temporal_env.client.start_workflow(
+                PlatformHealthCheckWorkflow.run,
+                inp,
+                id=f"test-health-{uuid.uuid4().hex[:8]}",
+                task_queue=tq,
+            )
+            # Advance the time-skipping server well past one 60s tick so the
+            # sleep line (and the next tick's activities) actually execute.
+            await health_temporal_env.sleep(150)
+
+            desc = await handle.describe()
+            assert desc.status == WorkflowExecutionStatus.RUNNING
+
+            hist = await health_temporal_env.client.get_workflow_handle(handle.id).fetch_history()
+            for ev in hist.events:
+                assert ev.WhichOneof("attributes") != "workflow_task_failed_event_attributes", (
+                    "workflow task failed — the workflow.sleep() bug is back: "
+                    f"{ev}"
+                )
+
+            await handle.cancel()
