@@ -35,10 +35,15 @@ export default function useOutwardDecisions({ outcome = null, limit = 100, pollE
   }, [outcome, limit])
 
   useEffect(() => {
-    fetchDecisions()
-    if (pollEnabled) {
-      timerRef.current = setInterval(fetchDecisions, POLL_INTERVAL_MS)
+    // pollEnabled must gate the INITIAL fetch too, not just the recurring interval below —
+    // otherwise a demo-mode caller (pollEnabled: false) still gets one real fetch on mount,
+    // which overwrites curated demo data with live (and here, incompletely-mapped) rows.
+    if (!pollEnabled) {
+      setLoading(false)
+      return
     }
+    fetchDecisions()
+    timerRef.current = setInterval(fetchDecisions, POLL_INTERVAL_MS)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [fetchDecisions, pollEnabled])
 
