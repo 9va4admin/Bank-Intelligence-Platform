@@ -593,3 +593,46 @@ dispatch bug allowed it to run.
 `feedback_workflow.py`, `platform_health_check_workflow.py`) are now fixed and test-covered. A new, unrelated
 activity-dispatch bug is open (`task_31cafdcb`) — real activity tasks intermittently never reach a confirmed-
 polling worker, root cause not yet found.
+
+---
+
+## 2026-09-23 — Activity-dispatch stall root-caused: not a code bug, a Windows/multi-Worker interaction
+
+Follow-up to the previous entry's open finding (`sweep_stuck_workflows` / `dispatch_retrain_job` stuck at
+`ACTIVITY_TASK_SCHEDULED` forever). Systematically ruled out, each checked live:
+
+1. **Not a registration gap** — both activities confirmed present via direct introspection of the real
+   `_registered_activities()` call the worker actually uses: 94 activities registered, **zero duplicate
+   names**, both `sweep_stuck_workflows` and `dispatch_retrain_job`/`run_shadow_evaluation` present. (Note:
+   the `ALL_ACTIVITIES` list in `worker.py` that appears to include them is explicitly commented "NOT what
+   gets passed to Worker()" — a red herring checked and ruled out first.)
+2. **Not Worker Versioning / build-id pinning** — `GET .../task-queues/.../versioning-rules` returned
+   `NOT_FOUND`; no rules configured.
+3. **Not resource exhaustion** — reproduced identically with a completely fresh worker process.
+4. **Not a bug in the activity itself** — calling `sweep_stuck_workflows()` directly (no Temporal) returns
+   correctly in under a second.
+5. **Not a bug in the activity + Temporal combination either** — the decisive test: ran `sweep_stuck_workflows`
+   through a **minimal, isolated single-`Worker()` setup** (its own dedicated task queue, only this one
+   workflow + this one activity registered, same activity code, same real Temporal server) — **it completed
+   correctly and fast.** This is the first test in this whole investigation that actually isolated the
+   variable that matters.
+
+**What's different about the real worker:** `modules/cts/worker.py`'s `run_worker()` runs **four `Worker()`
+instances concurrently in one process** (`async with processing_worker, hr_standard_worker,
+hr_highvalue_worker, hr_veryhigh_worker:`), plus `asyncio.create_task()` for a Kafka human-review consumer, an
+outward-scan trigger, and drop-folder watchers — all sharing one event loop. That same function already
+carries this comment, a few lines below where the stall was observed:
+> "asyncio.Event.wait() can be cancelled by Temporal's Rust-bridge task dispatch on Windows SelectorEventLoop
+> when live workflows are present. Poll in short sleeps instead — functionally equivalent, avoids the issue."
+
+— i.e. a **related Windows/temporalio Rust-bridge asyncio interaction bug was already found and partially
+worked around in this exact function**, for a different symptom. Confirmed this Windows Python defaults to
+`ProactorEventLoop`, not `SelectorEventLoop` (the comment names). The activity-dispatch stall is very likely
+the same underlying class of issue in a different manifestation — multiple concurrent `Worker()` instances
+plus background asyncio tasks straining the interaction between temporalio's Rust core and Python's asyncio
+event loop on Windows specifically.
+
+**Not yet confirmed:** whether this is Windows-dev-machine-only (this repo's actual production target is
+Kubernetes/Linux per `CLAUDE.md` §2.1) or would also affect a Linux deployment — that's the key open question,
+since it changes whether this is a real production risk or a dev-environment-only limitation. Re-scoped and
+re-flagged (`task_9cdaf7e6`) with this precise framing, replacing the earlier, less-targeted `task_31cafdcb`.
