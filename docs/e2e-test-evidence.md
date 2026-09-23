@@ -539,3 +539,57 @@ Dashboard. Commit: fix(scripts) landed alongside this entry.
 `--bank-id kbl` — a cosmetic seed-data labelling detail, not touched here. `dev-init.py`'s separate
 `apps.api.dev_auth_server` "PLATFORM SUPER ADMIN" banner (a different, parallel auth mechanism from the
 `seed_users()` DB accounts fixed here) was not reconciled — both exist, out of scope for this fix.
+
+---
+
+## 2026-09-23 — The same `workflow.sleep()` bug, fixed in the two files flagged as follow-ups
+
+`feedback_workflow.py:302` (`ModelRetrainWorkflow`'s shadow-eval poll loop) and
+`platform_health_check_workflow.py:204` (`PlatformHealthCheckWorkflow`'s 60s alert loop) both called
+`workflow.sleep(...)`, which doesn't exist in `temporalio==1.7.1` — the identical bug fixed in
+`postdated_hold_workflow.py` earlier the same day, flagged there as two open follow-ups. Both are pure polling
+loops with no signal to interrupt on, so both are fixed with `workflow.wait_condition(lambda: False,
+timeout=...)` wrapped in `try/except asyncio.TimeoutError`, per `.claude/rules/temporal.md`'s Deterministic
+Sleep section.
+
+**Same root cause as before, confirmed again:** neither workflow's existing test file ever executed `.run()`
+against a real Temporal environment — `test_feedback_workflow.py` covered only `FeedbackEmitWorkflow` (signal
+routing, mocked); `test_platform_health_check_workflow.py` covered activities directly and
+`run_with_mocks()` (deliberately Temporal-free). Exactly why this shipped in both files undetected.
+
+**TDD, against a real Temporal time-skipping environment (not mocked)** — one new test class per file:
+- `TestModelRetrainWorkflowRealRun` (`test_feedback_workflow.py`): fake `dispatch_retrain_job` /
+  `run_shadow_evaluation` (returns `new_accuracy=0.95` so the poll loop exits after exactly one sleep
+  interval, keeping the test fast under the real 7-day max wait) / `promote_model`. Confirmed the workflow
+  reaches `promote_model` — meaning the sleep line actually executed — instead of failing the workflow task.
+- `TestPlatformHealthCheckWorkflowRealRun` (`test_platform_health_check_workflow.py`): fake all 5 check
+  activities returning `needs_alert=False`; advance the time-skipping server 150s past one 60s tick; assert
+  the workflow is still healthily `RUNNING` (not failed) and no `WorkflowTaskFailed` event exists in history;
+  cancel it (the workflow is `while True` by design, a singleton per-bank loop).
+
+**RED confirmed first for both** — same lesson as `postdated_hold_workflow.py`: a plain `await
+handle.result()` hangs forever against this bug class (Temporal retries a failing workflow task
+indefinitely), so RED used a bounded check (`asyncio.wait_for` + history inspection) instead. For the
+health-check workflow, the RED check's own `env.sleep()` call additionally hit an internal RPC timeout —
+because a continuously-failing workflow task stalls the time-skipping server's time advancement entirely,
+itself a useful confirmation alongside the `AttributeError`. Both GREEN after the fix: 74/74 tests pass in
+the two files; wider `tests/modules/cts/workflows/` suite: **1584 passed, 0 regressions**.
+
+**Live-verified against the real (non-accelerated) Temporal docker stack — partially, honestly:** started a
+real `PlatformHealthCheckWorkflow` against the real worker; 4 real checks (IET, human review, vault coverage,
+scanner fleet) executed and completed successfully against real infra with **zero `WorkflowTaskFailed`
+events** over a 150-second real wait. Could not get real-time confirmation of the sleep line itself firing a
+second tick — a **separate, newly discovered, unrelated bug** blocked it first: the 5th activity
+(`sweep_stuck_workflows`) and, independently, `ModelRetrainWorkflow`'s first activity (`dispatch_retrain_job`)
+both got stuck at `ACTIVITY_TASK_SCHEDULED` and never reached `ACTIVITY_TASK_STARTED`, for minutes, despite a
+confirmed live poller on the task queue. Reproduced identically with a **completely fresh worker process**
+(ruling out simple long-running-worker resource exhaustion). Calling `sweep_stuck_workflows()` directly
+(bypassing Temporal) returns correctly in under a second — the activity's own code is not the problem.
+Flagged separately, out of scope here (`task_31cafdcb`). The time-skipping test environment above already
+gives full, decisive proof of the fix itself; the real-infra run corroborates it as far as the unrelated
+dispatch bug allowed it to run.
+
+**Status:** all three known `workflow.sleep()` call sites in this codebase (`postdated_hold_workflow.py`,
+`feedback_workflow.py`, `platform_health_check_workflow.py`) are now fixed and test-covered. A new, unrelated
+activity-dispatch bug is open (`task_31cafdcb`) — real activity tasks intermittently never reach a confirmed-
+polling worker, root cause not yet found.
