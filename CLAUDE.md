@@ -99,15 +99,32 @@ Added a third tier: `_cloud_vlm_refine_zone()` in `modules/cts/workflows/activit
 
 **Decision:** `cheque_workflow.py` no longer hard-exits to `HUMAN_REVIEW` the instant OCR confidence is low
 on payee or amount_words specifically — it defers to `synthesise_decision`'s existing multi-signal gate
-(fraud + OCR + signature + CBS + PPS together) instead, as long as a usable MICR/account number exists.
-`date` and `amount_figures` weakness still exits immediately — both feed `decision.py`'s hard auto-return
-gates, where a wrong OCR reading could file an incorrect `STP_RETURN`. See
-`modules/cts/workflows/cheque_workflow.py`'s `_MULTISIGNAL_RESCUE_FIELDS` for the exact scope and reasoning,
-and [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md)'s 2026-09-23 entry for the full finding, TDD
-proof, and honest live-verification result (zero regression confirmed on real data; positive STP impact
-proven via TDD, not yet demonstrated live — this repo's current real cheque sample has no cheque where only
-payee/amount_words are weak). Bank-configurable: `cts.ocr_multisignal_rescue_enabled` (Layer 3, default
-`True`, hot-reload).
+(fraud + OCR + signature + CBS + PPS together) instead, as long as `inp.account_number` (the account already
+known from presentment metadata) is non-empty. `date` and `amount_figures` weakness still exits immediately —
+both feed `decision.py`'s hard auto-return gates, where a wrong OCR reading could file an incorrect
+`STP_RETURN`. See `modules/cts/workflows/cheque_workflow.py`'s `_MULTISIGNAL_RESCUE_FIELDS` for the exact
+scope and reasoning. Bank-configurable: `cts.ocr_multisignal_rescue_enabled` (Layer 3, default `True`,
+hot-reload).
+
+**Corrected 2026-09-24:** the gate originally checked an OCR/MICR-derived `account_number_last4` instead of
+`inp.account_number`. Real Indian CTS-2010 MICR carries no account number field at all (see §2.9) — that
+made the gate structurally unsatisfiable on every real cheque, so the rescue never fired live until this was
+found and fixed. [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md)'s 2026-09-24 entry has the full
+finding and the first genuine, verified live `STP_CONFIRM` result on real 200-DPI scans (6/10) once fixed.
+
+### 2.9 MICR Never Carries an Account Number (corrected 2026-09-24)
+
+**The real Indian CTS-2010 MICR band is cheque number (6 digits) + city-bank-branch sort code (9 digits),
+full stop** — no account number field. `modules/cts/scanner/micr.py`'s `MICRParser.parse_ocr_text()` wrongly
+assumed a 23-digit layout with a fabricated 6-digit account segment between the sort code and the
+transaction code since the file was first written (2026-09-18) — confirmed wrong from a real, already-working
+outward digest showing `MICR Format` (9 digits, standalone) and a *separately* OCR'd `Account Format` field
+side by side. The account number is a real, independent field printed on the cheque face, extracted by
+asking the vision model for it directly (`account_number` in `_OCR_PROMPT`, reusing the wording already
+proven in `apps/api/routers/demo_cloud_extract.py`'s `CLOUD_EXTRACT_PROMPT` for outward) — never guessed out
+of MICR digit positions. Any code that needs "the account number for this cheque" should use
+`inp.account_number` (known from presentment metadata) for inward, or the real OCR'd `account_number` field
+for cross-validation — never derive it from `micr_line`.
 
 ---
 
