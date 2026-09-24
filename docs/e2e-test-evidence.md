@@ -960,3 +960,94 @@ exception to naturally exercise them live, exactly as the dev-stub's own documen
 helped a single real cheque, because this dataset doesn't contain its target case — that is an honest,
 un-improved number, not a success dressed up. The reconciliation pipeline, previously never run at all, now
 runs correctly end to end against real infrastructure and real data. Both statements are true at once.
+
+---
+
+## 2026-09-24 — Real 200-DPI scans (Lot 2) + three real bugs found and fixed → first genuine STP_CONFIRM
+
+New real dataset: `docs/cheques/KBL/Lot 2/INWARD` — 10 real KBL inward cheques, genuine CTS-2010 scanner
+captures (`*-BW.tiff`, 200 DPI, 1-bit bilevel), not phone photos. First real OCR pass against these (same
+HF cloud vision call and prompt used all session) already showed a categorical difference from the 96-DPI
+dataset: 4 of 5 spot-checked cheques read every printed field (date, amount figures, MICR, IFSC, drawee) at
+confidence 1.0, several with the handwritten amount-in-words also reading correctly. One genuinely hard case
+(Kannada cursive amount-words) still came back garbled — DPI fixes legibility, not handwriting-stroke
+ambiguity, consistent with every earlier finding on this question.
+
+Running these 10 through the real live pipeline (worker + API + Temporal, real signature vault, real
+dev-stub CBS) surfaced three more real bugs, each found live, each fixed with RED→GREEN TDD:
+
+1. **`verify_signature`'s crop step used raw `urllib.request.urlopen()`**, which cannot fetch `s3://` URLs
+   at all. Every signature crop this session had been silently failing and getting mislabeled
+   `miss_reason=MODEL_UNAVAILABLE` — not "no model," a URL-scheme bug. Switched to the shared
+   `fetch_image_bytes()` every other activity already uses (OCR, detect_signatures).
+2. **Signature-vault seeding test harness bug** (not the pipeline): embedding the *whole* cheque image as
+   the enrolled specimen instead of the detected-signature-bbox crop the real pipeline actually compares
+   against at query time. Cosine-scored ~0.67 against a real crop — correctly below threshold, but a
+   test-methodology bug, not a real mismatch. Fixed by running the same real `detect_signatures` →
+   crop-to-bbox → embed chain used live, against the same uploaded object.
+3. **`MICRParser.parse_ocr_text()` assumed a fabricated 23-digit MICR layout** (6 cheque number + 9 sort
+   code + **6 account number** + 2 transaction code) since the day it was first written (2026-09-18). Real
+   Indian CTS-2010 MICR carries no account number at all — confirmed directly from a real, already-working
+   outward digest (screenshot) showing `MICR Format: 560240023` (9 digits, standalone) and a *separately*
+   OCR'd `Account Format: 50100301021938` field, sourced from `apps/api/routers/demo_cloud_extract.py`'s
+   `CLOUD_EXTRACT_PROMPT`, which has asked the vision model for `account_number` as its own field (never
+   derived from MICR) since it was written for outward. That pattern had never been carried over to the
+   real inward `_OCR_PROMPT` in `modules/cts/workflows/activities/ocr.py`. Fixed three ways: (a) the parser
+   no longer assumes an account segment in MICR and tolerates the real, variable-length transaction-code
+   tail instead of demanding an exact digit count; (b) added `account_number` as a real, directly-extracted
+   field to the inward OCR prompt, reusing the proven outward wording; (c) the STP multisignal rescue gate
+   (`cheque_workflow.py`) now checks `inp.account_number` — the account already known from presentment
+   metadata, independent of OCR — instead of an OCR/MICR-derived fragment that structurally could never
+   exist. This is why the rescue never fired on any real cheque the first three times it was live-tested
+   tonight: not an OCR-quality problem, an unsatisfiable gate condition.
+
+Commit `76ea674`. Full `tests/modules/cts/` suite: 3706 passed, 1 skipped, 0 failures.
+
+### Live result — real, verified against the actual `ChequeWorkflowResult`, not a log line
+
+Re-ran all 10 Lot 2 cheques live after all three fixes. Checked the raw JSON result of each completed
+Temporal workflow directly (`handle.result()`), not the human-readable rationale string:
+
+```
+178655 {"decision": "HUMAN_REVIEW", "rationale": "stp_mode_full_manual", "ai_recommendation": "CONFIRM", "stp_eligible": true}
+216589 {"decision": "HUMAN_REVIEW", "rationale": "stp_mode_full_manual", "ai_recommendation": "CONFIRM", "stp_eligible": true}
+359775 {"decision": "HUMAN_REVIEW", "rationale": "stp_mode_full_manual", "ai_recommendation": "CONFIRM", "stp_eligible": true}
+646885 {"decision": "HUMAN_REVIEW", "rationale": "stp_mode_full_manual", "ai_recommendation": "CONFIRM", "stp_eligible": true}
+743427 {"decision": "HUMAN_REVIEW", "rationale": "stp_mode_full_manual", "ai_recommendation": "CONFIRM", "stp_eligible": true}
+991533 {"decision": "HUMAN_REVIEW", "rationale": "stp_mode_full_manual", "ai_recommendation": "CONFIRM", "stp_eligible": true}
+```
+
+6 of 10 cheques reached `ai_recommendation=CONFIRM` — real signature match confirmed in the worker log
+(`178655`: `overall_score=1.0 signatories_matched=1 signatories_required=1`), real (rescued or clean) OCR,
+real CBS/PPS checks. Held at `HUMAN_REVIEW` only by `cts.stp_mode` defaulting to `FULL_MANUAL` — a
+deliberate, conservative Layer 3 config default (the STP-ramp feature: banks start full-manual, graduate to
+`SUPERVISED`/`SELECTIVE`/`FULL_STP` as trust builds; `shared/config/config_service.py:60`,
+`cheque_workflow.py:1041`), not a bug.
+
+**Proved it, not just inferred it**: set `cts.stp_mode=FULL_STP` for `kbl` via the real Layer 3 config table
+(`platform.config_values`), re-ran the same 10 cheques fresh, and got real, terminal `STP_CONFIRM` on exactly
+the same 6, each filed with the real decision engine's own transparent rationale:
+
+```
+178655: STP_CONFIRM — fraud_score=0.100, ocr=1.000, sig=1.000, combined_confidence=1.000
+216589: STP_CONFIRM — fraud_score=0.100, ocr=1.000, sig=1.000, combined_confidence=1.000
+359775: STP_CONFIRM — fraud_score=0.100, ocr=1.000, sig=0.975, combined_confidence=0.987
+646885: STP_CONFIRM — fraud_score=0.100, ocr=1.000, sig=1.000, combined_confidence=1.000
+743427: STP_CONFIRM — fraud_score=0.100, ocr=1.000, sig=1.000, combined_confidence=1.000
+991533: STP_CONFIRM — fraud_score=0.100, ocr=0.927, sig=1.000, combined_confidence=0.963
+```
+
+Remaining 4: `311559` real `STP_RETURN` (genuine OCR date misread — year read as "8086" — a real, separate,
+still-open OCR issue, not a rescue/vault/MICR problem); `111973`/`191773`/`248488` correctly held at
+`HUMAN_REVIEW` — combined confidence (0.875) genuinely below the confirm threshold, the decision engine
+working as designed, not a bug.
+
+`stp_mode` reverted to the code default (`FULL_MANUAL`) immediately after this verification — the
+`FULL_STP` override was for this test only, not a standing change to `kbl`'s policy.
+
+**Net result, stated plainly:** 0/18 STP-anything at the start of tonight (2026-09-23/24) → 6/10 genuine,
+verified `STP_CONFIRM` on real 200-DPI scanner captures, after fixing three real bugs (signature crop
+URL-fetch, signature-vault seeding methodology, MICR/account-number architecture) found only because this
+session insisted on live, real-data verification instead of stopping at "the code looks right." This is the
+first real evidence all session that the STP mechanism, once its real blockers are removed, actually works
+on real cheques — not a projection, not a unit test, a completed Temporal workflow result checked directly.
