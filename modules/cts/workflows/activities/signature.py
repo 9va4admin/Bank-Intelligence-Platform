@@ -109,13 +109,10 @@ def _apply_morphological_normalisation(crop: "any") -> "any":
         return crop
 
 
-def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
-    """Download full cheque image and crop to the signature bbox, with padding."""
-    import urllib.request
+def _sync_crop_signature(raw: bytes, bbox: list[float]) -> bytes:
+    """Crop the already-fetched full cheque image to the signature bbox, with padding."""
     from PIL import Image as _PIL
 
-    with urllib.request.urlopen(image_url, timeout=10) as resp:  # noqa: S310
-        raw = resp.read()
     img = _PIL.open(_io.BytesIO(raw))
     img.load()
     img = img.convert("RGB")
@@ -140,9 +137,12 @@ def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
 
 
 async def _crop_signature_region(image_url: str, bbox: list[float]) -> Optional[bytes]:
-    """Async wrapper — download + crop, return PNG bytes. Returns None on failure."""
+    """Async wrapper — download (s3:// or http(s)://, via the shared fetcher every other
+    activity uses) + crop, return PNG bytes. Returns None on failure."""
     try:
-        return await asyncio.to_thread(_sync_crop_signature, image_url, bbox)
+        from shared.storage.image_fetch import fetch_image_bytes
+        raw = await fetch_image_bytes(image_url)
+        return await asyncio.to_thread(_sync_crop_signature, raw, bbox)
     except Exception as exc:
         log.warning("signature_activity.crop_failed", image_url=image_url[:60], error=str(exc))
         return None

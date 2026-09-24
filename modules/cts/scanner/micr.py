@@ -76,41 +76,46 @@ class MICRParser:
         delimiter glyphs (⑆ ⑈ ⑉) a physical MICR-reader head outputs — those
         symbols only exist on the scanner-hardware path (see parse() above).
 
-        Indian CTS-2010 MICR band is a fixed-width digit string, standard
-        layout: 6 (cheque number) + 9 (city-bank-branch code) + 6 (account
-        number) + 2 (transaction code) = 23 digits. OCR noise (stray letters,
-        punctuation, misreads) is stripped first; the longest resulting
-        digit run is used. Positions are only trusted when the run is
-        exactly 23 digits — a shorter/longer run means OCR corruption, and
-        guessing positions on a corrupted run would fabricate an account
-        number, so all fields are returned as None instead.
+        Indian CTS-2010 MICR band is 6 (cheque number) + 9 (city-bank-branch/
+        sort code) digits, always. There is no account number field in the
+        MICR band at all — corrected 2026-09-24 after this file wrongly
+        assumed a 6-digit account segment sitting between the sort code and
+        the transaction code; that field never existed on a real Indian
+        cheque, and every downstream consumer expecting an account fragment
+        from here got None forever as a result. The real account number is
+        never derivable from MICR at all; callers must use the account
+        number already known from presentment metadata, or a real,
+        independently-OCR'd account_number field (see modules/cts/workflows/
+        activities/ocr.py's _OCR_PROMPT) -- never guessed out of MICR digits.
 
-        Returns dict with keys: cheque_number, bank_branch_code,
-        account_number_fragment (last 4 digits only — PII rule, same as
-        parse() above), all None if no exactly-23-digit run is found.
+        The transaction-code tail after the sort code is variable-length in
+        real OCR reads (misreads, extra/dropped digits are common there) and
+        nothing downstream consumes it, so only the leading 6+9=15 digits are
+        trusted; only a run shorter than that (genuine corruption on the
+        one part that matters) returns None instead of guessing.
+
+        Returns dict with keys: cheque_number, bank_branch_code (both None
+        if the run has fewer than 15 digits).
         """
         empty = {
             'cheque_number': None,
             'bank_branch_code': None,
-            'account_number_fragment': None,
         }
         if not raw or not raw.strip():
             return empty
 
         # OCR/vision models frequently insert spaces between the MICR band's
-        # printed digit groups (cheque no. / city-bank-branch / account /
-        # transaction code) even though no space exists on the physical
-        # cheque -- strip everything non-digit and treat the whole line as
-        # one run rather than picking the single longest contiguous run.
+        # printed digit groups (cheque no. / sort code / transaction code)
+        # even though no space exists on the physical cheque -- strip
+        # everything non-digit and treat the whole line as one run rather
+        # than picking the single longest contiguous run.
         run = re.sub(r'\D', '', raw)
-        if len(run) != 23:
+        if len(run) < 15:
             return empty
 
         cheque_number = run[0:6]
         bank_branch_code = run[6:15]
-        account_number = run[15:21]
         return {
             'cheque_number': cheque_number,
             'bank_branch_code': bank_branch_code,
-            'account_number_fragment': account_number[-4:],
         }

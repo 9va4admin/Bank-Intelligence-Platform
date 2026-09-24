@@ -593,13 +593,25 @@ class ChequeProcessingWorkflow:
         if ocr_result.outcome == "HUMAN_REVIEW":
             # Multisignal rescue: don't hard-exit yet if the ONLY weak fields are
             # payee/amount_words (never feed a hard auto-return gate — see
-            # _MULTISIGNAL_RESCUE_FIELDS) and we have a usable MICR/account number
-            # to actually run CBS/signature/fraud corroboration with. Falls through
+            # _MULTISIGNAL_RESCUE_FIELDS) and there's a real account number to
+            # actually run CBS/signature/fraud corroboration with. Falls through
             # to the normal pipeline below; synthesise_decision's existing
             # ocr_confidence soft gate + combined_confidence formula makes the real
             # call using ALL signals, not just this one. Any other low-confidence
             # cause (date, amount_figures, amount mismatch, MODEL_UNAVAILABLE, no
-            # usable MICR) still exits immediately exactly as before.
+            # account number) still exits immediately exactly as before.
+            #
+            # Corrected 2026-09-24: this used to require a MICR-derived
+            # ocr_result.account_number_last4, which real Indian CTS-2010 MICR
+            # bands can never produce (6+9+2=17 digit cheque-no/sort-code/
+            # transaction-code layout — no account number field exists in MICR
+            # at all; modules/cts/scanner/micr.py wrongly assumed a 23-digit
+            # layout with a 6-digit account segment since it was first written,
+            # so this condition was unsatisfiable on every real cheque). The
+            # account number this gate actually needs is the one already known
+            # from presentment metadata — inp.account_number — independent of
+            # OCR/MICR quality, and the same value CBS/signature lookups below
+            # already key off.
             _rescue_enabled = bool(inp.cts_config.get("ocr_multisignal_rescue_enabled", True))
             _rescuable = (
                 _rescue_enabled
@@ -607,7 +619,7 @@ class ChequeProcessingWorkflow:
                 and set(ocr_result.low_confidence_fields) <= _MULTISIGNAL_RESCUE_FIELDS
                 and not ocr_result.amount_mismatch
                 and not ocr_result.degraded
-                and bool(ocr_result.account_number_last4)
+                and bool(inp.account_number)
             )
             if not _rescuable:
                 return await finalise(

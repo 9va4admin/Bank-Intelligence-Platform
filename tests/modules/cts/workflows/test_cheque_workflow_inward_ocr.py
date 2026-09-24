@@ -341,26 +341,6 @@ async def _ocr_fake_rescuable(inp, orchestrator=None, config_service=None, routi
         overall_confidence=0.42,
         low_confidence_reason="low_confidence_fields: ['payee', 'amount_words']",
         low_confidence_fields=["payee", "amount_words"],
-        account_number_last4="5678",
-        ocr_engines_used=["got-ocr2.0:cascade-1"],
-    )
-
-
-# Same weak fields, but no usable account number — nothing to run CBS corroboration
-# against, so this must NOT rescue regardless of which fields are weak.
-@activity.defn(name="ocr_extract")
-async def _ocr_fake_rescuable_no_micr(inp, orchestrator=None, config_service=None, routing_table=None):
-    from modules.cts.workflows.activities.ocr import OCRActivityResult
-    return OCRActivityResult(
-        outcome="HUMAN_REVIEW",
-        amount_figures="75000",
-        amount_words="garbled illegible text",
-        date="15/08/2026",
-        payee="garbled illegible text",
-        overall_confidence=0.40,
-        low_confidence_reason="low_confidence_fields: ['payee', 'amount_words']",
-        low_confidence_fields=["payee", "amount_words"],
-        account_number_last4=None,
         ocr_engines_used=["got-ocr2.0:cascade-1"],
     )
 
@@ -380,7 +360,6 @@ async def _ocr_fake_unsafe_field(inp, orchestrator=None, config_service=None, ro
         overall_confidence=0.45,
         low_confidence_reason="low_confidence_fields: ['date']",
         low_confidence_fields=["date"],
-        account_number_last4="5678",
         ocr_engines_used=["got-ocr2.0:cascade-1"],
     )
 
@@ -673,21 +652,25 @@ class TestInwardOCRMultisignalRescue:
         assert result.decision == "STP_CONFIRM"
 
     @pytest.mark.asyncio
-    async def test_weak_payee_without_usable_micr_still_early_exits(self, temporal_env):
-        """Same weak fields, but no account number to corroborate against — nothing
-        to rescue with, so this must still early-exit exactly as before."""
+    async def test_weak_payee_without_real_account_number_still_early_exits(self, temporal_env):
+        """Same weak fields, but no real account number was ever presented for this
+        instrument (empty ChequeWorkflowInput.account_number) — nothing to run
+        CBS/signature corroboration against, so this must still early-exit exactly
+        as before. The rescue gate checks inp.account_number (known from
+        presentment metadata, independent of OCR) — not an OCR/MICR-derived
+        account fragment, which real Indian CTS-2010 MICR never contains."""
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
         from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
-        task_queue = f"tq-rescue-nomicr-{uuid.uuid4()}"
-        bank_id, instrument_id = "saraswat-coop", f"RESCUE-NOMICR-{uuid.uuid4().hex[:8]}"
+        task_queue = f"tq-rescue-noacct-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"RESCUE-NOACCT-{uuid.uuid4().hex[:8]}"
 
         async with Worker(
             temporal_env.client, task_queue=task_queue,
             workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
-            activities=[_ocr_fake_rescuable_no_micr, *_BASE_ACTIVITIES],
+            activities=[_ocr_fake_rescuable, *_BASE_ACTIVITIES],
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
             result = await temporal_env.client.execute_workflow(
@@ -695,7 +678,7 @@ class TestInwardOCRMultisignalRescue:
                 ChequeWorkflowInput(
                     instrument_id=instrument_id, bank_id=bank_id,
                     image_url="minio://cts/inward/x.tiff",
-                    account_number="12340000005678", cheque_number="000099",
+                    account_number="", cheque_number="000099",
                     presented_amount=75000.0, presented_payee="Suresh Patil",
                     iet_deadline=time.time() + 3600,
                     cts_config={"stp_mode": "FULL_STP"},
