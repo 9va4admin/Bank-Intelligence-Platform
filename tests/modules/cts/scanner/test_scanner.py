@@ -209,3 +209,51 @@ def test_scan_session_manager_duplicate_scan_id_raises():
     mgr.add_scan(result)
     with pytest.raises(ValueError, match='duplicate'):
         mgr.add_scan(result)
+
+
+# ── MICRParser.parse_ocr_text — vision-OCR text path ──────────────────────────
+#
+# Corrected 2026-09-24: this assumed a 23-digit layout (6 cheque number + 9
+# sort code + 6 account number + 2 transaction code) since it was first
+# written. Real Indian CTS-2010 MICR bands are 17 digits (6 + 9 + 2) — there
+# is no account number field in MICR at all. The old 23-digit check silently
+# rejected every real MICR OCR read (they are genuinely 17 digits), which in
+# turn made modules/cts/workflows/cheque_workflow.py's STP multisignal rescue
+# gate unsatisfiable on every real cheque, since it depended on this parser
+# producing a usable account fragment that could never exist.
+
+def test_parse_ocr_text_real_micr_with_trailing_transaction_code():
+    from modules.cts.scanner.micr import MICRParser
+    # real OCR read, KBL Lot 2 cheque 178655 (2026-09-24 live run) -- 6-digit
+    # cheque number + 9-digit sort code + a variable-length transaction-code
+    # tail that nothing downstream consumes.
+    result = MICRParser.parse_ocr_text("178655 560052023 090525 29")
+    assert result["cheque_number"] == "178655"
+    assert result["bank_branch_code"] == "560052023"
+    assert "account_number_fragment" not in result
+
+
+def test_parse_ocr_text_strips_ocr_noise_between_groups():
+    from modules.cts.scanner.micr import MICRParser
+    # OCR vision models often substitute the real ⑆⑈⑉ delimiters with stray
+    # letters/punctuation — must still resolve once digits are isolated.
+    result = MICRParser.parse_ocr_text("II*216589**4110520031*250326**31")
+    assert result["cheque_number"] == "216589"
+    assert result["bank_branch_code"] == "411052003"
+
+
+def test_parse_ocr_text_short_run_returns_none_not_guess():
+    from modules.cts.scanner.micr import MICRParser
+    # Fewer than 15 digits (cheque number + sort code) means genuine
+    # corruption on the part that matters -- guessing positions would
+    # fabricate data.
+    result = MICRParser.parse_ocr_text("123456789")
+    assert result["cheque_number"] is None
+    assert result["bank_branch_code"] is None
+
+
+def test_parse_ocr_text_empty_returns_none():
+    from modules.cts.scanner.micr import MICRParser
+    result = MICRParser.parse_ocr_text("")
+    assert result["cheque_number"] is None
+    assert result["bank_branch_code"] is None

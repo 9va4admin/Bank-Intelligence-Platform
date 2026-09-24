@@ -58,11 +58,19 @@ Extract all printed fields from this cheque image. Return JSON only, no explanat
   "date": {"value": "...", "confidence": 0.0},
   "payee": {"value": "...", "confidence": 0.0},
   "drawee_name": {"value": "...", "confidence": 0.0},
-  "ifsc_code": {"value": "...", "confidence": 0.0}
+  "ifsc_code": {"value": "...", "confidence": 0.0},
+  "account_number": {"value": "...", "confidence": 0.0}
 }
 If a field is illegible or not present, set value to null and confidence to 0.0.
 Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
 ifsc_code: the bank IFSC code printed on the cheque face (e.g. "SBIN0001234").
+
+account_number: the customer's account number printed on the cheque (separate
+from the MICR band, and separate from micr_line -- never derive this by
+guessing digit positions out of micr_line; real Indian CTS-2010 MICR bands
+carry no account number at all, only cheque number + 9-digit sort code +
+transaction code). Preserve leading zeros. Return null if not printed or not
+legible -- never infer or truncate.
 
 payee: The name HANDWRITTEN on the "Pay" line only, immediately after the
 printed word "Pay". This is the RECIPIENT of the cheque, filled in by the
@@ -111,7 +119,8 @@ class OCRActivityResult(BaseModel):
     ifsc_code: Optional[str] = None
     cheque_number: Optional[str] = None           # parsed from micr_line, MICRParser.parse_ocr_text
     bank_branch_code: Optional[str] = None        # parsed from micr_line
-    account_number_last4: Optional[str] = None    # PII rule — never the full account number
+    account_number: Optional[str] = None          # printed on the cheque face — a real OCR field,
+                                                    # never derived from micr_line (see _OCR_PROMPT)
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     # Structured form of low_confidence_reason's field list — cheque_workflow.py's
@@ -258,6 +267,7 @@ async def _extract_got_ocr2(
         "payee":          _field("payee"),
         "drawee_name":    _field("drawee_name"),
         "ifsc_code":      _field("ifsc_code"),
+        "account_number": _field("account_number"),
     }
     return fields, cascade_result.cascade_level
 
@@ -305,7 +315,7 @@ async def _extract_hf_cloud(
         return None
 
     fields: dict[str, tuple[Optional[str], float]] = {}
-    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "drawee_name", "ifsc_code"):
+    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "drawee_name", "ifsc_code", "account_number"):
         entry = parsed.get(key) or {}
         value = entry.get("value") if isinstance(entry, dict) else None
         confidence = float(entry.get("confidence", 0.0)) if isinstance(entry, dict) else 0.0
@@ -439,6 +449,7 @@ async def _extract_tesseract(
             "drawee_name":    (drawee_val,     _CONF if drawee_val else 0.0),
             "payee":          (payee_val,      _CONF if payee_val else 0.0),
             "ifsc_code":      (None,           0.0),
+            "account_number": (None,           0.0),
         }
         return fields, -1   # -1 = Tesseract, not vLLM cascade level
 
@@ -631,6 +642,7 @@ def _build_result(
         if isinstance(ifsc_raw[0], str) and ifsc_raw[0] and ifsc_raw[1] >= 0.3
         else None
     )
+    account_number = fields.get("account_number", (None, 0.0))[0]
 
     all_confs = [c for _, c in fields.values()]
     overall = sum(all_confs) / len(all_confs) if all_confs else 0.0
@@ -639,7 +651,6 @@ def _build_result(
     micr_parsed = MICRParser.parse_ocr_text(micr_line or "")
     cheque_number = micr_parsed["cheque_number"]
     bank_branch_code = micr_parsed["bank_branch_code"]
-    account_number_last4 = micr_parsed["account_number_fragment"]
 
     if low_fields:
         log.info("ocr.low_confidence", instrument_id=inp.instrument_id, low_fields=low_fields)
@@ -662,7 +673,7 @@ def _build_result(
             indic_ocr_kill_switch_active=indic_ks_active,
             cheque_number=cheque_number,
             bank_branch_code=bank_branch_code,
-            account_number_last4=account_number_last4,
+            account_number=account_number,
         )
 
     match = amounts_match(figures=amt_figures, words=amt_words)
@@ -684,7 +695,7 @@ def _build_result(
             indic_ocr_kill_switch_active=indic_ks_active,
             cheque_number=cheque_number,
             bank_branch_code=bank_branch_code,
-            account_number_last4=account_number_last4,
+            account_number=account_number,
         )
 
     return OCRActivityResult(
@@ -705,7 +716,7 @@ def _build_result(
         indic_ocr_kill_switch_active=indic_ks_active,
         cheque_number=cheque_number,
         bank_branch_code=bank_branch_code,
-        account_number_last4=account_number_last4,
+        account_number=account_number,
     )
 
 
