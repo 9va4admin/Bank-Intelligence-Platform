@@ -100,6 +100,7 @@ class QueueItem(BaseModel):
     ocr_confidence: Optional[float] = None
     sig_match_score: Optional[float] = None
     security_features: Optional[dict] = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
 
 
 class QueueResponse(BaseModel):
@@ -619,6 +620,7 @@ async def get_human_review_queue(
                     ocr_confidence=memo.get("ocr_confidence"),
                     sig_match_score=memo.get("sig_match_score"),
                     security_features=memo.get("security_features"),
+                    instrument_category=memo.get("instrument_category") or "CHEQUE",
                 ))
         except Exception as exc:
             log.warning("cts.queue_fetch_error", bank_id=eff_bank_id, error=str(exc))
@@ -876,6 +878,7 @@ async def get_inward_analytics(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     days: int = 7,
+    instrument_category: Optional[str] = Query(None),
 ):
     bank_id = ctx.bank_id
     if ctx.role not in _INWARD_ANALYTICS_READ_ROLES:
@@ -905,11 +908,12 @@ async def get_inward_analytics(
             FROM cts.agent_decisions ad
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR ad.instrument_category = $3)
             GROUP BY DATE(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata'),
                      TO_CHAR(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
             ORDER BY DATE(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata')
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         fraud_rows = await conn.fetch(
@@ -928,10 +932,11 @@ async def get_inward_analytics(
             WHERE bank_id = $1
               AND fraud_score IS NOT NULL
               AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR instrument_category = $3)
             GROUP BY 1
             ORDER BY MIN(fraud_score)
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         flags_row = await conn.fetchrow(
@@ -951,8 +956,9 @@ async def get_inward_analytics(
                    ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($4::text IS NULL OR ad.instrument_category = $4)
             """,
-            bank_id, days, ocr_min_conf,
+            bank_id, days, ocr_min_conf, instrument_category,
         )
 
         return_rows = await conn.fetch(
@@ -972,10 +978,11 @@ async def get_inward_analytics(
             WHERE bank_id = $1
               AND decision = 'STP_RETURN'
               AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR instrument_category = $3)
             GROUP BY 1
             ORDER BY count DESC
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         branch_rows = await conn.fetch(
@@ -998,11 +1005,12 @@ async def get_inward_analytics(
                    ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR ad.instrument_category = $3)
             GROUP BY ci.presenting_ifsc
             ORDER BY COUNT(*) DESC
             LIMIT {_ANALYTICS_TOP_N}
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         iet_rows = await conn.fetch(
@@ -1015,11 +1023,12 @@ async def get_inward_analytics(
             FROM cts.agent_decisions
             WHERE bank_id = $1
               AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR instrument_category = $3)
             GROUP BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata'),
                      TO_CHAR(processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
             ORDER BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata')
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
     flag_map = {

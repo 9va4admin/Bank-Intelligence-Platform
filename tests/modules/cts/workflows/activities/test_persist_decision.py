@@ -243,3 +243,24 @@ class TestPersistDecisionColumnTypes:
         args = conn.execute.call_args[0]
         assert '["hf-cloud:qwen"]' in [a for a in args if isinstance(a, str)]
         assert not any(a == ["hf-cloud:qwen"] for a in args)
+
+
+class TestPersistDecisionInstrumentCategory:
+    """instrument_category (CHEQUE | DEMAND_DRAFT, 2026-10-12) is stored in
+    cts.agent_decisions so Inward screens can filter/bucket by instrument type."""
+
+    @pytest.mark.asyncio
+    async def test_instrument_category_included_in_values(self):
+        inp = _fake_input(instrument_category="DEMAND_DRAFT")
+        conn = _fake_db()
+        await persist_agent_decision(inp, db_conn=conn)
+        call_args = conn.execute.call_args[0]
+        assert "DEMAND_DRAFT" in call_args[1:]
+
+    @pytest.mark.asyncio
+    async def test_instrument_category_defaults_to_cheque(self):
+        inp = _fake_input()
+        conn = _fake_db()
+        await persist_agent_decision(inp, db_conn=conn)
+        call_args = conn.execute.call_args[0]
+        assert "CHEQUE" in call_args[1:]

@@ -544,3 +544,57 @@ class TestVisionExtractAndCheck:
         assert result.payee is not None
         assert result.date is not None
         assert result.overall_confidence > 0.0
+
+
+# ---------------------------------------------------------------------------
+# record_outward_scan_event — instrument_category (2026-10-12)
+# ---------------------------------------------------------------------------
+
+class TestRecordScanEventInstrumentCategory:
+    """instrument_category (CHEQUE | DEMAND_DRAFT) must be persisted to
+    cts.outward_scan_events so Outward screens can filter/bucket by type."""
+
+    @pytest.mark.asyncio
+    async def test_instrument_category_passed_to_insert(self):
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            RecordScanEventInput, record_outward_scan_event,
+        )
+
+        inp = RecordScanEventInput(
+            bank_id="test-bank", scan_id="SCAN-1", instrument_id="INST-1",
+            outcome="ACCEPTED", instrument_category="DEMAND_DRAFT",
+        )
+        fake_conn = AsyncMock()
+        fake_conn.execute = AsyncMock(return_value=None)
+        fake_conn.close = AsyncMock(return_value=None)
+        fake_config = AsyncMock()
+        fake_config._ready = True
+        fake_config.get_secret = AsyncMock(return_value="postgresql://fake")
+
+        with patch("shared.config.config_service.config_service", fake_config), \
+             patch("asyncpg.connect", AsyncMock(return_value=fake_conn)):
+            await record_outward_scan_event(inp)
+
+        call_args = fake_conn.execute.call_args[0]
+        assert "DEMAND_DRAFT" in call_args[1:]
+
+    @pytest.mark.asyncio
+    async def test_instrument_category_defaults_to_cheque(self):
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            RecordScanEventInput, record_outward_scan_event,
+        )
+
+        inp = RecordScanEventInput(bank_id="test-bank", scan_id="SCAN-2", outcome="ACCEPTED")
+        fake_conn = AsyncMock()
+        fake_conn.execute = AsyncMock(return_value=None)
+        fake_conn.close = AsyncMock(return_value=None)
+        fake_config = AsyncMock()
+        fake_config._ready = True
+        fake_config.get_secret = AsyncMock(return_value="postgresql://fake")
+
+        with patch("shared.config.config_service.config_service", fake_config), \
+             patch("asyncpg.connect", AsyncMock(return_value=fake_conn)):
+            await record_outward_scan_event(inp)
+
+        call_args = fake_conn.execute.call_args[0]
+        assert "CHEQUE" in call_args[1:]

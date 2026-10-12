@@ -808,3 +808,63 @@ class TestOCRFieldFlowThrough:
         assert len(indic.ocr_engines_used) == 2
         assert any("indic_ocr" in e for e in indic.ocr_engines_used)
         assert "payee" in indic.indic_refined_fields
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_fake_dd(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="PROCEED", micr_line="152173000052000", amount_figures="22000",
+        amount_words="Twenty Two Thousand Only", date="15/08/2026",
+        payee="THE COURT RECEIVER HIGH COURT MUMBAI", overall_confidence=0.97,
+        instrument_category="DEMAND_DRAFT", ocr_engines_used=["got-ocr2.0:cascade-1", "dd-pass"],
+    )
+
+
+@activity.defn(name="detect_signatures")
+async def _sig_absent(inp):
+    from modules.cts.workflows.activities.detect_signatures import DetectSignaturesResult
+    return DetectSignaturesResult(outcome="ABSENT", sig_count=0, sig_bboxes=[], fraud_flags=[])
+
+
+class TestSignatureAbsentByInstrumentType:
+    """2026-10-12: a stamp-covered DD (real Lot 3 sample) got 'no signature found' and was
+    auto-returned. Detection is unreliable on DDs (bank stamps + officer name blocks overlap
+    the signature), so for a DD an ABSENT result must go to a human, not an auto-return. For a
+    plain cheque the existing hard return is unchanged."""
+
+    async def _run(self, temporal_env, ocr_fake):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-sigabs-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"SIGABS-{uuid.uuid4().hex[:8]}"
+        acts = [ocr_fake, _sig_absent, *[a for a in _BASE_ACTIVITIES if a is not _e2e_detect_signatures]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_dd_with_no_signature_detected_goes_to_human_review(self, temporal_env):
+        result = await self._run(temporal_env, _ocr_fake_dd)
+        assert result.decision == "HUMAN_REVIEW"
+        assert result.rationale == "dd_signature_not_detected"
+
+    @pytest.mark.asyncio
+    async def test_plain_cheque_with_no_signature_is_still_auto_returned(self, temporal_env):
+        result = await self._run(temporal_env, _ocr_fake_proceed)
+        assert result.decision == "STP_RETURN"
+        assert result.rationale == "no_signature_on_cheque"

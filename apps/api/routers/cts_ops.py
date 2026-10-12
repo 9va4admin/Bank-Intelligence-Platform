@@ -427,6 +427,7 @@ class HumanReviewItem(BaseModel):
     account_display: str
     decision_reason: str
     queued_at: IsoTimestamp
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class HumanReviewQueueResponse(BaseModel):
@@ -440,6 +441,7 @@ class HumanReviewQueueResponse(BaseModel):
 async def inward_human_review_queue(
     request: Request,
     limit: int = Query(default=50, le=100),
+    instrument_category: Optional[str] = Query(None),
     ctx: UserContext = Depends(_ctx),
 ) -> HumanReviewQueueResponse:
     bank_id = ctx.bank_id
@@ -451,24 +453,28 @@ async def inward_human_review_queue(
         rows = await db.fetch(
             """
             SELECT
-                ad.instrument_id,
+                ad.instrument_id::text AS instrument_id,
                 ci.account_last4,
                 ad.decision_reason,
-                ad.created_at
+                ad.created_at,
+                ad.instrument_category
             FROM cts.agent_decisions ad
             JOIN cts.cheque_instruments ci
               ON ci.instrument_id = ad.instrument_id
              AND ci.bank_id = ad.bank_id
             WHERE ad.bank_id = $1
               AND ad.decision = 'HUMAN_REVIEW'
+              AND ($3::text IS NULL OR ad.instrument_category = $3)
             ORDER BY ad.created_at ASC
             LIMIT $2
             """,
-            bank_id, limit,
+            bank_id, limit, instrument_category,
         )
         count_row = await db.fetchrow(
-            "SELECT COUNT(*) AS n FROM cts.agent_decisions WHERE bank_id = $1 AND decision = 'HUMAN_REVIEW'",
-            bank_id,
+            "SELECT COUNT(*) AS n FROM cts.agent_decisions "
+            "WHERE bank_id = $1 AND decision = 'HUMAN_REVIEW' "
+            "AND ($2::text IS NULL OR instrument_category = $2)",
+            bank_id, instrument_category,
         )
         items = [
             HumanReviewItem(
@@ -476,6 +482,7 @@ async def inward_human_review_queue(
                 account_display=_mask_account(r["account_last4"]),
                 decision_reason=r["decision_reason"] or "—",
                 queued_at=r["created_at"].isoformat() if r["created_at"] else "",
+                instrument_category=r["instrument_category"] or "CHEQUE",
             )
             for r in rows
         ]
