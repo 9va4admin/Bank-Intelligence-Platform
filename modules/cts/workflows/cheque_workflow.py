@@ -362,6 +362,7 @@ class ChequeProcessingWorkflow:
                         cbs_balance_status=_cbs_status,
                         ocr_engines_used=_ocr_engines_used,
                         indic_ocr_kill_switch_active=_indic_ks_active,
+                        instrument_category=_instrument_category,
                         iet_margin_seconds=0,
                         steps_digest=_digest.model_dump(),
                         registry_version=_digest.registry_version,
@@ -469,6 +470,7 @@ class ChequeProcessingWorkflow:
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                     task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
                     parent_close_policy=ParentClosePolicy.ABANDON,
+                    memo={"instrument_id": inp.instrument_id, "instrument_category": _instrument_category},
                 )
 
             # SMB side effects — only for sub-member-tagged instruments on terminal STP decisions.
@@ -576,6 +578,7 @@ class ChequeProcessingWorkflow:
         _ocr_confidence = ocr_result.overall_confidence
         _ocr_engines_used = ocr_result.ocr_engines_used
         _indic_ks_active = ocr_result.indic_ocr_kill_switch_active
+        _instrument_category = ocr_result.instrument_category
         _micr_line = ocr_result.micr_line or ""
         _ocr_cheque_date = _parse_cheque_date(ocr_result.date)
         _ocr_amount_figures = _parse_amount_figures(ocr_result.amount_figures)
@@ -819,6 +822,10 @@ class ChequeProcessingWorkflow:
         ))
 
         if sig_detect.outcome == "ABSENT":
+            if _instrument_category == "DEMAND_DRAFT":
+                # DD signature blocks sit under bank stamps and officer name blocks, where
+                # detection is unreliable — a miss must go to a human, never an auto-return.
+                return await finalise("HUMAN_REVIEW", "dd_signature_not_detected")
             return await finalise("STP_RETURN", "no_signature_on_cheque")
 
         if sig_detect.outcome == "DEGRADED":

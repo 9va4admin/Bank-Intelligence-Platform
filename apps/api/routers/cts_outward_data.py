@@ -24,6 +24,7 @@ Routes:
 """
 from __future__ import annotations
 
+import json
 from datetime import date
 from typing import List, Literal, Optional
 
@@ -42,6 +43,16 @@ from .cts_deps import (
 )
 
 log = structlog.get_logger()
+
+
+def _parse_jsonb(value):
+    """asyncpg returns JSONB columns as a raw JSON string unless a codec is
+    registered on the pool -- never assume it's already a dict."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    return json.loads(value)
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS Outward Data v1"])
 
@@ -107,6 +118,7 @@ class OutwardQueueItem(BaseModel):
     received_at: IsoTimestamp
     branch_id: Optional[str] = None
     lot_id: Optional[str] = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class OutwardQueueResponse(BaseModel):
@@ -220,6 +232,7 @@ class DiscrepancyItem(BaseModel):
     ngch_value: Optional[dict]
     status: str
     created_at: IsoTimestamp
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class ReconciliationOverviewResponse(BaseModel):
@@ -319,6 +332,7 @@ class OutwardDecisionItem(BaseModel):
     drawee_ifsc: Optional[str] = None
     lot_number: Optional[str] = None
     processing_started_at: OptIsoTimestamp = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class OutwardDecisionsResponse(BaseModel):
@@ -608,6 +622,7 @@ async def get_outward_human_review_queue(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     limit: int = 50,
+    instrument_category: Optional[str] = Query(None),
 ) -> OutwardQueueResponse:
     if ctx.role.value not in _OUTWARD_Q_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -625,14 +640,15 @@ async def get_outward_human_review_queue(
             SELECT instrument_id, scan_id AS cheque_number, NULL::text AS account_display,
                    payee_display, amount_range, outcome AS status, NULL::float AS fraud_score,
                    NULL::float AS ocr_confidence, reject_reason AS review_reason,
-                   scanned_at::text AS received_at, branch_id, lot_id
+                   scanned_at::text AS received_at, branch_id, lot_id, instrument_category
             FROM cts.outward_scan_events
             WHERE bank_id = $1
               AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR')
+              AND ($3::text IS NULL OR instrument_category = $3)
             ORDER BY scanned_at DESC
             LIMIT $2
             """,
-            bank_id, limit,
+            bank_id, limit, instrument_category,
         )
     except Exception as exc:
         log.error("cts.outward_queue.query_failed", bank_id=bank_id, error=str(exc))
@@ -652,6 +668,7 @@ async def get_outward_human_review_queue(
             received_at=r["received_at"],
             branch_id=r["branch_id"],
             lot_id=r.get("lot_id"),
+            instrument_category=r["instrument_category"] or "CHEQUE",
         )
         for r in rows
     ]
@@ -847,6 +864,7 @@ async def get_outward_analytics_daily(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     days: int = 7,
+    instrument_category: Optional[str] = Query(None),
 ):
     if ctx.role.value not in _ANALYTICS_READ_ROLES:
         raise HTTPException(status_code=403, detail="Insufficient role")
@@ -871,6 +889,7 @@ async def get_outward_analytics_daily(
                 FROM cts.outward_scan_events
                 WHERE bank_id = $1
                   AND scanned_at >= NOW() - ($2 || ' days')::INTERVAL
+                  AND ($3::text IS NULL OR instrument_category = $3)
                 GROUP BY day
                 ORDER BY day
             )
@@ -885,6 +904,7 @@ async def get_outward_analytics_daily(
             """,
             bank_id,
             str(days),
+            instrument_category,
         )
 
     daily_list = [
@@ -912,6 +932,7 @@ async def get_outward_reconciliation(
     ctx: UserContext = Depends(get_current_user_context),
     recon_date: OptIsoTimestamp = None,
     limit: int = Query(200, ge=1, le=500),
+    instrument_category: Optional[str] = Query(None),
 ) -> ReconciliationOverviewResponse:
     if ctx.role.value not in _RECON_READ_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -943,16 +964,20 @@ async def get_outward_reconciliation(
         if recon_ids:
             disc_rows = await db.fetch(
                 """
-                SELECT discrepancy_id::text, recon_session_id::text,
-                       instrument_id::text, cheque_number, discrepancy_type,
-                       astra_value, ngch_value, status, created_at::text
-                FROM cts.reconciliation_discrepancies
-                WHERE recon_session_id = ANY($1::uuid[])
-                  AND bank_id = $2
-                ORDER BY created_at DESC
+                SELECT rd.discrepancy_id::text, rd.recon_session_id::text,
+                       rd.instrument_id::text, rd.cheque_number, rd.discrepancy_type,
+                       rd.astra_value, rd.ngch_value, rd.status, rd.created_at::text,
+                       ose.instrument_category
+                FROM cts.reconciliation_discrepancies rd
+                LEFT JOIN cts.outward_scan_events ose
+                  ON ose.instrument_id = rd.instrument_id::text AND ose.bank_id = rd.bank_id
+                WHERE rd.recon_session_id = ANY($1::uuid[])
+                  AND rd.bank_id = $2
+                  AND ($4::text IS NULL OR ose.instrument_category = $4)
+                ORDER BY rd.created_at DESC
                 LIMIT $3
                 """,
-                recon_ids, bank_id, limit,
+                recon_ids, bank_id, limit, instrument_category,
             )
     except Exception as exc:
         log.error("cts.reconciliation.query_failed", bank_id=bank_id, error=str(exc))
@@ -980,10 +1005,11 @@ async def get_outward_reconciliation(
             instrument_id=r["instrument_id"],
             cheque_number=r["cheque_number"],
             discrepancy_type=r["discrepancy_type"],
-            astra_value=dict(r["astra_value"]) if r["astra_value"] else None,
-            ngch_value=dict(r["ngch_value"]) if r["ngch_value"] else None,
+            astra_value=_parse_jsonb(r["astra_value"]),
+            ngch_value=_parse_jsonb(r["ngch_value"]),
             status=r["status"],
             created_at=r["created_at"],
+            instrument_category=r["instrument_category"] or "CHEQUE",
         )
         for r in disc_rows
     ]
@@ -1250,7 +1276,8 @@ async def get_outward_decisions(
             rows = await db.fetch(
                 """
                 SELECT instrument_id, scan_id, payee_display, amount_range,
-                       outcome, lot_id, branch_id, reject_reason, scanned_at::text
+                       outcome, lot_id, branch_id, reject_reason, scanned_at::text,
+                       instrument_category
                 FROM cts.outward_scan_events
                 WHERE bank_id = $1
                   AND outcome = ANY($2)
@@ -1264,7 +1291,8 @@ async def get_outward_decisions(
             rows = await db.fetch(
                 """
                 SELECT instrument_id, scan_id, payee_display, amount_range,
-                       outcome, lot_id, branch_id, reject_reason, scanned_at::text
+                       outcome, lot_id, branch_id, reject_reason, scanned_at::text,
+                       instrument_category
                 FROM cts.outward_scan_events
                 WHERE bank_id = $1
                   AND scanned_at > NOW() - INTERVAL '24 hours'
@@ -1288,6 +1316,7 @@ async def get_outward_decisions(
             drawee_ifsc=None,
             lot_number=r["lot_id"],
             processing_started_at=r["scanned_at"],
+            instrument_category=r["instrument_category"] or "CHEQUE",
         )
         for r in rows
     ]
