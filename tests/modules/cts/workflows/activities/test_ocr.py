@@ -1103,3 +1103,296 @@ class TestOCREngineProvenance:
         if len(engines) >= 2:
             assert "got-ocr2.0" in engines[0]
             assert "indic_ocr" in engines[1]
+
+
+class TestOCRInstrumentCategory:
+    """instrument_category: CHEQUE vs DEMAND_DRAFT classification (2026-10-12).
+
+    Real Lot 3 KBL data mixes personal/business cheques with institutional
+    Demand Drafts in the same inward batch -- these need to be distinguishable
+    downstream (separate bucket in every screen), not silently treated as
+    identical. Default is always "CHEQUE" (the overwhelming majority case,
+    and the safe fallback when the model doesn't answer the question).
+    """
+
+    @pytest.mark.asyncio
+    async def test_demand_draft_classified_from_vllm_response(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        data = _make_vllm_response()
+        data["instrument_category"] = {"value": "DEMAND_DRAFT", "confidence": 0.95}
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(data),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "DEMAND_DRAFT"
+
+    @pytest.mark.asyncio
+    async def test_cheque_classified_from_vllm_response(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        data = _make_vllm_response()
+        data["instrument_category"] = {"value": "CHEQUE", "confidence": 0.95}
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(data),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "CHEQUE"
+
+    @pytest.mark.asyncio
+    async def test_defaults_to_cheque_when_model_silent_on_category(self):
+        """Model response omits instrument_category entirely -- must default to
+        CHEQUE (the safe, majority-case fallback), never crash or return None."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(_make_vllm_response()),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "CHEQUE"
+
+    @pytest.mark.asyncio
+    async def test_invalid_category_value_falls_back_to_cheque(self):
+        """A hallucinated/garbage category value must never pass through raw --
+        falls back to the safe CHEQUE default rather than propagating junk."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        data = _make_vllm_response()
+        data["instrument_category"] = {"value": "PROMISSORY_NOTE", "confidence": 0.9}
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(data),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "CHEQUE"
+
+
+def _orch_by_prompt(stage1: dict, dd: dict | None):
+    """Orchestrator whose answer depends on WHICH prompt was sent: the cheque prompt gets
+    stage1, the DD-specific prompt gets dd (or raises when dd is None = model unavailable)."""
+    from shared.ai.model_cascade import CascadeResult
+
+    async def _call(image_url=None, prompt="", cheque_amount=0.0, **kw):
+        is_dd_prompt = "ON DEMAND PAY" in prompt and "has_dd_header" in prompt
+        if is_dd_prompt:
+            if dd is None:
+                raise RuntimeError("vLLM unavailable")
+            payload = dd
+        else:
+            payload = stage1
+        return CascadeResult(content=json.dumps(payload), confidence=0.97,
+                             cascade_level=1, model_used="got-ocr2-7b", escalated=False)
+
+    orch = AsyncMock()
+    orch.call_ocr = AsyncMock(side_effect=_call)
+    return orch
+
+
+def _f(v, c=0.97):
+    return {"value": v, "confidence": c}
+
+
+def _stage1(cat="DEMAND_DRAFT", payee="जारीकति शाखा Issuing Branch Ih aIlks"):
+    d = _make_vllm_response()
+    d["payee"] = _f(payee, 0.97)
+    d["instrument_category"] = _f(cat)
+    d["amount_figures"] = _f("22,000.00")                  # agrees with _dd_pass() by default
+    d["amount_words"] = _f("Twenty Two Thousand only")
+    return d
+
+
+def _dd_pass(header=True, payee="THE COURT RECEIVER HIGH COURT MUMBAI"):
+    return {
+        "has_dd_header": _f(header), "dd_number": _f("152173"), "dd_date": _f("03/07/2025"),
+        "payee": _f(payee), "remitter_name": _f("BHARATI M CHHAB"),
+        "issuing_branch": _f("MUMBAI - ANDHERI (WEST)"), "drawee_branch": _f("DELHI SERVICE BRANCH"),
+        "amount_figures": _f("22,000.00"), "amount_words": _f("Twenty Two Thousand only"),
+        "micr_line": _f("152173 000052000"),
+    }
+
+
+_HDR = "modules.cts.workflows.activities.ocr._header_says_dd"
+
+
+class TestOCRDemandDraftTwoPass:
+    """DD handling (2026-10-12): the cheque prompt reads the 'Issuing Branch' label as the payee
+    on a DD (real Lot 3 finding). A DD-specific second pass reads the right line, and the
+    instrument type is decided by 3 independent signals; any disagreement -> human review."""
+
+    @pytest.mark.asyncio
+    async def test_dd_payee_comes_from_dd_specific_pass_not_label_spill(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(), _dd_pass()),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"
+        assert r.payee == "THE COURT RECEIVER HIGH COURT MUMBAI"
+        assert "Issuing" not in (r.payee or "")
+        assert r.remitter_name == "BHARATI M CHHAB"
+        assert r.issuing_branch == "MUMBAI - ANDHERI (WEST)"
+        assert r.drawee_branch == "DELHI SERVICE BRANCH"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_plain_cheque_unanimous_does_not_pay_for_dd_pass(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        orch = _orch_by_prompt(_stage1("CHEQUE", "ACME Corp"), _dd_pass())
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=orch, config_service=_mock_config())
+        assert r.instrument_category == "CHEQUE"
+        assert r.payee == "ACME Corp"
+        assert orch.call_ocr.await_count == 1          # no second model call for a clean cheque
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_model_says_cheque_but_header_ocr_sees_dd_goes_to_review_or_majority_dd(self):
+        """model=CHEQUE, header-OCR=DD, DD pass confirms header -> 2-of-3 DD but NOT unanimous
+        -> human review (never a silent pick)."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1("CHEQUE"), _dd_pass(True)),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "instrument_type_split" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_model_says_dd_but_both_other_signals_say_cheque_goes_to_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1("DEMAND_DRAFT"), _dd_pass(False)),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "CHEQUE"
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "instrument_type_split" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_header_ocr_unavailable_two_agreeing_signals_proceed(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=None)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(), _dd_pass(True)),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_dd_pass_unavailable_keeps_stage1_and_still_decides_on_remaining_signals(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(payee="Some Payee"), None),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"       # model + header-OCR agree
+        assert r.payee == "Some Payee"                       # no DD pass -> nothing overlaid
+        assert r.drawee_branch is None
+
+    @pytest.mark.asyncio
+    async def test_dd_payee_low_confidence_in_dd_pass_still_routes_to_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["payee"] = _f("THE COURT RECEIVER", 0.40)
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(), dd),
+                                  config_service=_mock_config())
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "payee" in r.low_confidence_fields
+
+
+class TestOCRMicrBankCodeAnchoring:
+    """cts.micr_bank_code (Layer 3, per bank) anchors the 9-digit sort code — see MICRParser."""
+
+    @staticmethod
+    def _config(bank_code):
+        cfg = _mock_config()
+
+        async def _get(key, *a, **kw):
+            return bank_code if key == "cts.micr_bank_code" else None
+        cfg.get = AsyncMock(side_effect=_get)
+        return cfg
+
+    @pytest.mark.asyncio
+    async def test_sort_code_anchored_when_bank_code_configured(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        data = _make_vllm_response(micr="53112917590521021")
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(data),
+                                  config_service=self._config("052"))
+        assert r.bank_branch_code == "759052102"
+        assert r.cheque_number == "531129"
+
+    @pytest.mark.asyncio
+    async def test_without_bank_code_legacy_slice_is_used(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        data = _make_vllm_response(micr="53112917590521021")
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(data),
+                                  config_service=self._config(None))
+        assert r.bank_branch_code == "175905210"
+
+    @pytest.mark.asyncio
+    async def test_garbage_config_value_is_ignored_not_trusted(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        data = _make_vllm_response(micr="53112917590521021")
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(data),
+                                  config_service=self._config("not-a-code"))
+        assert r.bank_branch_code == "175905210"
+
+
+class TestOCRDemandDraftOverlayGuards:
+    """Real Lot 3 failures of the DD overlay (2026-10-12): the DD pass returned the DD NUMBER
+    ('658027') as dd_date, which became an automatic 'Undated cheque' STP_RETURN where the old
+    code had correctly gone to human review; and returned '000000.00' for a Rs 6,000 draft.
+    An overlay value must be validated, and two independent amount reads must agree."""
+
+    @pytest.mark.asyncio
+    async def test_dd_pass_date_that_is_not_a_date_is_not_overlaid(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["dd_date"] = _f("658027")                       # this is the DD number, not a date
+        s1 = _stage1()
+        s1["date"] = _f(None, 0.0)
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.date is None
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "date" in r.low_confidence_fields
+
+    @pytest.mark.asyncio
+    async def test_dd_pass_valid_date_is_overlaid(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["dd_date"] = _f("03/07/2025")
+        s1 = _stage1()
+        s1["date"] = _f(None, 0.0)
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.date == "03/07/2025"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_two_amount_reads_that_disagree_go_to_human_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["amount_figures"] = _f("000000.00")
+        dd["amount_words"] = _f("thousand only")
+        s1 = _stage1()
+        s1["amount_figures"] = _f("100000.00")
+        s1["amount_words"] = _f("one lakh only")           # self-consistent but WRONG, as in Lot 3 #13
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "dd_amount_read_disagreement" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_two_amount_reads_that_agree_proceed(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()                                    # 22,000.00
+        s1 = _stage1()
+        s1["amount_figures"] = _f("22000.00")
+        s1["amount_words"] = _f("Twenty Two Thousand Only")
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.outcome == "PROCEED"

@@ -178,12 +178,19 @@ export default function CTSAnalytics() {
   const { isDark } = useTheme()
   const { isSMB, isDemo } = useBankContext()
   const [activeTab, setActiveTab] = useState('overview')
+  const [categoryFilter, setCategoryFilter] = useState('ALL')
 
   usePageHeader({ subtitle: 'Decision analytics · AI model performance · IET safety · 7-day rolling' })
 
   // Live analytics — only fetched in POC/PROD; demo mode uses mock data below
-  const { daily: liveDaily } = useAnalytics({ pollEnabled: !isDemo })
-  const { data: liveInward } = useInwardAnalytics({ pollEnabled: !isDemo })
+  const { daily: liveDaily } = useAnalytics({
+    pollEnabled: !isDemo,
+    instrumentCategory: categoryFilter === 'ALL' ? null : categoryFilter,
+  })
+  const { data: liveInward } = useInwardAnalytics({
+    pollEnabled: !isDemo,
+    instrumentCategory: categoryFilter === 'ALL' ? null : categoryFilter,
+  })
   const { data: modelHealth } = useModelHealth({ pollEnabled: !isDemo })
 
   const mockDaily = isSMB ? SMB_DAILY : SB_DAILY
@@ -297,11 +304,28 @@ export default function CTSAnalytics() {
         </div>
 
         {/* Tab bar */}
-        <div className={`flex gap-1 border-b mb-5 ${th.divider}`}>
+        <div className={`flex gap-1 border-b mb-3 ${th.divider}`}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               className={`text-xs px-4 py-2 border-b-2 -mb-px font-medium transition-colors ${th.tab(t.id)}`}>
               {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Instrument category filter — drives daily throughput, fraud distribution,
+            risk flags, return reasons, branches and IET trend (live mode). Model
+            health is model-level, not instrument-level, so it is unaffected. */}
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <span className={`text-[11px] ${th.muted}`}>Instrument type:</span>
+          {['ALL', 'CHEQUE', 'DEMAND_DRAFT'].map(c => (
+            <button key={c} onClick={() => setCategoryFilter(c)}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${categoryFilter === c
+                ? 'bg-violet-600 text-white border-violet-600'
+                : (isDark ? 'border-white/10 text-violet-400/70 hover:bg-white/5' : 'border-slate-200 text-violet-600 hover:bg-violet-50')
+              }`}
+            >
+              {c === 'ALL' ? 'All' : c === 'CHEQUE' ? 'Cheques' : 'Demand Drafts'}
             </button>
           ))}
         </div>

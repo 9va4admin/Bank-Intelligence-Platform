@@ -69,7 +69,7 @@ class MICRParser:
         return full[-4:] if len(full) >= 4 else full
 
     @staticmethod
-    def parse_ocr_text(raw: str) -> dict:
+    def parse_ocr_text(raw: str, bank_code: str | None = None) -> dict:
         """
         Tolerant MICR parse for image-OCR text (GOT-OCR2/Tesseract/HF vision),
         which reads printed MICR digits but has no way to reproduce the E-13B
@@ -94,6 +94,15 @@ class MICRParser:
         trusted; only a run shorter than that (genuine corruption on the
         one part that matters) returns None instead of guessing.
 
+        bank_code (the drawee bank's own 3-digit MICR bank code, digits 4-6 of a
+        CTS sort code -- for inward instruments the drawee is always this bank, so
+        it is known): when given, the sort code is ANCHORED on a 9-digit window whose digits 4-6 equal the bank code
+        window starting at digit 6-8 of the run instead of blindly slicing run[6:15].
+        A fixed slice returned a wrong-but-plausible code whenever OCR inserted or
+        dropped one digit in the cheque-number part (real Lot 3 finding, 2026-10-12).
+        No valid anchored window -> bank_branch_code None, never a guess. The
+        cheque number is the leading 6 digits (CTS prints it first).
+
         Returns dict with keys: cheque_number, bank_branch_code (both None
         if the run has fewer than 15 digits).
         """
@@ -112,6 +121,18 @@ class MICRParser:
         run = re.sub(r'\D', '', raw)
         if len(run) < 15:
             return empty
+
+        if bank_code:
+            window = None
+            for start in (6, 7, 8):
+                cand = run[start:start + 9]
+                if len(cand) == 9 and cand[3:6] == bank_code:
+                    window = cand
+                    break
+            return {
+                'cheque_number': run[0:6] if window else None,
+                'bank_branch_code': window,
+            }
 
         cheque_number = run[0:6]
         bank_branch_code = run[6:15]

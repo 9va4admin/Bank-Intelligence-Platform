@@ -257,3 +257,44 @@ def test_parse_ocr_text_empty_returns_none():
     result = MICRParser.parse_ocr_text("")
     assert result["cheque_number"] is None
     assert result["bank_branch_code"] is None
+
+
+class TestMICRBankCodeAnchoring:
+    """2026-10-12: on real Lot 3 cheques the fixed run[6:15] slice returned a WRONG 9-digit
+    sort code whenever OCR inserted/dropped a digit in the cheque-number part (e.g. read
+    '5311291759052102 1' for 531129 + 759052102 -> sliced '175905210'). With the drawee
+    bank's own MICR bank code known (digits 4-6 of a CTS sort code), anchor on that."""
+
+    def test_extra_digit_after_cheque_number_does_not_shift_sort_code(self):
+        from modules.cts.scanner.micr import MICRParser
+        r = MICRParser.parse_ocr_text("53112917590521021", bank_code="052")
+        assert r["bank_branch_code"] == "759052102"
+        assert r["cheque_number"] == "531129"
+
+    def test_extra_leading_digit_in_cheque_number(self):
+        from modules.cts.scanner.micr import MICRParser
+        r = MICRParser.parse_ocr_text("1247021 700052015 11092431", bank_code="052")
+        assert r["bank_branch_code"] == "700052015"
+        assert r["cheque_number"] == "124702"
+
+    def test_canonical_layout_unchanged(self):
+        from modules.cts.scanner.micr import MICRParser
+        r = MICRParser.parse_ocr_text("841364 700052002 290923 31", bank_code="052")
+        assert r == {"cheque_number": "841364", "bank_branch_code": "700052002"}
+
+    def test_dd_generic_sort_code(self):
+        from modules.cts.scanner.micr import MICRParser
+        r = MICRParser.parse_ocr_text("930183000052000", bank_code="052")
+        assert r["bank_branch_code"] == "000052000"
+
+    def test_dropped_digits_return_none_not_a_guess(self):
+        """Digits dropped inside the sort code: no valid anchored window -> None, never a
+        wrong-but-plausible 9-digit code."""
+        from modules.cts.scanner.micr import MICRParser
+        r = MICRParser.parse_ocr_text("255980 0005200 261124 31", bank_code="052")
+        assert r["bank_branch_code"] is None
+
+    def test_without_bank_code_behaviour_unchanged(self):
+        from modules.cts.scanner.micr import MICRParser
+        r = MICRParser.parse_ocr_text("841364 700052002 290923 31")
+        assert r["bank_branch_code"] == "700052002"

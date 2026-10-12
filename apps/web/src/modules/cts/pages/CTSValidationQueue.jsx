@@ -697,6 +697,7 @@ function adaptDecision(d) {
     instrument_id: d.instrument_id,
     source_stage:  meta.stage,
     outcome_label: meta.label,
+    instrument_category: d.instrument_category || 'CHEQUE',
     front_bw_url: _scanImageUrl(d.instrument_id, 'front_bw'),
     back_bw_url:   _scanImageUrl(d.instrument_id, 'rear_bw'),
     front_gray_url: _scanImageUrl(d.instrument_id, 'front_gray'),
@@ -756,6 +757,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
     }
   }, [liveInwardItems, isInward])
   const [filter, setFilter]           = useState('ALL')
+  const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
   const [chequeViewId, setChequeViewId]   = useState(null)
 
@@ -770,6 +772,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   }
 
   const filtered = instruments.filter(i => {
+    if (categoryFilter !== 'ALL' && (i.instrument_category || 'CHEQUE') !== categoryFilter) return false
     if (filter === 'STP')        return i.source_stage === 'STP'
     if (filter === 'VERIFIED')   return i.source_stage === 'VERIFIED'
     if (filter === 'HIGH_VALUE') return isHighValue(i)
@@ -782,12 +785,13 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   const editedCount     = instruments.filter(i => Object.keys(i.edits).length > 0).length
   const hvCount         = instruments.filter(i => isHighValue(i)).length
   const nameAlertCount  = instruments.filter(i => isNameAlert(i.name_match)).length
+  const ddCount         = instruments.filter(i => i.instrument_category === 'DEMAND_DRAFT').length
   const chequeInst      = chequeViewId ? instruments.find(i => i.instrument_id === chequeViewId) : null
 
   function handleEdit(instrumentId, fieldKey, value) {
     setInstruments(prev => prev.map(inst => {
       if (inst.instrument_id !== instrumentId) return inst
-      const cur = inst.fields_meta[fieldKey]
+      const cur = inst.fields_meta?.[fieldKey] ?? { extracted_value: '', source: 'STP' }
       return {
         ...inst,
         edits: { ...inst.edits, [fieldKey]: value },
@@ -887,6 +891,21 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
             </div>
           </div>
 
+          <div className="flex items-center gap-1 mb-3">
+            {[
+              ['ALL', 'All Instruments'],
+              ['CHEQUE', 'Cheques'],
+              ['DEMAND_DRAFT', `Demand Drafts${ddCount > 0 ? ` (${ddCount})` : ''}`],
+            ].map(([val, lbl]) => (
+              <button key={val} onClick={() => setCategoryFilter(val)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${categoryFilter === val
+                  ? (isDark ? 'bg-violet-500/20 text-violet-300' : 'bg-violet-600 text-white')
+                  : (isDark ? 'text-violet-400/70 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50')
+                }`}
+              >{lbl}</button>
+            ))}
+          </div>
+
           <div className={`text-[11px] ${th.lbl} flex items-center gap-3`}>
             <span>Click cell to edit</span><span>·</span>
             <span>Edited → <span className={isDark ? 'text-amber-400 font-semibold' : 'text-amber-600 font-semibold'}>amber / MANUAL</span></span><span>·</span>
@@ -917,7 +936,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                   <tr><td colSpan={20} className={`text-center py-12 ${th.lbl}`}>No instruments in validation queue.</td></tr>
                 )}
                 {filtered.map(inst => {
-                  const manualCount = Object.values(inst.fields_meta).filter(m => m.source === 'MANUAL').length
+                  const manualCount = Object.values(inst.fields_meta ?? {}).filter(m => m.source === 'MANUAL').length
                   const isSTP       = inst.source_stage === 'STP'
                   const minsLeft    = inst.iet_deadline ? Math.max(0, Math.round((new Date(inst.iet_deadline) - Date.now()) / 60000)) : null
                   const ietUrgent   = minsLeft != null && minsLeft < 45
@@ -955,13 +974,13 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
 
                       {/* Editable OCR fields */}
                       {(() => {
-                        const figVal = inst.fields_meta.amount_figures?.actual_value
-                        const wrdVal = inst.fields_meta.amount_words?.actual_value
+                        const figVal = inst.fields_meta?.amount_figures?.actual_value
+                        const wrdVal = inst.fields_meta?.amount_words?.actual_value
                         const figNum = parseAmtNum(figVal)
                         const wrdNum = parseWordsToNum(wrdVal)
                         const amtMismatch = figNum > 0 && wrdNum !== null && wrdNum > 0 && figNum !== wrdNum
                         return OCR_COLS.map(col => {
-                          const fm = inst.fields_meta[col.key] ?? { actual_value: '', source: 'STP' }
+                          const fm = inst.fields_meta?.[col.key] ?? { actual_value: '', source: 'STP' }
                           const isAmtCol = col.key === 'amount_figures' || col.key === 'amount_words'
                           const badgeSource = isAmtCol && amtMismatch ? 'MISMATCH' : fm.source
                           return (

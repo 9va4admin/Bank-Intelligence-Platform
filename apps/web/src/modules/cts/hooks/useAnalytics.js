@@ -26,7 +26,7 @@ function normaliseRow(raw) {
   }
 }
 
-export default function useAnalytics({ days = 7, pollEnabled = true } = {}) {
+export default function useAnalytics({ days = 7, pollEnabled = true, instrumentCategory = null } = {}) {
   const [daily, setDaily]     = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
@@ -34,8 +34,10 @@ export default function useAnalytics({ days = 7, pollEnabled = true } = {}) {
 
   const fetchAnalytics = useCallback(async () => {
     try {
+      const params = new URLSearchParams({ days: String(days) })
+      if (instrumentCategory) params.set('instrument_category', instrumentCategory)
       const res = await fetch(
-        `${API_BASE}/v1/cts/outward/analytics/daily?days=${days}`,
+        `${API_BASE}/v1/cts/outward/analytics/daily?${params}`,
         { credentials: 'include' },
       )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -47,7 +49,7 @@ export default function useAnalytics({ days = 7, pollEnabled = true } = {}) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  }, [days, instrumentCategory])
 
   useEffect(() => {
     fetchAnalytics()

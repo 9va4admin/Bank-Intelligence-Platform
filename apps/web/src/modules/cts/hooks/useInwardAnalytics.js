@@ -24,7 +24,7 @@ const EMPTY = {
   iet_trend:      [],
 }
 
-export default function useInwardAnalytics({ days = 7, pollEnabled = true } = {}) {
+export default function useInwardAnalytics({ days = 7, pollEnabled = true, instrumentCategory = null } = {}) {
   const [data, setData]       = useState(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
@@ -32,8 +32,10 @@ export default function useInwardAnalytics({ days = 7, pollEnabled = true } = {}
 
   const fetchData = useCallback(async () => {
     try {
+      const params = new URLSearchParams({ days: String(days) })
+      if (instrumentCategory) params.set('instrument_category', instrumentCategory)
       const res = await fetch(
-        `${API_BASE}/v1/cts/inward/analytics?days=${days}`,
+        `${API_BASE}/v1/cts/inward/analytics?${params}`,
         { credentials: 'include' },
       )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -55,7 +57,7 @@ export default function useInwardAnalytics({ days = 7, pollEnabled = true } = {}
     } finally {
       setLoading(false)
     }
-  }, [days])
+  }, [days, instrumentCategory])
 
   useEffect(() => {
     fetchData()

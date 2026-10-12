@@ -13,6 +13,7 @@ Flow (single entry point, no mode config):
 Thresholds always from config_service — never hardcoded.
 vLLM/IndicOCR unavailable → HUMAN_REVIEW (degraded), never crashes workflow.
 """
+import re
 import io
 import json
 from typing import Any, Optional
@@ -59,11 +60,19 @@ Extract all printed fields from this cheque image. Return JSON only, no explanat
   "payee": {"value": "...", "confidence": 0.0},
   "drawee_name": {"value": "...", "confidence": 0.0},
   "ifsc_code": {"value": "...", "confidence": 0.0},
-  "account_number": {"value": "...", "confidence": 0.0}
+  "account_number": {"value": "...", "confidence": 0.0},
+  "instrument_category": {"value": "...", "confidence": 0.0}
 }
 If a field is illegible or not present, set value to null and confidence to 0.0.
 Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
 ifsc_code: the bank IFSC code printed on the cheque face (e.g. "SBIN0001234").
+
+instrument_category: either "CHEQUE" or "DEMAND_DRAFT". Return "DEMAND_DRAFT"
+only if the instrument has a printed "DEMAND DRAFT" header and/or a "D.D. NO."
+box -- this is a separate pre-printed money-remittance instrument issued by
+the bank itself, not a regular cheque written by a customer. Return "CHEQUE"
+for anything else, including when uncertain -- CHEQUE is the default and the
+safe answer.
 
 account_number: the customer's account number printed on the cheque (separate
 from the MICR band, and separate from micr_line -- never derive this by
@@ -90,6 +99,42 @@ label (e.g. "For Asmita Construction") or directly above "Authorised
 Signatory" / "Proprietor" / "Partner". This is the person or company that
 OWNS this cheque and account -- never the payee. If no such printed name
 is visible, return null.
+"""
+
+_DD_OCR_PROMPT = """
+This image is an Indian bank DEMAND DRAFT (a pre-printed instrument issued by a bank, NOT a
+customer-written cheque). Return JSON only, no explanation:
+{
+  "has_dd_header": {"value": true, "confidence": 0.0},
+  "dd_number": {"value": "...", "confidence": 0.0},
+  "dd_date": {"value": "...", "confidence": 0.0},
+  "payee": {"value": "...", "confidence": 0.0},
+  "remitter_name": {"value": "...", "confidence": 0.0},
+  "issuing_branch": {"value": "...", "confidence": 0.0},
+  "drawee_branch": {"value": "...", "confidence": 0.0},
+  "amount_figures": {"value": "...", "confidence": 0.0},
+  "amount_words": {"value": "...", "confidence": 0.0},
+  "micr_line": {"value": "...", "confidence": 0.0}
+}
+If a field is illegible or not present, set value to null and confidence to 0.0. Never guess.
+
+has_dd_header: true only if the words "DEMAND DRAFT" and/or a "D.D. NO." box are printed on this
+instrument; false otherwise (for example a normal cheque with a "Pay" line).
+
+payee: the name printed after the words "ON DEMAND PAY" (Hindi: "मांगे जाने पर"), i.e. the
+beneficiary the draft is payable to. It is usually machine-printed. Do NOT return the text of the
+"Issuing Branch" label, the Hindi/English caption lines, rubber-stamp text (bank collection stamps
+such as "RESERVE BANK OF INDIA ...", branch round-stamps), or officer/staff names near the
+signatures. If the line is not legible return null.
+
+remitter_name: the purchaser/applicant name printed on the line that starts with "DD" followed by
+the DD number (for example "DD 930183   KARTHIK V"), to the right of the number. null if absent.
+
+issuing_branch: the branch name printed just under the bank name at the top left, above the
+caption "(Issuing Branch)". drawee_branch: the branch name printed above the caption
+"(Drawee Branch)" / "(अदाकर्ता शाखा)" near the bottom. Return the name only, never the caption.
+
+dd_date: the date from the DDMMYYYY boxes at the top right. dd_number: the number in the "D.D. NO." box.
 """
 
 # SCRIPT_ADAPTIVE zone → field name mapping used when IndicOCR re-runs a zone.
@@ -121,6 +166,12 @@ class OCRActivityResult(BaseModel):
     bank_branch_code: Optional[str] = None        # parsed from micr_line
     account_number: Optional[str] = None          # printed on the cheque face — a real OCR field,
                                                     # never derived from micr_line (see _OCR_PROMPT)
+    instrument_category: str = "CHEQUE"            # "CHEQUE" | "DEMAND_DRAFT" — defaults CHEQUE,
+                                                    # the safe fallback for silent/invalid model answers
+    # DD-only fields (None for cheques) — filled by the DD-specific second pass
+    remitter_name: Optional[str] = None            # purchaser/applicant printed after "DD <number>"
+    issuing_branch: Optional[str] = None
+    drawee_branch: Optional[str] = None
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     # Structured form of low_confidence_reason's field list — cheque_workflow.py's
@@ -196,6 +247,41 @@ async def ocr_extract(
         else:
             engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
 
+        # ── Instrument type + DD second pass ──────────────────────────────────────
+        _mc = fields.get("instrument_category", (None, 0.0))[0]
+        model_cat = _mc if _mc in ("CHEQUE", "DEMAND_DRAFT") else "CHEQUE"
+        header_ocr = await _header_says_dd(inp.image_url)
+        dd_fields = None
+        if model_cat == "DEMAND_DRAFT" or header_ocr is True:
+            dd_fields = await _dd_pass(inp, orchestrator, config_service)
+        dd_header = None
+        if dd_fields is not None:
+            hv = dd_fields["has_dd_header"][0]
+            dd_header = hv if isinstance(hv, bool) else (str(hv).lower() == "true" if hv is not None else None)
+        final_cat, unanimous, cat_signals = _resolve_category(model_cat, header_ocr, dd_header)
+        fields["instrument_category"] = (final_cat, 1.0)
+        remitter = issuing = drawee_branch = None
+        amount_disagreement = None
+        if final_cat == "DEMAND_DRAFT" and dd_fields is not None:
+            s1_figures = fields.get("amount_figures", (None, 0.0))[0]
+            for dst, src in (("payee", "payee"), ("amount_figures", "amount_figures"),
+                             ("amount_words", "amount_words"), ("date", "dd_date")):
+                val, conf = dd_fields[src]
+                if dst == "date" and val and not _is_plausible_date(val):
+                    continue   # e.g. the DD number read as a date -> keep stage-1 value / flag it
+                if val:
+                    fields[dst] = (val, conf)
+            dd_figures = dd_fields["amount_figures"][0]
+            if s1_figures and dd_figures and _amount_value(s1_figures) != _amount_value(dd_figures):
+                amount_disagreement = f"dd_amount_read_disagreement: {s1_figures} vs {dd_figures}"
+            db, dbc = dd_fields["drawee_branch"]
+            if db:
+                fields["drawee_name"] = (db, dbc)
+            remitter = dd_fields["remitter_name"][0]
+            issuing = dd_fields["issuing_branch"][0]
+            drawee_branch = db
+            engines_used.append("dd-pass")
+
         # ── IndicOCR kill switch ──────────────────────────────────────────────────
         # Fail-open: missing / unreadable config key = NONE (do not block OCR).
         indic_ks_active = False
@@ -223,10 +309,139 @@ async def ocr_extract(
                      instrument_id=inp.instrument_id, bank_id=inp.bank_id)
 
         # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
-        return _build_result(
+        # cts.micr_bank_code (Layer 3, per bank): the drawee bank's own 3-digit MICR bank code,
+        # used to anchor the 9-digit sort code. Absent/malformed -> legacy fixed slice.
+        micr_bank_code = None
+        try:
+            _bc = await config_service.get("cts.micr_bank_code")
+            if isinstance(_bc, str) and _bc.isdigit() and len(_bc) == 3:
+                micr_bank_code = _bc
+        except Exception:
+            pass
+        result = _build_result(
             fields, min_confidence, cascade_level, indic_refined,
             routing_table, inp, engines_used, indic_ks_active,
+            micr_bank_code=micr_bank_code,
         )
+        updates: dict = {"remitter_name": remitter, "issuing_branch": issuing, "drawee_branch": drawee_branch}
+        if not unanimous:
+            # Signals disagree on CHEQUE vs DEMAND_DRAFT -> never pick silently.
+            updates.update(
+                outcome="HUMAN_REVIEW",
+                low_confidence_reason=f"instrument_type_split: {cat_signals}",
+                low_confidence_fields=list(result.low_confidence_fields) + ["instrument_category"],
+            )
+        elif amount_disagreement:
+            updates.update(
+                outcome="HUMAN_REVIEW",
+                low_confidence_reason=amount_disagreement,
+                low_confidence_fields=list(result.low_confidence_fields) + ["amount_figures"],
+            )
+        return result.model_copy(update=updates)
+
+
+def _amount_value(raw) -> float | None:
+    try:
+        return float(re.sub(r"[^\d.]", "", str(raw)) or "nan")
+    except ValueError:
+        return None
+
+
+def _is_plausible_date(raw) -> bool:
+    """True only for a real calendar date: DD/MM/YYYY (any of - . / separators), or DDMMYYYY.
+    strptime is too lenient ('658027' parses), so the shape is checked explicitly first."""
+    from datetime import date
+    text = str(raw).strip()
+    m = re.fullmatch(r"(\d{1,2})[/\-. ](\d{1,2})[/\-. ](\d{4})", text) or re.fullmatch(r"(\d{2})(\d{2})(\d{4})", text)
+    if not m:
+        return False
+    try:
+        date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+        return True
+    except ValueError:
+        return False
+
+
+# ── Instrument-type decision + DD second pass ────────────────────────────────
+
+_DD_KEYS = ("has_dd_header", "dd_number", "dd_date", "payee", "remitter_name",
+            "issuing_branch", "drawee_branch", "amount_figures", "amount_words", "micr_line")
+
+
+def _parse_model_json(content: str) -> dict:
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text)
+
+
+def _to_fields(parsed: dict, keys) -> dict:
+    out: dict = {}
+    for key in keys:
+        entry = parsed.get(key) or {}
+        if isinstance(entry, dict):
+            out[key] = (entry.get("value"), float(entry.get("confidence", 0.0) or 0.0))
+        else:
+            out[key] = (None, 0.0)
+    return out
+
+
+async def _dd_pass(inp, orchestrator, config_service):
+    """DD-specific second look: the cheque prompt reads the 'Issuing Branch' caption as the payee
+    on a DD, so a DD gets its own prompt. Local model first, then the config-gated cloud fallback.
+    Returns {field: (value, confidence)} or None when no vision model answered."""
+    try:
+        res = await orchestrator.call_ocr(image_url=inp.image_url, prompt=_DD_OCR_PROMPT, cheque_amount=0.0)
+        return _to_fields(_parse_model_json(res.content), _DD_KEYS)
+    except Exception as exc:
+        log.warning("ocr.dd_pass_local_failed", instrument_id=inp.instrument_id, error=str(exc))
+    try:
+        if await cloud_fallback_enabled(config_service, inp.bank_id):
+            content = await call_hf_vision(config_service, await fetch_image_bytes(inp.image_url), _DD_OCR_PROMPT)
+            if content:
+                return _to_fields(_parse_model_json(content), _DD_KEYS)
+    except Exception as exc:
+        log.warning("ocr.dd_pass_cloud_failed", instrument_id=inp.instrument_id, error=str(exc))
+    return None
+
+
+async def _header_says_dd(image_url: str):
+    """Independent, model-free signal: Tesseract over the top band of the image looking for the
+    printed 'DEMAND DRAFT' / 'D.D. NO.' header. True/False, or None when it cannot run."""
+    try:
+        import asyncio as _aio
+        import re as _re
+        import pytesseract
+        raw = await fetch_image_bytes(image_url)
+
+        def _read() -> str:
+            img = Image.open(io.BytesIO(raw)).convert("L")
+            w, h = img.size
+            band = img.crop((0, 0, w, int(h * 0.30)))
+            return pytesseract.image_to_string(band, lang="eng", config="--psm 6")
+
+        text = await _aio.to_thread(_read)
+        return bool(_re.search(r"DEMAND\s*DRAFT|D\.?\s?D\.?\s*NO", text, _re.IGNORECASE))
+    except Exception as exc:
+        log.info("ocr.header_check_unavailable", error=str(exc)[:120])
+        return None
+
+
+def _resolve_category(model_cat, header_ocr, dd_header):
+    """Majority of the independent signals that exist. Returns (category, unanimous, signals)."""
+    sig = {"model": model_cat,
+           "header_ocr": None if header_ocr is None else ("DEMAND_DRAFT" if header_ocr else "CHEQUE"),
+           "dd_pass": None if dd_header is None else ("DEMAND_DRAFT" if dd_header else "CHEQUE")}
+    votes = [v for v in sig.values() if v is not None]
+    n_dd = votes.count("DEMAND_DRAFT")
+    n_ch = votes.count("CHEQUE")
+    if n_dd == 0 or n_ch == 0:
+        return votes[0], True, sig
+    if n_dd == n_ch:                       # tie: trust the primary model, but flag it
+        return model_cat, False, sig
+    return ("DEMAND_DRAFT" if n_dd > n_ch else "CHEQUE"), False, sig
 
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────────
@@ -268,6 +483,7 @@ async def _extract_got_ocr2(
         "drawee_name":    _field("drawee_name"),
         "ifsc_code":      _field("ifsc_code"),
         "account_number": _field("account_number"),
+        "instrument_category": _field("instrument_category"),
     }
     return fields, cascade_result.cascade_level
 
@@ -315,7 +531,7 @@ async def _extract_hf_cloud(
         return None
 
     fields: dict[str, tuple[Optional[str], float]] = {}
-    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "drawee_name", "ifsc_code", "account_number"):
+    for key in ("micr_line", "amount_figures", "amount_words", "date", "payee", "drawee_name", "ifsc_code", "account_number", "instrument_category"):
         entry = parsed.get(key) or {}
         value = entry.get("value") if isinstance(entry, dict) else None
         confidence = float(entry.get("confidence", 0.0)) if isinstance(entry, dict) else 0.0
@@ -441,6 +657,13 @@ async def _extract_tesseract(
 
         # Conservative confidence — always routes to HUMAN_REVIEW via confidence gate
         _CONF = 0.60
+        # Pure text heuristic -- Tesseract has no vision classification, just
+        # check for the printed "DEMAND DRAFT" header / "D.D. NO." label.
+        category_val = (
+            "DEMAND_DRAFT"
+            if re.search(r'\bDEMAND\s+DRAFT\b|\bD\.?\s?D\.?\s*NO\b', clean, re.IGNORECASE)
+            else "CHEQUE"
+        )
         fields: dict[str, tuple[Optional[str], float]] = {
             "micr_line":      (micr_val,      _CONF if micr_val else 0.0),
             "amount_figures": (amount_figures, _CONF if amount_figures else 0.0),
@@ -450,6 +673,7 @@ async def _extract_tesseract(
             "payee":          (payee_val,      _CONF if payee_val else 0.0),
             "ifsc_code":      (None,           0.0),
             "account_number": (None,           0.0),
+            "instrument_category": (category_val, _CONF),
         }
         return fields, -1   # -1 = Tesseract, not vLLM cascade level
 
@@ -620,6 +844,7 @@ def _build_result(
     inp: OCRActivityInput,
     engines_used: Optional[list[str]] = None,
     indic_ks_active: bool = False,
+    micr_bank_code: Optional[str] = None,
 ) -> OCRActivityResult:
     """Apply confidence gate, MICR routing, amount cross-check, build final result."""
     _engines = engines_used or []
@@ -643,12 +868,14 @@ def _build_result(
         else None
     )
     account_number = fields.get("account_number", (None, 0.0))[0]
+    _raw_category = fields.get("instrument_category", (None, 0.0))[0]
+    instrument_category = _raw_category if _raw_category in ("CHEQUE", "DEMAND_DRAFT") else "CHEQUE"
 
     all_confs = [c for _, c in fields.values()]
     overall = sum(all_confs) / len(all_confs) if all_confs else 0.0
 
     principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)
-    micr_parsed = MICRParser.parse_ocr_text(micr_line or "")
+    micr_parsed = MICRParser.parse_ocr_text(micr_line or "", bank_code=micr_bank_code)
     cheque_number = micr_parsed["cheque_number"]
     bank_branch_code = micr_parsed["bank_branch_code"]
 
@@ -674,6 +901,7 @@ def _build_result(
             cheque_number=cheque_number,
             bank_branch_code=bank_branch_code,
             account_number=account_number,
+            instrument_category=instrument_category,
         )
 
     match = amounts_match(figures=amt_figures, words=amt_words)
@@ -696,6 +924,7 @@ def _build_result(
             cheque_number=cheque_number,
             bank_branch_code=bank_branch_code,
             account_number=account_number,
+            instrument_category=instrument_category,
         )
 
     return OCRActivityResult(
@@ -717,6 +946,7 @@ def _build_result(
         cheque_number=cheque_number,
         bank_branch_code=bank_branch_code,
         account_number=account_number,
+        instrument_category=instrument_category,
     )
 
 

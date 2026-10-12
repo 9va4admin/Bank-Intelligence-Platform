@@ -1170,6 +1170,7 @@ class RecordScanEventInput(BaseModel):
     mismatch_id: Optional[str] = None
     mismatch_fields: Optional[list[str]] = None
     reject_reason: Optional[str] = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from ocr_extract
 
 
 @activity.defn(name="record_outward_scan_event")
@@ -1193,13 +1194,14 @@ async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
                     INSERT INTO cts.outward_scan_events
                         (bank_id, branch_id, session_id, scan_id, instrument_id,
                          micr_suffix, payee_display, amount_range, outcome,
-                         lot_id, mismatch_id, mismatch_fields, reject_reason)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                         lot_id, mismatch_id, mismatch_fields, reject_reason,
+                         instrument_category)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                     """,
                     inp.bank_id, inp.branch_id, inp.session_id, inp.scan_id,
                     inp.instrument_id, inp.micr_suffix, inp.payee_display,
                     inp.amount_range, inp.outcome, inp.lot_id, inp.mismatch_id,
-                    inp.mismatch_fields, inp.reject_reason,
+                    inp.mismatch_fields, inp.reject_reason, inp.instrument_category,
                 )
             finally:
                 await conn.close()
