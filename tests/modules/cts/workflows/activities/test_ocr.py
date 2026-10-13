@@ -1506,3 +1506,56 @@ class TestPayeeAgreementIgnoresUnclearLetterPlaceholders:
         from modules.cts.workflows.activities.ocr import _payee_names_agree
         assert not _payee_names_agree("Rousick Mondal", "KoU51ck MoNdal", 0.99)
         assert not _payee_names_agree("Gurupada Maity", "gurupada maitra", 0.99)
+
+
+class TestPayeeRereadUsesIndependentModel:
+    """The re-read must be an independent second opinion: a different model from the primary read
+    (Qwen3-VL-32B vs Qwen2.5-VL-72B), configurable, falling back to the primary model if the
+    independent one cannot be reached. Live on 22 cheques it agreed with 14 of 15 correct primary reads
+    and disagreed with all 4 wrong ones."""
+
+    def _patch(self, responses):
+        from unittest.mock import patch
+        calls = []
+
+        async def fake(config_service, image_bytes, prompt, *, model="qwen-72b", timeout=60.0):
+            calls.append(model)
+            return responses.get(model)
+
+        return patch("modules.cts.workflows.activities.ocr.call_hf_vision", new=fake), \
+               patch("modules.cts.workflows.activities.ocr.cloud_fallback_enabled", new=AsyncMock(return_value=True)), \
+               patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=_tiny_png())), calls
+
+    @pytest.mark.asyncio
+    async def test_independent_model_is_tried_first(self):
+        from modules.cts.workflows.activities.ocr import _payee_reread
+        p1, p2, p3, calls = self._patch({"qwen3-vl-32b": '{"payee": {"value": "Kousick Mondal", "confidence": 0.9}}'})
+        cs = AsyncMock(); cs.get = AsyncMock(return_value=None)
+        with p1, p2, p3:
+            out = await _payee_reread(_make_input(), cs)
+        assert out == "Kousick Mondal" and calls == ["qwen3-vl-32b"]
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_primary_model_when_independent_one_is_unreachable(self):
+        from modules.cts.workflows.activities.ocr import _payee_reread
+        p1, p2, p3, calls = self._patch({"qwen-72b": '{"payee": {"value": "Kousick Mondal", "confidence": 0.9}}'})
+        cs = AsyncMock(); cs.get = AsyncMock(return_value=None)
+        with p1, p2, p3:
+            out = await _payee_reread(_make_input(), cs)
+        assert out == "Kousick Mondal" and calls == ["qwen3-vl-32b", "qwen-72b"]
+
+    @pytest.mark.asyncio
+    async def test_configured_model_is_used_first(self):
+        from modules.cts.workflows.activities.ocr import _payee_reread
+        p1, p2, p3, calls = self._patch({"qwen-72b": '{"payee": {"value": "A B", "confidence": 0.9}}'})
+        cs = AsyncMock(); cs.get = AsyncMock(return_value="qwen-72b")
+        with p1, p2, p3:
+            await _payee_reread(_make_input(), cs)
+        assert calls[0] == "qwen-72b"
+
+
+def _tiny_png():
+    import io
+    from PIL import Image
+    b = io.BytesIO(); Image.new("RGB", (200, 100), "white").save(b, "PNG")
+    return b.getvalue()

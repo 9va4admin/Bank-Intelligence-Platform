@@ -76,7 +76,11 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     # reading); date and amount_figures weakness still early-exits exactly as before,
     # since those feed decision.py's undated/post-dated/stale and amount-mismatch hard
     # gates and a wrong auto-return is worse than an unnecessary human review.
-    "cts.ocr_multisignal_rescue_enabled": True,
+    "cts.ocr_multisignal_rescue_enabled": False,   # default OFF (2026-10-13): unreadable payee/words -> human review
+    "cts.payee_reread_min_similarity": 0.99,      # handwritten payee: letters of the two reads must match this closely
+    "cts.payee_reference_min_similarity": 0.97,   # payee read vs reference payee from presentment/PPS
+    "cts.payee_reread_model": "qwen3-vl-32b",     # independent second-opinion model for the payee re-read
+    "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
     "cts.alteration_risk_threshold": 0.65,
     "cts.iet_emergency_buffer_seconds": 30,
     "cts.human_review_max_wait_minutes": 55,
@@ -489,6 +493,8 @@ class ConfigService:
             "ocr_min_confidence":                "cts.ocr_min_confidence",
             "sig_min_match_score":               "cts.signature_min_match_score",
             "ocr_multisignal_rescue_enabled":    "cts.ocr_multisignal_rescue_enabled",
+            "payee_reference_min_similarity":    "cts.payee_reference_min_similarity",
+            "micr_branch_master":                "cts.micr_branch_master",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

@@ -643,6 +643,34 @@ class ChequeProcessingWorkflow:
                 "HUMAN_REVIEW", f"micr_cheque_number_mismatch: presented {_presented_no}, read {_ocr_no}",
             )
 
+        # Branch-master check: a sort code that is not one of this bank's real branches is never trusted
+        # (a digit misread inside the sort-code window cannot be caught by bank-code anchoring).
+        # cts.micr_branch_master empty = check disabled.
+        _master = inp.cts_config.get("micr_branch_master") or []
+        if _master:
+            _code = (ocr_result.bank_branch_code or "").strip()
+            if not _code:
+                return await finalise("HUMAN_REVIEW", "micr_sort_code_unreadable")
+            if _code not in {str(c).strip() for c in _master}:
+                return await finalise("HUMAN_REVIEW", f"micr_sort_code_not_in_branch_master: {_code}")
+
+        # Reference-payee cross-check: when presentment / PPS data carries the payee, the handwritten
+        # name read from the image must match it letter-for-letter (format ignored). A one-letter
+        # difference is exactly the confident-wrong read a single OCR pass cannot see.
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        _ref_payee = (inp.presented_payee or "").strip()
+        _ref_letters = "".join(ch for ch in _ref_payee if ch.isalnum())
+        if (
+            ocr_result.payee and "payee" not in ocr_result.low_confidence_fields
+            and len(_ref_letters) >= 3 and _ref_payee.upper() != "UNKNOWN"
+        ):
+            _min_sim = float(inp.cts_config.get("payee_reference_min_similarity", 0.97))
+            if not _payee_names_agree(ocr_result.payee, _ref_payee, _min_sim):
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"payee_presented_mismatch: read '{ocr_result.payee}', presented '{_ref_payee}'",
+                )
+
         if ocr_result.outcome == "HUMAN_REVIEW":
             # Multisignal rescue: don't hard-exit yet if the ONLY weak fields are
             # payee/amount_words (never feed a hard auto-return gate — see
