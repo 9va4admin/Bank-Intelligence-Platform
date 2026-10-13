@@ -671,6 +671,7 @@ class ChequeProcessingWorkflow:
                 and bool(ocr_result.low_confidence_fields)
                 and set(ocr_result.low_confidence_fields) <= _MULTISIGNAL_RESCUE_FIELDS
                 and not ocr_result.amount_mismatch
+                and ocr_result.payee_reread_status != "DISAGREE"   # two reads disagree on the name: never rescue
                 and not ocr_result.degraded
                 and bool(inp.account_number)
             )
