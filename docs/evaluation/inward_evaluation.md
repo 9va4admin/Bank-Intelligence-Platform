@@ -9,12 +9,12 @@ Generated 2026-10-13 by `scripts/eval_inward.py` from 70 real KBL instruments (L
 | Metric | Result | 95% interval | Target | Verdict |
 |---|---|---|---|---|
 | instrument type (cheque vs DD) | 70/70 = 100.0% | 94.8% - 100.0% | >= 99% | NOT DEMONSTRABLE at n=70 (point estimate 100.0% meets 99.0%, interval 94.8%-100.0%) |
-| payee: exact | 42/55 = 76.4% | 63.7% - 85.6% | >= 99% | BELOW target (76.4% < 99.0%; interval 63.7%-85.6%) |
+| payee: exact | 41/55 = 74.5% | 61.7% - 84.2% | >= 99% | BELOW target (74.5% < 99.0%; interval 61.7%-84.2%) |
 | payee: wrong value SHOWN | 1/55 = 1.8% | 0.3% - 9.6% | <= 1% | BELOW target (1.8% > 1.0%; interval 0.3%-9.6%) **(critical: a wrong value reached the screen/decision)** |
-| payee: withheld for review | 12/55 = 21.8% | 12.9% - 34.4% | - | (no target defined) |
-| 9-digit sort code correct | 56/70 = 80.0% | 69.2% - 87.7% | >= 99% | BELOW target (80.0% < 99.0%; interval 69.2%-87.7%) |
+| payee: withheld for review | 13/55 = 23.6% | 14.4% - 36.3% | - | (no target defined) |
+| 9-digit sort code correct | 54/70 = 77.1% | 66.0% - 85.4% | >= 99% | BELOW target (77.1% < 99.0%; interval 66.0%-85.4%) |
 | 9-digit sort code: wrong value READ | 4/70 = 5.7% | 2.2% - 13.8% | <= 1% | BELOW target (5.7% > 1.0%; interval 2.2%-13.8%) **(critical: a wrong value reached the screen/decision)** |
-| cheque/DD number correct | 57/70 = 81.4% | 70.8% - 88.8% | >= 99% | BELOW target (81.4% < 99.0%; interval 70.8%-88.8%) |
+| cheque/DD number correct | 55/70 = 78.6% | 67.6% - 86.6% | >= 99% | BELOW target (78.6% < 99.0%; interval 67.6%-86.6%) |
 | cheque/DD number: wrong value READ | 3/70 = 4.3% | 1.5% - 11.9% | <= 1% | BELOW target (4.3% > 1.0%; interval 1.5%-11.9%) **(critical: a wrong value reached the screen/decision)** |
 | amount figures correct | 25/30 = 83.3% | 66.4% - 92.7% | >= 99% | BELOW target (83.3% < 99.0%; interval 66.4%-92.7%) |
 | amount figures: wrong value READ | 5/30 = 16.7% | 7.3% - 33.6% | <= 1% | BELOW target (16.7% > 1.0%; interval 7.3%-33.6%) **(critical: a wrong value reached the screen/decision)** |
