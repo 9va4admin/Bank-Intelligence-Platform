@@ -170,6 +170,13 @@ class ChequeWorkflowResult(BaseModel):
 class ChequeProcessingWorkflow:
     def __init__(self) -> None:
         self._watchdog_spawned: bool = False
+        self._iet_emergency_decision: Optional[str] = None   # set by the IET watchdog once IT has filed
+
+    @workflow.signal
+    def iet_emergency_filed(self, decision: str) -> None:
+        """The IET watchdog filed an emergency decision at T-30s. From now on this pipeline must neither
+        file nor queue a human review for the instrument: the clearing outcome is already settled."""
+        self._iet_emergency_decision = decision
 
     def workflow_id(self, bank_id: str, instrument_id: str) -> str:
         return f"cts-{bank_id}-{instrument_id}"
@@ -345,10 +352,22 @@ class ChequeProcessingWorkflow:
             itself signals the watchdog once a reviewer decides or the 55-min
             window times out.
             """
+            nonlocal _fraud_score, _shap_values, _fraud_scored
+            # The watchdog already filed this instrument at T-30s (IET). Record what the pipeline would have
+            # decided in the rationale, but never file or queue again - and say so in the result.
+            if self._iet_emergency_decision:
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id,
+                    decision=self._iet_emergency_decision,
+                    rationale=(f"iet_emergency_filed: the IET watchdog filed {self._iet_emergency_decision} before the "
+                               f"pipeline finished; pipeline outcome superseded ({decision}: {rationale})"),
+                    shap_values=shap_values or _shap_values or {},
+                    emergency_iet_filed=True,
+                )
+
             # Fraud scoring runs for EVERY instrument. Early exits (OCR quality, MICR number mismatch,
             # signature flags ...) leave before step 6, so score here — best-effort, never blocks or
             # alters the decision — with whatever evidence exists at that point.
-            nonlocal _fraud_score, _shap_values, _fraud_scored
             if not _fraud_scored:
                 _fraud_scored = True
                 try:

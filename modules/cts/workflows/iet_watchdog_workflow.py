@@ -147,6 +147,13 @@ class IETWatchdogWorkflow:
                 start_to_close_timeout=timedelta(seconds=15),
                 retry_policy=_AUDIT_RETRY,
             )
+            # Tell the still-running parent so it does not file or queue a review for a settled instrument.
+            try:
+                await workflow.get_external_workflow_handle(inp.workflow_id).signal(
+                    "iet_emergency_filed", emergency_decision
+                )
+            except Exception:
+                pass   # parent already closed: nothing left to stand down
             return IETWatchdogResult(
                 outcome="EMERGENCY_FILED",
                 emergency_filed=True,
