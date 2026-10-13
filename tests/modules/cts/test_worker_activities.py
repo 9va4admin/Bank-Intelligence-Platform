@@ -729,3 +729,26 @@ class TestBuildHsmSigner:
         fake_cfg = MagicMock()
         fake_cfg.get_platform = MagicMock(side_effect=Exception("no vault key configured"))
         assert _build_hsm_signer(fake_cfg, "kbl") is None
+
+
+class TestBuildFraudModel:
+    @pytest.mark.asyncio
+    async def test_no_path_configured_means_rule_fallback(self):
+        from modules.cts.worker_activities import _build_fraud_model
+        cs = MagicMock(); cs.get = AsyncMock(return_value=None)
+        assert await _build_fraud_model(cs) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_config_error_means_rule_fallback(self):
+        from modules.cts.worker_activities import _build_fraud_model
+        cs = MagicMock(); cs.get = AsyncMock(side_effect=RuntimeError("no key"))
+        assert await _build_fraud_model(cs) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_valid_path_loads_a_labelled_synthetic_model(self, tmp_path):
+        from modules.cts.fraud_model import train_standin_model
+        from modules.cts.worker_activities import _build_fraud_model
+        p = str(tmp_path / "m.json"); train_standin_model(p, seed=1, n=800)
+        cs = MagicMock(); cs.get = AsyncMock(return_value=p)
+        model, explainer = await _build_fraud_model(cs)
+        assert model is not None and explainer is not None and model.synthetic is True

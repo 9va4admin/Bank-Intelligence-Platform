@@ -87,3 +87,8 @@ xhtml2pdf>=0.2.17
 # ImportError fallback already built into that module, and needs a Rust
 # toolchain to build from source (not universally available). Install it
 # separately only where GPU inference nodes need the extra compression.
+
+# Fraud scoring (XGBoost + SHAP)
+xgboost>=3.0
+shap>=0.50
+scikit-learn>=1.5
