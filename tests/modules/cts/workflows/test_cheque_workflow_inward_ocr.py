@@ -1317,3 +1317,62 @@ class TestImageQualityGate:
     async def test_check_not_registered_never_blocks(self, temporal_env):
         r = await self._run(temporal_env, None)
         assert not r.rationale.startswith("image_quality_fail")
+
+
+_REVIEW_PUSHES: list = []
+
+
+@activity.defn(name="push_to_review_queue")
+async def _spy_push_to_review_queue(inp):
+    _REVIEW_PUSHES.append(1)
+    return {"queued": True}
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_slow_low_confidence(inp, orchestrator=None, config_service=None, routing_table=None):
+    """A pipeline that is still working when the IET deadline arrives, and would then ask for human review."""
+    import asyncio
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    await asyncio.sleep(7)
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW", micr_line="152173000052000", date=None, payee=None, overall_confidence=0.3,
+        low_confidence_reason="low_confidence_fields: ['date']", low_confidence_fields=["date"],
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
+class TestPipelineStandsDownAfterIetEmergencyFiling:
+    """Live finding 2026-10-13: the watchdog filed its emergency decision at T-30s, then the still-running
+    pipeline queued a human review for an instrument that was already filed, so a reviewer could decide on
+    something already settled. Once the watchdog has filed, the pipeline's own outcome must not file or queue."""
+
+    @pytest.mark.asyncio
+    async def test_review_is_not_queued_and_the_emergency_outcome_is_reported(self, temporal_env):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        _REVIEW_PUSHES.clear()
+        task_queue = f"tq-ietstand-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"IETSTAND-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_slow_low_confidence, _spy_push_to_review_queue,
+                *[a for a in _BASE_ACTIVITIES if getattr(a, "__temporal_activity_definition").name != "push_to_review_queue"]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            r = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="UNKNOWN",
+                    iet_deadline=time.time() + 33,          # watchdog fires ~3s in; OCR finishes at ~7s
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+        assert r.emergency_iet_filed is True
+        assert "iet" in r.rationale.lower()
+        assert _REVIEW_PUSHES == [], "a review was queued for an instrument the watchdog had already filed"

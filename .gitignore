@@ -54,3 +54,9 @@ apps/indic_ocr/.venv/
 apps/indic_ocr/.venv_test/
 
 models/
+
+# Real customer instruments (images, archives, ingest dumps) must never be committed
+docs/cheques/KBL/
+docs/cheques/**/*.7z
+docs/cheques/**/*.zip
+docs/dev_real_cheque_*
