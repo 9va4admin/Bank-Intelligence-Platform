@@ -899,3 +899,89 @@ class TestMicrChequeNumberCrossCheck:
     async def test_matching_number_is_not_flagged(self, temporal_env):
         r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_with_number("152173"))
         assert not r.rationale.startswith("micr_cheque_number_mismatch")
+
+
+_FRAUD_CALLS: list = []
+
+
+@activity.defn(name="score_fraud")
+async def _spy_score_fraud(inp):
+    from modules.cts.workflows.activities.fraud import FraudActivityResult
+    _FRAUD_CALLS.append(inp["instrument_id"] if isinstance(inp, dict) else inp.instrument_id)
+    return FraudActivityResult(fraud_score=0.04, shap_values={"amount": -0.1, "_source": "spy"})
+
+
+class TestFraudScoredOnEveryExit:
+    """The fraud model must run for EVERY instrument, including ones that exit early to human
+    review (OCR quality, MICR number mismatch ...) — a reviewer needs the score on those too —
+    and exactly once on the full path (no double scoring)."""
+
+    async def _run(self, temporal_env, ocr_fake, cheque_number="152173"):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        _FRAUD_CALLS.clear()
+        task_queue = f"tq-fraudall-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"FRAUDALL-{uuid.uuid4().hex[:8]}"
+        acts = [ocr_fake, _spy_score_fraud, *[a for a in _BASE_ACTIVITIES if a is not _e2e_score_fraud]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            res = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number=cheque_number,
+                    presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+            return res, list(_FRAUD_CALLS)
+
+    @pytest.mark.asyncio
+    async def test_ocr_quality_exit_still_scores_fraud_once(self, temporal_env):
+        res, calls = await self._run(temporal_env, _ocr_fake_hrq)
+        assert res.decision == "HUMAN_REVIEW" and len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_micr_number_mismatch_exit_still_scores_fraud_once(self, temporal_env):
+        res, calls = await self._run(temporal_env, _ocr_fake_with_number("152199"))
+        assert res.rationale.startswith("micr_cheque_number_mismatch") and len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_full_path_scores_fraud_exactly_once(self, temporal_env):
+        res, calls = await self._run(temporal_env, _ocr_fake_proceed)
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_fraud_failure_on_an_early_exit_never_blocks_the_decision(self, temporal_env):
+        @activity.defn(name="score_fraud")
+        async def _boom(inp):
+            raise RuntimeError("model down")
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-fraudall-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"FRAUDBOOM-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_fake_hrq, _boom, *[a for a in _BASE_ACTIVITIES if a is not _e2e_score_fraud]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            res = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+        assert res.decision == "HUMAN_REVIEW"
