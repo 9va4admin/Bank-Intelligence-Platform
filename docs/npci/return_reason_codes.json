@@ -1,0 +1,326 @@
+{
+ "_source": "Return reason codes, Annexure D to the Uniform Regulations and Rules for Bankers' Clearing Houses, as reproduced in Annexure I/II of a bank's published Policy on Collection of Cheques & Instruments (secondary source; verify against the current NPCI/RBI annexure before certification)",
+ "_retrieved": "2026-10-13",
+ "codes": {
+  "01": {
+   "description": "Funds insufficient",
+   "group": "Funds",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "02": {
+   "description": "Exceeds arrangement",
+   "group": "Funds",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "03": {
+   "description": "Effects not cleared, present again.",
+   "group": "Funds",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "04": {
+   "description": "Refer to drawer",
+   "group": "Reference to Drawer",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "05": {
+   "description": "Kindly contact Drawer/Drawee Bank and please present again.",
+   "group": "Reference to Drawer",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "10": {
+   "description": "Drawer's signature incomplete",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "11": {
+   "description": "Drawer's signature illegible",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "12": {
+   "description": "Drawer's signature differs",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "13": {
+   "description": "Drawer's signature required",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "14": {
+   "description": "Drawer's signature not as per mandate",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "15": {
+   "description": "Drawer's signature to operate account not received",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "16": {
+   "description": "Drawer's authority to operate account not received",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "17": {
+   "description": "Alteration requires drawer's authentication",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "20": {
+   "description": "Payment stopped by drawer",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "21": {
+   "description": "Payment stopped by attachment order",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "22": {
+   "description": "Payment stopped by court order",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "23": {
+   "description": "Withdrawal stopped owing to death of account holder",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "24": {
+   "description": "Withdrawal stopped owing to lunacy of account holder",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "25": {
+   "description": "Withdrawal stopped owing to insolvency of account holder",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "30": {
+   "description": "Instrument post dated",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "31": {
+   "description": "Instrument out dated/stale",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "32": {
+   "description": "Instrument undated/ without proper date",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "33": {
+   "description": "Instrument mutilated; requires Bank's guarantee",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "34": {
+   "description": "Cheque irregularly drawn/ amount in words and figures differs",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "35": {
+   "description": "Clearing House stamp/ date required",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "36": {
+   "description": "Wrongly delivered/ Not drawn on us",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "37": {
+   "description": "Present in proper zone",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "38": {
+   "description": "Instrument contains extraneous matter",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "39": {
+   "description": "Image not clear, present again with paper",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "40": {
+   "description": "Present with document",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "41": {
+   "description": "Item listed twice",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "42": {
+   "description": "Paper not received",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "50": {
+   "description": "Account closed",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "51": {
+   "description": "Account transferred to another branch",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "52": {
+   "description": "No such account",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "53": {
+   "description": "Title of account required",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "54": {
+   "description": "Title of account wrong/ incomplete",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "55": {
+   "description": "Account blocked (situation covered in 21-25)",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "60": {
+   "description": "Crossed to two banks",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "61": {
+   "description": "Crossing stamp not cancelled",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "62": {
+   "description": "Clearing stamp not cancelled",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "63": {
+   "description": "Instrument specially crossed to another bank",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "64": {
+   "description": "Amount in protective crossing incorrect",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "65": {
+   "description": "Amount in protective crossing required/illegible",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "66": {
+   "description": "Payee's endorsement required",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "67": {
+   "description": "Payee's endorsement irregular / requires collecting bank's confirmation",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "68": {
+   "description": "Endorsement by mark/ thumb impression requires attestation by Magistrate with seal",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "70": {
+   "description": "Advice not received",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "71": {
+   "description": "Amount / Name differs on advice",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "72": {
+   "description": "Drawee bank's fund with sponsor bank insufficient",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "73": {
+   "description": "Payee's separate discharge to bank required",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "74": {
+   "description": "Not payable till 1st proximo",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "75": {
+   "description": "Pay order/ cheque requires counter signature",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "76": {
+   "description": "Required information not legible/ correct",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "80": {
+   "description": "Bank's certificate ambiguous/ incomplete/ required",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "81": {
+   "description": "Draft lost by issuing office/ confirmation required from issuing office",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "82": {
+   "description": "Bank/Branch blocked",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "83": {
+   "description": "Digital Certificate Validation failure",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "84": {
+   "description": "Other reasons-connectivity failure",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "85": {
+   "description": "Alterations on instrument - Other than \"Date\" field (Alteration/correction on instruments are prohibited under Cheque Truncation System. Return reason code applicable to instruments presented in CTS)",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "86": {
+   "description": "Fake/Forged/Stolen-draft/cheque/cash order/interest warrant/dividend warrant",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "87": {
+   "description": "‘Payee's a/c credited'- Stamp required",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  },
+  "88": {
+   "description": "Other reasons (Please specify)",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": false
+  },
+  "92": {
+   "description": "Bank Excluded",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true
+  }
+ }
+}

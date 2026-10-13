@@ -259,6 +259,7 @@ class ChequeProcessingWorkflow:
         # OCR state — populated by ocr_extract, carried into persist_decision audit row
         _ocr_confidence: float = 0.0
         _ocr_engines_used: list = []
+        _instrument_category: str = "CHEQUE"   # set after OCR; finalise() reads it on EVERY exit incl. pre-OCR ones
         _indic_ks_active: bool = False
         _micr_line: str = ""
         _ocr_cheque_date: Optional[_date_type] = None
@@ -620,6 +621,27 @@ class ChequeProcessingWorkflow:
             )
         except Exception:
             workflow.logger.warning("record_drawee_name failed; continuing without a CBS drawee name")
+
+        # Step 1.4: image quality (RRC 39, "image not clear"). Deterministic and model-free, so it runs before
+        # any OCR is spent on an unreadable image. FAIL -> a human decides whether to return it; an
+        # UNAVAILABLE check (or one that cannot run) never blocks a cheque.
+        try:
+            from modules.cts.workflows.activities.image_quality import IQAInput
+            _iqa = await workflow.execute_activity(
+                "check_image_quality",
+                IQAInput(image_url=inp.image_url, instrument_id=inp.instrument_id, bank_id=inp.bank_id),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
+            _iqa_outcome = _iqa.get("outcome") if isinstance(_iqa, dict) else getattr(_iqa, "outcome", None)
+            _iqa_reason = _iqa.get("reason") if isinstance(_iqa, dict) else getattr(_iqa, "reason", None)
+        except Exception:
+            _iqa_outcome, _iqa_reason = None, None
+            workflow.logger.warning("check_image_quality could not run; continuing")
+        if _iqa_outcome == "FAIL":
+            return await finalise(
+                "HUMAN_REVIEW", f"image_quality_fail: {_iqa_reason} (RRC 39 candidate: image not clear)",
+            )
 
         # Step 1.5: ocr_extract — GOT-OCR2.0 (Latin) + IndicOCR (Devanagari/regional scripts)
         # Extracts: date, amount_figures, amount_words, payee, IFSC, MICR from image.

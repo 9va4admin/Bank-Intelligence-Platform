@@ -209,6 +209,13 @@ class BoundCTSActivities:
         async with self._db_pool.acquire() as conn:
             return await _real(inp, cbs_connector=self._cbs_connector, db_conn=conn)
 
+    @activity.defn(name="check_image_quality")
+    async def check_image_quality(self, inp):
+        from modules.cts.workflows.activities.image_quality import IQAInput, check_image_quality as _real
+        if isinstance(inp, dict):
+            inp = IQAInput(**inp)
+        return await _real(inp, config_service=self._config_service)
+
     @activity.defn(name="record_payee_name")
     async def record_payee_name(self, inp):
         from modules.cts.workflows.activities.drawee_name import PayeeNameInput, record_payee_name as _real
@@ -748,6 +755,7 @@ class BoundCTSActivities:
             self.check_account_status,
             self.record_drawee_name,
             self.record_payee_name,
+            self.check_image_quality,
             self.load_signatures_from_cbs,
             self.load_pps_from_cbs,
             self.lookup_pps,

@@ -1258,3 +1258,62 @@ class TestDuplicatePresentmentIsActuallyBlocked:
     async def test_vault_outage_never_blocks_processing(self, temporal_env):
         r = await self._run(temporal_env, _leaf_vault_down)
         assert not r.rationale.startswith("DUPLICATE_PRESENTMENT")
+
+
+def _iqa_fake(outcome, reason=None):
+    @activity.defn(name="check_image_quality")
+    async def _fake(inp):
+        from modules.cts.workflows.activities.image_quality import IQAActivityResult
+        return IQAActivityResult(outcome=outcome, reason=reason, metrics={"width": 800, "sharpness": 12.0})
+    return _fake
+
+
+class TestImageQualityGate:
+    """RRC 39: an image the drawee cannot read is called before any OCR is spent on it. The check is
+    deterministic; an UNAVAILABLE check (or one that cannot run) never blocks a cheque."""
+
+    async def _run(self, temporal_env, iqa):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-iqa-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"IQA-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_fake_with_amount("22,000.00", "Twenty Two Thousand Only"), *_BASE_ACTIVITIES] + ([iqa] if iqa else [])
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="UNKNOWN", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_unclear_image_goes_to_human_review_with_the_reason(self, temporal_env):
+        r = await self._run(temporal_env, _iqa_fake("FAIL", "image_not_sharp"))
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("image_quality_fail: image_not_sharp")
+        assert "rrc 39" in r.rationale.lower()
+
+    @pytest.mark.asyncio
+    async def test_clear_image_is_not_flagged(self, temporal_env):
+        r = await self._run(temporal_env, _iqa_fake("PASS"))
+        assert not r.rationale.startswith("image_quality_fail")
+
+    @pytest.mark.asyncio
+    async def test_unavailable_check_never_blocks(self, temporal_env):
+        r = await self._run(temporal_env, _iqa_fake("UNAVAILABLE"))
+        assert not r.rationale.startswith("image_quality_fail")
+
+    @pytest.mark.asyncio
+    async def test_check_not_registered_never_blocks(self, temporal_env):
+        r = await self._run(temporal_env, None)
+        assert not r.rationale.startswith("image_quality_fail")
