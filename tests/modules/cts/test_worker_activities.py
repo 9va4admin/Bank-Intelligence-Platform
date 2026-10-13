@@ -305,10 +305,10 @@ class TestMismatchActivitiesRegistered:
 
 
 class TestActivityListCompleteness:
-    def test_returns_exactly_58_bound_methods(self):
+    def test_returns_exactly_59_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 58
+        assert len(activities) == 59
 
     def test_no_duplicate_names(self):
         bound = _bound()

@@ -537,6 +537,19 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=15),
                 retry_policy=_INFRA_RETRY,
             )
+            # Payee Name for the reviewer = CBS holder of the deposit-slip account (plain text by
+            # bank-owner decision). Best-effort: never changes the outcome of the validation.
+            try:
+                from modules.cts.workflows.activities.drawee_name import PayeeNameInput
+                await workflow.execute_activity(
+                    "record_payee_name",
+                    PayeeNameInput(payee_account_number=inp.payee_account_number,
+                                   bank_id=inp.bank_id, instrument_id=inp.instrument_id),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=1),
+                )
+            except Exception:
+                workflow.logger.warning("record_payee_name failed; continuing without a CBS payee name")
             _payee_ok = payee_result.outcome in ("PROCEED", "CBS_UNAVAILABLE", "NAME_MATCH")
             self._outward_steps.append(StepResult(
                 step_id="payee_validate",
