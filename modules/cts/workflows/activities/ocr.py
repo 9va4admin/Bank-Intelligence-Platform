@@ -16,6 +16,8 @@ vLLM/IndicOCR unavailable → HUMAN_REVIEW (degraded), never crashes workflow.
 import re
 import io
 import json
+import platform
+import os
 from typing import Any, Optional
 
 import httpx
@@ -411,6 +413,17 @@ async def _dd_pass(inp, orchestrator, config_service):
     return None
 
 
+def _configure_tesseract(pytesseract_mod) -> None:
+    """Point pytesseract at the standard Windows install (winget -> Program Files); no-op elsewhere."""
+    if platform.system() != "Windows":
+        return
+    for _p in (r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+               r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"):
+        if os.path.isfile(_p):
+            pytesseract_mod.pytesseract.tesseract_cmd = _p
+            return
+
+
 async def _header_says_dd(image_url: str):
     """Independent, model-free signal: Tesseract over the top band of the image looking for the
     printed 'DEMAND DRAFT' / 'D.D. NO.' header. True/False, or None when it cannot run."""
@@ -418,6 +431,7 @@ async def _header_says_dd(image_url: str):
         import asyncio as _aio
         import re as _re
         import pytesseract
+        _configure_tesseract(pytesseract)
         raw = await fetch_image_bytes(image_url)
 
         def _read() -> str:
