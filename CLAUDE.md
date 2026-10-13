@@ -126,6 +126,18 @@ of MICR digit positions. Any code that needs "the account number for this cheque
 `inp.account_number` (known from presentment metadata) for inward, or the real OCR'd `account_number` field
 for cross-validation — never derive it from `micr_line`.
 
+### 2.10 Inward Drawee Name — From CBS Account Lookup, Stored Plain (2026-10-13)
+
+**Decision (bank owner):** the inward reviewer's **Drawee Name** comes from the bank's own account record
+(CBS `get_account_info(account_number).holder_name`), never from OCR of the cheque face. It is stored as
+**plain text** in `cts.inward_drawee_name` (migration `20261013_030`) — an explicit, narrow exemption from the
+column-encryption/masking rules in `pii-data-protection.md`, for this one field only; account numbers stay
+hashed + last-4 and amounts stay bucketed. Written by the best-effort `record_drawee_name` activity, run
+before OCR so even an OCR-low-confidence review has the name; the name is deliberately **not** returned in the
+activity result (Temporal history). A failed lookup degrades to "no name" and never changes the decision.
+Surfaced as `drawee_name` on the inward queue and decision-log API rows and in the review UI. Outward Payee
+Name (front OCR + back endorsement + deposit-slip account → vault) is separate and not yet built.
+
 ---
 
 ## 3. Technology Stack (Final — Locked)

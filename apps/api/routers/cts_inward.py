@@ -101,6 +101,7 @@ class QueueItem(BaseModel):
     sig_match_score: Optional[float] = None
     security_features: Optional[dict] = None
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
+    drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
 
 
 class QueueResponse(BaseModel):
@@ -133,6 +134,7 @@ class DecisionLogItem(BaseModel):
     account_display: Optional[str] = None
     amount_range: Optional[str] = None
     presenting_ifsc: Optional[str] = None
+    drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
 
 
 class DecisionLogResponse(BaseModel):
@@ -289,6 +291,34 @@ _INWARD_ANALYTICS_READ_ROLES = {
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async def _fetch_drawee_names(db_pool, bank_id: str, instrument_ids: list[str]) -> dict[str, str]:
+    """{instrument_id: drawee_name} for the ids that have a CBS-sourced name. Never raises:
+    a missing pool / DB error simply means no names are shown."""
+    if db_pool is None or not instrument_ids:
+        return {}
+    import uuid as _uuid
+    from shared.utils.instrument_uuid import to_instrument_uuid
+
+    def _as_uuid(i: str):
+        try:
+            return _uuid.UUID(str(i))
+        except ValueError:
+            return to_instrument_uuid(bank_id, i)
+
+    by_uuid = {_as_uuid(i): i for i in instrument_ids}
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT instrument_id, drawee_name FROM cts.inward_drawee_name "
+                "WHERE bank_id = $1 AND instrument_id = ANY($2::uuid[]) LIMIT 500",
+                bank_id, list(by_uuid),
+            )
+    except Exception as exc:
+        log.warning("cts.drawee_names_fetch_error", bank_id=bank_id, error=str(exc))
+        return {}
+    return {by_uuid[r["instrument_id"]]: r["drawee_name"] for r in rows if r["instrument_id"] in by_uuid}
+
 
 async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSearchResponse:
     rows = await db.fetch(
@@ -626,6 +656,10 @@ async def get_human_review_queue(
             log.warning("cts.queue_fetch_error", bank_id=eff_bank_id, error=str(exc))
 
     items.sort(key=lambda x: x.iet_deadline)
+    names = await _fetch_drawee_names(getattr(request.app.state, "db_pool_cts", None), eff_bank_id,
+                                      [i.instrument_id for i in items])
+    if names:
+        items = [i.model_copy(update={"drawee_name": names.get(i.instrument_id)}) for i in items]
     log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
     # --- Reviewer heartbeat + HYBRID deferred auto-assign ---
@@ -761,6 +795,9 @@ async def list_decisions(
         except Exception as exc:
             log.warning("cts.decisions_list_error", bank_id=bank_id, error=str(exc))
 
+    names = await _fetch_drawee_names(db_pool, bank_id, [i.instrument_id for i in items])
+    if names:
+        items = [i.model_copy(update={"drawee_name": names.get(i.instrument_id)}) for i in items]
     log.info("cts.decisions_list", bank_id=bank_id, count=len(items))
     return DecisionLogResponse(items=items, total=len(items), bank_id=bank_id)
 

@@ -43,6 +43,7 @@ class AccountInfo(BaseModel):
     available_balance: Optional[float] = None
     currency: str = "INR"
     cbs_account_id: Optional[str] = None   # internal CBS ref, not PII
+    holder_name: Optional[str] = None      # account holder (drawee) name — shown to inward reviewers, exempt from masking
 
 
 class StopPaymentResult(BaseModel):
