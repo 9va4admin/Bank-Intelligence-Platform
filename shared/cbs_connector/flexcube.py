@@ -192,6 +192,7 @@ class FlexCubeCBSConnector(CBSConnector):
             available_balance=balance,
             currency=_find_text(root, "CCY") or "INR",
             cbs_account_id=_find_text(root, "CUST_AC_NO"),
+            holder_name=_find_text(root, "CUST_NAME") or _find_text(root, "CUSTNAME") or None,
         )
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:

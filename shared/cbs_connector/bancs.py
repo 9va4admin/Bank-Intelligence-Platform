@@ -77,6 +77,7 @@ class BaNCSCBSConnector(CBSConnector):
             available_balance=data.get("avlBal"),
             currency=data.get("ccy", "INR"),
             cbs_account_id=data.get("acctId"),
+            holder_name=data.get("custName") or None,
         )
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:
