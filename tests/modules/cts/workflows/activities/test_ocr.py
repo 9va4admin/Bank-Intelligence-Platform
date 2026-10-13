@@ -1407,3 +1407,27 @@ class TestOCRPromptAmountWordsWrap:
         low = _OCR_PROMPT.lower()
         assert "amount_words:" in low
         assert "second line" in low and "join" in low
+
+
+class TestTesseractLocation:
+    """Found 2026-10-13: _header_says_dd never pointed pytesseract at the Windows install, so the
+    header signal of the 3-signal type vote silently returned None (unavailable) on every run."""
+
+    def test_windows_install_path_is_configured(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities import ocr as ocr_mod
+        fake = MagicMock()
+        fake.pytesseract = MagicMock(tesseract_cmd="tesseract")
+        with patch.object(ocr_mod.platform, "system", return_value="Windows"), \
+             patch.object(ocr_mod.os.path, "isfile", side_effect=lambda p: p.endswith(r"Program Files\Tesseract-OCR\tesseract.exe")):
+            ocr_mod._configure_tesseract(fake)
+        assert fake.pytesseract.tesseract_cmd.endswith(r"Tesseract-OCR\tesseract.exe")
+
+    def test_non_windows_leaves_default(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities import ocr as ocr_mod
+        fake = MagicMock()
+        fake.pytesseract = MagicMock(tesseract_cmd="tesseract")
+        with patch.object(ocr_mod.platform, "system", return_value="Linux"):
+            ocr_mod._configure_tesseract(fake)
+        assert fake.pytesseract.tesseract_cmd == "tesseract"
