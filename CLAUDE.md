@@ -144,6 +144,42 @@ activity result (Temporal history). A failed lookup degrades to "no name" and ne
 Surfaced as `drawee_name` on the inward queue and decision-log API rows and in the review UI. Outward Payee
 Name (front OCR + back endorsement + deposit-slip account → vault) is separate and not yet built.
 
+### 2.11 Inward Safety Gates Added After Real-Image Testing (2026-10-13)
+
+Found by running 70 real KBL instruments (Lots 1, 2, 3) end to end; each has tests and, where stated, a live check.
+Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluation.md),
+[docs/npci/inward-conformance-matrix.md](docs/npci/inward-conformance-matrix.md).
+
+- **Duplicate presentment was silently ignored** (the workflow looked for the error name in the wrapper's text;
+  Temporal keeps it in the cause chain), and once detected the return path called `finalise()` before it existed.
+  Fixed; the leaf vault is idempotent per instrument id. Verified live.
+- **`finalise()` is the single exit and reads state set later in the run.** Any such variable must be initialised
+  with the others at the top of `run()` (`_instrument_category` was not, so every pre-OCR exit lost its row).
+- **An untrained signature verifier never supports an automatic confirm.** Measured: the generic ImageNet embedder
+  accepts 53% of impostor pairs at 0.85. `verifier_trained` flows from the embedder to `synthesise_decision`
+  (`cts.require_trained_signature_verifier`, default true).
+- **A single model read is never enough to return or to show a handwritten name.** Payees are read twice by two
+  different models and withheld on disagreement; dates decades from today and "signature absent" go to human
+  review instead of an automatic return (`cts.date_implausible_*`, `cts.signature_absent_action`); the amount on the
+  image must match the presented amount; the MICR number must match the presented number; the sort code must be in
+  the bank's branch master when one is configured (`cts.micr_branch_master`).
+- **Image quality (RRC 39)** is a deterministic, calibrated pre-OCR check (`check_image_quality`, `cts.iqa_*`).
+- **Unreadable payee / amount-in-words is human review.** The multisignal rescue is OFF by default, including at the
+  `config_service` default every workflow reads.
+- **Fraud scoring runs on every exit**, including early ones, and uses the loaded model's declared feature names.
+  The model in dev is a labelled synthetic stand-in; the path to a real one is
+  [docs/fraud/labelled-data-contract.md](docs/fraud/labelled-data-contract.md) and `scripts/train_fraud_model.py`.
+- **After the IET watchdog files its emergency decision, the pipeline stands down** (watchdog signals the parent).
+- **Evaluation standard:** `scripts/eval_inward.py` scores results against the section 12 targets with 95%
+  intervals and states how many labelled samples are needed to prove a target. Nothing is described as meeting a
+  target unless the interval clears it.
+- **Open policy question (compliance officer):** codes 30/31/32/55 are treated as "customer not at fault" although
+  Annexure II does not list them (pinned in `test_npci_return_codes_conformance.py`).
+- **Primary NPCI/RBI guidelines have not been checked against** the conformance matrix (their host serves a
+  human-verification page); see the matrix for exactly how to close that.
+- **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
+  `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
+
 ---
 
 ## 3. Technology Stack (Final — Locked)
