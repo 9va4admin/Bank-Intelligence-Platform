@@ -107,8 +107,18 @@ async def score_fraud(
         _low_ocr_weight = float(thresholds.get("cts.fraud_fallback_low_ocr_weight", 0.15))
         _high_value_weight = float(thresholds.get("cts.fraud_fallback_high_value_weight", 0.05))
 
-        features = [inp.amount, inp.ocr_confidence, 1.0 if inp.alteration_detected else 0.0]
-        feature_names = getattr(model, "feature_names", ["amount", "ocr_confidence", "alteration_flag"])
+        # A trained model declares its own feature_names: hand it exactly those, in order. Values the pipeline
+        # cannot know (e.g. account history without a bank feature store) stay MISSING (NaN), never invented.
+        _declared = getattr(model, "feature_names", None)
+        feature_names = (list(_declared) if isinstance(_declared, (list, tuple)) and _declared
+                         and all(isinstance(n, str) for n in _declared)
+                         else ["amount", "ocr_confidence", "alteration_flag"])
+        if feature_names == ["amount", "ocr_confidence", "alteration_flag"]:
+            features = [inp.amount, inp.ocr_confidence, 1.0 if inp.alteration_detected else 0.0]
+        else:
+            from modules.cts.fraud_training.features import build_feature_dict
+            _fd = build_feature_dict(inp)
+            features = [float("nan") if _fd.get(n) is None else float(_fd[n]) for n in feature_names]
 
         try:
             proba = model.predict_proba([features])[0]
