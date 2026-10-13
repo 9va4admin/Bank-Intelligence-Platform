@@ -320,6 +320,18 @@ async def synthesise_decision(
                 return_reason_code="32",
                 is_customer_fault=is_customer_fault("32"),
             )
+        # A date decades away from today is a far likelier OCR year misread (2026 read as 2096 / 2006)
+        # than a real instrument: never auto-return on it — a human looks at the image.
+        implausible_age = int(config.get("date_implausible_age_days", 1095))
+        implausible_future = int(config.get("date_implausible_future_days", 365))
+        if (today - cheque_date).days > implausible_age or (cheque_date - today).days > implausible_future:
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="HUMAN_REVIEW",
+                rationale=(f"date_implausible: cheque date {cheque_date} is {abs((today - cheque_date).days)} days "
+                           f"from today - probable OCR misread, not auto-returned"),
+                shap_values=inp.shap_values,
+            )
         if cheque_date > today:
             return DecisionResult(
                 instrument_id=inp.instrument_id,

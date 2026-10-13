@@ -905,7 +905,11 @@ class ChequeProcessingWorkflow:
                 # DD signature blocks sit under bank stamps and officer name blocks, where
                 # detection is unreliable — a miss must go to a human, never an auto-return.
                 return await finalise("HUMAN_REVIEW", "dd_signature_not_detected")
-            return await finalise("STP_RETURN", "no_signature_on_cheque")
+            # One detector miss must never return a cheque (Lot 2: a visible signature in Gujarati script
+            # was reported absent). Default is a human check; a bank may opt in to the auto-return.
+            if inp.cts_config.get("signature_absent_action", "HUMAN_REVIEW") == "AUTO_RETURN":
+                return await finalise("STP_RETURN", "no_signature_on_cheque")
+            return await finalise("HUMAN_REVIEW", "signature_not_detected")
 
         if sig_detect.outcome == "DEGRADED":
             return await finalise("HUMAN_REVIEW", "signature_detection_degraded")

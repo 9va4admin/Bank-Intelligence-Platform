@@ -273,3 +273,40 @@ class TestCBSReturnCodes:
         assert result.decision == "STP_RETURN"
         assert result.return_reason_code == "55"
         assert result.is_customer_fault is False
+
+
+class TestImplausibleDateIsNeverAutoReturned:
+    """Lot 1 (real KBL cheques, 2026-10-13): OCR read a 2026 date as 2096 and 2006, which auto-returned
+    two valid cheques as 'post-dated' and '7338 days stale'. A date that far from today is far more
+    likely a misread than a real instrument, so it goes to a human, never to an automatic return."""
+
+    async def _decide(self, cheque_date, cfg_extra=None):
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        cfg = _make_config()
+        cfg.update(cfg_extra or {})
+        return await synthesise_decision(_make_clean_signals(cheque_date=cheque_date), config=cfg)
+
+    @pytest.mark.asyncio
+    async def test_date_far_in_the_future_goes_to_human_review(self):
+        r = await self._decide(date.today() + timedelta(days=26000))      # e.g. 2096 for 2026
+        assert r.decision == "HUMAN_REVIEW" and "date_implausible" in r.rationale
+
+    @pytest.mark.asyncio
+    async def test_date_decades_in_the_past_goes_to_human_review(self):
+        r = await self._decide(date.today() - timedelta(days=7338))       # e.g. 2006 for 2026
+        assert r.decision == "HUMAN_REVIEW" and "date_implausible" in r.rationale
+
+    @pytest.mark.asyncio
+    async def test_ordinary_stale_cheque_is_still_auto_returned(self):
+        r = await self._decide(date.today() - timedelta(days=571))
+        assert r.decision == "STP_RETURN" and r.return_reason_code == "31"
+
+    @pytest.mark.asyncio
+    async def test_ordinary_post_dated_cheque_is_still_auto_returned(self):
+        r = await self._decide(date.today() + timedelta(days=30))
+        assert r.decision == "STP_RETURN" and r.return_reason_code == "30"
+
+    @pytest.mark.asyncio
+    async def test_thresholds_come_from_config(self):
+        r = await self._decide(date.today() - timedelta(days=571), {"date_implausible_age_days": 365})
+        assert r.decision == "HUMAN_REVIEW"

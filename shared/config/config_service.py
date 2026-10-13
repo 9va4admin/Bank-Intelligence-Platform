@@ -81,6 +81,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.payee_reference_min_similarity": 0.97,   # payee read vs reference payee from presentment/PPS
     "cts.payee_reread_model": "qwen3-vl-32b",     # independent second-opinion model for the payee re-read
     "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
+    "cts.signature_absent_action": "HUMAN_REVIEW",  # signature not detected: HUMAN_REVIEW (default) or AUTO_RETURN (opt-in)
+    "cts.date_implausible_age_days": 1095,        # older than this = probable OCR year misread -> human review, not auto-return
+    "cts.date_implausible_future_days": 365,      # further in the future than this = probable misread -> human review
     "cts.alteration_risk_threshold": 0.65,
     "cts.iet_emergency_buffer_seconds": 30,
     "cts.human_review_max_wait_minutes": 55,
@@ -495,6 +498,9 @@ class ConfigService:
             "ocr_multisignal_rescue_enabled":    "cts.ocr_multisignal_rescue_enabled",
             "payee_reference_min_similarity":    "cts.payee_reference_min_similarity",
             "micr_branch_master":                "cts.micr_branch_master",
+            "signature_absent_action":           "cts.signature_absent_action",
+            "date_implausible_age_days":         "cts.date_implausible_age_days",
+            "date_implausible_future_days":      "cts.date_implausible_future_days",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

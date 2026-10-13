@@ -833,7 +833,7 @@ class TestSignatureAbsentByInstrumentType:
     the signature), so for a DD an ABSENT result must go to a human, not an auto-return. For a
     plain cheque the existing hard return is unchanged."""
 
-    async def _run(self, temporal_env, ocr_fake):
+    async def _run(self, temporal_env, ocr_fake, cts_extra=None):
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
@@ -852,7 +852,7 @@ class TestSignatureAbsentByInstrumentType:
                     instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
                     account_number="12340000005678", cheque_number="152173",
                     presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
-                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP", **(cts_extra or {})},
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
@@ -864,8 +864,16 @@ class TestSignatureAbsentByInstrumentType:
         assert result.rationale == "dd_signature_not_detected"
 
     @pytest.mark.asyncio
-    async def test_plain_cheque_with_no_signature_is_still_auto_returned(self, temporal_env):
+    async def test_plain_cheque_with_no_signature_detected_goes_to_human_review_by_default(self, temporal_env):
+        # Lot 2 (real): a cheque with a visible Gujarati-script signature was reported 'absent' and
+        # auto-returned. One detector miss must never return a cheque on its own.
         result = await self._run(temporal_env, _ocr_fake_proceed)
+        assert result.decision == "HUMAN_REVIEW"
+        assert result.rationale == "signature_not_detected"
+
+    @pytest.mark.asyncio
+    async def test_bank_can_opt_in_to_auto_return_on_absent_signature(self, temporal_env):
+        result = await self._run(temporal_env, _ocr_fake_proceed, {"signature_absent_action": "AUTO_RETURN"})
         assert result.decision == "STP_RETURN"
         assert result.rationale == "no_signature_on_cheque"
 

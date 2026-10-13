@@ -28,3 +28,20 @@ async def test_workflow_thresholds_carry_the_new_keys():
     assert out["ocr_multisignal_rescue_enabled"] is False
     assert out["payee_reference_min_similarity"] == 0.97
     assert out["micr_branch_master"] == []
+
+
+def test_signature_and_date_safety_defaults():
+    assert _LAYER3_DEFAULTS["cts.signature_absent_action"] == "HUMAN_REVIEW"
+    assert _LAYER3_DEFAULTS["cts.date_implausible_age_days"] == 1095
+    assert _LAYER3_DEFAULTS["cts.date_implausible_future_days"] == 365
+
+
+@pytest.mark.asyncio
+async def test_workflow_thresholds_carry_signature_and_date_keys():
+    from unittest.mock import AsyncMock
+    from shared.config.config_service import ConfigService
+    cs = ConfigService.__new__(ConfigService)
+    cs.get = AsyncMock(side_effect=lambda k: _LAYER3_DEFAULTS.get(k, 0))
+    out = await ConfigService.get_workflow_thresholds(cs)
+    assert out["signature_absent_action"] == "HUMAN_REVIEW"
+    assert out["date_implausible_age_days"] == 1095
