@@ -310,3 +310,39 @@ class TestImplausibleDateIsNeverAutoReturned:
     async def test_thresholds_come_from_config(self):
         r = await self._decide(date.today() - timedelta(days=571), {"date_implausible_age_days": 365})
         assert r.decision == "HUMAN_REVIEW"
+
+
+class TestUntrainedSignatureVerifierNeverConfirms:
+    """Measured on real KBL signatures (2026-10-13): the generic ImageNet embedder accepts 53% of
+    impostor pairs at the production 0.85 threshold. While the verifier is not a trained signature
+    model, its match score is not evidence of identity, so it can never be the basis of an automatic
+    confirm. It may still support a return or a human review."""
+
+    async def _decide(self, trained, cfg_extra=None):
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        sig = _make_clean_signals()
+        sig = sig.model_copy(update={"signature_verifier_trained": trained})
+        cfg = _make_config(); cfg.update(cfg_extra or {})
+        return await synthesise_decision(sig, config=cfg)
+
+    @pytest.mark.asyncio
+    async def test_untrained_verifier_downgrades_a_confirm_to_human_review(self):
+        r = await self._decide(False)
+        assert r.decision == "HUMAN_REVIEW" and "signature_verifier_untrained" in r.rationale
+
+    @pytest.mark.asyncio
+    async def test_trained_verifier_can_confirm(self):
+        r = await self._decide(True)
+        assert r.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_a_bank_can_explicitly_waive_the_requirement(self):
+        r = await self._decide(False, {"require_trained_signature_verifier": False})
+        assert r.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_untrained_verifier_does_not_stop_a_return(self):
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        sig = _make_clean_signals(cheque_date=date.today() - timedelta(days=91)).model_copy(update={"signature_verifier_trained": False})
+        r = await synthesise_decision(sig, config=_make_config())
+        assert r.decision == "STP_RETURN" and r.return_reason_code == "31"

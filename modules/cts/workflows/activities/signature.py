@@ -75,6 +75,8 @@ class SignatureActivityResult(BaseModel):
     mandate_rule: Optional[str] = None               # rule that was applied
     signatories_matched: int = 0                     # count that cleared threshold
     signatories_required: int = 1                    # per mandate BRE
+    verifier: Optional[str] = None                   # label of the embedding model behind match_score
+    verifier_trained: bool = False                   # True only for a trained signature model (not a generic backbone)
 
 
 # ---------------------------------------------------------------------------

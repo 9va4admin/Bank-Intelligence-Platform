@@ -271,13 +271,22 @@ class BoundCTSActivities:
         # smb_proxy intentionally omitted — external service, not built in
         # this repo yet (see module docstring). model intentionally
         # omitted — no trained Siamese network artifact exists.
-        return await _real(
+        result = await _real(
             inp,
             vault=self._signature_vault,
             cbs_connector=self._cbs_connector,
             config_service=self._config_service,
             embedding_model=self._embedding_model,
         )
+        # Provenance: say whether match_score came from a trained signature model. The generic ImageNet
+        # stand-in is not one (measured: it accepts 53% of impostor pairs at the 0.85 threshold).
+        em = self._embedding_model
+        if not hasattr(result, "model_copy"):
+            return result
+        return result.model_copy(update={
+            "verifier": getattr(em, "MODEL_LABEL", None) or (type(em).__name__ if em is not None else None),
+            "verifier_trained": bool(getattr(em, "trained", False)),
+        })
 
     # ------------------------------------------------------------------
     # Redis vault sync (full + delta)
