@@ -606,6 +606,16 @@ class ChequeProcessingWorkflow:
             extra={"engines": _ocr_engines_used, "indic_ks": _indic_ks_active},
         ))
 
+        # Cross-check the MICR-read cheque number against the NGCH presentment metadata. A digit
+        # misread inside the sort-code window can't be caught by bank-code anchoring; a number that
+        # disagrees with the presented one is never trusted — a human looks at it.
+        _presented_no = (inp.cheque_number or "").strip()
+        _ocr_no = (ocr_result.cheque_number or "").strip()
+        if _presented_no.isdigit() and _ocr_no.isdigit() and _presented_no.lstrip("0") != _ocr_no.lstrip("0"):
+            return await finalise(
+                "HUMAN_REVIEW", f"micr_cheque_number_mismatch: presented {_presented_no}, read {_ocr_no}",
+            )
+
         if ocr_result.outcome == "HUMAN_REVIEW":
             # Multisignal rescue: don't hard-exit yet if the ONLY weak fields are
             # payee/amount_words (never feed a hard auto-return gate — see
