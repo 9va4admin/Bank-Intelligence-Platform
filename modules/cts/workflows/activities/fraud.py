@@ -119,6 +119,9 @@ async def score_fraud(
                 feature_names[i]: float(raw_shap[0][i])
                 for i in range(len(feature_names))
             }
+            _src = getattr(model, "source", None)
+            if isinstance(_src, str) and _src:
+                shap_values["_source"] = _src   # e.g. "xgboost_synthetic_standin" — never present a stand-in as real
 
             # LLM rationale — only when upstream context is available and vllm_client provided
             rationale = None

@@ -132,6 +132,8 @@ class BoundCTSActivities:
         bloom_client: Any = None,
         orchestrator: Any = None,
         fraud_vllm_client: Any = None,
+        fraud_model: Any = None,
+        fraud_explainer: Any = None,
         vision_vllm_client: Any = None,
         config_service: Any = None,
         db_pool: Any = None,
@@ -154,6 +156,8 @@ class BoundCTSActivities:
         self._bloom_client = bloom_client
         self._orchestrator = orchestrator
         self._fraud_vllm_client = fraud_vllm_client
+        self._fraud_model = fraud_model
+        self._fraud_explainer = fraud_explainer
         self._vllm_client = vision_vllm_client
         self._config_service = config_service
         self._db_pool = db_pool
@@ -344,9 +348,10 @@ class BoundCTSActivities:
     @activity.defn(name="score_fraud")
     async def score_fraud(self, inp: FraudActivityInput):
         from modules.cts.workflows.activities.fraud import score_fraud as _real
-        # model/explainer intentionally omitted — no trained artifact
-        # exists; the activity's own rule-based fallback handles this.
-        return await _real(inp, vllm_client=self._fraud_vllm_client, config_service=self._config_service)
+        # model/explainer are None unless cts.fraud_model_path points at a loadable artifact; the
+        # activity's own rule-based fallback handles None (and a stand-in model labels itself synthetic).
+        return await _real(inp, vllm_client=self._fraud_vllm_client, config_service=self._config_service,
+                           model=self._fraud_model, explainer=self._fraud_explainer)
 
     @activity.defn(name="run_vision_presentment_check")
     async def run_vision_presentment_check(self, inp: VisionPresentmentCheckInput):
@@ -829,6 +834,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     opa_client = await _build_opa_client(config_service)
     orchestrator = await _build_cascade_orchestrator(config_service, bank_id)
     fraud_vllm_client = await _build_fraud_vllm_client(config_service)
+    fraud_model, fraud_explainer = await _build_fraud_model(config_service)
     vision_vllm_client = await _build_vision_vllm_client(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
     minio_client = await _build_minio_client(config_service)
@@ -860,6 +866,8 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         bloom_client=bloom_client,
         orchestrator=orchestrator,
         fraud_vllm_client=fraud_vllm_client,
+        fraud_model=fraud_model,
+        fraud_explainer=fraud_explainer,
         vision_vllm_client=vision_vllm_client,
         config_service=config_service,
         db_pool=db_pool,
@@ -1059,6 +1067,19 @@ async def _build_cascade_orchestrator(config_service: Any, bank_id: str) -> Any:
     except Exception as exc:
         log.warning("worker_activities.cascade_orchestrator_unavailable", bank_id=bank_id, error=str(exc))
         return None
+
+
+async def _build_fraud_model(config_service: Any):
+    """(model, explainer) from cts.fraud_model_path, or (None, None) -> rule-based fallback."""
+    try:
+        path = await config_service.get("cts.fraud_model_path")
+    except Exception:
+        return None, None
+    from modules.cts.fraud_model import load_fraud_model
+    model, explainer = load_fraud_model(path if isinstance(path, str) else None)
+    if model is not None:
+        log.warning("worker_activities.fraud_model_loaded", source=model.source, synthetic=model.synthetic)
+    return model, explainer
 
 
 async def _build_fraud_vllm_client(config_service: Any) -> Any:

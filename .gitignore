@@ -52,3 +52,5 @@ edge/cts-scanner-agent/token.dat
 apps/indic_ocr/.venv/
 
 apps/indic_ocr/.venv_test/
+
+models/
