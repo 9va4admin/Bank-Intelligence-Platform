@@ -1431,3 +1431,78 @@ class TestTesseractLocation:
         with patch.object(ocr_mod.platform, "system", return_value="Linux"):
             ocr_mod._configure_tesseract(fake)
         assert fake.pytesseract.tesseract_cmd == "tesseract"
+
+
+class TestOCRPayeeRereadGate:
+    """A confidently wrong handwritten payee must not pass on a single read. The Pay line is read a
+    second time (zoomed crop); a payee the two reads disagree on is never shown as fact — it goes to
+    review with both readings as candidates. Lot 3 evidence (22 cheques): the re-read exposed 3 of 4
+    confident-wrong payees (Sa Sma/Sasmal, Rousick/Kousick x2) with 2 false flags out of 15 correct."""
+
+    async def _run(self, reread, payee="Kousick Mondal", cfg_extra=None, category="CHEQUE"):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        s1 = _make_vllm_response()
+        s1["payee"] = _f(payee)
+        s1["instrument_category"] = _f(category)
+        cs = _mock_config(**(cfg_extra or {})) if cfg_extra else _mock_config()
+        with patch("modules.cts.workflows.activities.ocr._payee_reread", new=AsyncMock(return_value=reread)), \
+             patch(_HDR, new=AsyncMock(return_value=None)):
+            return await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(s1), config_service=cs)
+
+    @pytest.mark.asyncio
+    async def test_agreeing_reread_keeps_the_payee(self):
+        r = await self._run("K-o-u-s-i-c-k M-o-n-d-a-l")        # separators/case ignored
+        assert r.payee == "Kousick Mondal" and r.payee_reread_status == "AGREE"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_disagreeing_reread_withholds_payee_and_goes_to_review(self):
+        r = await self._run("Rousick Mondal")
+        assert r.payee is None
+        assert r.payee_reread_status == "DISAGREE"
+        assert r.outcome == "HUMAN_REVIEW" and "payee" in r.low_confidence_fields
+        assert "payee_reread_disagreement" in (r.low_confidence_reason or "")
+        assert set(r.payee_candidates) == {"Kousick Mondal", "Rousick Mondal"}
+
+    @pytest.mark.asyncio
+    async def test_reread_unavailable_leaves_result_unchanged_but_says_so(self):
+        r = await self._run(None)
+        assert r.payee == "Kousick Mondal" and r.payee_reread_status == "UNAVAILABLE"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_demand_draft_is_not_reread(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        s1 = _stage1()
+        with patch(_HDR, new=AsyncMock(return_value=True)), \
+             patch("modules.cts.workflows.activities.ocr._payee_reread", new=AsyncMock(return_value="SOMETHING ELSE")) as rr:
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, _dd_pass()), config_service=_mock_config())
+        rr.assert_not_awaited()
+        assert r.payee_reread_status is None
+
+    @pytest.mark.asyncio
+    async def test_no_payee_read_means_nothing_to_verify(self):
+        r = await self._run("Anything", payee=None)
+        assert r.payee_reread_status is None
+
+    def test_name_agreement_ignores_separators_case_and_punctuation_only(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("S.B. Health Care", "S.B.Health care", 0.99)
+        assert not _payee_names_agree("Debadatta Sa Sma", "Debadatta Sasmal", 0.99)
+        assert not _payee_names_agree("Rousick Mondal", "Kousick Mondal", 0.99)
+
+
+class TestPayeeAgreementIgnoresUnclearLetterPlaceholders:
+    """The re-read prompt makes the model write 'null' for letters it cannot read. Those placeholders
+    are noise, not letters — but a placeholder must never turn a different name into a match."""
+
+    def test_null_placeholders_in_the_reread_are_ignored(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("S.B. Health Care", "S.B.nullHealthCare", 0.99)
+
+    def test_placeholders_do_not_make_different_names_agree(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert not _payee_names_agree("Rousick Mondal", "KoU51ck MoNdal", 0.99)
+        assert not _payee_names_agree("Gurupada Maity", "gurupada maitra", 0.99)
