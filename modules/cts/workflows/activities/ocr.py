@@ -192,6 +192,8 @@ class OCRActivityResult(BaseModel):
     # ── engine provenance (written to ImmuDB via CTS_INSTRUMENT_PASSPORT) ──
     ocr_engines_used: list[str] = []            # ordered: engines that actually ran
     indic_ocr_kill_switch_active: bool = False  # True when cts.indic_ocr.kill_mode=KC
+    payee_reread_status: Optional[str] = None     # AGREE | DISAGREE | UNAVAILABLE | None (not applicable)
+    payee_candidates: list[str] = []              # both readings when the two reads disagree (for the reviewer)
 
 
 @activity.defn
@@ -330,6 +332,30 @@ async def ocr_extract(
             micr_bank_code=micr_bank_code,
         )
         updates: dict = {"remitter_name": remitter, "issuing_branch": issuing, "drawee_branch": drawee_branch}
+        # Payee re-read gate (cheques only; a DD's payee is printed and has its own pass).
+        if final_cat == "CHEQUE" and result.payee:
+            second = await _payee_reread(inp, config_service)
+            if second is None:
+                updates["payee_reread_status"] = "UNAVAILABLE"
+            else:
+                try:
+                    min_sim = _as_float(await config_service.get("cts.payee_reread_min_similarity"), 0.99)
+                except Exception:
+                    min_sim = 0.99
+                if _payee_names_agree(result.payee, second, min_sim):
+                    updates["payee_reread_status"] = "AGREE"
+                else:
+                    # Never show an unconfirmed handwritten name as fact — withhold it, keep both readings.
+                    log.info("ocr.payee_reread_disagreement", instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+                    updates.update(
+                        payee=None,
+                        payee_reread_status="DISAGREE",
+                        payee_candidates=[result.payee, second],
+                        outcome="HUMAN_REVIEW",
+                        low_confidence_fields=list(result.low_confidence_fields) + ["payee"],
+                        low_confidence_reason="payee_reread_disagreement" + (
+                            f"; {result.low_confidence_reason}" if result.low_confidence_reason else ""),
+                    )
         if not unanimous:
             # Signals disagree on CHEQUE vs DEMAND_DRAFT -> never pick silently.
             updates.update(
@@ -366,6 +392,60 @@ def _is_plausible_date(raw) -> bool:
         return True
     except ValueError:
         return False
+
+
+# ── Payee re-read gate ────────────────────────────────────────────────────────
+
+_PAYEE_REREAD_PROMPT = (
+    'This is a cropped strip of an Indian bank cheque containing the "Pay" line. Read ONLY the handwritten '
+    'payee name after the word Pay. Spell it carefully letter by letter; do not guess or complete partial '
+    'words. If any letter is unclear return null. '
+    'Return JSON only: {"payee": {"value": "...", "confidence": 0.0}}'
+)
+
+
+def _payee_names_agree(a: str, b: str, min_similarity: float) -> bool:
+    """Case, spacing, hyphens and punctuation are ignored; the letters themselves must match."""
+    import difflib
+    na = re.sub(r"[^A-Z0-9]", "", (a or "").upper())
+    # The re-read prompt asks for null where a letter is unclear: those tokens are placeholders, not letters.
+    nb = re.sub(r"[^A-Z0-9]", "", re.sub(r"null", "", (b or ""), flags=re.IGNORECASE).upper())
+    if not na or not nb:
+        return False
+    return difflib.SequenceMatcher(None, na, nb).ratio() >= min_similarity
+
+
+async def _payee_reread(inp, config_service) -> Optional[str]:
+    """Independent second read of the Pay line from a zoomed, contrast-boosted crop. Cloud vision
+    only when cts.allow_cloud_ai_fallback is on (the on-prem equivalent is the same crop sent to the
+    vLLM queue). Returns the payee text, or None when it cannot be read / is unavailable."""
+    try:
+        if not await cloud_fallback_enabled(config_service, inp.bank_id):
+            return None
+        from PIL import ImageOps
+        raw = await fetch_image_bytes(inp.image_url)
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        w, h = img.size
+        crop = img.crop((0, int(h * 0.12), w, int(h * 0.45)))
+        crop = crop.resize((crop.width * 2, crop.height * 2), Image.LANCZOS)
+        crop = ImageOps.autocontrast(crop.convert("L"), cutoff=1).convert("RGB")
+        buf = io.BytesIO()
+        crop.save(buf, "PNG")
+        content = await call_hf_vision(config_service, buf.getvalue(), _PAYEE_REREAD_PROMPT)
+        if not content:
+            return None
+        value = _parse_model_json(content).get("payee", {}).get("value")
+        return None if value in (None, "", "null") else str(value)
+    except Exception as exc:
+        log.info("ocr.payee_reread_unavailable", instrument_id=inp.instrument_id, error=str(exc)[:120])
+        return None
+
+
+def _as_float(value, default: float) -> float:
+    try:
+        return float(value) if isinstance(value, (int, float, str)) and not isinstance(value, bool) else default
+    except ValueError:
+        return default
 
 
 # ── Instrument-type decision + DD second pass ────────────────────────────────

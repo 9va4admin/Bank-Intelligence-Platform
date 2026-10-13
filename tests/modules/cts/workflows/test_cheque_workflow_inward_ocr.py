@@ -985,3 +985,24 @@ class TestFraudScoredOnEveryExit:
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
         assert res.decision == "HUMAN_REVIEW"
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_fake_payee_disagreement(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW", micr_line="000099000052000", amount_figures="75000",
+        amount_words="Seventy Five Thousand Only", date="15/08/2026", payee=None,
+        ifsc_code="SRCB0000001", overall_confidence=0.95,
+        low_confidence_reason="payee_reread_disagreement", low_confidence_fields=["payee"],
+        payee_reread_status="DISAGREE", payee_candidates=["Rousick Mondal", "Kousick Mondal"],
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
+class TestPayeeRereadDisagreementIsNeverRescued:
+    @pytest.mark.asyncio
+    async def test_disagreeing_payee_reads_go_to_human_review_not_through_the_rescue_path(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_payee_disagreement)
+        assert r.decision == "HUMAN_REVIEW"
+        assert "payee_reread_disagreement" in r.rationale
