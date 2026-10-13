@@ -67,6 +67,10 @@ If a field is illegible or not present, set value to null and confidence to 0.0.
 Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
 ifsc_code: the bank IFSC code printed on the cheque face (e.g. "SBIN0001234").
 
+amount_words: the full amount in words. It often wraps onto a second line --
+read EVERY line of the amount-in-words area and join them with a space into
+one string ending at "only". Never return just the first line.
+
 instrument_category: either "CHEQUE" or "DEMAND_DRAFT". Return "DEMAND_DRAFT"
 only if the instrument has a printed "DEMAND DRAFT" header and/or a "D.D. NO."
 box -- this is a separate pre-printed money-remittance instrument issued by

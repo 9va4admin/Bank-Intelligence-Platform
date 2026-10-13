@@ -1396,3 +1396,14 @@ class TestOCRDemandDraftOverlayGuards:
         with patch(_HDR, new=AsyncMock(return_value=True)):
             r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
         assert r.outcome == "PROCEED"
+
+
+class TestOCRPromptAmountWordsWrap:
+    """Lot 3 #28: the amount in words wraps onto a second line; reading only line 1 produced a
+    false figures-vs-words mismatch. The prompt must say to read every line."""
+
+    def test_prompt_tells_model_amount_words_can_span_two_lines(self):
+        from modules.cts.workflows.activities.ocr import _OCR_PROMPT
+        low = _OCR_PROMPT.lower()
+        assert "amount_words:" in low
+        assert "second line" in low and "join" in low
