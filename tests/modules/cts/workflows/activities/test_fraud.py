@@ -371,3 +371,50 @@ class TestFraudRationaleSynthesis:
         )
         call_kwargs = vllm_client.chat.call_args.kwargs
         assert call_kwargs.get("queue") == "cts-reasoning"
+
+
+class TestScoreFraudBuildsFeaturesFromTheModelsDeclaredNames:
+    """A bank-trained model declares its own feature_names; score_fraud must hand it exactly those, in order,
+    with unknown values left missing (NaN) rather than invented."""
+
+    class _SpyModel:
+        feature_names = ["amount", "signature_match_score", "payee_seen_before", "ocr_confidence"]
+
+        def __init__(self):
+            self.seen = None
+
+        def predict_proba(self, X):
+            self.seen = X[0]
+            return [[0.7, 0.3]]
+
+    class _Explainer:
+        def shap_values(self, X):
+            return [[0.1, 0.2, 0.3, 0.4]]
+
+    @pytest.mark.asyncio
+    async def test_vector_follows_declared_names_with_missing_left_missing(self):
+        import math
+        from modules.cts.workflows.activities.fraud import FraudActivityInput, score_fraud
+        cs = MagicMock()
+        cs.get_cts_config = AsyncMock(return_value={"cts.ocr_min_confidence": 0.8, "cts.high_value_amount_threshold": 500000})
+        inp = FraudActivityInput(instrument_id="I", bank_id="kbl", amount=1000.0, micr_line="x", ocr_confidence=0.9,
+                                 alteration_detected=False, account_last4="0024", sig_result={"match_score": 0.77})
+        spy = self._SpyModel()
+        res = await score_fraud(inp, config_service=cs, model=spy, explainer=self._Explainer())
+        assert spy.seen[0] == 1000.0 and spy.seen[1] == 0.77 and spy.seen[3] == 0.9
+        assert math.isnan(spy.seen[2])                       # payee_seen_before: no bank history -> missing, not 0
+        assert list(res.shap_values)[:4] == self._SpyModel.feature_names
+        assert res.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_a_model_without_declared_names_keeps_the_original_three_features(self):
+        from modules.cts.workflows.activities.fraud import FraudActivityInput, score_fraud
+        cs = MagicMock()
+        cs.get_cts_config = AsyncMock(return_value={"cts.ocr_min_confidence": 0.8, "cts.high_value_amount_threshold": 500000})
+        model = MagicMock(); model.predict_proba = MagicMock(return_value=[[0.9, 0.1]]); model.feature_names = MagicMock()
+        expl = MagicMock(); expl.shap_values = MagicMock(return_value=[[0.0, 0.0, 0.0]])
+        inp = FraudActivityInput(instrument_id="I", bank_id="kbl", amount=1000.0, micr_line="x", ocr_confidence=0.9,
+                                 alteration_detected=True, account_last4="0024")
+        res = await score_fraud(inp, config_service=cs, model=model, explainer=expl)
+        assert model.predict_proba.call_args.args[0] == [[1000.0, 0.9, 1.0]]
+        assert res.degraded is False
