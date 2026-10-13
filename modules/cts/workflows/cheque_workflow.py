@@ -189,6 +189,7 @@ class ChequeProcessingWorkflow:
         from modules.cts.workflows.activities.decision import (
             DecisionInput, synthesise_decision,
         )
+        from modules.cts.workflows.activities.drawee_name import DraweeNameInput
         from modules.cts.workflows.activities.ngch_filer import (
             NGCHFilerInput, file_to_ngch,
         )
@@ -557,6 +558,18 @@ class ChequeProcessingWorkflow:
                 stp_eligible=stp_eligible,
                 ai_recommendation=ai_recommendation,
             )
+
+        # Drawee name for the reviewer, from the bank's own account record (never OCR).
+        # Done before OCR so even an OCR-low-confidence review has the name. Best-effort: the activity degrades internally and a failure here must never alter the decision.
+        try:
+            await workflow.execute_activity(
+                "record_drawee_name",
+                DraweeNameInput(account_number=inp.account_number, bank_id=inp.bank_id, instrument_id=inp.instrument_id),
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
+        except Exception:
+            workflow.logger.warning("record_drawee_name failed; continuing without a CBS drawee name")
 
         # Step 1.5: ocr_extract — GOT-OCR2.0 (Latin) + IndicOCR (Devanagari/regional scripts)
         # Extracts: date, amount_figures, amount_words, payee, IFSC, MICR from image.

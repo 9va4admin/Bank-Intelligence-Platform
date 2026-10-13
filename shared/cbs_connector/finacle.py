@@ -77,6 +77,7 @@ class FinacleCBSConnector(CBSConnector):
             available_balance=data.get("availableBalance"),
             currency=data.get("currency", "INR"),
             cbs_account_id=data.get("accountId"),
+            holder_name=data.get("accountHolderName") or None,
         )
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:

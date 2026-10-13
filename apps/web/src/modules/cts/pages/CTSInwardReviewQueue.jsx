@@ -791,6 +791,7 @@ export default function CTSInwardReviewQueue() {
                   <div className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs`}>
                     {[
                       ['Account', item.account_display],
+                      ['Drawee (per CBS)', item.drawee_name ?? '—'],
                       ['Payee', item.payee_display],
                       ['Amount', item.amount_display],
                       ['In Words', item.amount_words],
@@ -1010,6 +1011,10 @@ export default function CTSInwardReviewQueue() {
                       <div>
                         <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Account No.</div>
                         <div className={`font-mono ${th.body}`}>{item.account_display}</div>
+                      </div>
+                      <div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Drawee (per CBS)</div>
+                        <div className={th.body}>{item.drawee_name ?? '—'}</div>
                       </div>
                       <div>
                         <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Payee</div>

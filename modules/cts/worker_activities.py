@@ -195,6 +195,16 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.cbs import check_account_status as _real
         return await _real(inp, cbs_connector=self._cbs_connector)
 
+    @activity.defn(name="record_drawee_name")
+    async def record_drawee_name(self, inp):
+        from modules.cts.workflows.activities.drawee_name import DraweeNameInput, record_drawee_name as _real
+        if isinstance(inp, dict):
+            inp = DraweeNameInput(**inp)
+        if self._db_pool is None:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=None)
+        async with self._db_pool.acquire() as conn:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=conn)
+
     @activity.defn(name="load_signatures_from_cbs")
     async def load_signatures_from_cbs(self, bank_id: str):
         from modules.cts.workflows.vault_sync_workflow import load_signatures_from_cbs as _real
@@ -721,6 +731,7 @@ class BoundCTSActivities:
         return [
             self.check_cbs_balance,
             self.check_account_status,
+            self.record_drawee_name,
             self.load_signatures_from_cbs,
             self.load_pps_from_cbs,
             self.lookup_pps,

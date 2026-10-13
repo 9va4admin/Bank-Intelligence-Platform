@@ -247,6 +247,7 @@ class TestOutwardHumanReviewQueue:
             "received_at": "2026-09-12T10:00:00",
             "branch_id": "BR-01",
             "lot_id": "LOT-001",
+            "instrument_category": "CHEQUE",
         }
         mock_pool = MagicMock()
         mock_pool.fetch = AsyncMock(return_value=[row])
