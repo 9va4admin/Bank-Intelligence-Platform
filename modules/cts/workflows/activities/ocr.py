@@ -194,6 +194,10 @@ class OCRActivityResult(BaseModel):
     indic_ocr_kill_switch_active: bool = False  # True when cts.indic_ocr.kill_mode=KC
     payee_reread_status: Optional[str] = None     # AGREE | DISAGREE | UNAVAILABLE | None (not applicable)
     payee_candidates: list[str] = []              # both readings when the two reads disagree (for the reviewer)
+    micr_reread_status: Optional[str] = None      # AGREE | DISAGREE | UNAVAILABLE | PRIMARY_UNREAD
+    micr_candidates: list[str] = []               # both readings of the cheque number / sort code when they disagree
+    amount_reread_status: Optional[str] = None    # AGREE | DISAGREE | UNAVAILABLE | PRIMARY_UNREAD
+    amount_candidates: list[str] = []
 
 
 @activity.defn
@@ -356,6 +360,46 @@ async def ocr_extract(
                         low_confidence_reason="payee_reread_disagreement" + (
                             f"; {result.low_confidence_reason}" if result.low_confidence_reason else ""),
                     )
+        # MICR number / sort code / amount second read (independent model, focused crop).
+        second = await _field_rereads(inp, config_service)
+        if second is None:
+            updates["micr_reread_status"] = "UNAVAILABLE"
+            updates["amount_reread_status"] = "UNAVAILABLE"
+        else:
+            extra_reasons, extra_fields = [], []
+            p_num, p_sort = result.cheque_number, result.bank_branch_code
+            s_num, s_sort = second.get("cheque_number"), second.get("sort_code")
+            pairs = [(p, q) for p, q in ((p_num, s_num), (p_sort, s_sort)) if p and q]
+            if not pairs:
+                updates["micr_reread_status"] = "PRIMARY_UNREAD"
+            elif all(_digits_agree(p, q) for p, q in pairs):
+                updates["micr_reread_status"] = "AGREE"
+            else:
+                updates["micr_reread_status"] = "DISAGREE"
+                cands = []
+                for p, q in pairs:
+                    if not _digits_agree(p, q):
+                        cands += [str(p), str(q)]
+                updates["micr_candidates"] = cands
+                extra_reasons.append("micr_reread_disagreement")
+                extra_fields.append("micr_line")
+            p_amt, s_amt = result.amount_figures, second.get("amount_figures")
+            if not (p_amt and s_amt):
+                updates["amount_reread_status"] = "PRIMARY_UNREAD"
+            elif _amounts_agree(p_amt, s_amt):
+                updates["amount_reread_status"] = "AGREE"
+            else:
+                updates["amount_reread_status"] = "DISAGREE"
+                updates["amount_candidates"] = [str(p_amt), str(s_amt)]
+                extra_reasons.append("amount_reread_disagreement")
+                extra_fields.append("amount_figures")
+            if extra_reasons:
+                log.info("ocr.field_reread_disagreement", instrument_id=inp.instrument_id, bank_id=inp.bank_id,
+                         reasons=extra_reasons)
+                prior = updates.get("low_confidence_reason") or result.low_confidence_reason
+                updates["outcome"] = "HUMAN_REVIEW"
+                updates["low_confidence_reason"] = "; ".join(extra_reasons) + (f"; {prior}" if prior else "")
+                updates["low_confidence_fields"] = list(updates.get("low_confidence_fields", result.low_confidence_fields)) + extra_fields
         if not unanimous:
             # Signals disagree on CHEQUE vs DEMAND_DRAFT -> never pick silently.
             updates.update(
@@ -457,6 +501,91 @@ def _as_float(value, default: float) -> float:
         return float(value) if isinstance(value, (int, float, str)) and not isinstance(value, bool) else default
     except ValueError:
         return default
+
+
+# ── MICR / amount second read ────────────────────────────────────────────────
+
+_MICR_REREAD_PROMPT = (
+    "This is the MICR band (bottom strip) of an Indian cheque or draft. Read the digits in E-13B font exactly as "
+    "printed, left to right. Return JSON only: "
+    '{"cheque_number": "6 digits or null", "sort_code": "9 digits or null"}. '
+    "The cheque number is the first 6-digit group; the sort code is the next 9-digit group. "
+    "Use null for any group you cannot read; never guess."
+)
+_AMOUNT_REREAD_PROMPT = (
+    "This is an Indian bank cheque or demand draft. Read ONLY the amount written in FIGURES inside the rupee box "
+    "(next to the rupee symbol). Return JSON only: "
+    '{"amount_figures": "digits with commas/decimals as written, or null"}. Never guess; null if unclear.'
+)
+
+
+def _digits_agree(a, b) -> bool:
+    da, db = re.sub(r"\D", "", str(a or "")), re.sub(r"\D", "", str(b or ""))
+    return bool(da) and da == db
+
+
+def _amount_float(raw) -> Optional[float]:
+    text = re.sub(r"(?i)rs\.?|inr|/-|=|[A-Za-z\u20b9]", "", str(raw or "")).replace(",", "").strip()
+    text = re.sub(r"[^\d.]", "", text).strip(".")
+    try:
+        return float(text) if text else None
+    except ValueError:
+        return None
+
+
+def _amounts_agree(a, b) -> bool:
+    fa, fb = _amount_float(a), _amount_float(b)
+    return fa is not None and fb is not None and abs(fa - fb) < 0.5
+
+
+async def _field_rereads(inp, config_service) -> Optional[dict]:
+    """Independent second read of the MICR band (zoomed bottom strip) and the amount box, by a different
+    model from the primary read. Cloud vision only when cts.allow_cloud_ai_fallback is on (the on-prem
+    equivalent is the same crops sent to the vLLM queue). None when neither read is available."""
+    try:
+        if not await cloud_fallback_enabled(config_service, inp.bank_id):
+            return None
+        from PIL import ImageOps
+        import asyncio as _aio
+        raw = await fetch_image_bytes(inp.image_url)
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        w, h = img.size
+        band = img.crop((0, int(h * 0.80), w, h))
+        band = band.resize((band.width * 2, band.height * 2), Image.LANCZOS)
+        band = ImageOps.autocontrast(band.convert("L"), cutoff=1).convert("RGB")
+        b1, b2 = io.BytesIO(), io.BytesIO()
+        band.save(b1, "PNG")
+        img.save(b2, "JPEG", quality=92)
+        try:
+            first = await config_service.get("cts.field_reread_model")
+        except Exception:
+            first = None
+        models = [first if isinstance(first, str) and first else "qwen3-vl-32b"]
+        if "qwen-72b" not in models:
+            models.append("qwen-72b")
+
+        async def ask(image_bytes, prompt):
+            for model in models:
+                content = await call_hf_vision(config_service, image_bytes, prompt, model=model, timeout=90.0)
+                if content:
+                    try:
+                        return _parse_model_json(content)
+                    except Exception:
+                        continue
+            return None
+
+        micr, amt = await _aio.gather(ask(b1.getvalue(), _MICR_REREAD_PROMPT), ask(b2.getvalue(), _AMOUNT_REREAD_PROMPT))
+        if micr is None and amt is None:
+            return None
+
+        def clean(v):
+            return None if v in (None, "", "null") else str(v)
+
+        return {"cheque_number": clean((micr or {}).get("cheque_number")), "sort_code": clean((micr or {}).get("sort_code")),
+                "amount_figures": clean((amt or {}).get("amount_figures"))}
+    except Exception as exc:
+        log.info("ocr.field_reread_unavailable", instrument_id=inp.instrument_id, error=str(exc)[:120])
+        return None
 
 
 # ── Instrument-type decision + DD second pass ────────────────────────────────

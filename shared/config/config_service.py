@@ -79,6 +79,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.ocr_multisignal_rescue_enabled": False,   # default OFF (2026-10-13): unreadable payee/words -> human review
     "cts.payee_reread_min_similarity": 0.99,      # handwritten payee: letters of the two reads must match this closely
     "cts.payee_reference_min_similarity": 0.97,   # payee read vs reference payee from presentment/PPS
+    "cts.field_reread_model": "qwen3-vl-32b",    # independent second-read model for the MICR band and the amount box
     "cts.payee_reread_model": "qwen3-vl-32b",     # independent second-opinion model for the payee re-read
     "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
     "cts.signature_absent_action": "HUMAN_REVIEW",  # signature not detected: HUMAN_REVIEW (default) or AUTO_RETURN (opt-in)
