@@ -112,6 +112,12 @@ made the gate structurally unsatisfiable on every real cheque, so the rescue nev
 found and fixed. [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md)'s 2026-09-24 entry has the full
 finding and the first genuine, verified live `STP_CONFIRM` result on real 200-DPI scans (6/10) once fixed.
 
+**Revised 2026-10-13 (bank owner): rescue now defaults to OFF.** An unreadable payee or amount-in-words is called
+unequivocally — `HUMAN_REVIEW` — and can no longer continue through the pipeline to `STP_CONFIRM`.
+`cts.ocr_multisignal_rescue_enabled` still exists (Layer 3) and a bank may explicitly set it `True`; a payee on
+which the two reads disagree (`payee_reread_status=DISAGREE`) is never rescued even then. Related: handwritten cheque
+payees are read twice and withheld on disagreement (`_payee_reread`, `cts.payee_reread_min_similarity`, default 0.99).
+
 ### 2.9 MICR Never Carries an Account Number (corrected 2026-09-24)
 
 **The real Indian CTS-2010 MICR band is cheque number (6 digits) + city-bank-branch sort code (9 digits),
