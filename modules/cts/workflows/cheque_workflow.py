@@ -665,7 +665,7 @@ class ChequeProcessingWorkflow:
             # from presentment metadata — inp.account_number — independent of
             # OCR/MICR quality, and the same value CBS/signature lookups below
             # already key off.
-            _rescue_enabled = bool(inp.cts_config.get("ocr_multisignal_rescue_enabled", True))
+            _rescue_enabled = bool(inp.cts_config.get("ocr_multisignal_rescue_enabled", False))   # default OFF: unreadable payee/words -> human review
             _rescuable = (
                 _rescue_enabled
                 and bool(ocr_result.low_confidence_fields)
