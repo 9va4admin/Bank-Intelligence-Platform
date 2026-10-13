@@ -752,3 +752,33 @@ class TestBuildFraudModel:
         cs = MagicMock(); cs.get = AsyncMock(return_value=p)
         model, explainer = await _build_fraud_model(cs)
         assert model is not None and explainer is not None and model.synthetic is True
+
+
+class TestSignatureVerifierProvenance:
+    """The signature result must say whether the verifier behind it is a trained model."""
+
+    @pytest.mark.asyncio
+    async def test_untrained_embedder_marks_result_untrained(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.signature import SignatureActivityResult
+        class Generic:            # no `trained` attribute, like the ImageNet stand-in
+            MODEL_LABEL = "resnet18-imagenet-generic"
+        bound = _bound()
+        bound._embedding_model = Generic()
+        fake = AsyncMock(return_value=SignatureActivityResult(outcome="PROCEED", match_score=0.97))
+        with patch("modules.cts.workflows.activities.signature.verify_signature", new=fake):
+            r = await bound.verify_signature(MagicMock())
+        assert r.verifier_trained is False and r.verifier == "resnet18-imagenet-generic"
+
+    @pytest.mark.asyncio
+    async def test_trained_embedder_marks_result_trained(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.signature import SignatureActivityResult
+        class Siamese:
+            MODEL_LABEL = "siamese-v1"; trained = True
+        bound = _bound()
+        bound._embedding_model = Siamese()
+        fake = AsyncMock(return_value=SignatureActivityResult(outcome="PROCEED", match_score=0.97))
+        with patch("modules.cts.workflows.activities.signature.verify_signature", new=fake):
+            r = await bound.verify_signature(MagicMock())
+        assert r.verifier_trained is True

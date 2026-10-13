@@ -82,6 +82,9 @@ class DecisionInput(BaseModel):
     fraud_score: float
     ocr_confidence: float
     signature_match_score: float
+    # False when match_score came from a generic backbone (not a trained signature model). Workflow always
+    # passes the real value; the True default only keeps older callers/tests unchanged.
+    signature_verifier_trained: bool = True
     cbs_outcome: str            # "PROCEED" | "RETURN" | "HUMAN_REVIEW" | "CBS_UNAVAILABLE"
     cbs_return_reason: Optional[str] = None  # "NSF" | "STOP_PAYMENT" | "ACCOUNT_FROZEN" | etc.
     alteration_detected: bool
@@ -429,6 +432,15 @@ async def synthesise_decision(
         # STP gate measures quality of extraction (OCR) and identity (signature).
         # Fraud already filtered above; don't penalize again here.
         combined_confidence = inp.ocr_confidence * 0.5 + inp.signature_match_score * 0.5
+
+        if combined_confidence >= stp_threshold and not inp.signature_verifier_trained                 and config.get("require_trained_signature_verifier", True):
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="HUMAN_REVIEW",
+                rationale=("signature_verifier_untrained: the signature match score comes from a generic model, "
+                           "not a trained signature verifier, so it cannot support an automatic confirm"),
+                shap_values=inp.shap_values,
+            )
 
         if combined_confidence >= stp_threshold:
             return DecisionResult(

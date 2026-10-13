@@ -16,10 +16,14 @@ import structlog
 log = structlog.get_logger()
 
 MODEL_LABEL = "resnet18-imagenet-generic"
+TRAINED = False   # a generic backbone, not a trained signature model - its score cannot support an automatic confirm
 _SIZE = 224
 
 
 class LocalSignatureEmbedder:
+    MODEL_LABEL = MODEL_LABEL
+    trained = TRAINED
+
     def __init__(self) -> None:
         import torch
         import torchvision

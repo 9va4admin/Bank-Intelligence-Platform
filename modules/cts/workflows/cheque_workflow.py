@@ -1151,6 +1151,7 @@ class ChequeProcessingWorkflow:
                     fraud_score=fraud_result.fraud_score,
                     ocr_confidence=_ocr_confidence,
                     signature_match_score=sig_result.match_score or 0.0,
+                    signature_verifier_trained=bool(getattr(sig_result, "verifier_trained", False)),
                     cbs_outcome=cbs_balance_result.outcome,
                     alteration_detected=alteration_result.alteration_detected,
                     pps_outcome=pps_result.outcome,
