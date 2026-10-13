@@ -230,6 +230,7 @@ class ChequeProcessingWorkflow:
         _alteration_detected: bool = False
         _fraud_score: float = 0.0
         _shap_values: dict = {}
+        _fraud_scored: bool = False   # True once score_fraud has run (normal step 6 or the exit-path backstop)
         _sig_match_score: float = 0.0
         _sig_verdict: str = "UNKNOWN"
         _pps_verdict: str = "NOT_CHECKED"
@@ -326,6 +327,32 @@ class ChequeProcessingWorkflow:
             itself signals the watchdog once a reviewer decides or the 55-min
             window times out.
             """
+            # Fraud scoring runs for EVERY instrument. Early exits (OCR quality, MICR number mismatch,
+            # signature flags ...) leave before step 6, so score here — best-effort, never blocks or
+            # alters the decision — with whatever evidence exists at that point.
+            nonlocal _fraud_score, _shap_values, _fraud_scored
+            if not _fraud_scored:
+                _fraud_scored = True
+                try:
+                    _fr = await workflow.execute_activity(
+                        score_fraud,
+                        FraudActivityInput(
+                            instrument_id=inp.instrument_id,
+                            bank_id=inp.bank_id,
+                            amount=inp.presented_amount,
+                            micr_line=_micr_line,
+                            ocr_confidence=_ocr_confidence,
+                            alteration_detected=_alteration_detected,
+                            account_last4=inp.account_number[-4:],
+                        ),
+                        start_to_close_timeout=timedelta(seconds=30),
+                        retry_policy=RetryPolicy(maximum_attempts=1),   # best-effort backstop: no retry delay on an exit path
+                    )
+                    _fraud_score = _fr.fraud_score
+                    _shap_values = _fr.shap_values or {}
+                except Exception as _fraud_exc:
+                    workflow.logger.warning(f"exit-path fraud scoring failed; deciding without a score: {_fraud_exc!r}")
+
             # Persist to cts.agent_decisions (YugabyteDB) before Immudb audit write.
             # Best-effort: degrades gracefully if db_pool unavailable — never blocks workflow.
             from modules.cts.workflows.activities.persist_decision import (
@@ -918,6 +945,7 @@ class ChequeProcessingWorkflow:
 
         _fraud_score = fraud_result.fraud_score
         _shap_values = fraud_result.shap_values or {}
+        _fraud_scored = True
         _steps.append(StepResult(
             step_id="fraud_score",
             outcome="PASS",   # routing decision made by synthesise_decision, not here
