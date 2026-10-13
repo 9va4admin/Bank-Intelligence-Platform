@@ -114,6 +114,24 @@ def _parse_amount_figures(raw: Optional[str]) -> Optional[float]:
     return float(amount) if amount is not None else None
 
 
+def _is_duplicate_presentment(exc: BaseException) -> bool:
+    """True if a DuplicatePresentmentError is anywhere in the exception's cause chain.
+
+    Temporal wraps an activity's error in an ActivityError ('Activity task failed') and keeps the real
+    error type on the cause (ApplicationError.type); checking only the wrapper's name or text silently
+    treated every duplicate as an unrelated vault failure and kept processing it."""
+    seen = set()
+    cur = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if ("DuplicatePresentmentError" in type(cur).__name__
+                or getattr(cur, "type", None) == "DuplicatePresentmentError"
+                or "DuplicatePresentmentError" in str(cur)):
+            return True
+        cur = getattr(cur, "cause", None) or cur.__cause__
+    return False
+
+
 class ChequeWorkflowInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
@@ -269,6 +287,7 @@ class ChequeProcessingWorkflow:
             MarkLeafPresentedInput, mark_leaf_presented,
         )
         from modules.cts.vaults.cheque_leaf_vault import DuplicatePresentmentError
+        _leaf_duplicate = False
         try:
             await workflow.execute_activity(
                 mark_leaf_presented,
@@ -285,19 +304,17 @@ class ChequeProcessingWorkflow:
                 ),
             )
         except Exception as _leaf_exc:
-            if "DuplicatePresentmentError" in type(_leaf_exc).__name__ or \
-               "DuplicatePresentmentError" in str(_leaf_exc):
-                return await finalise(
-                    "STP_RETURN",
-                    "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
+            if _is_duplicate_presentment(_leaf_exc):
+                # finalise() is defined further down; act on this right after it exists.
+                _leaf_duplicate = True
+            else:
+                # Non-duplicate vault error — log and continue (never block IET)
+                log.warning(
+                    "cheque_workflow.mark_presented_failed",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    error=str(_leaf_exc),
                 )
-            # Non-duplicate vault error — log and continue (never block IET)
-            log.warning(
-                "cheque_workflow.mark_presented_failed",
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-                error=str(_leaf_exc),
-            )
 
         human_review_timeout = int(
             inp.cts_config.get("human_review_max_wait_minutes", 55)
@@ -584,6 +601,12 @@ class ChequeProcessingWorkflow:
                 decision=decision, rationale=rationale, shap_values=shap_values or {},
                 stp_eligible=stp_eligible,
                 ai_recommendation=ai_recommendation,
+            )
+
+        if _leaf_duplicate:
+            return await finalise(
+                "STP_RETURN",
+                "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
             )
 
         # Drawee name for the reviewer, from the bank's own account record (never OCR).
