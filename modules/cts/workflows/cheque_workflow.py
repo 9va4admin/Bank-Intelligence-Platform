@@ -668,16 +668,25 @@ class ChequeProcessingWorkflow:
         # the 120-second Qwen2-VL call. Low-confidence → HUMAN_REVIEW immediately.
         from modules.cts.workflows.activities.ocr import ocr_extract, OCRActivityInput
 
-        ocr_result = await workflow.execute_activity(
-            ocr_extract,
-            OCRActivityInput(
-                image_url=inp.image_url,
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-            ),
-            start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=_AI_ACTIVITY_RETRY,
-        )
+        # The OCR step now includes independent second reads (payee, MICR, amount) over cloud/GPU models, so its
+        # budget is config-driven. If it still fails or times out it must DEGRADE to human review: letting the
+        # workflow fail files nothing and, near the IET deadline, the watchdog would deem the item approved.
+        try:
+            ocr_result = await workflow.execute_activity(
+                ocr_extract,
+                OCRActivityInput(
+                    image_url=inp.image_url,
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                ),
+                start_to_close_timeout=timedelta(seconds=int(inp.cts_config.get("ocr_activity_timeout_seconds", 120))),
+                retry_policy=_AI_ACTIVITY_RETRY,
+            )
+        except Exception as _ocr_exc:
+            if type(_ocr_exc).__name__ == "CancelledError":
+                raise
+            workflow.logger.warning(f"ocr_extract failed; routing to human review: {type(_ocr_exc).__name__}")
+            return await finalise("HUMAN_REVIEW", f"ocr_activity_failed: {type(_ocr_exc).__name__}")
 
         _ocr_confidence = ocr_result.overall_confidence
         _ocr_engines_used = ocr_result.ocr_engines_used
