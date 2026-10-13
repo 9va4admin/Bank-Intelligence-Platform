@@ -3,14 +3,33 @@
 Compiled 2026-10-13. Machine-checked part: `tests/modules/cts/compliance/test_npci_return_codes_conformance.py`
 against `docs/npci/return_reason_codes.json`.
 
-**Source limits (read first).** The primary RBI/NPCI procedural guidelines could not be retrieved in this
-session (RBI's host serves a human-verification page; NPCI's pages are script-rendered). The master of return
-reason codes is the clearing-house annexure (Annexure D, Uniform Regulations and Rules for Bankers' Clearing
-Houses) as reproduced in a bank's published collection policy: a secondary source quoting the authoritative
-annexure. Statements about timing windows, digital-certificate handling and the physical-cheque request come
-from search-result excerpts of the RBI guidelines and the NI Act s.64(2), not from the full text. **Before any
-certification claim: a person with access to the current NPCI procedural guidelines must verify this matrix
-against them.**
+**Source limits (read first).** The primary RBI/NPCI procedural guidelines **could not be retrieved**. Attempts on
+2026-10-13: the RBI-hosted guideline PDFs (all seven versions listed on rbi.org.in, e.g. Chennai v2.1, New Delhi
+v2.0, Western Grid) each returned a human-verification page, which is there to stop automated access and was
+not bypassed; NPCI's own pages are script-rendered and returned no content; one bank site returned 403; one
+"mirror" was spam. What was obtained and cross-checked instead:
+
+* The return reason code master (`return_reason_codes.json`) from JK Bank's published policy, which reproduces
+  Annexure D of the Uniform Regulations and Rules for Bankers' Clearing Houses.
+* Union Bank of India's 2024-25 policy, an independent second reproduction. Its numbered table is headed
+  "CBS CODE": that is the bank's internal core-banking list, **not** the clearing-house numbering, so it does not
+  conflict with the annexure numbers (it does confirm that returns follow Rule 6 of URRBCH). **Consequence: reason
+  numbers must come from the clearing-house annexure / NGCH interface specification, never from any bank's CBS table.**
+* Statements in that policy, quoting RBI circulars, that bear on a drawee: the three regional grids were merged into
+  a single National Grid (RBI letter DEL.DPSS 22 Feb 2023; in effect 13 Oct 2023); a drawee that wants to see a
+  government cheque in paper returns it as "present with document" (code 40); drawees must preserve images of all
+  government cheques for 10 years (directly or through NPCI's national archival system), including cheques paid
+  over the counter, kept separate from clearing images; presenting banks keep the paper for 10 years.
+* Search excerpts of the RBI guidelines: a drawee may return an item only within the clearing length and in an
+  appropriate return session; the return file carries the item details and reason code; images do not travel in
+  return clearing; a drawee may return items whose presenting-bank digital signature fails validation; a drawee
+  needing the paper returns with code 39 or 40; NI Act s.64(2) lets a drawee request or demand the physical cheque.
+
+**What a person must do to close this.** Open https://rbi.org.in/Scripts/OccasionalPublications.aspx?head=Procedural+Guideline+for+Cheque+Truncation+System
+in a normal browser, solve the verification page, and save the current guideline PDF (the list shows seven; the
+newest is Chennai v2.1, July 2018, plus NPCI's National Grid circulars) into `docs/npci/source/`. Then verify this
+matrix, `return_reason_codes.json` and the timing windows against it. Until then this matrix is **not** a
+conformance certification.
 
 Status key: **DONE** implemented and tested on real images or real infrastructure · **DONE (stand-in)**
 implemented, but the system it depends on is a stub or stand-in in dev · **PARTIAL** · **GAP** not built ·
@@ -63,7 +82,10 @@ implemented, but the system it depends on is a stub or stand-in in dev · **PART
 |---|---|---|---|
 | Inward Exchange Time (IET) window; missed IET = deemed approval | `IETWatchdogWorkflow`, T-30s emergency file | DONE (stand-in) | verified live: a 40 s deadline fired `EMERGENCY_FILED`. **Open defect:** after an emergency filing the main pipeline still queues a human review |
 | Exactly-once NGCH filing | `ngch_filer` idempotency | DONE (stand-in) | NGCH is a dev stub |
-| Return only within clearing length / return session | not modelled | GAP | session calendar not implemented |
+| Return only within clearing length / return session | not modelled | GAP | session calendar not implemented; figures need the primary guideline |
+| Preserve images of government cheques for 10 years, separate from clearing images | MinIO WORM tiers (10-year cold tier) | PARTIAL | retention tier exists; no government-cheque flag or separate store |
+| Drawee may return government / other cheques as 'present with document' (40) to see the paper | human review path | PARTIAL | no automatic emission; the physical-cheque request workflow is not built |
+| Single National Grid (one grid since 13 Oct 2023) | grid-agnostic design | DONE | no per-grid assumptions in the code |
 | Digital-signature validation of presenting file | NGCH / HSM layer | DONE (stand-in) | |
 | Physical cheque request (NI Act s.64(2)) | none | GAP | no workflow to demand the instrument |
 | CTS-2010 image standards (grey 100 dpi; B/W 200 dpi) | `check_image_quality` | PARTIAL | grey images only; no TIFF B/W or UV image handling |
