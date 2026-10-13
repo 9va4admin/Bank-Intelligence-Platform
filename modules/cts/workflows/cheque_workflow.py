@@ -643,6 +643,18 @@ class ChequeProcessingWorkflow:
                 "HUMAN_REVIEW", f"micr_cheque_number_mismatch: presented {_presented_no}, read {_ocr_no}",
             )
 
+        # Amount cross-check against the presentment data: a figure that is self-consistent with its own
+        # words but disagrees with the NGCH amount (Lot 2: Rs 2,00,000 read as 9,00,000 in both) is
+        # exactly what the figures-vs-words check cannot see.
+        _read_amt = _parse_amount_figures(ocr_result.amount_figures)
+        if inp.presented_amount and _read_amt is not None:
+            _tol = float(inp.cts_config.get("amount_presented_tolerance", 1.0))
+            if abs(_read_amt - inp.presented_amount) > _tol:
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"amount_presented_mismatch: read {_read_amt:.2f}, presented {inp.presented_amount:.2f}",
+                )
+
         # Branch-master check: a sort code that is not one of this bank's real branches is never trusted
         # (a digit misread inside the sort-code window cannot be caught by bank-code anchoring).
         # cts.micr_branch_master empty = check disabled.
