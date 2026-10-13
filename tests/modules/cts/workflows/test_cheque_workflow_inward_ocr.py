@@ -868,3 +868,34 @@ class TestSignatureAbsentByInstrumentType:
         result = await self._run(temporal_env, _ocr_fake_proceed)
         assert result.decision == "STP_RETURN"
         assert result.rationale == "no_signature_on_cheque"
+
+
+def _ocr_fake_with_number(no):
+    @activity.defn(name="ocr_extract")
+    async def _fake(inp, orchestrator=None, config_service=None, routing_table=None):
+        from modules.cts.workflows.activities.ocr import OCRActivityResult
+        return OCRActivityResult(
+            outcome="PROCEED", micr_line=f"{no}000052000", amount_figures="22000",
+            amount_words="Twenty Two Thousand Only", date="15/08/2026",
+            payee="THE COURT RECEIVER HIGH COURT MUMBAI", overall_confidence=0.97,
+            instrument_category="DEMAND_DRAFT", cheque_number=no, bank_branch_code="000052000",
+            ocr_engines_used=["got-ocr2.0:cascade-1"],
+        )
+    return _fake
+
+
+class TestMicrChequeNumberCrossCheck:
+    """Cross-check the number read off the MICR band against the number in the NGCH presentment
+    metadata. A digit misread inside the sort-code window can't be caught by anchoring; a number
+    that disagrees with the presented one can, and must go to a human, never be trusted."""
+
+    @pytest.mark.asyncio
+    async def test_mismatch_goes_to_human_review(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_with_number("152199"))
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("micr_cheque_number_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_matching_number_is_not_flagged(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_with_number("152173"))
+        assert not r.rationale.startswith("micr_cheque_number_mismatch")
