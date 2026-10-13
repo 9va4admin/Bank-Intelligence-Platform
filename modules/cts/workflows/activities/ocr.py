@@ -431,11 +431,22 @@ async def _payee_reread(inp, config_service) -> Optional[str]:
         crop = ImageOps.autocontrast(crop.convert("L"), cutoff=1).convert("RGB")
         buf = io.BytesIO()
         crop.save(buf, "PNG")
-        content = await call_hf_vision(config_service, buf.getvalue(), _PAYEE_REREAD_PROMPT)
-        if not content:
-            return None
-        value = _parse_model_json(content).get("payee", {}).get("value")
-        return None if value in (None, "", "null") else str(value)
+        # Independent second opinion: a DIFFERENT model from the primary read (configurable), then the
+        # primary model as a fallback if the independent one is unreachable.
+        try:
+            first = await config_service.get("cts.payee_reread_model")
+        except Exception:
+            first = None
+        models = [first if isinstance(first, str) and first else "qwen3-vl-32b"]
+        if "qwen-72b" not in models:
+            models.append("qwen-72b")
+        for model in models:
+            content = await call_hf_vision(config_service, buf.getvalue(), _PAYEE_REREAD_PROMPT, model=model, timeout=90.0)
+            if not content:
+                continue
+            value = _parse_model_json(content).get("payee", {}).get("value")
+            return None if value in (None, "", "null") else str(value)
+        return None
     except Exception as exc:
         log.info("ocr.payee_reread_unavailable", instrument_id=inp.instrument_id, error=str(exc)[:120])
         return None
