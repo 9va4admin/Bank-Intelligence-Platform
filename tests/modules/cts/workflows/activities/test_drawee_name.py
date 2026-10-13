@@ -91,3 +91,27 @@ class TestRecordDraweeName:
         conn = _conn()
         await record_drawee_name(_INP, cbs_connector=_cbs("X"), db_conn=conn)
         assert "ON CONFLICT" in conn.execute.await_args.args[0]
+
+
+class TestRecordPayeeName:
+    """Outward: Payee Name = account holder of the deposit-slip account, per CBS (same rules)."""
+
+    @pytest.mark.asyncio
+    async def test_payee_name_stored_in_outward_table_keyed_by_text_instrument_id(self):
+        from modules.cts.workflows.activities.drawee_name import PayeeNameInput, record_payee_name
+        conn = _conn()
+        res = await record_payee_name(
+            PayeeNameInput(payee_account_number="7002000787", bank_id="kbl", instrument_id="OUT-1"),
+            cbs_connector=_cbs("SRI KRISHNA AGENCY"), db_conn=conn)
+        assert res.stored is True and "KRISHNA" not in repr(res)
+        sql, *args = conn.execute.await_args.args
+        assert "cts.outward_payee_name" in sql and "ON CONFLICT" in sql
+        assert args == ["kbl", "OUT-1", "SRI KRISHNA AGENCY"]
+
+    @pytest.mark.asyncio
+    async def test_payee_lookup_failure_degrades(self):
+        from modules.cts.workflows.activities.drawee_name import PayeeNameInput, record_payee_name
+        res = await record_payee_name(
+            PayeeNameInput(payee_account_number="7002000787", bank_id="kbl", instrument_id="OUT-1"),
+            cbs_connector=_cbs(exc=CBSUnavailableError("down")), db_conn=_conn())
+        assert res.stored is False and res.reason == "CBS_UNAVAILABLE"
