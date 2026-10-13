@@ -177,6 +177,13 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   Annexure II does not list them (pinned in `test_npci_return_codes_conformance.py`).
 - **Primary NPCI/RBI guidelines have not been checked against** the conformance matrix (their host serves a
   human-verification page); see the matrix for exactly how to close that.
+- **MICR number, sort code and amount are read twice by different models**; a disagreement goes to review with both
+  readings (`_field_rereads`, `cts.field_reread_model`). Measured on 70 real instruments it exposed 3/3 wrong
+  cheque numbers, 4/4 wrong sort codes and 4/5 wrong amounts at the cost of ~1 correct read in 8.
+- **A failed or timed-out OCR must never fail the workflow** (it files nothing; near the IET deadline the watchdog
+  then deems the item approved). It degrades to `HUMAN_REVIEW` (`ocr_activity_failed`); the OCR budget is
+  `ocr_activity_timeout_seconds` (default 120). Verified under a total cloud-model outage (402, no credits):
+  all 70 instruments went to human review, none failed, none was confirmed or returned automatically.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 
