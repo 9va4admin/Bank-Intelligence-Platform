@@ -579,7 +579,7 @@ class ChequeLeafVault:
             async with conn.transaction():
                 row = await conn.fetchrow(
                     """
-                    SELECT id, status FROM cts.cheque_leaves
+                    SELECT id, status, instrument_id FROM cts.cheque_leaves
                     WHERE bank_id=$1 AND account_hash=$2 AND cheque_number=$3
                     FOR UPDATE
                     """,
@@ -607,6 +607,10 @@ class ChequeLeafVault:
                 leaf_id = row["id"]
 
                 if prev_status in disallow_from:
+                    if raise_on_disallow and instrument_id and row["instrument_id"] == instrument_id:
+                        # The same instrument retrying (activity retry / worker restart after the write
+                        # succeeded) is not a duplicate of itself: idempotent no-op.
+                        return
                     if raise_on_disallow:
                         raise DuplicatePresentmentError(
                             f"Cheque {cheque_number} is already {prev_status} — "
