@@ -1376,3 +1376,20 @@ class TestPipelineStandsDownAfterIetEmergencyFiling:
         assert r.emergency_iet_filed is True
         assert "iet" in r.rationale.lower()
         assert _REVIEW_PUSHES == [], "a review was queued for an instrument the watchdog had already filed"
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_always_fails(inp, orchestrator=None, config_service=None, routing_table=None):
+    raise RuntimeError("OCR backend exploded")
+
+
+class TestOcrActivityFailureNeverFailsTheWorkflow:
+    """Found 2026-10-13 on a real run: the OCR activity exceeded its 30 s budget on 35 of 70 instruments, both
+    attempts timed out, and the WORKFLOW FAILED: no decision, no review, nothing filed (the IET watchdog's
+    default would then have deemed the instrument approved). An OCR failure must degrade to human review."""
+
+    @pytest.mark.asyncio
+    async def test_ocr_failure_goes_to_human_review_not_a_failed_workflow(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_always_fails)
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("ocr_activity_failed")

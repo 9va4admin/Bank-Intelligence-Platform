@@ -336,17 +336,24 @@ async def ocr_extract(
             micr_bank_code=micr_bank_code,
         )
         updates: dict = {"remitter_name": remitter, "issuing_branch": issuing, "drawee_branch": drawee_branch}
+        # The independent second reads (payee, MICR band, amount) are separate cloud/GPU calls: run them
+        # concurrently so the activity's wall-clock is the slowest one, not their sum.
+        _need_payee = final_cat == "CHEQUE" and bool(result.payee)
+        import asyncio as _aio
+        _payee_second, second = await _aio.gather(
+            _payee_reread(inp, config_service) if _need_payee else _aio.sleep(0, result=None),
+            _field_rereads(inp, config_service),
+        )
         # Payee re-read gate (cheques only; a DD's payee is printed and has its own pass).
-        if final_cat == "CHEQUE" and result.payee:
-            second = await _payee_reread(inp, config_service)
-            if second is None:
+        if _need_payee:
+            if _payee_second is None:
                 updates["payee_reread_status"] = "UNAVAILABLE"
             else:
                 try:
                     min_sim = _as_float(await config_service.get("cts.payee_reread_min_similarity"), 0.99)
                 except Exception:
                     min_sim = 0.99
-                if _payee_names_agree(result.payee, second, min_sim):
+                if _payee_names_agree(result.payee, _payee_second, min_sim):
                     updates["payee_reread_status"] = "AGREE"
                 else:
                     # Never show an unconfirmed handwritten name as fact — withhold it, keep both readings.
@@ -354,14 +361,13 @@ async def ocr_extract(
                     updates.update(
                         payee=None,
                         payee_reread_status="DISAGREE",
-                        payee_candidates=[result.payee, second],
+                        payee_candidates=[result.payee, _payee_second],
                         outcome="HUMAN_REVIEW",
                         low_confidence_fields=list(result.low_confidence_fields) + ["payee"],
                         low_confidence_reason="payee_reread_disagreement" + (
                             f"; {result.low_confidence_reason}" if result.low_confidence_reason else ""),
                     )
-        # MICR number / sort code / amount second read (independent model, focused crop).
-        second = await _field_rereads(inp, config_service)
+        # MICR number / sort code / amount second read (independent model, focused crop): `second` above.
         if second is None:
             updates["micr_reread_status"] = "UNAVAILABLE"
             updates["amount_reread_status"] = "UNAVAILABLE"
