@@ -1204,3 +1204,57 @@ class TestAmountPresentedCrossCheck:
     async def test_no_presented_amount_means_no_check(self, temporal_env):
         r = await self._run(temporal_env, "9,00,000/-", "Nine Lakh Only", presented=0.0)
         assert not r.rationale.startswith("amount_presented_mismatch")
+
+
+@activity.defn(name="mark_leaf_presented")
+async def _leaf_duplicate(inp):
+    from modules.cts.vaults.cheque_leaf_vault import DuplicatePresentmentError
+    raise DuplicatePresentmentError("Cheque 152173 is already PRESENTED - duplicate presentment detected.")
+
+
+@activity.defn(name="mark_leaf_presented")
+async def _leaf_vault_down(inp):
+    raise RuntimeError("redis unavailable")
+
+
+class TestDuplicatePresentmentIsActuallyBlocked:
+    """Found 2026-10-13 on real re-submissions: the vault reported 'duplicate_presentment' but the workflow
+    logged it as a generic failed activity and kept processing, so a duplicate cheque was treated as new
+    (the error name was searched for in the wrapper's text; Temporal keeps it in the cause chain).
+    A duplicate must be returned, never processed; a vault OUTAGE must still never block the IET."""
+
+    async def _run(self, temporal_env, leaf_fake):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-dup-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"DUP-{uuid.uuid4().hex[:8]}"
+        acts = [leaf_fake, _ocr_fake_with_amount("22,000.00", "Twenty Two Thousand Only"),
+                *[a for a in _BASE_ACTIVITIES if getattr(a, "__temporal_activity_definition").name != "mark_leaf_presented"]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="UNKNOWN", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_duplicate_leaf_is_returned_not_processed(self, temporal_env):
+        r = await self._run(temporal_env, _leaf_duplicate)
+        assert r.decision == "STP_RETURN"
+        assert r.rationale.startswith("DUPLICATE_PRESENTMENT")
+
+    @pytest.mark.asyncio
+    async def test_vault_outage_never_blocks_processing(self, temporal_env):
+        r = await self._run(temporal_env, _leaf_vault_down)
+        assert not r.rationale.startswith("DUPLICATE_PRESENTMENT")
