@@ -83,6 +83,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
     "cts.signature_absent_action": "HUMAN_REVIEW",  # signature not detected: HUMAN_REVIEW (default) or AUTO_RETURN (opt-in)
     "cts.date_implausible_age_days": 1095,        # older than this = probable OCR year misread -> human review, not auto-return
+    "cts.amount_presented_tolerance": 1.0,        # rupees: OCR amount vs presented (NGCH) amount
     "cts.date_implausible_future_days": 365,      # further in the future than this = probable misread -> human review
     "cts.alteration_risk_threshold": 0.65,
     "cts.iet_emergency_buffer_seconds": 30,
@@ -500,6 +501,7 @@ class ConfigService:
             "micr_branch_master":                "cts.micr_branch_master",
             "signature_absent_action":           "cts.signature_absent_action",
             "date_implausible_age_days":         "cts.date_implausible_age_days",
+            "amount_presented_tolerance":        "cts.amount_presented_tolerance",
             "date_implausible_future_days":      "cts.date_implausible_future_days",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])

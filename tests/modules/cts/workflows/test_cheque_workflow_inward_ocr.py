@@ -833,7 +833,7 @@ class TestSignatureAbsentByInstrumentType:
     the signature), so for a DD an ABSENT result must go to a human, not an auto-return. For a
     plain cheque the existing hard return is unchanged."""
 
-    async def _run(self, temporal_env, ocr_fake, cts_extra=None):
+    async def _run(self, temporal_env, ocr_fake, cts_extra=None, presented=22000.0):
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
@@ -851,7 +851,7 @@ class TestSignatureAbsentByInstrumentType:
                 ChequeWorkflowInput(
                     instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
                     account_number="12340000005678", cheque_number="152173",
-                    presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
+                    presented_amount=presented, presented_payee="X", iet_deadline=time.time() + 3600,
                     ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP", **(cts_extra or {})},
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
@@ -867,13 +867,13 @@ class TestSignatureAbsentByInstrumentType:
     async def test_plain_cheque_with_no_signature_detected_goes_to_human_review_by_default(self, temporal_env):
         # Lot 2 (real): a cheque with a visible Gujarati-script signature was reported 'absent' and
         # auto-returned. One detector miss must never return a cheque on its own.
-        result = await self._run(temporal_env, _ocr_fake_proceed)
+        result = await self._run(temporal_env, _ocr_fake_proceed, presented=75000.0)
         assert result.decision == "HUMAN_REVIEW"
         assert result.rationale == "signature_not_detected"
 
     @pytest.mark.asyncio
     async def test_bank_can_opt_in_to_auto_return_on_absent_signature(self, temporal_env):
-        result = await self._run(temporal_env, _ocr_fake_proceed, {"signature_absent_action": "AUTO_RETURN"})
+        result = await self._run(temporal_env, _ocr_fake_proceed, {"signature_absent_action": "AUTO_RETURN"}, presented=75000.0)
         assert result.decision == "STP_RETURN"
         assert result.rationale == "no_signature_on_cheque"
 
@@ -1011,7 +1011,7 @@ async def _ocr_fake_payee_disagreement(inp, orchestrator=None, config_service=No
 class TestPayeeRereadDisagreementIsNeverRescued:
     @pytest.mark.asyncio
     async def test_disagreeing_payee_reads_go_to_human_review_not_through_the_rescue_path(self, temporal_env):
-        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_payee_disagreement)
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_payee_disagreement, presented=75000.0)
         assert r.decision == "HUMAN_REVIEW"
         assert "payee_reread_disagreement" in r.rationale
 
@@ -1023,7 +1023,7 @@ class TestUnreadableFieldsGoToReviewByDefault:
 
     @pytest.mark.asyncio
     async def test_weak_payee_goes_to_human_review_when_rescue_not_enabled(self, temporal_env):
-        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_rescuable)
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_rescuable, presented=75000.0)
         assert r.decision == "HUMAN_REVIEW"
         assert r.rationale.startswith("ocr_quality")
 
@@ -1148,3 +1148,59 @@ class TestMicrBranchMasterCheck:
     async def test_empty_master_disables_the_check(self, temporal_env):
         r = await self._run(temporal_env, "713052202", [])
         assert not r.rationale.startswith("micr_sort_code")
+
+
+def _ocr_fake_with_amount(figures, words):
+    @activity.defn(name="ocr_extract")
+    async def _fake(inp, orchestrator=None, config_service=None, routing_table=None):
+        from modules.cts.workflows.activities.ocr import OCRActivityResult
+        return OCRActivityResult(
+            outcome="PROCEED", micr_line="152173000052000", amount_figures=figures, amount_words=words,
+            date="15/08/2026", payee="X Y Z", overall_confidence=0.97, instrument_category="CHEQUE",
+            cheque_number="152173", bank_branch_code="000052000", ocr_engines_used=["got-ocr2.0:cascade-1"],
+        )
+    return _fake
+
+
+class TestAmountPresentedCrossCheck:
+    """Lot 2 (real): a cheque for Rs 2,00,000 was read as Rs 9,00,000 in BOTH figures and words, so the
+    figures-vs-words check could not see it. The amount on the image must also agree with the amount in
+    the NGCH presentment data, else a human looks."""
+
+    async def _run(self, temporal_env, figures, words, presented=22000.0):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-amtref-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"AMTREF-{uuid.uuid4().hex[:8]}"
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_with_amount(figures, words), *_BASE_ACTIVITIES], workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=presented, presented_payee="UNKNOWN", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_self_consistent_but_wrong_amount_goes_to_review(self, temporal_env):
+        r = await self._run(temporal_env, "9,00,000/-", "Nine Lakh Only", presented=200000.0)
+        assert r.decision == "HUMAN_REVIEW" and r.rationale.startswith("amount_presented_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_matching_amount_is_not_flagged(self, temporal_env):
+        r = await self._run(temporal_env, "22,000.00", "Twenty Two Thousand Only", presented=22000.0)
+        assert not r.rationale.startswith("amount_presented_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_no_presented_amount_means_no_check(self, temporal_env):
+        r = await self._run(temporal_env, "9,00,000/-", "Nine Lakh Only", presented=0.0)
+        assert not r.rationale.startswith("amount_presented_mismatch")

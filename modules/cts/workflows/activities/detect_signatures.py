@@ -425,7 +425,22 @@ async def detect_signatures(
 
     Returns DetectSignaturesResult in all cases — never raises.
     Callers own the routing decision based on outcome and sig_count.
+
+    The detector is model-based and not deterministic (a visible Gujarati-script signature was reported
+    absent in one run and present in the next), so ABSENT is only reported after a second look agrees.
     """
+    first = await _detect_signatures_once(inp, vllm_client, config_service)
+    if first.outcome != "ABSENT":
+        return first
+    second = await _detect_signatures_once(inp, vllm_client, config_service)
+    return second if second.outcome == "PRESENT" else first
+
+
+async def _detect_signatures_once(
+    inp: DetectSignaturesInput,
+    vllm_client=None,
+    config_service: Any = None,
+) -> DetectSignaturesResult:
     with tracer.start_as_current_span("cts.detect_signatures") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)

@@ -316,3 +316,38 @@ class TestVllmErrorTriesCloudBeforePixelFallback:
         assert result is cloud and result.degraded is False
         hf.assert_awaited_once()
         pixel.assert_not_awaited()
+
+
+class TestAbsentIsConfirmedWithASecondLook:
+    """The detector is model-based and not deterministic: Lot 2 (real) had a visible Gujarati-script
+    signature reported 'absent' in a pipeline run and 'present' when re-run. 'Absent' is therefore only
+    reported after a second look agrees; any look that finds a signature wins."""
+
+    @pytest.mark.asyncio
+    async def test_absent_then_present_is_reported_present(self):
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(side_effect=[
+            _make_vllm_response(0, [], []),
+            _make_vllm_response(1, [[0.6, 0.7, 0.95, 0.9]], []),
+        ])
+        r = await detect_signatures(_make_input(), vllm_client=client)
+        assert r.outcome == "PRESENT" and r.sig_count == 1
+        assert client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_absent_twice_is_reported_absent(self):
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(return_value=_make_vllm_response(0, [], []))
+        r = await detect_signatures(_make_input(), vllm_client=client)
+        assert r.outcome == "ABSENT"
+        assert client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_present_first_time_is_not_looked_at_again(self):
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(return_value=_make_vllm_response(1, [[0.6, 0.7, 0.95, 0.9]], []))
+        await detect_signatures(_make_input(), vllm_client=client)
+        assert client.chat.completions.create.await_count == 1
