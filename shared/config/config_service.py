@@ -83,6 +83,10 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
     "cts.signature_absent_action": "HUMAN_REVIEW",  # signature not detected: HUMAN_REVIEW (default) or AUTO_RETURN (opt-in)
     "cts.date_implausible_age_days": 1095,        # older than this = probable OCR year misread -> human review, not auto-return
+    "cts.iqa_min_width": 700,                     # image quality (RRC 39): calibrated on 70 real scans, see preprocessing/image_quality.py
+    "cts.iqa_min_height": 300,
+    "cts.iqa_min_sharpness": 300.0,
+    "cts.iqa_min_contrast": 60.0,
     "cts.amount_presented_tolerance": 1.0,        # rupees: OCR amount vs presented (NGCH) amount
     "cts.date_implausible_future_days": 365,      # further in the future than this = probable misread -> human review
     "cts.alteration_risk_threshold": 0.65,

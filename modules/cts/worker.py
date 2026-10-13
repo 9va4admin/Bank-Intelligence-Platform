@@ -98,6 +98,7 @@ from modules.cts.workflows.activities.signature import verify_signature
 from modules.cts.workflows.activities.pps import lookup_pps
 from modules.cts.workflows.activities.cbs import check_cbs_balance, check_account_status
 from modules.cts.workflows.activities.drawee_name import record_drawee_name, record_payee_name
+from modules.cts.workflows.activities.image_quality import check_image_quality
 from modules.cts.workflows.activities.stop_payment import check_stop_payment
 from modules.cts.workflows.activities.fraud import score_fraud
 from modules.cts.workflows.activities.decision import synthesise_decision
@@ -273,6 +274,7 @@ ALL_ACTIVITIES = [
     check_account_status,
     record_drawee_name,
     record_payee_name,
+    check_image_quality,
     check_stop_payment,
     score_fraud,
     synthesise_decision,
