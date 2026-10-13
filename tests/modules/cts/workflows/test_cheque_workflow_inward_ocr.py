@@ -644,7 +644,7 @@ class TestInwardOCRMultisignalRescue:
                     presented_amount=75000.0, presented_payee="Suresh Patil",
                     iet_deadline=time.time() + 3600,
                     ngch_ifsc="SRCB0000001",
-                    cts_config={"stp_mode": "FULL_STP"},
+                    cts_config={"stp_mode": "FULL_STP", "ocr_multisignal_rescue_enabled": True},
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
@@ -1006,3 +1006,15 @@ class TestPayeeRereadDisagreementIsNeverRescued:
         r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_payee_disagreement)
         assert r.decision == "HUMAN_REVIEW"
         assert "payee_reread_disagreement" in r.rationale
+
+
+class TestUnreadableFieldsGoToReviewByDefault:
+    """An unreadable payee / amount-in-words is called unequivocally: human review. The multisignal
+    rescue (which lets such an instrument continue and even reach STP_CONFIRM) is OFF unless a bank
+    explicitly enables cts.ocr_multisignal_rescue_enabled."""
+
+    @pytest.mark.asyncio
+    async def test_weak_payee_goes_to_human_review_when_rescue_not_enabled(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_rescuable)
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("ocr_quality")
