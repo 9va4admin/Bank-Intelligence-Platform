@@ -66,3 +66,8 @@ docs/npci/source/*.pdf
 docs/BizCollect_GFF_Pitch_Deck.*
 docs/evidence/2026-09-22/inward_real_run_stprescue_18_cheques.json
 docs/swadhyay-parivar-cheque-solution.pptx
+
+# Real cheque images must never be committed
+demo/112/
+docs/evidence/**/iw_*.png
+docs/evidence/**/ow_*.png
