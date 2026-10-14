@@ -186,6 +186,9 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   then deems the item approved). It degrades to `HUMAN_REVIEW` (`ocr_activity_failed`); the OCR budget is
   `ocr_activity_timeout_seconds` (default 120). Verified under a total cloud-model outage (402, no credits):
   all 70 instruments went to human review, none failed, none was confirmed or returned automatically.
+- **CIIF (PPS issue file) loads into the PPS vault** via `process_ciif` / `POST /v1/cts/vault/upload/pps/ciif`. The spec does not say whether
+  Amount is rupees or paise, so `cts.ciif_amount_unit` is required with no default (refused when unset). Vault amounts convert via
+  Decimal (the old float conversion turned 0.29 into 28 paise).
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

@@ -40,7 +40,7 @@ and the list of P2F centres (all in `docs/npci/source/`). Findings from them:
 * **Gap found:** the PPS specification defines NPCI's CIIF file (CSV and XML: payee account, serial number, issue date
   DDMMYYYY, amount, transaction code, drawee bank name and routing number, payee name, SAN, three optional fields).
   ASTRA had no reader for it; `modules/cts/vaults/ciif.py` now parses and validates it (CSV and XML, every rule in the
-  attribute table, 25 tests on the spec's own samples). It is **not yet wired** into the PPS vault upload.
+  attribute table, 25 tests on the spec's own samples). It is now **wired into the PPS vault upload** (`POST /v1/cts/vault/upload/pps/ciif`, `VaultUploadProcessor.process_ciif`). The Amount unit is not stated in the spec, so it is an explicit deployment setting `cts.ciif_amount_unit` (RUPEES or PAISE) with no default; the upload is refused when it is unset. Records without a serial number are rejected (the vault is keyed by cheque number) and test files load nothing.
 
 This matrix is still not a certification: it has not been reviewed by someone accountable for NPCI conformance.
 
@@ -95,7 +95,7 @@ implemented, but the system it depends on is a stub or stand-in in dev · **PART
 |---|---|---|---|
 | Inward Exchange Time (IET) window; missed IET = deemed approval | `IETWatchdogWorkflow`, T-30s emergency file | DONE (stand-in) | verified live: a 40 s deadline fired `EMERGENCY_FILED`. **Open defect:** after an emergency filing the main pipeline still queues a human review |
 | Exactly-once NGCH filing | `ngch_filer` idempotency | DONE (stand-in) | NGCH is a dev stub |
-| NPCI PPS interface (CIIF file, positive pay) | `modules/cts/vaults/ciif.py` | PARTIAL | parser and validator done and tested on the spec samples; not wired into the vault upload; file-name convention, reject-reason and response files not implemented |
+| NPCI PPS interface (CIIF file, positive pay) | `modules/cts/vaults/ciif.py` | PARTIAL | parser, validator and PPS-vault upload done and tested; amount unit must be confirmed with NPCI; file-name convention, reject-reason and response files not implemented |
 | Respond before `ItemExpiryTime`; no response = deemed accepted (`99`) | `IETWatchdogWorkflow` + `pxf_iet_parser` | DONE (stand-in) | deadline taken per item from the file; verified live with a dev NGCH stub; real NGCH timing untested |
 | Request cycle / day extension (Extension file) | none | GAP | needed when a decision cannot be made before expiry |
 | Online return and recall via the CCH web application | none | GAP | manual route exists at the clearing house; no ASTRA integration |
