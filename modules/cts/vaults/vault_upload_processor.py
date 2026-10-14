@@ -30,6 +30,7 @@ import csv
 import io
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any, Optional
 
 import structlog
@@ -111,6 +112,7 @@ class VaultUploadProcessor:
         changed_by: str,
         filename: Optional[str] = None,
         upload_channel: str = "UI",
+        pre_errors: Optional[list[dict]] = None,
     ) -> VaultUploadResult:
         """
         Entry point. Parses the CSV and dispatches each row to the appropriate handler.
@@ -132,11 +134,15 @@ class VaultUploadProcessor:
         except Exception as exc:
             raise ValueError(f"CSV parse error: {exc}") from exc
 
-        result.rows_total = len(rows)
+        # Rows the caller already rejected (e.g. a CIIF record that failed the specification's rules).
+        pre_errors = pre_errors or []
+        result.rows_total = len(rows) + len(pre_errors)
+        result.rows_failed = len(pre_errors)
+        result.errors.extend(pre_errors)
 
         # Create batch row in PROCESSING state
         await self._create_batch(
-            batch_id, vault_type, filename, upload_channel, changed_by, len(rows)
+            batch_id, vault_type, filename, upload_channel, changed_by, result.rows_total
         )
 
         # Validate columns
@@ -218,6 +224,62 @@ class VaultUploadProcessor:
         )
         await self._complete_batch(batch_id, final_status, result)
         return result
+
+    async def process_ciif(
+        self,
+        content: bytes,
+        changed_by: str,
+        amount_unit: Optional[str],
+        filename: Optional[str] = None,
+        today: Optional[date] = None,
+    ) -> VaultUploadResult:
+        """
+        Load an NPCI CIIF file (CSV or XML, PPS Interface File Spec v1.19) into the PPS vault.
+
+        amount_unit is RUPEES or PAISE and has no default: the specification does not say which, and a wrong guess
+        is a 100x error on a positive-pay amount. Records the specification rejects, and records with no serial
+        number (the vault is keyed by cheque number), are reported per row and never stored. A test file
+        (Testfileindicator T) loads nothing.
+        """
+        from modules.cts.vaults.ciif import parse_ciif_csv, parse_ciif_xml
+
+        unit = (amount_unit or "").strip().upper()
+        if unit not in ("RUPEES", "PAISE"):
+            raise ValueError("CIIF amount unit must be set to RUPEES or PAISE (cts.ciif_amount_unit); it is not guessed")
+        today = today or date.today()
+        try:
+            text = content.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise ValueError("CIIF file is not valid UTF-8") from exc
+
+        if text.lstrip().startswith("<"):
+            records, errs, meta = parse_ciif_xml(text, today)
+            if meta.get("test_file"):
+                raise ValueError("CIIF test file (Testfileindicator T): nothing was loaded")
+        else:
+            records, errs = parse_ciif_csv(text, today)
+        file_level = [e for e in errs if e.line <= 1 and e.field in ("header", "file")]
+        if file_level:
+            raise ValueError(f"CIIF file rejected: {file_level[0].message}")
+
+        pre_errors = [
+            {"row": e.line, "error": f"{e.field}: {e.message}", "error_code": "CIIF_SPEC_REJECT"} for e in errs
+        ]
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["account_number", "cheque_number", "cheque_date", "amount", "payee_name", "registration_channel"])
+        for n, r in enumerate(records, start=1):
+            if not r.serial_no:
+                pre_errors.append({"row": n, "error": "SerialNumber: required to key the PPS vault by cheque number",
+                                   "error_code": "CIIF_NO_SERIAL"})
+                continue
+            rupees = Decimal(r.amount) if unit == "RUPEES" else Decimal(r.amount) / 100
+            w.writerow([r.drawer_account, r.serial_no, r.issue_date.isoformat(), f"{rupees:.2f}",
+                        r.payee_name, "NPCI_CIIF"])
+        return await self.process(
+            "PPS", out.getvalue().encode("utf-8"), changed_by, filename=filename,
+            upload_channel="NPCI_CIIF", pre_errors=pre_errors,
+        )
 
     # ------------------------------------------------------------------
     # Referential integrity
@@ -448,8 +510,9 @@ class VaultUploadProcessor:
         cheque_date = _date.fromisoformat(cheque_date_raw)
         amount_raw = _require(row, "amount")
         try:
-            amount_paise = int(float(amount_raw) * 100)
-        except ValueError as exc:
+            # Decimal, not float: int(float("0.29") * 100) is 28.
+            amount_paise = int((Decimal(amount_raw) * 100).to_integral_value())
+        except (ValueError, ArithmeticError) as exc:
             raise ValueError(f"amount must be numeric, got {amount_raw!r}") from exc
         payee = _require(row, "payee_name")
 
