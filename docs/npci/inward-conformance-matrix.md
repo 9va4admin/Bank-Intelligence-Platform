@@ -3,8 +3,10 @@
 Compiled 2026-10-13. Machine-checked part: `tests/modules/cts/compliance/test_npci_return_codes_conformance.py`
 against `docs/npci/return_reason_codes.json`.
 
-**Sources (updated 2026-10-14).** Primary documents were supplied and read: the **RBI/NPCI CHI Specification v2.10**
-(Oct 2023), the **Chennai Bankers' Clearing House CTS Procedural Guidelines v2.1** (Jul 2018), the **PPS Interface File
+**Sources (updated 2026-10-14).** Primary documents were supplied and read: the **RBI/NPCI "CTS Specifications for
+Continuous Clearing", Rev 3.0 (last revised 26 Mar 2025)** (the CHI file specification; the copy in
+`docs/npci/source/` exists under two names, `RBI_NPCI_CHI_Specification_V_2_10...` and `RBI-NPCI-CHI-File-Specification-V3_0...`,
+and they are byte-identical: the older filename is misleading, the content is Rev 3.0), the **Chennai Bankers' Clearing House CTS Procedural Guidelines v2.1** (Jul 2018), the **PPS Interface File
 Specification v1.19** (Nov 2023), the NPCI Data Exchange Module (DEM) technical specification, the CTS product booklet
 and the list of P2F centres (all in `docs/npci/source/`). Findings from them:
 
@@ -22,10 +24,19 @@ and the list of P2F centres (all in `docs/npci/source/`). Findings from them:
   appropriate return session; images do not travel in return clearing; presenting banks apply digital signatures with at
   least one month of certificate life left; IQA is the presenting bank's duty at capture, with an IQA indicator on each
   image; a MICR repair is signalled to the drawee by flag `010001`; paper-to-follow items carry the instrument itself.
+* **Continuous clearing (Rev 3.0), the current model.** The clearing house (CCH) sets an **`ItemExpiryTime`** on every
+  item. A drawee must answer before it: a positive response (`00`) or a negative one (a reason code); an item with no
+  response is **Deemed Accepted (`99`)**, which the CCH assigns. A drawee may ask the CCH for a **cycle extension**
+  (until the settlement cycle ends) or a **day extension** (to the next working day's settlement cycle) through an
+  Extension file, and may return up to the extended expiry (example in Appx 10.7: attached 11:00, 2 h clearing length,
+  2 h extension, returns allowed until 15:00). Banks can also respond, return and **recall** items online through the CCH
+  web application, and the CCH publishes inward, extended and returned item reports. ASTRA already takes its deadline
+  from `ItemExpiryTime` (`pxf_iet_parser.py`), as the spec requires; it does **not** implement extension requests, online
+  return or recall, and the positive-response file path (`00`) is unverified because NGCH is a dev stub.
 * **Not in these documents:** the "customer not at fault" list (Annexure II) comes from a bank policy reproducing
-  URRBCH Annexure D, so it is still secondary. The session timings in the 2018 guideline (presentation 3:30-7:30 PM,
-  return 12:00-2:30 PM) predate continuous clearing and the single National Grid, so they are not used; NPCI's current
-  National Grid and continuous-clearing circulars are not in the folder.
+  URRBCH Annexure D, so it is still secondary. The 2018 guideline's fixed session timings (presentation 3:30-7:30 PM,
+  return 12:00-2:30 PM) are superseded by the continuous-clearing model above and are not used. NPCI's separate National
+  Grid circulars are not in the folder.
 * **Gap found:** the PPS specification defines NPCI's CIIF file (CSV and XML: payee account, serial number, issue date
   DDMMYYYY, amount, transaction code, drawee bank name and routing number, payee name, SAN, three optional fields).
   ASTRA had no reader for it; `modules/cts/vaults/ciif.py` now parses and validates it (CSV and XML, every rule in the
@@ -85,7 +96,10 @@ implemented, but the system it depends on is a stub or stand-in in dev · **PART
 | Inward Exchange Time (IET) window; missed IET = deemed approval | `IETWatchdogWorkflow`, T-30s emergency file | DONE (stand-in) | verified live: a 40 s deadline fired `EMERGENCY_FILED`. **Open defect:** after an emergency filing the main pipeline still queues a human review |
 | Exactly-once NGCH filing | `ngch_filer` idempotency | DONE (stand-in) | NGCH is a dev stub |
 | NPCI PPS interface (CIIF file, positive pay) | `modules/cts/vaults/ciif.py` | PARTIAL | parser and validator done and tested on the spec samples; not wired into the vault upload; file-name convention, reject-reason and response files not implemented |
-| Return only within clearing length / return session | not modelled | GAP | session calendar not implemented; figures need the primary guideline |
+| Respond before `ItemExpiryTime`; no response = deemed accepted (`99`) | `IETWatchdogWorkflow` + `pxf_iet_parser` | DONE (stand-in) | deadline taken per item from the file; verified live with a dev NGCH stub; real NGCH timing untested |
+| Request cycle / day extension (Extension file) | none | GAP | needed when a decision cannot be made before expiry |
+| Online return and recall via the CCH web application | none | GAP | manual route exists at the clearing house; no ASTRA integration |
+| Positive response (`00`) for on-realisation items | `file_to_ngch` CONFIRM path | UNVERIFIED | no evidence the real file carries `00`; NGCH is a stub |
 | Preserve images of government cheques for 10 years, separate from clearing images | MinIO WORM tiers (10-year cold tier) | PARTIAL | retention tier exists; no government-cheque flag or separate store |
 | Drawee may return government / other cheques as 'present with document' (40) to see the paper | human review path | PARTIAL | no automatic emission; the physical-cheque request workflow is not built |
 | Single National Grid (one grid since 13 Oct 2023) | grid-agnostic design | DONE | no per-grid assumptions in the code |

@@ -175,8 +175,8 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   target unless the interval clears it.
 - **Open policy question (compliance officer):** codes 30/31/32/55 are treated as "customer not at fault" although
   Annexure II does not list them (pinned in `test_npci_return_codes_conformance.py`).
-- **Primary NPCI/RBI documents are in `docs/npci/source/` and the return-code list is verified against them** (CHI
-  Specification v2.10, Chennai guidelines v2.1). That check found the return-file code table (`rrf/models.py`) used
+- **Primary NPCI/RBI documents are in `docs/npci/source/` and the return-code list is verified against them** (CTS Specifications for Continuous Clearing, Rev 3.0 (26 Mar 2025),
+  Chennai guidelines v2.1). That check found the return-file code table (`rrf/models.py`) used
   invented codes; it is fixed and pinned by `test_rrf_codes_conformance.py`. Annexure II (customer fault) and the
   continuous-clearing timings are still not in the primary set.
 - **MICR number, sort code and amount are read twice by different models**; a disagreement goes to review with both
