@@ -60,3 +60,14 @@ docs/cheques/KBL/
 docs/cheques/**/*.7z
 docs/cheques/**/*.zip
 docs/dev_real_cheque_*
+
+# Third-party NPCI/RBI source PDFs (kept locally; see docs/npci/source/README.md) and unrelated pitch decks
+docs/npci/source/*.pdf
+docs/BizCollect_GFF_Pitch_Deck.*
+docs/evidence/2026-09-22/inward_real_run_stprescue_18_cheques.json
+docs/swadhyay-parivar-cheque-solution.pptx
+
+# Real cheque images must never be committed
+demo/112/
+docs/evidence/**/iw_*.png
+docs/evidence/**/ow_*.png
