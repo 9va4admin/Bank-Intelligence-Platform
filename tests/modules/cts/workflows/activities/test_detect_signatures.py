@@ -293,3 +293,61 @@ class TestDetectSignaturesBboxes:
         result = await detect_signatures(_make_input(), vllm_client=client)
 
         assert result.sig_bboxes == []
+
+
+class TestVllmErrorTriesCloudBeforePixelFallback:
+    """Found running the real worker: when the vLLM call raised, the activity went
+    straight to the degraded pixel detector and never tried the (config-gated)
+    HF cloud fallback that the no-client branch does try."""
+
+    @pytest.mark.asyncio
+    async def test_vllm_error_uses_hf_cloud_result_when_available(self, monkeypatch):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities import detect_signatures as ds
+
+        client = MagicMock()
+        client.chat.completions.create = AsyncMock(side_effect=ConnectionError("vllm down"))
+        cloud = ds.DetectSignaturesResult(outcome="PRESENT", sig_count=1,
+                                          sig_bboxes=[[0.6, 0.6, 0.9, 0.8]], fraud_flags=[], degraded=False)
+        with patch.object(ds, "_crop_signature_zone", new=AsyncMock(return_value=b"png")), \
+             patch.object(ds, "_detect_via_hf_cloud", new=AsyncMock(return_value=cloud)) as hf, \
+             patch.object(ds, "_detect_via_sig_detector", new=AsyncMock()) as pixel:
+            result = await ds.detect_signatures(_make_input(), vllm_client=client, config_service=MagicMock())
+        assert result is cloud and result.degraded is False
+        hf.assert_awaited_once()
+        pixel.assert_not_awaited()
+
+
+class TestAbsentIsConfirmedWithASecondLook:
+    """The detector is model-based and not deterministic: Lot 2 (real) had a visible Gujarati-script
+    signature reported 'absent' in a pipeline run and 'present' when re-run. 'Absent' is therefore only
+    reported after a second look agrees; any look that finds a signature wins."""
+
+    @pytest.mark.asyncio
+    async def test_absent_then_present_is_reported_present(self):
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(side_effect=[
+            _make_vllm_response(0, [], []),
+            _make_vllm_response(1, [[0.6, 0.7, 0.95, 0.9]], []),
+        ])
+        r = await detect_signatures(_make_input(), vllm_client=client)
+        assert r.outcome == "PRESENT" and r.sig_count == 1
+        assert client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_absent_twice_is_reported_absent(self):
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(return_value=_make_vllm_response(0, [], []))
+        r = await detect_signatures(_make_input(), vllm_client=client)
+        assert r.outcome == "ABSENT"
+        assert client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_present_first_time_is_not_looked_at_again(self):
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(return_value=_make_vllm_response(1, [[0.6, 0.7, 0.95, 0.9]], []))
+        await detect_signatures(_make_input(), vllm_client=client)
+        assert client.chat.completions.create.await_count == 1

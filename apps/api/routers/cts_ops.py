@@ -25,6 +25,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
@@ -59,7 +60,7 @@ class SMBOpsToday(BaseModel):
 
 class SMBOpsTrendPoint(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     total: int
 
 
@@ -171,7 +172,7 @@ class SMBSettlementLeg(BaseModel):
 
 class SMBSettlementResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     legs: list[SMBSettlementLeg]
     degraded: bool
 
@@ -225,7 +226,7 @@ class SMBReturnEvent(BaseModel):
     account_display: str
     decision: str
     decision_reason: str
-    returned_at: str
+    returned_at: IsoTimestamp
 
 
 class SMBReturnEventsResponse(BaseModel):
@@ -425,7 +426,8 @@ class HumanReviewItem(BaseModel):
     instrument_id: str
     account_display: str
     decision_reason: str
-    queued_at: str
+    queued_at: IsoTimestamp
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class HumanReviewQueueResponse(BaseModel):
@@ -439,6 +441,7 @@ class HumanReviewQueueResponse(BaseModel):
 async def inward_human_review_queue(
     request: Request,
     limit: int = Query(default=50, le=100),
+    instrument_category: Optional[str] = Query(None),
     ctx: UserContext = Depends(_ctx),
 ) -> HumanReviewQueueResponse:
     bank_id = ctx.bank_id
@@ -450,24 +453,28 @@ async def inward_human_review_queue(
         rows = await db.fetch(
             """
             SELECT
-                ad.instrument_id,
+                ad.instrument_id::text AS instrument_id,
                 ci.account_last4,
                 ad.decision_reason,
-                ad.created_at
+                ad.created_at,
+                ad.instrument_category
             FROM cts.agent_decisions ad
             JOIN cts.cheque_instruments ci
               ON ci.instrument_id = ad.instrument_id
              AND ci.bank_id = ad.bank_id
             WHERE ad.bank_id = $1
               AND ad.decision = 'HUMAN_REVIEW'
+              AND ($3::text IS NULL OR ad.instrument_category = $3)
             ORDER BY ad.created_at ASC
             LIMIT $2
             """,
-            bank_id, limit,
+            bank_id, limit, instrument_category,
         )
         count_row = await db.fetchrow(
-            "SELECT COUNT(*) AS n FROM cts.agent_decisions WHERE bank_id = $1 AND decision = 'HUMAN_REVIEW'",
-            bank_id,
+            "SELECT COUNT(*) AS n FROM cts.agent_decisions "
+            "WHERE bank_id = $1 AND decision = 'HUMAN_REVIEW' "
+            "AND ($2::text IS NULL OR instrument_category = $2)",
+            bank_id, instrument_category,
         )
         items = [
             HumanReviewItem(
@@ -475,6 +482,7 @@ async def inward_human_review_queue(
                 account_display=_mask_account(r["account_last4"]),
                 decision_reason=r["decision_reason"] or "—",
                 queued_at=r["created_at"].isoformat() if r["created_at"] else "",
+                instrument_category=r["instrument_category"] or "CHEQUE",
             )
             for r in rows
         ]
@@ -492,7 +500,7 @@ async def inward_human_review_queue(
 
 class NGCHStatusResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
-    last_submission_at: Optional[str]
+    last_submission_at: OptIsoTimestamp
     last_status: Optional[str]
     pending_count: int
     submitted_today: int
@@ -619,7 +627,7 @@ class CrossCentreAlert(BaseModel):
     rpc_id: str
     description: str
     severity: str
-    detected_at: str
+    detected_at: IsoTimestamp
 
 
 class CrossCentreAlertsResponse(BaseModel):
@@ -652,7 +660,7 @@ class OutwardAuditEvent(BaseModel):
     branch_id: str
     outcome: str
     scan_id: str
-    scanned_at: str
+    scanned_at: IsoTimestamp
 
 
 class OutwardAuditEventsResponse(BaseModel):
@@ -721,8 +729,8 @@ class BranchSessionResponse(BaseModel):
     branch_id: Optional[str]
     status: Optional[str]
     hub_type: Optional[str]
-    clearing_date: Optional[str]
-    opened_at: Optional[str]
+    clearing_date: OptIsoTimestamp
+    opened_at: OptIsoTimestamp
     total_uploaded: int
     total_accepted: int
     total_rejected: int
@@ -810,13 +818,13 @@ class BranchSessionItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
     branch_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     status: str
     hub_type: str
     total_uploaded: int
     total_accepted: int
     total_rejected: int
-    opened_at: str
+    opened_at: IsoTimestamp
 
 
 class BranchSessionsResponse(BaseModel):
@@ -937,7 +945,7 @@ class EEHHealthScanner(BaseModel):
     status: str
     scans_today: int
     errors_today: int
-    last_heartbeat_at: Optional[str]
+    last_heartbeat_at: OptIsoTimestamp
 
 
 class EEHHealthResponse(BaseModel):
@@ -1019,7 +1027,7 @@ async def branch_eeh_health(
 
 class AgencyRelayStatsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     total_instruments: int
     submitted: int
     pending: int
@@ -1082,7 +1090,7 @@ class AgencyPushSession(BaseModel):
     outcome: str
     records_received: int
     records_processed: int
-    received_at: str
+    received_at: IsoTimestamp
 
 
 class AgencyPushSessionsResponse(BaseModel):

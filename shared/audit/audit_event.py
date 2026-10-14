@@ -127,6 +127,11 @@ class AuditEvent(BaseModel):
     timestamp: float = Field(default_factory=time.time)
     signature: bytes | None = Field(default=None)
 
+    def to_record(self) -> dict:
+        """JSON-safe dict for ImmudbClient.write_event (which requires a dict containing bank_id).
+        to_json() returns BYTES for signing/storage and must not be passed to write_event."""
+        return json.loads(self.to_json())
+
     def to_json(self) -> bytes:
         """Return canonical JSON bytes for storage and signing."""
         data = {

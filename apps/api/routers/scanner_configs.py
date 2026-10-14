@@ -32,6 +32,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
@@ -147,8 +148,8 @@ class ScannerConfigResponse(BaseModel):
     image_side_mapping: dict[str, Any]
     drop_folder_path: str
     is_active: bool
-    created_at: str
-    updated_at: Optional[str]
+    created_at: IsoTimestamp
+    updated_at: OptIsoTimestamp
     created_by: str
 
 

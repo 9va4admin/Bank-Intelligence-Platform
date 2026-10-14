@@ -146,12 +146,14 @@ async def lifespan(app: FastAPI):
     # Isolated from EJ schema — pgbouncer-cts has access to cts schema only.
     try:
         import asyncpg
+        from shared.db.codecs import register_lenient_codecs
         db_cts_dsn = await config_service.get_secret("db.cts.dsn")
         app.state.db_pool_cts = await asyncpg.create_pool(
             dsn=db_cts_dsn,
             min_size=2,
             max_size=10,  # matches pgbouncer-cts max_connections per pod
             command_timeout=30,
+            init=register_lenient_codecs,
         )
         log.info("api_gateway.db_pool_cts_ready")
         # In dev/staging: auto-create all management tables so the API starts
@@ -189,6 +191,10 @@ async def lifespan(app: FastAPI):
             secure=minio_secure,
         )
         log.info("api_gateway.minio_store_ready", endpoint=minio_endpoint)
+        from shared.storage.buckets import ensure_required_buckets
+        _failed_buckets = await ensure_required_buckets(app.state.minio_store)
+        if _failed_buckets:
+            log.warning("api_gateway.buckets_not_ensured", buckets=_failed_buckets)
     except Exception as exc:
         log.error("api_gateway.minio_store_failed", error=str(exc))
         app.state.minio_store = None
@@ -224,10 +230,16 @@ async def lifespan(app: FastAPI):
         _bank_id = config_service.bank_id
 
         if app.state.db_pool_cts is not None:
+            # Layer 2/3 "auth" block (SAML / LDAP per entity). Absent -> None -> local DB auth (dev/POC).
+            try:
+                _auth_config = await config_service.get("auth")
+            except Exception:
+                _auth_config = None
             _connector_factory = AuthConnectorFactory(
                 bank_id=_bank_id,
                 config_service=config_service,
                 db_pool=app.state.db_pool_cts,
+                auth_config=_auth_config,
             )
             app.state.connector_factory = _connector_factory
             _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
@@ -266,6 +278,12 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.error("api_gateway.auth_service_failed", error=str(exc))
         app.state.auth_service = None
+
+    # --- ImmuDB: API-side audit (branch / PU / scanner-config / bank onboarding ...) ---
+    # Routers guard audit writes with `if app.state.immudb_client`; it was never set, so every
+    # API-side audit event was silently dropped.
+    from shared.audit.immudb_bootstrap import build_sync_immudb_client
+    app.state.immudb_client = await build_sync_immudb_client(config_service, config_service.bank_id)
 
     # --- Cache invalidation consumer (platform.config.changed → Redis DEL) ---
     # Runs in background — Kafka consumer that deletes stale config cache entries

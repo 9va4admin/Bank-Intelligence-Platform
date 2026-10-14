@@ -318,3 +318,55 @@ class TestGetHubSummaryWithDB:
         assert result.active_sessions == 1
         assert result.branches[0].session is not None
         assert result.branches[1].session is None
+
+
+class TestScannerHealthDerivedNotStored:
+    """Found by the real API run: the hub-summary SQL selected r.health, a column that does
+    not exist (health is derived from heartbeat fields), so GET /outward/hub-summary returned
+    500 'Database error' for every bank."""
+
+    def test_sql_never_references_a_health_column(self):
+        from apps.api.routers.cts_outward_core import _HUB_SUMMARY_SQL
+        assert "r.health" not in _HUB_SUMMARY_SQL
+        assert "last_heartbeat_at" in _HUB_SUMMARY_SQL
+
+    @staticmethod
+    def _row(**kw):
+        base = dict(branch_id="B1", branch_name="Main", branch_ifsc="KARB0000001", hub_type="EEH",
+                    session_id=None, current_lot_id=None, lots_sealed_today=0,
+                    registration_id=None, last_heartbeat_at=None, heartbeat_interval_seconds=60)
+        base.update(kw)
+        return base
+
+    def test_no_registration_is_unknown(self):
+        from apps.api.routers.cts_outward_core import _row_to_branch_summary
+        assert _row_to_branch_summary(self._row()).scanner_health == "UNKNOWN"
+
+    def test_registered_without_heartbeat_is_pending(self):
+        from apps.api.routers.cts_outward_core import _row_to_branch_summary
+        assert _row_to_branch_summary(self._row(registration_id="R1")).scanner_health == "PENDING"
+
+    def test_recent_heartbeat_is_online_and_old_is_offline(self):
+        from datetime import datetime, timedelta, timezone
+        from apps.api.routers.cts_outward_core import _row_to_branch_summary
+        now = datetime.now(timezone.utc)
+        assert _row_to_branch_summary(self._row(registration_id="R1", last_heartbeat_at=now)).scanner_health == "ONLINE"
+        old = now - timedelta(hours=2)
+        assert _row_to_branch_summary(self._row(registration_id="R1", last_heartbeat_at=old)).scanner_health == "OFFLINE"
+
+
+class TestHubSummaryQueryArgumentTypes:
+    """Found by the real API run against real YugabyteDB: the route passed the clearing date as an
+    ISO *string* to a DATE comparison; asyncpg raised "'str' object has no attribute 'toordinal'"
+    and every call returned 500. Mock connections accept anything, so only a type check catches it."""
+
+    @pytest.mark.asyncio
+    async def test_clearing_date_query_argument_is_a_date_object(self):
+        from datetime import date
+        conn = AsyncMock(); conn.fetch = AsyncMock(return_value=[])
+        pool = AsyncMock()
+        pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=conn), __aexit__=AsyncMock(return_value=False)))
+        await get_hub_summary(request=_make_request(pool), ctx=_make_ctx())
+        args = conn.fetch.call_args[0]
+        assert isinstance(args[2], date) and not isinstance(args[2], str)

@@ -323,6 +323,47 @@ async def _ocr_fake_degraded(inp, orchestrator=None, config_service=None, routin
     )
 
 
+# ── Multisignal rescue fakes (2026-09-23) ──────────────────────────────────────
+# Weak payee/amount_words only, but MICR/account resolved — the exact real-world
+# case: printed date/amount-in-figures boxes read fine, cursive payee name/amount-
+# words don't. This is the case the rescue is meant to unlock.
+@activity.defn(name="ocr_extract")
+async def _ocr_fake_rescuable(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW",
+        micr_line="600002000099",
+        amount_figures="75000",
+        amount_words="garbled illegible text",
+        date="15/08/2026",
+        payee="garbled illegible text",
+        ifsc_code="SRCB0000001",
+        overall_confidence=0.42,
+        low_confidence_reason="low_confidence_fields: ['payee', 'amount_words']",
+        low_confidence_fields=["payee", "amount_words"],
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
+# "date" is NOT in the safe-to-rescue set (feeds decision.py's hard undated/stale/
+# post-dated gate) — must still early-exit even though account_number_last4 exists.
+@activity.defn(name="ocr_extract")
+async def _ocr_fake_unsafe_field(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW",
+        micr_line="600002000099",
+        amount_figures="75000",
+        amount_words="Seventy Five Thousand Only",
+        date="garbled",
+        payee="Suresh Patil",
+        overall_confidence=0.45,
+        low_confidence_reason="low_confidence_fields: ['date']",
+        low_confidence_fields=["date"],
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
 def _dget(inp, key):
     return inp[key] if isinstance(inp, dict) else getattr(inp, key)
 
@@ -564,6 +605,159 @@ class TestInwardOCRTemporalE2E:
 
 
 # ---------------------------------------------------------------------------
+# 3b. Multisignal rescue (2026-09-23) — STP architecture fix, real @workflow.run path
+#
+# Regression this closes: previously ANY low-confidence field among
+# date/payee/amount_words/amount_figures hard-exited to HUMAN_REVIEW before
+# signature/CBS/fraud ever ran, so those signals could never corroborate a cheque
+# whose only weakness was handwriting OCR (payee/amount_words), even when
+# everything else was clean. See cheque_workflow.py's _MULTISIGNAL_RESCUE_FIELDS.
+# ---------------------------------------------------------------------------
+
+class TestInwardOCRMultisignalRescue:
+    @pytest.mark.asyncio
+    async def test_weak_payee_and_amount_words_with_micr_reaches_synthesise_decision(self, temporal_env):
+        """The case this feature exists for: payee/amount_words illegible, but MICR
+        resolves an account. Must NOT early-exit — must reach synthesise_decision
+        (mocked here to always return STP_CONFIRM, so this decision value is only
+        reachable if the pipeline actually continued past the OCR gate)."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+
+        task_queue = f"tq-rescue-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"RESCUE-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_rescuable, *_BASE_ACTIVITIES],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            result = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id,
+                    image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="000099",
+                    presented_amount=75000.0, presented_payee="Suresh Patil",
+                    iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001",
+                    cts_config={"stp_mode": "FULL_STP", "ocr_multisignal_rescue_enabled": True},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_weak_payee_without_real_account_number_still_early_exits(self, temporal_env):
+        """Same weak fields, but no real account number was ever presented for this
+        instrument (empty ChequeWorkflowInput.account_number) — nothing to run
+        CBS/signature corroboration against, so this must still early-exit exactly
+        as before. The rescue gate checks inp.account_number (known from
+        presentment metadata, independent of OCR) — not an OCR/MICR-derived
+        account fragment, which real Indian CTS-2010 MICR never contains."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+
+        task_queue = f"tq-rescue-noacct-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"RESCUE-NOACCT-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_rescuable, *_BASE_ACTIVITIES],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            result = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id,
+                    image_url="minio://cts/inward/x.tiff",
+                    account_number="", cheque_number="000099",
+                    presented_amount=75000.0, presented_payee="Suresh Patil",
+                    iet_deadline=time.time() + 3600,
+                    cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_weak_date_never_rescued_even_with_micr(self, temporal_env):
+        """date is excluded from the rescue set — it feeds decision.py's hard
+        undated/post-dated/stale auto-return gate, where a wrong OCR reading could
+        file an incorrect STP_RETURN. Must still early-exit."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+
+        task_queue = f"tq-rescue-unsafe-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"RESCUE-UNSAFE-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_unsafe_field, *_BASE_ACTIVITIES],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            result = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id,
+                    image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="000099",
+                    presented_amount=75000.0, presented_payee="Suresh Patil",
+                    iet_deadline=time.time() + 3600,
+                    cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_rescue_disabled_by_config_still_early_exits(self, temporal_env):
+        """cts.ocr_multisignal_rescue_enabled=False (Layer 3, bank-configurable) must
+        fully restore the old, conservative behaviour regardless of which fields
+        are weak."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+
+        task_queue = f"tq-rescue-off-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"RESCUE-OFF-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_rescuable, *_BASE_ACTIVITIES],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            result = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id,
+                    image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="000099",
+                    presented_amount=75000.0, presented_payee="Suresh Patil",
+                    iet_deadline=time.time() + 3600,
+                    cts_config={"stp_mode": "FULL_STP", "ocr_multisignal_rescue_enabled": False},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+        assert result.decision == "HUMAN_REVIEW"
+
+
+# ---------------------------------------------------------------------------
 # 4. OCR field flow-through (unit — no Temporal)
 # ---------------------------------------------------------------------------
 
@@ -614,3 +808,588 @@ class TestOCRFieldFlowThrough:
         assert len(indic.ocr_engines_used) == 2
         assert any("indic_ocr" in e for e in indic.ocr_engines_used)
         assert "payee" in indic.indic_refined_fields
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_fake_dd(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="PROCEED", micr_line="152173000052000", amount_figures="22000",
+        amount_words="Twenty Two Thousand Only", date="15/08/2026",
+        payee="THE COURT RECEIVER HIGH COURT MUMBAI", overall_confidence=0.97,
+        instrument_category="DEMAND_DRAFT", ocr_engines_used=["got-ocr2.0:cascade-1", "dd-pass"],
+    )
+
+
+@activity.defn(name="detect_signatures")
+async def _sig_absent(inp):
+    from modules.cts.workflows.activities.detect_signatures import DetectSignaturesResult
+    return DetectSignaturesResult(outcome="ABSENT", sig_count=0, sig_bboxes=[], fraud_flags=[])
+
+
+class TestSignatureAbsentByInstrumentType:
+    """2026-10-12: a stamp-covered DD (real Lot 3 sample) got 'no signature found' and was
+    auto-returned. Detection is unreliable on DDs (bank stamps + officer name blocks overlap
+    the signature), so for a DD an ABSENT result must go to a human, not an auto-return. For a
+    plain cheque the existing hard return is unchanged."""
+
+    async def _run(self, temporal_env, ocr_fake, cts_extra=None, presented=22000.0):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-sigabs-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"SIGABS-{uuid.uuid4().hex[:8]}"
+        acts = [ocr_fake, _sig_absent, *[a for a in _BASE_ACTIVITIES if a is not _e2e_detect_signatures]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=presented, presented_payee="X", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP", **(cts_extra or {})},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_dd_with_no_signature_detected_goes_to_human_review(self, temporal_env):
+        result = await self._run(temporal_env, _ocr_fake_dd)
+        assert result.decision == "HUMAN_REVIEW"
+        assert result.rationale == "dd_signature_not_detected"
+
+    @pytest.mark.asyncio
+    async def test_plain_cheque_with_no_signature_detected_goes_to_human_review_by_default(self, temporal_env):
+        # Lot 2 (real): a cheque with a visible Gujarati-script signature was reported 'absent' and
+        # auto-returned. One detector miss must never return a cheque on its own.
+        result = await self._run(temporal_env, _ocr_fake_proceed, presented=75000.0)
+        assert result.decision == "HUMAN_REVIEW"
+        assert result.rationale == "signature_not_detected"
+
+    @pytest.mark.asyncio
+    async def test_bank_can_opt_in_to_auto_return_on_absent_signature(self, temporal_env):
+        result = await self._run(temporal_env, _ocr_fake_proceed, {"signature_absent_action": "AUTO_RETURN"}, presented=75000.0)
+        assert result.decision == "STP_RETURN"
+        assert result.rationale == "no_signature_on_cheque"
+
+
+def _ocr_fake_with_number(no):
+    @activity.defn(name="ocr_extract")
+    async def _fake(inp, orchestrator=None, config_service=None, routing_table=None):
+        from modules.cts.workflows.activities.ocr import OCRActivityResult
+        return OCRActivityResult(
+            outcome="PROCEED", micr_line=f"{no}000052000", amount_figures="22000",
+            amount_words="Twenty Two Thousand Only", date="15/08/2026",
+            payee="THE COURT RECEIVER HIGH COURT MUMBAI", overall_confidence=0.97,
+            instrument_category="DEMAND_DRAFT", cheque_number=no, bank_branch_code="000052000",
+            ocr_engines_used=["got-ocr2.0:cascade-1"],
+        )
+    return _fake
+
+
+class TestMicrChequeNumberCrossCheck:
+    """Cross-check the number read off the MICR band against the number in the NGCH presentment
+    metadata. A digit misread inside the sort-code window can't be caught by anchoring; a number
+    that disagrees with the presented one can, and must go to a human, never be trusted."""
+
+    @pytest.mark.asyncio
+    async def test_mismatch_goes_to_human_review(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_with_number("152199"))
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("micr_cheque_number_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_matching_number_is_not_flagged(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_with_number("152173"))
+        assert not r.rationale.startswith("micr_cheque_number_mismatch")
+
+
+_FRAUD_CALLS: list = []
+
+
+@activity.defn(name="score_fraud")
+async def _spy_score_fraud(inp):
+    from modules.cts.workflows.activities.fraud import FraudActivityResult
+    _FRAUD_CALLS.append(inp["instrument_id"] if isinstance(inp, dict) else inp.instrument_id)
+    return FraudActivityResult(fraud_score=0.04, shap_values={"amount": -0.1, "_source": "spy"})
+
+
+class TestFraudScoredOnEveryExit:
+    """The fraud model must run for EVERY instrument, including ones that exit early to human
+    review (OCR quality, MICR number mismatch ...) — a reviewer needs the score on those too —
+    and exactly once on the full path (no double scoring)."""
+
+    async def _run(self, temporal_env, ocr_fake, cheque_number="152173"):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        _FRAUD_CALLS.clear()
+        task_queue = f"tq-fraudall-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"FRAUDALL-{uuid.uuid4().hex[:8]}"
+        acts = [ocr_fake, _spy_score_fraud, *[a for a in _BASE_ACTIVITIES if a is not _e2e_score_fraud]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            res = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number=cheque_number,
+                    presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+            return res, list(_FRAUD_CALLS)
+
+    @pytest.mark.asyncio
+    async def test_ocr_quality_exit_still_scores_fraud_once(self, temporal_env):
+        res, calls = await self._run(temporal_env, _ocr_fake_hrq)
+        assert res.decision == "HUMAN_REVIEW" and len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_micr_number_mismatch_exit_still_scores_fraud_once(self, temporal_env):
+        res, calls = await self._run(temporal_env, _ocr_fake_with_number("152199"))
+        assert res.rationale.startswith("micr_cheque_number_mismatch") and len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_full_path_scores_fraud_exactly_once(self, temporal_env):
+        res, calls = await self._run(temporal_env, _ocr_fake_proceed)
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_fraud_failure_on_an_early_exit_never_blocks_the_decision(self, temporal_env):
+        @activity.defn(name="score_fraud")
+        async def _boom(inp):
+            raise RuntimeError("model down")
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-fraudall-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"FRAUDBOOM-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_fake_hrq, _boom, *[a for a in _BASE_ACTIVITIES if a is not _e2e_score_fraud]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            res = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="X", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+        assert res.decision == "HUMAN_REVIEW"
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_fake_payee_disagreement(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW", micr_line="000099000052000", amount_figures="75000",
+        amount_words="Seventy Five Thousand Only", date="15/08/2026", payee=None,
+        ifsc_code="SRCB0000001", overall_confidence=0.95,
+        low_confidence_reason="payee_reread_disagreement", low_confidence_fields=["payee"],
+        payee_reread_status="DISAGREE", payee_candidates=["Rousick Mondal", "Kousick Mondal"],
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
+class TestPayeeRereadDisagreementIsNeverRescued:
+    @pytest.mark.asyncio
+    async def test_disagreeing_payee_reads_go_to_human_review_not_through_the_rescue_path(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_payee_disagreement, presented=75000.0)
+        assert r.decision == "HUMAN_REVIEW"
+        assert "payee_reread_disagreement" in r.rationale
+
+
+class TestUnreadableFieldsGoToReviewByDefault:
+    """An unreadable payee / amount-in-words is called unequivocally: human review. The multisignal
+    rescue (which lets such an instrument continue and even reach STP_CONFIRM) is OFF unless a bank
+    explicitly enables cts.ocr_multisignal_rescue_enabled."""
+
+    @pytest.mark.asyncio
+    async def test_weak_payee_goes_to_human_review_when_rescue_not_enabled(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_fake_rescuable, presented=75000.0)
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("ocr_quality")
+
+
+def _ocr_fake_with_payee(payee, low=()):
+    @activity.defn(name="ocr_extract")
+    async def _fake(inp, orchestrator=None, config_service=None, routing_table=None):
+        from modules.cts.workflows.activities.ocr import OCRActivityResult
+        return OCRActivityResult(
+            outcome="PROCEED", micr_line="152173000052000", amount_figures="22000",
+            amount_words="Twenty Two Thousand Only", date="15/08/2026", payee=payee,
+            overall_confidence=0.97, instrument_category="CHEQUE", cheque_number="152173",
+            low_confidence_fields=list(low), ocr_engines_used=["got-ocr2.0:cascade-1"],
+        )
+    return _fake
+
+
+class TestPayeeReferenceCrossCheck:
+    """When the presentment / PPS data carries a reference payee, the name read from the handwriting
+    must match it (letters, not format). A one-letter difference is exactly the confident-wrong case a
+    single read cannot see; it goes to a human with both names, never through."""
+
+    async def _run(self, temporal_env, payee, presented):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-payeeref-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"PAYEEREF-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_fake_with_payee(payee), *_BASE_ACTIVITIES]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee=presented, iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_one_letter_difference_goes_to_human_review(self, temporal_env):
+        r = await self._run(temporal_env, "Rousick Mondal", "Kousick Mondal")
+        assert r.decision == "HUMAN_REVIEW" and r.rationale.startswith("payee_presented_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_same_name_in_different_format_is_not_flagged(self, temporal_env):
+        r = await self._run(temporal_env, "S.B. Health Care", "s b health care")
+        assert not r.rationale.startswith("payee_presented_mismatch")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("presented", ["", "UNKNOWN", "X"])
+    async def test_no_usable_reference_means_no_check(self, temporal_env, presented):
+        r = await self._run(temporal_env, "Rousick Mondal", presented)
+        assert not r.rationale.startswith("payee_presented_mismatch")
+
+
+def _ocr_fake_with_sort_code(code):
+    @activity.defn(name="ocr_extract")
+    async def _fake(inp, orchestrator=None, config_service=None, routing_table=None):
+        from modules.cts.workflows.activities.ocr import OCRActivityResult
+        return OCRActivityResult(
+            outcome="PROCEED", micr_line="152173000052000", amount_figures="22000",
+            amount_words="Twenty Two Thousand Only", date="15/08/2026", payee="X Y Z",
+            overall_confidence=0.97, instrument_category="CHEQUE", cheque_number="152173",
+            bank_branch_code=code, ocr_engines_used=["got-ocr2.0:cascade-1"],
+        )
+    return _fake
+
+
+class TestMicrBranchMasterCheck:
+    """A digit misread INSIDE the sort-code window can't be caught by bank-code anchoring. A bank's own
+    branch master (cts.micr_branch_master) can: a code that is not one of the bank's real branches is
+    never trusted. Empty master = check disabled."""
+
+    async def _run(self, temporal_env, code, master):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-micrmaster-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"MICRMASTER-{uuid.uuid4().hex[:8]}"
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_with_sort_code(code), *_BASE_ACTIVITIES], workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="X Y Z", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001",
+                    cts_config={"stp_mode": "FULL_STP", "micr_branch_master": master},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_code_not_in_master_goes_to_human_review(self, temporal_env):
+        r = await self._run(temporal_env, "713052202", ["713052002", "700052007"])
+        assert r.decision == "HUMAN_REVIEW" and r.rationale.startswith("micr_sort_code_not_in_branch_master")
+
+    @pytest.mark.asyncio
+    async def test_code_in_master_is_not_flagged(self, temporal_env):
+        r = await self._run(temporal_env, "713052002", ["713052002", "700052007"])
+        assert not r.rationale.startswith("micr_sort_code")
+
+    @pytest.mark.asyncio
+    async def test_unreadable_sort_code_with_master_enabled_goes_to_human_review(self, temporal_env):
+        r = await self._run(temporal_env, None, ["713052002"])
+        assert r.decision == "HUMAN_REVIEW" and r.rationale.startswith("micr_sort_code_unreadable")
+
+    @pytest.mark.asyncio
+    async def test_empty_master_disables_the_check(self, temporal_env):
+        r = await self._run(temporal_env, "713052202", [])
+        assert not r.rationale.startswith("micr_sort_code")
+
+
+def _ocr_fake_with_amount(figures, words):
+    @activity.defn(name="ocr_extract")
+    async def _fake(inp, orchestrator=None, config_service=None, routing_table=None):
+        from modules.cts.workflows.activities.ocr import OCRActivityResult
+        return OCRActivityResult(
+            outcome="PROCEED", micr_line="152173000052000", amount_figures=figures, amount_words=words,
+            date="15/08/2026", payee="X Y Z", overall_confidence=0.97, instrument_category="CHEQUE",
+            cheque_number="152173", bank_branch_code="000052000", ocr_engines_used=["got-ocr2.0:cascade-1"],
+        )
+    return _fake
+
+
+class TestAmountPresentedCrossCheck:
+    """Lot 2 (real): a cheque for Rs 2,00,000 was read as Rs 9,00,000 in BOTH figures and words, so the
+    figures-vs-words check could not see it. The amount on the image must also agree with the amount in
+    the NGCH presentment data, else a human looks."""
+
+    async def _run(self, temporal_env, figures, words, presented=22000.0):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-amtref-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"AMTREF-{uuid.uuid4().hex[:8]}"
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_with_amount(figures, words), *_BASE_ACTIVITIES], workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=presented, presented_payee="UNKNOWN", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_self_consistent_but_wrong_amount_goes_to_review(self, temporal_env):
+        r = await self._run(temporal_env, "9,00,000/-", "Nine Lakh Only", presented=200000.0)
+        assert r.decision == "HUMAN_REVIEW" and r.rationale.startswith("amount_presented_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_matching_amount_is_not_flagged(self, temporal_env):
+        r = await self._run(temporal_env, "22,000.00", "Twenty Two Thousand Only", presented=22000.0)
+        assert not r.rationale.startswith("amount_presented_mismatch")
+
+    @pytest.mark.asyncio
+    async def test_no_presented_amount_means_no_check(self, temporal_env):
+        r = await self._run(temporal_env, "9,00,000/-", "Nine Lakh Only", presented=0.0)
+        assert not r.rationale.startswith("amount_presented_mismatch")
+
+
+@activity.defn(name="mark_leaf_presented")
+async def _leaf_duplicate(inp):
+    from modules.cts.vaults.cheque_leaf_vault import DuplicatePresentmentError
+    raise DuplicatePresentmentError("Cheque 152173 is already PRESENTED - duplicate presentment detected.")
+
+
+@activity.defn(name="mark_leaf_presented")
+async def _leaf_vault_down(inp):
+    raise RuntimeError("redis unavailable")
+
+
+class TestDuplicatePresentmentIsActuallyBlocked:
+    """Found 2026-10-13 on real re-submissions: the vault reported 'duplicate_presentment' but the workflow
+    logged it as a generic failed activity and kept processing, so a duplicate cheque was treated as new
+    (the error name was searched for in the wrapper's text; Temporal keeps it in the cause chain).
+    A duplicate must be returned, never processed; a vault OUTAGE must still never block the IET."""
+
+    async def _run(self, temporal_env, leaf_fake):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-dup-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"DUP-{uuid.uuid4().hex[:8]}"
+        acts = [leaf_fake, _ocr_fake_with_amount("22,000.00", "Twenty Two Thousand Only"),
+                *[a for a in _BASE_ACTIVITIES if getattr(a, "__temporal_activity_definition").name != "mark_leaf_presented"]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="UNKNOWN", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_duplicate_leaf_is_returned_not_processed(self, temporal_env):
+        r = await self._run(temporal_env, _leaf_duplicate)
+        assert r.decision == "STP_RETURN"
+        assert r.rationale.startswith("DUPLICATE_PRESENTMENT")
+
+    @pytest.mark.asyncio
+    async def test_vault_outage_never_blocks_processing(self, temporal_env):
+        r = await self._run(temporal_env, _leaf_vault_down)
+        assert not r.rationale.startswith("DUPLICATE_PRESENTMENT")
+
+
+def _iqa_fake(outcome, reason=None):
+    @activity.defn(name="check_image_quality")
+    async def _fake(inp):
+        from modules.cts.workflows.activities.image_quality import IQAActivityResult
+        return IQAActivityResult(outcome=outcome, reason=reason, metrics={"width": 800, "sharpness": 12.0})
+    return _fake
+
+
+class TestImageQualityGate:
+    """RRC 39: an image the drawee cannot read is called before any OCR is spent on it. The check is
+    deterministic; an UNAVAILABLE check (or one that cannot run) never blocks a cheque."""
+
+    async def _run(self, temporal_env, iqa):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        task_queue = f"tq-iqa-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"IQA-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_fake_with_amount("22,000.00", "Twenty Two Thousand Only"), *_BASE_ACTIVITIES] + ([iqa] if iqa else [])
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="UNKNOWN", iet_deadline=time.time() + 3600,
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+
+    @pytest.mark.asyncio
+    async def test_unclear_image_goes_to_human_review_with_the_reason(self, temporal_env):
+        r = await self._run(temporal_env, _iqa_fake("FAIL", "image_not_sharp"))
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("image_quality_fail: image_not_sharp")
+        assert "rrc 39" in r.rationale.lower()
+
+    @pytest.mark.asyncio
+    async def test_clear_image_is_not_flagged(self, temporal_env):
+        r = await self._run(temporal_env, _iqa_fake("PASS"))
+        assert not r.rationale.startswith("image_quality_fail")
+
+    @pytest.mark.asyncio
+    async def test_unavailable_check_never_blocks(self, temporal_env):
+        r = await self._run(temporal_env, _iqa_fake("UNAVAILABLE"))
+        assert not r.rationale.startswith("image_quality_fail")
+
+    @pytest.mark.asyncio
+    async def test_check_not_registered_never_blocks(self, temporal_env):
+        r = await self._run(temporal_env, None)
+        assert not r.rationale.startswith("image_quality_fail")
+
+
+_REVIEW_PUSHES: list = []
+
+
+@activity.defn(name="push_to_review_queue")
+async def _spy_push_to_review_queue(inp):
+    _REVIEW_PUSHES.append(1)
+    return {"queued": True}
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_slow_low_confidence(inp, orchestrator=None, config_service=None, routing_table=None):
+    """A pipeline that is still working when the IET deadline arrives, and would then ask for human review."""
+    import asyncio
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    await asyncio.sleep(7)
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW", micr_line="152173000052000", date=None, payee=None, overall_confidence=0.3,
+        low_confidence_reason="low_confidence_fields: ['date']", low_confidence_fields=["date"],
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
+class TestPipelineStandsDownAfterIetEmergencyFiling:
+    """Live finding 2026-10-13: the watchdog filed its emergency decision at T-30s, then the still-running
+    pipeline queued a human review for an instrument that was already filed, so a reviewer could decide on
+    something already settled. Once the watchdog has filed, the pipeline's own outcome must not file or queue."""
+
+    @pytest.mark.asyncio
+    async def test_review_is_not_queued_and_the_emergency_outcome_is_reported(self, temporal_env):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        _REVIEW_PUSHES.clear()
+        task_queue = f"tq-ietstand-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"IETSTAND-{uuid.uuid4().hex[:8]}"
+        acts = [_ocr_slow_low_confidence, _spy_push_to_review_queue,
+                *[a for a in _BASE_ACTIVITIES if getattr(a, "__temporal_activity_definition").name != "push_to_review_queue"]]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=acts, workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            r = await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="152173",
+                    presented_amount=22000.0, presented_payee="UNKNOWN",
+                    iet_deadline=time.time() + 33,          # watchdog fires ~3s in; OCR finishes at ~7s
+                    ngch_ifsc="SRCB0000001", cts_config={"stp_mode": "FULL_STP"},
+                ),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
+            )
+        assert r.emergency_iet_filed is True
+        assert "iet" in r.rationale.lower()
+        assert _REVIEW_PUSHES == [], "a review was queued for an instrument the watchdog had already filed"
+
+
+@activity.defn(name="ocr_extract")
+async def _ocr_always_fails(inp, orchestrator=None, config_service=None, routing_table=None):
+    raise RuntimeError("OCR backend exploded")
+
+
+class TestOcrActivityFailureNeverFailsTheWorkflow:
+    """Found 2026-10-13 on a real run: the OCR activity exceeded its 30 s budget on 35 of 70 instruments, both
+    attempts timed out, and the WORKFLOW FAILED: no decision, no review, nothing filed (the IET watchdog's
+    default would then have deemed the instrument approved). An OCR failure must degrade to human review."""
+
+    @pytest.mark.asyncio
+    async def test_ocr_failure_goes_to_human_review_not_a_failed_workflow(self, temporal_env):
+        r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_always_fails)
+        assert r.decision == "HUMAN_REVIEW"
+        assert r.rationale.startswith("ocr_activity_failed")

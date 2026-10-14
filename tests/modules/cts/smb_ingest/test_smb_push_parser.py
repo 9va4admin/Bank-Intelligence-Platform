@@ -113,20 +113,20 @@ STOP_BANCS_FIXED = (
 
 class TestSMBPushParserStopPayments:
     def test_parse_generic_csv(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         records = parser.parse(STOP_CSV)
         assert len(records) == 2
         assert all(isinstance(r, StopPaymentRecord) for r in records)
 
     def test_account_number_hashed(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         records = parser.parse(STOP_CSV)
         # raw account number must NOT appear in output
         assert records[0].account_number_hash != "1234567890"
         assert len(records[0].account_number_hash) == 64   # SHA-256 hex
 
     def test_amount_bucketed_not_exact(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         records = parser.parse(STOP_CSV)
         # 150000 → ₹[1L-5L]
         assert records[0].amount_range == "₹[1L-5L]"
@@ -134,28 +134,28 @@ class TestSMBPushParserStopPayments:
         assert "₹" in records[1].amount_range
 
     def test_smb_id_propagated(self):
-        parser = SMBPushParser(smb_id="cosmos-ucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="cosmos-ucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         records = parser.parse(STOP_CSV)
         assert all(r.smb_id == "cosmos-ucb" for r in records)
 
     def test_header_only_returns_empty(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         records = parser.parse(STOP_CSV_HEADER_ONLY)
         assert records == []
 
     def test_empty_string_raises(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         with pytest.raises(SMBPushParseError, match="empty"):
             parser.parse("")
 
     def test_missing_required_column_raises(self):
         bad_csv = "account_number,cheque_number\n1234567890,000123\n"
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         with pytest.raises(SMBPushParseError, match="column"):
             parser.parse(bad_csv)
 
     def test_reason_preserved(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.STOP_PAYMENTS)
         records = parser.parse(STOP_CSV)
         assert records[0].reason == "LOST_CHEQUE"
         assert records[1].reason == "THEFT"
@@ -172,24 +172,24 @@ account_number,cheque_number,amount,payee_name
 
 class TestSMBPushParserPPS:
     def test_parse_pps_csv(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
         records = parser.parse(PPS_CSV)
         assert len(records) == 2
         assert all(isinstance(r, PPSEntry) for r in records)
 
     def test_payee_hashed_not_stored_raw(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
         records = parser.parse(PPS_CSV)
         assert records[0].payee_hash != "ACME Corporation"
         assert len(records[0].payee_hash) == 64
 
     def test_account_hashed_in_pps(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
         records = parser.parse(PPS_CSV)
         assert records[0].account_number_hash != "1111111111"
 
     def test_amount_bucketed_in_pps(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.PPS_ENTRIES)
         records = parser.parse(PPS_CSV)
         assert "₹" in records[0].amount_range
 
@@ -205,30 +205,30 @@ account_number,specimen_ref,captured_at
 
 class TestSMBPushParserSignatures:
     def test_parse_signatures_csv(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
         records = parser.parse(SIG_CSV)
         assert len(records) == 2
         assert all(isinstance(r, SignatureRecord) for r in records)
 
     def test_specimen_ref_preserved_exactly(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
         records = parser.parse(SIG_CSV)
         assert records[0].specimen_ref == "minio://astra/signatures/testucb/sig_001.jpg"
 
     def test_account_hashed_in_signatures(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
         records = parser.parse(SIG_CSV)
         assert records[0].account_number_hash != "1234567890"
         assert len(records[0].account_number_hash) == 64
 
     def test_captured_at_preserved(self):
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
         records = parser.parse(SIG_CSV)
         assert records[0].captured_at == "2026-07-01"
 
     def test_missing_specimen_ref_column_raises(self):
         bad = "account_number,captured_at\n1234567890,2026-07-01\n"
-        parser = SMBPushParser(smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
+        parser = SMBPushParser(bank_id="kbl", pepper="test-pepper", smb_id="testucb", file_type=SMBPushFileType.SIGNATURES)
         with pytest.raises(SMBPushParseError, match="column"):
             parser.parse(bad)
 

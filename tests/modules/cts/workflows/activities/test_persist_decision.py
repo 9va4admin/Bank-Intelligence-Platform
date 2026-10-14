@@ -211,3 +211,56 @@ class TestPersistDecisionPIISafety:
         await persist_agent_decision(inp, db_conn=conn)
         fields = set(inp.model_fields.keys())
         assert "account_number" not in fields
+
+
+class TestPersistDecisionColumnTypes:
+    """Found by the real runs: cts.agent_decisions stayed EMPTY because every insert failed silently
+    (warning + success=False): instrument_id is a UUID column but instrument ids are arbitrary strings,
+    and ocr_engines_used is JSONB but a raw list was passed (asyncpg needs a JSON string)."""
+
+    @pytest.mark.asyncio
+    async def test_non_uuid_instrument_id_is_mapped_to_a_uuid_argument(self):
+        import uuid as _u
+        inp = _fake_input(instrument_id="000787-c687")
+        conn = _fake_db()
+        result = await persist_agent_decision(inp, db_conn=conn)
+        assert result.success is True
+        arg1 = conn.execute.call_args[0][1]
+        assert isinstance(arg1, _u.UUID)
+
+    @pytest.mark.asyncio
+    async def test_real_uuid_instrument_id_is_kept(self):
+        import uuid as _u
+        u = str(_u.uuid4())
+        conn = _fake_db()
+        await persist_agent_decision(_fake_input(instrument_id=u), db_conn=conn)
+        assert conn.execute.call_args[0][1] == _u.UUID(u)
+
+    @pytest.mark.asyncio
+    async def test_ocr_engines_are_passed_as_a_json_string_for_the_jsonb_column(self):
+        conn = _fake_db()
+        await persist_agent_decision(_fake_input(ocr_engines_used=["hf-cloud:qwen"]), db_conn=conn)
+        args = conn.execute.call_args[0]
+        assert '["hf-cloud:qwen"]' in [a for a in args if isinstance(a, str)]
+        assert not any(a == ["hf-cloud:qwen"] for a in args)
+
+
+class TestPersistDecisionInstrumentCategory:
+    """instrument_category (CHEQUE | DEMAND_DRAFT, 2026-10-12) is stored in
+    cts.agent_decisions so Inward screens can filter/bucket by instrument type."""
+
+    @pytest.mark.asyncio
+    async def test_instrument_category_included_in_values(self):
+        inp = _fake_input(instrument_category="DEMAND_DRAFT")
+        conn = _fake_db()
+        await persist_agent_decision(inp, db_conn=conn)
+        call_args = conn.execute.call_args[0]
+        assert "DEMAND_DRAFT" in call_args[1:]
+
+    @pytest.mark.asyncio
+    async def test_instrument_category_defaults_to_cheque(self):
+        inp = _fake_input()
+        conn = _fake_db()
+        await persist_agent_decision(inp, db_conn=conn)
+        call_args = conn.execute.call_args[0]
+        assert "CHEQUE" in call_args[1:]

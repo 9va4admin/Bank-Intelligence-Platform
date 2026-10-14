@@ -56,7 +56,7 @@ try:
     )
 
     AUDIT_RETRY = RetryPolicy(
-        maximum_attempts=None,   # unlimited — audit must succeed
+        maximum_attempts=0,      # 0 = unlimited in the Temporal Python SDK (None is invalid)
         initial_interval=timedelta(seconds=1),
         maximum_interval=timedelta(minutes=5),
     )
@@ -86,6 +86,7 @@ from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWor
 from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
 from modules.cts.workflows.clearing_session_workflow import ClearingSessionWorkflow
 from modules.cts.workflows.session_reconciliation_workflow import SessionReconciliationWorkflow
+from modules.cts.workflows.representation_workflow import ChequeRepresentationWorkflow
 from modules.cts.workflows.sb_inward_forwarding_workflow import SBInwardForwardingWorkflow
 from modules.cts.workflows.smb_vault_push_workflow import SMBVaultPushWorkflow
 from modules.cts.workflows.agency_cc_workflow import AgencyCCWorkflow
@@ -96,6 +97,8 @@ from modules.cts.workflows.activities.alteration import detect_alteration
 from modules.cts.workflows.activities.signature import verify_signature
 from modules.cts.workflows.activities.pps import lookup_pps
 from modules.cts.workflows.activities.cbs import check_cbs_balance, check_account_status
+from modules.cts.workflows.activities.drawee_name import record_drawee_name, record_payee_name
+from modules.cts.workflows.activities.image_quality import check_image_quality
 from modules.cts.workflows.activities.stop_payment import check_stop_payment
 from modules.cts.workflows.activities.fraud import score_fraud
 from modules.cts.workflows.activities.decision import synthesise_decision
@@ -136,11 +139,13 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     validate_payee_account,
 )
 from modules.cts.workflows.activities.outward_payee_check import check_outward_payee
+from modules.cts.workflows.activities.persist_outward_instrument import persist_outward_instrument
 from modules.cts.workflows.activities.postdated_hold_activities import (
     store_postdated_hold,
     mark_hold_cancelled,
 )
 from modules.cts.workflows.activities.security_features import check_security_features
+from modules.cts.workflows.activities.review_queue_activities import open_review_item
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
 from modules.cts.workflows.mismatch_resolution_workflow import (
     publish_mismatch_hold,
@@ -159,6 +164,7 @@ from modules.cts.workflows.activities.ngch_submission_activities import (
 from modules.cts.workflows.activities.clearing_session_activities import (
     seal_all_lots,
     update_session_status,
+    mark_lots_submitted,
 )
 from modules.cts.workflows.activities.session_reconciliation_activities import (
     fetch_ngch_settlement_report,
@@ -231,6 +237,7 @@ ALL_WORKFLOWS = [
     NGCHSubmissionWorkflow,
     ClearingSessionWorkflow,
     SessionReconciliationWorkflow,
+    ChequeRepresentationWorkflow,
     SBInwardForwardingWorkflow,
     SMBVaultPushWorkflow,
     AgencyCCWorkflow,
@@ -265,6 +272,9 @@ ALL_ACTIVITIES = [
     lookup_pps,
     check_cbs_balance,
     check_account_status,
+    record_drawee_name,
+    record_payee_name,
+    check_image_quality,
     check_stop_payment,
     score_fraud,
     synthesise_decision,
@@ -300,6 +310,7 @@ ALL_ACTIVITIES = [
     confirm_acknowledgement,
     seal_all_lots,
     update_session_status,
+    mark_lots_submitted,
     fetch_ngch_settlement_report,
     match_submitted_vs_settled,
     generate_rrf,
@@ -340,6 +351,7 @@ NO_DI_ACTIVITIES = [
     # Clearing session (ClearingSessionWorkflow)
     seal_all_lots,
     update_session_status,
+    mark_lots_submitted,
     # Session reconciliation (SessionReconciliationWorkflow)
     match_submitted_vs_settled,
     generate_rrf,
@@ -352,8 +364,8 @@ NO_DI_ACTIVITIES = [
     # SMB vault push (SMBVaultPushWorkflow)
     parse_and_validate_smb_push,
     update_smb_vault,
-    # CTS-2010 security print detection (ChequeProcessingWorkflow + OutwardScanWorkflow)
-    check_security_features,
+    # check_security_features is a BoundCTSActivities method (needs vllm client + config)
+    open_review_item,   # durable human-review queue (db_pool injected by the generic DI binder)
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
@@ -362,6 +374,7 @@ NO_DI_ACTIVITIES = [
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
+    persist_outward_instrument,
     # Hold escalation (HoldEscalationWorkflow) — notification-only, no NGCH touch
     send_hold_reminder,
     send_hold_critical_alert,
@@ -397,6 +410,29 @@ if _MSV_AVAILABLE:
 # ---------------------------------------------------------------------------
 # Worker startup
 # ---------------------------------------------------------------------------
+
+def _registered_activities(bound_activities) -> list:
+    """Every activity the Worker registers: bare single-`inp` ones as-is, bare ones that
+    need dependencies wrapped by bind_di_activity (Temporal drops type hints and passes
+    a dict when an activity has extra params), plus the class-bound DI activities."""
+    from modules.cts.worker_activities import split_di_activities
+    wrapped, plain = split_di_activities(list(NO_DI_ACTIVITIES), bound_activities.di_dependencies())
+    return plain + wrapped + bound_activities.activity_list()
+
+
+def _maybe_apply_load_test_stubs(bound_activities, config_service):
+    """DEV ONLY: swap the six AI activities for instant stubs when the
+    cts.load_test_ai_stubs platform flag is "true". Refused outside development."""
+    try:
+        enabled = str(config_service.get_platform("cts.load_test_ai_stubs")).lower() == "true"
+    except ConfigKeyNotFoundError:
+        enabled = False
+    if not enabled:
+        return bound_activities
+    from modules.cts.dev.load_test_activities import apply_load_test_stubs
+    log.warning("worker.load_test_ai_stubs_active", note="AI activities are STUBS — pipeline load test only")
+    return apply_load_test_stubs(bound_activities)
+
 
 async def run_worker(bank_id: str, config_service: Optional[ConfigService] = None) -> None:
     if not _TEMPORAL_AVAILABLE:
@@ -448,7 +484,8 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     # dependency degrades independently to None on failure; see
     # modules/cts/worker_activities.py's module docstring.
     bound_activities = await build_bound_activities(bank_id, config_service)
-    worker_activities = NO_DI_ACTIVITIES + bound_activities.activity_list()
+    bound_activities = _maybe_apply_load_test_stubs(bound_activities, config_service)
+    worker_activities = _registered_activities(bound_activities)
 
     client = await Client.connect(
         temporal_address,
@@ -568,7 +605,10 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         from modules.cts.scanner.adapters import ScannerFactory  # noqa: F401 — imported for wiring
 
         kafka_bootstrap_for_watcher = config_service.get_platform("kafka.bootstrap_servers")
-        watcher_cfgs = config_service.get(f"cts.scanner.watcher_configs.{bank_id}", default=None)
+        try:
+            watcher_cfgs = await config_service.get(f"cts.scanner.watcher_configs.{bank_id}")
+        except Exception:
+            watcher_cfgs = None   # not configured for this bank — watcher simply not started
         if watcher_cfgs:
             from shared.event_bus.producer import EventProducer as _KafkaProducer
             for branch_cfg in watcher_cfgs:
@@ -649,6 +689,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 bank_id=bank_id,
                 bootstrap_servers=kafka_bootstrap,
                 immudb=bound_activities.immudb_client,
+                db=bound_activities.db_pool,
                 redis=bound_activities.redis_client,
                 config_svc=config_service,
             )
@@ -668,7 +709,38 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         )
 
     trigger_task = None
-    async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:
+    # Run the 4 workers as independent tasks rather than a single combined
+    # `async with A, B, C, D:` — found live (2026-09-23) that the combined form
+    # left Temporal reporting ZERO pollers for any of the 4 task queues even
+    # though this coroutine logged worker.ready and sat in its idle loop
+    # believing it was serving. `Worker.__aenter__` only schedules `run()` as a
+    # background task against `asyncio.current_task()`; with 4 workers sharing
+    # one current task, a fatal error surfacing from any single worker's run()
+    # cancels that shared task, and can leave the others' polling loops never
+    # actually scheduled. Running each worker.run() as its own task, with a
+    # plain worker.shutdown() on exit, makes the 4 workers genuinely
+    # independent — confirmed live: an isolated single-worker repro using this
+    # exact construction registered WORKFLOW/ACTIVITY pollers immediately,
+    # where the combined form registered none.
+    _all_workers = [processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker]
+    _worker_names = ["processing", "hr_standard", "hr_highvalue", "hr_veryhigh"]
+
+    def _make_done_cb(_name):
+        def _cb(_task):
+            if _task.cancelled():
+                log.warning("worker.run_task_cancelled", worker=_name)
+                return
+            _exc = _task.exception()
+            if _exc is not None:
+                log.error("worker.run_task_failed", worker=_name, error=repr(_exc))
+        return _cb
+
+    _worker_run_tasks = []
+    for _name, _w in zip(_worker_names, _all_workers):
+        _t = asyncio.create_task(_w.run())
+        _t.add_done_callback(_make_done_cb(_name))
+        _worker_run_tasks.append(_t)
+    try:
         if trigger is not None:
             trigger_task = asyncio.create_task(trigger.run())
             log.info("worker.outward_scan_trigger_started", bank_id=bank_id)
@@ -712,6 +784,9 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
                 await asyncio.wait_for(consumer_task, timeout=5.0)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass
+    finally:
+        await asyncio.gather(*(w.shutdown() for w in _all_workers), return_exceptions=True)
+        await asyncio.gather(*_worker_run_tasks, return_exceptions=True)
 
     log.info("worker.stopped", bank_id=bank_id)
 

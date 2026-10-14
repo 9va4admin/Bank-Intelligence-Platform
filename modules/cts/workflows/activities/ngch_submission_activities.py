@@ -42,6 +42,8 @@ class BuildNGCHFileResult(BaseModel):
     file_path: str           # MinIO object key for the CXF file
     checksum_sha256: str
     instrument_count: int
+    cxf_filename: str = ""
+    cibf_filename: str = ""
 
 
 @activity.defn
@@ -57,6 +59,8 @@ async def build_ngch_file(
     lot_store and hsm are DI-injected. Falls back to a stub path when unavailable
     (submission will still be attempted — NGCH will reject if file is bad).
     """
+    if isinstance(inp, dict):
+        inp = BuildNGCHFileInput(**inp)
     with tracer.start_as_current_span("activity.build_ngch_file") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if lot_store is None:
@@ -92,6 +96,7 @@ async def build_ngch_file(
             file_path=file_path,
             checksum_sha256=checksum,
             instrument_count=inp.instrument_count,
+            cxf_filename=file_path.rsplit("/", 1)[-1],
         )
 
 
@@ -126,6 +131,8 @@ async def submit_to_ngch(
     Submits the NGCH file via the ngch_adapter MCP tool.
     ngch_client is injected at worker startup.
     """
+    if isinstance(inp, dict):
+        inp = SubmitToNGCHInput(**inp)
     with tracer.start_as_current_span("activity.submit_to_ngch") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if ngch_client is None:
@@ -191,6 +198,8 @@ async def confirm_acknowledgement(
     Polls NGCH for acknowledgement of the submitted lot.
     If ngch_reference is None (submission failed), returns not-acknowledged immediately.
     """
+    if isinstance(inp, dict):
+        inp = ConfirmAcknowledgementInput(**inp)
     with tracer.start_as_current_span("activity.confirm_acknowledgement") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if inp.ngch_reference is None:
@@ -211,7 +220,7 @@ async def confirm_acknowledgement(
             )
 
         try:
-            ack = await ngch_client.query_status(reference=inp.ngch_reference)
+            ack = await ngch_client.query_status_outward(reference=inp.ngch_reference)
             acknowledged = getattr(ack, "acknowledged", False)
             log.info(
                 "confirm_acknowledgement.result",

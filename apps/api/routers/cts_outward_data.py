@@ -24,12 +24,14 @@ Routes:
 """
 from __future__ import annotations
 
+import json
 from datetime import date
 from typing import List, Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from shared.auth.rbac import UserContext
 
@@ -41,6 +43,16 @@ from .cts_deps import (
 )
 
 log = structlog.get_logger()
+
+
+def _parse_jsonb(value):
+    """asyncpg returns JSONB columns as a raw JSON string unless a codec is
+    registered on the pool -- never assume it's already a dict."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    return json.loads(value)
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS Outward Data v1"])
 
@@ -103,9 +115,10 @@ class OutwardQueueItem(BaseModel):
     fraud_score: Optional[float] = None
     ocr_confidence: Optional[float] = None
     review_reason: Optional[str] = None
-    received_at: str
+    received_at: IsoTimestamp
     branch_id: Optional[str] = None
     lot_id: Optional[str] = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class OutwardQueueResponse(BaseModel):
@@ -136,20 +149,20 @@ class SessionSettlementRow(BaseModel):
     branch_id: str
     branch_name: Optional[str] = None
     status: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     hub_type: str
     total_uploaded: int
     total_accepted: int
     total_rejected: int
     total_held: int
-    opened_at: str
-    closed_at: Optional[str] = None
+    opened_at: IsoTimestamp
+    closed_at: OptIsoTimestamp = None
 
 
 class SettlementResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     sessions: list[SessionSettlementRow]
     total_instruments: int
     total_accepted: int
@@ -165,7 +178,7 @@ class LotInstrumentRow(BaseModel):
     payee_display: Optional[str]
     amount_range: Optional[str]
     outcome: str
-    scanned_at: str
+    scanned_at: IsoTimestamp
 
 
 class LotInstrumentsResponse(BaseModel):
@@ -204,8 +217,8 @@ class ReconciliationSessionSummary(BaseModel):
     astra_instrument_count: Optional[int]
     ngch_instrument_count: Optional[int]
     discrepancy_count: int
-    started_at: Optional[str]
-    completed_at: Optional[str]
+    started_at: OptIsoTimestamp
+    completed_at: OptIsoTimestamp
 
 
 class DiscrepancyItem(BaseModel):
@@ -218,13 +231,14 @@ class DiscrepancyItem(BaseModel):
     astra_value: Optional[dict]
     ngch_value: Optional[dict]
     status: str
-    created_at: str
+    created_at: IsoTimestamp
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class ReconciliationOverviewResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    recon_date: str
+    recon_date: IsoTimestamp
     sessions: list[ReconciliationSessionSummary]
     discrepancies: list[DiscrepancyItem]
 
@@ -239,30 +253,30 @@ class LotSummaryRow(BaseModel):
     status: str
     instrument_count: int
     max_instruments: int
-    created_at: str
-    sealed_at: Optional[str]
+    created_at: IsoTimestamp
+    sealed_at: OptIsoTimestamp
 
 
 class LotsListResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     lots: list[LotSummaryRow]
 
 
 class ClearingSessionItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str
     status: str
     label: str
     total_lots: int
     total_instruments: int
     ngch_reference: Optional[str] = None
-    opened_at: str
-    closed_at: Optional[str] = None
-    submitted_at: Optional[str] = None
+    opened_at: IsoTimestamp
+    closed_at: OptIsoTimestamp = None
+    submitted_at: OptIsoTimestamp = None
 
 
 class ClearingSessionsResponse(BaseModel):
@@ -279,13 +293,13 @@ class ComplianceCheckItem(BaseModel):
     check_type: str
     result: str
     detail: Optional[str] = None
-    occurred_at: str
+    occurred_at: IsoTimestamp
 
 
 class OutwardComplianceResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     total_checked: int
     pass_count: int
     fail_count: int
@@ -317,7 +331,8 @@ class OutwardDecisionItem(BaseModel):
     amount_bucket: Optional[str] = None
     drawee_ifsc: Optional[str] = None
     lot_number: Optional[str] = None
-    processing_started_at: Optional[str] = None
+    processing_started_at: OptIsoTimestamp = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
 
 
 class OutwardDecisionsResponse(BaseModel):
@@ -335,7 +350,7 @@ class IQAResultItem(BaseModel):
     status: str
     fail_reason: Optional[str]
     fail_label: Optional[str]
-    scanned_at: str
+    scanned_at: IsoTimestamp
     ocr_conf: Optional[str]
     dpi: Optional[int]
 
@@ -430,18 +445,24 @@ async def endorse_batch(
             from modules.cts.workflows.batch_endorsement_workflow import (
                 BatchEndorsementWorkflow, BatchEndorsementInput,
             )
-            await temporal_client.start_workflow(
-                BatchEndorsementWorkflow.run,
-                BatchEndorsementInput(
-                    lot_number=body.lot_number,
-                    bank_id=bank_id,
-                    bank_ifsc=body.bank_ifsc,
-                    session_id=session_id,
-                    instrument_ids=body.instrument_ids,
-                ),
-                id=workflow_id,
-                task_queue=f"cts-processing-{bank_id}",
-            )
+            from temporalio.exceptions import WorkflowAlreadyStartedError
+            try:
+                await temporal_client.start_workflow(
+                    BatchEndorsementWorkflow.run,
+                    BatchEndorsementInput(
+                        lot_number=body.lot_number,
+                        bank_id=bank_id,
+                        bank_ifsc=body.bank_ifsc,
+                        session_id=session_id,
+                        instrument_ids=body.instrument_ids,
+                    ),
+                    id=workflow_id,
+                    task_queue=f"cts-processing-{bank_id}",
+                )
+            except WorkflowAlreadyStartedError:
+                # Expected on a retriggered lot: the workflow id is deterministic (per lot). The prior
+                # run's outcome stands; the caller should query it rather than expecting a new one.
+                log.info("cts.endorsement.already_started", lot_number=body.lot_number, workflow_id=workflow_id)
         except Exception as exc:
             log.error("cts.endorsement_trigger_failed", lot_number=body.lot_number, error=str(exc))
             raise HTTPException(
@@ -601,6 +622,7 @@ async def get_outward_human_review_queue(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     limit: int = 50,
+    instrument_category: Optional[str] = Query(None),
 ) -> OutwardQueueResponse:
     if ctx.role.value not in _OUTWARD_Q_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -618,14 +640,15 @@ async def get_outward_human_review_queue(
             SELECT instrument_id, scan_id AS cheque_number, NULL::text AS account_display,
                    payee_display, amount_range, outcome AS status, NULL::float AS fraud_score,
                    NULL::float AS ocr_confidence, reject_reason AS review_reason,
-                   scanned_at::text AS received_at, branch_id, lot_id
+                   scanned_at::text AS received_at, branch_id, lot_id, instrument_category
             FROM cts.outward_scan_events
             WHERE bank_id = $1
               AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR')
+              AND ($3::text IS NULL OR instrument_category = $3)
             ORDER BY scanned_at DESC
             LIMIT $2
             """,
-            bank_id, limit,
+            bank_id, limit, instrument_category,
         )
     except Exception as exc:
         log.error("cts.outward_queue.query_failed", bank_id=bank_id, error=str(exc))
@@ -645,6 +668,7 @@ async def get_outward_human_review_queue(
             received_at=r["received_at"],
             branch_id=r["branch_id"],
             lot_id=r.get("lot_id"),
+            instrument_category=r["instrument_category"] or "CHEQUE",
         )
         for r in rows
     ]
@@ -689,6 +713,15 @@ async def decide_outward_review(
         except Exception as exc:
             log.warning("cts.outward_review.db_update_failed", instrument_id=instrument_id, error=str(exc))
 
+    if db is not None:
+        try:
+            from modules.cts.review_queue import decide_by_instrument
+            async with db.acquire() as conn:
+                await decide_by_instrument(conn, bank_id=bank_id, direction="OUTWARD", instrument_ref=instrument_id,
+                                           decision=body.action, reviewer_id=ctx.user_id, notes=body.reason or "")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+
     log.info("cts.outward_review.decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
     return OutwardReviewDecisionResponse(
         instrument_id=instrument_id,
@@ -702,7 +735,7 @@ async def decide_outward_review(
 async def get_outward_settlement(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    clearing_date: Optional[str] = None,
+    clearing_date: OptIsoTimestamp = None,
 ) -> SettlementResponse:
     if ctx.role.value not in {"ops_manager", "bank_it_admin", "compliance_officer"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -831,6 +864,7 @@ async def get_outward_analytics_daily(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     days: int = 7,
+    instrument_category: Optional[str] = Query(None),
 ):
     if ctx.role.value not in _ANALYTICS_READ_ROLES:
         raise HTTPException(status_code=403, detail="Insufficient role")
@@ -855,6 +889,7 @@ async def get_outward_analytics_daily(
                 FROM cts.outward_scan_events
                 WHERE bank_id = $1
                   AND scanned_at >= NOW() - ($2 || ' days')::INTERVAL
+                  AND ($3::text IS NULL OR instrument_category = $3)
                 GROUP BY day
                 ORDER BY day
             )
@@ -869,6 +904,7 @@ async def get_outward_analytics_daily(
             """,
             bank_id,
             str(days),
+            instrument_category,
         )
 
     daily_list = [
@@ -894,8 +930,9 @@ async def get_outward_analytics_daily(
 async def get_outward_reconciliation(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    recon_date: Optional[str] = None,
+    recon_date: OptIsoTimestamp = None,
     limit: int = Query(200, ge=1, le=500),
+    instrument_category: Optional[str] = Query(None),
 ) -> ReconciliationOverviewResponse:
     if ctx.role.value not in _RECON_READ_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -927,16 +964,20 @@ async def get_outward_reconciliation(
         if recon_ids:
             disc_rows = await db.fetch(
                 """
-                SELECT discrepancy_id::text, recon_session_id::text,
-                       instrument_id::text, cheque_number, discrepancy_type,
-                       astra_value, ngch_value, status, created_at::text
-                FROM cts.reconciliation_discrepancies
-                WHERE recon_session_id = ANY($1::uuid[])
-                  AND bank_id = $2
-                ORDER BY created_at DESC
+                SELECT rd.discrepancy_id::text, rd.recon_session_id::text,
+                       rd.instrument_id::text, rd.cheque_number, rd.discrepancy_type,
+                       rd.astra_value, rd.ngch_value, rd.status, rd.created_at::text,
+                       ose.instrument_category
+                FROM cts.reconciliation_discrepancies rd
+                LEFT JOIN cts.outward_scan_events ose
+                  ON ose.instrument_id = rd.instrument_id::text AND ose.bank_id = rd.bank_id
+                WHERE rd.recon_session_id = ANY($1::uuid[])
+                  AND rd.bank_id = $2
+                  AND ($4::text IS NULL OR ose.instrument_category = $4)
+                ORDER BY rd.created_at DESC
                 LIMIT $3
                 """,
-                recon_ids, bank_id, limit,
+                recon_ids, bank_id, limit, instrument_category,
             )
     except Exception as exc:
         log.error("cts.reconciliation.query_failed", bank_id=bank_id, error=str(exc))
@@ -964,10 +1005,11 @@ async def get_outward_reconciliation(
             instrument_id=r["instrument_id"],
             cheque_number=r["cheque_number"],
             discrepancy_type=r["discrepancy_type"],
-            astra_value=dict(r["astra_value"]) if r["astra_value"] else None,
-            ngch_value=dict(r["ngch_value"]) if r["ngch_value"] else None,
+            astra_value=_parse_jsonb(r["astra_value"]),
+            ngch_value=_parse_jsonb(r["ngch_value"]),
             status=r["status"],
             created_at=r["created_at"],
+            instrument_category=r["instrument_category"] or "CHEQUE",
         )
         for r in disc_rows
     ]
@@ -980,7 +1022,7 @@ async def get_outward_reconciliation(
 async def list_outward_lots(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    clearing_date: Optional[str] = None,
+    clearing_date: OptIsoTimestamp = None,
 ) -> LotsListResponse:
     if ctx.role.value not in _LOTS_LIST_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
@@ -1234,7 +1276,8 @@ async def get_outward_decisions(
             rows = await db.fetch(
                 """
                 SELECT instrument_id, scan_id, payee_display, amount_range,
-                       outcome, lot_id, branch_id, reject_reason, scanned_at::text
+                       outcome, lot_id, branch_id, reject_reason, scanned_at::text,
+                       instrument_category
                 FROM cts.outward_scan_events
                 WHERE bank_id = $1
                   AND outcome = ANY($2)
@@ -1248,7 +1291,8 @@ async def get_outward_decisions(
             rows = await db.fetch(
                 """
                 SELECT instrument_id, scan_id, payee_display, amount_range,
-                       outcome, lot_id, branch_id, reject_reason, scanned_at::text
+                       outcome, lot_id, branch_id, reject_reason, scanned_at::text,
+                       instrument_category
                 FROM cts.outward_scan_events
                 WHERE bank_id = $1
                   AND scanned_at > NOW() - INTERVAL '24 hours'
@@ -1272,6 +1316,7 @@ async def get_outward_decisions(
             drawee_ifsc=None,
             lot_number=r["lot_id"],
             processing_started_at=r["scanned_at"],
+            instrument_category=r["instrument_category"] or "CHEQUE",
         )
         for r in rows
     ]

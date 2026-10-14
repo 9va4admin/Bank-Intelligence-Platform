@@ -35,6 +35,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError
 from temporalio.workflow import ParentClosePolicy
 
 from modules.cts.pipeline.models import StepResult, build_digest
@@ -43,19 +44,10 @@ log = structlog.get_logger()
 
 # ── Date validation helpers ───────────────────────────────────────────────────
 
-_DATE_FORMATS = ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d")
 _STALE_DAYS = 90   # RBI: cheques older than 3 months cannot be presented
 
-
-def _parse_cheque_date(date_str: str):
-    """Parse cheque date string in common Indian formats. Returns date or None."""
-    from datetime import date as _date
-    for fmt in _DATE_FORMATS:
-        try:
-            return __import__("datetime").datetime.strptime(date_str.strip(), fmt).date()
-        except ValueError:
-            continue
-    return None
+from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
+from shared.utils.cheque_amount import parse_amount_figures  # noqa: E402
 
 
 def _validate_cheque_date(date_str):
@@ -165,10 +157,34 @@ class OutwardScanResult(BaseModel):
     pu_id: Optional[str] = None         # Phase 3: PU that processed this instrument
     mismatch_id: Optional[str] = None   # Phase 3: set when outcome=MISMATCH_HELD
     mismatch_fields: Optional[list[str]] = None   # Phase 3: fields that mismatched
+    instrument_category: str = "CHEQUE"           # "CHEQUE" | "DEMAND_DRAFT" — from ocr_extract
+
+
+_HELD = "__HELD__"   # sentinel: instrument held for human repair (see _persist_instrument)
 
 
 @workflow.defn
 class OutwardScanWorkflow:
+    async def _open_review(self, inp, reason: str, context: dict) -> None:
+        """Durable human-review queue item for a held instrument (never breaks the workflow)."""
+        from modules.cts.workflows.activities.review_queue_activities import (
+            OpenReviewItemInput, open_review_item,
+        )
+        try:
+            await workflow.execute_activity(
+                open_review_item,
+                OpenReviewItemInput(
+                    bank_id=inp.bank_id, direction="OUTWARD", instrument_id=inp.instrument_id,
+                    workflow_id=f"cts-outreview-{inp.bank_id}-{inp.instrument_id}",
+                    parent_workflow_id=f"cts-outscan-{inp.bank_id}-{inp.scan_id}",
+                    escalation_reason=reason, context=context,
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=RetryPolicy(maximum_attempts=2),
+            )
+        except Exception:  # noqa: BLE001 - queue write must never fail clearing
+            pass
+
     def workflow_id(self, bank_id: str, scan_id: str, pu_id: Optional[str] = None) -> str:
         if pu_id:
             return f"cts-outscan-{bank_id}-{pu_id}-{scan_id}"
@@ -222,6 +238,7 @@ class OutwardScanWorkflow:
                     mismatch_id=result.mismatch_id,
                     mismatch_fields=result.mismatch_fields,
                     reject_reason=(result.violations[0] if result.violations else None),
+                    instrument_category=result.instrument_category,
                 ),
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=_INFRA_RETRY,
@@ -314,7 +331,11 @@ class OutwardScanWorkflow:
             retry_policy=_AI_RETRY,
         )
         micr_line = ocr_result.micr_line
+        instrument_category = ocr_result.instrument_category
         scanner_amount_str = ocr_result.amount_figures
+        # Normalised numeric form ("10,00,000/-" -> "1000000"); None when OCR text is not an amount.
+        _amt = parse_amount_figures(scanner_amount_str)
+        scanner_amount_norm = str(_amt) if _amt is not None else None
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
         _ocr_engines = getattr(ocr_result, "ocr_engines_used", [])
         _indic_ks = getattr(ocr_result, "indic_ocr_kill_switch_active", False)
@@ -400,7 +421,7 @@ class OutwardScanWorkflow:
                     scan_id=inp.scan_id,
                     bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id,
-                    micr_line=micr_line,
+                    micr_line=micr_line, instrument_category=instrument_category,
                     violations=["POST_DATED_CHEQUE"],
                     audit_written=True,
                     pu_id=inp.pu_id,
@@ -410,7 +431,7 @@ class OutwardScanWorkflow:
                 scan_id=inp.scan_id,
                 bank_id=inp.bank_id,
                 instrument_id=inp.instrument_id,
-                micr_line=micr_line,
+                micr_line=micr_line, instrument_category=instrument_category,
                 violations=[date_violation],
                 audit_written=True,
                 pu_id=inp.pu_id,
@@ -428,7 +449,7 @@ class OutwardScanWorkflow:
                 ChequeDedupInput(
                     instrument_id=inp.instrument_id,
                     bank_id=inp.bank_id,
-                    micr_line=micr_line,
+                    micr_line=micr_line, instrument_category=instrument_category,
                     cheque_number=inp.cheque_number,
                     presented_at=workflow.now().isoformat(),
                 ),
@@ -461,7 +482,7 @@ class OutwardScanWorkflow:
                     scan_id=inp.scan_id,
                     bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id,
-                    micr_line=micr_line,
+                    micr_line=micr_line, instrument_category=instrument_category,
                     violations=["DUPLICATE_CHEQUE"],
                     audit_written=True,
                     pu_id=inp.pu_id,
@@ -516,6 +537,19 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=15),
                 retry_policy=_INFRA_RETRY,
             )
+            # Payee Name for the reviewer = CBS holder of the deposit-slip account (plain text by
+            # bank-owner decision). Best-effort: never changes the outcome of the validation.
+            try:
+                from modules.cts.workflows.activities.drawee_name import PayeeNameInput
+                await workflow.execute_activity(
+                    "record_payee_name",
+                    PayeeNameInput(payee_account_number=inp.payee_account_number,
+                                   bank_id=inp.bank_id, instrument_id=inp.instrument_id),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=1),
+                )
+            except Exception:
+                workflow.logger.warning("record_payee_name failed; continuing without a CBS payee name")
             _payee_ok = payee_result.outcome in ("PROCEED", "CBS_UNAVAILABLE", "NAME_MATCH")
             self._outward_steps.append(StepResult(
                 step_id="payee_validate",
@@ -536,7 +570,7 @@ class OutwardScanWorkflow:
                 )
                 return OutwardScanResult(
                     outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                     violations=["PAYEE_ACCOUNT_NOT_FOUND"], audit_written=True, pu_id=inp.pu_id,
                 )
             if payee_result.outcome == "ACCOUNT_INACTIVE":
@@ -562,9 +596,10 @@ class OutwardScanWorkflow:
                                                  "account_status": acct_status, "action": "HUMAN_REVIEW"}),
                         start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
                     )
+                    await self._open_review(inp, f"PAYEE_ACCOUNT_{acct_status}", {"account_status": acct_status})
                     return OutwardScanResult(
                         outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                        instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                         violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                         mismatch_fields=["payee_account_status"],
                         audit_written=True, pu_id=inp.pu_id,
@@ -579,7 +614,7 @@ class OutwardScanWorkflow:
                 )
                 return OutwardScanResult(
                     outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                     violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                     audit_written=True, pu_id=inp.pu_id,
                 )
@@ -597,9 +632,11 @@ class OutwardScanWorkflow:
                                              "payee_display": payee_result.payee_display}),
                     start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
                 )
+                await self._open_review(inp, "PAYEE_NAME_MISMATCH",
+                                        {"name_match_score": payee_result.name_match_score})
                 return OutwardScanResult(
                     outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                     violations=["PAYEE_NAME_MISMATCH"], audit_written=True, pu_id=inp.pu_id,
                     mismatch_fields=["payee_name"],
                 )
@@ -614,7 +651,7 @@ class OutwardScanWorkflow:
             NGCHMetadataCrossCheckInput(
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
-                micr_line=micr_line,
+                micr_line=micr_line, instrument_category=instrument_category,
                 registered_cheque_number=inp.cheque_number or None,
                 ifsc_from_ocr=ocr_result.ifsc_code,
                 registered_drawee_ifsc=inp.registered_drawee_ifsc,
@@ -649,7 +686,7 @@ class OutwardScanWorkflow:
             )
             return OutwardScanResult(
                 outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                 violations=[f"NGCH_METADATA_MISMATCH:{f}" for f in xcheck_result.mismatch_fields],
                 audit_written=True, pu_id=inp.pu_id,
             )
@@ -695,7 +732,7 @@ class OutwardScanWorkflow:
             )
             return OutwardScanResult(
                 outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                 violations=list(compliance_result.violations), audit_written=True, pu_id=inp.pu_id,
             )
 
@@ -729,7 +766,7 @@ class OutwardScanWorkflow:
             )
             return OutwardScanResult(
                 outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                 violations=["SIGNATURE_ABSENT"], audit_written=True, pu_id=inp.pu_id,
             )
         # DEGRADED → proceed optimistically; do not block lot on AI failure.
@@ -741,17 +778,12 @@ class OutwardScanWorkflow:
         )
         sec_result = await workflow.execute_activity(
             check_security_features,
-            args=[
-                SecurityFeaturesInput(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    image_url=inp.image_front_url,
-                    smb_id=inp.smb_id if hasattr(inp, "smb_id") else None,
-                ),
-                None,   # vllm_client — worker-level DI
-                None,   # config_service — worker-level DI
-                None,   # langfuse — worker-level DI
-            ],
+            SecurityFeaturesInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                image_url=inp.image_front_url,
+                smb_id=inp.smb_id if hasattr(inp, "smb_id") else None,
+            ),
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_RETRY,
         )
@@ -780,7 +812,7 @@ class OutwardScanWorkflow:
             )
             return OutwardScanResult(
                 outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=None,
                 violations=[f"SECURITY_FEATURE_ABSENT:{f}" for f in sec_result.missing_features],
                 audit_written=True, pu_id=inp.pu_id,
             )
@@ -788,12 +820,12 @@ class OutwardScanWorkflow:
 
         # Step 4: Vision cross-check (lot assignment deferred to ClearingSessionWorkflow)
         vision_result = None
-        if scanner_amount_str is not None:
+        if scanner_amount_norm is not None:
             vision_result = await workflow.execute_activity(
                 run_vision_presentment_check,
                 VisionPresentmentCheckInput(
                     instrument_id=inp.instrument_id, image_front_url=inp.image_front_url,
-                    scanner_amount_str=scanner_amount_str, cheque_amount=float(scanner_amount_str),
+                    scanner_amount_str=scanner_amount_norm, cheque_amount=float(scanner_amount_norm),
                     bank_id=inp.bank_id,
                 ),
                 start_to_close_timeout=timedelta(seconds=120), retry_policy=_AI_RETRY,
@@ -813,13 +845,21 @@ class OutwardScanWorkflow:
             ))
             return await self._spawn_mismatch(
                 inp, None, micr_line,
-                scanner_amount_str or "", vision_result.vision_amount_str or "",
+                scanner_amount_norm or "", vision_result.vision_amount_str or "",
                 vision_result.mismatch_fields,
                 write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
+                instrument_category=instrument_category,
             )
 
         log.info("outward_scan_workflow.accepted_pending_lot",
                  scan_id=inp.scan_id, bank_id=inp.bank_id)
+        lot_id, _viol = await self._persist_instrument(
+            inp, micr_line, scanner_amount_norm or scanner_amount_str, getattr(ocr_result, "date", None))
+        if lot_id is _HELD:
+            return OutwardScanResult(
+                outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                micr_line=micr_line, instrument_category=instrument_category, lot_number=None, violations=[_viol], mismatch_fields=["micr_line"],
+                audit_written=True, pu_id=inp.pu_id)
         await workflow.execute_activity(
             write_audit,
             WriteAuditInput(event_type="CTS_OUT_INSTRUMENT_PENDING", bank_id=inp.bank_id,
@@ -835,9 +875,46 @@ class OutwardScanWorkflow:
         self._outward_steps.append(StepResult(step_id="audit_write", outcome="PASS"))
         return OutwardScanResult(
             outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-            instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+            instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category, lot_number=lot_id,
             violations=None, audit_written=True, pu_id=inp.pu_id,
         )
+
+    async def _persist_instrument(self, inp, micr_line, amount_str, date_str):
+        """Write the full outward record + lot assignment on ACCEPT. Returns (lot_id, None), or (_HELD, violation)
+        when the MICR / amount / date cannot be turned into a presentable instrument (held for human repair).
+        Other failures raise (Temporal retries, then the run() wrapper reports WORKFLOW_ERROR) — never silent."""
+        from modules.cts.workflows.activities.persist_outward_instrument import (
+            persist_outward_instrument, PersistOutwardInstrumentInput,
+        )
+        parsed_date = _parse_cheque_date(date_str or "")
+        parsed_amt = parse_amount_figures(amount_str)
+        try:
+            res = await workflow.execute_activity(
+            persist_outward_instrument,
+            PersistOutwardInstrumentInput(
+                bank_id=inp.bank_id, instrument_id=inp.instrument_id, scan_id=inp.scan_id,
+                bank_ifsc=inp.bank_ifsc, session_id=inp.session_id, branch_id=inp.branch_id, pu_id=inp.pu_id,
+                micr_line=micr_line or "", cheque_number=inp.cheque_number,
+                amount_str=str(parsed_amt) if parsed_amt is not None else None,
+                cheque_date=parsed_date.isoformat() if parsed_date is not None else None,
+                registered_drawee_ifsc=inp.registered_drawee_ifsc,
+                image_front_url=inp.image_front_url, image_rear_url=inp.image_rear_url,
+                image_front_gray_url=inp.image_front_gray_url, front_dpi=inp.front_dpi,
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_INFRA_RETRY,
+            )
+        except ActivityError as exc:
+            cause = getattr(exc, "cause", None)
+            kind = getattr(cause, "type", None)
+            if kind not in ("MICR_UNPARSEABLE", "INSTRUMENT_DATA_MISSING"):
+                raise
+            violation = "MICR_UNREADABLE" if kind == "MICR_UNPARSEABLE" else "INSTRUMENT_DATA_MISSING"
+            self._outward_steps.append(StepResult(step_id="persist_instrument", outcome="FAIL", reason=violation))
+            await self._open_review(inp, violation, {"micr_line_masked": (micr_line or "")[-4:]})
+            return _HELD, violation
+        self._outward_steps.append(StepResult(step_id="persist_instrument", outcome="PASS"))
+        return res.lot_id, None
 
     async def _run_cr120_path(
         self, inp: "OutwardScanInput",
@@ -1059,9 +1136,17 @@ class OutwardScanWorkflow:
                 vision_result.amount_words or "",
                 vision_result.mismatch_fields,
                 write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
+                instrument_category=instrument_category,
             )
 
         # PROCEED — accepted, pending lot assignment at clearing session time
+        lot_id, _viol = await self._persist_instrument(
+            inp, inp.micr_hardware_raw, vision_result.amount_figures, vision_result.date)
+        if lot_id is _HELD:
+            return OutwardScanResult(
+                outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                micr_line=inp.micr_hardware_raw, lot_number=None, violations=[_viol], mismatch_fields=["micr_line"],
+                audit_written=True, pu_id=inp.pu_id)
         log.info("outward_scan_workflow.cr120.accepted_pending_lot",
                  scan_id=inp.scan_id, bank_id=inp.bank_id,
                  micr_validated=vision_result.micr_validated)
@@ -1077,13 +1162,14 @@ class OutwardScanWorkflow:
         return OutwardScanResult(
             outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
             instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
-            lot_number=None, violations=None, audit_written=True, pu_id=inp.pu_id,
+            lot_number=lot_id, violations=None, audit_written=True, pu_id=inp.pu_id,
         )
 
     async def _spawn_mismatch(
         self, inp, lot_number, micr_line,
         scanner_amount_str, vision_amount_str, mismatch_fields,
         write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
+        instrument_category: str = "CHEQUE",
     ) -> "OutwardScanResult":
         mismatch_id = self.generate_mismatch_id(inp.bank_id, inp.scan_id)
         log.info("outward_scan_workflow.mismatch_held",
@@ -1114,7 +1200,7 @@ class OutwardScanWorkflow:
         )
         return OutwardScanResult(
             outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-            instrument_id=inp.instrument_id, micr_line=micr_line,
+            instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
             lot_number=lot_number, violations=None, audit_written=True, pu_id=inp.pu_id,
             mismatch_id=mismatch_id, mismatch_fields=list(mismatch_fields),
         )
@@ -1138,6 +1224,8 @@ class OutwardScanWorkflow:
         # Step 1+2: MICR extraction (capture + extract combined in mock)
         micr_result = mock_results["micr"]
         micr_line = getattr(micr_result, "micr_line", None)
+        _raw_ic = getattr(micr_result, "instrument_category", "CHEQUE")
+        instrument_category = _raw_ic if _raw_ic in ("CHEQUE", "DEMAND_DRAFT") else "CHEQUE"
 
         # Step 1.5: Date validation — stale / post-dated / undated cheques handled here.
         date_str = getattr(micr_result, "date", None)
@@ -1153,14 +1241,14 @@ class OutwardScanWorkflow:
                 await self._write_audit(mock_results, "POST_DATED_HELD", inp)
                 return OutwardScanResult(
                     outcome="POST_DATED_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id, micr_line=micr_line,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                     lot_number=None, violations=["POST_DATED_CHEQUE"], audit_written=True,
                     pu_id=getattr(inp, "pu_id", None),
                 )
             await self._write_audit(mock_results, "CTS_REJECTED", inp)
             return OutwardScanResult(
                 outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                instrument_id=inp.instrument_id, micr_line=micr_line,
+                instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                 lot_number=None, violations=[date_violation], audit_written=True,
                 pu_id=getattr(inp, "pu_id", None),
             )
@@ -1176,7 +1264,7 @@ class OutwardScanWorkflow:
                     await self._write_audit(mock_results, "CTS_REJECTED", inp)
                     return OutwardScanResult(
                         outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                         lot_number=None, violations=["PAYEE_ACCOUNT_NOT_FOUND"],
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
                     )
@@ -1202,7 +1290,7 @@ class OutwardScanWorkflow:
                         await self._write_audit(mock_results, "MISMATCH_HELD", inp)
                         return OutwardScanResult(
                             outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                            instrument_id=inp.instrument_id, micr_line=micr_line,
+                            instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                             lot_number=None,
                             violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                             mismatch_fields=["payee_account_status"],
@@ -1212,7 +1300,7 @@ class OutwardScanWorkflow:
                     await self._write_audit(mock_results, "CTS_REJECTED", inp)
                     return OutwardScanResult(
                         outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                         lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
                     )
@@ -1223,7 +1311,7 @@ class OutwardScanWorkflow:
                     await self._write_audit(mock_results, "MISMATCH_HELD", inp)
                     return OutwardScanResult(
                         outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                         lot_number=None, violations=["PAYEE_NAME_MISMATCH"],
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
                         mismatch_fields=["payee_name"],
@@ -1238,7 +1326,7 @@ class OutwardScanWorkflow:
                 scan_id=inp.scan_id,
                 bank_id=inp.bank_id,
                 instrument_id=inp.instrument_id,
-                micr_line=micr_line,
+                micr_line=micr_line, instrument_category=instrument_category,
                 lot_number=None,
                 violations=[f"NGCH_METADATA_MISMATCH:{f}" for f in getattr(xcheck_result, "mismatch_fields", [])],
                 audit_written=True,
@@ -1262,7 +1350,7 @@ class OutwardScanWorkflow:
                 scan_id=inp.scan_id,
                 bank_id=inp.bank_id,
                 instrument_id=inp.instrument_id,
-                micr_line=micr_line,
+                micr_line=micr_line, instrument_category=instrument_category,
                 lot_number=None,
                 violations=list(compliance_result.violations),
                 audit_written=True,
@@ -1282,7 +1370,7 @@ class OutwardScanWorkflow:
                     await self._write_audit(mock_results, "MISMATCH_HELD", inp)
                     return OutwardScanResult(
                         outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                         lot_number=None,
                         violations=[f"ALTERATION_DETECTED:{f}" for f in altered],
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
@@ -1303,7 +1391,7 @@ class OutwardScanWorkflow:
                     await self._write_audit(mock_results, "MISMATCH_HELD", inp)
                     return OutwardScanResult(
                         outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
-                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, instrument_category=instrument_category,
                         lot_number=None,
                         violations=["UV_SECURITY_FAILED"],
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
@@ -1333,7 +1421,7 @@ class OutwardScanWorkflow:
                 scan_id=inp.scan_id,
                 bank_id=inp.bank_id,
                 instrument_id=inp.instrument_id,
-                micr_line=micr_line,
+                micr_line=micr_line, instrument_category=instrument_category,
                 lot_number=None,
                 violations=None,
                 audit_written=True,
@@ -1354,7 +1442,7 @@ class OutwardScanWorkflow:
             scan_id=inp.scan_id,
             bank_id=inp.bank_id,
             instrument_id=inp.instrument_id,
-            micr_line=micr_line,
+            micr_line=micr_line, instrument_category=instrument_category,
             lot_number=None,
             violations=None,
             audit_written=True,

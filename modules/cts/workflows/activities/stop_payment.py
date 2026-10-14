@@ -62,7 +62,7 @@ async def check_stop_payment(
         # Fast path: Bloom filter pre-check before CBS round-trip
         if bloom_client is not None:
             try:
-                if bloom_client.check_serial(inp.cheque_number):
+                if await bloom_client.check_serial(inp.cheque_number):
                     log.info(
                         "stop_payment.bloom_hit",
                         instrument_id=inp.instrument_id,
@@ -86,6 +86,19 @@ async def check_stop_payment(
                 )
 
         # Authoritative CBS lookup
+        if cbs_connector is None:
+            log.warning(
+                "stop_payment.cbs_not_bound",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return StopPaymentActivityResult(
+                outcome="HUMAN_REVIEW",
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                stop_reason="cbs_unavailable",
+                degraded=True,
+            )
         try:
             result = await cbs_connector.check_stop_payment(
                 inp.account_number, inp.cheque_number, inp.bank_id

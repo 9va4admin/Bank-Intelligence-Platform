@@ -28,6 +28,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
@@ -133,8 +134,8 @@ class PUResponse(BaseModel):
     kafka_inward_topic: str
     max_agent_swarm_size: int
     is_active: bool
-    created_at: str
-    updated_at: Optional[str]
+    created_at: IsoTimestamp
+    updated_at: OptIsoTimestamp
     created_by: str
 
 
@@ -210,7 +211,7 @@ def _write_audit(
                  getattr(request.app.state, "immudb_client", None)
         if immudb:
             event = AuditEvent(event_type=event_type, bank_id=bank_id, payload=payload)
-            immudb.write_event(event.to_json())
+            immudb.write_event(event.to_record())
     except Exception as exc:
         log.error("pu.audit_write_failed", event_type=event_type.value, error=str(exc))
 

@@ -107,7 +107,9 @@ from modules.cts.workflows.activities.leaf_lifecycle import (
     mark_leaf_returned as _ll_mark_leaf_returned,
 )
 from modules.cts.workflows.human_review_workflow import HumanReviewInput
-from modules.cts.workflows.mismatch_resolution_workflow import PublishMismatchHoldInput
+from modules.cts.workflows.mismatch_resolution_workflow import (
+    PersistMismatchHoldInput, PublishMismatchHoldInput, ResolveMismatchDbInput,
+)
 
 log = structlog.get_logger()
 
@@ -124,10 +126,14 @@ class BoundCTSActivities:
         ngch_adapter: Any = None,
         opa_client: Any = None,
         signature_vault: Any = None,
+        account_vault: Any = None,
+        embedding_model: Any = None,
         pps_vault: Any = None,
         bloom_client: Any = None,
         orchestrator: Any = None,
         fraud_vllm_client: Any = None,
+        fraud_model: Any = None,
+        fraud_explainer: Any = None,
         vision_vllm_client: Any = None,
         config_service: Any = None,
         db_pool: Any = None,
@@ -144,10 +150,14 @@ class BoundCTSActivities:
         self._ngch_adapter = ngch_adapter
         self._opa_client = opa_client
         self._signature_vault = signature_vault
+        self._account_vault = account_vault
+        self._embedding_model = embedding_model
         self._pps_vault = pps_vault
         self._bloom_client = bloom_client
         self._orchestrator = orchestrator
         self._fraud_vllm_client = fraud_vllm_client
+        self._fraud_model = fraud_model
+        self._fraud_explainer = fraud_explainer
         self._vllm_client = vision_vllm_client
         self._config_service = config_service
         self._db_pool = db_pool
@@ -189,6 +199,33 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.cbs import check_account_status as _real
         return await _real(inp, cbs_connector=self._cbs_connector)
 
+    @activity.defn(name="record_drawee_name")
+    async def record_drawee_name(self, inp):
+        from modules.cts.workflows.activities.drawee_name import DraweeNameInput, record_drawee_name as _real
+        if isinstance(inp, dict):
+            inp = DraweeNameInput(**inp)
+        if self._db_pool is None:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=None)
+        async with self._db_pool.acquire() as conn:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=conn)
+
+    @activity.defn(name="check_image_quality")
+    async def check_image_quality(self, inp):
+        from modules.cts.workflows.activities.image_quality import IQAInput, check_image_quality as _real
+        if isinstance(inp, dict):
+            inp = IQAInput(**inp)
+        return await _real(inp, config_service=self._config_service)
+
+    @activity.defn(name="record_payee_name")
+    async def record_payee_name(self, inp):
+        from modules.cts.workflows.activities.drawee_name import PayeeNameInput, record_payee_name as _real
+        if isinstance(inp, dict):
+            inp = PayeeNameInput(**inp)
+        if self._db_pool is None:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=None)
+        async with self._db_pool.acquire() as conn:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=conn)
+
     @activity.defn(name="load_signatures_from_cbs")
     async def load_signatures_from_cbs(self, bank_id: str):
         from modules.cts.workflows.vault_sync_workflow import load_signatures_from_cbs as _real
@@ -215,7 +252,18 @@ class BoundCTSActivities:
         )
         if isinstance(inp, dict):
             inp = DetectSignaturesInput(**inp)
-        return await _real(inp, vllm_client=self._vllm_client)
+        return await _real(inp, vllm_client=self._vllm_client, config_service=self._config_service)
+
+    @activity.defn(name="check_security_features")
+    async def check_security_features(self, inp):
+        # Bound method (single `inp` param) — a bare activity with extra
+        # DI params makes Temporal drop type hints and pass a dict.
+        from modules.cts.workflows.activities.security_features import (
+            check_security_features as _real, SecurityFeaturesInput,
+        )
+        if isinstance(inp, dict):
+            inp = SecurityFeaturesInput(**inp)
+        return await _real(inp, vllm_client=self._vllm_client, config_service=self._config_service)
 
     @activity.defn(name="verify_signature")
     async def verify_signature(self, inp: SignatureActivityInput):
@@ -223,12 +271,22 @@ class BoundCTSActivities:
         # smb_proxy intentionally omitted — external service, not built in
         # this repo yet (see module docstring). model intentionally
         # omitted — no trained Siamese network artifact exists.
-        return await _real(
+        result = await _real(
             inp,
             vault=self._signature_vault,
             cbs_connector=self._cbs_connector,
             config_service=self._config_service,
+            embedding_model=self._embedding_model,
         )
+        # Provenance: say whether match_score came from a trained signature model. The generic ImageNet
+        # stand-in is not one (measured: it accepts 53% of impostor pairs at the 0.85 threshold).
+        em = self._embedding_model
+        if not hasattr(result, "model_copy"):
+            return result
+        return result.model_copy(update={
+            "verifier": getattr(em, "MODEL_LABEL", None) or (type(em).__name__ if em is not None else None),
+            "verifier_trained": bool(getattr(em, "trained", False)),
+        })
 
     # ------------------------------------------------------------------
     # Redis vault sync (full + delta)
@@ -306,16 +364,17 @@ class BoundCTSActivities:
     @activity.defn(name="score_fraud")
     async def score_fraud(self, inp: FraudActivityInput):
         from modules.cts.workflows.activities.fraud import score_fraud as _real
-        # model/explainer intentionally omitted — no trained artifact
-        # exists; the activity's own rule-based fallback handles this.
-        return await _real(inp, vllm_client=self._fraud_vllm_client, config_service=self._config_service)
+        # model/explainer are None unless cts.fraud_model_path points at a loadable artifact; the
+        # activity's own rule-based fallback handles None (and a stand-in model labels itself synthetic).
+        return await _real(inp, vllm_client=self._fraud_vllm_client, config_service=self._config_service,
+                           model=self._fraud_model, explainer=self._fraud_explainer)
 
     @activity.defn(name="run_vision_presentment_check")
     async def run_vision_presentment_check(self, inp: VisionPresentmentCheckInput):
         from modules.cts.workflows.activities.outward_scan_activities import (
             run_vision_presentment_check as _real,
         )
-        return await _real(inp, orchestrator=self._orchestrator)
+        return await _real(inp, orchestrator=self._orchestrator, config_service=self._config_service)
 
     # ------------------------------------------------------------------
     # Decision / audit / NGCH filing
@@ -326,7 +385,7 @@ class BoundCTSActivities:
         from modules.cts.workflows.activities.decision import synthesise_decision as _real
         from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillScope
         if not config:
-            config = await self._config_service.get_cts_config(inp.bank_id)
+            config = await self._config_service.get_workflow_thresholds(inp.bank_id)
         # Workflow passes KillSwitchLookupResult (Pydantic) — convert to KillSwitchStatus dataclass here
         kill_switch_status: Optional[KillSwitchStatus] = None
         if ks_lookup is not None:
@@ -534,6 +593,35 @@ class BoundCTSActivities:
         async with self._db_pool.acquire() as conn:
             return await _real(inp, db_conn=conn)
 
+    @activity.defn(name="validate_cheque_series")
+    async def validate_cheque_series(self, inp):
+        from modules.cts.workflows.activities.cheque_series import (
+            validate_cheque_series as _real, ChequeSeriesActivityInput,
+        )
+        if isinstance(inp, dict):
+            inp = ChequeSeriesActivityInput(**inp)
+        return await _real(inp, cbs_connector=self._cbs_connector,
+                           cheque_leaf_vault=self._cheque_leaf_vault, config_service=self._config_service)
+
+    @activity.defn(name="validate_ifsc")
+    async def validate_ifsc(self, inp):
+        from modules.cts.workflows.activities.ifsc_validator import validate_ifsc as _real, IFSCValidatorInput
+        from modules.cts.ifsc.repository import IFSCRepository
+        if isinstance(inp, dict):
+            inp = IFSCValidatorInput(**inp)
+        repo = IFSCRepository(self._db_pool) if self._db_pool is not None else None
+        return await _real(inp, repo=repo)
+
+    @activity.defn(name="persist_mismatch_hold_db")
+    async def persist_mismatch_hold_db(self, inp: PersistMismatchHoldInput):
+        from modules.cts.workflows.mismatch_resolution_workflow import persist_mismatch_hold_db as _real
+        return await _real(inp, db_pool=self._db_pool)
+
+    @activity.defn(name="resolve_mismatch_db")
+    async def resolve_mismatch_db(self, inp: ResolveMismatchDbInput):
+        from modules.cts.workflows.mismatch_resolution_workflow import resolve_mismatch_db as _real
+        return await _real(inp, db_pool=self._db_pool)
+
     # ------------------------------------------------------------------
     # Cheque leaf lifecycle — DI-wired so Temporal's pydantic_data_converter
     # correctly deserialises MarkLeafPresentedInput (bare functions in
@@ -598,6 +686,24 @@ class BoundCTSActivities:
         )
         return await _real(inp, ngch_client=self._ngch_adapter)
 
+    @activity.defn(name="notify_representation_pending")
+    async def notify_representation_pending(self, inp):
+        from modules.cts.workflows.activities.representation_activities import (
+            notify_representation_pending as _real,
+        )
+        # No dispatcher is currently wired on this worker (see di_dependencies
+        # docstring) — the activity degrades to notified=False, same as every
+        # other unwired-dependency activity in this codebase, until a real
+        # run needs a live WhatsApp/email notification for this event.
+        return await _real(inp)
+
+    @activity.defn(name="re_submit_to_ngch_for_representation")
+    async def re_submit_to_ngch_for_representation(self, inp):
+        from modules.cts.workflows.activities.representation_activities import (
+            re_submit_to_ngch_for_representation as _real,
+        )
+        return await _real(inp, ngch_client=self._ngch_adapter)
+
     # ------------------------------------------------------------------
     # Inward batch ingestion (InwardBatchIngestionWorkflow)
     # ------------------------------------------------------------------
@@ -630,6 +736,23 @@ class BoundCTSActivities:
         """Expose immudb_client for use by co-process consumers."""
         return self._immudb_client
 
+    def di_dependencies(self) -> dict:
+        """name -> live dependency, for bind_di_activity. Names an activity may ask for
+        that this worker does not have (sb_connector, dispatcher, enroller ...) are
+        simply absent -> the activity receives None and degrades as coded."""
+        return {
+            "db_pool": self._db_pool, "lot_store": self._lot_store,
+            "event_producer": self._event_producer, "redis_client": self._redis_client,
+            "orchestrator": self._orchestrator, "config_service": self._config_service,
+            "cbs_connector": self._cbs_connector, "minio_client": self._minio_client,
+            "account_vault": getattr(self, "_account_vault", None),
+        }
+
+    @property
+    def db_pool(self):
+        """Expose db_pool for co-process consumers (human_review_consumer status update)."""
+        return self._db_pool
+
     def activity_list(self) -> list:
         """All 30 DI-needing activities as bound methods, ready for
         Worker(activities=...). The one remaining registered CTS activity
@@ -639,10 +762,14 @@ class BoundCTSActivities:
         return [
             self.check_cbs_balance,
             self.check_account_status,
+            self.record_drawee_name,
+            self.record_payee_name,
+            self.check_image_quality,
             self.load_signatures_from_cbs,
             self.load_pps_from_cbs,
             self.lookup_pps,
             self.detect_signatures,
+            self.check_security_features,
             self.verify_signature,
             self.warm_redis_vault,
             self.verify_vault_integrity,
@@ -678,6 +805,10 @@ class BoundCTSActivities:
             self.run_shadow_evaluation,
             # Decision persistence (cts.agent_decisions)
             self.persist_agent_decision,
+            self.persist_mismatch_hold_db,
+            self.validate_cheque_series,
+            self.validate_ifsc,
+            self.resolve_mismatch_db,
             # Cheque leaf lifecycle (DI-wired — was bare function causing dict deserialization)
             self.mark_leaf_presented,
             self.mark_leaf_paid,
@@ -688,6 +819,8 @@ class BoundCTSActivities:
             self.submit_to_ngch,
             self.confirm_acknowledgement,
             self.fetch_ngch_settlement_report,
+            self.notify_representation_pending,
+            self.re_submit_to_ngch_for_representation,
             # Inward batch ingestion
             self.parse_inward_batch,
             self.upload_instrument_images,
@@ -713,18 +846,23 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     redis_client = await _build_redis_client(config_service)
     immudb_client = await _build_immudb_client(config_service, bank_id)
     event_producer = await _build_event_producer(config_service, bank_id)
-    ngch_adapter = await _build_ngch_adapter(config_service, bank_id)
+    db_pool = await _build_db_pool(config_service)
+    ngch_adapter = await _build_ngch_adapter(config_service, bank_id, db_pool)
     opa_client = await _build_opa_client(config_service)
     orchestrator = await _build_cascade_orchestrator(config_service, bank_id)
     fraud_vllm_client = await _build_fraud_vllm_client(config_service)
+    fraud_model, fraud_explainer = await _build_fraud_model(config_service)
     vision_vllm_client = await _build_vision_vllm_client(config_service)
-    db_pool = await _build_db_pool(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
     minio_client = await _build_minio_client(config_service)
+    if minio_client is not None:
+        from shared.storage.buckets import ensure_required_buckets
+        await ensure_required_buckets(minio_client)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
-    signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
-    pps_vault = _build_pps_vault(bank_id, pepper, redis_client)
+    signature_vault = _build_signature_vault(bank_id, pepper, redis_client, db_pool)
+    pps_vault = _build_pps_vault(bank_id, pepper, redis_client, db_pool)
+    account_vault = _build_account_vault(bank_id, pepper, redis_client, db_pool)
     bloom_client = await _build_bloom_client(redis_client, bank_id, config_service)
     cheque_leaf_vault = _build_cheque_leaf_vault(bank_id, pepper, db_pool, bloom_client, redis_client)
 
@@ -739,10 +877,14 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         ngch_adapter=ngch_adapter,
         opa_client=opa_client,
         signature_vault=signature_vault,
+        account_vault=account_vault,
+        embedding_model=await _build_embedding_model(),
         pps_vault=pps_vault,
         bloom_client=bloom_client,
         orchestrator=orchestrator,
         fraud_vllm_client=fraud_vllm_client,
+        fraud_model=fraud_model,
+        fraud_explainer=fraud_explainer,
         vision_vllm_client=vision_vllm_client,
         config_service=config_service,
         db_pool=db_pool,
@@ -769,7 +911,10 @@ async def _build_lot_store(db_pool: Any, minio_client: Any, config_service: Any)
                 minio_ok=minio_client is not None,
             )
             return None
-        store = LotStore(db_pool=db_pool, minio_client=minio_client, bucket=bucket)
+        # LotStore speaks the raw synchronous minio.Minio API (get_object/put_object); the worker's
+        # MinioObjectStore is an async wrapper around it (found live: no attribute 'get_object').
+        raw_client = getattr(minio_client, "_client", minio_client)
+        store = LotStore(db_pool=db_pool, minio_client=raw_client, bucket=bucket)
         log.info("worker_activities.lot_store_ready", bucket=bucket)
         return store
     except Exception as exc:
@@ -784,7 +929,9 @@ async def _build_db_pool(config_service: Any) -> Any:
     try:
         import asyncpg
         dsn = await config_service.get_secret("db.cts.dsn")
-        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, command_timeout=30)
+        from shared.db.codecs import register_lenient_codecs
+        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, command_timeout=30,
+                                         init=register_lenient_codecs)
         log.info("worker_activities.db_pool_ready")
         return pool
     except Exception as exc:
@@ -796,11 +943,13 @@ async def _build_cbs_connector(config_service: Any, bank_id: str) -> Any:
     from shared.cbs_connector.finacle import FinacleCBSConnector
     from shared.cbs_connector.bancs import BaNCSCBSConnector
     from shared.cbs_connector.flexcube import FlexCubeCBSConnector
+    from shared.cbs_connector.dev_stub import DevStubCBSConnector
 
     _CONNECTOR_CLASSES = {
         "finacle": FinacleCBSConnector,
         "bancs": BaNCSCBSConnector,
         "flexcube": FlexCubeCBSConnector,
+        "dev_stub": DevStubCBSConnector,   # dev/test only — refuses outside ASTRA_ENV=development
     }
     try:
         connector_type = config_service.get_platform("cbs.connector.type")
@@ -809,7 +958,8 @@ async def _build_cbs_connector(config_service: Any, bank_id: str) -> Any:
         if cls is None:
             log.warning("worker_activities.cbs_connector_unknown_type", connector_type=connector_type)
             return None
-        connector = cls(base_url=base_url, bank_id=bank_id)
+        pepper = await _get_pii_pepper(config_service, bank_id)
+        connector = cls(base_url=base_url, bank_id=bank_id, pepper=pepper)
         connector.connect()  # sync — all three CBS connectors expose a sync connect()
         log.info("worker_activities.cbs_connector_ready", connector_type=connector_type)
         return connector
@@ -866,9 +1016,20 @@ async def _build_event_producer(config_service: Any, bank_id: str) -> Any:
         return None
 
 
-async def _build_ngch_adapter(config_service: Any, bank_id: str) -> Any:
+async def _build_ngch_adapter(config_service: Any, bank_id: str, db_pool: Any = None) -> Any:
     try:
         from modules.cts.mcp.ngch_adapter import NGCHAdapter
+        from shared.config.config_service import ConfigKeyNotFoundError
+        try:
+            dev_stub = config_service.get_platform("ngch.dev_stub").lower() == "true"
+        except ConfigKeyNotFoundError:
+            dev_stub = False
+        if dev_stub:   # dev/test stand-in — refuses to connect outside ASTRA_ENV=development
+            from modules.cts.mcp.dev_stub_ngch import DevStubNGCHAdapter
+            stub = DevStubNGCHAdapter(bank_id=bank_id, db_pool=db_pool)
+            stub.connect()
+            log.warning("worker_activities.ngch_dev_stub_active", bank_id=bank_id)
+            return stub
         base_url = config_service.get_platform("ngch.rest_base_url")
         adapter = NGCHAdapter(bank_id=bank_id, base_url=base_url)
         await adapter.connect(config_service=config_service)
@@ -880,13 +1041,22 @@ async def _build_ngch_adapter(config_service: Any, bank_id: str) -> Any:
 
 
 async def _build_opa_client(config_service: Any) -> Any:
+    """Layer 4 business policy. Default: in-process PolicyEngine (rules are Layer 3
+    config — no extra container, CLAUDE.md §2.6). An external OPA is used only when a
+    bank explicitly sets the opa.url platform value."""
     try:
+        from shared.config.config_service import ConfigKeyNotFoundError
+        try:
+            opa_url = config_service.get_platform("opa.url")
+        except ConfigKeyNotFoundError:
+            from shared.policy_engine import PolicyEngine
+            log.info("worker_activities.policy_engine_ready")
+            return PolicyEngine(config_service)
         import httpx
         from shared.opa_client import OPAClient
-        opa_url = config_service.get_platform("opa.url")
-        opa_client = OPAClient(opa_url=opa_url, http_client=httpx.AsyncClient(timeout=2.0))
+        client = OPAClient(opa_url=opa_url, http_client=httpx.AsyncClient(timeout=2.0))
         log.info("worker_activities.opa_client_ready")
-        return opa_client
+        return client
     except Exception as exc:
         log.warning("worker_activities.opa_client_unavailable", error=str(exc))
         return None
@@ -914,6 +1084,19 @@ async def _build_cascade_orchestrator(config_service: Any, bank_id: str) -> Any:
     except Exception as exc:
         log.warning("worker_activities.cascade_orchestrator_unavailable", bank_id=bank_id, error=str(exc))
         return None
+
+
+async def _build_fraud_model(config_service: Any):
+    """(model, explainer) from cts.fraud_model_path, or (None, None) -> rule-based fallback."""
+    try:
+        path = await config_service.get("cts.fraud_model_path")
+    except Exception:
+        return None, None
+    from modules.cts.fraud_model import load_fraud_model
+    model, explainer = load_fraud_model(path if isinstance(path, str) else None)
+    if model is not None:
+        log.warning("worker_activities.fraud_model_loaded", source=model.source, synthetic=model.synthetic)
+    return model, explainer
 
 
 async def _build_fraud_vllm_client(config_service: Any) -> Any:
@@ -952,9 +1135,11 @@ async def _build_vision_vllm_client(config_service: Any) -> Any:
     (Qwen2-VL 7B — fast L1 pass).  Same HeadroomVLLMClient as the fraud
     client; the queue is specified per-call in extra_body, not here."""
     try:
-        from apps.ai_server.headroom_client import HeadroomVLLMClient
+        # OpenAI-compatible client: the vision activities call
+        # .chat.completions.create(extra_body={"queue": ...}) per ai-inference rules.
+        from openai import AsyncOpenAI
         base_url = await config_service.get("vllm.url")
-        client = HeadroomVLLMClient(base_url=base_url)
+        client = AsyncOpenAI(base_url=f"{base_url.rstrip('/')}/v1", api_key="x-istio", max_retries=0)
         log.info("worker_activities.vision_vllm_client_ready")
         return client
     except Exception as exc:
@@ -970,13 +1155,13 @@ async def _get_pii_pepper(config_service: Any, bank_id: str) -> str:
         return ""
 
 
-def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
+def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
     if not pepper:
         log.warning("worker_activities.signature_vault_skipped_no_pepper", bank_id=bank_id)
         return None
     try:
         from modules.cts.vaults.signature_vault import SignatureVault
-        vault = SignatureVault(bank_id=bank_id, pepper=pepper)
+        vault = SignatureVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
         vault.connect(redis_client=redis_client)  # sync
         log.info("worker_activities.signature_vault_ready")
         return vault
@@ -985,13 +1170,28 @@ def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
         return None
 
 
-def _build_pps_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
+def _build_account_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
+    if not pepper:
+        log.warning("worker_activities.account_vault_skipped_no_pepper", bank_id=bank_id)
+        return None
+    try:
+        from modules.cts.vaults.account_vault import AccountVault
+        vault = AccountVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
+        vault.connect(redis_client=redis_client)  # sync
+        log.info("worker_activities.account_vault_ready")
+        return vault
+    except Exception as exc:
+        log.warning("worker_activities.account_vault_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+def _build_pps_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
     if not pepper:
         log.warning("worker_activities.pps_vault_skipped_no_pepper", bank_id=bank_id)
         return None
     try:
         from modules.cts.vaults.pps_vault import PPSVault
-        vault = PPSVault(bank_id=bank_id, pepper=pepper)
+        vault = PPSVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
         vault.connect(redis_client=redis_client)  # sync
         log.info("worker_activities.pps_vault_ready")
         return vault
@@ -1041,6 +1241,11 @@ def _build_hsm_signer(config_service: Any, bank_id: str) -> Any:
         return signer
     except Exception as exc:
         log.warning("worker_activities.hsm_signer_unavailable", bank_id=bank_id, error=str(exc))
+        import os
+        if os.environ.get("ASTRA_ENV", "").lower() == "development":
+            from shared.hsm.dev_stub_hsm import DevStubHSMSigner
+            log.warning("worker_activities.hsm_dev_stub_active", bank_id=bank_id)
+            return DevStubHSMSigner()
         return None
 
 
@@ -1061,7 +1266,7 @@ async def _build_bloom_client(redis_client: Any, bank_id: str, config_service: A
             expected_items=expected_items,
             false_positive_rate=false_positive_rate,
         )
-        client.initialize()  # sync, idempotent — BF.RESERVE with the configured capacity/fpr
+        await client.initialize()  # idempotent — BF.RESERVE with the configured capacity/fpr
         log.info("worker_activities.bloom_client_ready")
         return client
     except Exception as exc:
@@ -1076,14 +1281,72 @@ async def _build_minio_client(config_service: Any) -> Any:
         endpoint = await config_service.get_secret("minio.endpoint")
         access_key = await config_service.get_secret("minio.access_key")
         secret_key = await config_service.get_secret("minio.secret_key")
+        from shared.config.exceptions import ConfigKeyNotFoundError
+        try:   # same platform flag the API reads; secure by default when unset
+            secure = str(config_service.get_platform("minio.secure")).lower() in ("true", "1")
+        except ConfigKeyNotFoundError:
+            secure = True
         client = MinioObjectStore(
             endpoint=endpoint,
             access_key=access_key,
             secret_key=secret_key,
-            secure=True,
+            secure=secure,
         )
-        log.info("worker_activities.minio_client_ready")
+        log.info("worker_activities.minio_client_ready", secure=secure)
+        from shared.storage.image_fetch import configure_default_store
+        configure_default_store(client)        # s3:// image URLs resolve through this store
         return client
     except Exception as exc:
         log.warning("worker_activities.minio_client_unavailable", error=str(exc))
         return None
+
+
+async def _build_embedding_model() -> Any:
+    """Local CPU signature embedder (generic backbone — see its module docstring)."""
+    try:
+        import asyncio
+        from shared.ai.local_signature_embedder import LocalSignatureEmbedder
+        model = await asyncio.to_thread(LocalSignatureEmbedder)
+        log.info("worker_activities.embedding_model_ready", model="resnet18-imagenet-generic")
+        return model
+    except Exception as exc:
+        log.warning("worker_activities.embedding_model_unavailable", error=str(exc))
+        return None
+
+
+def bind_di_activity(fn: Any, deps: dict) -> Any:
+    """Turn a bare activity `fn(inp, dep1=None, dep2=None, ...)` into a single-`inp`
+    activity with `deps` injected. Needed because Temporal drops parameter type hints
+    when an activity has more parameters than payloads, so the bare function received
+    a plain dict and no dependencies."""
+    import inspect
+    import typing
+    from pydantic import BaseModel
+    from temporalio import activity as _activity
+
+    params = list(inspect.signature(fn).parameters.values())
+    extras = [p.name for p in params[1:]]
+    hints = typing.get_type_hints(fn)
+    model = hints.get(params[0].name)
+
+    async def _wrapper(inp):
+        if isinstance(inp, dict) and isinstance(model, type) and issubclass(model, BaseModel):
+            inp = model.model_validate(inp)
+        return await fn(inp, **{name: deps.get(name) for name in extras})
+
+    _wrapper.__name__ = fn.__name__
+    _wrapper.__qualname__ = fn.__name__
+    _wrapper.__annotations__ = {"inp": model, "return": hints.get("return")} if model else {}
+    return _activity.defn(name=fn.__name__)(_wrapper)
+
+
+def split_di_activities(bare: list, deps: dict) -> tuple[list, list]:
+    """(bound wrappers for activities that take extra params, untouched single-param ones)."""
+    import inspect
+    bound, plain = [], []
+    for fn in bare:
+        if len(inspect.signature(fn).parameters) > 1:
+            bound.append(bind_di_activity(fn, deps))
+        else:
+            plain.append(fn)
+    return bound, plain

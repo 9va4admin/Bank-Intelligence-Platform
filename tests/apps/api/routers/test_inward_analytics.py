@@ -223,3 +223,125 @@ class TestInwardAnalytics:
 
         resp = client.get("/v1/cts/inward/analytics")
         assert resp.status_code == 403
+
+
+class TestInwardAnalyticsInstrumentCategoryFilter:
+    """instrument_category query param (2026-10-12): all 6 aggregate queries
+    (daily, fraud_dist, risk_flags, return_reasons, branches, iet_trend) must
+    accept an optional CHEQUE/DEMAND_DRAFT filter -- previously this column
+    existed on cts.agent_decisions but no query here ever referenced it."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_config_service(self):
+        from unittest.mock import patch, AsyncMock
+        import apps.api.routers.cts_inward as _mod
+        cfg = {"cts.ocr_min_confidence": "0.90", "cts.sig_min_match_score": "0.80"}
+        with patch.object(_mod.config_service, "get_cts_config", AsyncMock(return_value=cfg)):
+            yield
+
+    def test_instrument_category_param_reaches_daily_query(self):
+        pool = _mock_conn(
+            fetch_side_effect=[
+                _fake_daily(),
+                _fake_fraud_dist(),
+                _fake_return_reasons(),
+                _fake_branches(),
+                _fake_iet_trend(),
+            ],
+            fetchrow_return=_fake_risk_flags_row(),
+        )
+        app = _make_app(mock_db=pool, ctx=_ctx())
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/v1/cts/inward/analytics?instrument_category=DEMAND_DRAFT")
+        assert resp.status_code == 200
+
+        conn = pool.acquire.return_value
+        daily_call_args = conn.fetch.call_args_list[0][0]
+        assert "DEMAND_DRAFT" in daily_call_args
+
+    def test_instrument_category_param_reaches_fraud_dist_query(self):
+        pool = _mock_conn(
+            fetch_side_effect=[
+                _fake_daily(),
+                _fake_fraud_dist(),
+                _fake_return_reasons(),
+                _fake_branches(),
+                _fake_iet_trend(),
+            ],
+            fetchrow_return=_fake_risk_flags_row(),
+        )
+        app = _make_app(mock_db=pool, ctx=_ctx())
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/v1/cts/inward/analytics?instrument_category=CHEQUE")
+        assert resp.status_code == 200
+
+        conn = pool.acquire.return_value
+        fraud_call_args = conn.fetch.call_args_list[1][0]
+        assert "CHEQUE" in fraud_call_args
+
+    def test_instrument_category_param_reaches_risk_flags_query(self):
+        pool = _mock_conn(
+            fetch_side_effect=[
+                _fake_daily(),
+                _fake_fraud_dist(),
+                _fake_return_reasons(),
+                _fake_branches(),
+                _fake_iet_trend(),
+            ],
+            fetchrow_return=_fake_risk_flags_row(),
+        )
+        app = _make_app(mock_db=pool, ctx=_ctx())
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/v1/cts/inward/analytics?instrument_category=DEMAND_DRAFT")
+        assert resp.status_code == 200
+
+        conn = pool.acquire.return_value
+        flags_call_args = conn.fetchrow.call_args[0]
+        assert "DEMAND_DRAFT" in flags_call_args
+
+    def test_instrument_category_param_reaches_branches_query(self):
+        pool = _mock_conn(
+            fetch_side_effect=[
+                _fake_daily(),
+                _fake_fraud_dist(),
+                _fake_return_reasons(),
+                _fake_branches(),
+                _fake_iet_trend(),
+            ],
+            fetchrow_return=_fake_risk_flags_row(),
+        )
+        app = _make_app(mock_db=pool, ctx=_ctx())
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/v1/cts/inward/analytics?instrument_category=CHEQUE")
+        assert resp.status_code == 200
+
+        conn = pool.acquire.return_value
+        branch_call_args = conn.fetch.call_args_list[3][0]
+        assert "CHEQUE" in branch_call_args
+
+    def test_no_filter_passes_none(self):
+        """Omitting instrument_category must pass None through (not crash,
+        not silently default to a specific category)."""
+        pool = _mock_conn(
+            fetch_side_effect=[
+                _fake_daily(),
+                _fake_fraud_dist(),
+                _fake_return_reasons(),
+                _fake_branches(),
+                _fake_iet_trend(),
+            ],
+            fetchrow_return=_fake_risk_flags_row(),
+        )
+        app = _make_app(mock_db=pool, ctx=_ctx())
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/v1/cts/inward/analytics")
+        assert resp.status_code == 200
+
+        conn = pool.acquire.return_value
+        daily_call_args = conn.fetch.call_args_list[0][0]
+        assert None in daily_call_args

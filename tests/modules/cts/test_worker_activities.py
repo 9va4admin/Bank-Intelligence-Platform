@@ -81,10 +81,10 @@ class TestBoundMethodDelegation:
         fake_opa = MagicMock()
         bound = _bound(immudb_client=fake_immudb, opa_client=fake_opa)
         with patch("modules.cts.workflows.activities.decision.synthesise_decision", new=AsyncMock(return_value="RESULT")) as mock_real:
-            result = await bound.synthesise_decision("INPUT", {"cfg": 1}, kill_switch_status="ELEVATED")
+            result = await bound.synthesise_decision("INPUT", {"cfg": 1})
         mock_real.assert_awaited_once_with(
             "INPUT", {"cfg": 1},
-            kill_switch_status="ELEVATED",
+            kill_switch_status=None,
             immudb_client=fake_immudb,
             opa_client=fake_opa,
         )
@@ -237,11 +237,78 @@ class TestLotManagerCaching:
         assert r1.lot_number == r2.lot_number
 
 
+class TestVisionActivitiesReceiveClientAndConfig:
+    """Real bug found 2026-09-21: Temporal drops type hints when an activity has
+    more parameters than payloads, so check_security_features (extra
+    vllm_client/config_service/langfuse params) received a plain dict and
+    crashed. It must be a bound method taking only `inp`, with DI injected."""
+
+    @pytest.mark.asyncio
+    async def test_check_security_features_bound_and_injected(self):
+        fake_vllm, fake_cfg = MagicMock(), MagicMock()
+        bound = _bound(vision_vllm_client=fake_vllm, config_service=fake_cfg)
+        with patch("modules.cts.workflows.activities.security_features.check_security_features",
+                   new=AsyncMock(return_value="RESULT")) as mock_real:
+            result = await bound.check_security_features({"instrument_id": "i", "bank_id": "b", "image_url": "u"})
+        args, kwargs = mock_real.await_args
+        assert args[0].bank_id == "b"          # dict coerced to the pydantic model
+        assert kwargs == {"vllm_client": fake_vllm, "config_service": fake_cfg}
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_detect_signatures_receives_config_service_for_cloud_fallback(self):
+        fake_vllm, fake_cfg = MagicMock(), MagicMock()
+        bound = _bound(vision_vllm_client=fake_vllm, config_service=fake_cfg)
+        with patch("modules.cts.workflows.activities.detect_signatures.detect_signatures",
+                   new=AsyncMock(return_value="RESULT")) as mock_real:
+            await bound.detect_signatures({"instrument_id": "i", "bank_id": "b", "image_url": "u"})
+        assert mock_real.await_args.kwargs == {"vllm_client": fake_vllm, "config_service": fake_cfg}
+
+
+class TestVerifySignatureGetsEmbedder:
+    @pytest.mark.asyncio
+    async def test_embedding_model_injected(self):
+        emb, vault, cfg = MagicMock(), MagicMock(), MagicMock()
+        bound = _bound(embedding_model=emb, signature_vault=vault, config_service=cfg)
+        with patch("modules.cts.workflows.activities.signature.verify_signature",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.verify_signature("INP") == "R"
+        assert real.await_args.kwargs["embedding_model"] is emb
+
+
+class TestMismatchActivitiesRegistered:
+    """persist_mismatch_hold_db / resolve_mismatch_db were imported and listed
+    but never registered with the Worker, so MismatchResolutionWorkflow could
+    not run. They need db_pool, so they must be bound methods."""
+
+    @pytest.mark.asyncio
+    async def test_persist_mismatch_hold_db_bound_with_pool(self):
+        pool = MagicMock()
+        bound = _bound(db_pool=pool)
+        with patch("modules.cts.workflows.mismatch_resolution_workflow.persist_mismatch_hold_db",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.persist_mismatch_hold_db("INP") == "R"
+        real.assert_awaited_once_with("INP", db_pool=pool)
+
+    @pytest.mark.asyncio
+    async def test_resolve_mismatch_db_bound_with_pool(self):
+        pool = MagicMock()
+        bound = _bound(db_pool=pool)
+        with patch("modules.cts.workflows.mismatch_resolution_workflow.resolve_mismatch_db",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.resolve_mismatch_db("INP") == "R"
+        real.assert_awaited_once_with("INP", db_pool=pool)
+
+    def test_registered_in_activity_list(self):
+        names = {a.__name__ for a in _bound().activity_list()}
+        assert {"persist_mismatch_hold_db", "resolve_mismatch_db"} <= names
+
+
 class TestActivityListCompleteness:
-    def test_returns_exactly_30_bound_methods(self):
+    def test_returns_exactly_60_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 31
+        assert len(activities) == 60
 
     def test_no_duplicate_names(self):
         bound = _bound()
@@ -365,10 +432,11 @@ class TestCBSConnectorSelection:
         fake_connector_instance = MagicMock()
         fake_connector_cls = MagicMock(return_value=fake_connector_instance)
 
-        with patch("shared.cbs_connector.finacle.FinacleCBSConnector", fake_connector_cls):
+        with patch("shared.cbs_connector.finacle.FinacleCBSConnector", fake_connector_cls),              patch("modules.cts.worker_activities._get_pii_pepper", new=AsyncMock(return_value="pep")):
             connector = await _build_cbs_connector(fake_cfg, "test-bank")
 
-        fake_connector_cls.assert_called_once_with(base_url="https://cbs.example.internal", bank_id="test-bank")
+        fake_connector_cls.assert_called_once_with(
+            base_url="https://cbs.example.internal", bank_id="test-bank", pepper="pep")
         fake_connector_instance.connect.assert_called_once_with()  # sync, not awaited
         assert connector is fake_connector_instance
 
@@ -387,6 +455,7 @@ class TestBuildDbPool:
     @pytest.mark.asyncio
     async def test_creates_pool_with_established_sizing_convention(self):
         from modules.cts.worker_activities import _build_db_pool
+        from shared.db.codecs import register_lenient_codecs
 
         fake_cfg = MagicMock()
         fake_cfg.get_secret = AsyncMock(return_value="postgresql://user:pass@host/cts")
@@ -397,6 +466,7 @@ class TestBuildDbPool:
 
         mock_create_pool.assert_awaited_once_with(
             dsn="postgresql://user:pass@host/cts", min_size=2, max_size=10, command_timeout=30,
+            init=register_lenient_codecs,
         )
         assert pool is fake_pool
 
@@ -456,3 +526,259 @@ class TestBuildImmudbClient:
 
         assert tx_id == "99"
         mock_write_event.assert_called_once()
+
+
+class TestVisionClientInterface:
+    """Real bug: worker bound HeadroomVLLMClient (exposes .chat()) but the vision
+    activities call OpenAI-style .chat.completions.create(), so every vision
+    call raised "'function' object has no attribute 'completions'"."""
+
+    @pytest.mark.asyncio
+    async def test_vision_client_exposes_openai_chat_completions(self):
+        from modules.cts.worker_activities import _build_vision_vllm_client
+        cfg = MagicMock()
+        cfg.get = AsyncMock(return_value="http://vllm.internal:8000")
+        client = await _build_vision_vllm_client(cfg)
+        assert client is not None
+        assert callable(client.chat.completions.create)
+
+
+class TestInwardWorkflowActivitiesRegistered:
+    """ChequeProcessingWorkflow calls validate_cheque_series and validate_ifsc, but the
+    worker never registered them -> any cheque that reached step 7 failed the workflow
+    with 'Activity function ... is not registered on this worker'."""
+
+    @pytest.mark.asyncio
+    async def test_validate_cheque_series_bound_with_leaf_vault_cbs_config(self):
+        vault, cbs, cfg = MagicMock(), MagicMock(), MagicMock()
+        bound = _bound(cheque_leaf_vault=vault, cbs_connector=cbs, config_service=cfg)
+        with patch("modules.cts.workflows.activities.cheque_series.validate_cheque_series",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.validate_cheque_series({"instrument_id": "i", "bank_id": "b",
+                                                       "account_number": "a", "cheque_number": "c"}) == "R"
+        assert real.await_args.kwargs == {"cbs_connector": cbs, "cheque_leaf_vault": vault, "config_service": cfg}
+        assert real.await_args.args[0].bank_id == "b"
+
+    @pytest.mark.asyncio
+    async def test_validate_ifsc_bound_with_db_backed_repo(self):
+        bound = _bound(db_pool=MagicMock())
+        with patch("modules.cts.workflows.activities.ifsc_validator.validate_ifsc",
+                   new=AsyncMock(return_value="R")) as real:
+            assert await bound.validate_ifsc("INP") == "R"
+        assert real.await_args.kwargs["repo"] is not None
+
+    def test_both_in_activity_list(self):
+        names = {a.__name__ for a in _bound().activity_list()}
+        assert {"validate_cheque_series", "validate_ifsc"} <= names
+
+
+class TestPolicyEngineIsDefault:
+    """CLAUDE.md §2.6: no OPA container by default — the in-process PolicyEngine is bound
+    unless a bank explicitly sets opa.url."""
+
+    @pytest.mark.asyncio
+    async def test_policy_engine_when_no_opa_url(self):
+        from modules.cts.worker_activities import _build_opa_client
+        from shared.config.config_service import ConfigKeyNotFoundError
+        from shared.policy_engine import PolicyEngine
+        cfg = MagicMock()
+        cfg.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("opa.url"))
+        assert isinstance(await _build_opa_client(cfg), PolicyEngine)
+
+    @pytest.mark.asyncio
+    async def test_external_opa_only_when_url_set(self):
+        from modules.cts.worker_activities import _build_opa_client
+        from shared.opa_client import OPAClient
+        cfg = MagicMock()
+        cfg.get_platform = MagicMock(return_value="http://opa.bank.internal:8181")
+        assert isinstance(await _build_opa_client(cfg), OPAClient)
+
+
+class TestSynthesiseDecisionConfigShape:
+    """Found live: with no config passed, the bound method used get_cts_config (keys
+    prefixed 'cts.') but decision.py reads bare keys like config['ocr_min_confidence']
+    -> KeyError on every cheque that reached the decision step."""
+
+    @pytest.mark.asyncio
+    async def test_empty_config_loads_bare_key_workflow_thresholds(self):
+        cfg = MagicMock()
+        cfg.get_workflow_thresholds = AsyncMock(return_value={"ocr_min_confidence": 0.9})
+        cfg.get_cts_config = AsyncMock(return_value={"cts.ocr_min_confidence": 0.9})
+        inp = MagicMock(bank_id="kbl")
+        bound = _bound(config_service=cfg)
+        with patch("modules.cts.workflows.activities.decision.synthesise_decision",
+                   new=AsyncMock(return_value="R")) as real:
+            await bound.synthesise_decision(inp, {})
+        assert real.await_args.args[1] == {"ocr_min_confidence": 0.9}
+
+
+class TestNgchStandInSelection:
+    @pytest.mark.asyncio
+    async def test_dev_stub_when_platform_flag_set(self):
+        from modules.cts.worker_activities import _build_ngch_adapter
+        from modules.cts.mcp.dev_stub_ngch import DevStubNGCHAdapter
+        cfg = MagicMock()
+        cfg.get_platform = MagicMock(side_effect=lambda k: {"ngch.dev_stub": "true"}[k])
+        import os
+        os.environ["ASTRA_ENV"] = "development"
+        assert isinstance(await _build_ngch_adapter(cfg, "kbl"), DevStubNGCHAdapter)
+
+
+class TestPublicDependencyProperties:
+    """worker.run_worker hands these to the human-review consumer; missing property
+    would raise AttributeError at worker startup."""
+
+    def test_db_pool_property_exposed(self):
+        pool = MagicMock()
+        assert _bound(db_pool=pool).db_pool is pool
+
+
+class TestVaultBuildersGetDbPoolAndAccountVaultExists:
+    """Signature/PPS vaults were built without a db_pool, so their write-through to
+    YugabyteDB never happened (Redis-only, lost on flush). The worker also never built
+    an AccountVault at all, so payee-account lookups always missed."""
+
+    def test_signature_and_pps_vaults_receive_db_pool(self):
+        from modules.cts.worker_activities import _build_signature_vault, _build_pps_vault
+        pool = MagicMock()
+        assert _build_signature_vault("kbl", "pep", MagicMock(), pool)._db_pool is pool
+        assert _build_pps_vault("kbl", "pep", MagicMock(), pool)._db_pool is pool
+
+    def test_account_vault_built_with_pool_and_redis(self):
+        from modules.cts.worker_activities import _build_account_vault
+        pool = MagicMock()
+        v = _build_account_vault("kbl", "pep", MagicMock(), pool)
+        assert v is not None and v._db_pool is pool
+
+    def test_account_vault_skipped_without_pepper(self):
+        from modules.cts.worker_activities import _build_account_vault
+        assert _build_account_vault("kbl", "", MagicMock(), MagicMock()) is None
+
+    def test_account_vault_is_exposed_to_activities(self):
+        av = MagicMock()
+        assert _bound(account_vault=av).di_dependencies()["account_vault"] is av
+
+
+class TestWorkerMinioHonoursSecureFlag:
+    """The worker hard-coded secure=True, so against a plain-HTTP MinIO every worker-side MinIO call
+    failed with an SSL error (lot store, corpus, buckets). The API already reads minio.secure."""
+
+    @pytest.mark.asyncio
+    async def test_secure_false_when_platform_flag_false(self):
+        from modules.cts.worker_activities import _build_minio_client
+        cfg = MagicMock()
+        cfg.get_secret = AsyncMock(side_effect=lambda k: {"minio.endpoint": "localhost:19000",
+                                   "minio.access_key": "a", "minio.secret_key": "s"}[k])
+        cfg.get_platform = MagicMock(return_value="false")
+        with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
+            await _build_minio_client(cfg)
+        assert store_cls.call_args.kwargs["secure"] is False
+
+    @pytest.mark.asyncio
+    async def test_secure_true_by_default_when_flag_absent(self):
+        from modules.cts.worker_activities import _build_minio_client
+        from shared.config.exceptions import ConfigKeyNotFoundError
+        cfg = MagicMock()
+        cfg.get_secret = AsyncMock(return_value="x")
+        cfg.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("minio.secure"))
+        with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
+            await _build_minio_client(cfg)
+        assert store_cls.call_args.kwargs["secure"] is True
+
+
+class TestWorkerRegistersItsStoreForImageFetching:
+    """fetch_image_bytes resolves s3:// through a default store. Found live: the worker built its MinIO
+    client but never registered it, so the fetcher fell back to an uninitialised global config and every
+    s3:// image failed ('config_service.initialise() has not been awaited')."""
+
+    @pytest.mark.asyncio
+    async def test_built_minio_client_becomes_the_default_image_store(self):
+        from modules.cts.worker_activities import _build_minio_client
+        from shared.storage import image_fetch
+        from shared.config.exceptions import ConfigKeyNotFoundError
+        cfg = MagicMock()
+        cfg.get_secret = AsyncMock(return_value="x")
+        cfg.get_platform = MagicMock(side_effect=ConfigKeyNotFoundError("minio.secure"))
+        image_fetch.configure_default_store(None)
+        with patch("shared.storage.minio_client.MinioObjectStore") as store_cls:
+            client = await _build_minio_client(cfg)
+        assert image_fetch._default_store is client is store_cls.return_value
+
+
+class TestBuildHsmSigner:
+    """Real live run: VaultTransitSigner.from_env() has no Vault Transit key in dev, so
+    _build_hsm_signer returned None, and NGCHSigner crashed with 'NoneType' object has no attribute 'sign'
+    the first time a real outward lot reached HSM signing. In ASTRA_ENV=development, fall back to
+    DevStubHSMSigner instead of None."""
+
+    def test_falls_back_to_dev_stub_when_vault_unavailable_in_development(self, monkeypatch):
+        monkeypatch.setenv("ASTRA_ENV", "development")
+        from modules.cts.worker_activities import _build_hsm_signer
+        from shared.hsm.dev_stub_hsm import DevStubHSMSigner
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=Exception("no vault key configured"))
+        signer = _build_hsm_signer(fake_cfg, "kbl")
+        assert isinstance(signer, DevStubHSMSigner)
+        assert len(signer.sign(b"x")) == 256
+
+    def test_returns_none_outside_development_when_vault_unavailable(self, monkeypatch):
+        monkeypatch.setenv("ASTRA_ENV", "production")
+        from modules.cts.worker_activities import _build_hsm_signer
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=Exception("no vault key configured"))
+        assert _build_hsm_signer(fake_cfg, "kbl") is None
+
+
+class TestBuildFraudModel:
+    @pytest.mark.asyncio
+    async def test_no_path_configured_means_rule_fallback(self):
+        from modules.cts.worker_activities import _build_fraud_model
+        cs = MagicMock(); cs.get = AsyncMock(return_value=None)
+        assert await _build_fraud_model(cs) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_config_error_means_rule_fallback(self):
+        from modules.cts.worker_activities import _build_fraud_model
+        cs = MagicMock(); cs.get = AsyncMock(side_effect=RuntimeError("no key"))
+        assert await _build_fraud_model(cs) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_valid_path_loads_a_labelled_synthetic_model(self, tmp_path):
+        from modules.cts.fraud_model import train_standin_model
+        from modules.cts.worker_activities import _build_fraud_model
+        p = str(tmp_path / "m.json"); train_standin_model(p, seed=1, n=800)
+        cs = MagicMock(); cs.get = AsyncMock(return_value=p)
+        model, explainer = await _build_fraud_model(cs)
+        assert model is not None and explainer is not None and model.synthetic is True
+
+
+class TestSignatureVerifierProvenance:
+    """The signature result must say whether the verifier behind it is a trained model."""
+
+    @pytest.mark.asyncio
+    async def test_untrained_embedder_marks_result_untrained(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.signature import SignatureActivityResult
+        class Generic:            # no `trained` attribute, like the ImageNet stand-in
+            MODEL_LABEL = "resnet18-imagenet-generic"
+        bound = _bound()
+        bound._embedding_model = Generic()
+        fake = AsyncMock(return_value=SignatureActivityResult(outcome="PROCEED", match_score=0.97))
+        with patch("modules.cts.workflows.activities.signature.verify_signature", new=fake):
+            r = await bound.verify_signature(MagicMock())
+        assert r.verifier_trained is False and r.verifier == "resnet18-imagenet-generic"
+
+    @pytest.mark.asyncio
+    async def test_trained_embedder_marks_result_trained(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.signature import SignatureActivityResult
+        class Siamese:
+            MODEL_LABEL = "siamese-v1"; trained = True
+        bound = _bound()
+        bound._embedding_model = Siamese()
+        fake = AsyncMock(return_value=SignatureActivityResult(outcome="PROCEED", match_score=0.97))
+        with patch("modules.cts.workflows.activities.signature.verify_signature", new=fake):
+            r = await bound.verify_signature(MagicMock())
+        assert r.verifier_trained is True

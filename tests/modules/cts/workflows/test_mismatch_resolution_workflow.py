@@ -313,6 +313,16 @@ async def _fake_publish_hold(inp) -> dict:
     return {"published": True}
 
 
+@_activity.defn(name="persist_mismatch_hold_db")
+async def _fake_persist_mismatch_hold_db(inp):
+    return None      # the workflow now records the hold in cts.mismatch_queue via this activity
+
+
+@_activity.defn(name="resolve_mismatch_db")
+async def _fake_resolve_mismatch_db(inp):
+    return None
+
+
 @_activity.defn(name="write_audit")
 async def _fake_write_audit(inp):
     from modules.cts.workflows.activities.write_audit import WriteAuditResult
@@ -331,7 +341,7 @@ class TestMismatchResolutionWorkflowRealRun:
             async with Worker(
                 env.client, task_queue=task_queue,
                 workflows=[MismatchResolutionWorkflow],
-                activities=[_fake_publish_hold, _fake_write_audit],
+                activities=[_fake_publish_hold, _fake_write_audit, _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db],
                 workflow_runner=UnsandboxedWorkflowRunner(),
             ):
                 handle = await env.client.start_workflow(
@@ -361,7 +371,7 @@ class TestMismatchResolutionWorkflowRealRun:
             async with Worker(
                 env.client, task_queue=task_queue,
                 workflows=[MismatchResolutionWorkflow],
-                activities=[_fake_publish_hold, _fake_write_audit],
+                activities=[_fake_publish_hold, _fake_write_audit, _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db],
                 workflow_runner=UnsandboxedWorkflowRunner(),
             ):
                 handle = await env.client.start_workflow(
@@ -388,7 +398,7 @@ class TestMismatchResolutionWorkflowRealRun:
             async with Worker(
                 env.client, task_queue=task_queue,
                 workflows=[MismatchResolutionWorkflow],
-                activities=[_fake_publish_hold, _fake_write_audit],
+                activities=[_fake_publish_hold, _fake_write_audit, _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db],
                 workflow_runner=UnsandboxedWorkflowRunner(),
             ):
                 # No signal sent — time-skipping server fast-forwards through

@@ -46,6 +46,53 @@ class EndorsementStamper:
 
         return record, stamped_bytes
 
+    def render_stamp(self, rear_image_bytes: bytes, record: EndorsementRecord) -> bytes:
+        """Draw a small endorsement stamp in the top-left corner of the rear image and return it in the
+        original format. Raises ValueError if the bytes are not a decodable image.
+
+        Deliberately small and corner-confined (a real bank endorsement stamp is a few cm on a physical
+        cheque, not a banner across the middle): a first version covered ~62% of the image width, centred
+        where a payee signature and amount sit on a real cheque — on the dev test set (no real rear images
+        exist, so the front image stands in as the rear) that meant stamping directly over handwritten
+        content. The top-left corner is the area least likely to carry ink on either a real rear or a
+        front-as-rear stand-in."""
+        import io
+        from PIL import Image, ImageDraw, ImageFont
+        try:
+            img = Image.open(io.BytesIO(rear_image_bytes))
+            img.load()
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"rear image not decodable: {exc}") from exc
+        fmt = img.format or "TIFF"
+        work = img.convert("RGB")
+        w, h = work.size
+        draw = ImageDraw.Draw(work)
+        t = record.template
+        lines = [
+            "ENDORSED",
+            f"{t.bank_ifsc}",
+            f"A/c ****{record.account_suffix}",
+            f"{record.presentation_date.date().isoformat()}",
+        ]
+        font_size = max(8, h // 55)
+        try:
+            font = ImageFont.load_default(size=font_size)
+        except TypeError:  # very old Pillow: fixed-size default font
+            font = ImageFont.load_default()
+        line_h = font_size + 3
+        margin = max(4, h // 90)
+        box_w, box_h = int(w * 0.20), line_h * len(lines) + 8
+        x0, y0 = margin, margin
+        draw.rectangle([x0, y0, x0 + box_w, y0 + box_h], outline="black", width=1)
+        for i, text in enumerate(lines):
+            draw.text((x0 + 4, y0 + 4 + i * line_h), text, fill="black", font=font)
+        out = io.BytesIO()
+        if fmt.upper() in ("JPEG", "JPG"):
+            work.save(out, "JPEG", quality=90)
+        else:
+            work.save(out, fmt)
+        return out.getvalue()
+
     def qr_data(self, record: EndorsementRecord) -> str:
         return (
             f"ASTRA-ENDORSE"

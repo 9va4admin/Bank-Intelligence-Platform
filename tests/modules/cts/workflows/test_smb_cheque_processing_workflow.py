@@ -60,7 +60,7 @@ class TestRetryPolicies:
     def test_audit_retry_is_unlimited(self):
         from modules.cts.workflows.smb_cheque_processing_workflow import _AUDIT_RETRY
         # Unlimited retries — audit must always succeed
-        assert _AUDIT_RETRY.maximum_attempts is None
+        assert _AUDIT_RETRY.maximum_attempts == 0   # 0 = unlimited in the Temporal SDK (None is invalid)
 
 
 class TestDesignInvariants:

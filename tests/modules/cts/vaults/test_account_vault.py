@@ -557,3 +557,37 @@ class TestAccountVaultUpdateBranchContacts:
 
         with pytest.raises(Exception):
             await vault.update_branch_contacts("SRCB0000034", contact)
+
+
+class TestStoreProfileTimestampType:
+    """Found seeding the real DB: store_profile passed an ISO *string* for the TIMESTAMPTZ
+    column, which asyncpg rejects ("expected a datetime.date or datetime.datetime instance"),
+    so no account profile could ever be written to YugabyteDB."""
+
+    @staticmethod
+    def _vault_with_capturing_conn():
+        import datetime as _dt  # noqa: F401
+        redis = MagicMock()
+        pipe = MagicMock(); pipe.execute = AsyncMock()
+        redis.pipeline.return_value = pipe
+        conn = AsyncMock()
+        pool = AsyncMock()
+        pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=conn), __aexit__=AsyncMock(return_value=False)))
+        return _make_vault(redis_client=redis, db_pool=pool), conn
+
+    @pytest.mark.asyncio
+    async def test_default_timestamp_is_a_datetime(self):
+        from datetime import datetime
+        vault, conn = self._vault_with_capturing_conn()
+        profile = _sample_profile_dict(); profile.pop("last_synced_at")
+        await vault.store_profile("1234567890", profile)
+        assert isinstance(conn.execute.call_args[0][13], datetime)     # $13 = last_synced_at
+
+    @pytest.mark.asyncio
+    async def test_iso_string_timestamp_is_converted_to_datetime(self):
+        from datetime import datetime
+        vault, conn = self._vault_with_capturing_conn()
+        await vault.store_profile("1234567890", _sample_profile_dict())   # "2026-08-03T06:00:00Z"
+        ts = conn.execute.call_args[0][13]
+        assert isinstance(ts, datetime) and ts.year == 2026 and ts.month == 8 and ts.tzinfo is not None

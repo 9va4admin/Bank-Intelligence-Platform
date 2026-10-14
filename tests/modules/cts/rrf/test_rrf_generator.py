@@ -17,17 +17,17 @@ _N = f"{{{_RRF_NS}}}"   # shorthand: _N + "Header" == "{urn:...}Header"
 def test_return_code_has_standard_rbi_codes():
     from modules.cts.rrf.models import RBIReturnCode
     assert RBIReturnCode.FUNDS_INSUFFICIENT.code == '01'
-    assert RBIReturnCode.SIGNATURE_DIFFERS.code == '06'
-    assert RBIReturnCode.ALTERATION_REQUIRES_AUTH.code == '07'
-    assert RBIReturnCode.PAYMENT_STOPPED.code == '08'
-    assert RBIReturnCode.WORDS_FIGURES_DIFFER.code == '16'
-    assert RBIReturnCode.IMAGE_POOR_QUALITY.code == '20'
+    assert RBIReturnCode.SIGNATURE_DIFFERS.code == '12'
+    assert RBIReturnCode.ALTERATION_REQUIRES_AUTH.code == '17'
+    assert RBIReturnCode.PAYMENT_STOPPED.code == '20'
+    assert RBIReturnCode.WORDS_FIGURES_DIFFER.code == '34'
+    assert RBIReturnCode.IMAGE_NOT_CLEAR.code == '39'
 
 
 def test_return_code_has_description():
     from modules.cts.rrf.models import RBIReturnCode
     assert 'Insufficient' in RBIReturnCode.FUNDS_INSUFFICIENT.description
-    assert 'Signature' in RBIReturnCode.SIGNATURE_DIFFERS.description
+    assert 'signature' in RBIReturnCode.SIGNATURE_DIFFERS.description.lower()
 
 
 def test_return_code_from_ui_reason_maps_correctly():
@@ -255,7 +255,7 @@ def test_generator_xml_return_item_has_all_required_fields():
     assert ret is not None
     assert ret.find(f'{_N}InstrumentID').text == 'CHQ-2026-001847'
     assert ret.find(f'{_N}MICRCode').text == '400160001847'
-    assert ret.find(f'{_N}ReturnReasonCode').text == '06'
+    assert ret.find(f'{_N}ReturnReasonCode').text == '12'
     assert ret.find(f'{_N}DraweeIFSC').text == 'SVCB0000001'
     assert ret.find(f'{_N}PresentingIFSC').text == 'HDFC0001234'
     assert ret.find(f'{_N}FiledWithinIET').text == 'true'

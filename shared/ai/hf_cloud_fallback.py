@@ -32,6 +32,7 @@ _HF_BASE_URL_FALLBACK = "https://router.huggingface.co/v1"
 
 _MODEL_MAPPING = {
     "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud",
+    "qwen3-vl-32b": "Qwen/Qwen3-VL-32B-Instruct:featherless-ai",   # independent second opinion for payee re-read
 }
 
 

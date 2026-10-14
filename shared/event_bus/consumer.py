@@ -13,8 +13,9 @@ Usage:
     )
     consumer.connect()
     consumer.register_handler("CTS_INWARD", handle_inward_cheque)
-    await consumer.run()   # blocking poll loop
+    await consumer.run()   # non-blocking poll loop; consumer.stop() to end
 """
+import asyncio
 import json
 from typing import Any, Callable, Coroutine
 
@@ -24,6 +25,8 @@ from shared.event_bus.exceptions import EventBusUnavailableError, UnknownSchemaV
 from shared.event_bus.schemas import KafkaEventEnvelope
 
 log = structlog.get_logger()
+
+_POLL_TIMEOUT_MS = 500
 
 Handler = Callable[[KafkaEventEnvelope], Coroutine[Any, Any, None]]
 
@@ -42,6 +45,7 @@ class EventConsumer:
         self._topics = topics
         self._consumer = None
         self._ready = False
+        self._running = False
         self._handlers: dict[str, Handler] = {}
 
     def connect(self) -> None:
@@ -66,22 +70,41 @@ class EventConsumer:
         """Register an async handler for a specific event_type."""
         self._handlers[event_type] = handler
 
+    def stop(self) -> None:
+        """Ask the poll loop to exit after the current poll returns."""
+        self._running = False
+
     async def run(self) -> None:
-        """Poll loop — runs until cancelled."""
+        """Poll loop — runs until stop() or cancellation.
+
+        kafka-python is synchronous: poll() blocks its calling thread. It is run
+        in a worker thread so the event loop (shared with the Temporal worker)
+        keeps serving other coroutines while the topic is idle.
+        """
         self._assert_ready()
-        for message in self._consumer:
-            try:
-                envelope = self._deserialise(message)
-                if not self._should_process(envelope):
-                    continue
-                await self._dispatch(envelope)
-                self._consumer.commit()
-            except UnknownSchemaVersionError:
-                log.error("event_bus.unknown_schema",
-                          topic=message.topic, offset=message.offset)
-            except Exception as exc:
-                log.error("event_bus.processing_error",
-                          topic=message.topic, offset=message.offset, error=str(exc))
+        self._running = True
+        loop = asyncio.get_running_loop()
+        while self._running:
+            batches = await loop.run_in_executor(
+                None, lambda: self._consumer.poll(timeout_ms=_POLL_TIMEOUT_MS)
+            )
+            for messages in (batches or {}).values():
+                for message in messages:
+                    await self._handle_message(message)
+
+    async def _handle_message(self, message) -> None:
+        try:
+            envelope = self._deserialise(message)
+            if not self._should_process(envelope):
+                return
+            await self._dispatch(envelope)
+            self._consumer.commit()
+        except UnknownSchemaVersionError:
+            log.error("event_bus.unknown_schema",
+                      topic=message.topic, offset=message.offset)
+        except Exception as exc:
+            log.error("event_bus.processing_error",
+                      topic=message.topic, offset=message.offset, error=str(exc))
 
     # ------------------------------------------------------------------
     # Internal helpers (public for testability)
@@ -120,3 +143,63 @@ class EventConsumer:
                 "EventConsumer.connect() has not been called. "
                 "Call it in the service startup before running the consumer."
             )
+
+
+class KafkaEventConsumer:
+    """Async-iterable Kafka consumer (raw messages) for background loops such as
+    CacheInvalidator (`async for message in consumer`).
+
+    kafka-python is synchronous: poll() runs in a worker thread so the event loop stays
+    free while the topic is idle. `consumer_factory` is injectable for tests.
+    """
+
+    def __init__(self, bootstrap_servers: str, group_id: str, topics: list[str],
+                 consumer_factory: "Callable[[], Any] | None" = None) -> None:
+        self._bootstrap_servers = bootstrap_servers
+        self._group_id = group_id
+        self._topics = list(topics)
+        self._factory = consumer_factory
+        self._consumer = None
+        self._running = False
+
+    def _ensure_consumer(self):
+        if self._consumer is None:
+            if self._factory is not None:
+                self._consumer = self._factory()
+            else:
+                try:
+                    from kafka import KafkaConsumer  # type: ignore[import]
+                    self._consumer = KafkaConsumer(
+                        bootstrap_servers=self._bootstrap_servers,
+                        group_id=self._group_id,
+                        auto_offset_reset="latest",   # cache invalidation only cares about new events
+                        enable_auto_commit=True,
+                        value_deserializer=lambda v: v,
+                    )
+                except Exception as exc:
+                    raise EventBusUnavailableError(f"Kafka consumer connect failed: {exc}") from exc
+            self._consumer.subscribe(self._topics)
+        return self._consumer
+
+    def stop(self) -> None:
+        self._running = False
+
+    def __aiter__(self):
+        return self._iterate()
+
+    async def _iterate(self):
+        consumer = self._ensure_consumer()
+        self._running = True
+        loop = asyncio.get_running_loop()
+        try:
+            while self._running:
+                batches = await loop.run_in_executor(
+                    None, lambda: consumer.poll(timeout_ms=_POLL_TIMEOUT_MS))
+                for messages in (batches or {}).values():
+                    for message in messages:
+                        yield message
+        finally:
+            try:
+                consumer.close()
+            except Exception:
+                pass

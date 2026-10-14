@@ -65,11 +65,14 @@ class TestSealAllLotsDegraded:
             seal_all_lots, SealAllLotsInput,
         )
         fake_rows = [
-            {"pu_id": "PU-01", "lot_number": "LOT-001", "instrument_count": 5},
-            {"pu_id": "PU-02", "lot_number": "LOT-002", "instrument_count": 3},
+            {"pu_id": "PU-01", "lot_id": "LOT-001", "instrument_count": 5, "sequence_number": 1,
+             "branch_id": "br-1", "branch_ifsc": "TEST0000001", "routing_no": "TEST", "zone_id": "ZONE-1"},
+            {"pu_id": "PU-02", "lot_id": "LOT-002", "instrument_count": 3, "sequence_number": 1,
+             "branch_id": "br-2", "branch_ifsc": "TEST0000002", "routing_no": "TEST", "zone_id": "ZONE-1"},
         ]
         fake_conn = AsyncMock()
         fake_conn.fetch.return_value = fake_rows
+        fake_conn.fetchrow.return_value = {"zone_id": "ZONE-1", "center_id": "center-1"}
         db_pool = MagicMock()
         db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
         db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -279,6 +282,7 @@ class TestGenerateRRF:
         db_pool = MagicMock()
         db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
         db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        minio_client = AsyncMock()
 
         inp = GenerateRRFInput(
             session_id="SESS-001",
@@ -287,9 +291,31 @@ class TestGenerateRRF:
             clearing_date="2026-07-21",
             exception_instruments=[{"instrument_id": "INS-002", "reason": "RETURNED"}],
         )
-        result = await generate_rrf(inp, db_pool=db_pool)
+        result = await generate_rrf(inp, db_pool=db_pool, minio_client=minio_client)
         assert result.generated is True
         assert result.rrf_path is not None
+        # The XML must actually be uploaded, not just discarded after being built in memory.
+        minio_client.upload_bytes.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_with_exceptions_but_no_minio_degrades_to_not_generated(self):
+        """Real gap found reading the outward pipeline: generate_rrf used to build the RRF
+        XML in memory and discard it -- only a DB metadata row pointed at a file that never
+        existed. It must not report generated=True when it has nowhere to put the file."""
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            generate_rrf, GenerateRRFInput,
+        )
+        db_pool = MagicMock()
+
+        inp = GenerateRRFInput(
+            session_id="SESS-001",
+            bank_id="test-bank",
+            bank_ifsc="SARA0000001",
+            clearing_date="2026-07-21",
+            exception_instruments=[{"instrument_id": "INS-002", "reason": "RETURNED"}],
+        )
+        result = await generate_rrf(inp, db_pool=db_pool, minio_client=None)
+        assert result.generated is False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -529,6 +555,7 @@ class TestParseAndValidateSMBPush:
         inp = ParseSMBPushInput(
             agency_id="saraswat-coop",
             smb_id="test-smb",
+            bank_id="test-smb-bank",
             file_type="STOP_PAYMENTS",
             file_path="/tmp/test.csv",
             file_hash="abc123",
@@ -551,6 +578,7 @@ class TestParseAndValidateSMBPush:
         inp = ParseSMBPushInput(
             agency_id="saraswat-coop",
             smb_id="test-smb",
+            bank_id="test-smb-bank",
             file_type="STOP_PAYMENTS",
             file_path="/tmp/test.csv",
             file_hash="abc123",
@@ -573,6 +601,7 @@ class TestParseAndValidateSMBPush:
         inp = ParseSMBPushInput(
             agency_id="saraswat-coop",
             smb_id="test-smb",
+            bank_id="test-smb-bank",
             file_type="STOP_PAYMENTS",
             file_path="/nonexistent/file.csv",
             file_hash="abc123",
@@ -591,6 +620,7 @@ class TestUpdateSMBVault:
         inp = UpdateSMBVaultInput(
             agency_id="saraswat-coop",
             smb_id="test-smb",
+            bank_id="test-smb-bank",
             file_type="STOP_PAYMENTS",
             records=[{"account_number_hash": "abc", "cheque_number": "001"}],
         )
@@ -616,6 +646,7 @@ class TestUpdateSMBVault:
         inp = UpdateSMBVaultInput(
             agency_id="saraswat-coop",
             smb_id="test-smb",
+            bank_id="test-smb-bank",
             file_type="STOP_PAYMENTS",
             records=[
                 {"account_number_hash": "hash1", "cheque_number": "001"},
@@ -707,89 +738,123 @@ class TestWorkerRegistration:
                 names.add(getattr(a, "__name__", str(a)))
         return names
 
-    def test_stamp_endorsement_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_stamp_endorsement_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "stamp_endorsement" in names
 
-    def test_update_lot_status_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_update_lot_status_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "update_lot_status" in names
 
-    def test_build_ngch_file_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_build_ngch_file_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "build_ngch_file" in names
 
-    def test_submit_to_ngch_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_submit_to_ngch_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "submit_to_ngch" in names
 
-    def test_confirm_acknowledgement_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_confirm_acknowledgement_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "confirm_acknowledgement" in names
 
-    def test_seal_all_lots_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_seal_all_lots_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "seal_all_lots" in names
 
-    def test_update_session_status_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_update_session_status_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "update_session_status" in names
 
-    def test_fetch_ngch_settlement_report_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_fetch_ngch_settlement_report_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "fetch_ngch_settlement_report" in names
 
-    def test_match_submitted_vs_settled_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_match_submitted_vs_settled_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "match_submitted_vs_settled" in names
 
-    def test_generate_rrf_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_generate_rrf_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "generate_rrf" in names
 
-    def test_resolve_crl_batch_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_resolve_crl_batch_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "resolve_crl_batch" in names
 
-    def test_publish_to_pu_queues_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_publish_to_pu_queues_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "publish_to_pu_queues" in names
 
-    def test_build_lot_package_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_build_lot_package_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "build_lot_package" in names
 
-    def test_sb_submit_lot_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_sb_submit_lot_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "sb_submit_lot" in names
 
-    def test_publish_relay_event_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_publish_relay_event_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "publish_relay_event" in names
 
-    def test_parse_and_validate_smb_push_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_parse_and_validate_smb_push_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "parse_and_validate_smb_push" in names
 
-    def test_update_smb_vault_in_no_di_activities(self):
-        from modules.cts.worker import NO_DI_ACTIVITIES
-        names = self._activity_names(NO_DI_ACTIVITIES)
+    def test_update_smb_vault_registered_on_worker(self):
+        from modules.cts.worker import _registered_activities
+        from modules.cts.worker_activities import BoundCTSActivities
+        # the requirement is 'registered on the worker' (bare, DI-wrapped or bound), not 'bare'
+        names = self._activity_names(_registered_activities(BoundCTSActivities(bank_id='t')))
         assert "update_smb_vault" in names
 
     def test_clearing_session_workflow_in_all_workflows(self):

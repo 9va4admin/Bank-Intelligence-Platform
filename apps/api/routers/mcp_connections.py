@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, field_validator
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
@@ -647,13 +648,13 @@ class MCPConnectionResponse(BaseModel):
     endpoint_url_masked: Optional[str]
     vault_secret_ref: Optional[str]
     status: str
-    last_tested_at: Optional[str]
+    last_tested_at: OptIsoTimestamp
     last_test_latency_ms: Optional[int]
-    last_sync_at: Optional[str]
+    last_sync_at: OptIsoTimestamp
     vault_record_count: Optional[int]
     error_message: Optional[str]
-    created_at: str
-    updated_at: Optional[str]
+    created_at: IsoTimestamp
+    updated_at: OptIsoTimestamp
     created_by: str
 
 
@@ -679,7 +680,7 @@ class TriggerSyncResponse(BaseModel):
 
     connection_id: str
     workflow_id: str
-    started_at: str
+    started_at: IsoTimestamp
 
 
 class PreflightCheck(BaseModel):

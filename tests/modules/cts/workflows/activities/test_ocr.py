@@ -53,14 +53,29 @@ def _mock_config(min_confidence=0.85):
 
 
 def _mock_config_with_indic(min_confidence=0.85, indic_ocr_url="http://indic-ocr-test:8021",
-                             min_indic_confidence=0.60):
-    """Config mock with IndicOCR enabled (services.indic_ocr.url set)."""
+                             min_indic_confidence=0.60, allow_cloud_fallback=False):
+    """Config mock with IndicOCR enabled (services.indic_ocr.url set).
+
+    allow_cloud_fallback defaults False, matching the real cts.allow_cloud_ai_fallback default —
+    an unconfigured AsyncMock().get(...) is truthy, which would silently enable the cloud-VLM
+    Indic fallback in every test that doesn't care about it. Explicit default keeps that off.
+    """
     config = AsyncMock()
     config.get_ai_config = AsyncMock(return_value={
         "ai.ocr.min_confidence": min_confidence,
         "services.indic_ocr.url": indic_ocr_url,
         "ai.ocr.min_indic_confidence": min_indic_confidence,
     })
+
+    async def _get(key, *a, **kw):
+        if key == "cts.allow_cloud_ai_fallback":
+            return allow_cloud_fallback
+        if key == "services.indic_ocr.url":
+            return indic_ocr_url
+        if key == "cts.indic_ocr.kill_mode":
+            return "NONE"
+        return None
+    config.get = AsyncMock(side_effect=_get)
     return config
 
 
@@ -575,22 +590,24 @@ class TestOCRPartialImageMode:
         assert result.outcome == "PROCEED"
 
     @pytest.mark.asyncio
-    async def test_partial_image_mode_fetches_image_via_httpx(self):
+    async def test_partial_image_mode_fetches_image_via_shared_fetcher(self):
         from modules.cts.workflows.activities.ocr import ocr_extract
         fake_bytes = _make_fake_jpeg_bytes()
         mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("mock", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        fetch = AsyncMock(return_value=fake_bytes)
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=fetch):
             await ocr_extract(
                 _make_input(image_url="http://minio/bucket/cheque.jpg"),
                 orchestrator=orchestrator,
                 config_service=_mock_config_partial(),
             )
 
-        client = mock_client_cls.return_value
-        client.get.assert_called()
+        fetch.assert_awaited()
+        assert fetch.await_args.args[0] == "http://minio/bucket/cheque.jpg"
 
     @pytest.mark.asyncio
     async def test_image_fetch_failure_for_indic_does_not_crash(self):
@@ -666,7 +683,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback-got", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -684,7 +702,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result(got_payee, 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -702,7 +721,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback", 0.90))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -747,7 +767,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -755,6 +776,101 @@ class TestOCRPartialImageMode:
             )
 
         assert result.outcome == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_indic_ocr_tries_cloud_vlm_when_enabled(self):
+        """Real live-run finding (2026-09-22): PaddleOCR/Tesseract both fail on handwritten Indic
+        script (confirmed on a real cheque: PaddleOCR returned 'YPhg be ?', Tesseract returned
+        empty text). The cloud VLM (already used as the Stage 1 fallback) reads the same crop
+        correctly. When IndicOCR's own result is too low-confidence and cts.allow_cloud_ai_fallback
+        is explicitly enabled for the bank, retry that zone against the cloud VLM before giving up."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        cloud_payee = "सुमति शेट्टी"
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision",
+                   new=AsyncMock(return_value=json.dumps({"value": cloud_payee, "confidence": 0.8}))) as mock_cloud:
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=True),
+            )
+
+        mock_cloud.assert_awaited()
+        assert result.payee == cloud_payee
+        # Real finding: the cloud VLM can confidently hallucinate wrong text on illegible
+        # handwriting (self-reported 0.9 confidence on text unrelated to the actual image,
+        # observed live). A cloud-VLM-sourced reading must never look like a trusted
+        # high-confidence extraction -- it must still clear (or fail) the normal min_confidence
+        # gate like everything else, never bypass it.
+        assert result.low_confidence_reason is not None or result.outcome == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_cloud_vlm_reading_confidence_is_capped_never_trusted_at_face_value(self):
+        """Real finding, live: the cloud VLM self-reported 0.9 confidence for Devanagari text that
+        had nothing to do with the actual (Kannada, illegible-handwriting) image -- a confident
+        hallucination, not a low-confidence miss. A cloud-VLM-sourced field's stored confidence
+        must be capped well below a typical min_confidence gate (0.85+) regardless of what the
+        model itself claims, so it can never look like a trusted high-confidence extraction."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision",
+                   new=AsyncMock(return_value=json.dumps({"value": "श्री राम", "confidence": 0.95}))):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=True, min_confidence=0.85),
+            )
+
+        assert result.payee is not None  # the reading is still captured
+        assert result.outcome == "HUMAN_REVIEW"  # but never auto-trusted past the confidence gate
+        assert "payee" in (result.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_indic_ocr_does_not_try_cloud_vlm_when_disabled(self):
+        """cts.allow_cloud_ai_fallback defaults False -- the cloud VLM must never be called for a
+        bank that hasn't explicitly opted in, matching the existing Stage 1 fallback's own gate."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision", new=AsyncMock()) as mock_cloud:
+            await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=False),
+            )
+
+        mock_cloud.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cloud_vlm_indic_result_used_only_when_genuinely_indic_script(self):
+        """A cloud VLM reply that isn't real Indic script (e.g. it also failed to read the crop)
+        must not be accepted as a refinement -- same bar as the IndicOCR service result."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Abhilash", 0.94))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls),              patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)),              patch("modules.cts.workflows.activities.ocr.call_hf_vision",
+                   new=AsyncMock(return_value=json.dumps({"value": None, "confidence": 0.0}))):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(allow_cloud_fallback=True),
+            )
+
+        orchestrator.call_ocr.assert_called()
 
     @pytest.mark.asyncio
     async def test_indic_low_confidence_falls_back_to_got_ocr(self):
@@ -765,7 +881,8 @@ class TestOCRPartialImageMode:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Abhilash", 0.94))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -825,7 +942,8 @@ class TestIndicOCRKillSwitch:
         fake_bytes = _make_fake_jpeg_bytes()
         mock_client_cls = _mock_httpx(fake_bytes, indic_text="अभिलाष", indic_conf=0.88)
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             await ocr_extract(
                 _make_input(),
                 orchestrator=_mock_orchestrator(_make_vllm_response(confidence=0.97)),
@@ -918,7 +1036,8 @@ class TestOCREngineProvenance:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -972,7 +1091,8 @@ class TestOCREngineProvenance:
         orchestrator = AsyncMock()
         orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Ram", 0.95))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls), \
+             patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=fake_bytes)):
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=orchestrator,
@@ -983,3 +1103,521 @@ class TestOCREngineProvenance:
         if len(engines) >= 2:
             assert "got-ocr2.0" in engines[0]
             assert "indic_ocr" in engines[1]
+
+
+class TestOCRInstrumentCategory:
+    """instrument_category: CHEQUE vs DEMAND_DRAFT classification (2026-10-12).
+
+    Real Lot 3 KBL data mixes personal/business cheques with institutional
+    Demand Drafts in the same inward batch -- these need to be distinguishable
+    downstream (separate bucket in every screen), not silently treated as
+    identical. Default is always "CHEQUE" (the overwhelming majority case,
+    and the safe fallback when the model doesn't answer the question).
+    """
+
+    @pytest.mark.asyncio
+    async def test_demand_draft_classified_from_vllm_response(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        data = _make_vllm_response()
+        data["instrument_category"] = {"value": "DEMAND_DRAFT", "confidence": 0.95}
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(data),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "DEMAND_DRAFT"
+
+    @pytest.mark.asyncio
+    async def test_cheque_classified_from_vllm_response(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        data = _make_vllm_response()
+        data["instrument_category"] = {"value": "CHEQUE", "confidence": 0.95}
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(data),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "CHEQUE"
+
+    @pytest.mark.asyncio
+    async def test_defaults_to_cheque_when_model_silent_on_category(self):
+        """Model response omits instrument_category entirely -- must default to
+        CHEQUE (the safe, majority-case fallback), never crash or return None."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(_make_vllm_response()),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "CHEQUE"
+
+    @pytest.mark.asyncio
+    async def test_invalid_category_value_falls_back_to_cheque(self):
+        """A hallucinated/garbage category value must never pass through raw --
+        falls back to the safe CHEQUE default rather than propagating junk."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        data = _make_vllm_response()
+        data["instrument_category"] = {"value": "PROMISSORY_NOTE", "confidence": 0.9}
+        result = await ocr_extract(
+            _make_input(),
+            orchestrator=_mock_orchestrator(data),
+            config_service=_mock_config(),
+        )
+        assert result.instrument_category == "CHEQUE"
+
+
+def _orch_by_prompt(stage1: dict, dd: dict | None):
+    """Orchestrator whose answer depends on WHICH prompt was sent: the cheque prompt gets
+    stage1, the DD-specific prompt gets dd (or raises when dd is None = model unavailable)."""
+    from shared.ai.model_cascade import CascadeResult
+
+    async def _call(image_url=None, prompt="", cheque_amount=0.0, **kw):
+        is_dd_prompt = "ON DEMAND PAY" in prompt and "has_dd_header" in prompt
+        if is_dd_prompt:
+            if dd is None:
+                raise RuntimeError("vLLM unavailable")
+            payload = dd
+        else:
+            payload = stage1
+        return CascadeResult(content=json.dumps(payload), confidence=0.97,
+                             cascade_level=1, model_used="got-ocr2-7b", escalated=False)
+
+    orch = AsyncMock()
+    orch.call_ocr = AsyncMock(side_effect=_call)
+    return orch
+
+
+def _f(v, c=0.97):
+    return {"value": v, "confidence": c}
+
+
+def _stage1(cat="DEMAND_DRAFT", payee="जारीकति शाखा Issuing Branch Ih aIlks"):
+    d = _make_vllm_response()
+    d["payee"] = _f(payee, 0.97)
+    d["instrument_category"] = _f(cat)
+    d["amount_figures"] = _f("22,000.00")                  # agrees with _dd_pass() by default
+    d["amount_words"] = _f("Twenty Two Thousand only")
+    return d
+
+
+def _dd_pass(header=True, payee="THE COURT RECEIVER HIGH COURT MUMBAI"):
+    return {
+        "has_dd_header": _f(header), "dd_number": _f("152173"), "dd_date": _f("03/07/2025"),
+        "payee": _f(payee), "remitter_name": _f("BHARATI M CHHAB"),
+        "issuing_branch": _f("MUMBAI - ANDHERI (WEST)"), "drawee_branch": _f("DELHI SERVICE BRANCH"),
+        "amount_figures": _f("22,000.00"), "amount_words": _f("Twenty Two Thousand only"),
+        "micr_line": _f("152173 000052000"),
+    }
+
+
+_HDR = "modules.cts.workflows.activities.ocr._header_says_dd"
+
+
+class TestOCRDemandDraftTwoPass:
+    """DD handling (2026-10-12): the cheque prompt reads the 'Issuing Branch' label as the payee
+    on a DD (real Lot 3 finding). A DD-specific second pass reads the right line, and the
+    instrument type is decided by 3 independent signals; any disagreement -> human review."""
+
+    @pytest.mark.asyncio
+    async def test_dd_payee_comes_from_dd_specific_pass_not_label_spill(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(), _dd_pass()),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"
+        assert r.payee == "THE COURT RECEIVER HIGH COURT MUMBAI"
+        assert "Issuing" not in (r.payee or "")
+        assert r.remitter_name == "BHARATI M CHHAB"
+        assert r.issuing_branch == "MUMBAI - ANDHERI (WEST)"
+        assert r.drawee_branch == "DELHI SERVICE BRANCH"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_plain_cheque_unanimous_does_not_pay_for_dd_pass(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        orch = _orch_by_prompt(_stage1("CHEQUE", "ACME Corp"), _dd_pass())
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=orch, config_service=_mock_config())
+        assert r.instrument_category == "CHEQUE"
+        assert r.payee == "ACME Corp"
+        assert orch.call_ocr.await_count == 1          # no second model call for a clean cheque
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_model_says_cheque_but_header_ocr_sees_dd_goes_to_review_or_majority_dd(self):
+        """model=CHEQUE, header-OCR=DD, DD pass confirms header -> 2-of-3 DD but NOT unanimous
+        -> human review (never a silent pick)."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1("CHEQUE"), _dd_pass(True)),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "instrument_type_split" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_model_says_dd_but_both_other_signals_say_cheque_goes_to_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1("DEMAND_DRAFT"), _dd_pass(False)),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "CHEQUE"
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "instrument_type_split" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_header_ocr_unavailable_two_agreeing_signals_proceed(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=None)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(), _dd_pass(True)),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_dd_pass_unavailable_keeps_stage1_and_still_decides_on_remaining_signals(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(payee="Some Payee"), None),
+                                  config_service=_mock_config())
+        assert r.instrument_category == "DEMAND_DRAFT"       # model + header-OCR agree
+        assert r.payee == "Some Payee"                       # no DD pass -> nothing overlaid
+        assert r.drawee_branch is None
+
+    @pytest.mark.asyncio
+    async def test_dd_payee_low_confidence_in_dd_pass_still_routes_to_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["payee"] = _f("THE COURT RECEIVER", 0.40)
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(_stage1(), dd),
+                                  config_service=_mock_config())
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "payee" in r.low_confidence_fields
+
+
+class TestOCRMicrBankCodeAnchoring:
+    """cts.micr_bank_code (Layer 3, per bank) anchors the 9-digit sort code — see MICRParser."""
+
+    @staticmethod
+    def _config(bank_code):
+        cfg = _mock_config()
+
+        async def _get(key, *a, **kw):
+            return bank_code if key == "cts.micr_bank_code" else None
+        cfg.get = AsyncMock(side_effect=_get)
+        return cfg
+
+    @pytest.mark.asyncio
+    async def test_sort_code_anchored_when_bank_code_configured(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        data = _make_vllm_response(micr="53112917590521021")
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(data),
+                                  config_service=self._config("052"))
+        assert r.bank_branch_code == "759052102"
+        assert r.cheque_number == "531129"
+
+    @pytest.mark.asyncio
+    async def test_without_bank_code_legacy_slice_is_used(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        data = _make_vllm_response(micr="53112917590521021")
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(data),
+                                  config_service=self._config(None))
+        assert r.bank_branch_code == "175905210"
+
+    @pytest.mark.asyncio
+    async def test_garbage_config_value_is_ignored_not_trusted(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        data = _make_vllm_response(micr="53112917590521021")
+        with patch(_HDR, new=AsyncMock(return_value=False)):
+            r = await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(data),
+                                  config_service=self._config("not-a-code"))
+        assert r.bank_branch_code == "175905210"
+
+
+class TestOCRDemandDraftOverlayGuards:
+    """Real Lot 3 failures of the DD overlay (2026-10-12): the DD pass returned the DD NUMBER
+    ('658027') as dd_date, which became an automatic 'Undated cheque' STP_RETURN where the old
+    code had correctly gone to human review; and returned '000000.00' for a Rs 6,000 draft.
+    An overlay value must be validated, and two independent amount reads must agree."""
+
+    @pytest.mark.asyncio
+    async def test_dd_pass_date_that_is_not_a_date_is_not_overlaid(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["dd_date"] = _f("658027")                       # this is the DD number, not a date
+        s1 = _stage1()
+        s1["date"] = _f(None, 0.0)
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.date is None
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "date" in r.low_confidence_fields
+
+    @pytest.mark.asyncio
+    async def test_dd_pass_valid_date_is_overlaid(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["dd_date"] = _f("03/07/2025")
+        s1 = _stage1()
+        s1["date"] = _f(None, 0.0)
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.date == "03/07/2025"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_two_amount_reads_that_disagree_go_to_human_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()
+        dd["amount_figures"] = _f("000000.00")
+        dd["amount_words"] = _f("thousand only")
+        s1 = _stage1()
+        s1["amount_figures"] = _f("100000.00")
+        s1["amount_words"] = _f("one lakh only")           # self-consistent but WRONG, as in Lot 3 #13
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.outcome == "HUMAN_REVIEW"
+        assert "dd_amount_read_disagreement" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_two_amount_reads_that_agree_proceed(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        dd = _dd_pass()                                    # 22,000.00
+        s1 = _stage1()
+        s1["amount_figures"] = _f("22000.00")
+        s1["amount_words"] = _f("Twenty Two Thousand Only")
+        with patch(_HDR, new=AsyncMock(return_value=True)):
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, dd), config_service=_mock_config())
+        assert r.outcome == "PROCEED"
+
+
+class TestOCRPromptAmountWordsWrap:
+    """Lot 3 #28: the amount in words wraps onto a second line; reading only line 1 produced a
+    false figures-vs-words mismatch. The prompt must say to read every line."""
+
+    def test_prompt_tells_model_amount_words_can_span_two_lines(self):
+        from modules.cts.workflows.activities.ocr import _OCR_PROMPT
+        low = _OCR_PROMPT.lower()
+        assert "amount_words:" in low
+        assert "second line" in low and "join" in low
+
+
+class TestTesseractLocation:
+    """Found 2026-10-13: _header_says_dd never pointed pytesseract at the Windows install, so the
+    header signal of the 3-signal type vote silently returned None (unavailable) on every run."""
+
+    def test_windows_install_path_is_configured(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities import ocr as ocr_mod
+        fake = MagicMock()
+        fake.pytesseract = MagicMock(tesseract_cmd="tesseract")
+        with patch.object(ocr_mod.platform, "system", return_value="Windows"), \
+             patch.object(ocr_mod.os.path, "isfile", side_effect=lambda p: p.endswith(r"Program Files\Tesseract-OCR\tesseract.exe")):
+            ocr_mod._configure_tesseract(fake)
+        assert fake.pytesseract.tesseract_cmd.endswith(r"Tesseract-OCR\tesseract.exe")
+
+    def test_non_windows_leaves_default(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities import ocr as ocr_mod
+        fake = MagicMock()
+        fake.pytesseract = MagicMock(tesseract_cmd="tesseract")
+        with patch.object(ocr_mod.platform, "system", return_value="Linux"):
+            ocr_mod._configure_tesseract(fake)
+        assert fake.pytesseract.tesseract_cmd == "tesseract"
+
+
+class TestOCRPayeeRereadGate:
+    """A confidently wrong handwritten payee must not pass on a single read. The Pay line is read a
+    second time (zoomed crop); a payee the two reads disagree on is never shown as fact — it goes to
+    review with both readings as candidates. Lot 3 evidence (22 cheques): the re-read exposed 3 of 4
+    confident-wrong payees (Sa Sma/Sasmal, Rousick/Kousick x2) with 2 false flags out of 15 correct."""
+
+    async def _run(self, reread, payee="Kousick Mondal", cfg_extra=None, category="CHEQUE"):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        s1 = _make_vllm_response()
+        s1["payee"] = _f(payee)
+        s1["instrument_category"] = _f(category)
+        cs = _mock_config(**(cfg_extra or {})) if cfg_extra else _mock_config()
+        with patch("modules.cts.workflows.activities.ocr._payee_reread", new=AsyncMock(return_value=reread)), \
+             patch(_HDR, new=AsyncMock(return_value=None)):
+            return await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(s1), config_service=cs)
+
+    @pytest.mark.asyncio
+    async def test_agreeing_reread_keeps_the_payee(self):
+        r = await self._run("K-o-u-s-i-c-k M-o-n-d-a-l")        # separators/case ignored
+        assert r.payee == "Kousick Mondal" and r.payee_reread_status == "AGREE"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_disagreeing_reread_withholds_payee_and_goes_to_review(self):
+        r = await self._run("Rousick Mondal")
+        assert r.payee is None
+        assert r.payee_reread_status == "DISAGREE"
+        assert r.outcome == "HUMAN_REVIEW" and "payee" in r.low_confidence_fields
+        assert "payee_reread_disagreement" in (r.low_confidence_reason or "")
+        assert set(r.payee_candidates) == {"Kousick Mondal", "Rousick Mondal"}
+
+    @pytest.mark.asyncio
+    async def test_reread_unavailable_leaves_result_unchanged_but_says_so(self):
+        r = await self._run(None)
+        assert r.payee == "Kousick Mondal" and r.payee_reread_status == "UNAVAILABLE"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_demand_draft_is_not_reread(self):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        s1 = _stage1()
+        with patch(_HDR, new=AsyncMock(return_value=True)), \
+             patch("modules.cts.workflows.activities.ocr._payee_reread", new=AsyncMock(return_value="SOMETHING ELSE")) as rr:
+            r = await ocr_extract(_make_input(), orchestrator=_orch_by_prompt(s1, _dd_pass()), config_service=_mock_config())
+        rr.assert_not_awaited()
+        assert r.payee_reread_status is None
+
+    @pytest.mark.asyncio
+    async def test_no_payee_read_means_nothing_to_verify(self):
+        r = await self._run("Anything", payee=None)
+        assert r.payee_reread_status is None
+
+    def test_name_agreement_ignores_separators_case_and_punctuation_only(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("S.B. Health Care", "S.B.Health care", 0.99)
+        assert not _payee_names_agree("Debadatta Sa Sma", "Debadatta Sasmal", 0.99)
+        assert not _payee_names_agree("Rousick Mondal", "Kousick Mondal", 0.99)
+
+
+class TestPayeeAgreementIgnoresUnclearLetterPlaceholders:
+    """The re-read prompt makes the model write 'null' for letters it cannot read. Those placeholders
+    are noise, not letters — but a placeholder must never turn a different name into a match."""
+
+    def test_null_placeholders_in_the_reread_are_ignored(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("S.B. Health Care", "S.B.nullHealthCare", 0.99)
+
+    def test_placeholders_do_not_make_different_names_agree(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert not _payee_names_agree("Rousick Mondal", "KoU51ck MoNdal", 0.99)
+        assert not _payee_names_agree("Gurupada Maity", "gurupada maitra", 0.99)
+
+
+class TestPayeeRereadUsesIndependentModel:
+    """The re-read must be an independent second opinion: a different model from the primary read
+    (Qwen3-VL-32B vs Qwen2.5-VL-72B), configurable, falling back to the primary model if the
+    independent one cannot be reached. Live on 22 cheques it agreed with 14 of 15 correct primary reads
+    and disagreed with all 4 wrong ones."""
+
+    def _patch(self, responses):
+        from unittest.mock import patch
+        calls = []
+
+        async def fake(config_service, image_bytes, prompt, *, model="qwen-72b", timeout=60.0):
+            calls.append(model)
+            return responses.get(model)
+
+        return patch("modules.cts.workflows.activities.ocr.call_hf_vision", new=fake), \
+               patch("modules.cts.workflows.activities.ocr.cloud_fallback_enabled", new=AsyncMock(return_value=True)), \
+               patch("modules.cts.workflows.activities.ocr.fetch_image_bytes", new=AsyncMock(return_value=_tiny_png())), calls
+
+    @pytest.mark.asyncio
+    async def test_independent_model_is_tried_first(self):
+        from modules.cts.workflows.activities.ocr import _payee_reread
+        p1, p2, p3, calls = self._patch({"qwen3-vl-32b": '{"payee": {"value": "Kousick Mondal", "confidence": 0.9}}'})
+        cs = AsyncMock(); cs.get = AsyncMock(return_value=None)
+        with p1, p2, p3:
+            out = await _payee_reread(_make_input(), cs)
+        assert out == "Kousick Mondal" and calls == ["qwen3-vl-32b"]
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_primary_model_when_independent_one_is_unreachable(self):
+        from modules.cts.workflows.activities.ocr import _payee_reread
+        p1, p2, p3, calls = self._patch({"qwen-72b": '{"payee": {"value": "Kousick Mondal", "confidence": 0.9}}'})
+        cs = AsyncMock(); cs.get = AsyncMock(return_value=None)
+        with p1, p2, p3:
+            out = await _payee_reread(_make_input(), cs)
+        assert out == "Kousick Mondal" and calls == ["qwen3-vl-32b", "qwen-72b"]
+
+    @pytest.mark.asyncio
+    async def test_configured_model_is_used_first(self):
+        from modules.cts.workflows.activities.ocr import _payee_reread
+        p1, p2, p3, calls = self._patch({"qwen-72b": '{"payee": {"value": "A B", "confidence": 0.9}}'})
+        cs = AsyncMock(); cs.get = AsyncMock(return_value="qwen-72b")
+        with p1, p2, p3:
+            await _payee_reread(_make_input(), cs)
+        assert calls[0] == "qwen-72b"
+
+
+def _tiny_png():
+    import io
+    from PIL import Image
+    b = io.BytesIO(); Image.new("RGB", (200, 100), "white").save(b, "PNG")
+    return b.getvalue()
+
+
+class TestOCRFieldRereadGate:
+    """MICR number, sort code and amount are money-critical. A second, focused read by an independent model
+    is compared with the first; a disagreement goes to a human with both readings. Measured on 70 real
+    instruments: it exposed 3/3 wrong cheque numbers, 4/4 wrong sort codes and 4/5 wrong amounts, at the cost
+    of flagging about one correct read in eight."""
+
+    async def _run(self, rereads, micr="123456789012345", amount="10000.00", category="CHEQUE"):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        s1 = _make_vllm_response(micr=micr)
+        s1["amount_figures"] = _f(amount)
+        s1["instrument_category"] = _f(category)
+        with patch("modules.cts.workflows.activities.ocr._field_rereads", new=AsyncMock(return_value=rereads)), \
+             patch("modules.cts.workflows.activities.ocr._payee_reread", new=AsyncMock(return_value="ACME Corp")), \
+             patch(_HDR, new=AsyncMock(return_value=None)):
+            return await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(s1), config_service=_mock_config())
+
+    @pytest.mark.asyncio
+    async def test_agreeing_second_read_proceeds(self):
+        r = await self._run({"cheque_number": "123456", "sort_code": "789012345", "amount_figures": "10,000.00"})
+        assert r.outcome == "PROCEED" and r.micr_reread_status == "AGREE" and r.amount_reread_status == "AGREE"
+
+    @pytest.mark.asyncio
+    async def test_cheque_number_disagreement_goes_to_review_with_both_readings(self):
+        r = await self._run({"cheque_number": "623456", "sort_code": "789012345", "amount_figures": "10000"})
+        assert r.outcome == "HUMAN_REVIEW" and r.micr_reread_status == "DISAGREE"
+        assert "micr_reread_disagreement" in (r.low_confidence_reason or "")
+        assert "123456" in r.micr_candidates and "623456" in r.micr_candidates
+
+    @pytest.mark.asyncio
+    async def test_sort_code_disagreement_goes_to_review(self):
+        r = await self._run({"cheque_number": "123456", "sort_code": "789012999", "amount_figures": "10000"})
+        assert r.outcome == "HUMAN_REVIEW" and r.micr_reread_status == "DISAGREE"
+
+    @pytest.mark.asyncio
+    async def test_amount_disagreement_goes_to_review_even_when_figures_and_words_agree(self):
+        # the Rs 2,00,000 cheque read as Rs 9,00,000 in both figures and words
+        r = await self._run({"cheque_number": "123456", "sort_code": "789012345", "amount_figures": "2,00,000"},
+                            amount="10000.00")
+        assert r.outcome == "HUMAN_REVIEW" and r.amount_reread_status == "DISAGREE"
+        assert "amount_reread_disagreement" in (r.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_amount_format_differences_are_not_disagreements(self):
+        r = await self._run({"cheque_number": "123456", "sort_code": "789012345", "amount_figures": "Rs. 10,000/-"})
+        assert r.amount_reread_status == "AGREE" and r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_unavailable_second_read_changes_nothing_but_says_so(self):
+        r = await self._run(None)
+        assert r.outcome == "PROCEED" and r.micr_reread_status == "UNAVAILABLE" and r.amount_reread_status == "UNAVAILABLE"
+
+    @pytest.mark.asyncio
+    async def test_unread_primary_is_not_flagged_as_a_disagreement(self):
+        r = await self._run({"cheque_number": "123456", "sort_code": "789012345", "amount_figures": "10000"}, micr="12")
+        assert r.micr_reread_status != "DISAGREE"
+
+    def test_number_agreement_helper_ignores_spacing_and_separators(self):
+        from modules.cts.workflows.activities.ocr import _digits_agree
+        assert _digits_agree("123 456", "123456") and not _digits_agree("123456", "123465")

@@ -24,6 +24,7 @@ from shared.ai.model_cascade import CascadeOrchestrator
 
 from shared.observability.otel_setup import get_tracer
 
+from shared.storage.image_fetch import fetch_image_bytes
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
 
@@ -221,53 +222,88 @@ class VisionPresentmentCheckResult(BaseModel):
     has_mismatch: bool
     mismatch_fields: list[str]
     vision_amount_str: Optional[str]
+    degraded: bool = False     # True: no vision model was reachable; scanner stays authoritative
+
+
+async def _fetch_image_bytes(url: str) -> bytes:
+    return await fetch_image_bytes(url)
+
+
+def _amount_from_vision_text(text: Optional[str]) -> Optional[str]:
+    """Pull amount_figures out of a model reply (plain JSON or ```json fenced)."""
+    import json
+    import re
+    if not text:
+        return None
+    m = re.search(r"\{.*\}", text, re.S)
+    try:
+        return json.loads(m.group(0)).get("amount_figures") if m else None
+    except (json.JSONDecodeError, AttributeError):
+        return None
 
 
 @activity.defn
 async def run_vision_presentment_check(
     inp: VisionPresentmentCheckInput,
     orchestrator: Optional[CascadeOrchestrator] = None,
+    config_service: Any = None,
 ) -> VisionPresentmentCheckResult:
     """
     Presentment-side sanity cross-check: Vision LLM re-reads the amount from
     the cheque image and compares against what the scanner already read.
-    Scanner is authoritative for presentment (see outward_scan_workflow.py
-    module docstring) — Vision is a cross-check only, run LAST after lot
-    assignment so most cheques never need it.
+    Scanner is authoritative for presentment — Vision is a cross-check only.
 
-    orchestrator is worker-level DI (out of this fix's scope, same precedent
-    as detect_alteration's vllm_client in cheque_workflow.py). Without a real
-    orchestrator injected, this activity cannot run for real — that is
-    correct and matches every other AI-calling activity in this codebase.
+    Never raises. Order: on-prem vLLM orchestrator -> config-gated HF cloud
+    (dev/test only, same gate as OCR) -> degrade: no mismatch is asserted, the
+    scanner amount stands, and the result is flagged degraded=True.
     """
     if isinstance(inp, dict):
         inp = VisionPresentmentCheckInput(**inp)
     with tracer.start_as_current_span("activity.run_vision_presentment_check") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
-        import json
 
-        result = await orchestrator.call_vision(
-            image_url=inp.image_front_url,
-            prompt=_PRESENTMENT_PROMPT,
-            cheque_amount=inp.cheque_amount,
-        )
+        vision_amount_str: Optional[str] = None
+        reachable = False
+        source = ""
 
-        try:
-            parsed = json.loads(result.content)
-            vision_amount_str = parsed.get("amount_figures")
-        except (json.JSONDecodeError, AttributeError):
-            vision_amount_str = None
+        if orchestrator is not None:
+            try:
+                result = await orchestrator.call_vision(
+                    image_url=inp.image_front_url,
+                    prompt=_PRESENTMENT_PROMPT,
+                    cheque_amount=inp.cheque_amount,
+                )
+                vision_amount_str = _amount_from_vision_text(getattr(result, "content", None))
+                reachable, source = True, "orchestrator"
+            except Exception as exc:
+                log.warning("run_vision_presentment_check.orchestrator_failed",
+                            instrument_id=inp.instrument_id, error=str(exc))
+
+        if not reachable and config_service is not None:
+            try:
+                from shared.ai.hf_cloud_fallback import call_hf_vision, cloud_fallback_enabled
+                if await cloud_fallback_enabled(config_service, inp.bank_id):
+                    image = await _fetch_image_bytes(inp.image_front_url)
+                    text = await call_hf_vision(config_service, image, _PRESENTMENT_PROMPT)
+                    vision_amount_str = _amount_from_vision_text(text)
+                    reachable, source = True, "hf-cloud"
+            except Exception as exc:
+                log.warning("run_vision_presentment_check.cloud_failed",
+                            instrument_id=inp.instrument_id, error=str(exc))
+
+        if not reachable:
+            log.warning("run_vision_presentment_check.degraded_no_vision_model",
+                        instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+            span.set_attribute("degraded", True)
+            return VisionPresentmentCheckResult(
+                has_mismatch=False, mismatch_fields=[], vision_amount_str=None, degraded=True,
+            )
 
         if vision_amount_str is None:
-            # Vision couldn't read it at all — cannot confirm a match, but this is
-            # not the same as a confirmed mismatch either. Degrade to no-mismatch
-            # (scanner remains authoritative for presentment) rather than holding
-            # every cheque Vision merely failed to read.
-            log.warning(
-                "run_vision_presentment_check.vision_unreadable",
-                instrument_id=inp.instrument_id,
-            )
+            # Model answered but could not read an amount — not a confirmed mismatch;
+            # scanner remains authoritative rather than holding every unreadable cheque.
+            log.warning("run_vision_presentment_check.vision_unreadable", instrument_id=inp.instrument_id)
             return VisionPresentmentCheckResult(
                 has_mismatch=False, mismatch_fields=[], vision_amount_str=None,
             )
@@ -280,7 +316,7 @@ async def run_vision_presentment_check(
             scanner_amount=inp.scanner_amount_str,
             vision_amount=vision_amount_str,
             has_mismatch=has_mismatch,
-            cascade_level=result.cascade_level,
+            source=source,
         )
 
         return VisionPresentmentCheckResult(
@@ -391,10 +427,7 @@ async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractA
                     break
 
         # Fetch the image from MinIO
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(inp.image_front_url)
-            resp.raise_for_status()
-        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(await fetch_image_bytes(inp.image_front_url))).convert("RGB")
 
         # Full-page PSM 6 (uniform block of text) — works reasonably for cheques
         raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
@@ -556,6 +589,7 @@ async def vision_extract_and_check(
                 indic_refined_fields, _ = await _refine_indic_zones(
                     inp.image_front_url, inp.instrument_id,
                     _indic_fields, indic_ocr_url, min_confidence, indic_min_confidence,
+                    bank_id=inp.bank_id, config_service=config_service,
                 )
                 if "payee" in indic_refined_fields:
                     payee = _indic_fields["payee"][0]
@@ -905,10 +939,7 @@ async def _rear_tesseract_fallback(image_url: str, instrument_id: str) -> Option
     _CONF = 0.55   # Tesseract on handwritten cheque backs is lower accuracy than front
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(image_url)
-            resp.raise_for_status()
-        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(await fetch_image_bytes(image_url))).convert("RGB")
         raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
         clean = re.sub(r'[^\x20-\x7E\n]', ' ', raw_text)
         lines = [ln.strip() for ln in clean.splitlines() if ln.strip()]
@@ -1139,6 +1170,7 @@ class RecordScanEventInput(BaseModel):
     mismatch_id: Optional[str] = None
     mismatch_fields: Optional[list[str]] = None
     reject_reason: Optional[str] = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from ocr_extract
 
 
 @activity.defn(name="record_outward_scan_event")
@@ -1162,13 +1194,14 @@ async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
                     INSERT INTO cts.outward_scan_events
                         (bank_id, branch_id, session_id, scan_id, instrument_id,
                          micr_suffix, payee_display, amount_range, outcome,
-                         lot_id, mismatch_id, mismatch_fields, reject_reason)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                         lot_id, mismatch_id, mismatch_fields, reject_reason,
+                         instrument_category)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                     """,
                     inp.bank_id, inp.branch_id, inp.session_id, inp.scan_id,
                     inp.instrument_id, inp.micr_suffix, inp.payee_display,
                     inp.amount_range, inp.outcome, inp.lot_id, inp.mismatch_id,
-                    inp.mismatch_fields, inp.reject_reason,
+                    inp.mismatch_fields, inp.reject_reason, inp.instrument_category,
                 )
             finally:
                 await conn.close()

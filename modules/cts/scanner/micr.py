@@ -69,48 +69,74 @@ class MICRParser:
         return full[-4:] if len(full) >= 4 else full
 
     @staticmethod
-    def parse_ocr_text(raw: str) -> dict:
+    def parse_ocr_text(raw: str, bank_code: str | None = None) -> dict:
         """
         Tolerant MICR parse for image-OCR text (GOT-OCR2/Tesseract/HF vision),
         which reads printed MICR digits but has no way to reproduce the E-13B
         delimiter glyphs (⑆ ⑈ ⑉) a physical MICR-reader head outputs — those
         symbols only exist on the scanner-hardware path (see parse() above).
 
-        Indian CTS-2010 MICR band is a fixed-width digit string, standard
-        layout: 6 (cheque number) + 9 (city-bank-branch code) + 6 (account
-        number) + 2 (transaction code) = 23 digits. OCR noise (stray letters,
-        punctuation, misreads) is stripped first; the longest resulting
-        digit run is used. Positions are only trusted when the run is
-        exactly 23 digits — a shorter/longer run means OCR corruption, and
-        guessing positions on a corrupted run would fabricate an account
-        number, so all fields are returned as None instead.
+        Indian CTS-2010 MICR band is 6 (cheque number) + 9 (city-bank-branch/
+        sort code) digits, always. There is no account number field in the
+        MICR band at all — corrected 2026-09-24 after this file wrongly
+        assumed a 6-digit account segment sitting between the sort code and
+        the transaction code; that field never existed on a real Indian
+        cheque, and every downstream consumer expecting an account fragment
+        from here got None forever as a result. The real account number is
+        never derivable from MICR at all; callers must use the account
+        number already known from presentment metadata, or a real,
+        independently-OCR'd account_number field (see modules/cts/workflows/
+        activities/ocr.py's _OCR_PROMPT) -- never guessed out of MICR digits.
 
-        Returns dict with keys: cheque_number, bank_branch_code,
-        account_number_fragment (last 4 digits only — PII rule, same as
-        parse() above), all None if no exactly-23-digit run is found.
+        The transaction-code tail after the sort code is variable-length in
+        real OCR reads (misreads, extra/dropped digits are common there) and
+        nothing downstream consumes it, so only the leading 6+9=15 digits are
+        trusted; only a run shorter than that (genuine corruption on the
+        one part that matters) returns None instead of guessing.
+
+        bank_code (the drawee bank's own 3-digit MICR bank code, digits 4-6 of a
+        CTS sort code -- for inward instruments the drawee is always this bank, so
+        it is known): when given, the sort code is ANCHORED on a 9-digit window whose digits 4-6 equal the bank code
+        window starting at digit 6-8 of the run instead of blindly slicing run[6:15].
+        A fixed slice returned a wrong-but-plausible code whenever OCR inserted or
+        dropped one digit in the cheque-number part (real Lot 3 finding, 2026-10-12).
+        No valid anchored window -> bank_branch_code None, never a guess. The
+        cheque number is the leading 6 digits (CTS prints it first).
+
+        Returns dict with keys: cheque_number, bank_branch_code (both None
+        if the run has fewer than 15 digits).
         """
         empty = {
             'cheque_number': None,
             'bank_branch_code': None,
-            'account_number_fragment': None,
         }
         if not raw or not raw.strip():
             return empty
 
         # OCR/vision models frequently insert spaces between the MICR band's
-        # printed digit groups (cheque no. / city-bank-branch / account /
-        # transaction code) even though no space exists on the physical
-        # cheque -- strip everything non-digit and treat the whole line as
-        # one run rather than picking the single longest contiguous run.
+        # printed digit groups (cheque no. / sort code / transaction code)
+        # even though no space exists on the physical cheque -- strip
+        # everything non-digit and treat the whole line as one run rather
+        # than picking the single longest contiguous run.
         run = re.sub(r'\D', '', raw)
-        if len(run) != 23:
+        if len(run) < 15:
             return empty
+
+        if bank_code:
+            window = None
+            for start in (6, 7, 8):
+                cand = run[start:start + 9]
+                if len(cand) == 9 and cand[3:6] == bank_code:
+                    window = cand
+                    break
+            return {
+                'cheque_number': run[0:6] if window else None,
+                'bank_branch_code': window,
+            }
 
         cheque_number = run[0:6]
         bank_branch_code = run[6:15]
-        account_number = run[15:21]
         return {
             'cheque_number': cheque_number,
             'bank_branch_code': bank_branch_code,
-            'account_number_fragment': account_number[-4:],
         }

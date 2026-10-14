@@ -88,12 +88,11 @@ class LotStore:
         if time_hhmmss is None:
             time_hhmmss = datetime.now(timezone.utc).strftime("%H%M%S")
 
-        instrument_ids = await self._fetch_lot_instrument_ids(bank_id, lot_number)
+        instrument_rows = await self._fetch_lot_instruments(bank_id, lot_number)
 
-        if not instrument_ids:
+        if not instrument_rows:
             return self._upload_empty_lot(lot_number, bank_id, bank_ifsc, clearing_date)
 
-        instrument_rows = await self._fetch_instrument_details(bank_id, instrument_ids)
         instrument_inputs = self._build_instrument_inputs(instrument_rows, date_ddmmyyyy, lot_number)
 
         # Import here to avoid circular imports at module load time
@@ -138,37 +137,74 @@ class LotStore:
     # DB helpers
     # ------------------------------------------------------------------
 
-    async def _fetch_lot_instrument_ids(self, bank_id: str, lot_number: str) -> List[str]:
-        """Returns instrument_ids for ACCEPTED events in this lot."""
+    # ------------------------------------------------------------------
+    # Endorsement support (called from stamp_endorsement activity)
+    # ------------------------------------------------------------------
+
+    async def fetch_instrument_images(self, lot_number: str, bank_id: str) -> List[tuple]:
+        """[(instrument_id, account_last4, front_bytes, rear_bytes)] for every instrument in the lot."""
+        import asyncio
         async with self._db.acquire() as conn:
             rows = await conn.fetch(
-                """
-                SELECT instrument_id
-                FROM cts.outward_scan_events
-                WHERE lot_id = $1
-                  AND bank_id = $2
-                  AND outcome = 'ACCEPTED'
-                  AND instrument_id IS NOT NULL
-                ORDER BY scanned_at
-                """,
-                lot_number,
-                bank_id,
+                "SELECT instrument_id::text AS instrument_id, account_last4, image_front_bw_key, image_back_bw_key "
+                "FROM cts.cheque_instruments WHERE lot_id = $1 AND bank_id = $2 AND direction = 'OUTWARD' "
+                "ORDER BY received_at LIMIT 100",
+                lot_number, bank_id,
             )
-        return [r["instrument_id"] for r in rows]
+        out = []
+        for r in rows:
+            front = await asyncio.to_thread(self._fetch_image, r["image_front_bw_key"])
+            rear = await asyncio.to_thread(self._fetch_image, r["image_back_bw_key"])
+            out.append((r["instrument_id"], r["account_last4"], front, rear))
+        return out
 
-    async def _fetch_instrument_details(self, bank_id: str, instrument_ids: List[str]) -> List[dict]:
+    async def store_endorsed_rear(self, bank_id: str, instrument_id: str, data: bytes) -> str:
+        """Upload the stamped rear image and record its key on the instrument row."""
+        import asyncio
+        key = f"{bank_id}/outward/endorsed/{instrument_id}/back_endorsed.tiff"
+        await asyncio.to_thread(self._upload, key, data, "image/tiff")
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                "UPDATE cts.cheque_instruments SET image_back_endorsed_key = $1 "
+                "WHERE instrument_id = $2::uuid AND bank_id = $3",
+                key, instrument_id, bank_id,
+            )
+        return key
+
+    async def endorsement_context(self, bank_id: str, lot_number: str) -> dict:
+        async with self._db.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT b.bank_name AS bank_name, COALESCE(br.branch_name, '') AS branch_name "
+                "FROM platform.banks b "
+                "LEFT JOIN cts.lots l ON l.lot_id = $2 AND l.bank_id = b.bank_id "
+                "LEFT JOIN cts.branches br ON br.branch_id = l.branch_id "
+                "WHERE b.bank_id = $1",
+                bank_id, lot_number,
+            )
+        if row is None:
+            raise ValueError(f"bank {bank_id} not found in platform.banks")
+        return {"bank_name": row["bank_name"], "branch_name": row["branch_name"]}
+
+    async def _fetch_lot_instruments(self, bank_id: str, lot_number: str) -> List[dict]:
         """
-        Fetches all CHI Spec Rev 3.00 fields needed by InstrumentBuildInput.
+        Fetches all CHI Spec Rev 3.00 fields needed by InstrumentBuildInput, for every instrument in this lot.
 
-        Columns: standard cts.cheque_instruments fields plus the extended columns
-        added for CHI Spec compliance (payor_bank_rout_no, presenting_bank_rout_no,
-        trans_code, doc_type, image MinIO keys, image dimensions).
+        Historical bug (found live): this used to look up instrument_ids from cts.outward_scan_events (which
+        carries the scan's own text id, e.g. "058475-fc7a") and then query cheque_instruments by
+        `instrument_id = ANY(those ids)` — but cheque_instruments.instrument_id is a UUID column
+        (persist_outward_instrument.py maps the scan id through to_instrument_uuid), so the query raised
+        "invalid UUID" the moment a real lot reached this path. cheque_instruments already carries its own
+        lot_id (added alongside that mapping), so this queries it directly — one lookup, no id translation.
+
+        Columns: standard cts.cheque_instruments fields plus the extended columns added for CHI Spec
+        compliance (payor_bank_rout_no, presenting_bank_rout_no, trans_code, doc_type, image MinIO keys,
+        image dimensions).
         """
         async with self._db.acquire() as conn:
             rows = await conn.fetch(
                 """
                 SELECT
-                    instrument_id,
+                    instrument_id::text AS instrument_id,
                     cheque_number,
                     micr_code,
                     drawee_ifsc,
@@ -189,11 +225,12 @@ class LotStore:
                     bit_depth,
                     cycle_no
                 FROM cts.cheque_instruments
-                WHERE instrument_id = ANY($1)
+                WHERE lot_id = $1
                   AND bank_id = $2
-                ORDER BY array_position($1::text[], instrument_id)
+                  AND direction = 'OUTWARD'
+                ORDER BY received_at
                 """,
-                instrument_ids,
+                lot_number,
                 bank_id,
             )
         return [dict(r) for r in rows]
@@ -247,7 +284,10 @@ class LotStore:
 
     def _fetch_image(self, object_key: str) -> bytes:
         """Fetch image bytes from MinIO by object key."""
-        response = self._minio.get_object(self._bucket, object_key)
+        bucket, key = self._bucket, object_key
+        if object_key.startswith("s3://"):
+            bucket, _, key = object_key[len("s3://"):].partition("/")
+        response = self._minio.get_object(bucket, key)
         return response.read()
 
     def _upload(self, object_key: str, data: bytes, content_type: str = "application/xml") -> None:

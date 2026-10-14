@@ -1,0 +1,849 @@
+{
+ "000024.jpg": {
+  "mutation": null,
+  "outcome": "POST_DATED_HELD",
+  "detail": "['POST_DATED_CHEQUE']",
+  "seconds": 18.2,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [
+   "PostDatedHoldWorkflow"
+  ],
+  "wf_error": null
+ },
+ "027776.jpg": {
+  "mutation": "FROZEN_PAYEE",
+  "outcome": "MISMATCH_HELD",
+  "detail": "['PAYEE_ACCOUNT_FROZEN']",
+  "seconds": 18.4,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "010752.jpg": {
+  "mutation": null,
+  "outcome": "CTS_REJECTED",
+  "detail": "['SIGNATURE_ABSENT']",
+  "seconds": 29.7,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "095971.jpg": {
+  "mutation": "PAYEE_NOT_IN_VAULT_OR_CBS",
+  "outcome": "CTS_REJECTED",
+  "detail": "['PAYEE_ACCOUNT_NOT_FOUND']",
+  "seconds": 18.5,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "000787.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 37.1,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "058475.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 36.8,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "154120.jpg": {
+  "mutation": "NAME_MISMATCH",
+  "outcome": "MISMATCH_HELD",
+  "detail": "['PAYEE_NAME_MISMATCH']",
+  "seconds": 18.2,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "101701.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 31.2,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "284250.jpg": {
+  "mutation": null,
+  "outcome": "MISMATCH_HELD",
+  "detail": "",
+  "seconds": 29.8,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [
+   "MismatchResolutionWorkflow"
+  ],
+  "wf_error": null
+ },
+ "361125.jpg": {
+  "mutation": null,
+  "outcome": "CTS_REJECTED",
+  "detail": "['STALE_CHEQUE']",
+  "seconds": 12.7,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "353138.jpg": {
+  "mutation": null,
+  "outcome": "MISMATCH_HELD",
+  "detail": "['PAYEE_NAME_MISMATCH']",
+  "seconds": 18.7,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "432440.jpg": {
+  "mutation": null,
+  "outcome": "CTS_REJECTED",
+  "detail": "['UNDATED_CHEQUE']",
+  "seconds": 11.9,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "307384.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 33.7,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "374098.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 27.3,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "841390.jpg": {
+  "mutation": null,
+  "outcome": "POST_DATED_HELD",
+  "detail": "['POST_DATED_CHEQUE']",
+  "seconds": 9.3,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [
+   "PostDatedHoldWorkflow"
+  ],
+  "wf_error": null
+ },
+ "620339.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 29.1,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "721153.jpg": {
+  "mutation": null,
+  "outcome": "CTS_REJECTED",
+  "detail": "['STALE_CHEQUE']",
+  "seconds": 18.0,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "990122.jpg": {
+  "mutation": null,
+  "outcome": "CTS_REJECTED",
+  "detail": "['STALE_CHEQUE']",
+  "seconds": 10.4,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ },
+ "956963.jpg": {
+  "mutation": null,
+  "outcome": "ACCEPTED",
+  "detail": "",
+  "seconds": 26.2,
+  "dpi": 96,
+  "activities": [
+   [
+    "ocr_extract",
+    "ok"
+   ],
+   [
+    "check_cheque_dedup",
+    "ok"
+   ],
+   [
+    "extract_rear_payee_details",
+    "ok"
+   ],
+   [
+    "validate_payee_account",
+    "ok"
+   ],
+   [
+    "cross_check_ngch_metadata",
+    "ok"
+   ],
+   [
+    "validate_cts2010",
+    "ok"
+   ],
+   [
+    "detect_signatures",
+    "ok"
+   ],
+   [
+    "check_security_features",
+    "ok"
+   ],
+   [
+    "run_vision_presentment_check",
+    "ok"
+   ],
+   [
+    "write_audit",
+    "ok"
+   ],
+   [
+    "record_outward_scan_event",
+    "ok"
+   ],
+   [
+    "persist_agent_decision",
+    "ok"
+   ]
+  ],
+  "children": [],
+  "wf_error": null
+ }
+}

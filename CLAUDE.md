@@ -73,6 +73,125 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 
 **Standing rule:** Before adding any new OSS Docker container to the mandatory stack, ask: "Can YugabyteDB + Redis + FastAPI + React handle this well enough?" If yes, build it internally.
 
+### 2.6 Policy Engine — In-Process, No OPA Container by Default
+
+**Decision (2026-09-21):** The OPA container is dropped from the mandatory stack (same CAB/image-approval reasoning as §2.5). Layer 4 business-policy rules are evaluated in-process by `shared/policy_engine.py` (`PolicyEngine.decide(OPAInput) → OPAResult`, same contract as `OPAClient`). Rules are Layer 3 config data — JSON under `cts.policy_rules` in `platform.config_values` — so they hot-reload via config_service (30 s), are audited, and go through maker-checker. Defaults are ported from the former `cts_routing.rego` triggers.
+
+**Structural safety invariants:** a rule can only yield `HUMAN_REVIEW` or `AUTO_RETURN` (never a confirm) · `HUMAN_REVIEW` beats `AUTO_RETURN` · rules unavailable/malformed → `HUMAN_REVIEW` · no match → `PROCEED` (downstream gates still apply).
+
+**External OPA remains optional:** a bank that already runs OPA may set the `opa.url` platform value and the worker will use `OPAClient` instead. The `.rego` files stay as the reference for that path.
+
+### 2.7 IndicOCR Sidecar — PaddleOCR Was Never Installed (fixed 2026-09-22); Handwritten Accuracy Is Open
+
+**Found on a real run (2026-09-22):** `apps/indic_ocr` (the Stage 2 Indic OCR sidecar) had no `requirements.txt` and no Dockerfile — it only ever ran from a hand-assembled local `.venv`, so `paddlepaddle`/`paddleocr` (the primary multi-script engine the whole service exists for) were never installed anywhere. Every real Indic OCR call in dev fell back to Tesseract, confirmed live by `indic_ocr.backend_failed_cascading backend=paddle error='PaddleOCR not installed.'` on every request.
+
+**Fixed:** `apps/indic_ocr/requirements.txt` + `Dockerfile` added. Install is two steps (see the requirements.txt header comment for why): `pip install -r requirements.txt` then `pip install --force-reinstall --no-deps "opencv-contrib-python>=4.9,<5"` — paddleocr 2.7.3 pins an opencv build that predates NumPy 2.0 and crashes on import; a single-pass install leaves three conflicting `cv2` packages on disk. Verified from a clean venv, and against the real `tests/integration/test_indic_ocr_real_service.py` suite (7/7 passing against the live restarted service, not mocked).
+
+**Handwritten Indic accuracy — partially improved, not solved (2026-09-22):** PaddleOCR's and Tesseract's stock models are both trained on printed text. Tested live against a real handwritten Kannada payee name (from an actual KBL cheque): PaddleOCR returned `"YPhg be ?"` (wrong), Tesseract returned empty text, both near-zero genuine confidence.
+
+Added a third tier: `_cloud_vlm_refine_zone()` in `modules/cts/workflows/activities/ocr.py` retries a zone against the cloud vision-LLM fallback (already used for Stage 1, same `cts.allow_cloud_ai_fallback` opt-in gate, off by default) when IndicOCR's own result doesn't clear `indic_min_confidence`. Tested live on the same real crop: correctly read `ಸುಮತಿ ಶೇಟ್ಟಿ` ("Sumati Shetty") on one call — a real improvement over both classical engines.
+
+**But this is not reliable, and must never be treated as authoritative:** repeat live calls on the same illegible crop also produced fluent, self-confident (0.9+) Devanagari text with no relation to the actual (Kannada) image — a confident hallucination, not a low-confidence miss. `_cloud_vlm_refine_zone()` caps whatever confidence the model reports at `_CLOUD_VLM_INDIC_CONFIDENCE_CAP = 0.65`, well under any realistic `min_confidence` gate, so a cloud-VLM-sourced reading can never look like a trusted high-confidence extraction and always still needs the same human-review path a genuine low-confidence result gets (test: `test_cloud_vlm_reading_confidence_is_capped_never_trusted_at_face_value`). Treat this as a best-effort assist that sometimes gets a handwritten Indic name right, not a fix for handwriting OCR — human review remains the real safety net for these fields, same as any other low-confidence OCR outcome.
+
+**Resolution vs. model-choice, tested and ruled on (2026-09-22):** full evidence in [docs/indic-ocr-handwriting-evidence.md](docs/indic-ocr-handwriting-evidence.md). Short version: interpolating a low-DPI photo up to 200-DPI pixel count does not help (still wrong, both local and cloud engines) — but the same engines read Devanagari correctly at ~1.0 confidence on clean text rendered at genuine 200 DPI, so the failure is handwriting-stroke ambiguity, not missing script support. Newer models (Qwen3-VL-8B/32B, and Qwen2.5-VL-72B again) were tested against 3 real Devanagari cheques with eye-verified ground truth: 0/3 correct across every model tried. Gemma 4 31B and Qwen3.8-27B are real, recent models but have no inference provider currently serving them — not tested, not claimed. A genuine 200-DPI scanner capture (not a photo, not an upscale) remains the one untested, credible next lever.
+
+### 2.8 STP Multisignal Rescue — Don't Hard-Gate on OCR Confidence Alone (2026-09-23)
+
+**Decision:** `cheque_workflow.py` no longer hard-exits to `HUMAN_REVIEW` the instant OCR confidence is low
+on payee or amount_words specifically — it defers to `synthesise_decision`'s existing multi-signal gate
+(fraud + OCR + signature + CBS + PPS together) instead, as long as `inp.account_number` (the account already
+known from presentment metadata) is non-empty. `date` and `amount_figures` weakness still exits immediately —
+both feed `decision.py`'s hard auto-return gates, where a wrong OCR reading could file an incorrect
+`STP_RETURN`. See `modules/cts/workflows/cheque_workflow.py`'s `_MULTISIGNAL_RESCUE_FIELDS` for the exact
+scope and reasoning. Bank-configurable: `cts.ocr_multisignal_rescue_enabled` (Layer 3, default `True`,
+hot-reload).
+
+**Corrected 2026-09-24:** the gate originally checked an OCR/MICR-derived `account_number_last4` instead of
+`inp.account_number`. Real Indian CTS-2010 MICR carries no account number field at all (see §2.9) — that
+made the gate structurally unsatisfiable on every real cheque, so the rescue never fired live until this was
+found and fixed. [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md)'s 2026-09-24 entry has the full
+finding and the first genuine, verified live `STP_CONFIRM` result on real 200-DPI scans (6/10) once fixed.
+
+**Revised 2026-10-13 (bank owner): rescue now defaults to OFF.** An unreadable payee or amount-in-words is called
+unequivocally — `HUMAN_REVIEW` — and can no longer continue through the pipeline to `STP_CONFIRM`.
+`cts.ocr_multisignal_rescue_enabled` still exists (Layer 3) and a bank may explicitly set it `True`; a payee on
+which the two reads disagree (`payee_reread_status=DISAGREE`) is never rescued even then. Related: handwritten cheque
+payees are read twice and withheld on disagreement (`_payee_reread`, `cts.payee_reread_min_similarity`, default 0.99).
+
+### 2.9 MICR Never Carries an Account Number (corrected 2026-09-24)
+
+**The real Indian CTS-2010 MICR band is cheque number (6 digits) + city-bank-branch sort code (9 digits),
+full stop** — no account number field. `modules/cts/scanner/micr.py`'s `MICRParser.parse_ocr_text()` wrongly
+assumed a 23-digit layout with a fabricated 6-digit account segment between the sort code and the
+transaction code since the file was first written (2026-09-18) — confirmed wrong from a real, already-working
+outward digest showing `MICR Format` (9 digits, standalone) and a *separately* OCR'd `Account Format` field
+side by side. The account number is a real, independent field printed on the cheque face, extracted by
+asking the vision model for it directly (`account_number` in `_OCR_PROMPT`, reusing the wording already
+proven in `apps/api/routers/demo_cloud_extract.py`'s `CLOUD_EXTRACT_PROMPT` for outward) — never guessed out
+of MICR digit positions. Any code that needs "the account number for this cheque" should use
+`inp.account_number` (known from presentment metadata) for inward, or the real OCR'd `account_number` field
+for cross-validation — never derive it from `micr_line`.
+
+### 2.10 Inward Drawee Name — From CBS Account Lookup, Stored Plain (2026-10-13)
+
+**Decision (bank owner):** the inward reviewer's **Drawee Name** comes from the bank's own account record
+(CBS `get_account_info(account_number).holder_name`), never from OCR of the cheque face. It is stored as
+**plain text** in `cts.inward_drawee_name` (migration `20261013_030`) — an explicit, narrow exemption from the
+column-encryption/masking rules in `pii-data-protection.md`, for this one field only; account numbers stay
+hashed + last-4 and amounts stay bucketed. Written by the best-effort `record_drawee_name` activity, run
+before OCR so even an OCR-low-confidence review has the name; the name is deliberately **not** returned in the
+activity result (Temporal history). A failed lookup degrades to "no name" and never changes the decision.
+Surfaced as `drawee_name` on the inward queue and decision-log API rows and in the review UI. Outward Payee
+Name (front OCR + back endorsement + deposit-slip account → vault) is separate and not yet built.
+
+### 2.11 Inward Safety Gates Added After Real-Image Testing (2026-10-13)
+
+Found by running 70 real KBL instruments (Lots 1, 2, 3) end to end; each has tests and, where stated, a live check.
+Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluation.md),
+[docs/npci/inward-conformance-matrix.md](docs/npci/inward-conformance-matrix.md).
+
+- **Duplicate presentment was silently ignored** (the workflow looked for the error name in the wrapper's text;
+  Temporal keeps it in the cause chain), and once detected the return path called `finalise()` before it existed.
+  Fixed; the leaf vault is idempotent per instrument id. Verified live.
+- **`finalise()` is the single exit and reads state set later in the run.** Any such variable must be initialised
+  with the others at the top of `run()` (`_instrument_category` was not, so every pre-OCR exit lost its row).
+- **An untrained signature verifier never supports an automatic confirm.** Measured: the generic ImageNet embedder
+  accepts 53% of impostor pairs at 0.85. `verifier_trained` flows from the embedder to `synthesise_decision`
+  (`cts.require_trained_signature_verifier`, default true).
+- **A single model read is never enough to return or to show a handwritten name.** Payees are read twice by two
+  different models and withheld on disagreement; dates decades from today and "signature absent" go to human
+  review instead of an automatic return (`cts.date_implausible_*`, `cts.signature_absent_action`); the amount on the
+  image must match the presented amount; the MICR number must match the presented number; the sort code must be in
+  the bank's branch master when one is configured (`cts.micr_branch_master`).
+- **Image quality (RRC 39)** is a deterministic, calibrated pre-OCR check (`check_image_quality`, `cts.iqa_*`).
+- **Unreadable payee / amount-in-words is human review.** The multisignal rescue is OFF by default, including at the
+  `config_service` default every workflow reads.
+- **Fraud scoring runs on every exit**, including early ones, and uses the loaded model's declared feature names.
+  The model in dev is a labelled synthetic stand-in; the path to a real one is
+  [docs/fraud/labelled-data-contract.md](docs/fraud/labelled-data-contract.md) and `scripts/train_fraud_model.py`.
+- **After the IET watchdog files its emergency decision, the pipeline stands down** (watchdog signals the parent).
+- **Evaluation standard:** `scripts/eval_inward.py` scores results against the section 12 targets with 95%
+  intervals and states how many labelled samples are needed to prove a target. Nothing is described as meeting a
+  target unless the interval clears it.
+- **Open policy question (compliance officer):** codes 30/31/32/55 are treated as "customer not at fault" although
+  Annexure II does not list them (pinned in `test_npci_return_codes_conformance.py`).
+- **Primary NPCI/RBI documents are in `docs/npci/source/` and the return-code list is verified against them** (CTS Specifications for Continuous Clearing, Rev 3.0 (26 Mar 2025),
+  Chennai guidelines v2.1). That check found the return-file code table (`rrf/models.py`) used
+  invented codes; it is fixed and pinned by `test_rrf_codes_conformance.py`. Annexure II (customer fault) and the
+  continuous-clearing timings are still not in the primary set.
+- **MICR number, sort code and amount are read twice by different models**; a disagreement goes to review with both
+  readings (`_field_rereads`, `cts.field_reread_model`). Measured on 70 real instruments it exposed 3/3 wrong
+  cheque numbers, 4/4 wrong sort codes and 4/5 wrong amounts at the cost of ~1 correct read in 8.
+- **A failed or timed-out OCR must never fail the workflow** (it files nothing; near the IET deadline the watchdog
+  then deems the item approved). It degrades to `HUMAN_REVIEW` (`ocr_activity_failed`); the OCR budget is
+  `ocr_activity_timeout_seconds` (default 120). Verified under a total cloud-model outage (402, no credits):
+  all 70 instruments went to human review, none failed, none was confirmed or returned automatically.
+- **CIIF (PPS issue file) loads into the PPS vault** via `process_ciif` / `POST /v1/cts/vault/upload/pps/ciif`. The spec does not say whether
+  Amount is rupees or paise, so `cts.ciif_amount_unit` is required with no default (refused when unset). Vault amounts convert via
+  Decimal (the old float conversion turned 0.29 into 28 paise).
+- **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
+  `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
+
 ---
 
 ## 3. Technology Stack (Final — Locked)
@@ -108,7 +227,7 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 | LLM Inference Server | vLLM (on-prem GPU, OpenAI-compatible API) |
 | Vision LLM (cheque) | Qwen2-VL 72B → `cts-vision` queue |
 | OCR — Stage 1 | GOT-OCR2.0 (MICR, handwriting, all fields) → `cts-ocr` queue |
-| OCR — Stage 2 (Indic) | IndicOCR / PaddleOCR v3 — 9 scripts (hi bn pa gu or ta te kn ml) → Direct HTTP, CPU sidecar, port 8021 · kill switch: `cts.indic_ocr.kill_mode` (KP/KC) · triggered when Indic script detected in Stage 1 |
+| OCR — Stage 2 (Indic) | IndicOCR (`apps/indic_ocr`) — cascades PaddleOCR 2.7.3 (devanagari/tamil/telugu/kannada; needs `apps/indic_ocr/requirements.txt` install — see §2.7) → Tesseract 5 + tessdata_fast (covers bengali/gurmukhi/gujarati/odia/malayalam, plus the paddle fallback for the other four) → EasyOCR → CPU sidecar, port 8021 · kill switch: `cts.indic_ocr.kill_mode` (KP/KC) · triggered when Indic script detected in Stage 1 · **printed text only — neither backend reliably reads handwritten Indic script yet, open item, see §2.7** |
 | Reasoning LLM | Llama 3.3 70B → `cts-reasoning` queue |
 | Signature Verification | Siamese Neural Network (PyTorch, custom trained) |
 | Fraud Scoring | XGBoost ensemble + SHAP + LLM explainer |
@@ -122,7 +241,7 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 | Event Bus | Apache Kafka (Strimzi) + MirrorMaker 2 (DC replication) |
 | Secrets | HashiCorp Vault (dynamic, 24hr rotation) |
 | HSM | FIPS 140-2 Level 3 (NGCH PKI signing) |
-| Policy Engine | OPA (Rego, business rules) |
+| Policy Engine | In-process `PolicyEngine` (rules = Layer 3 config; §2.6). External OPA optional via `opa.url` |
 | Identity | Bank IdP via SAML 2.0 |
 | Observability | OpenTelemetry (instrumentation only, zero Docker cost) + ASTRA Ops Dashboard (React) + alert engine → dispatcher.py · Optional: `astra-observability` Helm chart for dev debugging |
 | Notifications | Postal (email) + Meta WhatsApp Business API |
@@ -354,6 +473,8 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 > Full history: [docs/build-history.md](docs/build-history.md)
 
 **Completed:** Phases 1–15. Full phase-by-phase history: [docs/build-history.md](docs/build-history.md)
+
+**Live-code E2E test evidence:** [docs/e2e-test-evidence.md](docs/e2e-test-evidence.md) — dated, append-only record of what was actually run against a real worker + real infra (last entry 2026-09-21 19:36 IST), the stand-ins used, raw result files in `docs/evidence/`, and an explicit **NOT covered** list. Do not describe any pipeline as "fully E2E tested" unless a new entry there says so with evidence. The pytest suite uses fake activities and is not a substitute.
 
 **Immediate Next (priority order):**
 1. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster

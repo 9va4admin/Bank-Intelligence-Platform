@@ -20,6 +20,7 @@ from typing import Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import get_current_user_context
 from shared.auth.rbac import UserContext
@@ -112,7 +113,7 @@ class MismatchItem(BaseModel):
     mismatch_id: str
     instrument_id: str
     branch_id: str
-    held_at: str
+    held_at: IsoTimestamp
     status: str
     mismatch_fields: list[str]
     scanner_amount: str
@@ -160,7 +161,7 @@ class AllocationStatusItem(BaseModel):
     instrument_id: str
     reviewer_id: str
     tier: Optional[str] = None
-    claimed_at: Optional[str] = None
+    claimed_at: OptIsoTimestamp = None
 
 
 class AllocationStatusResponse(BaseModel):
@@ -289,6 +290,7 @@ async def place_hold(
 
     try:
         from temporalio.client import Client as TemporalClient
+        from temporalio.exceptions import WorkflowAlreadyStartedError
         from modules.cts.workflows.hold_escalation_workflow import (
             HoldEscalationWorkflow, HoldEscalationInput,
         )
@@ -303,12 +305,17 @@ async def place_hold(
             held_at=record.held_at,
             branch_email=body.branch_email,
         )
-        await temporal_client.start_workflow(
-            HoldEscalationWorkflow.run,
-            escalation_input,
-            id=f"cts-hold-escalation-{bank_id}-{instrument_id}",
-            task_queue=f"cts-processing-{bank_id}",
-        )
+        try:
+            await temporal_client.start_workflow(
+                HoldEscalationWorkflow.run,
+                escalation_input,
+                id=f"cts-hold-escalation-{bank_id}-{instrument_id}",
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except WorkflowAlreadyStartedError:
+            # Expected on a retriggered hold: the workflow id is deterministic (per instrument). The prior
+            # escalation stands; this is not a failure.
+            log.info("hold.escalation.already_started", instrument_id=instrument_id, bank_id=bank_id)
     except Exception as _exc:
         log.warning("hold.escalation.start_failed", instrument_id=instrument_id,
                     bank_id=bank_id, error=str(_exc))

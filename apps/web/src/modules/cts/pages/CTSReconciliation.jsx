@@ -205,6 +205,7 @@ export default function CTSReconciliation() {
   const { isDark } = useTheme()
   const [sessionIdx, setSessionIdx]         = useState(0)
   const [filterStatus, setFilterStatus]     = useState('ALL')
+  const [filterCategory, setFilterCategory] = useState('ALL')
   const [raisedExceptions, setRaisedExceptions] = useState({})
 
   // ── Live data hooks ────────────────────────────────────────────────────────
@@ -256,6 +257,7 @@ export default function CTSReconciliation() {
         ngch_amt: d.astra_value?.amount_range || '—',
         cbs_amt: d.ngch_value?.amount_range || '—',
         status: _mapDiscrepancyType(d.discrepancy_type),
+        instrument_category: d.instrument_category || 'CHEQUE',
       })
     }
     return bySession
@@ -265,7 +267,7 @@ export default function CTSReconciliation() {
   const ACTIVE_SESSIONS = (isDemo || !liveSessions) ? SESSIONS : liveSessions
   const ACTIVE_RECON    = (isDemo || !liveSessions) ? RECON_DATA : liveReconItems
 
-  useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
+  useEffect(() => { setSessionIdx(0); setFilterStatus('ALL'); setFilterCategory('ALL') }, [isSMB])
 
   const session = ACTIVE_SESSIONS.length
     ? ACTIVE_SESSIONS[Math.min(sessionIdx, ACTIVE_SESSIONS.length - 1)]
@@ -284,7 +286,9 @@ export default function CTSReconciliation() {
   const pending      = items.filter(i => i.status === 'PENDING').length
   const matchRate    = total > 0 ? ((matched / total) * 100).toFixed(1) : '0.0'
 
-  const visible = filterStatus === 'ALL' ? items : items.filter(i => i.status === filterStatus)
+  const visible = items
+    .filter(i => filterStatus === 'ALL' || i.status === filterStatus)
+    .filter(i => filterCategory === 'ALL' || (i.instrument_category || 'CHEQUE') === filterCategory)
 
   // ── Theme helpers ──────────────────────────────────────────────────────────
   const th = {
@@ -455,6 +459,24 @@ export default function CTSReconciliation() {
               }`}
             >
               {s === 'ALL' ? 'All' : (STATUS_META[s]?.label || s)}
+            </button>
+          ))}
+        </div>
+
+        {/* Instrument category filter */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className={`text-xs ${th.muted}`}>Instrument type:</span>
+          {['ALL', 'CHEQUE', 'DEMAND_DRAFT'].map(c => (
+            <button
+              key={c}
+              onClick={() => setFilterCategory(c)}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                filterCategory === c
+                  ? 'bg-violet-600 text-white border-violet-600'
+                  : th.filterInactive
+              }`}
+            >
+              {c === 'ALL' ? 'All' : c === 'CHEQUE' ? 'Cheques' : 'Demand Drafts'}
             </button>
           ))}
         </div>

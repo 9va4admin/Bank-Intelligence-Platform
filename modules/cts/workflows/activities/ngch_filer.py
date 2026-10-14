@@ -59,6 +59,10 @@ async def file_to_ngch(
     with tracer.start_as_current_span("activity.file_to_ngch") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
+        if ngch_adapter is None:
+            log.error("ngch_filer.adapter_not_bound",
+                      instrument_id=inp.instrument_id, workflow_id=inp.workflow_id)
+            raise NGCHUnavailableError("NGCH adapter not configured — filing stays queued")
         try:
             response = await ngch_adapter.file_decision(
                 instrument_id=inp.instrument_id,

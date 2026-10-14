@@ -726,3 +726,46 @@ class TestMorphologicalNormalisation:
         img = _PIL.new("RGB", (100, 50), color=(255, 255, 255))
         result = _apply_morphological_normalisation(img)
         assert isinstance(result, _PIL.Image)
+
+
+# ---------------------------------------------------------------------------
+# _crop_signature_region must fetch via the shared s3-aware image fetcher,
+# not raw urllib — confirmed live 2026-09-23 that urllib.request.urlopen()
+# cannot handle s3:// URLs at all ("unknown url type: s3"), which was silently
+# failing every signature crop and getting mislabeled miss_reason=MODEL_UNAVAILABLE.
+# ---------------------------------------------------------------------------
+
+class TestCropSignatureRegionFetcher:
+    @pytest.mark.asyncio
+    async def test_fetches_s3_url_via_shared_fetcher(self, monkeypatch):
+        from PIL import Image as _PIL
+        import io as _io
+        from modules.cts.workflows.activities import signature as sig_mod
+
+        img = _PIL.new("RGB", (100, 50), color=(255, 255, 255))
+        buf = _io.BytesIO()
+        img.save(buf, format="PNG")
+        raw_bytes = buf.getvalue()
+
+        calls = []
+
+        async def _fake_fetch(url, timeout=15.0):
+            calls.append(url)
+            return raw_bytes
+
+        monkeypatch.setattr("shared.storage.image_fetch.fetch_image_bytes", _fake_fetch)
+
+        result = await sig_mod._crop_signature_region("s3://cts-images/inward/kbl/086054.jpg", [])
+        assert result is not None
+        assert calls == ["s3://cts-images/inward/kbl/086054.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_returns_none_and_logs_on_fetch_failure(self, monkeypatch):
+        from modules.cts.workflows.activities import signature as sig_mod
+
+        async def _fake_fetch(url, timeout=15.0):
+            raise ValueError("unsupported image URL scheme")
+
+        monkeypatch.setattr("shared.storage.image_fetch.fetch_image_bytes", _fake_fetch)
+        result = await sig_mod._crop_signature_region("weird://not-a-real-url", [])
+        assert result is None

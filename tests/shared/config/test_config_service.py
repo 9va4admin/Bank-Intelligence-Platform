@@ -327,6 +327,7 @@ async def test_initialise_raises_when_vault_not_authenticated():
 
     with patch.dict("os.environ", {
         "BANK_ID": "test-bank",
+        "ASTRA_SECRETS_BACKEND": "vault",     # the test targets the vault path; do not inherit the shell's backend
         "VAULT_ADDR": "http://vault:8200",
         "VAULT_TOKEN": "hvs.bad",
     }):
@@ -596,3 +597,55 @@ async def test_get_deserialises_string_type(svc: ConfigService):
 
     result = await svc.get("cbs.connector.type")
     assert result == "finacle"
+
+
+class TestWorkflowThresholdsCoverDecisionActivity:
+    """Found live: synthesise_decision reads config['ocr_min_confidence'] and
+    config['sig_min_match_score'] from the workflow's cts_config, but
+    get_workflow_thresholds() never supplied them -> KeyError at the decision step."""
+
+    @pytest.mark.asyncio
+    async def test_thresholds_include_keys_decision_reads(self):
+        from shared.config.config_service import ConfigService
+        svc = ConfigService.__new__(ConfigService)
+        seen = {}
+
+        async def fake_get(key):
+            seen[key] = True
+            return 0.5
+        svc.get = fake_get
+        out = await svc.get_workflow_thresholds("kbl")
+        assert out["ocr_min_confidence"] == 0.5
+        assert out["sig_min_match_score"] == 0.5
+        assert "cts.ocr_min_confidence" in seen and "cts.signature_min_match_score" in seen
+
+
+class TestDecisionConfigContractGuard:
+    """Contract guard: every config["<key>"] that decision.py hard-requires must be
+    supplied by get_workflow_thresholds (the config the workflow actually passes)."""
+
+    @pytest.mark.asyncio
+    async def test_every_required_decision_key_is_supplied(self):
+        import re, pathlib
+        from shared.config.config_service import ConfigService
+        src = pathlib.Path("modules/cts/workflows/activities/decision.py").read_text(encoding="utf-8")
+        code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+        required = set(re.findall(r'config\["([a-z_]+)"\]', code))
+        assert required, "guard found no required keys — pattern out of date"
+        svc = ConfigService.__new__(ConfigService)
+
+        async def fake_get(key):
+            return 1
+        svc.get = fake_get
+        supplied = set(await svc.get_workflow_thresholds("kbl"))
+        assert required <= supplied, f"decision.py requires keys the workflow never supplies: {required - supplied}"
+
+
+class TestSafeComplianceDefault:
+    """CTS-2010 image compliance is RBI-mandatory. The in-code fallback (used wherever Helm
+    values are not injected) must match the Helm default: strict = true. A dev/UAT bank that
+    wants to run non-scanner photos must opt out explicitly via its own Layer 3 value."""
+
+    def test_strict_image_quality_defaults_to_true(self):
+        from shared.config.config_service import _LAYER3_DEFAULTS
+        assert str(_LAYER3_DEFAULTS["cts.strict_image_quality"]).lower() == "true"

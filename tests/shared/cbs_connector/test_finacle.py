@@ -17,6 +17,7 @@ def connector() -> FinacleCBSConnector:
     c = FinacleCBSConnector(
         base_url="http://finacle.bank.internal:8080",
         bank_id="test-bank",
+        pepper="test-pepper",
     )
     mock_http = AsyncMock()
     c._http = mock_http

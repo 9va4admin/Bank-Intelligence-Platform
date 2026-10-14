@@ -12,7 +12,7 @@ Critical invariants:
   - DB unavailable → logs warning, no crash
 """
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from shared.event_bus.schemas import KafkaEventEnvelope
 
@@ -51,8 +51,10 @@ class TestHandleHumanReviewEvent:
 
         await handle_human_review_event(envelope, immudb=immudb, db=db)
 
-        immudb.write_event.assert_awaited_once()
-        call_kwargs = immudb.write_event.call_args[1]
+        immudb.write.assert_awaited_once()
+        call_kwargs = immudb.write.call_args[1]
+        assert call_kwargs["collection"] == "cts_saraswat-coop"   # AsyncImmudbWriter.write contract
+        assert call_kwargs["instrument_id"] == "INST-002"
         assert call_kwargs["event_type"] == "CTS_REVIEW_ASSIGNED"
         assert call_kwargs["bank_id"] == "saraswat-coop"
         assert "INST-002" in str(call_kwargs["payload"])
@@ -64,9 +66,12 @@ class TestHandleHumanReviewEvent:
 
         immudb = AsyncMock()
         conn = AsyncMock()
-        db = AsyncMock()
-        db.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
-        db.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        # real asyncpg shape: pool.acquire() is a sync call returning an async context manager
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=conn)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        db = MagicMock()
+        db.acquire = MagicMock(return_value=ctx)
         envelope = _make_envelope()
 
         await handle_human_review_event(envelope, immudb=immudb, db=db)
@@ -88,7 +93,7 @@ class TestHandleHumanReviewEvent:
             envelope, immudb=immudb, db=db, consumer_bank_id="saraswat-coop"
         )
 
-        immudb.write_event.assert_not_awaited()
+        immudb.write.assert_not_awaited()
         db.acquire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -117,7 +122,7 @@ class TestHandleHumanReviewEvent:
         from modules.cts.consumers.human_review_consumer import handle_human_review_event
 
         immudb = AsyncMock()
-        immudb.write_event.side_effect = RuntimeError("immudb timeout")
+        immudb.write.side_effect = RuntimeError("immudb timeout")
         db = AsyncMock()
         envelope = _make_envelope()
 
@@ -134,7 +139,7 @@ class TestHandleHumanReviewEvent:
 
         await handle_human_review_event(envelope, immudb=immudb, db=db)
 
-        payload = immudb.write_event.call_args[1]["payload"]
+        payload = immudb.write.call_args[1]["payload"]
         assert payload.get("iet_deadline") == 1750000000.0
 
 
@@ -462,3 +467,38 @@ class TestSelfModeAllocation:
             config_svc=None,
         )
         assert "hybrid-pending:saraswat-coop" not in redis._zsets
+
+
+class TestConsumerOpensDurableReviewItem:
+    """The review queue lived only in Redis/Kafka. The consumer now also records an INWARD item
+    (with tier and level 1) in cts.human_review_items so it survives a Redis flush and is queryable."""
+
+    @pytest.mark.asyncio
+    async def test_open_item_called_with_inward_direction_and_review_workflow_id(self, monkeypatch):
+        from modules.cts.consumers.human_review_consumer import handle_human_review_event
+        seen = {}
+
+        async def fake_open(conn, **kw):
+            seen.update(kw)
+        monkeypatch.setattr("modules.cts.consumers.human_review_consumer.open_item", fake_open)
+        conn = AsyncMock()
+        ctx = MagicMock(); ctx.__aenter__ = AsyncMock(return_value=conn); ctx.__aexit__ = AsyncMock(return_value=False)
+        db = MagicMock(); db.acquire = MagicMock(return_value=ctx)
+        await handle_human_review_event(_make_envelope(), immudb=AsyncMock(), db=db)
+        assert seen["direction"] == "INWARD"
+        assert seen["bank_id"] == "saraswat-coop"
+        assert seen["instrument_id"] == "INST-002"
+        assert seen["workflow_id"] == "cts-humanreview-saraswat-coop-INST-002"
+        assert seen["queue_tier"] in ("standard", "high_value", "very_high")
+
+    @pytest.mark.asyncio
+    async def test_open_item_failure_does_not_crash_the_consumer(self, monkeypatch):
+        from modules.cts.consumers.human_review_consumer import handle_human_review_event
+
+        async def boom(conn, **kw):
+            raise RuntimeError("db down")
+        monkeypatch.setattr("modules.cts.consumers.human_review_consumer.open_item", boom)
+        conn = AsyncMock()
+        ctx = MagicMock(); ctx.__aenter__ = AsyncMock(return_value=conn); ctx.__aexit__ = AsyncMock(return_value=False)
+        db = MagicMock(); db.acquire = MagicMock(return_value=ctx)
+        await handle_human_review_event(_make_envelope(), immudb=AsyncMock(), db=db)   # must not raise

@@ -18,6 +18,7 @@ from typing import Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     get_current_user_context,
@@ -81,7 +82,7 @@ class SMBSessionLedger(BaseModel):
     model_config = ConfigDict(frozen=True)
     sub_member_id: str
     bank_name: str
-    session_date: str
+    session_date: IsoTimestamp
     clearing_session: str
     total_received: int
     stp_pass: int
@@ -98,7 +99,7 @@ class SMBSessionLedger(BaseModel):
 class SMBLedgerResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     ledgers: list[SMBSessionLedger]
-    session_date: str
+    session_date: IsoTimestamp
     bank_id: str
 
 
@@ -110,9 +111,9 @@ class SMBForwardingLogItem(BaseModel):
     micr_prefix_matched: str
     forwarding_status: str
     iet_deadline_utc: str
-    received_at: str
-    forwarded_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    received_at: IsoTimestamp
+    forwarded_at: OptIsoTimestamp = None
+    completed_at: OptIsoTimestamp = None
     terminal_decision: Optional[str] = None
 
 
@@ -150,7 +151,7 @@ class SMBLedgerEntry(BaseModel):
 class SMBAllLedgersResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    session_date: str
+    session_date: IsoTimestamp
     ledgers: list[SMBLedgerEntry]
 
 
@@ -164,9 +165,9 @@ class SBForwardingLogItem(BaseModel):
     forwarding_status: str
     terminal_decision: Optional[str] = None
     iet_deadline_utc: str
-    received_at: str
-    forwarded_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    received_at: IsoTimestamp
+    forwarded_at: OptIsoTimestamp = None
+    completed_at: OptIsoTimestamp = None
     iet_seconds_remaining: Optional[int] = None
     failure_reason: Optional[str] = None
 
@@ -402,7 +403,7 @@ async def get_smb_session_ledger(
     sub_member_id: str,
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    session_date: Optional[str] = None,
+    session_date: OptIsoTimestamp = None,
 ) -> SMBLedgerResponse:
     """Return batch ledger for a Sub-Member Bank."""
     if ctx.bank_type == BankType.SMB and ctx.bank_id != sub_member_id:
@@ -508,7 +509,7 @@ async def trigger_smb_vault_sync(
 async def get_all_smb_ledgers(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
-    session_date: Optional[str] = None,
+    session_date: OptIsoTimestamp = None,
 ) -> SMBAllLedgersResponse:
     """Returns batch ledger for ALL sub-members under this SB bank. SB-only, restricted roles."""
     if ctx.bank_type != BankType.SB:

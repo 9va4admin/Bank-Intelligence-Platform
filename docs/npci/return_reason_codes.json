@@ -1,0 +1,472 @@
+{
+ "_source": "Return reason codes. Verified 2026-10-14 against the PRIMARY documents: RBI/NPCI CTS Specifications for Continuous Clearing, Rev 3.0 (26 Mar 2025) (Appendix DD, section 4.5.3.3.1; the file in docs/npci/source is byte-identical under two names, one of which wrongly says v2.10) and the Chennai Bankers' Clearing House CTS Procedural Guidelines v2.1 (Jul 2018). Customer-not-at-fault flags (Annexure II) come from a bank's policy reproducing URRBCH Annexure D; they are NOT in the two primary documents.",
+ "_retrieved": "2026-10-13",
+ "codes": {
+  "01": {
+   "description": "Funds insufficient",
+   "group": "Funds",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Funds insufficient"
+  },
+  "02": {
+   "description": "Exceeds arrangement",
+   "group": "Funds",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Exceeds arrangement"
+  },
+  "03": {
+   "description": "Effects not cleared, present again.",
+   "group": "Funds",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Effects not cleared, present again."
+  },
+  "04": {
+   "description": "Refer to drawer",
+   "group": "Reference to Drawer",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Refer to drawer"
+  },
+  "05": {
+   "description": "Kindly contact Drawer/Drawee Bank and please present again.",
+   "group": "Reference to Drawer",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Kindly contact Drawer / Drawee Bank and please present again"
+  },
+  "10": {
+   "description": "Drawer's signature incomplete",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers signature incomplete"
+  },
+  "11": {
+   "description": "Drawer's signature illegible",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers signature illegible"
+  },
+  "12": {
+   "description": "Drawer's signature differs",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers signature differs"
+  },
+  "13": {
+   "description": "Drawer's signature required",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers signature required"
+  },
+  "14": {
+   "description": "Drawer's signature not as per mandate",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers signature not as per mandate"
+  },
+  "15": {
+   "description": "Drawer's signature to operate account not received",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers signature to operate account not received"
+  },
+  "16": {
+   "description": "Drawer's authority to operate account not received",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawers authority to operate account not received"
+  },
+  "17": {
+   "description": "Alteration requires drawer's authentication",
+   "group": "Signature",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Alteration require drawers authentication"
+  },
+  "20": {
+   "description": "Payment stopped by drawer",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payment stopped by drawer"
+  },
+  "21": {
+   "description": "Payment stopped by attachment order",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payment stopped by attachment order"
+  },
+  "22": {
+   "description": "Payment stopped by court order",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payment stopped by court order"
+  },
+  "23": {
+   "description": "Withdrawal stopped owing to death of account holder",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Withdrawal stopped owing to death of account holder"
+  },
+  "24": {
+   "description": "Withdrawal stopped owing to lunacy of account holder",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Withdrawal stopped owing to lunacy of account holder"
+  },
+  "25": {
+   "description": "Withdrawal stopped owing to insolvency of account holder",
+   "group": "Stop Payment",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Withdrawal stopped owing to insolvency of account holder"
+  },
+  "30": {
+   "description": "Instrument post dated",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Instrument post dated"
+  },
+  "31": {
+   "description": "Instrument out dated/stale",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Instrument out dated / stale"
+  },
+  "32": {
+   "description": "Instrument undated/ without proper date",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Instrument undated / without proper date"
+  },
+  "33": {
+   "description": "Instrument mutilated; requires Bank's guarantee",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Instrument mutilated requires Banks guarantee"
+  },
+  "34": {
+   "description": "Cheque irregularly drawn/ amount in words and figures differs",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Cheque irregularly drawn / amount in words and figures differ"
+  },
+  "35": {
+   "description": "Clearing House stamp/ date required",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Clearing House stamp/ date required"
+  },
+  "36": {
+   "description": "Wrongly delivered/ Not drawn on us",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Wrongly delivered/ Not drawn on us"
+  },
+  "37": {
+   "description": "Present in proper zone",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Present in proper zone"
+  },
+  "38": {
+   "description": "Instrument contains extraneous matter",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Instrument contains extraneous matter"
+  },
+  "39": {
+   "description": "Image not clear, present again with paper",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Image not clear, present again with paper"
+  },
+  "40": {
+   "description": "Present with document",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Present with document"
+  },
+  "41": {
+   "description": "Item listed twice",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Item Listed Twice"
+  },
+  "42": {
+   "description": "Paper not received",
+   "group": "Instrument",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Paper not received"
+  },
+  "50": {
+   "description": "Account closed",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Account closed"
+  },
+  "51": {
+   "description": "Account transferred to another branch",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Account transferred to another branch"
+  },
+  "52": {
+   "description": "No such account",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "No such account"
+  },
+  "53": {
+   "description": "Title of account required",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Title of account required"
+  },
+  "54": {
+   "description": "Title of account wrong/ incomplete",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Title of account wrong/ incomplete"
+  },
+  "55": {
+   "description": "Account blocked (situation covered in 21-25)",
+   "group": "Account",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Account blocked (situation covered in 21-25 Crossing / Endorsement"
+  },
+  "60": {
+   "description": "Crossed to two banks",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Crossed to two banks CTS File Specification   79 Confidential (Consumer Regulated)"
+  },
+  "61": {
+   "description": "Crossing stamp not cancelled",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Crossing stamp not cancelled"
+  },
+  "62": {
+   "description": "Clearing stamp not cancelled",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Clearing stamp not cancelled"
+  },
+  "63": {
+   "description": "Instrument specially crossed to another bank",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Instrument specially crossed to another bank"
+  },
+  "64": {
+   "description": "Amount in protective crossing incorrect",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Amount in protective crossing incorrect"
+  },
+  "65": {
+   "description": "Amount in protective crossing required/illegible",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Amount in protective crossing required/ illegible"
+  },
+  "66": {
+   "description": "Payee's endorsement required",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payees endorsement required"
+  },
+  "67": {
+   "description": "Payee's endorsement irregular / requires collecting bank's confirmation",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payees endorsement irregular / requires collecting banks confirmation"
+  },
+  "68": {
+   "description": "Endorsement by mark/ thumb impression requires attestation by Magistrate with seal",
+   "group": "Crossing/Endorsement",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Endorsement by mark/ thumb impression requires attestation by Magistrate with se al. RBI / Government"
+  },
+  "70": {
+   "description": "Advice not received",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Advice not received"
+  },
+  "71": {
+   "description": "Amount / Name differs on advice",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Amount / name differs on advice"
+  },
+  "72": {
+   "description": "Drawee bank's fund with sponsor bank insufficient",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Drawee banks funds with sponsor bank insufficient"
+  },
+  "73": {
+   "description": "Payee's separate discharge to bank required",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payees separate discharge to bank required"
+  },
+  "74": {
+   "description": "Not payable till 1st proximo",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Not payable till 1st proximo"
+  },
+  "75": {
+   "description": "Pay order/ cheque requires counter signature",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Pay order/ cheque requires counter signature"
+  },
+  "76": {
+   "description": "Required information not legible/ correct",
+   "group": "RBI /Government",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Required information not legible/ correct"
+  },
+  "80": {
+   "description": "Bank's certificate ambiguous/ incomplete/ required",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Banks certificate ambiguous / incomplete/ required"
+  },
+  "81": {
+   "description": "Draft lost by issuing office/ confirmation required from issuing office",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Draft lost by issuing office / confirmation required from issuing office"
+  },
+  "82": {
+   "description": "Bank/Branch blocked",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Bank / Branch Blocked"
+  },
+  "83": {
+   "description": "Digital Certificate Validation failure",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Digital Certificate Validation failure"
+  },
+  "84": {
+   "description": "Other reasons-connectivity failure",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Other reasons-connectivity failure"
+  },
+  "85": {
+   "description": "Alterations on instrument - Other than \"Date\" field (Alteration/correction on instruments are prohibited under Cheque Truncation System. Return reason code applicable to instruments presented in CTS)",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Alterations/Corrections on instruments other than date field are prohibited unde r CTS"
+  },
+  "86": {
+   "description": "Fake/Forged/Stolen-draft/cheque/cash order/interest warrant/dividend warrant",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Fake / Forged / Stolen-draft / cheque / cash order / interest warrant / dividend warrant"
+  },
+  "87": {
+   "description": "‘Payee's a/c credited'- Stamp required",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "in_chi_spec": true,
+   "chi_spec_description": "Payees a/c Credited - Stamp required"
+  },
+  "88": {
+   "description": "Other reasons (Please specify)",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Other reasons (Please specify)"
+  },
+  "92": {
+   "description": "Bank Excluded",
+   "group": "Miscellaneous",
+   "customer_not_at_fault_annexure_ii": true,
+   "note": "Present in the 2018 Chennai guideline and the secondary source; NOT in CHI spec Rev 3.0 (Bank Exclusion is handled at the clearing house).",
+   "in_chi_spec": false,
+   "chi_spec_description": null
+  },
+  "00": {
+   "description": "Positive Response",
+   "group": "CHI v2.10 response codes",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Positive Response"
+  },
+  "99": {
+   "description": "Deemed Accepted Note: sessions. sessions. ' The RETURN FILE (RF) shall contain this Return Reason code in case of 'Deemed Accepted' cheques. reject reason code 13. Appx 4.5.3.4 MICRDS section 4.1.3.4.  The drawee bank shall set source = 'Drawee'. Appx 4.5.3.5 AddendA This should be same as in the posting file. Same as in section 4.1.3.5 CTS File Specification   80 Confidential (Consumer Regulated) Appx 4.6 RETURN FILE (RF) The Return Files are created by the Bank DEM as inward returns to the bank. The return files can be generated either as: bank folder. generated) will be located in the respective city folder within the bank folder. Appx 4.6.1 File Name Convention A1       The Return File name shall use the following naming convention: wRF_nnnnnnnnn_ddmmyyyy_hhmmss_xxxxxxxxxx.XML Where: ' M - Master (all banks using Bank DEM) ' B - Bank (one bank) 'BR - Branch of a bank 'AO - Any Other items nnnnnnnnnn Bank / Branch Routing Number (depending upon value of w) ddmmyyyy File Creation Date xxxxxxxxxx File ID Modifier .XML  Mandatory file type suffix same as the in the File Header. A3 For the  Routing Number, RF file will contain use: Bank DEM routing number (of the receiving Bank DEM) for Master Return File Bank routing number for Bank Return File. Branch routing number for Branch Return File. CTS File Specification   81 Confidential (Consumer Regulated) Appx 4.6.2 Master and Bank Return File Structure Master/Bank Return File Structure A1 The Master and Bank Return file structure shall be: <FileHeader '   >",
+   "group": "CHI v2.10 response codes",
+   "customer_not_at_fault_annexure_ii": false,
+   "in_chi_spec": true,
+   "chi_spec_description": "Deemed Accepted Note: sessions. sessions. ' The RETURN FILE (RF) shall contain this Return Reason code in case of 'Deemed Accepted' cheques. reject reason code 13. Appx 4.5.3.4 MICRDS section 4.1.3.4.  The drawee bank shall set source = 'Drawee'. Appx 4.5.3.5 AddendA This should be same as in the posting file. Same as in section 4.1.3.5 CTS File Specification   80 Confidential (Consumer Regulated) Appx 4.6 RETURN FILE (RF) The Return Files are created by the Bank DEM as inward returns to the bank. The return files can be generated either as: bank folder. generated) will be located in the respective city folder within the bank folder. Appx 4.6.1 File Name Convention A1       The Return File name shall use the following naming convention: wRF_nnnnnnnnn_ddmmyyyy_hhmmss_xxxxxxxxxx.XML Where: ' M - Master (all banks using Bank DEM) ' B - Bank (one bank) 'BR - Branch of a bank 'AO - Any Other items nnnnnnnnnn Bank / Branch Routing Number (depending upon value of w) ddmmyyyy File Creation Date xxxxxxxxxx File ID Modifier .XML  Mandatory file type suffix same as the in the File Header. A3 For the  Routing Number, RF file will contain use: Bank DEM routing number (of the receiving Bank DEM) for Master Return File Bank routing number for Bank Return File. Branch routing number for Branch Return File. CTS File Specification   81 Confidential (Consumer Regulated) Appx 4.6.2 Master and Bank Return File Structure Master/Bank Return File Structure A1 The Master and Bank Return file structure shall be: <FileHeader '   >"
+  }
+ },
+ "_numbering_note": "The 2018 Chennai guideline numbers the RBI/government group 69-75 (Advice not received = 69). The CURRENT CHI spec Rev 3.0 and this master use 70-76. Always use the numbering of the specification version NGCH is running.",
+ "_file_format": "ReturnReason is a numeric string, min 2 / max 3 characters (CHI spec Rev 3.0); the spec's table prints codes 1-5 without a leading zero, its file examples use '01'. Code 99 'Deemed Accepted' is assigned by the clearing house when no response arrives; a drawee bank must not send it.",
+ "_comment_rules": "For code 88, ReturnReasonComment must be non-empty, must not start with a digit, and must not start with a space or consist only of spaces (CHI spec Rev 3.0 section 4.5.3.3 / RRF attribute table)."
+}

@@ -65,16 +65,56 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.vault_miss_action": "HUMAN_REVIEW",
     "cts.ocr_min_confidence": 0.90,
     "cts.signature_min_match_score": 0.85,
+    # STP architecture fix (2026-09-23): previously ANY low-confidence field among
+    # date/payee/amount_words/amount_figures hard-exited the workflow to HUMAN_REVIEW
+    # before signature/CBS/fraud ever ran — so those signals could never corroborate a
+    # cheque whose only weakness was handwriting OCR (payee name / amount-in-words),
+    # even when everything else was clean. See modules/cts/workflows/cheque_workflow.py's
+    # _MULTISIGNAL_RESCUE_FIELDS for the exact, conservative scope: only payee and
+    # amount_words are eligible (neither feeds a hard auto-return gate in decision.py —
+    # the actual paid amount is always inp.presented_amount from NGCH, never OCR's
+    # reading); date and amount_figures weakness still early-exits exactly as before,
+    # since those feed decision.py's undated/post-dated/stale and amount-mismatch hard
+    # gates and a wrong auto-return is worse than an unnecessary human review.
+    "cts.ocr_multisignal_rescue_enabled": False,   # default OFF (2026-10-13): unreadable payee/words -> human review
+    "cts.payee_reread_min_similarity": 0.99,      # handwritten payee: letters of the two reads must match this closely
+    "cts.payee_reference_min_similarity": 0.97,   # payee read vs reference payee from presentment/PPS
+    "cts.field_reread_model": "qwen3-vl-32b",    # independent second-read model for the MICR band and the amount box
+    "cts.payee_reread_model": "qwen3-vl-32b",     # independent second-opinion model for the payee re-read
+    "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
+    "cts.signature_absent_action": "HUMAN_REVIEW",  # signature not detected: HUMAN_REVIEW (default) or AUTO_RETURN (opt-in)
+    "cts.date_implausible_age_days": 1095,        # older than this = probable OCR year misread -> human review, not auto-return
+    "cts.iqa_min_width": 700,                     # image quality (RRC 39): calibrated on 70 real scans, see preprocessing/image_quality.py
+    "cts.iqa_min_height": 300,
+    "cts.iqa_min_sharpness": 300.0,
+    "cts.iqa_min_contrast": 60.0,
+    "cts.amount_presented_tolerance": 1.0,        # rupees: OCR amount vs presented (NGCH) amount
+    "cts.date_implausible_future_days": 365,      # further in the future than this = probable misread -> human review
     "cts.alteration_risk_threshold": 0.65,
     "cts.iet_emergency_buffer_seconds": 30,
     "cts.human_review_max_wait_minutes": 55,
     "cts.cheque_validity_days": 90,
     "cts.pps_mandatory_threshold": 500000,
+    # Layer 4 business-policy rules (CLAUDE.md §2.6) — evaluated by shared.policy_engine.
+    # Ported from the former infra/opa/policies/cts_routing.rego triggers.
+    "cts.policy_rules": [
+        {"id": "government_cheque", "outcome": "HUMAN_REVIEW", "reason": "government_cheque",
+         "when": [{"field": "has_government_flag", "op": "eq", "value": True}]},
+        {"id": "court_order", "outcome": "HUMAN_REVIEW", "reason": "court_order_cheque",
+         "when": [{"field": "has_court_order_flag", "op": "eq", "value": True}]},
+        {"id": "high_value_first_day", "outcome": "HUMAN_REVIEW", "reason": "high_value_first_clearing_day",
+         "when": [{"field": "amount", "op": "gt", "value": "$cfg.high_value_amount_threshold"},
+                  {"field": "is_first_clearing_day", "op": "eq", "value": True}]},
+        {"id": "account_frozen", "outcome": "HUMAN_REVIEW", "reason": "account_frozen",
+         "when": [{"field": "account_status", "op": "eq", "value": "FROZEN"}]},
+        {"id": "account_closed", "outcome": "AUTO_RETURN", "reason": "account_closed",
+         "when": [{"field": "account_status", "op": "eq", "value": "CLOSED"}]},
+    ],
     "cts.clearing_session": "MORNING",
     "cts.shadow_credit_release_hours": 4,
     "cts.opa_required": True,
     "cts.rear_image_required": "false",
-    "cts.strict_image_quality": "false",   # POC/dev default — set "true" in production bank Helm values
+    "cts.strict_image_quality": "true",    # RBI CTS-2010 compliance ON by default (matches Helm _defaults.yaml); a dev/UAT bank opts OUT explicitly via its own Layer 3 value
     "cts.outward_frozen_payee_action": "HUMAN_REVIEW",
     "cts.outward_dormant_payee_action": "HUMAN_REVIEW",
     "cts.outward_npa_payee_action": "HUMAN_REVIEW",
@@ -458,6 +498,16 @@ class ConfigService:
             "stp_supervised_confirm_threshold":  "cts.stp_supervised_confirm_threshold",
             "stp_supervised_review_timeout_minutes": "cts.stp_supervised_review_timeout_minutes",
             "clearing_session":                  "cts.clearing_session",
+            # read by synthesise_decision from the workflow's cts_config
+            "ocr_min_confidence":                "cts.ocr_min_confidence",
+            "sig_min_match_score":               "cts.signature_min_match_score",
+            "ocr_multisignal_rescue_enabled":    "cts.ocr_multisignal_rescue_enabled",
+            "payee_reference_min_similarity":    "cts.payee_reference_min_similarity",
+            "micr_branch_master":                "cts.micr_branch_master",
+            "signature_absent_action":           "cts.signature_absent_action",
+            "date_implausible_age_days":         "cts.date_implausible_age_days",
+            "amount_presented_tolerance":        "cts.amount_presented_tolerance",
+            "date_implausible_future_days":      "cts.date_implausible_future_days",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

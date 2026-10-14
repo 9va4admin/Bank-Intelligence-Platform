@@ -118,7 +118,7 @@ class TestUpdateBloomFilter:
     async def test_adds_stop_payment_serials_to_bloom(self):
         from modules.cts.workflows.delta_vault_sync_workflow import update_bloom_filter
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock()
+        bloom.add_bulk = AsyncMock()
 
         stop_payments = [
             {"cheque_serial": "001001"},
@@ -141,7 +141,7 @@ class TestUpdateBloomFilter:
     async def test_empty_deltas_do_not_call_bloom(self):
         from modules.cts.workflows.delta_vault_sync_workflow import update_bloom_filter
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock()
+        bloom.add_bulk = AsyncMock()
 
         result = await update_bloom_filter(
             bank_id="test-bank",
@@ -156,7 +156,7 @@ class TestUpdateBloomFilter:
     async def test_returns_count_of_serials_added(self):
         from modules.cts.workflows.delta_vault_sync_workflow import update_bloom_filter
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock()
+        bloom.add_bulk = AsyncMock()
 
         result = await update_bloom_filter(
             bank_id="test-bank",
@@ -255,7 +255,9 @@ class TestDeltaVaultSyncWorkflow:
         cbs.get_canceled_cheque_leaves = AsyncMock(return_value=[{"serial": "C001"}])
 
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock(side_effect=lambda s: calls.append("bloom"))
+        async def _add_bulk(s):
+            calls.append("bloom")
+        bloom.add_bulk = AsyncMock(side_effect=_add_bulk)
 
         audit = AsyncMock(side_effect=lambda **kw: calls.append("audit"))
 
@@ -284,7 +286,7 @@ class TestDeltaVaultSyncWorkflow:
         cbs.get_canceled_cheque_leaves = AsyncMock(side_effect=Exception("CBS down"))
 
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock()
+        bloom.add_bulk = AsyncMock()
 
         audit = AsyncMock()
 
@@ -310,7 +312,7 @@ class TestDeltaVaultSyncWorkflow:
         cbs.get_canceled_cheque_leaves = AsyncMock(side_effect=Exception("CBS down"))
 
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock()
+        bloom.add_bulk = AsyncMock()
 
         audit = AsyncMock()
 
@@ -335,7 +337,7 @@ class TestDeltaVaultSyncWorkflow:
         cbs.get_canceled_cheque_leaves = AsyncMock(return_value=[])
 
         bloom = MagicMock()
-        bloom.add_bulk = MagicMock()
+        bloom.add_bulk = AsyncMock()
 
         audit = AsyncMock()
 

@@ -18,9 +18,11 @@ import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict  # noqa: F401 (ConfigDict used in response models)
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import Role, UserContext
+from shared.config.config_service import ConfigKeyNotFoundError, config_service
 
 log = structlog.get_logger()
 
@@ -63,8 +65,8 @@ class BatchSummary(BaseModel):
     rows_total: Optional[int]
     rows_processed: Optional[int]
     rows_failed: Optional[int]
-    created_at: str
-    completed_at: Optional[str]
+    created_at: IsoTimestamp
+    completed_at: OptIsoTimestamp
 
 
 class BatchListResponse(BaseModel):
@@ -89,6 +91,70 @@ def _get_vault_upload_deps(request: Request):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
+@router_v1.post(
+    "/pps/ciif",
+    response_model=UploadBatchResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def upload_pps_ciif(
+    request: Request,
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(get_current_user_context),
+) -> UploadBatchResponse:
+    """
+    Load an NPCI CIIF file (CSV or XML, PPS Interface File Specification v1.19) into the PPS vault.
+
+    The Amount unit is the deployment setting `cts.ciif_amount_unit` (RUPEES | PAISE). It has no default because the
+    specification does not state it; if it is not set the upload is refused (422) rather than guessed.
+    """
+    if ctx.role not in {Role.BANK_IT_ADMIN, Role.OPS_MANAGER}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error_code": "VAULT_UPLOAD_FORBIDDEN",
+                    "message": f"Role {ctx.role} cannot upload PPS.", "request_id": ""},
+        )
+    try:
+        amount_unit = config_service.get_platform("cts.ciif_amount_unit")
+    except ConfigKeyNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error_code": "CIIF_AMOUNT_UNIT_NOT_SET",
+                    "message": "cts.ciif_amount_unit (RUPEES or PAISE) is not configured for this deployment.",
+                    "request_id": ""},
+        )
+    content = await file.read()
+    if len(content) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail={"error_code": "VAULT_UPLOAD_TOO_LARGE",
+                    "message": f"File exceeds {_MAX_UPLOAD_BYTES // 1024 // 1024} MB limit.", "request_id": ""},
+        )
+    db_pool = getattr(request.app.state, "db_pool", None)
+    pps_vault_factory = getattr(request.app.state, "pps_vault_factory", None)
+    from modules.cts.vaults.vault_upload_processor import VaultUploadProcessor
+    processor = VaultUploadProcessor(
+        bank_id=ctx.bank_id, db_pool=db_pool,
+        pps_vault=pps_vault_factory(ctx.bank_id) if pps_vault_factory else None,
+    )
+    try:
+        result = await processor.process_ciif(
+            content, changed_by=f"user:{ctx.user_id}", amount_unit=amount_unit, filename=file.filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error_code": "VAULT_UPLOAD_INVALID", "message": str(exc), "request_id": ""},
+        )
+    final_status = ("FAILED" if result.rows_processed == 0
+                    else "PARTIAL" if result.rows_failed > 0 else "COMPLETE")
+    return UploadBatchResponse(
+        batch_id=result.batch_id, vault_type="PPS", status=final_status,
+        rows_total=result.rows_total, rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed, errors=result.errors[:50],
+        message=f"Processed {result.rows_processed}/{result.rows_total} CIIF records."
+                + (f" {result.rows_failed} failed." if result.rows_failed else ""),
+    )
+
 
 @router_v1.post(
     "/{vault_type}",
@@ -124,9 +190,9 @@ async def upload_vault_csv(
 
     # Role check
     if vault_type in ("LEAF_STATUS", "PPS"):
-        allowed = {Role.bank_it_admin, Role.ops_manager}
+        allowed = {Role.BANK_IT_ADMIN, Role.OPS_MANAGER}
     else:
-        allowed = {Role.bank_it_admin}
+        allowed = {Role.BANK_IT_ADMIN}
 
     if ctx.role not in allowed:
         raise HTTPException(
@@ -262,7 +328,7 @@ async def list_upload_batches(
     List recent vault upload batches for this bank.
     Filtered by vault_type if provided. Max 100 per page.
     """
-    if ctx.role not in {Role.bank_it_admin, Role.ops_manager}:
+    if ctx.role not in {Role.BANK_IT_ADMIN, Role.OPS_MANAGER}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail={"error_code": "VAULT_BATCHES_FORBIDDEN",
                                     "message": "Insufficient role."})

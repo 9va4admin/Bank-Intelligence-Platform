@@ -38,6 +38,7 @@ import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 log = structlog.get_logger()
 tracer = trace.get_tracer(__name__)
@@ -150,13 +151,13 @@ class RegistrationSummary(BaseModel):
     sdk_version: Optional[str]
     status: str
     health: str
-    last_heartbeat_at: Optional[str]
-    last_scan_submitted_at: Optional[str]
+    last_heartbeat_at: OptIsoTimestamp
+    last_scan_submitted_at: OptIsoTimestamp
     heartbeat_interval_seconds: int
     scans_today: int
     errors_today: int
     last_error: Optional[str]
-    registered_at: str
+    registered_at: IsoTimestamp
     registered_by: str
     is_active: bool
 

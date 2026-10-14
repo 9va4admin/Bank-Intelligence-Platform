@@ -218,6 +218,7 @@ class TestOutwardReconciliationEndpoint:
             "astra_value": {"amount_range": "₹[<1L]"},
             "ngch_value": {"amount_range": "₹[1L-5L]"},
             "status": "OPEN",
+            "instrument_category": "CHEQUE",
             "created_at": "2026-09-02T10:03:00+05:30",
         }]
 

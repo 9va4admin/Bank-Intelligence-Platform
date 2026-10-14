@@ -38,7 +38,7 @@ def _make_http_mock(status_code=200, json_body=None, raise_exc=None):
 
 @pytest.fixture
 def connector() -> BaNCSCBSConnector:
-    c = BaNCSCBSConnector(base_url="http://bancs.bank.internal:8080", bank_id="test-bank")
+    c = BaNCSCBSConnector(base_url="http://bancs.bank.internal:8080", bank_id="test-bank", pepper="test-pepper")
     return c
 
 

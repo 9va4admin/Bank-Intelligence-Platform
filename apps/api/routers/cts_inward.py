@@ -19,6 +19,7 @@ from typing import List, Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     _safe_temporal_param,
@@ -35,6 +36,7 @@ from shared.auth.rbac import RBACPolicy, Role, UserContext
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
+from modules.cts.review_queue import decide_by_instrument  # noqa: E402
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS Inward v1"])
@@ -98,6 +100,8 @@ class QueueItem(BaseModel):
     ocr_confidence: Optional[float] = None
     sig_match_score: Optional[float] = None
     security_features: Optional[dict] = None
+    instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
+    drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
 
 
 class QueueResponse(BaseModel):
@@ -130,6 +134,7 @@ class DecisionLogItem(BaseModel):
     account_display: Optional[str] = None
     amount_range: Optional[str] = None
     presenting_ifsc: Optional[str] = None
+    drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
 
 
 class DecisionLogResponse(BaseModel):
@@ -247,7 +252,7 @@ class LiveFlowItem(BaseModel):
     elapsed_ms: Optional[int] = None
     decision: Optional[str] = None
     fraud_score: Optional[float] = None
-    started_at: str
+    started_at: IsoTimestamp
 
 
 class LiveFlowResponse(BaseModel):
@@ -260,7 +265,7 @@ class LiveFlowResponse(BaseModel):
 class InwardSessionItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str
     status: str
     total_received: int
@@ -268,8 +273,8 @@ class InwardSessionItem(BaseModel):
     stp_returned: int
     pending_review: int
     iet_at_risk: int
-    opened_at: str
-    closed_at: Optional[str] = None
+    opened_at: IsoTimestamp
+    closed_at: OptIsoTimestamp = None
 
 
 class InwardSessionsResponse(BaseModel):
@@ -286,6 +291,34 @@ _INWARD_ANALYTICS_READ_ROLES = {
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async def _fetch_drawee_names(db_pool, bank_id: str, instrument_ids: list[str]) -> dict[str, str]:
+    """{instrument_id: drawee_name} for the ids that have a CBS-sourced name. Never raises:
+    a missing pool / DB error simply means no names are shown."""
+    if db_pool is None or not instrument_ids:
+        return {}
+    import uuid as _uuid
+    from shared.utils.instrument_uuid import to_instrument_uuid
+
+    def _as_uuid(i: str):
+        try:
+            return _uuid.UUID(str(i))
+        except ValueError:
+            return to_instrument_uuid(bank_id, i)
+
+    by_uuid = {_as_uuid(i): i for i in instrument_ids}
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT instrument_id, drawee_name FROM cts.inward_drawee_name "
+                "WHERE bank_id = $1 AND instrument_id = ANY($2::uuid[]) LIMIT 500",
+                bank_id, list(by_uuid),
+            )
+    except Exception as exc:
+        log.warning("cts.drawee_names_fetch_error", bank_id=bank_id, error=str(exc))
+        return {}
+    return {by_uuid[r["instrument_id"]]: r["drawee_name"] for r in rows if r["instrument_id"] in by_uuid}
+
 
 async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSearchResponse:
     rows = await db.fetch(
@@ -445,12 +478,23 @@ async def get_decision(
 
             if wf_status == WorkflowExecutionStatus.COMPLETED:
                 result = await handle.result()
+                # ChequeProcessingWorkflow.run returns a plain dict (no dataclass return type),
+                # so Temporal's default converter hands this back as a dict, not an object with
+                # .decision/.rationale attributes. Confirmed live 2026-09-22: attribute access
+                # here raised AttributeError on every completed workflow, silently swallowed by
+                # the except below, which reported "RUNNING" for cheques that had already decided.
+                if isinstance(result, dict):
+                    decision = result.get("decision")
+                    rationale = result.get("rationale")
+                else:
+                    decision = result.decision
+                    rationale = result.rationale
                 return ChequeDecisionResponse(
                     instrument_id=instrument_id,
                     workflow_id=workflow_id,
-                    workflow_status=result.decision,
-                    decision=result.decision,
-                    rationale=result.rationale,
+                    workflow_status=decision,
+                    decision=decision,
+                    rationale=rationale,
                 )
             elif wf_status in (
                 WorkflowExecutionStatus.FAILED,
@@ -470,8 +514,15 @@ async def get_decision(
                     workflow_id=workflow_id,
                     workflow_status="RUNNING",
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Never swallow silently (rules: no silent failure) — this previously masked the
+            # dict-vs-attribute bug above as an innocuous "still RUNNING" response.
+            log.warning(
+                "cts.get_decision_temporal_lookup_failed",
+                instrument_id=instrument_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
 
     return ChequeDecisionResponse(
         instrument_id=instrument_id,
@@ -527,6 +578,15 @@ async def submit_review_decision(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Failed to send review signal",
             ) from exc
+
+    _db = getattr(request.app.state, "db_pool_cts", None)
+    if _db is not None:
+        try:
+            async with _db.acquire() as _conn:
+                await decide_by_instrument(_conn, bank_id=bank_id, direction="INWARD", instrument_ref=instrument_id,
+                                           decision=body.action, reviewer_id=reviewer_id, notes=decision.reason)
+        except Exception as exc:  # noqa: BLE001 - the workflow signal above is the authoritative action
+            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
 
     log.info(
         "cts.review_decision_submitted",
@@ -590,11 +650,16 @@ async def get_human_review_queue(
                     ocr_confidence=memo.get("ocr_confidence"),
                     sig_match_score=memo.get("sig_match_score"),
                     security_features=memo.get("security_features"),
+                    instrument_category=memo.get("instrument_category") or "CHEQUE",
                 ))
         except Exception as exc:
             log.warning("cts.queue_fetch_error", bank_id=eff_bank_id, error=str(exc))
 
     items.sort(key=lambda x: x.iet_deadline)
+    names = await _fetch_drawee_names(getattr(request.app.state, "db_pool_cts", None), eff_bank_id,
+                                      [i.instrument_id for i in items])
+    if names:
+        items = [i.model_copy(update={"drawee_name": names.get(i.instrument_id)}) for i in items]
     log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
     # --- Reviewer heartbeat + HYBRID deferred auto-assign ---
@@ -730,6 +795,9 @@ async def list_decisions(
         except Exception as exc:
             log.warning("cts.decisions_list_error", bank_id=bank_id, error=str(exc))
 
+    names = await _fetch_drawee_names(db_pool, bank_id, [i.instrument_id for i in items])
+    if names:
+        items = [i.model_copy(update={"drawee_name": names.get(i.instrument_id)}) for i in items]
     log.info("cts.decisions_list", bank_id=bank_id, count=len(items))
     return DecisionLogResponse(items=items, total=len(items), bank_id=bank_id)
 
@@ -847,6 +915,7 @@ async def get_inward_analytics(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     days: int = 7,
+    instrument_category: Optional[str] = Query(None),
 ):
     bank_id = ctx.bank_id
     if ctx.role not in _INWARD_ANALYTICS_READ_ROLES:
@@ -876,11 +945,12 @@ async def get_inward_analytics(
             FROM cts.agent_decisions ad
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR ad.instrument_category = $3)
             GROUP BY DATE(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata'),
                      TO_CHAR(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
             ORDER BY DATE(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata')
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         fraud_rows = await conn.fetch(
@@ -899,10 +969,11 @@ async def get_inward_analytics(
             WHERE bank_id = $1
               AND fraud_score IS NOT NULL
               AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR instrument_category = $3)
             GROUP BY 1
             ORDER BY MIN(fraud_score)
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         flags_row = await conn.fetchrow(
@@ -922,8 +993,9 @@ async def get_inward_analytics(
                    ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($4::text IS NULL OR ad.instrument_category = $4)
             """,
-            bank_id, days, ocr_min_conf,
+            bank_id, days, ocr_min_conf, instrument_category,
         )
 
         return_rows = await conn.fetch(
@@ -943,10 +1015,11 @@ async def get_inward_analytics(
             WHERE bank_id = $1
               AND decision = 'STP_RETURN'
               AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR instrument_category = $3)
             GROUP BY 1
             ORDER BY count DESC
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         branch_rows = await conn.fetch(
@@ -969,11 +1042,12 @@ async def get_inward_analytics(
                    ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR ad.instrument_category = $3)
             GROUP BY ci.presenting_ifsc
             ORDER BY COUNT(*) DESC
             LIMIT {_ANALYTICS_TOP_N}
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
         iet_rows = await conn.fetch(
@@ -986,11 +1060,12 @@ async def get_inward_analytics(
             FROM cts.agent_decisions
             WHERE bank_id = $1
               AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+              AND ($3::text IS NULL OR instrument_category = $3)
             GROUP BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata'),
                      TO_CHAR(processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
             ORDER BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata')
             """,
-            bank_id, days,
+            bank_id, days, instrument_category,
         )
 
     flag_map = {

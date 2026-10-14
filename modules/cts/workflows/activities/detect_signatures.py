@@ -31,6 +31,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.storage.image_fetch import fetch_image_bytes
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.detect_signatures")
 
@@ -282,10 +283,7 @@ async def _crop_signature_zone(image_url: str) -> Optional[bytes]:
     try:
         from io import BytesIO
         from PIL import Image
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(image_url)
-            resp.raise_for_status()
-        img = Image.open(BytesIO(resp.content)).convert("RGB")
+        img = Image.open(BytesIO(await fetch_image_bytes(image_url))).convert("RGB")
         iw, ih = img.size
         x1f, y1f, x2f, y2f = _SIGNATURE_ZONE
         x1, y1 = max(0, int(x1f * iw)), max(0, int(y1f * ih))
@@ -330,12 +328,11 @@ async def _detect_via_sig_detector(
         return None
 
     try:
+        image_bytes = await fetch_image_bytes(inp.image_url, timeout=20.0)
         async with httpx.AsyncClient(timeout=20.0) as client:
-            img_resp = await client.get(inp.image_url)
-            img_resp.raise_for_status()
             det_resp = await client.post(
                 f"{url}/detect",
-                files={"file": ("cheque.jpg", img_resp.content, "image/jpeg")},
+                files={"file": ("cheque.jpg", image_bytes, "image/jpeg")},
             )
             det_resp.raise_for_status()
             data = det_resp.json()
@@ -400,6 +397,23 @@ class DetectSignaturesResult(BaseModel):
     degraded: bool = False
 
 
+async def _fallback_chain(inp, config_service, span) -> Optional[DetectSignaturesResult]:
+    """vLLM unavailable/failed: config-gated HF cloud on the CTS-2010 zone crop,
+    then the pixel-analysis sig_detector (degraded). None if neither yields."""
+    zone_png = await _crop_signature_zone(inp.image_url)
+    if zone_png is not None:
+        hf_result = await _detect_via_hf_cloud(inp, config_service, zone_png)
+        if hf_result is not None:
+            span.set_attribute("degraded", False)
+            span.set_attribute("fallback", "hf_cloud_zone_crop")
+            return hf_result
+    fallback = await _detect_via_sig_detector(inp, config_service)
+    if fallback is not None:
+        span.set_attribute("degraded", fallback.degraded)
+        span.set_attribute("fallback", "sig_detector")
+    return fallback
+
+
 @activity.defn
 async def detect_signatures(
     inp: DetectSignaturesInput,
@@ -411,7 +425,22 @@ async def detect_signatures(
 
     Returns DetectSignaturesResult in all cases — never raises.
     Callers own the routing decision based on outcome and sig_count.
+
+    The detector is model-based and not deterministic (a visible Gujarati-script signature was reported
+    absent in one run and present in the next), so ABSENT is only reported after a second look agrees.
     """
+    first = await _detect_signatures_once(inp, vllm_client, config_service)
+    if first.outcome != "ABSENT":
+        return first
+    second = await _detect_signatures_once(inp, vllm_client, config_service)
+    return second if second.outcome == "PRESENT" else first
+
+
+async def _detect_signatures_once(
+    inp: DetectSignaturesInput,
+    vllm_client=None,
+    config_service: Any = None,
+) -> DetectSignaturesResult:
     with tracer.start_as_current_span("cts.detect_signatures") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
@@ -425,17 +454,8 @@ async def detect_signatures(
                 bank_id=inp.bank_id,
             )
             if config_service is not None:
-                zone_png = await _crop_signature_zone(inp.image_url)
-                if zone_png is not None:
-                    hf_result = await _detect_via_hf_cloud(inp, config_service, zone_png)
-                    if hf_result is not None:
-                        span.set_attribute("degraded", False)
-                        span.set_attribute("fallback", "hf_cloud_zone_crop")
-                        return hf_result
-                fallback = await _detect_via_sig_detector(inp, config_service)
+                fallback = await _fallback_chain(inp, config_service, span)
                 if fallback is not None:
-                    span.set_attribute("degraded", fallback.degraded)
-                    span.set_attribute("fallback", "sig_detector")
                     return fallback
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
@@ -495,10 +515,8 @@ async def detect_signatures(
                 error=str(exc),
             )
             if config_service is not None:
-                fallback = await _detect_via_sig_detector(inp, config_service)
+                fallback = await _fallback_chain(inp, config_service, span)
                 if fallback is not None:
-                    span.set_attribute("degraded", fallback.degraded)
-                    span.set_attribute("fallback", "sig_detector")
                     return fallback
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(

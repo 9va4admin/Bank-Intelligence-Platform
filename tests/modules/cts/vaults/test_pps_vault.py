@@ -140,7 +140,7 @@ class TestLookupRedisHit:
     async def test_redis_hit_returns_amount_as_float(self):
         mock_redis = MagicMock()
         mock_redis.hgetall = AsyncMock(return_value={
-            b"amount": b"150000.50",
+            b"amount_paise": b"15000050",   # exact paise; vault derives rupees
             b"payee": b"Jane",
             b"cheque_number": b"100001",
         })
@@ -293,7 +293,7 @@ class TestStorePPS:
 
         await vault.store("ACC001", "100001", amount=75000.0, payee="XYZ Ltd")
         mapping = mock_redis.hset.call_args[1]["mapping"]
-        assert float(mapping["amount"]) == 75000.0
+        assert mapping["amount_paise"] == "7500000"   # stored exact, in paise
         assert mapping["payee"] == "XYZ Ltd"
 
     @pytest.mark.asyncio

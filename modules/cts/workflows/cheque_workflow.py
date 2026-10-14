@@ -67,6 +67,17 @@ _AUDIT_RETRY = RetryPolicy(
 
 _IET_EMERGENCY_BUFFER_SECONDS = 30
 
+# STP architecture fix (2026-09-23, cts.ocr_multisignal_rescue_enabled): fields whose
+# low confidence alone is safe to let through to signature/CBS/fraud corroboration and
+# synthesise_decision's own multi-signal soft gate, instead of hard-exiting to
+# HUMAN_REVIEW before those signals ever run. Deliberately excludes "date" and
+# "amount_figures" — both feed decision.py's HARD auto-return gates (undated/post-
+# dated/stale; amount words-vs-figures mismatch), where a wrong OCR reading could file
+# an incorrect STP_RETURN. The cheque's actual paid amount is always
+# inp.presented_amount (from NGCH), never OCR's reading, so amount_words weakness
+# carries no payment-amount risk — it only affects a corroboration signal.
+_MULTISIGNAL_RESCUE_FIELDS = frozenset({"payee", "amount_words"})
+
 
 # ---------------------------------------------------------------------------
 # Lightweight early-exit decision stubs (used when workflow short-circuits
@@ -93,32 +104,32 @@ def _make_early_stp_return(instrument_id: str, reason: str) -> _EarlyDecision:
 # OCR result parsing helpers (Temporal-safe: pure stdlib, no I/O)
 # ---------------------------------------------------------------------------
 
-_DATE_FORMATS = (
-    "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y",
-    "%d-%b-%Y", "%d %b %Y", "%d/%m/%y",
-)
-
-def _parse_cheque_date(raw: Optional[str]) -> Optional[_date_type]:
-    """Parse OCR-extracted date string to datetime.date. Returns None on failure."""
-    if not raw:
-        return None
-    for fmt in _DATE_FORMATS:
-        try:
-            return datetime.strptime(raw.strip(), fmt).date()
-        except ValueError:
-            continue
-    return None
+from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
 
 
 def _parse_amount_figures(raw: Optional[str]) -> Optional[float]:
-    """Parse OCR-extracted amount string ('45,000.00' or '45000') to float."""
-    if not raw:
-        return None
-    cleaned = re.sub(r"[₹,\s]", "", raw.strip())
-    try:
-        return float(cleaned)
-    except ValueError:
-        return None
+    """Parse OCR-extracted amount ('45,000.00', '10,00,000/-', 'Rs. 5,800/-') to float; None if unreadable."""
+    from shared.utils.cheque_amount import parse_amount_figures
+    amount = parse_amount_figures(raw)
+    return float(amount) if amount is not None else None
+
+
+def _is_duplicate_presentment(exc: BaseException) -> bool:
+    """True if a DuplicatePresentmentError is anywhere in the exception's cause chain.
+
+    Temporal wraps an activity's error in an ActivityError ('Activity task failed') and keeps the real
+    error type on the cause (ApplicationError.type); checking only the wrapper's name or text silently
+    treated every duplicate as an unrelated vault failure and kept processing it."""
+    seen = set()
+    cur = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if ("DuplicatePresentmentError" in type(cur).__name__
+                or getattr(cur, "type", None) == "DuplicatePresentmentError"
+                or "DuplicatePresentmentError" in str(cur)):
+            return True
+        cur = getattr(cur, "cause", None) or cur.__cause__
+    return False
 
 
 class ChequeWorkflowInput(BaseModel):
@@ -159,6 +170,13 @@ class ChequeWorkflowResult(BaseModel):
 class ChequeProcessingWorkflow:
     def __init__(self) -> None:
         self._watchdog_spawned: bool = False
+        self._iet_emergency_decision: Optional[str] = None   # set by the IET watchdog once IT has filed
+
+    @workflow.signal
+    def iet_emergency_filed(self, decision: str) -> None:
+        """The IET watchdog filed an emergency decision at T-30s. From now on this pipeline must neither
+        file nor queue a human review for the instrument: the clearing outcome is already settled."""
+        self._iet_emergency_decision = decision
 
     def workflow_id(self, bank_id: str, instrument_id: str) -> str:
         return f"cts-{bank_id}-{instrument_id}"
@@ -196,6 +214,7 @@ class ChequeProcessingWorkflow:
         from modules.cts.workflows.activities.decision import (
             DecisionInput, synthesise_decision,
         )
+        from modules.cts.workflows.activities.drawee_name import DraweeNameInput
         from modules.cts.workflows.activities.ngch_filer import (
             NGCHFilerInput, file_to_ngch,
         )
@@ -236,6 +255,7 @@ class ChequeProcessingWorkflow:
         _alteration_detected: bool = False
         _fraud_score: float = 0.0
         _shap_values: dict = {}
+        _fraud_scored: bool = False   # True once score_fraud has run (normal step 6 or the exit-path backstop)
         _sig_match_score: float = 0.0
         _sig_verdict: str = "UNKNOWN"
         _pps_verdict: str = "NOT_CHECKED"
@@ -246,6 +266,7 @@ class ChequeProcessingWorkflow:
         # OCR state — populated by ocr_extract, carried into persist_decision audit row
         _ocr_confidence: float = 0.0
         _ocr_engines_used: list = []
+        _instrument_category: str = "CHEQUE"   # set after OCR; finalise() reads it on EVERY exit incl. pre-OCR ones
         _indic_ks_active: bool = False
         _micr_line: str = ""
         _ocr_cheque_date: Optional[_date_type] = None
@@ -274,6 +295,7 @@ class ChequeProcessingWorkflow:
             MarkLeafPresentedInput, mark_leaf_presented,
         )
         from modules.cts.vaults.cheque_leaf_vault import DuplicatePresentmentError
+        _leaf_duplicate = False
         try:
             await workflow.execute_activity(
                 mark_leaf_presented,
@@ -290,19 +312,17 @@ class ChequeProcessingWorkflow:
                 ),
             )
         except Exception as _leaf_exc:
-            if "DuplicatePresentmentError" in type(_leaf_exc).__name__ or \
-               "DuplicatePresentmentError" in str(_leaf_exc):
-                return await finalise(
-                    "STP_RETURN",
-                    "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
+            if _is_duplicate_presentment(_leaf_exc):
+                # finalise() is defined further down; act on this right after it exists.
+                _leaf_duplicate = True
+            else:
+                # Non-duplicate vault error — log and continue (never block IET)
+                log.warning(
+                    "cheque_workflow.mark_presented_failed",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    error=str(_leaf_exc),
                 )
-            # Non-duplicate vault error — log and continue (never block IET)
-            log.warning(
-                "cheque_workflow.mark_presented_failed",
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-                error=str(_leaf_exc),
-            )
 
         human_review_timeout = int(
             inp.cts_config.get("human_review_max_wait_minutes", 55)
@@ -332,6 +352,44 @@ class ChequeProcessingWorkflow:
             itself signals the watchdog once a reviewer decides or the 55-min
             window times out.
             """
+            nonlocal _fraud_score, _shap_values, _fraud_scored
+            # The watchdog already filed this instrument at T-30s (IET). Record what the pipeline would have
+            # decided in the rationale, but never file or queue again - and say so in the result.
+            if self._iet_emergency_decision:
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id,
+                    decision=self._iet_emergency_decision,
+                    rationale=(f"iet_emergency_filed: the IET watchdog filed {self._iet_emergency_decision} before the "
+                               f"pipeline finished; pipeline outcome superseded ({decision}: {rationale})"),
+                    shap_values=shap_values or _shap_values or {},
+                    emergency_iet_filed=True,
+                )
+
+            # Fraud scoring runs for EVERY instrument. Early exits (OCR quality, MICR number mismatch,
+            # signature flags ...) leave before step 6, so score here — best-effort, never blocks or
+            # alters the decision — with whatever evidence exists at that point.
+            if not _fraud_scored:
+                _fraud_scored = True
+                try:
+                    _fr = await workflow.execute_activity(
+                        score_fraud,
+                        FraudActivityInput(
+                            instrument_id=inp.instrument_id,
+                            bank_id=inp.bank_id,
+                            amount=inp.presented_amount,
+                            micr_line=_micr_line,
+                            ocr_confidence=_ocr_confidence,
+                            alteration_detected=_alteration_detected,
+                            account_last4=inp.account_number[-4:],
+                        ),
+                        start_to_close_timeout=timedelta(seconds=30),
+                        retry_policy=RetryPolicy(maximum_attempts=1),   # best-effort backstop: no retry delay on an exit path
+                    )
+                    _fraud_score = _fr.fraud_score
+                    _shap_values = _fr.shap_values or {}
+                except Exception as _fraud_exc:
+                    workflow.logger.warning(f"exit-path fraud scoring failed; deciding without a score: {_fraud_exc!r}")
+
             # Persist to cts.agent_decisions (YugabyteDB) before Immudb audit write.
             # Best-effort: degrades gracefully if db_pool unavailable — never blocks workflow.
             from modules.cts.workflows.activities.persist_decision import (
@@ -369,6 +427,7 @@ class ChequeProcessingWorkflow:
                         cbs_balance_status=_cbs_status,
                         ocr_engines_used=_ocr_engines_used,
                         indic_ocr_kill_switch_active=_indic_ks_active,
+                        instrument_category=_instrument_category,
                         iet_margin_seconds=0,
                         steps_digest=_digest.model_dump(),
                         registry_version=_digest.registry_version,
@@ -476,6 +535,7 @@ class ChequeProcessingWorkflow:
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                     task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
                     parent_close_policy=ParentClosePolicy.ABANDON,
+                    memo={"instrument_id": inp.instrument_id, "instrument_category": _instrument_category},
                 )
 
             # SMB side effects — only for sub-member-tagged instruments on terminal STP decisions.
@@ -563,26 +623,75 @@ class ChequeProcessingWorkflow:
                 ai_recommendation=ai_recommendation,
             )
 
+        if _leaf_duplicate:
+            return await finalise(
+                "STP_RETURN",
+                "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
+            )
+
+        # Drawee name for the reviewer, from the bank's own account record (never OCR).
+        # Done before OCR so even an OCR-low-confidence review has the name. Best-effort: the activity degrades internally and a failure here must never alter the decision.
+        try:
+            await workflow.execute_activity(
+                "record_drawee_name",
+                DraweeNameInput(account_number=inp.account_number, bank_id=inp.bank_id, instrument_id=inp.instrument_id),
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
+        except Exception:
+            workflow.logger.warning("record_drawee_name failed; continuing without a CBS drawee name")
+
+        # Step 1.4: image quality (RRC 39, "image not clear"). Deterministic and model-free, so it runs before
+        # any OCR is spent on an unreadable image. FAIL -> a human decides whether to return it; an
+        # UNAVAILABLE check (or one that cannot run) never blocks a cheque.
+        try:
+            from modules.cts.workflows.activities.image_quality import IQAInput
+            _iqa = await workflow.execute_activity(
+                "check_image_quality",
+                IQAInput(image_url=inp.image_url, instrument_id=inp.instrument_id, bank_id=inp.bank_id),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
+            _iqa_outcome = _iqa.get("outcome") if isinstance(_iqa, dict) else getattr(_iqa, "outcome", None)
+            _iqa_reason = _iqa.get("reason") if isinstance(_iqa, dict) else getattr(_iqa, "reason", None)
+        except Exception:
+            _iqa_outcome, _iqa_reason = None, None
+            workflow.logger.warning("check_image_quality could not run; continuing")
+        if _iqa_outcome == "FAIL":
+            return await finalise(
+                "HUMAN_REVIEW", f"image_quality_fail: {_iqa_reason} (RRC 39 candidate: image not clear)",
+            )
+
         # Step 1.5: ocr_extract — GOT-OCR2.0 (Latin) + IndicOCR (Devanagari/regional scripts)
         # Extracts: date, amount_figures, amount_words, payee, IFSC, MICR from image.
         # Runs BEFORE Vision LLM so stale/post-dated/IFSC-mismatch early-exits save
         # the 120-second Qwen2-VL call. Low-confidence → HUMAN_REVIEW immediately.
         from modules.cts.workflows.activities.ocr import ocr_extract, OCRActivityInput
 
-        ocr_result = await workflow.execute_activity(
-            ocr_extract,
-            OCRActivityInput(
-                image_url=inp.image_url,
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-            ),
-            start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=_AI_ACTIVITY_RETRY,
-        )
+        # The OCR step now includes independent second reads (payee, MICR, amount) over cloud/GPU models, so its
+        # budget is config-driven. If it still fails or times out it must DEGRADE to human review: letting the
+        # workflow fail files nothing and, near the IET deadline, the watchdog would deem the item approved.
+        try:
+            ocr_result = await workflow.execute_activity(
+                ocr_extract,
+                OCRActivityInput(
+                    image_url=inp.image_url,
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                ),
+                start_to_close_timeout=timedelta(seconds=int(inp.cts_config.get("ocr_activity_timeout_seconds", 120))),
+                retry_policy=_AI_ACTIVITY_RETRY,
+            )
+        except Exception as _ocr_exc:
+            if type(_ocr_exc).__name__ == "CancelledError":
+                raise
+            workflow.logger.warning(f"ocr_extract failed; routing to human review: {type(_ocr_exc).__name__}")
+            return await finalise("HUMAN_REVIEW", f"ocr_activity_failed: {type(_ocr_exc).__name__}")
 
         _ocr_confidence = ocr_result.overall_confidence
         _ocr_engines_used = ocr_result.ocr_engines_used
         _indic_ks_active = ocr_result.indic_ocr_kill_switch_active
+        _instrument_category = ocr_result.instrument_category
         _micr_line = ocr_result.micr_line or ""
         _ocr_cheque_date = _parse_cheque_date(ocr_result.date)
         _ocr_amount_figures = _parse_amount_figures(ocr_result.amount_figures)
@@ -597,16 +706,111 @@ class ChequeProcessingWorkflow:
             extra={"engines": _ocr_engines_used, "indic_ks": _indic_ks_active},
         ))
 
-        if ocr_result.outcome == "HUMAN_REVIEW":
+        # Cross-check the MICR-read cheque number against the NGCH presentment metadata. A digit
+        # misread inside the sort-code window can't be caught by bank-code anchoring; a number that
+        # disagrees with the presented one is never trusted — a human looks at it.
+        _presented_no = (inp.cheque_number or "").strip()
+        _ocr_no = (ocr_result.cheque_number or "").strip()
+        if _presented_no.isdigit() and _ocr_no.isdigit() and _presented_no.lstrip("0") != _ocr_no.lstrip("0"):
             return await finalise(
-                "HUMAN_REVIEW",
-                f"ocr_quality_{ocr_result.low_confidence_reason or 'low_confidence'}",
-                context_extra={
-                    "ocr_engines_used": _ocr_engines_used,
-                    "indic_ks_active": _indic_ks_active,
-                    "degraded": ocr_result.degraded,
-                },
+                "HUMAN_REVIEW", f"micr_cheque_number_mismatch: presented {_presented_no}, read {_ocr_no}",
             )
+
+        # Amount cross-check against the presentment data: a figure that is self-consistent with its own
+        # words but disagrees with the NGCH amount (Lot 2: Rs 2,00,000 read as 9,00,000 in both) is
+        # exactly what the figures-vs-words check cannot see.
+        _read_amt = _parse_amount_figures(ocr_result.amount_figures)
+        if inp.presented_amount and _read_amt is not None:
+            _tol = float(inp.cts_config.get("amount_presented_tolerance", 1.0))
+            if abs(_read_amt - inp.presented_amount) > _tol:
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"amount_presented_mismatch: read {_read_amt:.2f}, presented {inp.presented_amount:.2f}",
+                )
+
+        # Branch-master check: a sort code that is not one of this bank's real branches is never trusted
+        # (a digit misread inside the sort-code window cannot be caught by bank-code anchoring).
+        # cts.micr_branch_master empty = check disabled.
+        _master = inp.cts_config.get("micr_branch_master") or []
+        if _master:
+            _code = (ocr_result.bank_branch_code or "").strip()
+            if not _code:
+                return await finalise("HUMAN_REVIEW", "micr_sort_code_unreadable")
+            if _code not in {str(c).strip() for c in _master}:
+                return await finalise("HUMAN_REVIEW", f"micr_sort_code_not_in_branch_master: {_code}")
+
+        # Reference-payee cross-check: when presentment / PPS data carries the payee, the handwritten
+        # name read from the image must match it letter-for-letter (format ignored). A one-letter
+        # difference is exactly the confident-wrong read a single OCR pass cannot see.
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        _ref_payee = (inp.presented_payee or "").strip()
+        _ref_letters = "".join(ch for ch in _ref_payee if ch.isalnum())
+        if (
+            ocr_result.payee and "payee" not in ocr_result.low_confidence_fields
+            and len(_ref_letters) >= 3 and _ref_payee.upper() != "UNKNOWN"
+        ):
+            _min_sim = float(inp.cts_config.get("payee_reference_min_similarity", 0.97))
+            if not _payee_names_agree(ocr_result.payee, _ref_payee, _min_sim):
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"payee_presented_mismatch: read '{ocr_result.payee}', presented '{_ref_payee}'",
+                )
+
+        if ocr_result.outcome == "HUMAN_REVIEW":
+            # Multisignal rescue: don't hard-exit yet if the ONLY weak fields are
+            # payee/amount_words (never feed a hard auto-return gate — see
+            # _MULTISIGNAL_RESCUE_FIELDS) and there's a real account number to
+            # actually run CBS/signature/fraud corroboration with. Falls through
+            # to the normal pipeline below; synthesise_decision's existing
+            # ocr_confidence soft gate + combined_confidence formula makes the real
+            # call using ALL signals, not just this one. Any other low-confidence
+            # cause (date, amount_figures, amount mismatch, MODEL_UNAVAILABLE, no
+            # account number) still exits immediately exactly as before.
+            #
+            # Corrected 2026-09-24: this used to require a MICR-derived
+            # ocr_result.account_number_last4, which real Indian CTS-2010 MICR
+            # bands can never produce (6+9+2=17 digit cheque-no/sort-code/
+            # transaction-code layout — no account number field exists in MICR
+            # at all; modules/cts/scanner/micr.py wrongly assumed a 23-digit
+            # layout with a 6-digit account segment since it was first written,
+            # so this condition was unsatisfiable on every real cheque). The
+            # account number this gate actually needs is the one already known
+            # from presentment metadata — inp.account_number — independent of
+            # OCR/MICR quality, and the same value CBS/signature lookups below
+            # already key off.
+            _rescue_enabled = bool(inp.cts_config.get("ocr_multisignal_rescue_enabled", False))   # default OFF: unreadable payee/words -> human review
+            _rescuable = (
+                _rescue_enabled
+                and bool(ocr_result.low_confidence_fields)
+                and set(ocr_result.low_confidence_fields) <= _MULTISIGNAL_RESCUE_FIELDS
+                and not ocr_result.amount_mismatch
+                and ocr_result.payee_reread_status != "DISAGREE"   # two reads disagree on the name: never rescue
+                and not ocr_result.degraded
+                and bool(inp.account_number)
+            )
+            if not _rescuable:
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"ocr_quality_{ocr_result.low_confidence_reason or 'low_confidence'}",
+                    context_extra={
+                        "ocr_engines_used": _ocr_engines_used,
+                        "indic_ks_active": _indic_ks_active,
+                        "degraded": ocr_result.degraded,
+                    },
+                )
+            log.info(
+                "ocr.multisignal_rescue_attempted",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                low_confidence_fields=ocr_result.low_confidence_fields,
+                ocr_confidence=_ocr_confidence,
+            )
+            _steps.append(StepResult(
+                step_id="ocr_multisignal_rescue",
+                outcome="PASS",
+                reason=f"weak_fields={ocr_result.low_confidence_fields} — deferred to synthesise_decision",
+                score=_ocr_confidence,
+            ))
 
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
         # Kill-switch checkpoint 1: resolved fresh right before the Vision LLM
@@ -782,7 +986,15 @@ class ChequeProcessingWorkflow:
         ))
 
         if sig_detect.outcome == "ABSENT":
-            return await finalise("STP_RETURN", "no_signature_on_cheque")
+            if _instrument_category == "DEMAND_DRAFT":
+                # DD signature blocks sit under bank stamps and officer name blocks, where
+                # detection is unreliable — a miss must go to a human, never an auto-return.
+                return await finalise("HUMAN_REVIEW", "dd_signature_not_detected")
+            # One detector miss must never return a cheque (Lot 2: a visible signature in Gujarati script
+            # was reported absent). Default is a human check; a bank may opt in to the auto-return.
+            if inp.cts_config.get("signature_absent_action", "HUMAN_REVIEW") == "AUTO_RETURN":
+                return await finalise("STP_RETURN", "no_signature_on_cheque")
+            return await finalise("HUMAN_REVIEW", "signature_not_detected")
 
         if sig_detect.outcome == "DEGRADED":
             return await finalise("HUMAN_REVIEW", "signature_detection_degraded")
@@ -851,6 +1063,7 @@ class ChequeProcessingWorkflow:
 
         _fraud_score = fraud_result.fraud_score
         _shap_values = fraud_result.shap_values or {}
+        _fraud_scored = True
         _steps.append(StepResult(
             step_id="fraud_score",
             outcome="PASS",   # routing decision made by synthesise_decision, not here
@@ -966,6 +1179,7 @@ class ChequeProcessingWorkflow:
                     fraud_score=fraud_result.fraud_score,
                     ocr_confidence=_ocr_confidence,
                     signature_match_score=sig_result.match_score or 0.0,
+                    signature_verifier_trained=bool(getattr(sig_result, "verifier_trained", False)),
                     cbs_outcome=cbs_balance_result.outcome,
                     alteration_detected=alteration_result.alteration_detected,
                     pps_outcome=pps_result.outcome,

@@ -48,6 +48,8 @@ function _viewerProps(item) {
 
 const TIERS = ['all', 'standard', 'high_value', 'very_high']
 const TIER_LABEL = { all: 'All', standard: 'Standard', high_value: 'High Value', very_high: 'Very High' }
+const CATEGORIES = ['all', 'CHEQUE', 'DEMAND_DRAFT']
+const CATEGORY_LABEL = { all: 'All Instruments', CHEQUE: 'Cheques', DEMAND_DRAFT: 'Demand Drafts' }
 
 const _T = (offsetMins) => Math.floor(Date.now() / 1000) + offsetMins * 60
 
@@ -527,6 +529,7 @@ export default function CTSInwardReviewQueue() {
   const queryClient = useQueryClient()
 
   const [tierFilter, setTierFilter]   = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [expandedId, setExpandedId]   = useState(null)
   const [holdTarget, setHoldTarget]   = useState(null)
   const [returnTarget, setReturnTarget] = useState(null)
@@ -581,10 +584,13 @@ export default function CTSInwardReviewQueue() {
   })
 
   const rawItems = isDemo ? demoItems : (data?.items ?? [])
-  const items = useMemo(
-    () => tierFilter === 'all' ? rawItems : rawItems.filter(it => it.queue_tier === tierFilter),
-    [rawItems, tierFilter]
-  )
+  const items = useMemo(() => {
+    let out = tierFilter === 'all' ? rawItems : rawItems.filter(it => it.queue_tier === tierFilter)
+    if (categoryFilter !== 'all') {
+      out = out.filter(it => (it.instrument_category || 'CHEQUE') === categoryFilter)
+    }
+    return out
+  }, [rawItems, tierFilter, categoryFilter])
   const remaining = useTickingCountdowns(rawItems)
   const sorted = [...items].sort((a, b) => (remaining[a.instrument_id] ?? 0) - (remaining[b.instrument_id] ?? 0))
 
@@ -771,6 +777,9 @@ export default function CTSInwardReviewQueue() {
                   <div className="flex items-center gap-2 flex-wrap mb-4">
                     <span className={`font-mono text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.instrument_id}</span>
                     <TierBadge tier={item.queue_tier} isDark={isDark} />
+                    {item.instrument_category === 'DEMAND_DRAFT' && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${isDark ? 'bg-violet-900/30 text-violet-300 border-violet-700/40' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>DD</span>
+                    )}
                     <StatusBadge status={item.status} claimedBy={item.claimed_by} isDark={isDark} />
                     {(item.risk_flags ?? []).map(f => (
                       <span key={f} className={`text-[10px] px-2 py-0.5 rounded font-medium border ${isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200'}`}>{f}</span>
@@ -782,6 +791,7 @@ export default function CTSInwardReviewQueue() {
                   <div className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs`}>
                     {[
                       ['Account', item.account_display],
+                      ['Drawee (per CBS)', item.drawee_name ?? '—'],
                       ['Payee', item.payee_display],
                       ['Amount', item.amount_display],
                       ['In Words', item.amount_words],
@@ -934,11 +944,21 @@ export default function CTSInwardReviewQueue() {
         </div>
 
         {/* Tier filter tabs */}
-        <div className={`flex gap-1 mb-5 border-b ${th.divider}`}>
+        <div className={`flex gap-1 mb-2 border-b ${th.divider}`}>
           {TIERS.map(t => (
             <button key={t} onClick={() => setTierFilter(t)}
               className={`text-xs px-3 py-2 border-b-2 -mb-px font-medium transition-colors ${th.tab(tierFilter === t)}`}>
               {TIER_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
+        {/* Instrument category filter tabs — CHEQUE vs DEMAND_DRAFT */}
+        <div className={`flex gap-1 mb-5 border-b ${th.divider}`}>
+          {CATEGORIES.map(c => (
+            <button key={c} onClick={() => setCategoryFilter(c)}
+              className={`text-xs px-3 py-2 border-b-2 -mb-px font-medium transition-colors ${th.tab(categoryFilter === c)}`}>
+              {CATEGORY_LABEL[c]}
             </button>
           ))}
         </div>
@@ -991,6 +1011,10 @@ export default function CTSInwardReviewQueue() {
                       <div>
                         <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Account No.</div>
                         <div className={`font-mono ${th.body}`}>{item.account_display}</div>
+                      </div>
+                      <div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Drawee (per CBS)</div>
+                        <div className={th.body}>{item.drawee_name ?? '—'}</div>
                       </div>
                       <div>
                         <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Payee</div>

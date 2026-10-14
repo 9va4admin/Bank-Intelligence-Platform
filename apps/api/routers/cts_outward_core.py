@@ -27,6 +27,7 @@ import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     get_bank_id_scanner_or_user,
@@ -65,7 +66,9 @@ _HUB_SUMMARY_SQL = """
         b.branch_name,
         b.branch_ifsc,
         COALESCE(s.hub_type, 'EEH')         AS hub_type,
-        COALESCE(r.health, 'UNKNOWN')        AS scanner_health,
+        r.registration_id,
+        r.last_heartbeat_at,
+        r.heartbeat_interval_seconds,
         s.session_id,
         s.status                             AS session_status,
         s.opened_at,
@@ -140,6 +143,13 @@ class OutwardScanSubmitRequest(BaseModel):
     image_uv_url: Optional[str] = None
     pu_id: Optional[str] = None
     branch_id: Optional[str] = None
+    # Teller-entered deposit details (additive, optional — api-versioning: non-breaking).
+    # Take priority over rear-image OCR in OutwardScanWorkflow.
+    payee_account_number: Optional[str] = None
+    payee_name_from_slip: Optional[str] = None
+    payee_mobile: Optional[str] = None
+    registered_drawee_ifsc: Optional[str] = None
+    registered_amount_str: Optional[str] = None
 
 
 class OutwardScanSubmitResponse(BaseModel):
@@ -163,7 +173,7 @@ class BranchSessionInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id:      str
     status:          str
-    opened_at:       str
+    opened_at:       IsoTimestamp
     total_uploaded:  int
     total_accepted:  int
     total_rejected:  int
@@ -185,11 +195,11 @@ class BranchSessionSummary(BaseModel):
 class HubSummaryResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id:         str
-    clearing_date:   str
+    clearing_date:   IsoTimestamp
     branches:        list[BranchSessionSummary]
     total_branches:  int
     active_sessions: int
-    generated_at:    str
+    generated_at:    IsoTimestamp
 
 
 class SessionReportMeta(BaseModel):
@@ -198,9 +208,9 @@ class SessionReportMeta(BaseModel):
     session_id:       str
     bank_id:          str
     branch_ifsc:      str
-    clearing_date:    str
+    clearing_date:    IsoTimestamp
     session_type:     str
-    generated_at:     str
+    generated_at:     IsoTimestamp
     instrument_count: int
     accepted_count:   int
     rejected_count:   int
@@ -258,8 +268,8 @@ class ScannerSessionOpenResponse(BaseModel):
     bank_id: str
     hub_type: str
     status: Literal["ACTIVE"]
-    clearing_date: str
-    opened_at: str
+    clearing_date: IsoTimestamp
+    opened_at: IsoTimestamp
 
 
 class ScannerSessionCloseRequest(BaseModel):
@@ -271,12 +281,12 @@ class ScannerSessionCloseResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
     status: Literal["CLOSED"]
-    closed_at: str
+    closed_at: IsoTimestamp
 
 
 class ClearingSessionSubmitRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str = "MORNING"
     deployment_mode: str = "SB_NGCH"
     pu_ids: list[str] = []
@@ -286,7 +296,7 @@ class ClearingSessionSubmitResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     workflow_id: str
     bank_id: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     session_type: str
     status: Literal["STARTED"]
     message: str
@@ -297,11 +307,28 @@ class ClearingWindowResponse(BaseModel):
     bank_id: str
     open_time_utc: str
     close_time_utc: str
-    clearing_date: str
+    clearing_date: IsoTimestamp
     is_open: bool
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _scanner_health(row: dict) -> str:
+    """Derived from heartbeat fields (same thresholds as scanner.py::_compute_health); health is not a column."""
+    from datetime import datetime, timezone
+    if not row.get("registration_id"):
+        return "UNKNOWN"
+    last = row.get("last_heartbeat_at")
+    if not last:
+        return "PENDING"
+    if isinstance(last, str):
+        last = datetime.fromisoformat(last)
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    interval = row.get("heartbeat_interval_seconds") or 60
+    stale = (datetime.now(timezone.utc) - last).total_seconds()
+    return "ONLINE" if stale < interval * 2 else "DEGRADED" if stale < interval * 5 else "OFFLINE"
+
 
 def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
     session = None
@@ -330,63 +357,14 @@ def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
         branch_name=row["branch_name"],
         branch_ifsc=row["branch_ifsc"],
         hub_type=row.get("hub_type") or "EEH",
-        scanner_health=row.get("scanner_health") or "UNKNOWN",
+        scanner_health=row.get("scanner_health") or _scanner_health(row),
         session=session,
         current_lot=current_lot,
         lots_sealed_today=row.get("lots_sealed_today") or 0,
     )
 
 
-async def _ensure_open_lot(
-    conn,
-    bank_id: str,
-    branch_id: str,
-    session_id: str,
-    clearing_date,
-    max_instruments: int = 25,
-) -> tuple[str, int]:
-    """Find or create the OPEN scanning batch lot. Auto-seals and opens next when full."""
-    row = await conn.fetchrow(
-        "SELECT lot_id, instrument_count, max_instruments "
-        "FROM cts.lots "
-        "WHERE branch_id = $1 AND clearing_date = $2 AND status = 'OPEN'",
-        branch_id, clearing_date,
-    )
-
-    if row is None:
-        seq_row = await conn.fetchrow(
-            "SELECT COALESCE(MAX(sequence_number), 0) AS max_seq "
-            "FROM cts.lots WHERE branch_id = $1 AND clearing_date = $2",
-            branch_id, clearing_date,
-        )
-        seq = (seq_row["max_seq"] or 0) + 1
-        date_str = clearing_date.strftime("%Y%m%d") if hasattr(clearing_date, "strftime") else str(clearing_date).replace("-", "")
-        lot_id = f"LOT-{branch_id}-{date_str}-{seq:04d}"
-        await conn.execute(
-            "INSERT INTO cts.lots "
-            "(lot_id, bank_id, branch_id, session_id, clearing_date, sequence_number, "
-            " status, instrument_count, max_instruments) "
-            "VALUES ($1, $2, $3, $4, $5, $6, 'OPEN', 1, $7)",
-            lot_id, bank_id, branch_id, session_id, clearing_date, seq, max_instruments,
-        )
-        return lot_id, 1
-
-    lot_id = row["lot_id"]
-    new_count = row["instrument_count"] + 1
-
-    if new_count >= row["max_instruments"]:
-        await conn.execute(
-            "UPDATE cts.lots SET status='SEALED', instrument_count=$1, sealed_at=NOW() "
-            "WHERE lot_id=$2",
-            new_count, lot_id,
-        )
-        return await _ensure_open_lot(conn, bank_id, branch_id, session_id, clearing_date, max_instruments)
-
-    await conn.execute(
-        "UPDATE cts.lots SET instrument_count=$1 WHERE lot_id=$2",
-        new_count, lot_id,
-    )
-    return lot_id, new_count
+from modules.cts.lot.db_lots import ensure_open_lot as _ensure_open_lot  # noqa: E402  (moved; alias kept)
 
 
 def _vault_status(rows_processed: int, rows_failed: int) -> str:
@@ -578,6 +556,11 @@ async def submit_outward_scan(
         image_uv_url=body.image_uv_url,
         pu_id=body.pu_id,
         branch_id=body.branch_id,
+        payee_account_number=body.payee_account_number,
+        payee_name_from_slip=body.payee_name_from_slip,
+        payee_mobile=body.payee_mobile,
+        registered_drawee_ifsc=body.registered_drawee_ifsc,
+        registered_amount_str=body.registered_amount_str,
     )
 
     temporal_client = getattr(request.app.state, "temporal_client", None)
@@ -619,13 +602,8 @@ async def submit_outward_scan(
                         "WHERE session_id = $1",
                         body.session_id,
                     )
-                    await _ensure_open_lot(
-                        _conn,
-                        bank_id=bank_id,
-                        branch_id=body.branch_id,
-                        session_id=body.session_id,
-                        clearing_date=date.today(),
-                    )
+                    # Lot assignment happens in the workflow (persist_outward_instrument) on ACCEPT only —
+                    # counting here also counted rejected / held scans.
             except Exception as _lot_exc:
                 log.warning(
                     "cts.outward_scan.lot_tracking_error",
@@ -673,7 +651,7 @@ async def get_hub_summary(
 
     try:
         async with db_pool.acquire() as conn:
-            rows = await conn.fetch(_HUB_SUMMARY_SQL, bank_id, today)
+            rows = await conn.fetch(_HUB_SUMMARY_SQL, bank_id, date.today())   # DATE column needs a date, not a str
     except Exception as exc:
         log.error("cts.hub_summary.db_error", bank_id=bank_id, error=str(exc))
         raise HTTPException(status_code=500, detail="Database error")
@@ -1225,6 +1203,7 @@ async def submit_clearing_session(
         SessionType,
     )
     import uuid as _uuid
+    from temporalio.common import WorkflowIDReusePolicy
 
     clearing_date = body.clearing_date
     session_type = body.session_type
@@ -1238,13 +1217,19 @@ async def submit_clearing_session(
         deployment_mode=DeploymentMode(body.deployment_mode),
         pu_ids=body.pu_ids,
     )
-    await temporal.start_workflow(
-        ClearingSessionWorkflow.run,
-        inp,
-        id=workflow_id,
-        task_queue=f"cts-processing-{bank_id}",
-        id_reuse_policy="ALLOW_DUPLICATE_FAILED_ONLY",
-    )
+    from temporalio.exceptions import WorkflowAlreadyStartedError
+    try:
+        await temporal.start_workflow(
+            ClearingSessionWorkflow.run,
+            inp,
+            id=workflow_id,
+            task_queue=f"cts-processing-{bank_id}",
+            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
+        )
+    except WorkflowAlreadyStartedError:
+        # Expected on a retriggered (bank, date, session_type): the workflow id is deterministic. The prior
+        # run's outcome stands; the caller should query it rather than expecting a new one.
+        log.info("cts.clearing_session.already_started", workflow_id=workflow_id, bank_id=bank_id)
     log.info("cts.clearing_session.submitted", workflow_id=workflow_id, bank_id=bank_id)
     return ClearingSessionSubmitResponse(
         workflow_id=workflow_id,

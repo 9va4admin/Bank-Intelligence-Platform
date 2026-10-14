@@ -104,11 +104,7 @@ class FlexCubeCBSConnector(CBSConnector):
         else:
             self._soap_client = self._build_soap_client()
 
-        if not self._pepper:
-            from shared.config.config_service import config_service
-            self._pepper = config_service.get_secret(
-                f"banks.{self._bank_id}.pii_hash_pepper"
-            )
+        # pepper is injected via the constructor (get_secret is async; connect() is sync)
 
         self._ready = True
         log.info("cbs.flexcube.connected", base_url=self._base_url, bank_id=self._bank_id)
@@ -196,6 +192,7 @@ class FlexCubeCBSConnector(CBSConnector):
             available_balance=balance,
             currency=_find_text(root, "CCY") or "INR",
             cbs_account_id=_find_text(root, "CUST_AC_NO"),
+            holder_name=_find_text(root, "CUST_NAME") or _find_text(root, "CUSTNAME") or None,
         )
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:

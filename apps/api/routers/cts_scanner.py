@@ -16,6 +16,7 @@ from typing import Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict
+from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import (
     _SCAN_LOG_MAX_ROWS,
@@ -42,7 +43,7 @@ class ScanEventItem(BaseModel):
     mismatch_id: Optional[str]
     mismatch_fields: Optional[list]
     reject_reason: Optional[str]
-    scanned_at: str
+    scanned_at: IsoTimestamp
 
 
 class ScanMonitorResponse(BaseModel):
@@ -105,7 +106,7 @@ class BranchScanEventRow(BaseModel):
     branch_id:         Optional[str] = None
     session_id:        str
     position_in_batch: Optional[int] = None
-    created_at:        str
+    created_at:        IsoTimestamp
 
 
 class BranchScanEventsResponse(BaseModel):
@@ -126,7 +127,7 @@ class ScannerRegCodeResponse(BaseModel):
     branch_id:   str
     branch_name: str
     bank_id:     str
-    expires_at:  str
+    expires_at:  IsoTimestamp
 
 
 class ScannerRegisterRequest(BaseModel):
