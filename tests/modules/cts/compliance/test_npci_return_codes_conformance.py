@@ -63,3 +63,21 @@ def test_descriptions_of_the_codes_decision_relies_on_say_what_we_think_they_say
               "86": "forged"}
     for code, phrase in expect.items():
         assert phrase in MASTER[code]["description"].lower(), (code, MASTER[code]["description"])
+
+
+def test_master_is_verified_against_the_primary_specification():
+    data = json.loads((ROOT / "docs/npci/return_reason_codes.json").read_text(encoding="utf-8"))
+    assert "CHI Specification v2.10" in data["_source"]
+    not_in_chi = [c for c, v in data["codes"].items() if not v["in_chi_v2_10"]]
+    assert not_in_chi == ["92"], not_in_chi            # only 'Bank excluded' is absent from the current spec
+    assert "99" in data["codes"] and "00" in data["codes"]
+
+
+def test_every_member_of_the_compliance_enum_is_a_code_in_the_current_specification():
+    from modules.cts.compliance.models import ReturnReasonCode
+    for member in ReturnReasonCode:
+        code = member.value
+        # 92 'Bank excluded' is in the 2018 Chennai guideline but not in CHI v2.10 (handled at the clearing house):
+        # tolerated as a documented legacy member, never to be sent.
+        assert code in MASTER and (MASTER[code]["in_chi_v2_10"] or code == "92"), (member.name, code)
+    assert "99" not in {m.value for m in ReturnReasonCode}        # deemed accepted is the clearing house's, never sent
