@@ -1,6 +1,6 @@
 """The return-file (RRF) code table must be the real clearing-house code list.
 
-Found 2026-10-14 when the primary documents (RBI/NPCI CHI Specification v2.10, Chennai CTS guidelines v2.1) were
+Found 2026-10-14 when the primary documents (RBI/NPCI CTS Specifications for Continuous Clearing, Rev 3.0 (26 Mar 2025), Chennai CTS guidelines v2.1) were
 finally read: RBIReturnCode had invented codes ('06' signature differs, '14' post-dated, '15' stale, '16' words and
 figures, '20' image quality ...) and called them "the ONLY codes accepted by NGCH". A return filed with one of them
 carries a wrong legal reason. Master data: docs/npci/return_reason_codes.json.
@@ -17,12 +17,12 @@ MASTER = json.loads((ROOT / "docs/npci/return_reason_codes.json").read_text(enco
 
 
 def _desc(code):
-    return (MASTER[code]["chi_v2_10_description"] or MASTER[code]["description"]).lower()
+    return (MASTER[code]["chi_spec_description"] or MASTER[code]["description"]).lower()
 
 
 def test_every_code_the_return_file_can_carry_exists_in_the_current_specification():
     for rc in RBIReturnCode:
-        assert rc.code in MASTER and MASTER[rc.code]["in_chi_v2_10"], (rc.name, rc.code)
+        assert rc.code in MASTER and MASTER[rc.code]["in_chi_spec"], (rc.name, rc.code)
 
 
 @pytest.mark.parametrize("member,code,phrase", [

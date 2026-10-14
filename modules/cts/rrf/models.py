@@ -23,7 +23,7 @@ class RBIReturnCode(Enum):
     """
     Return reason codes a DRAWEE bank may send in a Return Request File.
 
-    Source of truth: RBI/NPCI CHI Specification v2.10 (Oct 2023), Appendix DD / section 4.5.3.3.1, verified
+    Source of truth: RBI/NPCI CTS Specifications for Continuous Clearing, Rev 3.0 (26 Mar 2025), Appendix DD / section 4.5.3.3.1, verified
     2026-10-14 and held as data in docs/npci/return_reason_codes.json (a conformance test pins this table to it).
     An earlier version of this table invented codes ('06' signature differs, '14' post-dated, '15' stale,
     '16' words/figures, '20' image quality ...); those were wrong and would have put a wrong legal reason on a return.
@@ -153,7 +153,7 @@ class ReturnItem:
                 )
             if c[0].isspace() or c[0].isdigit():
                 raise ValueError(
-                    "ReturnReasonComment for code 88 must not start with a digit or a space (CHI Specification v2.10)."
+                    "ReturnReasonComment for code 88 must not start with a digit or a space (CHI spec Rev 3.0)."
                 )
 
     @property
