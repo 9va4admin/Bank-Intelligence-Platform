@@ -67,8 +67,8 @@ def test_descriptions_of_the_codes_decision_relies_on_say_what_we_think_they_say
 
 def test_master_is_verified_against_the_primary_specification():
     data = json.loads((ROOT / "docs/npci/return_reason_codes.json").read_text(encoding="utf-8"))
-    assert "CHI Specification v2.10" in data["_source"]
-    not_in_chi = [c for c, v in data["codes"].items() if not v["in_chi_v2_10"]]
+    assert "Continuous Clearing, Rev 3.0" in data["_source"]
+    not_in_chi = [c for c, v in data["codes"].items() if not v["in_chi_spec"]]
     assert not_in_chi == ["92"], not_in_chi            # only 'Bank excluded' is absent from the current spec
     assert "99" in data["codes"] and "00" in data["codes"]
 
@@ -77,7 +77,7 @@ def test_every_member_of_the_compliance_enum_is_a_code_in_the_current_specificat
     from modules.cts.compliance.models import ReturnReasonCode
     for member in ReturnReasonCode:
         code = member.value
-        # 92 'Bank excluded' is in the 2018 Chennai guideline but not in CHI v2.10 (handled at the clearing house):
+        # 92 'Bank excluded' is in the 2018 Chennai guideline but not in CHI spec Rev 3.0 (handled at the clearing house):
         # tolerated as a documented legacy member, never to be sent.
-        assert code in MASTER and (MASTER[code]["in_chi_v2_10"] or code == "92"), (member.name, code)
+        assert code in MASTER and (MASTER[code]["in_chi_spec"] or code == "92"), (member.name, code)
     assert "99" not in {m.value for m in ReturnReasonCode}        # deemed accepted is the clearing house's, never sent
