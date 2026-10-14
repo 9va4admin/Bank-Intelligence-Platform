@@ -3,33 +3,34 @@
 Compiled 2026-10-13. Machine-checked part: `tests/modules/cts/compliance/test_npci_return_codes_conformance.py`
 against `docs/npci/return_reason_codes.json`.
 
-**Source limits (read first).** The primary RBI/NPCI procedural guidelines **could not be retrieved**. Attempts on
-2026-10-13: the RBI-hosted guideline PDFs (all seven versions listed on rbi.org.in, e.g. Chennai v2.1, New Delhi
-v2.0, Western Grid) each returned a human-verification page, which is there to stop automated access and was
-not bypassed; NPCI's own pages are script-rendered and returned no content; one bank site returned 403; one
-"mirror" was spam. What was obtained and cross-checked instead:
+**Sources (updated 2026-10-14).** Primary documents were supplied and read: the **RBI/NPCI CHI Specification v2.10**
+(Oct 2023), the **Chennai Bankers' Clearing House CTS Procedural Guidelines v2.1** (Jul 2018), the **PPS Interface File
+Specification v1.19** (Nov 2023), the NPCI Data Exchange Module (DEM) technical specification, the CTS product booklet
+and the list of P2F centres (all in `docs/npci/source/`). Findings from them:
 
-* The return reason code master (`return_reason_codes.json`) from JK Bank's published policy, which reproduces
-  Annexure D of the Uniform Regulations and Rules for Bankers' Clearing Houses.
-* Union Bank of India's 2024-25 policy, an independent second reproduction. Its numbered table is headed
-  "CBS CODE": that is the bank's internal core-banking list, **not** the clearing-house numbering, so it does not
-  conflict with the annexure numbers (it does confirm that returns follow Rule 6 of URRBCH). **Consequence: reason
-  numbers must come from the clearing-house annexure / NGCH interface specification, never from any bank's CBS table.**
-* Statements in that policy, quoting RBI circulars, that bear on a drawee: the three regional grids were merged into
-  a single National Grid (RBI letter DEL.DPSS 22 Feb 2023; in effect 13 Oct 2023); a drawee that wants to see a
-  government cheque in paper returns it as "present with document" (code 40); drawees must preserve images of all
-  government cheques for 10 years (directly or through NPCI's national archival system), including cheques paid
-  over the counter, kept separate from clearing images; presenting banks keep the paper for 10 years.
-* Search excerpts of the RBI guidelines: a drawee may return an item only within the clearing length and in an
-  appropriate return session; the return file carries the item details and reason code; images do not travel in
-  return clearing; a drawee may return items whose presenting-bank digital signature fails validation; a drawee
-  needing the paper returns with code 39 or 40; NI Act s.64(2) lets a drawee request or demand the physical cheque.
+* **The return-code list is now verified against the primary text** (`docs/npci/return_reason_codes.json`: 60 of the
+  spec's codes plus `00` Positive Response and `99` Deemed Accepted). The 2018 guideline numbers the RBI/government
+  group 69-75; the current spec uses 70-76 (the numbering ASTRA uses). Code 92 appears only in the 2018 guideline.
+* **A real defect was found and fixed:** the return-file code table (`modules/cts/rrf/models.py`) used invented codes
+  (signature differs `06`, post-dated `14`, stale `15`, words/figures `16`, image quality `20` ...) and described itself as
+  the only codes NGCH accepts. It is now the spec's table, pinned to the master by tests; the old tests that
+  encoded the wrong codes were corrected.
+* Field format: ReturnReason is a numeric string of 2-3 characters; code 99 is assigned by the clearing house when no
+  response arrives (a drawee never sends it); code 88 needs a ReturnReasonComment that is non-empty and does not start
+  with a digit or a space (now enforced).
+* Return and presentment rules confirmed: a drawee may return an item only within its clearing length and in an
+  appropriate return session; images do not travel in return clearing; presenting banks apply digital signatures with at
+  least one month of certificate life left; IQA is the presenting bank's duty at capture, with an IQA indicator on each
+  image; a MICR repair is signalled to the drawee by flag `010001`; paper-to-follow items carry the instrument itself.
+* **Not in these documents:** the "customer not at fault" list (Annexure II) comes from a bank policy reproducing
+  URRBCH Annexure D, so it is still secondary. The session timings in the 2018 guideline (presentation 3:30-7:30 PM,
+  return 12:00-2:30 PM) predate continuous clearing and the single National Grid, so they are not used; NPCI's current
+  National Grid and continuous-clearing circulars are not in the folder.
+* **Gap found:** the PPS specification defines NPCI's CIIF file (CSV and XML: payee account, serial number, issue date
+  DDMMYYYY, amount, transaction code, drawee bank name and routing number, payee name, SAN, three optional fields).
+  ASTRA had no reader for it.
 
-**What a person must do to close this.** Open https://rbi.org.in/Scripts/OccasionalPublications.aspx?head=Procedural+Guideline+for+Cheque+Truncation+System
-in a normal browser, solve the verification page, and save the current guideline PDF (the list shows seven; the
-newest is Chennai v2.1, July 2018, plus NPCI's National Grid circulars) into `docs/npci/source/`. Then verify this
-matrix, `return_reason_codes.json` and the timing windows against it. Until then this matrix is **not** a
-conformance certification.
+This matrix is still not a certification: it has not been reviewed by someone accountable for NPCI conformance.
 
 Status key: **DONE** implemented and tested on real images or real infrastructure · **DONE (stand-in)**
 implemented, but the system it depends on is a stub or stand-in in dev · **PARTIAL** · **GAP** not built ·

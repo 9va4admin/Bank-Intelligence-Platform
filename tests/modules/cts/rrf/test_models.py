@@ -6,7 +6,7 @@ class TestRBIReturnCodeFromUIReasonMissingBranches:
     """Cover lines 66, 68, 70, 72, 74, 76, 78, 80: from_ui_reason branches."""
     def test_dormant_account(self):
         from modules.cts.rrf.models import RBIReturnCode
-        assert RBIReturnCode.from_ui_reason("account is dormant") == RBIReturnCode.ACCOUNT_CLOSED
+        assert RBIReturnCode.from_ui_reason("account is dormant") == RBIReturnCode.ACCOUNT_BLOCKED
 
     def test_post_dated(self):
         from modules.cts.rrf.models import RBIReturnCode
@@ -14,7 +14,7 @@ class TestRBIReturnCodeFromUIReasonMissingBranches:
 
     def test_mutilated(self):
         from modules.cts.rrf.models import RBIReturnCode
-        assert RBIReturnCode.from_ui_reason("cheque is mutilated") == RBIReturnCode.CHEQUE_STALE_MUTILATED
+        assert RBIReturnCode.from_ui_reason("cheque is mutilated") == RBIReturnCode.CHEQUE_MUTILATED
 
     def test_payee_name_discrepancy(self):
         from modules.cts.rrf.models import RBIReturnCode
@@ -30,8 +30,8 @@ class TestRBIReturnCodeFromUIReasonMissingBranches:
 
     def test_micr_incorrect(self):
         from modules.cts.rrf.models import RBIReturnCode
-        assert RBIReturnCode.from_ui_reason("micr line incorrect") == RBIReturnCode.MICR_INCORRECT
+        assert RBIReturnCode.from_ui_reason("micr line incorrect") == RBIReturnCode.REQUIRED_INFO_NOT_LEGIBLE
 
     def test_image_quality(self):
         from modules.cts.rrf.models import RBIReturnCode
-        assert RBIReturnCode.from_ui_reason("poor image quality") == RBIReturnCode.IMAGE_POOR_QUALITY
+        assert RBIReturnCode.from_ui_reason("poor image quality") == RBIReturnCode.IMAGE_NOT_CLEAR
