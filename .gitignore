@@ -60,3 +60,7 @@ docs/cheques/KBL/
 docs/cheques/**/*.7z
 docs/cheques/**/*.zip
 docs/dev_real_cheque_*
+
+# Third-party NPCI/RBI source PDFs (kept locally; see docs/npci/source/README.md) and unrelated pitch decks
+docs/npci/source/*.pdf
+docs/BizCollect_GFF_Pitch_Deck.*
