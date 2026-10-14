@@ -64,3 +64,5 @@ docs/dev_real_cheque_*
 # Third-party NPCI/RBI source PDFs (kept locally; see docs/npci/source/README.md) and unrelated pitch decks
 docs/npci/source/*.pdf
 docs/BizCollect_GFF_Pitch_Deck.*
+docs/evidence/2026-09-22/inward_real_run_stprescue_18_cheques.json
+docs/swadhyay-parivar-cheque-solution.pptx
