@@ -28,7 +28,8 @@ and the list of P2F centres (all in `docs/npci/source/`). Findings from them:
   National Grid and continuous-clearing circulars are not in the folder.
 * **Gap found:** the PPS specification defines NPCI's CIIF file (CSV and XML: payee account, serial number, issue date
   DDMMYYYY, amount, transaction code, drawee bank name and routing number, payee name, SAN, three optional fields).
-  ASTRA had no reader for it.
+  ASTRA had no reader for it; `modules/cts/vaults/ciif.py` now parses and validates it (CSV and XML, every rule in the
+  attribute table, 25 tests on the spec's own samples). It is **not yet wired** into the PPS vault upload.
 
 This matrix is still not a certification: it has not been reviewed by someone accountable for NPCI conformance.
 
@@ -83,6 +84,7 @@ implemented, but the system it depends on is a stub or stand-in in dev · **PART
 |---|---|---|---|
 | Inward Exchange Time (IET) window; missed IET = deemed approval | `IETWatchdogWorkflow`, T-30s emergency file | DONE (stand-in) | verified live: a 40 s deadline fired `EMERGENCY_FILED`. **Open defect:** after an emergency filing the main pipeline still queues a human review |
 | Exactly-once NGCH filing | `ngch_filer` idempotency | DONE (stand-in) | NGCH is a dev stub |
+| NPCI PPS interface (CIIF file, positive pay) | `modules/cts/vaults/ciif.py` | PARTIAL | parser and validator done and tested on the spec samples; not wired into the vault upload; file-name convention, reject-reason and response files not implemented |
 | Return only within clearing length / return session | not modelled | GAP | session calendar not implemented; figures need the primary guideline |
 | Preserve images of government cheques for 10 years, separate from clearing images | MinIO WORM tiers (10-year cold tier) | PARTIAL | retention tier exists; no government-cheque flag or separate store |
 | Drawee may return government / other cheques as 'present with document' (40) to see the paper | human review path | PARTIAL | no automatic emission; the physical-cheque request workflow is not built |
