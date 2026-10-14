@@ -175,8 +175,10 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   target unless the interval clears it.
 - **Open policy question (compliance officer):** codes 30/31/32/55 are treated as "customer not at fault" although
   Annexure II does not list them (pinned in `test_npci_return_codes_conformance.py`).
-- **Primary NPCI/RBI guidelines have not been checked against** the conformance matrix (their host serves a
-  human-verification page); see the matrix for exactly how to close that.
+- **Primary NPCI/RBI documents are in `docs/npci/source/` and the return-code list is verified against them** (CHI
+  Specification v2.10, Chennai guidelines v2.1). That check found the return-file code table (`rrf/models.py`) used
+  invented codes; it is fixed and pinned by `test_rrf_codes_conformance.py`. Annexure II (customer fault) and the
+  continuous-clearing timings are still not in the primary set.
 - **MICR number, sort code and amount are read twice by different models**; a disagreement goes to review with both
   readings (`_field_rereads`, `cts.field_reread_model`). Measured on 70 real instruments it exposed 3/3 wrong
   cheque numbers, 4/4 wrong sort codes and 4/5 wrong amounts at the cost of ~1 correct read in 8.
