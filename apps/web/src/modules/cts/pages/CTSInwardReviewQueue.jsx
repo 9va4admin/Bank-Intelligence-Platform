@@ -12,6 +12,7 @@
  *
  * Click any card to expand: cheque image + full AI analysis panel
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
@@ -947,7 +948,7 @@ export default function CTSInwardReviewQueue() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Inward Human Review Queue</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{BANK_CONFIG.bank_name} — Inward Human Review Queue</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
               {isLoading ? 'Loading…' : `${items.length} instrument${items.length !== 1 ? 's' : ''} · click any row to view cheque image and AI analysis`}
             </p>

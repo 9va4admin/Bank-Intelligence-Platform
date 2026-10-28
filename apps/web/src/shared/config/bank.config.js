@@ -64,6 +64,16 @@ const BANK_PRESETS = {
       { id: 'smb-mh-nmcb', ifsc: 'NMCB0000001', name: 'Navi Mumbai Co-operative Bank Ltd.', shortName: 'NM Co-op Bank', city: 'Navi Mumbai', state: 'MH', daily_avg: 200 },
     ],
   },
+  'central-bank-of-india': {
+    bank_id:         'central-bank-of-india',
+    bank_name:       'Central Bank of India',
+    bank_short_name: 'Central Bank',
+    tagline:         'Central to You Since 1911.',
+    bank_logo:       'central-bank-of-india-logo.png',
+    primary_hex:     '#C8102E',
+    ifsc_prefix:     'CBIN',
+    clearing_zone:   'WEST',
+  },
   'federal-bank': {
     bank_id:         'federal-bank',
     bank_name:       'Federal Bank Limited',
