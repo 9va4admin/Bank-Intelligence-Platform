@@ -10,6 +10,7 @@
  *                   maker (ops_manager) / checker (bank_it_admin)). GET /v1/admin/config/thresholds.
  * Roles: ops_manager, bank_it_admin.
  */
+import { csrfHeader } from '../../../shared/api/csrf'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -114,7 +115,7 @@ export default function CTSBucketConfig() {
     setBusy(true); setError(null); setResult(null)
     try {
       const res = await fetch(`/v1/cts/admin/bucket-accounts/${bucket}`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
         body: JSON.stringify({ account_numbers: accounts }),
       })
       if (!res.ok) {
@@ -133,7 +134,7 @@ export default function CTSBucketConfig() {
   async function remove(hash) {
     setBusy(true); setError(null)
     try {
-      const res = await fetch(`/v1/cts/admin/bucket-accounts/${bucket}/${encodeURIComponent(hash)}`, { method: 'DELETE', credentials: 'include' })
+      const res = await fetch(`/v1/cts/admin/bucket-accounts/${bucket}/${encodeURIComponent(hash)}`, { method: 'DELETE', credentials: 'include', headers: csrfHeader() })
       if (!res.ok) throw new Error('Could not remove the account.')
       await reload()
     } catch (e) {

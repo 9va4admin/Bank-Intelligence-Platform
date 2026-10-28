@@ -140,6 +140,7 @@ class QueueItem(BaseModel):
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
     drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
     assigned_to: Optional[str] = None     # reviewer currently holding the claim, if any (allocation lock)
+    assigned_to_me: Optional[bool] = None  # True when the caller holds the claim (so a screen can mark it theirs)
     bucket: Optional[str] = None          # HVC | CA | IP | LVC | FCC | SIP_SUCCESS | SIP_REJECT | HR | MISC
     origin_bucket: Optional[str] = None   # for MISC items: the bucket they came from
     stage: Optional[str] = None           # "VALIDATION" once a maker has decided and a checker is needed
@@ -874,7 +875,8 @@ async def get_human_review_queue(
         try:
             svc = lock_svc or _lock_service(redis)
             holders = await svc.get_lock_holders([i.instrument_id for i in items])
-            items = [i.model_copy(update={"assigned_to": holders.get(i.instrument_id)}) for i in items]
+            items = [i.model_copy(update={"assigned_to": holders.get(i.instrument_id),
+                                         "assigned_to_me": holders.get(i.instrument_id) == ctx.user_id}) for i in items]
             items = await _apply_buckets(request, ctx, svc, items, cts_config, eff_bank_id, bucket)
         except Exception as exc:
             log.warning("cts.queue.holders_fetch_failed", bank_id=eff_bank_id, error=str(exc))

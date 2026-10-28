@@ -50,6 +50,7 @@ def _client(workflows, smb_id=None):
     app.state.config_service = cs
     c = TestClient(app, raise_server_exceptions=False)
     c.temporal = app.state.temporal_client
+    c.app = app
     return c
 
 
@@ -80,3 +81,16 @@ def test_memo_fields_reach_the_queue_row():
                      iet_deadline=1234567.0, clearing_zone="MUMBAI")])
     row = c.get("/v1/cts/queue").json()["items"][0]
     assert row["account_display"] == "****1234" and row["iet_deadline"] == 1234567.0 and row["clearing_zone"] == "MUMBAI"
+
+
+def test_the_queue_says_which_items_the_caller_holds():
+    import asyncio
+    from modules.cts.allocation.lock_service import LockService
+    from tests.modules.cts.allocation.fake_redis import FakeRedis
+    c = _client([_wf(f"cts-humanreview-{BANK}-A1", instrument_id="A1"), _wf(f"cts-humanreview-{BANK}-A2", instrument_id="A2")])
+    redis = FakeRedis()
+    asyncio.run(LockService(redis).acquire_lock("A1", "u", {"allocation_lock_ttl_minutes": 10}))      # held by the caller
+    asyncio.run(LockService(redis).acquire_lock("A2", "someone-else", {"allocation_lock_ttl_minutes": 10}))
+    c.app.state.redis_cts = redis
+    rows = {i["instrument_id"]: i for i in c.get("/v1/cts/queue").json()["items"]}
+    assert rows["A1"]["assigned_to_me"] is True and rows["A2"]["assigned_to_me"] is False

@@ -12,6 +12,7 @@
  * Bucket connections: GET /v1/cts/admin/buckets, PUT /v1/cts/admin/reviewers/{id}/buckets  { buckets: [...] }.
  * Roles: ops_manager, bank_it_admin.
  */
+import { csrfHeader } from '../../../shared/api/csrf'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -76,7 +77,9 @@ function ReviewerSelect({ reviewers, onPick, disabled, isDark, label = 'Reassign
 
 export default function CTSAllocationAdmin() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_INWARD_LIVE=true: this screen reads the live queue/allocation even in a DEMO build (default: sample data).
+  const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const qc = useQueryClient()
   const nowSec = useNowSeconds()
 
@@ -172,7 +175,7 @@ export default function CTSAllocationAdmin() {
       const res = await fetch(`/v1/cts/admin/review/${instrumentId}/assign`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
         body: JSON.stringify({ reviewer_id: reviewerId }),
       })
       if (!res.ok) {
@@ -208,7 +211,7 @@ export default function CTSAllocationAdmin() {
       const res = await fetch(`/v1/cts/admin/reviewers/${encodeURIComponent(reviewerId)}/buckets`, {
         method: 'PUT',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
         body: JSON.stringify({ buckets }),
       })
       if (!res.ok) {
@@ -226,7 +229,7 @@ export default function CTSAllocationAdmin() {
     mutationFn: async (instrumentId) => {
       const res = await fetch(`/v1/cts/admin/review/${instrumentId}/claim`, {
         method: 'DELETE',
-        credentials: 'include',
+        credentials: 'include', headers: csrfHeader(),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))

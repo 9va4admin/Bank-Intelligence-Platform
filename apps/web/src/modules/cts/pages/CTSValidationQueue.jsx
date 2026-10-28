@@ -4,6 +4,7 @@
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
  * Actions are icon buttons: ✓ approve · ↩ return (opens reason dropdown).
  */
+import { csrfHeader } from '../../../shared/api/csrf'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -32,7 +33,7 @@ function adaptValItem(i) {
 
 async function postValidation(instrumentId, action, reason) {
   const res = await fetch(`${_VQ_API_BASE}/v1/cts/review/${encodeURIComponent(instrumentId)}/validate`, {
-    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
     body: JSON.stringify({ action, reason }),
   })
   if (!res.ok) {
@@ -62,7 +63,7 @@ function adaptStagedOutward(i) {
 
 async function postOutwardValidation(instrumentId, action, reason) {
   const res = await fetch(`${_VQ_API_BASE}/v1/cts/outward/review/${encodeURIComponent(instrumentId)}/validate`, {
-    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
     body: JSON.stringify({ action, reason, reason_category: 'manual' }),
   })
   if (!res.ok) {
@@ -805,7 +806,9 @@ function adaptDecision(d) {
 
 export default function CTSValidationQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_INWARD_LIVE=true: this screen reads the live queue/allocation even in a DEMO build (default: sample data).
+  const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const isInward = mode === 'inward'
 
   // Live data for outward tab — polls /v1/cts/outward/decisions

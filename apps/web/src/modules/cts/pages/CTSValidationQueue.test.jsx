@@ -111,3 +111,15 @@ describe('CTSValidationQueue (outward, maker-checker)', () => {
     expect(body.action).toBe('CONFIRMED')
   })
 })
+
+describe('state-changing calls carry the CSRF token', () => {
+  it('validate sends X-CSRF-Token from the session', async () => {
+    sessionStorage.setItem('astra-csrf', 'tok-123')
+    render(<MemoryRouter><CTSValidationQueue mode="inward" /></MemoryRouter>)
+    await screen.findByText('I-1')
+    fireEvent.click(screen.getAllByTitle(/Approve/)[0])
+    await waitFor(() => expect(calls.some(c => c.path.endsWith('/validate'))).toBe(true))
+    const post = calls.find(c => c.path.endsWith('/validate'))
+    expect(post.opts.headers['X-CSRF-Token']).toBe('tok-123')
+  })
+})

@@ -12,6 +12,7 @@
  *
  * Click any card to expand: cheque image + full AI analysis panel
  */
+import { csrfHeader } from '../../../shared/api/csrf'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -544,7 +545,9 @@ function ReturnModal({ instrument, onConfirm, onCancel, isDark }) {
 
 export default function CTSInwardReviewQueue() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_INWARD_LIVE=true: this screen reads the live queue/allocation even in a DEMO build (default: sample data).
+  const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const { setHeader } = usePageHeader?.() ?? {}
   const queryClient = useQueryClient()
 
@@ -604,7 +607,16 @@ export default function CTSInwardReviewQueue() {
     retry: false,
   })
 
-  const rawItems = isDemo ? demoItems : (data?.items ?? [])
+  // The live queue names things differently from the sample rows this screen was built on: map them once here.
+  const liveItems = useMemo(() => (data?.items ?? []).map(i => ({
+    ...i,
+    claimed_by: i.assigned_to ?? null,
+    claimed_by_me: !!i.assigned_to_me,
+    amount_display: i.amount_display ?? i.amount_range ?? '',
+    queue_tier: i.queue_tier ?? (i.bucket === 'HVC' ? 'high_value' : 'standard'),
+    status: i.assigned_to ? 'CLAIMED' : (i.status ?? 'PENDING'),   // the screen reads 'CLAIMED' as held
+  })), [data])
+  const rawItems = isDemo ? demoItems : liveItems
   const items = useMemo(() => {
     let out = tierFilter === 'all' ? rawItems : rawItems.filter(it => it.queue_tier === tierFilter)
     if (categoryFilter !== 'all') {
@@ -627,7 +639,7 @@ export default function CTSInwardReviewQueue() {
 
   async function apiPost(url, body) {
     const res = await fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
       credentials: 'include', body: JSON.stringify(body ?? {}),
     })
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message ?? `HTTP ${res.status}`) }
@@ -671,7 +683,7 @@ export default function CTSInwardReviewQueue() {
     }
     try {
       const res = await fetch(`/v1/cts/review/${item.instrument_id}/claim`, {
-        method: 'DELETE', credentials: 'include',
+        method: 'DELETE', credentials: 'include', headers: csrfHeader(),
       })
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message ?? `HTTP ${res.status}`) }
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
@@ -687,7 +699,7 @@ export default function CTSInwardReviewQueue() {
       return
     }
     try {
-      await apiPost(`/v1/cts/review/${item.instrument_id}/confirm`)
+      await apiPost(`/v1/cts/review/${item.instrument_id}/decide`, { action: 'CONFIRM', reason: 'Confirmed (PAY) by reviewer' })
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
       showToast(`Confirmed (PAY) ${item.instrument_id}`)
     } catch (e) { showToast(e.message, 'error') }
@@ -702,7 +714,7 @@ export default function CTSInwardReviewQueue() {
       return
     }
     try {
-      await apiPost(`/v1/cts/review/${item.instrument_id}/return`, { return_reason: returnReason })
+      await apiPost(`/v1/cts/review/${item.instrument_id}/decide`, { action: 'RETURN', reason: returnReason })
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
       showToast(`Returned ${item.instrument_id} — ${returnReason}`)
     } catch (e) { showToast(e.message, 'error') }
