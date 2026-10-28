@@ -565,6 +565,18 @@
       "elapsed_minutes"
     ]
   },
+  "CTS_WF_MAKER_AUTO_FILED": {
+    "text": "No checker acted on {instrument_id} within {elapsed_minutes} minutes — the maker's decision was filed.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "elapsed_minutes"
+    ]
+  },
   "CTS_WF_REVIEW_IET_WARNING": {
     "text": "IET warning for {instrument_id} in review queue — {minutes_remaining} minutes remaining.",
     "severity": "WARN",

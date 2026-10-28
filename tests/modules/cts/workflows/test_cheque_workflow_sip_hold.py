@@ -190,3 +190,48 @@ async def test_if_classification_fails_a_human_review_item_still_queues_without_
     rec = Rec()
     await _run(env, rec, _ocr_fake_hrq, classify_raises=True, wait_child=True, signal="CONFIRM")
     assert rec.queued[0]["bucket"] is None
+
+
+# --- maker-checker settings reach the review workflow -----------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_a_human_review_item_carries_the_maker_checker_settings(env):
+    captured = []
+
+    from temporalio import activity as _act
+
+    rec = Rec()
+    acts = _activities(rec)
+    # replace the recording push with one that also keeps the maker-checker fields
+    acts = [a for a in acts if a.__temporal_activity_definition.name != "push_to_review_queue"]
+
+    @_act.defn(name="push_to_review_queue")
+    async def push_full(inp):
+        captured.append({k: _dget(inp, k) for k in ("maker_checker", "checker_timeout_minutes", "iet_guard_minutes")})
+
+    from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+    from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+    from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+    from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+    from modules.cts.queue_tier import humanreview_task_queue_for_tier
+
+    tq, iid = f"tq-mc-{uuid.uuid4()}", f"MC-{uuid.uuid4().hex[:8]}"
+    cfg = {**CFG, "bucket_routing_enabled": False, "maker_checker_enabled": True, "checker_review_timeout_minutes": 12,
+           "sip_iet_guard_minutes": 7}
+    async with Worker(env.client, task_queue=humanreview_task_queue_for_tier(BANK, "standard"), workflows=[HumanReviewWorkflow],
+                      activities=[*acts, push_full], workflow_runner=UnsandboxedWorkflowRunner()), \
+            Worker(env.client, task_queue=tq, workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, FeedbackEmitWorkflow],
+                   activities=[_ocr_fake_hrq, *acts, push_full], workflow_runner=UnsandboxedWorkflowRunner()):
+        await env.client.execute_workflow(
+            ChequeProcessingWorkflow.run,
+            ChequeWorkflowInput(instrument_id=iid, bank_id=BANK, image_url="minio://cts/inward/x.tiff",
+                                account_number="12340000005678", cheque_number="000099", presented_amount=75000.0,
+                                presented_payee="Suresh Patil", iet_deadline=time.time() + 3 * 3600, ngch_ifsc="SRCB0000001",
+                                cts_config=cfg),
+            id=f"cts-{BANK}-{iid}", task_queue=tq)
+        for _ in range(100):
+            if captured:
+                break
+            await asyncio.sleep(0.1)
+        await env.client.get_workflow_handle(f"cts-humanreview-{BANK}-{iid}").terminate("done")
+    assert captured[0] == {"maker_checker": True, "checker_timeout_minutes": 12, "iet_guard_minutes": 7}

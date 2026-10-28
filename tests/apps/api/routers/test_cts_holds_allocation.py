@@ -291,3 +291,26 @@ def test_a_reviewer_can_see_their_own_buckets():
     redis, pool = FakeRedis(), FakeSubsPool()
     _subscribe(pool, "alice", ["FCC", "HR"])
     assert _bapp(_ctx("alice"), redis, pool).get("/v1/cts/me/buckets").json()["buckets"] == ["FCC", "HR"]
+
+
+# --- maker-checker four-eyes on claim and assign -------------------------------------------------------------------
+
+def test_the_maker_cannot_claim_the_cheque_waiting_for_a_checker():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "VAL")
+    run(LockService(redis).update_item_meta(BANK, "I-1", maker_id="alice", stage="VALIDATION"))
+    _subscribe(pool, "alice", ["VAL"])
+    _subscribe(pool, "bob", ["VAL"])
+    r = _bapp(_ctx("alice"), redis, pool).post("/v1/cts/review/I-1/claim")
+    assert r.status_code == 403 and "different person" in r.json()["detail"]
+    assert _bapp(_ctx("bob"), redis, pool).post("/v1/cts/review/I-1/claim").json()["claimed"] is True
+
+
+def test_admin_cannot_assign_the_cheque_to_the_person_who_made_the_decision():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "VAL")
+    run(LockService(redis).update_item_meta(BANK, "I-1", maker_id="alice", stage="VALIDATION"))
+    _subscribe(pool, "alice", ["VAL"])
+    run(LockService(redis).heartbeat_reviewer(BANK, "alice", zones=["ALL"]))
+    r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/admin/review/I-1/assign", json={"reviewer_id": "alice"})
+    assert r.status_code == 409 and "made the first decision" in r.json()["detail"]

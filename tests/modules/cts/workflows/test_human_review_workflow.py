@@ -666,3 +666,116 @@ class TestSipHoldRealWorkflow:
         assert result.outcome == "SIP_AUTO_FILED" and result.filed_decision == "CONFIRM" and result.timed_out is True
         assert _ngch_calls[0]["decision"] == "CONFIRM"
         assert _audit_calls[-1]["event_type"] == "CTS_WF_SIP_AUTO_FILED"
+
+
+# ---------------------------------------------------------------------------
+# Maker-checker: a reviewer's decision (the maker) goes to a second person (the checker) before it is filed
+# ---------------------------------------------------------------------------
+
+def _decision_by(action, who, reason="checked against the image"):
+    return ReviewDecision(action=action, reason=reason, reviewer_id=who, decided_at=time.time())
+
+
+class TestMakerChecker:
+    def test_input_defaults_keep_maker_checker_off(self):
+        inp = _make_input()
+        assert inp.maker_checker is False and inp.checker_timeout_minutes == 15
+        assert inp.maker_decision is None and inp.maker_id is None
+
+    @pytest.mark.asyncio
+    async def test_a_checker_who_agrees_gets_the_makers_decision_filed(self):
+        ngch, audit = _make_ngch(), AsyncMock()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(maker_checker=True), ngch_adapter=ngch, audit_writer=audit,
+            injected_decision=_decision_by("CONFIRM", "maker-1"), injected_checker_decision=_decision_by("CONFIRM", "checker-1"))
+        assert res.outcome == "REVIEWER_CONFIRMED" and res.filed_decision == "CONFIRM"
+        assert (res.maker_id, res.checker_id) == ("maker-1", "checker-1")
+        ngch.file_decision.assert_awaited_once()
+        p = audit.write.call_args.kwargs["payload"]
+        assert p["maker_id"] == "maker-1" and p["checker_id"] == "checker-1" and p["overrode_maker"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_checker_can_overrule_the_maker_and_it_is_recorded(self):
+        ngch, audit = _make_ngch(), AsyncMock()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(maker_checker=True), ngch_adapter=ngch, audit_writer=audit,
+            injected_decision=_decision_by("CONFIRM", "maker-1"), injected_checker_decision=_decision_by("RETURN", "checker-1"))
+        assert res.outcome == "REVIEWER_RETURNED" and res.filed_decision == "RETURN"
+        assert ngch.file_decision.call_args.kwargs["decision"] == "RETURN"
+        p = audit.write.call_args.kwargs["payload"]
+        assert p["overrode_maker"] is True and p["maker_decision"] == "CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_if_no_checker_acts_the_makers_decision_is_filed(self):
+        ngch, audit = _make_ngch(), AsyncMock()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(maker_checker=True), ngch_adapter=ngch, audit_writer=audit,
+            injected_decision=_decision_by("RETURN", "maker-1"), simulate_checker_timeout=True)
+        assert res.outcome == "MAKER_AUTO_FILED" and res.filed_decision == "RETURN" and res.timed_out is True
+        assert audit.write.call_args.kwargs["event_type"] == "CTS_WF_MAKER_AUTO_FILED"
+
+    @pytest.mark.asyncio
+    async def test_the_maker_cannot_be_their_own_checker(self):
+        ngch = _make_ngch()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(maker_checker=True), ngch_adapter=ngch,
+            injected_decision=_decision_by("CONFIRM", "same-person"), injected_checker_decision=_decision_by("RETURN", "same-person"))
+        assert res.outcome == "MAKER_AUTO_FILED" and res.filed_decision == "CONFIRM"      # the self-check was ignored
+
+    @pytest.mark.asyncio
+    async def test_a_system_decided_sip_item_is_not_checked_twice(self):
+        ngch = _make_ngch()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(maker_checker=True, bucket="SIP_SUCCESS", system_decision="CONFIRM"), ngch_adapter=ngch,
+            injected_decision=_decision_by("CONFIRM", "alice"))
+        assert res.outcome == "REVIEWER_CONFIRMED" and res.checker_id is None
+
+    @pytest.mark.asyncio
+    async def test_with_maker_checker_off_one_decision_files_as_before(self):
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(), ngch_adapter=_make_ngch(), injected_decision=_decision_by("CONFIRM", "alice"))
+        assert res.outcome == "REVIEWER_CONFIRMED" and res.checker_id is None
+
+    @pytest.mark.asyncio
+    async def test_the_checker_event_carries_the_validation_bucket_and_the_makers_decision(self):
+        producer = AsyncMock()
+        inp = _make_input(maker_checker=True, bucket="VAL", maker_decision="CONFIRM", maker_id="maker-1")
+        await push_to_review_queue(inp, event_producer=producer)
+        payload = producer.publish.call_args.kwargs["payload"]
+        assert payload["bucket"] == "VAL" and payload["maker_decision"] == "CONFIRM" and payload["maker_id"] == "maker-1"
+
+
+class TestMakerCheckerRealWorkflow:
+    @pytest.mark.asyncio
+    async def test_real_run_maker_then_checker(self, temporal_env):
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, iid = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+        inp = HumanReviewInput(instrument_id=iid, bank_id=bank_id, workflow_id=f"cts-{bank_id}-{iid}", context_bundle={},
+                               iet_deadline=time.time() + 3600, bucket="HVC", maker_checker=True)
+        async with Worker(temporal_env.client, task_queue=task_queue, workflows=[HumanReviewWorkflow],
+                          activities=[_fake_push_to_review_queue, _fake_file_to_ngch, _fake_write_audit],
+                          workflow_runner=UnsandboxedWorkflowRunner()):
+            h = await temporal_env.client.start_workflow(HumanReviewWorkflow.run, inp,
+                                                         id=f"cts-humanreview-{bank_id}-{iid}", task_queue=task_queue)
+            await h.signal(HumanReviewWorkflow.receive_decision, _decision_by("CONFIRM", "maker-1"))
+            await h.signal(HumanReviewWorkflow.receive_checker_decision, _decision_by("RETURN", "checker-1"))
+            result = await h.result()
+        assert result.outcome == "REVIEWER_RETURNED" and result.filed_decision == "RETURN"
+        assert result.maker_id == "maker-1" and result.checker_id == "checker-1"
+        assert [c["decision"] for c in _ngch_calls] == ["RETURN"]                      # filed once, with the checker's decision
+
+    @pytest.mark.asyncio
+    async def test_real_run_checker_timeout_files_the_makers_decision(self, temporal_env):
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, iid = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+        inp = HumanReviewInput(instrument_id=iid, bank_id=bank_id, workflow_id=f"cts-{bank_id}-{iid}", context_bundle={},
+                               iet_deadline=time.time() + 3600, maker_checker=True, checker_timeout_minutes=5)
+        async with Worker(temporal_env.client, task_queue=task_queue, workflows=[HumanReviewWorkflow],
+                          activities=[_fake_push_to_review_queue, _fake_file_to_ngch, _fake_write_audit],
+                          workflow_runner=UnsandboxedWorkflowRunner()):
+            h = await temporal_env.client.start_workflow(HumanReviewWorkflow.run, inp,
+                                                         id=f"cts-humanreview-{bank_id}-{iid}", task_queue=task_queue)
+            await h.signal(HumanReviewWorkflow.receive_decision, _decision_by("CONFIRM", "maker-1"))
+            result = await h.result()
+        assert result.outcome == "MAKER_AUTO_FILED" and result.filed_decision == "CONFIRM" and result.checker_id is None
+        assert _audit_calls[-1]["event_type"] == "CTS_WF_MAKER_AUTO_FILED"

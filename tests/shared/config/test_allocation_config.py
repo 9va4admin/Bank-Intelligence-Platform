@@ -65,3 +65,11 @@ async def test_workflow_thresholds_carry_the_bucket_and_sip_settings_under_bare_
                 "bucket_institution_account_types", "sip_review_timeout_minutes", "sip_iet_guard_minutes"):
         assert key in cfg, key
     assert cfg["sip_iet_guard_minutes"] == 10 and cfg["bucket_routing_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_workflow_thresholds_carry_the_maker_checker_settings():
+    svc = ConfigService.__new__(ConfigService)
+    svc._bank_id, svc._ready, svc._redis, svc._db_pool = "kbl", True, None, None
+    cfg = await svc.get_workflow_thresholds("kbl")
+    assert cfg["maker_checker_enabled"] is False and cfg["checker_review_timeout_minutes"] == 15

@@ -551,6 +551,8 @@ class ConfigService:
             "bucket_institution_account_types":  "cts.bucket_institution_account_types",
             "sip_review_timeout_minutes":        "cts.sip_review_timeout_minutes",
             "sip_iet_guard_minutes":             "cts.sip_iet_guard_minutes",
+            "maker_checker_enabled":             "cts.maker_checker_enabled",
+            "checker_review_timeout_minutes":    "cts.checker_review_timeout_minutes",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

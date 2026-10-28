@@ -80,6 +80,15 @@ class HumanReviewInput(BaseModel):
     # the timeout the system's own decision is filed (never the human-review auto-return).
     bucket: Optional[str] = None
     system_decision: Optional[Literal["CONFIRM", "RETURN"]] = None
+    # Maker-checker. When on, the first reviewer decision (the maker's) is not filed: it goes to a second person (the
+    # checker) through the VAL bucket, who confirms or overrules it. If no checker acts in checker_timeout_minutes (bounded
+    # so the IET guard is never crossed) the maker's decision is filed. The maker can never be their own checker.
+    # Not applied to SIP items: there the system is the maker and the reviewer is already the checker.
+    maker_checker: bool = False
+    checker_timeout_minutes: int = Field(default=15, ge=1)
+    iet_guard_minutes: int = Field(default=10, ge=0)
+    maker_decision: Optional[Literal["CONFIRM", "RETURN"]] = None    # set on the checker-stage queue event
+    maker_id: Optional[str] = None
 
 
 class ReviewDecision(BaseModel):
@@ -93,12 +102,14 @@ class ReviewDecision(BaseModel):
 class HumanReviewResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
-    outcome: str           # "REVIEWER_CONFIRMED" | "REVIEWER_RETURNED" | "TIMEOUT_AUTO_RETURNED" | "SIP_AUTO_FILED"
+    outcome: str           # "REVIEWER_CONFIRMED" | "REVIEWER_RETURNED" | "TIMEOUT_AUTO_RETURNED" | "SIP_AUTO_FILED" | "MAKER_AUTO_FILED"
     filed_decision: str    # "CONFIRM" | "RETURN"
     acknowledgement_id: str
     reviewer_id: Optional[str] = None
     reason: Optional[str] = None
     timed_out: bool = False
+    maker_id: Optional[str] = None
+    checker_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +143,10 @@ async def push_to_review_queue(
         payload["bucket"] = inp.bucket
     if inp.system_decision:
         payload["system_decision"] = inp.system_decision
+    if inp.maker_decision:
+        payload["stage"] = "VALIDATION"
+        payload["maker_decision"] = inp.maker_decision
+        payload["maker_id"] = inp.maker_id
     await event_producer.publish(
         topic=f"cts.human.review.{inp.bank_id}",
         event_type="CTS_HUMAN_REVIEW_REQUIRED",
@@ -153,6 +168,7 @@ async def push_to_review_queue(
 class HumanReviewWorkflow:
     def __init__(self) -> None:
         self._decision: Optional[ReviewDecision] = None
+        self._checker_decision: Optional[ReviewDecision] = None
 
     def workflow_id(self, bank_id: str, instrument_id: str) -> str:
         return f"cts-humanreview-{bank_id}-{instrument_id}"
@@ -165,6 +181,15 @@ class HumanReviewWorkflow:
         """Signal handler — called by Temporal signal from ops workstation API
         (apps/api/routers/cts.py POST /v1/cts/review/{id}/decide)."""
         self._decision = decision
+
+    @workflow.signal
+    def receive_checker_decision(self, decision: ReviewDecision) -> None:
+        """The checker's confirm / overrule. Ignored unless a maker has decided and the checker is someone else."""
+        if self._decision is None or decision.reviewer_id == self._decision.reviewer_id:
+            log.warning("human_review.checker_decision_ignored", reviewer_id=decision.reviewer_id,
+                        reason="no maker decision yet" if self._decision is None else "maker cannot check their own decision")
+            return
+        self._checker_decision = decision
 
     @workflow.run
     async def run(self, inp: HumanReviewInput) -> HumanReviewResult:
@@ -199,7 +224,53 @@ class HumanReviewWorkflow:
         except asyncio.TimeoutError:
             pass
 
-        if self._decision is not None:
+        maker_id_out: Optional[str] = None
+        checker_id_out: Optional[str] = None
+        maker_action_out: Optional[str] = None
+        if self._decision is not None and inp.maker_checker and not inp.system_decision:
+            maker = self._decision
+            maker_id_out, maker_action_out = maker.reviewer_id, maker.action
+            try:
+                # If the IET watchdog ever has to fire, it must file the maker's decision.
+                await workflow.get_external_workflow_handle(self.watchdog_id(inp.bank_id, inp.instrument_id)).signal(
+                    IETWatchdogWorkflow.decision_ready, maker.action)
+            except Exception as exc:
+                log.warning("human_review.maker_watchdog_signal_failed", instrument_id=inp.instrument_id, error=str(exc))
+            remaining_min = (inp.iet_deadline - workflow.now().timestamp()) / 60.0 - inp.iet_guard_minutes
+            wait_min = min(float(inp.checker_timeout_minutes), remaining_min)
+            if wait_min >= 1:
+                try:
+                    await workflow.execute_activity(
+                        push_to_review_queue,
+                        inp.model_copy(update={"bucket": "VAL", "maker_decision": maker.action,
+                                               "maker_id": maker.reviewer_id}),
+                        start_to_close_timeout=timedelta(seconds=15),
+                        retry_policy=_QUEUE_PUSH_RETRY,
+                    )
+                except Exception as exc:
+                    log.critical("human_review.checker_queue_push_failed", instrument_id=inp.instrument_id, error=str(exc))
+                try:
+                    await workflow.wait_condition(lambda: self._checker_decision is not None,
+                                                  timeout=timedelta(minutes=wait_min))
+                except asyncio.TimeoutError:
+                    pass
+
+        if self._decision is not None and self._checker_decision is not None and inp.maker_checker and not inp.system_decision:
+            checker = self._checker_decision
+            checker_id_out = checker.reviewer_id
+            ngch_action = checker.action
+            outcome = {"CONFIRM": "REVIEWER_CONFIRMED", "RETURN": "REVIEWER_RETURNED"}[ngch_action]
+            reviewer_id = checker.reviewer_id
+            reason = checker.reason
+            timed_out = False
+        elif self._decision is not None and inp.maker_checker and not inp.system_decision:
+            ngch_action = self._decision.action
+            outcome = "MAKER_AUTO_FILED"
+            reviewer_id = self._decision.reviewer_id
+            reason = f"checker_timeout: no checker acted, maker decision {ngch_action} filed"
+            timed_out = True
+            log.info("human_review.maker_decision_filed_no_checker", instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+        elif self._decision is not None:
             ngch_action = self._decision.action   # "CONFIRM" | "RETURN"
             outcome_map = {"CONFIRM": "REVIEWER_CONFIRMED", "RETURN": "REVIEWER_RETURNED"}
             outcome = outcome_map[ngch_action]
@@ -294,6 +365,7 @@ class HumanReviewWorkflow:
             "REVIEWER_RETURNED": "CTS_WF_HUMAN_RETURNED",
             "TIMEOUT_AUTO_RETURNED": "CTS_WF_REVIEW_TIMEOUT",
             "SIP_AUTO_FILED": "CTS_WF_SIP_AUTO_FILED",
+            "MAKER_AUTO_FILED": "CTS_WF_MAKER_AUTO_FILED",
         }
         await workflow.execute_activity(
             write_audit,
@@ -312,6 +384,9 @@ class HumanReviewWorkflow:
                     **({"bucket": inp.bucket} if inp.bucket else {}),
                     **({"system_decision": inp.system_decision,
                         "overrode_system": ngch_action != inp.system_decision} if inp.system_decision else {}),
+                    **({"maker_id": maker_id_out, "maker_decision": maker_action_out, "checker_id": checker_id_out,
+                        "overrode_maker": checker_id_out is not None and ngch_action != maker_action_out}
+                       if maker_id_out else {}),
                 },
             ),
             start_to_close_timeout=timedelta(seconds=15),
@@ -334,6 +409,8 @@ class HumanReviewWorkflow:
             reviewer_id=reviewer_id,
             reason=reason,
             timed_out=timed_out,
+            maker_id=maker_id_out,
+            checker_id=checker_id_out,
         )
 
     async def run_with_mocks(
@@ -345,6 +422,8 @@ class HumanReviewWorkflow:
         injected_decision: Optional[ReviewDecision] = None,
         simulate_timeout: bool = False,
         current_time: Optional[float] = None,
+        injected_checker_decision: Optional[ReviewDecision] = None,
+        simulate_checker_timeout: bool = False,
     ) -> HumanReviewResult:
         """
         Testable orchestration. Production Temporal @workflow.run wraps this.
@@ -365,8 +444,36 @@ class HumanReviewWorkflow:
             #                    timeout=timedelta(seconds=_TIMEOUT_SECONDS))
             self._decision = None
 
+        # Step 2b: maker-checker. The maker's decision goes to a checker (a different person) before it is filed.
+        maker_id_out: Optional[str] = None
+        checker_id_out: Optional[str] = None
+        maker_action_out: Optional[str] = None
+        mc_stage = self._decision is not None and inp.maker_checker and not inp.system_decision
+        if mc_stage:
+            maker_id_out, maker_action_out = self._decision.reviewer_id, self._decision.action
+            await push_to_review_queue(
+                inp.model_copy(update={"bucket": "VAL", "maker_decision": self._decision.action,
+                                       "maker_id": self._decision.reviewer_id}),
+                event_producer=event_producer)
+            if (injected_checker_decision is not None and not simulate_checker_timeout
+                    and injected_checker_decision.reviewer_id != self._decision.reviewer_id):
+                self._checker_decision = injected_checker_decision
+
         # Step 3: determine action
-        if self._decision is not None:
+        if mc_stage and self._checker_decision is not None:
+            ngch_action = self._checker_decision.action
+            outcome = {"CONFIRM": "REVIEWER_CONFIRMED", "RETURN": "REVIEWER_RETURNED"}[ngch_action]
+            reviewer_id = self._checker_decision.reviewer_id
+            checker_id_out = reviewer_id
+            reason = self._checker_decision.reason
+            timed_out = False
+        elif mc_stage:
+            ngch_action = self._decision.action
+            outcome = "MAKER_AUTO_FILED"
+            reviewer_id = self._decision.reviewer_id
+            reason = f"checker_timeout: no checker acted, maker decision {ngch_action} filed"
+            timed_out = True
+        elif self._decision is not None:
             # Reviewer made a decision
             ngch_action = self._decision.action   # "CONFIRM" | "RETURN"
             outcome_map = {
@@ -413,6 +520,7 @@ class HumanReviewWorkflow:
                 "REVIEWER_RETURNED": "CTS_WF_HUMAN_RETURNED",
                 "TIMEOUT_AUTO_RETURNED": "CTS_WF_REVIEW_TIMEOUT",
                 "SIP_AUTO_FILED": "CTS_WF_SIP_AUTO_FILED",
+                "MAKER_AUTO_FILED": "CTS_WF_MAKER_AUTO_FILED",
             }
             await audit_writer.write(
                 event_type=_outcome_event_type[outcome],
@@ -428,6 +536,9 @@ class HumanReviewWorkflow:
                     **({"bucket": inp.bucket} if inp.bucket else {}),
                     **({"system_decision": inp.system_decision,
                         "overrode_system": ngch_action != inp.system_decision} if inp.system_decision else {}),
+                    **({"maker_id": maker_id_out, "maker_decision": maker_action_out, "checker_id": checker_id_out,
+                        "overrode_maker": checker_id_out is not None and ngch_action != maker_action_out}
+                       if maker_id_out else {}),
                 },
             )
 
@@ -447,4 +558,6 @@ class HumanReviewWorkflow:
             reviewer_id=reviewer_id,
             reason=reason,
             timed_out=timed_out,
+            maker_id=maker_id_out,
+            checker_id=checker_id_out,
         )

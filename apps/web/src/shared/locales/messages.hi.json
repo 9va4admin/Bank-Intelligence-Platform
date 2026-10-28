@@ -565,6 +565,18 @@
       "elapsed_minutes"
     ]
   },
+  "CTS_WF_MAKER_AUTO_FILED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "elapsed_minutes"
+    ]
+  },
   "CTS_WF_REVIEW_IET_WARNING": {
     "text": "",
     "severity": "WARN",

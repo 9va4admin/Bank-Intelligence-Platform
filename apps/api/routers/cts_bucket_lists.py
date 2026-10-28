@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.routers.cts_deps import get_current_user_context
+from apps.api.schemas.types import IsoTimestamp
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.config.config_service import config_service
@@ -58,7 +59,7 @@ class ListedAccount(BaseModel):
     account_hash: str
     account_last4: str
     added_by: str
-    added_at: str
+    added_at: IsoTimestamp
 
 
 class ListResponse(BaseModel):

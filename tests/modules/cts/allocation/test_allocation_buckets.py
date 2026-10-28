@@ -185,3 +185,66 @@ async def test_can_take_refuses_an_unsubscribed_reviewer_but_misc_is_open(parts)
     assert await alloc.can_take(BANK, "hv-item", "lv", CFG) is False
     assert await alloc.can_take(BANK, "misc-item", "lv", CFG) is True
     assert await alloc.can_take(BANK, "hv-item", "lv", {**CFG, "bucket_routing_enabled": False}) is True
+
+
+# --- maker-checker: the checker queue and the four-eyes rule -------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_auto_assign_skips_excluded_reviewers_such_as_the_maker(parts):
+    lock, subs, alloc, _ = parts
+    await _setup(lock, subs, {"maker": ["VAL"], "checker": ["VAL"]})
+    await _item(lock, "i-1", "VAL")
+    res = await alloc.auto_assign("i-1", ["maker", "checker"], CFG, bank_id=BANK, exclude={"maker"})
+    assert res.claimed and res.reviewer_id == "checker"
+
+
+@pytest.mark.asyncio
+async def test_if_only_the_maker_is_available_nobody_gets_the_validation_item(parts):
+    lock, subs, alloc, _ = parts
+    await _setup(lock, subs, {"maker": ["VAL"]})
+    await _item(lock, "i-1", "VAL")
+    res = await alloc.auto_assign("i-1", ["maker"], CFG, bank_id=BANK, exclude={"maker"})
+    assert res.claimed is False and res.reason in ("NO_ELIGIBLE_REVIEWER", "NO_ACTIVE_REVIEWERS")
+
+
+@pytest.mark.asyncio
+async def test_the_maker_cannot_claim_the_validation_item(parts):
+    lock, subs, alloc, _ = parts
+    await _item(lock, "i-1", "VAL", origin_bucket="HVC")
+    await lock.update_item_meta(BANK, "i-1", maker_id="maker", stage="VALIDATION")
+    res = await alloc.claim("i-1", "maker", CFG, bank_id=BANK, reviewer_buckets=["VAL"])
+    assert res.claimed is False and res.reason == "FOUR_EYES"
+    assert (await alloc.claim("i-1", "checker", CFG, bank_id=BANK, reviewer_buckets=["VAL"])).claimed
+
+
+@pytest.mark.asyncio
+async def test_four_eyes_applies_even_when_bucket_routing_is_off(parts):
+    lock, subs, alloc, _ = parts
+    await _item(lock, "i-1", "VAL")
+    await lock.update_item_meta(BANK, "i-1", maker_id="maker", stage="VALIDATION")
+    res = await alloc.claim("i-1", "maker", {**CFG, "bucket_routing_enabled": False}, bank_id=BANK)
+    assert res.reason == "FOUR_EYES"
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_assign_the_validation_item_to_the_maker(parts):
+    lock, subs, alloc, _ = parts
+    await subs.set_reviewer_buckets(BANK, "maker", ["VAL"], "boss")
+    await _item(lock, "i-1", "VAL")
+    await lock.update_item_meta(BANK, "i-1", maker_id="maker", stage="VALIDATION")
+    assert await alloc.can_take(BANK, "i-1", "maker", CFG) is False
+    await subs.set_reviewer_buckets(BANK, "checker", ["VAL"], "boss")
+    assert await alloc.can_take(BANK, "i-1", "checker", CFG) is True
+
+
+@pytest.mark.asyncio
+async def test_rebalance_never_moves_a_validation_item_to_its_maker(parts):
+    lock, subs, alloc, _ = parts
+    await _setup(lock, subs, {"c1": ["VAL"], "maker": ["VAL"]})
+    for i in range(4):
+        await _item(lock, f"v-{i}", "VAL")
+        await lock.update_item_meta(BANK, f"v-{i}", maker_id="maker", stage="VALIDATION")
+        await lock.acquire_lock(f"v-{i}", "c1", CFG)
+        await lock.mark_auto(BANK, f"v-{i}")
+    res = await alloc.rebalance(BANK, CFG)
+    assert res.moves == []

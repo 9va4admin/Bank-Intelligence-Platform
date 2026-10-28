@@ -13,15 +13,44 @@ import useOutwardDecisions from '../hooks/useOutwardDecisions'
 
 const _VQ_API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+// A VAL-bucket queue row, shaped for this grid. Fields the queue does not carry are left out rather than invented.
+function adaptValItem(i) {
+  const f = v => ({ extracted_value: v, extracted_confidence: 1, extracted_by: 'ASTRA', actual_value: v, source: 'STP' })
+  return {
+    instrument_id: i.instrument_id,
+    source_stage: 'VERIFIED',
+    instrument_category: i.instrument_category || 'CHEQUE',
+    account_display: i.account_display,
+    iet_deadline: i.iet_deadline ? new Date(i.iet_deadline * 1000).toISOString() : null,
+    drawer_name: i.drawee_name ?? '—',
+    maker_id: i.maker_id,
+    maker_decision: i.maker_decision,
+    assigned_to: i.assigned_to,
+    fields_meta: { payee: f(i.payee_display ?? ''), amount_figures: f(i.amount_range ?? '') },
+  }
+}
+
+async function postValidation(instrumentId, action, reason) {
+  const res = await fetch(`${_VQ_API_BASE}/v1/cts/review/${encodeURIComponent(instrumentId)}/validate`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, reason }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Validation failed')
+  }
+}
+
 function useInwardValidationQueue({ pollEnabled, bankId }) {
   const [items, setItems] = useState(null)
   const timerRef = useRef(null)
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch(`${_VQ_API_BASE}/v1/cts/inward/human-review-queue?bank_id=${bankId}&limit=100`, { credentials: 'include' })
+      // Cheques a maker has decided and a checker must confirm or overrule: the VAL bucket of the review queue.
+      const res = await fetch(`${_VQ_API_BASE}/v1/cts/queue?bucket=VAL&limit=100`, { credentials: 'include' })
       if (!res.ok) return
       const json = await res.json()
-      setItems(json.items ?? [])
+      setItems((json.items ?? []).map(adaptValItem))
     } catch { /* keep last */ }
   }, [bankId])
   useEffect(() => {
@@ -751,15 +780,16 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   useEffect(() => {
     if (isInward && liveInwardItems && liveInwardItems !== prevInwardRef.current) {
       prevInwardRef.current = liveInwardItems
-      if (liveInwardItems.length > 0) {
-        setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
-      }
+      // Live data replaces the sample rows even when it is empty: an empty queue is a real answer.
+      setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
     }
   }, [liveInwardItems, isInward])
   const [filter, setFilter]           = useState('ALL')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
   const [chequeViewId, setChequeViewId]   = useState(null)
+  const [actionError, setActionError]     = useState(null)
+  const [busyId, setBusyId]               = useState(null)
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -803,15 +833,42 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
     }))
   }
 
-  function handleApprove(instrumentId) {
+  function removeRow(instrumentId) {
     if (chequeViewId === instrumentId) setChequeViewId(null)
     setInstruments(prev => prev.filter(i => i.instrument_id !== instrumentId))
   }
 
-  function doReturn(instrumentId) {
-    if (chequeViewId === instrumentId) setChequeViewId(null)
-    setInstruments(prev => prev.filter(i => i.instrument_id !== instrumentId))
+  // Real checker decision for inward cheques (maker-checker); the sample grids stay local.
+  async function submitValidation(instrumentId, action, reason) {
+    setActionError(null); setBusyId(instrumentId)
+    try {
+      await postValidation(instrumentId, action, reason)
+      removeRow(instrumentId)
+    } catch (e) {
+      setActionError(`${instrumentId}: ${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function handleApprove(instrumentId) {
+    if (isInward && !isDemo) {
+      // Approve = the checker agrees with the maker.
+      const inst = instruments.find(i => i.instrument_id === instrumentId)
+      submitValidation(instrumentId, inst?.maker_decision ?? 'CONFIRM', 'Checker agrees with the maker')
+      return
+    }
+    removeRow(instrumentId)
+  }
+
+  function doReturn(instrumentId, reason) {
     setReturnOpenFor(null)
+    if (isInward && !isDemo) {
+      // Return = the checker overrules to RETURN, with the chosen return reason.
+      submitValidation(instrumentId, 'RETURN', reason || 'Returned by checker')
+      return
+    }
+    removeRow(instrumentId)
   }
 
   const OCR_COLS = [
@@ -954,6 +1011,11 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                           {manualCount > 0 && <span className={`text-[9px] ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>{manualCount} MANUAL</span>}
                           {inst.name_match && <NameMatchBadge verdict={inst.name_match} isDark={isDark} short />}
                         </div>
+                        {inst.maker_id && (
+                          <div className={`text-[10px] mt-0.5 ${th.muted}`} title="The first decision, which the checker confirms or overrules">
+                            Maker {inst.maker_id}: <span className="font-semibold">{inst.maker_decision}</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Bank / Account */}
@@ -1015,6 +1077,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                           <button
                             type="button"
                             onClick={() => handleApprove(inst.instrument_id)}
+                            disabled={busyId === inst.instrument_id}
                             title={`Approve → ${approveLabel}`}
                             className={`w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold transition-all ${isDark
                               ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
@@ -1037,7 +1100,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                             {isReturning && (
                               <ReturnDropdown
                                 isDark={isDark}
-                                onReturn={() => doReturn(inst.instrument_id)}
+                                onReturn={(reason) => doReturn(inst.instrument_id, reason)}
                                 onClose={() => setReturnOpenFor(null)}
                               />
                             )}
@@ -1056,6 +1119,10 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
             <ChequePanel inst={chequeInst} isInward={isInward} isDark={isDark} onClose={() => setChequeViewId(null)} />
           )}
         </div>
+
+        {actionError && (
+          <div role="alert" className="px-6 py-2 text-xs text-red-400">{actionError}</div>
+        )}
 
         {/* Footer */}
         {instruments.length > 0 && (

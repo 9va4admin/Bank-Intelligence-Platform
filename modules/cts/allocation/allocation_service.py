@@ -93,8 +93,12 @@ class AllocationService:
         you already hold counts as opening it, which pins it so the rebalancer never moves it.
         A reviewer scoped to a clearing zone cannot claim an item from another zone.
         """
-        if bank_id and (reviewer_zones is not None or (reviewer_buckets is not None and _routing(cts_config))):
+        if bank_id:
             meta = await self._lock.get_item_meta(bank_id, instrument_id)
+            if meta.get("maker_id") == reviewer_id:
+                # Maker-checker: the person who made the first decision can never check it.
+                log.info("allocation.claim_refused_four_eyes", instrument_id=instrument_id, reviewer_id=reviewer_id)
+                return AllocationResult(claimed=False, reason="FOUR_EYES")
             if reviewer_zones is not None and not zone_allows(meta.get("zone"), reviewer_zones):
                 log.info("allocation.claim_refused_zone", instrument_id=instrument_id, reviewer_id=reviewer_id)
                 return AllocationResult(claimed=False, reason="ZONE_RESTRICTED")
@@ -173,9 +177,11 @@ class AllocationService:
 
     async def can_take(self, bank_id: str, instrument_id: str, reviewer_id: str, cts_config: dict) -> bool:
         """May this reviewer be given this item (admin assign)? Inside the item's bucket, or MISC."""
+        meta = await self._lock.get_item_meta(bank_id, instrument_id)
+        if meta.get("maker_id") == reviewer_id:
+            return False                       # four-eyes: the maker cannot be given the item to check
         if not _routing(cts_config) or self._subs is None:
             return True
-        meta = await self._lock.get_item_meta(bank_id, instrument_id)
         return bucket_allows(meta.get("bucket"), await self._subs.get_reviewer_buckets(bank_id, reviewer_id))
 
     # ------------------------------------------------------------------ admin assign
@@ -193,6 +199,7 @@ class AllocationService:
         available_reviewers: list[str],
         cts_config: dict,
         bank_id: Optional[str] = None,
+        exclude: Optional[set] = None,
     ) -> AllocationResult:
         """Attempt to auto-assign an unclaimed instrument to a reviewer.
 
@@ -201,6 +208,8 @@ class AllocationService:
         Fails gracefully, with a reason, when nobody is eligible or the instrument was claimed by another path.
         """
         mode = cts_config.get("allocation_mode", "SELF")
+        if exclude:
+            available_reviewers = [r for r in available_reviewers if r not in exclude]
 
         if mode == "SELF":
             return AllocationResult(claimed=False, reason="SELF_MODE")
@@ -214,8 +223,12 @@ class AllocationService:
             )
             return AllocationResult(claimed=False, held_by=existing_holder, reason="ALREADY_CLAIMED")
 
-        if bank_id and _routing(cts_config):
-            if (await self._lock.get_item_meta(bank_id, instrument_id)).get("bucket") == MISC:
+        if bank_id:
+            meta = await self._lock.get_item_meta(bank_id, instrument_id)
+            if meta.get("maker_id"):
+                # Maker-checker: the maker is never offered the item they have to have checked.
+                available_reviewers = [r for r in available_reviewers if r != meta["maker_id"]]
+            if _routing(cts_config) and meta.get("bucket") == MISC:
                 return AllocationResult(claimed=False, reason="MISC_SELF_CLAIM")   # people claim from MISC themselves
 
         if not available_reviewers:
@@ -325,6 +338,8 @@ class AllocationService:
                         meta = await self._lock.get_item_meta(bank_id, iid)
                         if not zone_allows(meta.get("zone"), zones.get(recv)):
                             continue
+                        if meta.get("maker_id") == recv:
+                            continue                       # never hand a validation item to the person who made the decision
                         if by_bucket is not None and meta.get("bucket") not in (None, MISC)                                 and recv not in by_bucket.get(meta["bucket"], []):
                             continue
                         if await self._lock.transfer(iid, donor, recv, cts_config):

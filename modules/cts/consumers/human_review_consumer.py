@@ -147,13 +147,38 @@ async def handle_human_review_event(
 
     lock_svc = LockService(redis_client=redis)
     zone = payload.get("clearing_zone") or (context_bundle or {}).get("clearing_zone")
+    is_validation = payload.get("stage") == "VALIDATION"
+    maker_id = payload.get("maker_id")
     try:
-        await lock_svc.set_item_meta(
-            envelope.bank_id, instrument_id, zone=zone,
-            iet_deadline=float(iet_deadline) if iet_deadline else None,
-            bucket=payload.get("bucket") or "HR",          # an event that carries no bucket is general human review
-            queued_at=_time.time(),
-        )
+        if is_validation:
+            # Maker-checker: the maker has decided. The item moves to the Validation (VAL) queue, remembering where it came
+            # from and who made the decision (so they can never check it); the maker no longer holds it.
+            prev = await lock_svc.get_item_meta(envelope.bank_id, instrument_id)
+            await lock_svc.update_item_meta(
+                envelope.bank_id, instrument_id, bucket="VAL",
+                origin_bucket=prev.get("origin_bucket") or prev.get("bucket"),
+                maker_id=maker_id, maker_decision=payload.get("maker_decision"), stage="VALIDATION",
+                queued_at=_time.time(),
+                **({"zone": zone} if zone else {}),
+            )
+            await lock_svc.force_release(instrument_id, bank_id=envelope.bank_id)
+            if db is not None:
+                try:
+                    from modules.cts.review_queue import escalate
+                    async with db.acquire() as conn:
+                        await escalate(conn, bank_id=envelope.bank_id, workflow_id=workflow_id,
+                                       actor=maker_id or "maker", reason="MAKER_DECIDED")
+                except Exception as exc:  # noqa: BLE001 - the durable record is best-effort here
+                    log.warning("human_review_consumer.escalate_failed", instrument_id=instrument_id, error=str(exc))
+        else:
+            await lock_svc.set_item_meta(
+                envelope.bank_id, instrument_id, zone=zone,
+                iet_deadline=float(iet_deadline) if iet_deadline else None,
+                bucket=payload.get("bucket") or "HR",          # an event that carries no bucket is general human review
+                queued_at=_time.time(),
+            )
+            if payload.get("system_decision"):
+                await lock_svc.update_item_meta(envelope.bank_id, instrument_id, system_decision=payload["system_decision"])
     except Exception as exc:
         log.warning("human_review_consumer.item_meta_failed", instrument_id=instrument_id, error=str(exc))
 
@@ -173,7 +198,8 @@ async def handle_human_review_event(
         # Immediately auto-assign from the active reviewer pool
         try:
             available = await lock_svc.get_active_reviewers(envelope.bank_id)
-            result = await alloc_svc.auto_assign(instrument_id, available, cts_config, bank_id=envelope.bank_id)
+            result = await alloc_svc.auto_assign(instrument_id, available, cts_config, bank_id=envelope.bank_id,
+                                                 exclude={maker_id} if maker_id else None)
             if result.claimed:
                 log.info(
                     "human_review_consumer.auto_assigned",

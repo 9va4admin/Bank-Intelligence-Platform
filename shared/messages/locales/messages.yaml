@@ -357,6 +357,13 @@ CTS_WF_SIP_AUTO_FILED:
   en: "No reviewer acted on system-processed cheque {instrument_id} within {elapsed_minutes} minutes — the system decision was filed."
   hi: ""
 
+CTS_WF_MAKER_AUTO_FILED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, elapsed_minutes]
+  en: "No checker acted on {instrument_id} within {elapsed_minutes} minutes — the maker's decision was filed."
+  hi: ""
+
 CTS_WF_REVIEW_IET_WARNING:
   severity: WARN
   surface: [UI, NOTIFICATION]

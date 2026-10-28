@@ -108,7 +108,10 @@ async def _apply_buckets(request, ctx, lock_svc, items, cts_config, bank_id, buc
                     log.warning("cts.queue.overflow_error", instrument_id=i.instrument_id, error=str(exc))
     metas = await lock_svc.get_item_metas(bank_id, [i.instrument_id for i in items])
     items = [i.model_copy(update={"bucket": metas[i.instrument_id].get("bucket"),
-                                  "origin_bucket": metas[i.instrument_id].get("origin_bucket")}) for i in items]
+                                  "origin_bucket": metas[i.instrument_id].get("origin_bucket"),
+                                  "stage": metas[i.instrument_id].get("stage"),
+                                  "maker_id": metas[i.instrument_id].get("maker_id"),
+                                  "maker_decision": metas[i.instrument_id].get("maker_decision")}) for i in items]
     if routing and ctx.role.value == "ops_reviewer":
         mine = await subs.get_reviewer_buckets(bank_id, ctx.user_id)
         items = [i for i in items if bucket_allows(i.bucket, mine)]
@@ -138,6 +141,9 @@ class QueueItem(BaseModel):
     assigned_to: Optional[str] = None     # reviewer currently holding the claim, if any (allocation lock)
     bucket: Optional[str] = None          # HVC | CA | IP | LVC | FCC | SIP_SUCCESS | SIP_REJECT | HR | MISC
     origin_bucket: Optional[str] = None   # for MISC items: the bucket they came from
+    stage: Optional[str] = None           # "VALIDATION" once a maker has decided and a checker is needed
+    maker_id: Optional[str] = None        # who made the first decision (VAL items)
+    maker_decision: Optional[str] = None  # CONFIRM | RETURN: what the checker is being asked to confirm or overrule
 
 
 class QueueResponse(BaseModel):
@@ -567,6 +573,74 @@ async def get_decision(
     )
 
 
+_REVIEW_ROLES = ("ops_reviewer", "ops_manager")
+
+
+async def _review_state(request, ctx, bank_id: str, instrument_id: str):
+    """(lock_svc, cts_config, meta) for the review endpoints; lock_svc/meta are None/{} without Redis."""
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(bank_id)
+        except Exception:  # noqa: BLE001 - fall back to defaults
+            pass
+    redis = getattr(request.app.state, "redis_cts", None)
+    if redis is None:
+        return None, cts_config, {}
+    lock_svc = _lock_service(redis)
+    return lock_svc, cts_config, await lock_svc.get_item_meta(bank_id, instrument_id)
+
+
+async def _take_or_check_claim(lock_svc, instrument_id: str, reviewer_id: str, cts_config: dict) -> None:
+    """Whoever decides must hold the claim: if it is free they take it, if another reviewer holds it the decision is
+    refused (409) without saying who."""
+    if lock_svc is None:
+        return
+    holder = await lock_svc.get_lock_holder(instrument_id)
+    if holder is not None and holder != reviewer_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is being worked by another reviewer")
+    if holder is None and not await lock_svc.acquire_lock(instrument_id, reviewer_id, cts_config):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is being worked by another reviewer")
+
+
+async def _signal_review(request, workflow_id: str, signal_name: str, decision, instrument_id: str, bank_id: str) -> bool:
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is None:
+        return False
+    try:
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        handle = temporal_client.get_workflow_handle(workflow_id)
+        await handle.signal(getattr(HumanReviewWorkflow, signal_name), decision)
+        return True
+    except Exception as exc:
+        log.error("cts.review_signal_error", instrument_id=instrument_id, bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Failed to send review signal") from exc
+
+
+async def _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision) -> None:
+    _db = getattr(request.app.state, "db_pool_cts", None)
+    if _db is None:
+        return
+    try:
+        async with _db.acquire() as _conn:
+            await decide_by_instrument(_conn, bank_id=bank_id, direction="INWARD", instrument_ref=instrument_id,
+                                       decision=decision.action, reviewer_id=reviewer_id, notes=decision.reason)
+    except Exception as exc:  # noqa: BLE001 - the workflow signal is the authoritative action
+        log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+
+
+async def _finish_allocation(lock_svc, bank_id: str, instrument_id: str, reviewer_id: str) -> None:
+    """The cheque has its final decision: drop the claim and every allocation record for it."""
+    if lock_svc is None:
+        return
+    try:
+        await lock_svc.release_lock(instrument_id, reviewer_id, bank_id=bank_id)
+        await lock_svc.forget_item(bank_id, instrument_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("cts.review.allocation_cleanup_failed", instrument_id=instrument_id, error=str(exc))
+
+
 @router_v1.post(
     "/review/{instrument_id}/decide",
     response_model=ReviewDecisionResponse,
@@ -578,65 +652,77 @@ async def submit_review_decision(
     request: Request,
     bank_id: str = Depends(get_current_bank_id),
     reviewer_id: str = Depends(get_current_user_id),
+    ctx: UserContext = Depends(get_current_user_context),
 ) -> ReviewDecisionResponse:
+    """A reviewer's decision (the maker's, when maker-checker is on)."""
+    if ctx.role.value not in _REVIEW_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     if not body.reason or not body.reason.strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="reason is required for review decisions",
-        )
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for review decisions")
+
+    lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
+    if meta.get("stage") == "VALIDATION":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="A maker has already decided this cheque; a checker must use validate")
+    await _take_or_check_claim(lock_svc, instrument_id, reviewer_id, cts_config)
 
     workflow_id = f"cts-humanreview-{bank_id}-{instrument_id}"
-    decision = ReviewDecision(
-        action=body.action,
-        reason=body.reason.strip(),
-        reviewer_id=reviewer_id,
-        decided_at=time.time(),
-    )
+    decision = ReviewDecision(action=body.action, reason=body.reason.strip(), reviewer_id=reviewer_id, decided_at=time.time())
+    signal_sent = await _signal_review(request, workflow_id, "receive_decision", decision, instrument_id, bank_id)
 
-    temporal_client = getattr(request.app.state, "temporal_client", None)
-    signal_sent = False
+    # Maker-checker: this decision is the maker's, not final. It is not recorded as DECIDED and the allocation records stay
+    # so the checker stage can find the item. A system-decided (SIP) item is checked by the reviewer already: final.
+    maker_checker = bool(cts_config.get("maker_checker_enabled")) and not meta.get("system_decision")
+    if maker_checker:
+        if lock_svc is not None:
+            await lock_svc.update_item_meta(bank_id, instrument_id, maker_id=reviewer_id, maker_decision=body.action)
+    else:
+        await _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision)
+        await _finish_allocation(lock_svc, bank_id, instrument_id, reviewer_id)
 
-    if temporal_client is not None:
-        try:
-            from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+    log.info("cts.review_decision_submitted", instrument_id=instrument_id, bank_id=bank_id, action=body.action,
+             reviewer_id=reviewer_id, maker_checker=maker_checker)
+    return ReviewDecisionResponse(instrument_id=instrument_id, workflow_id=workflow_id, signal_sent=signal_sent)
 
-            handle = temporal_client.get_workflow_handle(workflow_id)
-            await handle.signal(HumanReviewWorkflow.receive_decision, decision)
-            signal_sent = True
-        except Exception as exc:
-            log.error(
-                "cts.review_signal_error",
-                instrument_id=instrument_id,
-                bank_id=bank_id,
-                error=str(exc),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to send review signal",
-            ) from exc
 
-    _db = getattr(request.app.state, "db_pool_cts", None)
-    if _db is not None:
-        try:
-            async with _db.acquire() as _conn:
-                await decide_by_instrument(_conn, bank_id=bank_id, direction="INWARD", instrument_ref=instrument_id,
-                                           decision=body.action, reviewer_id=reviewer_id, notes=decision.reason)
-        except Exception as exc:  # noqa: BLE001 - the workflow signal above is the authoritative action
-            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+@router_v1.post(
+    "/review/{instrument_id}/validate",
+    response_model=ReviewDecisionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_review_decision(
+    instrument_id: str,
+    body: ReviewDecisionRequest,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    reviewer_id: str = Depends(get_current_user_id),
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ReviewDecisionResponse:
+    """The checker's decision on a cheque a maker has decided: confirm it or overrule it. Never the maker."""
+    if ctx.role.value not in _REVIEW_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    if not body.reason or not body.reason.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for validation")
 
-    log.info(
-        "cts.review_decision_submitted",
-        instrument_id=instrument_id,
-        bank_id=bank_id,
-        action=body.action,
-        reviewer_id=reviewer_id,
-    )
+    lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
+    if not cts_config.get("maker_checker_enabled"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Maker-checker is not enabled for this bank")
+    if meta.get("stage") != "VALIDATION":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is not waiting for a checker")
+    if meta.get("maker_id") == reviewer_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You made the first decision on this cheque; a different person must check it")
+    await _take_or_check_claim(lock_svc, instrument_id, reviewer_id, cts_config)
 
-    return ReviewDecisionResponse(
-        instrument_id=instrument_id,
-        workflow_id=workflow_id,
-        signal_sent=signal_sent,
-    )
+    workflow_id = f"cts-humanreview-{bank_id}-{instrument_id}"
+    decision = ReviewDecision(action=body.action, reason=body.reason.strip(), reviewer_id=reviewer_id, decided_at=time.time())
+    signal_sent = await _signal_review(request, workflow_id, "receive_checker_decision", decision, instrument_id, bank_id)
+    await _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision)
+    await _finish_allocation(lock_svc, bank_id, instrument_id, reviewer_id)
+
+    log.info("cts.review_validated", instrument_id=instrument_id, bank_id=bank_id, action=body.action,
+             checker_id=reviewer_id, maker_id=meta.get("maker_id"), overrode=body.action != meta.get("maker_decision"))
+    return ReviewDecisionResponse(instrument_id=instrument_id, workflow_id=workflow_id, signal_sent=signal_sent)
 
 
 @router_v1.get(

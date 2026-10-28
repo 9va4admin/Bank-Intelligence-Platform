@@ -630,6 +630,10 @@ class ChequeProcessingWorkflow:
                         iet_deadline=inp.iet_deadline,
                         review_timeout_minutes=review_timeout_minutes,
                         bucket=_hr_bucket,
+                        # Maker-checker: the reviewer's decision goes to a second person before it is filed.
+                        maker_checker=bool(inp.cts_config.get("maker_checker_enabled")),
+                        checker_timeout_minutes=max(1, int(inp.cts_config.get("checker_review_timeout_minutes", 15))),
+                        iet_guard_minutes=max(0, int(inp.cts_config.get("sip_iet_guard_minutes", 10))),
                     ),
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                     task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),

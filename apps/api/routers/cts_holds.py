@@ -782,6 +782,9 @@ async def claim_instrument(
         if result.reason == "NOT_SUBSCRIBED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="This cheque is in a bucket you are not connected to")
+        if result.reason == "FOUR_EYES":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You made the first decision on this cheque; a different person must check it")
     else:
         result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
 
@@ -1126,6 +1129,10 @@ async def admin_assign_review(
     cts_config = await _cts_config(request, bank_id)
     alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=_subscriptions(request, redis))
     if not await alloc_svc.can_take(bank_id, instrument_id, target, cts_config):
+        maker = (await lock_svc.get_item_meta(bank_id, instrument_id)).get("maker_id")
+        if maker == target:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="That reviewer made the first decision on this cheque; a different person must check it")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="That reviewer is not connected to this cheque's bucket; connect them first")
 

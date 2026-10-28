@@ -145,3 +145,46 @@ async def test_a_misc_item_is_not_retried_because_people_claim_it_themselves():
     redis = FakeRedis()
     await _run(_env_b(bucket="MISC"), redis, _cfg(bucket_routing_enabled=True))
     assert f"hybrid-pending:{BANK}" not in redis.z or "I-1" not in redis.z[f"hybrid-pending:{BANK}"]
+
+
+# --- maker-checker: the checker-stage event -----------------------------------------------------------------------
+
+def _val_env(iid="I-1", maker="maker", decision="CONFIRM"):
+    e = _env(iid)
+    e.payload.update({"bucket": "VAL", "stage": "VALIDATION", "maker_decision": decision, "maker_id": maker})
+    return e
+
+
+@pytest.mark.asyncio
+async def test_a_validation_event_moves_the_item_to_val_and_remembers_the_maker_and_where_it_came_from():
+    redis = FakeRedis(); lock = LockService(redis)
+    await lock.set_item_meta(BANK, "I-1", zone="WEST", iet_deadline=999.0, bucket="HVC", queued_at=1.0)
+    await lock.acquire_lock("I-1", "maker", {})
+    await _run(_val_env(), redis, _cfg(allocation_mode="SELF"))
+    meta = await lock.get_item_meta(BANK, "I-1")
+    assert (meta["bucket"], meta["origin_bucket"], meta["maker_id"], meta["maker_decision"], meta["stage"]) == \
+           ("VAL", "HVC", "maker", "CONFIRM", "VALIDATION")
+    assert meta["zone"] == "WEST"                                     # what was known about the cheque is kept
+    assert await lock.get_lock_holder("I-1") is None                  # the maker no longer holds it
+
+
+@pytest.mark.asyncio
+async def test_auto_mode_gives_the_validation_item_to_a_checker_never_the_maker():
+    redis = FakeRedis(); lock = LockService(redis); pool = FakeSubsPool()
+    subs = SubscriptionStore(pool, redis=None)
+    for who in ("maker", "checker"):
+        await subs.set_reviewer_buckets(BANK, who, ["VAL"], "boss"); await lock.heartbeat_reviewer(BANK, who)
+    await lock.set_item_meta(BANK, "I-1", bucket="HVC", queued_at=1.0)
+    await handle_human_review_event(_val_env(), immudb=AsyncMock(), db=pool, redis=redis,
+                                    config_svc=_cfg(bucket_routing_enabled=True))
+    assert await lock.get_lock_holder("I-1") == "checker"
+
+
+@pytest.mark.asyncio
+async def test_with_only_the_maker_online_the_item_waits_for_a_checker_with_a_retry():
+    redis = FakeRedis(); lock = LockService(redis)
+    await lock.heartbeat_reviewer(BANK, "maker")
+    await lock.set_item_meta(BANK, "I-1", bucket="HVC", queued_at=1.0)
+    await _run(_val_env(), redis, _cfg())
+    assert await lock.get_lock_holder("I-1") is None
+    assert "I-1" in redis.z[f"hybrid-pending:{BANK}"]
