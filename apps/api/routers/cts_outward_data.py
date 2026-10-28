@@ -143,6 +143,29 @@ class OutwardReviewDecisionResponse(BaseModel):
     message: str
 
 
+class OutwardValidationItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    cheque_number: str
+    payee_display: str
+    amount_range: str
+    review_reason: Optional[str] = None
+    branch_id: Optional[str] = None
+    lot_id: Optional[str] = None
+    instrument_category: str = "CHEQUE"
+    maker_id: str
+    maker_decision: str
+    maker_reason: str = ""
+    made_at: IsoTimestamp
+
+
+class OutwardValidationQueueResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[OutwardValidationItem]
+    total: int
+
+
 class SessionSettlementRow(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str
@@ -386,6 +409,19 @@ class OutwardPipelineResponse(BaseModel):
 # ── Role constants ─────────────────────────────────────────────────────────────
 
 _OUTWARD_Q_ROLES = {"ops_reviewer", "ops_manager", "bank_it_admin", "branch_manager"}
+_OUTWARD_CHECK_ROLES = {"ops_reviewer", "ops_manager"}
+SQL_STAGE_INSERT = ("INSERT INTO cts.outward_review_stage (bank_id, instrument_id, maker_id, maker_decision, maker_reason) "
+                    "VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING")
+SQL_STAGE_GET = ("SELECT maker_id, maker_decision FROM cts.outward_review_stage "
+                 "WHERE bank_id = $1 AND instrument_id = $2 AND status = 'MAKER_DECIDED'")
+SQL_STAGE_FINAL = ("UPDATE cts.outward_review_stage SET status = 'FINAL', checker_id = $3, checked_at = now() "
+                   "WHERE bank_id = $1 AND instrument_id = $2")
+SQL_STAGE_LIST = ("SELECT g.instrument_id, e.scan_id AS cheque_number, e.payee_display, e.amount_range, "
+                  "e.reject_reason AS review_reason, e.branch_id, e.lot_id, e.instrument_category, "
+                  "g.maker_id, g.maker_decision, g.maker_reason, g.made_at::text AS made_at "
+                  "FROM cts.outward_review_stage g LEFT JOIN cts.outward_scan_events e "
+                  "ON e.bank_id = g.bank_id AND e.instrument_id = g.instrument_id "
+                  "WHERE g.bank_id = $1 AND g.status = 'MAKER_DECIDED' ORDER BY g.made_at LIMIT $2")
 _LOT_READ_ROLES = {"ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager"}
 _ANALYTICS_READ_ROLES = {"ops_manager", "fraud_analyst", "bank_it_admin", "ops_reviewer"}
 _RECON_READ_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer"}
@@ -644,6 +680,8 @@ async def get_outward_human_review_queue(
             FROM cts.outward_scan_events
             WHERE bank_id = $1
               AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR')
+              AND NOT EXISTS (SELECT 1 FROM cts.outward_review_stage g WHERE g.bank_id = outward_scan_events.bank_id
+                              AND g.instrument_id = outward_scan_events.instrument_id AND g.status = 'MAKER_DECIDED')
               AND ($3::text IS NULL OR instrument_category = $3)
             ORDER BY scanned_at DESC
             LIMIT $2
@@ -675,6 +713,50 @@ async def get_outward_human_review_queue(
     return OutwardQueueResponse(bank_id=bank_id, items=items, total=len(items))
 
 
+async def _maker_checker_on(request: Request, bank_id: str) -> bool:
+    cs = getattr(request.app.state, "config_service", None)
+    if cs is None:
+        return False
+    try:
+        return bool((await cs.get_cts_config(bank_id)).get("maker_checker_enabled"))
+    except Exception:  # noqa: BLE001 - config trouble must not change who can file a decision
+        return False
+
+
+async def _file_outward_decision(request: Request, ctx: UserContext, instrument_id: str, action: str, reason: str) -> bool:
+    """Make a decision final: signal the workflow, set the instrument status, close the review item. True if signalled."""
+    bank_id = ctx.bank_id
+    temporal = getattr(request.app.state, "temporal_client", None)
+    signal_sent = False
+    if temporal is not None:
+        try:
+            wf = temporal.get_workflow_handle(f"cts-{bank_id}-{instrument_id}")
+            await wf.signal("receive_review_decision", {"action": action, "reason": reason})
+            signal_sent = True
+        except Exception as exc:
+            log.warning("cts.outward_review.signal_failed", instrument_id=instrument_id, error=str(exc))
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is not None:
+        try:
+            new_status = "STP_CONFIRM" if action == "CONFIRMED" else "STP_RETURN"
+            async with db.acquire() as conn:
+                await conn.execute(
+                    "UPDATE cts.cheque_instruments SET status=$1 WHERE instrument_id=$2 AND bank_id=$3",
+                    new_status, instrument_id, bank_id,
+                )
+        except Exception as exc:
+            log.warning("cts.outward_review.db_update_failed", instrument_id=instrument_id, error=str(exc))
+        try:
+            from modules.cts.review_queue import decide_by_instrument
+            async with db.acquire() as conn:
+                await decide_by_instrument(conn, bank_id=bank_id, direction="OUTWARD", instrument_ref=instrument_id,
+                                           decision=action, reviewer_id=ctx.user_id, notes=reason or "")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+    return signal_sent
+
+
 @router_v1.post(
     "/outward/review/{instrument_id}/decide",
     response_model=OutwardReviewDecisionResponse,
@@ -686,42 +768,25 @@ async def decide_outward_review(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
 ) -> OutwardReviewDecisionResponse:
+    """The reviewer's decision. With maker-checker on it is the maker's: staged for a checker, not yet final."""
     if ctx.role.value not in _OUTWARD_Q_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
     bank_id = ctx.bank_id
     instrument_id = _safe_temporal_param(instrument_id, "instrument_id")
 
-    temporal = getattr(request.app.state, "temporal_client", None)
-    signal_sent = False
-    if temporal is not None:
-        try:
-            wf = temporal.get_workflow_handle(f"cts-{bank_id}-{instrument_id}")
-            await wf.signal("receive_review_decision", {"action": body.action, "reason": body.reason})
-            signal_sent = True
-        except Exception as exc:
-            log.warning("cts.outward_review.signal_failed", instrument_id=instrument_id, error=str(exc))
-
     db = getattr(request.app.state, "db_pool_cts", None)
-    if db is not None:
-        try:
-            new_status = "STP_CONFIRM" if body.action == "CONFIRMED" else "STP_RETURN"
-            async with db.acquire() as conn:
-                await conn.execute(
-                    "UPDATE cts.cheque_instruments SET status=$1 WHERE instrument_id=$2 AND bank_id=$3",
-                    new_status, instrument_id, bank_id,
-                )
-        except Exception as exc:
-            log.warning("cts.outward_review.db_update_failed", instrument_id=instrument_id, error=str(exc))
+    if db is not None and await _maker_checker_on(request, bank_id):
+        async with db.acquire() as conn:
+            result = await conn.execute(SQL_STAGE_INSERT, bank_id, instrument_id, ctx.user_id, body.action, body.reason or "")
+        if not str(result).endswith(" 1"):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="A decision has already been made on this instrument and is waiting for a checker")
+        log.info("cts.outward_review.maker_decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
+        return OutwardReviewDecisionResponse(
+            instrument_id=instrument_id, action=body.action, workflow_signal_sent=False,
+            message=f"Decision {body.action} recorded and sent to a checker; it is not final until the checker confirms.")
 
-    if db is not None:
-        try:
-            from modules.cts.review_queue import decide_by_instrument
-            async with db.acquire() as conn:
-                await decide_by_instrument(conn, bank_id=bank_id, direction="OUTWARD", instrument_ref=instrument_id,
-                                           decision=body.action, reviewer_id=ctx.user_id, notes=body.reason or "")
-        except Exception as exc:  # noqa: BLE001
-            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
-
+    signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason)
     log.info("cts.outward_review.decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
     return OutwardReviewDecisionResponse(
         instrument_id=instrument_id,
@@ -729,6 +794,73 @@ async def decide_outward_review(
         workflow_signal_sent=signal_sent,
         message=f"Decision {body.action} recorded. Workflow signal {'sent' if signal_sent else 'queued (Temporal unavailable)'}.",
     )
+
+
+@router_v1.post(
+    "/outward/review/{instrument_id}/validate",
+    response_model=OutwardReviewDecisionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_outward_review(
+    instrument_id: str,
+    body: OutwardReviewDecisionRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> OutwardReviewDecisionResponse:
+    """The checker's decision on a staged maker decision: confirm or overrule it. Never the maker."""
+    if ctx.role.value not in _OUTWARD_CHECK_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    bank_id = ctx.bank_id
+    instrument_id = _safe_temporal_param(instrument_id, "instrument_id")
+    if not body.reason or not body.reason.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for validation")
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+    if not await _maker_checker_on(request, bank_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Maker-checker is not enabled for this bank")
+
+    async with db.acquire() as conn:
+        staged = await conn.fetchrow(SQL_STAGE_GET, bank_id, instrument_id)
+    if not staged:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is not waiting for a checker")
+    if staged["maker_id"] == ctx.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You made the first decision on this instrument; a different person must check it")
+
+    signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason.strip())
+    async with db.acquire() as conn:
+        await conn.execute(SQL_STAGE_FINAL, bank_id, instrument_id, ctx.user_id)
+    log.info("cts.outward_review.validated", instrument_id=instrument_id, bank_id=bank_id, checker_id=ctx.user_id,
+             maker_id=staged["maker_id"], overrode=body.action != staged["maker_decision"])
+    return OutwardReviewDecisionResponse(
+        instrument_id=instrument_id, action=body.action, workflow_signal_sent=signal_sent,
+        message=f"Decision {body.action} filed by the checker.")
+
+
+@router_v1.get("/outward/validation-queue", response_model=OutwardValidationQueueResponse)
+async def get_outward_validation_queue(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    limit: int = Query(100, ge=1, le=100),
+) -> OutwardValidationQueueResponse:
+    """Outward instruments whose maker has decided and which wait for a checker."""
+    if ctx.role.value not in _OUTWARD_CHECK_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return OutwardValidationQueueResponse(bank_id=ctx.bank_id, items=[], total=0)
+    try:
+        rows = await db.fetch(SQL_STAGE_LIST, ctx.bank_id, limit)
+    except Exception as exc:
+        log.error("cts.outward_validation_queue.query_failed", bank_id=ctx.bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+    items = [OutwardValidationItem(
+        instrument_id=r["instrument_id"], cheque_number=r["cheque_number"] or "", payee_display=r["payee_display"] or "",
+        amount_range=r["amount_range"] or "", review_reason=r["review_reason"], branch_id=r["branch_id"], lot_id=r["lot_id"],
+        instrument_category=r["instrument_category"] or "CHEQUE", maker_id=r["maker_id"],
+        maker_decision=r["maker_decision"], maker_reason=r["maker_reason"], made_at=str(r["made_at"])) for r in rows]
+    return OutwardValidationQueueResponse(bank_id=ctx.bank_id, items=items, total=len(items))
 
 
 @router_v1.get("/outward/settlement", response_model=SettlementResponse)

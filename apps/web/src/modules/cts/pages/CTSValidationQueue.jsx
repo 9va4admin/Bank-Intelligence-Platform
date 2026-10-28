@@ -41,6 +41,56 @@ async function postValidation(instrumentId, action, reason) {
   }
 }
 
+// An outward instrument whose maker has decided and which waits for a checker.
+function adaptStagedOutward(i) {
+  const f = v => ({ extracted_value: v, extracted_confidence: 1, extracted_by: 'ASTRA', actual_value: v, source: 'STP' })
+  return {
+    instrument_id: i.instrument_id,
+    source_stage: 'VERIFIED',
+    outcome_label: 'Maker decided',
+    instrument_category: i.instrument_category || 'CHEQUE',
+    account_display: '****',
+    drawer_name: '—',
+    maker_id: i.maker_id,
+    maker_decision: i.maker_decision,
+    staged_outward: true,
+    lot_number: i.lot_id ?? '—',
+    decision_reason: i.maker_reason || i.review_reason,
+    fields_meta: { payee: f(i.payee_display ?? ''), amount_figures: f(i.amount_range ?? '') },
+  }
+}
+
+async function postOutwardValidation(instrumentId, action, reason) {
+  const res = await fetch(`${_VQ_API_BASE}/v1/cts/outward/review/${encodeURIComponent(instrumentId)}/validate`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, reason, reason_category: 'manual' }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Validation failed')
+  }
+}
+
+function useOutwardStagedQueue({ pollEnabled }) {
+  const [items, setItems] = useState([])
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_VQ_API_BASE}/v1/cts/outward/validation-queue?limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems((json.items ?? []).map(adaptStagedOutward))
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 15_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
+
 function useInwardValidationQueue({ pollEnabled, bankId }) {
   const [items, setItems] = useState(null)
   const timerRef = useRef(null)
@@ -764,6 +814,9 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   // Live data for inward tab — polls /v1/cts/inward/human-review-queue
   const liveInwardItems = useInwardValidationQueue({ pollEnabled: isInward && !isDemo, bankId })
 
+  // Maker-checker: outward instruments a maker has decided, waiting for a checker (shown first, whatever else is live).
+  const stagedOutward = useOutwardStagedQueue({ pollEnabled: !isInward && !isDemo })
+
   const BASE = useDemoData(isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD)
   const [instruments, setInstruments] = useState(() => BASE.map(i => ({ ...i, edits: {} })))
 
@@ -772,7 +825,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   useEffect(() => {
     if (!isInward && liveDecisions.length > 0 && liveDecisions !== prevLiveRef.current) {
       prevLiveRef.current = liveDecisions
-      setInstruments(liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} })))
+      setInstruments(prev => [...prev.filter(i => i.staged_outward), ...liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} }))])
     }
   }, [liveDecisions, isInward])
 
@@ -784,6 +837,15 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
       setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
     }
   }, [liveInwardItems, isInward])
+  const prevStagedRef = useRef(null)
+  useEffect(() => {
+    if (isInward || isDemo || stagedOutward === prevStagedRef.current) return
+    prevStagedRef.current = stagedOutward
+    setInstruments(prev => {
+      const others = prev.filter(i => !i.staged_outward)
+      return [...stagedOutward.map(d => ({ ...d, edits: {} })), ...others]
+    })
+  }, [stagedOutward, isInward, isDemo])
   const [filter, setFilter]           = useState('ALL')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
@@ -851,7 +913,24 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
     }
   }
 
+  async function submitOutwardValidation(instrumentId, action, reason) {
+    setActionError(null); setBusyId(instrumentId)
+    try {
+      await postOutwardValidation(instrumentId, action, reason)
+      removeRow(instrumentId)
+    } catch (e) {
+      setActionError(`${instrumentId}: ${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function handleApprove(instrumentId) {
+    const staged = instruments.find(i => i.instrument_id === instrumentId)
+    if (!isInward && !isDemo && staged?.staged_outward) {
+      submitOutwardValidation(instrumentId, staged.maker_decision, 'Checker agrees with the maker')
+      return
+    }
     if (isInward && !isDemo) {
       // Approve = the checker agrees with the maker.
       const inst = instruments.find(i => i.instrument_id === instrumentId)
@@ -863,6 +942,11 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
 
   function doReturn(instrumentId, reason) {
     setReturnOpenFor(null)
+    const staged = instruments.find(i => i.instrument_id === instrumentId)
+    if (!isInward && !isDemo && staged?.staged_outward) {
+      submitOutwardValidation(instrumentId, 'REJECTED', reason || 'Returned by checker')
+      return
+    }
     if (isInward && !isDemo) {
       // Return = the checker overrules to RETURN, with the chosen return reason.
       submitValidation(instrumentId, 'RETURN', reason || 'Returned by checker')

@@ -88,3 +88,26 @@ describe('CTSValidationQueue (inward, live)', () => {
     expect(screen.getByText('I-1')).toBeTruthy()
   })
 })
+
+describe('CTSValidationQueue (outward, maker-checker)', () => {
+  const STAGED = [{ instrument_id: 'O-1', cheque_number: '1', payee_display: 'P***', amount_range: '₹[<1L]', maker_id: 'maker-9',
+                    maker_decision: 'CONFIRMED', maker_reason: 'ok', instrument_category: 'CHEQUE', made_at: '2026-10-28T10:00:00Z' }]
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async (url, opts = {}) => {
+      const path = String(url).split('?')[0]
+      calls.push({ path, url: String(url), opts })
+      if (path === '/v1/cts/outward/validation-queue') return { ok: true, json: async () => ({ items: STAGED }) }
+      return { ok: true, json: async () => ({}) }
+    })
+  })
+
+  it('lists the makers staged decisions and approving files the same decision through validate', async () => {
+    render(<MemoryRouter><CTSValidationQueue mode="outward" /></MemoryRouter>)
+    expect(await screen.findByText('O-1')).toBeTruthy()
+    expect(screen.getByText(/maker-9/)).toBeTruthy()
+    fireEvent.click(screen.getAllByTitle(/Approve/)[0])
+    await waitFor(() => expect(calls.some(c => c.path.endsWith('/outward/review/O-1/validate'))).toBe(true))
+    const body = JSON.parse(calls.find(c => c.path.endsWith('/validate')).opts.body)
+    expect(body.action).toBe('CONFIRMED')
+  })
+})
