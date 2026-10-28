@@ -5,7 +5,6 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
-import { CENTRAL_BANK_BRANCHES } from '../../../shared/config/centralBankOfIndiaBranches'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: no backend, use client-side mock data.
@@ -90,21 +89,6 @@ MOCK_BRANCHES_DB['federal-bank'] = FEDERAL_BANK_BRANCHES.map((b, i) => ({
   is_active:          true,
   scanner_input_mode: SCANNER_MODES[i % SCANNER_MODES.length],
   pu_id:              STATE_TO_PU[b.state] ?? 'SOUTH-MAIN',
-}))
-
-MOCK_BRANCHES_DB['central-bank-of-india'] = CENTRAL_BANK_BRANCHES.map((b, i) => ({
-  branch_name:        b.name,
-  branch_ifsc:        b.ifsc,
-  micr_code:          b.micr,
-  address:            b.address,
-  city:               b.city,
-  district:           b.district,
-  state:              b.state,
-  pin_code:           b.pin,
-  phone_number:       b.phone,
-  is_active:          true,
-  scanner_input_mode: SCANNER_MODES[i % SCANNER_MODES.length],
-  pu_id:              '',
 }))
 
 // Pick the mock set for the currently configured bank; fall back to an empty list.

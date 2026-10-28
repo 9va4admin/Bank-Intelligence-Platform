@@ -325,6 +325,7 @@ async def list_branches(
     is_active: Optional[bool] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
     cursor: Optional[str] = Query(default=None),
+    offset: int = Query(default=0, ge=0, description="Rows to skip (the branch master pages with limit + offset)"),
     user: dict = Depends(_require_read),
 ):
     with tracer.start_as_current_span("branches.list") as span:
@@ -367,13 +368,14 @@ async def list_branches(
                         f"scanner_input_mode, "
                         f"is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         f"FROM cts.branches WHERE {where} "
-                        f"ORDER BY branch_name LIMIT ${idx}",
+                        f"ORDER BY branch_name, branch_ifsc LIMIT ${idx} OFFSET ${idx + 1}",
                         *params,
                         limit,
+                        offset,
                     )
                     total_row = await conn.fetchrow(
                         f"SELECT COUNT(*) as cnt FROM cts.branches WHERE {where}",
-                        *params[:-1] if q else params,
+                        *params,
                     )
                     total = total_row["cnt"] if total_row else 0
                     branches = [_branch_to_response(dict(r)) for r in rows]
