@@ -1,3 +1,4 @@
+import { sampleSmb } from '../../../shared/config/bank.config'
 import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -9,7 +10,7 @@ import useSMBLedgers from '../hooks/useSMBLedgers'
 const MOCK_LEDGER = [
   {
     sub_member_id: 'smb-mh-vasavi',
-    bank_name: 'Vasavi Co-operative Bank',
+    bank_name: sampleSmb(0).name,
     session_date: '2026-06-26',
     clearing_session: 'SESSION_1',
     total: 312,

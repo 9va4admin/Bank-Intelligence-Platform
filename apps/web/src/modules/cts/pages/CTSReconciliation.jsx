@@ -1,3 +1,4 @@
+import { sampleSmb } from '../../../shared/config/bank.config'
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
@@ -11,7 +12,7 @@ import useReconciliation from '../hooks/useReconciliation'
 const SMB_LEDGERS = [
   {
     sub_member_id: 'SMB-MH-001',
-    bank_name: 'Vasavi Co-op Bank',
+    bank_name: sampleSmb(0).name,
     sponsor_bank_id: 'SVCB-DIRECT-001',
     total_received: 42,
     stp_pass: 28,

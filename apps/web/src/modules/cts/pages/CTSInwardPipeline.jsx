@@ -1,3 +1,4 @@
+import { sampleSmb } from '../../../shared/config/bank.config'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -13,8 +14,8 @@ import useInwardAnalytics from '../hooks/useInwardAnalytics'
 // Sub-member UCBs routed through Federal Bank as sponsor — smaller UCBs that
 // do not have direct NGCH membership; Federal Bank forwards on their behalf
 const SMB_LIST = [
-  { id: 'smb-kl-tsucb',  name: 'Thrissur UCB',          ifsc: 'TSUB0000001', city: 'Thrissur'   },
-  { id: 'smb-kl-eklucb', name: 'Ernakulam UCB',          ifsc: 'EKLB0000001', city: 'Kochi'      },
+  { id: sampleSmb(0).id, name: sampleSmb(0).name, ifsc: sampleSmb(0).ifsc, city: sampleSmb(0).city },
+  { id: sampleSmb(1).id, name: sampleSmb(1).name, ifsc: sampleSmb(1).ifsc, city: sampleSmb(1).city },
   { id: 'smb-kl-mlbcb',  name: 'Malabar Co-op Bank',     ifsc: 'MLCB0000001', city: 'Kozhikode'  },
   { id: 'smb-tn-cbucb',  name: 'Coimbatore City UCB',    ifsc: 'CBUB0000001', city: 'Coimbatore' },
   { id: 'smb-ka-mgucb',  name: 'Mangaluru UCB',          ifsc: 'MGUB0000001', city: 'Mangaluru'  },

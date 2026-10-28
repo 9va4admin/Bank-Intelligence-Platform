@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = join(process.cwd(), 'src')
-const NAMES = /Saraswat|Federal Bank|Union Bank/
+const NAMES = /Saraswat|Federal Bank|Union Bank|Vasavi|Thrissur UCB|Ernakulam UCB/
 const ALLOWED = [
   'shared/config/bank.config.js', 'shared/config/federalBankBranches.js',
   'modules/cts/pages/CTSBranchMaster.jsx',      // per-bank keyed branch tables

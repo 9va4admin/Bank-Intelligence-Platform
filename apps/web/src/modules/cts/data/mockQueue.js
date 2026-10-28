@@ -1,5 +1,5 @@
 import { demoChequeUrl } from '../demoImages'
-import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
 
 const now = Date.now()
 const mins = (m) => now + m * 60 * 1000
@@ -8,8 +8,8 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006214',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Thrissur UCB',
-    branch: 'Thrissur Main',
+    bank: sampleSmb(0).name,
+    branch: `${sampleSmb(0).city} Main`,
     bank_slug: 'smb-kl-tsucb',
     account_display: '****4813',
     payee_display: 'Krishnan Textiles Pvt. Ltd.',
@@ -46,7 +46,7 @@ export const MOCK_QUEUE = [
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 22-Apr-2026',
     principal_tag: 'SUB_MEMBER',
-    sub_member_name: 'Thrissur UCB',
+    sub_member_name: sampleSmb(0).name,
     sub_member_id: 'SMB-KL-001',
     alteration_result: {
       alteration_detected: false, tamper_risk_score: 0.04, physical_anomaly_score: 0.02,
@@ -180,7 +180,7 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006259',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Ernakulam UCB',
+    bank: sampleSmb(1).name,
     branch: 'Kochi Mattancherry',
     bank_slug: 'smb-kl-eklucb',
     account_display: '****7702',
@@ -218,7 +218,7 @@ export const MOCK_QUEUE = [
     sig_specimen_available: false,
     sig_specimen_label: 'No specimen — account opened 03-Mar-2026',
     principal_tag: 'SUB_MEMBER',
-    sub_member_name: 'Ernakulam UCB',
+    sub_member_name: sampleSmb(1).name,
     sub_member_id: 'SMB-KL-002',
     alteration_result: {
       alteration_detected: false, tamper_risk_score: 0.06, physical_anomaly_score: 0.03,

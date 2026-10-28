@@ -1,3 +1,4 @@
+import { sampleSmb } from '../../../shared/config/bank.config'
 import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -12,7 +13,7 @@ const MOCK_LOG = [
     forwarding_id: 'fwd-8a2b3c4d',
     instrument_id: 'CHQ-MH-20260626-00312',
     sub_member_id: 'smb-mh-vasavi',
-    bank_name: 'Vasavi Co-operative Bank',
+    bank_name: sampleSmb(0).name,
     micr_prefix_matched: '400053',
     forwarding_status: 'COMPLETED',
     terminal_decision: 'STP_CONFIRM',
@@ -60,7 +61,7 @@ const MOCK_LOG = [
     forwarding_id: 'fwd-5a6b7c8d',
     instrument_id: 'CHQ-MH-20260626-00004',
     sub_member_id: 'smb-mh-vasavi',
-    bank_name: 'Vasavi Co-operative Bank',
+    bank_name: sampleSmb(0).name,
     micr_prefix_matched: '400053',
     forwarding_status: 'FAILED',
     terminal_decision: 'IET_EMERGENCY',

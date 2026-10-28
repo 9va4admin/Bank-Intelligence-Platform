@@ -21,7 +21,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import OutwardReviewPanel from '../components/OutwardReviewPanel'
 import { demoChequeUrl } from '../demoImages'
-import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -108,10 +108,10 @@ const MOCK_HUMAN_REVIEW = [
     instrument_id: 'CHQ-OUT-00527', front_bw_url: null, front_gray_url: null,
     iqa_front_bw: 0.97, iqa_back_bw: 0.96, iqa_front_gray: 0.95,
     account_display: '****3308', payee_display: 'Deshmukh & Co.',
-    amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: 'Vasavi Co-operative Bank',
+    amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: sampleSmb(0).name,
     branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: 'smb-mh-vasavi',
     reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
-    scanner_id: 'SCN-ANDH-03', lot_number: 'LOT_VASB0000001_20260619_01',
+    scanner_id: 'SCN-ANDH-03', lot_number: `LOT_${sampleSmb(0).ifsc}_20260619_01`,
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
     checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
@@ -158,7 +158,7 @@ const MOCK_STP_REJECTED = [
     amount_range: '₹[<1L]', micr: '400160002788', bank: 'Andheri Urban Co-op Bank',
     branch: 'Andheri (E)', pu: 'PU-MUM-04', bank_slug: 'smb-mh-andheri',
     reason: 'DATE_INVALID', reason_label: 'Date invalid / stale — auto-rejected', received_at: '11:05 AM',
-    scanner_id: 'SCN-ANDE-02', lot_number: 'LOT_VASB0000001_20260619_02',
+    scanner_id: 'SCN-ANDE-02', lot_number: `LOT_${sampleSmb(0).ifsc}_20260619_02`,
     ocr_confidence: 0.93, vision_compliance: 0.95, micr_confidence: 0.97,
     checks: { signature_present: true, amount_words_match: true, date_valid: false, cts_valid: true },
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
