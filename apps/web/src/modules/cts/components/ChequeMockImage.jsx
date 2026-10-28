@@ -1,3 +1,4 @@
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 export default function ChequeMockImage({ fields, alterations, isDark }) {
   const wrap   = isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
   const bank   = isDark ? 'text-slate-300' : 'text-slate-800'
@@ -23,7 +24,7 @@ export default function ChequeMockImage({ fields, alterations, isDark }) {
       {/* Bank header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <div className={`${bank} font-bold text-sm`}>Saraswat Co-operative Bank</div>
+          <div className={`${bank} font-bold text-sm`}>{BANK_CONFIG.bank_name}</div>
           <div className={`${sub} text-[10px]`}>Branch: Andheri (W), Mumbai — IFSC: SRCB0000001</div>
         </div>
         <div className="text-right">

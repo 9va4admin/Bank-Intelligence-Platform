@@ -1,3 +1,4 @@
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   ReactFlow,
@@ -82,15 +83,15 @@ export function urgency(ietDeadline) {
 export function makeMockInstruments() {
   const now = Date.now()
   return [
-    { id: 'CHQ-7821', stage: 'RECEIVED',  ietDeadline: now + 172 * 60000, bank: 'Saraswat CB',  amount: '₹[1L-5L]',   script: null, status: 'PROCESSING'   },
+    { id: 'CHQ-7821', stage: 'RECEIVED',  ietDeadline: now + 172 * 60000, bank: BANK_CONFIG.bank_short_name,  amount: '₹[1L-5L]',   script: null, status: 'PROCESSING'   },
     { id: 'CHQ-7822', stage: 'RECEIVED',  ietDeadline: now + 168 * 60000, bank: 'SBI Andheri',  amount: '₹[<1L]',     script: null, status: 'PROCESSING'   },
     { id: 'CHQ-7815', stage: 'OCR',       ietDeadline: now + 147 * 60000, bank: 'Cosmos Bank',  amount: '₹[5L-10L]',  script: 'ml', status: 'PROCESSING'   },
     { id: 'CHQ-7816', stage: 'OCR',       ietDeadline: now + 82  * 60000, bank: 'HDFC Bandra',  amount: '₹[1L-5L]',   script: null, status: 'PROCESSING'   },
     { id: 'CHQ-7809', stage: 'SIGNATURE', ietDeadline: now + 55  * 60000, bank: 'Axis Colaba',  amount: '₹[>1Cr]',    script: null, status: 'PROCESSING'   },
     { id: 'CHQ-7810', stage: 'SIGNATURE', ietDeadline: now + 29  * 60000, bank: 'BOB Dadar',    amount: '₹[10L-1Cr]', script: 'hi', status: 'PROCESSING'   },
     { id: 'CHQ-7802', stage: 'FRAUD',     ietDeadline: now + 18  * 60000, bank: 'UCO Parel',    amount: '₹[5L-10L]',  script: null, status: 'PROCESSING'   },
-    { id: 'CHQ-7795', stage: 'REVIEW',    ietDeadline: now + 11  * 60000, bank: 'Federal Bank', amount: '₹[1L-5L]',   script: 'ml', status: 'HUMAN_REVIEW' },
-    { id: 'CHQ-7796', stage: 'REVIEW',    ietDeadline: now + 4   * 60000, bank: 'Saraswat CB',  amount: '₹[<1L]',     script: null, status: 'HUMAN_REVIEW' },
+    { id: 'CHQ-7795', stage: 'REVIEW',    ietDeadline: now + 11  * 60000, bank: BANK_CONFIG.bank_short_name, amount: '₹[1L-5L]',   script: 'ml', status: 'HUMAN_REVIEW' },
+    { id: 'CHQ-7796', stage: 'REVIEW',    ietDeadline: now + 4   * 60000, bank: BANK_CONFIG.bank_short_name,  amount: '₹[<1L]',     script: null, status: 'HUMAN_REVIEW' },
     { id: 'CHQ-7788', stage: 'NGCH',      ietDeadline: now + 61  * 60000, bank: 'SBI Kurla',    amount: '₹[1L-5L]',   script: null, status: 'NGCH_FILING'  },
   ]
 }

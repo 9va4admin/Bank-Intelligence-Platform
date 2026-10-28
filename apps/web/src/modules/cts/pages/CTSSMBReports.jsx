@@ -8,6 +8,7 @@
  *
  * smbOnly: SB users see their own aggregated reports elsewhere.
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -78,7 +79,7 @@ const MOCK_RRF = [
 
 const MOCK_SETTLEMENT = {
   date: '2026-07-05',
-  sponsor_bank: 'Saraswat Co-operative Bank',
+  sponsor_bank: BANK_CONFIG.bank_name,
   sponsor_ifsc: 'SRCB0000001',
   inward_count: 318,
   inward_value_L: 84.5,

@@ -8,6 +8,7 @@
  *   - Settlement finality tracker
  *   - Download: settlement position statement
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -75,7 +76,7 @@ const SB_COUNTERPARTIES = [
 
 // SMB settles through its Sponsor Bank only — single counterparty
 const SMB_COUNTERPARTIES = [
-  { ifsc: 'SRCB0000001', name: 'Saraswat Co-op Bank (Sponsor)', ours_cr: 8.45, theirs_cr: 5.80, net_cr: 2.65, dir: 'RECEIVE' },
+  { ifsc: `${BANK_CONFIG.ifsc_prefix}0000001`, name: `${BANK_CONFIG.bank_name} (Sponsor)`, ours_cr: 8.45, theirs_cr: 5.80, net_cr: 2.65, dir: 'RECEIVE' },
 ]
 
 const PIPELINE_STEPS = ['OPEN', 'PROCESSING', 'FILED', 'NGCH_ACK', 'SETTLED']

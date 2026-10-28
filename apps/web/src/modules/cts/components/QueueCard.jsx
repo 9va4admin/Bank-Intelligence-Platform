@@ -1,3 +1,4 @@
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import IETTimer from './IETTimer'
 
 const REASON_COLORS_D = {
@@ -63,7 +64,7 @@ export default function QueueCard({ item, selected, onClick, isDark = true }) {
             {item.account_display} · {item.payee_display}
           </div>
           <div className={`text-[10px] mt-0.5 truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            {item.bank ?? 'Saraswat Co-operative Bank'} · {item.branch ?? '—'}
+            {item.bank ?? BANK_CONFIG.bank_name} · {item.branch ?? '—'}
           </div>
         </div>
         <IETTimer deadline={item.iet_deadline} compact />

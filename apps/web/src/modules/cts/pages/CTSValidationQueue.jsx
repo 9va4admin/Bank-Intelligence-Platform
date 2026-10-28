@@ -4,6 +4,7 @@
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
  * Actions are icon buttons: ✓ approve · ↩ return (opens reason dropdown).
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { csrfHeader } from '../../../shared/api/csrf'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
@@ -200,7 +201,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Suresh B. Patkar — Saraswat customer; Payee: Ramesh N. Rao — received at presenting bank
     instrument_id: 'CHQ-IN-V001', source_stage: 'STP', front_bw_url: null, front_gray_url: null,
     account_display: '00000000004521', iet_deadline: new Date(Date.now() + 72 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Dadar',
     drawer_name: 'Suresh B. Patkar',
     ocr_score: 0.97, sig_score: 0.96, fraud_score: 0.03, iqa_score: 0.99,
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Suresh B. Patkar',
@@ -214,7 +215,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Prakash V. Rane — Saraswat customer; Payee: Meena S. Sharma
     instrument_id: 'CHQ-IN-V002', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null,
     account_display: '00000000008912', iet_deadline: new Date(Date.now() + 28 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Vile Parle',
     drawer_name: 'Prakash V. Rane',
     ocr_score: 0.86, sig_score: 0.84, fraud_score: 0.09, iqa_score: 0.97,
     name_match: 'PARTIAL_MATCH', name_match_cbs_name: 'Prakash Rane',
@@ -228,7 +229,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Anand M. Kulkarni — Saraswat customer; Payee: Priya R. Nair
     instrument_id: 'CHQ-IN-V003', source_stage: 'STP', front_bw_url: null, front_gray_url: null,
     account_display: '00000000002234', iet_deadline: new Date(Date.now() + 115 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Pune Main',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Pune Main',
     drawer_name: 'Anand M. Kulkarni',
     ocr_score: 0.96, sig_score: 0.95, fraud_score: 0.02, iqa_score: 0.99,
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Anand M. Kulkarni',
@@ -242,7 +243,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Deepak R. Joshi — but CBS shows this account belongs to Ramesh T. Mehta — mismatch
     instrument_id: 'CHQ-IN-V004', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null,
     account_display: '00000000006677', iet_deadline: new Date(Date.now() + 54 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Borivali',
     drawer_name: 'Deepak R. Joshi',
     ocr_score: 0.88, sig_score: 0.71, fraud_score: 0.21, iqa_score: 0.96,
     name_match: 'NO_MATCH', name_match_cbs_name: 'Ramesh T. Mehta',
