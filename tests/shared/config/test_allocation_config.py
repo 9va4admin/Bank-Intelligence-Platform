@@ -18,6 +18,17 @@ ALLOCATION_KEYS = {
     "cts.allocation_rebalance_interval_seconds": 60,
     "cts.allocation_rebalance_max_moves": 20,
     "cts.allocation_retry_seconds": 60,
+    # buckets and the SIP hold
+    "cts.bucket_priority": ["HVC", "CA", "IP", "FCC", "LVC"],
+    "cts.bucket_hvc_min_amount": 500000,
+    "cts.bucket_lvc_max_amount": 50000,
+    "cts.bucket_frequent_min_cheques": 5,
+    "cts.bucket_frequent_window_days": 30,
+    "cts.bucket_corporate_account_types": ["CORPORATE"],
+    "cts.bucket_institution_account_types": ["INSTITUTION", "GOVERNMENT"],
+    "cts.bucket_overflow_after_minutes": 10,
+    "cts.sip_review_timeout_minutes": 15,
+    "cts.bucket_routing_enabled": False,
 }
 
 

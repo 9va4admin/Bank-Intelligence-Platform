@@ -19,17 +19,17 @@ def _ctx(user="alice", role=Role.OPS_REVIEWER, zones=("ALL",)):
                        permission_level=PermissionLevel.EDIT, session_id="s", clearing_zones=list(zones))
 
 
-def _app(ctx, redis, audit=None):
+def _app(ctx, redis, audit=None, db=None, cfg=None):
     from apps.api.routers.cts_holds import router_v1
     from apps.api.routers.cts_deps import get_current_user_context
     app = FastAPI()
     app.include_router(router_v1)
     app.dependency_overrides[get_current_user_context] = lambda: ctx
     app.state.redis_cts = redis
-    cs = AsyncMock(); cs.get_cts_config.return_value = CFG
+    cs = AsyncMock(); cs.get_cts_config.return_value = cfg or CFG
     app.state.config_service = cs
     app.state.audit_stream_writer = audit
-    app.state.db_pool_cts = None
+    app.state.db_pool_cts = db
     return TestClient(app)
 
 
@@ -159,3 +159,135 @@ def test_allocation_status_reports_the_active_mode_and_limits():
         **CFG, "allocation_strategy": "LEAST_LOADED", "allocation_max_per_reviewer": 7}
     body = app.get("/v1/cts/allocation/status").json()
     assert body["allocation_mode"] == "AUTO" and body["allocation_strategy"] == "LEAST_LOADED" and body["max_per_reviewer"] == 7
+
+
+
+# =============================================================================================================
+# Buckets: claim / release / assign respect subscriptions; admin manages them
+# =============================================================================================================
+
+import time  # noqa: E402
+
+from modules.cts.allocation.subscriptions import SubscriptionStore  # noqa: E402
+from tests.modules.cts.allocation.fake_subs_db import FakeSubsPool  # noqa: E402
+
+BCFG = {**CFG, "bucket_routing_enabled": True}
+
+
+def _bapp(ctx, redis, pool, audit=None):
+    return _app(ctx, redis, audit=audit, db=pool, cfg=BCFG)
+
+
+def _item(redis, iid, bucket, **kw):
+    run(LockService(redis).set_item_meta(BANK, iid, bucket=bucket, queued_at=time.time(), **kw))
+
+
+def _subscribe(pool, who, buckets):
+    run(SubscriptionStore(pool, redis=None).set_reviewer_buckets(BANK, who, buckets, "boss"))
+
+
+def test_claim_is_refused_for_a_bucket_the_reviewer_is_not_connected_to():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "HVC"); _subscribe(pool, "alice", ["LVC"])
+    r = _bapp(_ctx("alice"), redis, pool).post("/v1/cts/review/I-1/claim")
+    assert r.status_code == 403 and "bucket" in r.json()["detail"].lower()
+
+
+def test_claim_works_in_a_connected_bucket_and_in_misc():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "HVC"); _item(redis, "I-2", "MISC"); _subscribe(pool, "alice", ["HVC"])
+    c = _bapp(_ctx("alice"), redis, pool)
+    assert c.post("/v1/cts/review/I-1/claim").json()["claimed"] is True
+    assert c.post("/v1/cts/review/I-2/claim").json()["claimed"] is True
+
+
+def test_a_manager_can_claim_from_any_bucket():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "LVC")
+    r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/review/I-1/claim")
+    assert r.status_code == 200 and r.json()["claimed"] is True
+
+
+def test_releasing_a_claim_moves_the_item_to_misc():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "HVC"); _subscribe(pool, "alice", ["HVC"])
+    c = _bapp(_ctx("alice"), redis, pool)
+    c.post("/v1/cts/review/I-1/claim"); c.delete("/v1/cts/review/I-1/claim")
+    meta = run(LockService(redis).get_item_meta(BANK, "I-1"))
+    assert meta["bucket"] == "MISC" and meta["origin_bucket"] == "HVC"
+
+
+def test_admin_force_release_moves_the_item_to_misc():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "CA")
+    run(LockService(redis).acquire_lock("I-1", "alice", BCFG))
+    _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).delete("/v1/cts/admin/review/I-1/claim")
+    assert run(LockService(redis).get_item_meta(BANK, "I-1"))["bucket"] == "MISC"
+
+
+def test_admin_cannot_assign_to_a_reviewer_who_is_not_connected_to_the_items_bucket():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "HVC"); _subscribe(pool, "bob", ["LVC"])
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/admin/review/I-1/assign", json={"reviewer_id": "bob"})
+    assert r.status_code == 409 and "bucket" in r.json()["detail"].lower()
+
+
+def test_admin_can_assign_a_misc_item_to_anyone():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "MISC")
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/admin/review/I-1/assign", json={"reviewer_id": "bob"})
+    assert r.status_code == 200
+
+
+# --- admin manages subscriptions --------------------------------------------------------------------------------
+
+def test_admin_connects_a_reviewer_to_buckets_and_it_is_audited():
+    redis, pool = FakeRedis(), FakeSubsPool(); audit = AsyncMock()
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    c = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool, audit)
+    r = c.put("/v1/cts/admin/reviewers/bob/buckets", json={"buckets": ["HVC", "CA"]})
+    assert r.status_code == 200 and sorted(r.json()["buckets"]) == ["CA", "HVC"]
+    ev = audit.call_args[0][0]
+    assert ev.payload["action"] == "BUCKET_SUBSCRIPTIONS_SET" and ev.payload["reviewer_id"] == "bob"
+    assert sorted(ev.payload["added"]) == ["CA", "HVC"] and ev.payload["changed_by"] == "boss"
+    assert c.get("/v1/cts/admin/reviewers/bob/buckets").json()["buckets"] == ["CA", "HVC"]
+
+
+def test_a_reviewer_cannot_change_subscriptions():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    r = _bapp(_ctx("alice"), redis, pool).put("/v1/cts/admin/reviewers/alice/buckets", json={"buckets": ["HVC"]})
+    assert r.status_code == 403
+
+
+def test_subscribing_to_an_unknown_bucket_or_misc_is_rejected():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    c = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool)
+    assert c.put("/v1/cts/admin/reviewers/bob/buckets", json={"buckets": ["NOPE"]}).status_code == 422
+    assert c.put("/v1/cts/admin/reviewers/bob/buckets", json={"buckets": ["MISC"]}).status_code == 422
+
+
+def test_subscribing_an_unknown_reviewer_is_not_found():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).put("/v1/cts/admin/reviewers/ghost/buckets", json={"buckets": ["HVC"]})
+    assert r.status_code == 404
+
+
+def test_bucket_overview_lists_subscribers_and_who_is_online():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _subscribe(pool, "alice", ["HVC"]); _subscribe(pool, "bob", ["HVC", "LVC"])
+    run(LockService(redis).heartbeat_reviewer(BANK, "alice", zones=["ALL"]))
+    body = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).get("/v1/cts/admin/buckets").json()
+    assert body["routing_enabled"] is True
+    hv = {b["bucket"]: b for b in body["buckets"]}["HVC"]
+    assert sorted(s["reviewer_id"] for s in hv["subscribers"]) == ["alice", "bob"]
+    assert {s["reviewer_id"]: s["online"] for s in hv["subscribers"]} == {"alice": True, "bob": False}
+    assert {b["bucket"] for b in body["buckets"]} >= {"HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR"}
+
+
+def test_a_reviewer_can_see_their_own_buckets():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _subscribe(pool, "alice", ["FCC", "HR"])
+    assert _bapp(_ctx("alice"), redis, pool).get("/v1/cts/me/buckets").json()["buckets"] == ["FCC", "HR"]

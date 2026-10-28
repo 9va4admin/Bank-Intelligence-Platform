@@ -151,6 +151,8 @@ async def handle_human_review_event(
         await lock_svc.set_item_meta(
             envelope.bank_id, instrument_id, zone=zone,
             iet_deadline=float(iet_deadline) if iet_deadline else None,
+            bucket=payload.get("bucket") or "HR",          # an event that carries no bucket is general human review
+            queued_at=_time.time(),
         )
     except Exception as exc:
         log.warning("human_review_consumer.item_meta_failed", instrument_id=instrument_id, error=str(exc))
@@ -163,7 +165,8 @@ async def handle_human_review_event(
         )
         return
 
-    alloc_svc = AllocationService(lock_service=lock_svc)
+    from modules.cts.allocation.subscriptions import SubscriptionStore
+    alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=SubscriptionStore(db, redis=redis))
     retry_seconds = int(cts_config.get("allocation_retry_seconds", 60))
 
     if allocation_mode == "AUTO":
@@ -188,7 +191,8 @@ async def handle_human_review_event(
                 )
                 # Nobody is free right now (not logged in, at the cap, or out of zone): try again shortly. The
                 # retry is picked up by the next queue poll (pop_due_hybrid_pending), so the item is never dropped.
-                await lock_svc.add_hybrid_pending(envelope.bank_id, instrument_id, _time.time() + retry_seconds)
+                if getattr(result, "reason", None) not in ("MISC_SELF_CLAIM", "SELF_MODE"):
+                    await lock_svc.add_hybrid_pending(envelope.bank_id, instrument_id, _time.time() + retry_seconds)
         except Exception as exc:
             log.error(
                 "human_review_consumer.auto_assign_error",

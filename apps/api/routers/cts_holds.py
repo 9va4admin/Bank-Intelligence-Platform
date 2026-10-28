@@ -702,6 +702,21 @@ async def resolve_mismatch(
     return MismatchResolveResponse(mismatch_id=mismatch_id, action=body.action, signal_sent=signal_sent)
 
 
+async def _cts_config(request, bank_id: str) -> dict:
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is None:
+        return {}
+    try:
+        return await config_svc.get_cts_config(bank_id)
+    except Exception:  # noqa: BLE001 - allocation falls back to its defaults
+        return {}
+
+
+def _subscriptions(request, redis):
+    from modules.cts.allocation.subscriptions import SubscriptionStore
+    return SubscriptionStore(getattr(request.app.state, "db_pool_cts", None), redis=redis)
+
+
 # ---------------------------------------------------------------------------
 # POST /review/{instrument_id}/claim
 # ---------------------------------------------------------------------------
@@ -750,13 +765,23 @@ async def claim_instrument(
             pass
 
     if redis is not None:
+        subs = _subscriptions(request, redis)
+        alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=subs)
+        # Reviewers work only the buckets an admin connected them to (plus MISC); managers and admins are unrestricted.
+        reviewer_buckets = None
+        if cts_config.get("bucket_routing_enabled") and ctx.role.value == "ops_reviewer":
+            reviewer_buckets = await subs.get_reviewer_buckets(bank_id, reviewer_id)
         result = await alloc_svc.claim(
             instrument_id, reviewer_id, cts_config, bank_id=bank_id,
             reviewer_zones=list(getattr(ctx, "clearing_zones", None) or []),
+            reviewer_buckets=reviewer_buckets,
         )
         if result.reason == "ZONE_RESTRICTED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="This cheque belongs to a clearing zone you are not scoped to")
+        if result.reason == "NOT_SUBSCRIBED":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="This cheque is in a bucket you are not connected to")
     else:
         result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
 
@@ -825,7 +850,10 @@ async def unclaim_instrument(
     lock_svc = LockService(redis_client=redis if redis is not None else _NullRedis())
     alloc_svc = AllocationService(lock_service=lock_svc)
 
-    await alloc_svc.unclaim(instrument_id, reviewer_id, {}, bank_id=bank_id if redis is not None else None)
+    cts_config = await _cts_config(request, bank_id) if redis is not None else {}
+    if redis is not None:
+        alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=_subscriptions(request, redis))
+    await alloc_svc.unclaim(instrument_id, reviewer_id, cts_config, bank_id=bank_id if redis is not None else None)
 
     from shared.audit.audit_event import AuditEvent, AuditEventType
     audit_writer = getattr(request.app.state, "audit_stream_writer", None)
@@ -992,6 +1020,11 @@ async def admin_force_release_claim(
     previous_holder = await lock_svc.get_lock_holder(instrument_id)
 
     await lock_svc.force_release(instrument_id, bank_id=bank_id if redis is not None else None)
+    if redis is not None:
+        cts_config = await _cts_config(request, bank_id)
+        if cts_config.get("bucket_routing_enabled"):
+            from modules.cts.allocation.allocation_service import AllocationService
+            await AllocationService(lock_svc, subscriptions=_subscriptions(request, redis)).move_to_misc(bank_id, instrument_id)
 
     from shared.audit.audit_event import AuditEvent, AuditEventType
     audit_writer = getattr(request.app.state, "audit_stream_writer", None)
@@ -1090,13 +1123,11 @@ async def admin_assign_review(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="That reviewer is not scoped to this cheque's clearing zone")
 
-    cts_config: dict = {}
-    config_svc = getattr(request.app.state, "config_service", None)
-    if config_svc is not None:
-        try:
-            cts_config = await config_svc.get_cts_config(bank_id)
-        except Exception:
-            pass
+    cts_config = await _cts_config(request, bank_id)
+    alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=_subscriptions(request, redis))
+    if not await alloc_svc.can_take(bank_id, instrument_id, target, cts_config):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="That reviewer is not connected to this cheque's bucket; connect them first")
 
     previous_holder = await alloc_svc.assign(instrument_id, target, cts_config, bank_id=bank_id)
 
@@ -1122,3 +1153,127 @@ async def admin_assign_review(
         instrument_id=instrument_id, reviewer_id=target, previous_holder=previous_holder,
         message=f"Assigned to {target} (was held by {previous_holder or 'nobody'})",
     )
+
+
+# ---------------------------------------------------------------------------
+# Buckets: admin connects reviewers to buckets; reviewers can see their own
+# ---------------------------------------------------------------------------
+
+class BucketsRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    buckets: list[str]
+
+
+class BucketsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    reviewer_id: str
+    buckets: list[str]
+
+
+class BucketSubscriber(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    reviewer_id: str
+    online: bool
+    load: int = 0
+
+
+class BucketOverviewItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bucket: str
+    subscribers: list[BucketSubscriber]
+
+
+class BucketOverviewResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    routing_enabled: bool
+    buckets: list[BucketOverviewItem]
+
+
+_BUCKET_ADMIN_ROLES = ("ops_manager", "bank_it_admin")
+
+
+@router_v1.get("/admin/buckets", response_model=BucketOverviewResponse, status_code=status.HTTP_200_OK)
+async def admin_bucket_overview(
+    request: Request, ctx: UserContext = Depends(get_current_user_context),
+) -> BucketOverviewResponse:
+    if ctx.role.value not in _BUCKET_ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    redis = getattr(request.app.state, "redis_cts", None)
+    cts_config = await _cts_config(request, ctx.bank_id)
+    from modules.cts.allocation.lock_service import LockService
+    online = set(await LockService(redis).get_active_reviewers(ctx.bank_id)) if redis is not None else set()
+    loads = await LockService(redis).reviewer_loads(sorted(online)) if redis is not None else {}
+    by_bucket = await _subscriptions(request, redis).get_all(ctx.bank_id)
+    return BucketOverviewResponse(
+        bank_id=ctx.bank_id,
+        routing_enabled=bool(cts_config.get("bucket_routing_enabled", False)),
+        buckets=[BucketOverviewItem(bucket=b, subscribers=[
+            BucketSubscriber(reviewer_id=r, online=r in online, load=loads.get(r, 0)) for r in who])
+            for b, who in by_bucket.items()],
+    )
+
+
+@router_v1.get("/admin/reviewers/{reviewer_id}/buckets", response_model=BucketsResponse, status_code=status.HTTP_200_OK)
+async def admin_get_reviewer_buckets(
+    reviewer_id: str, request: Request, ctx: UserContext = Depends(get_current_user_context),
+) -> BucketsResponse:
+    if ctx.role.value not in _BUCKET_ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    redis = getattr(request.app.state, "redis_cts", None)
+    return BucketsResponse(reviewer_id=reviewer_id,
+                           buckets=await _subscriptions(request, redis).get_reviewer_buckets(ctx.bank_id, reviewer_id))
+
+
+@router_v1.put("/admin/reviewers/{reviewer_id}/buckets", response_model=BucketsResponse, status_code=status.HTTP_200_OK)
+async def admin_set_reviewer_buckets(
+    reviewer_id: str, body: BucketsRequest, request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> BucketsResponse:
+    """Replace the set of buckets a reviewer works. Only ops_manager and bank_it_admin; audited."""
+    if ctx.role.value not in _BUCKET_ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    bank_id = ctx.bank_id
+    redis = getattr(request.app.state, "redis_cts", None)
+    from modules.cts.allocation.subscriptions import InvalidBucketError
+
+    known = False
+    if redis is not None:
+        from modules.cts.allocation.lock_service import LockService
+        known = reviewer_id in await LockService(redis).get_active_reviewers(bank_id)
+    if not known:
+        db = getattr(request.app.state, "db_pool_cts", None)
+        if db is not None:
+            try:
+                async with db.acquire() as conn:
+                    known = bool(await conn.fetchval(
+                        "SELECT 1 FROM platform.local_auth_accounts WHERE bank_id = $1 AND user_id = $2 "
+                        "AND role IN ('ops_reviewer', 'ops_manager') LIMIT 1", bank_id, reviewer_id))
+            except Exception:  # noqa: BLE001
+                known = False
+    if not known:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
+
+    store = _subscriptions(request, redis)
+    try:
+        added, removed = await store.set_reviewer_buckets(bank_id, reviewer_id, body.buckets, changed_by=ctx.user_id)
+    except InvalidBucketError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        await audit_writer(AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_CLAIMED, bank_id=bank_id, user_id=ctx.user_id,
+            payload={"action": "BUCKET_SUBSCRIPTIONS_SET", "reviewer_id": reviewer_id, "added": added,
+                     "removed": removed, "changed_by": ctx.user_id},
+        ))
+    log.info("cts.alloc.buckets_set", reviewer_id=reviewer_id, added=added, removed=removed, admin_id=ctx.user_id)
+    return BucketsResponse(reviewer_id=reviewer_id, buckets=await store.get_reviewer_buckets(bank_id, reviewer_id))
+
+
+@router_v1.get("/me/buckets", response_model=BucketsResponse, status_code=status.HTTP_200_OK)
+async def my_buckets(request: Request, ctx: UserContext = Depends(get_current_user_context)) -> BucketsResponse:
+    redis = getattr(request.app.state, "redis_cts", None)
+    return BucketsResponse(reviewer_id=ctx.user_id,
+                           buckets=await _subscriptions(request, redis).get_reviewer_buckets(ctx.bank_id, ctx.user_id))
