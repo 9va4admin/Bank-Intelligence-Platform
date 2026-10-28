@@ -30,6 +30,8 @@ ALLOCATION_KEYS = {
     "cts.sip_review_timeout_minutes": 15,
     "cts.bucket_routing_enabled": False,
     "cts.sip_iet_guard_minutes": 10,
+    "cts.maker_checker_enabled": False,
+    "cts.checker_review_timeout_minutes": 15,
 }
 
 

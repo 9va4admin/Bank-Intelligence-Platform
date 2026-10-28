@@ -53,7 +53,7 @@ _OPA_CACHE_TTL_SECONDS = 1
 # NEVER reference these literals from anywhere else — they exist only so that the
 # config service can return a sane value instead of crashing with AttributeError
 # when the DB pool is None during local development.
-_ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign", "cts.bucket_", "cts.sip_")
+_ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign", "cts.bucket_", "cts.sip_", "cts.maker_checker", "cts.checker_")
 
 _LAYER3_DEFAULTS: dict[str, Any] = {
     # ── CTS thresholds ──────────────────────────────────────────────────────────
@@ -118,6 +118,8 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.bucket_overflow_after_minutes": 10,          # an item nobody in its bucket can take moves to MISC after this
     "cts.sip_review_timeout_minutes": 15,             # SIP hold (bank-wide): the system decision is filed if nobody acts
     "cts.sip_iet_guard_minutes": 10,                  # never hold a system decision within this many minutes of its IET
+    "cts.maker_checker_enabled": False,               # True: a reviewer's decision (the maker) goes to a checker before it is filed
+    "cts.checker_review_timeout_minutes": 15,         # no checker in this time: the maker's decision is filed (never past the IET guard)
     "cts.cheque_validity_days": 90,
     "cts.pps_mandatory_threshold": 500000,
     # Layer 4 business-policy rules (CLAUDE.md §2.6) — evaluated by shared.policy_engine.

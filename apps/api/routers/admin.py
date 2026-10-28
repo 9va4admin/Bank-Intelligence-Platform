@@ -40,39 +40,84 @@ router_v1 = APIRouter(prefix="/v1/admin", tags=["Admin v1"])
 # The list_thresholds route returns these with current_value from config_service.
 
 _LAYER3_SCHEMA = [
-    {"config_key": "stp_mode",                     "layer": "LAYER_3", "default": "FULL_MANUAL",
-     "description": "STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP"},
-    {"config_key": "stp_auto_confirm_threshold",   "layer": "LAYER_3", "default": "0.92",
-     "description": "Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)"},
-    {"config_key": "human_review_fraud_threshold", "layer": "LAYER_3", "default": "0.72",
-     "description": "Fraud score above this routes to human review"},
-    {"config_key": "queue_tier_high_value_threshold",  "layer": "LAYER_3", "default": "100000",
-     "description": "Cheques above this go to high_value Kafka topic and task queue"},
-    {"config_key": "queue_tier_very_high_threshold",   "layer": "LAYER_3", "default": "1000000",
-     "description": "Cheques above this go to very_high Kafka topic and task queue"},
-    {"config_key": "allocation_mode",              "layer": "LAYER_3", "default": "HYBRID",
-     "description": "Reviewer allocation: SELF | HYBRID | AUTO"},
-    {"config_key": "allocation_lock_ttl_minutes",  "layer": "LAYER_3", "default": "10",
-     "description": "Redis lock TTL for reviewer-claimed instruments (minutes)"},
-    {"config_key": "iet_minutes",                  "layer": "LAYER_3", "default": "180",
-     "description": "IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless."},
-    {"config_key": "ocr_min_confidence",           "layer": "LAYER_3", "default": "0.90",
-     "description": "GOT-OCR2.0 confidence below this → human review"},
-    {"config_key": "signature_min_match_score",    "layer": "LAYER_3", "default": "0.87",
-     "description": "Siamese network score below this → human review"},
-    {"config_key": "high_value_amount_threshold",  "layer": "LAYER_3", "default": "500000",
-     "description": "Dual-approval threshold for high-value cheques (₹)"},
-    {"config_key": "vault_miss_action",            "layer": "LAYER_1", "default": "HUMAN_REVIEW",
-     "description": "LOCKED — vault miss always routes to human review (Layer 1 constraint)"},
-    {"config_key": "outward_frozen_payee_action",  "layer": "LAYER_3", "default": "HUMAN_REVIEW",
-     "description": "Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold) — default sends to mismatch queue for ops review."},
-    {"config_key": "outward_dormant_payee_action", "layer": "LAYER_3", "default": "HUMAN_REVIEW",
-     "description": "Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. Account may be reactivatable — human review avoids rejecting a recoverable instrument."},
-    {"config_key": "outward_npa_payee_action",     "layer": "LAYER_3", "default": "HUMAN_REVIEW",
-     "description": "Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. NPA is a credit classification — a deposit to the account may still be valid. Ops_manager must confirm return."},
-    {"config_key": "rear_image_required",          "layer": "LAYER_3", "default": "false",
-     "description": "Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false — blank reverse is standard practice. Set true only if bank endorses/stamps the reverse and wants quality enforcement."},
+    {'config_key': 'stp_mode', 'layer': 'LAYER_3', 'default': 'FULL_MANUAL', 'value_type': 'string', 'description': 'STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP', 'allowed': ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP']},
+    {'config_key': 'stp_auto_confirm_threshold', 'layer': 'LAYER_3', 'default': '0.92', 'value_type': 'float', 'description': 'Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)'},
+    {'config_key': 'human_review_fraud_threshold', 'layer': 'LAYER_3', 'default': '0.72', 'value_type': 'float', 'description': 'Fraud score above this routes to human review'},
+    {'config_key': 'queue_tier_high_value_threshold', 'layer': 'LAYER_3', 'default': '100000', 'value_type': 'float', 'description': 'Cheques above this go to high_value Kafka topic and task queue'},
+    {'config_key': 'queue_tier_very_high_threshold', 'layer': 'LAYER_3', 'default': '1000000', 'value_type': 'float', 'description': 'Cheques above this go to very_high Kafka topic and task queue'},
+    {'config_key': 'allocation_mode', 'layer': 'LAYER_3', 'default': 'SELF', 'value_type': 'string', 'description': 'Reviewer allocation: SELF | HYBRID | AUTO', 'allowed': ['SELF', 'HYBRID', 'AUTO']},
+    {'config_key': 'allocation_lock_ttl_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Redis lock TTL for reviewer-claimed instruments (minutes)'},
+    {'config_key': 'allocation_strategy', 'layer': 'LAYER_3', 'default': 'LEAST_LOADED', 'value_type': 'string', 'description': 'Who an auto-assigned item goes to: LEAST_LOADED | RANDOM', 'allowed': ['LEAST_LOADED', 'RANDOM']},
+    {'config_key': 'allocation_max_per_reviewer', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Auto-assign cap per reviewer (0 = no cap). Items near their IET ignore the cap'},
+    {'config_key': 'allocation_urgent_margin_minutes', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': 'Items this close to their IET jump the queue and ignore the cap (minutes)'},
+    {'config_key': 'allocation_rebalance_enabled', 'layer': 'LAYER_3', 'default': 'true', 'value_type': 'bool', 'description': 'Spread unopened auto-assigned work across reviewers as more log in'},
+    {'config_key': 'allocation_rebalance_interval_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': 'At most one rebalance per bank per interval (a new login bypasses it)'},
+    {'config_key': 'allocation_rebalance_max_moves', 'layer': 'LAYER_3', 'default': '20', 'value_type': 'int', 'description': 'Cap on items moved in one rebalance'},
+    {'config_key': 'allocation_retry_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': 'Retry delay when no eligible reviewer is available (seconds)'},
+    {'config_key': 'hybrid_auto_assign_timeout_minutes', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': 'HYBRID mode: auto-assign an unclaimed item after this many minutes'},
+    {'config_key': 'bucket_routing_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': 'ON: reviewers work only the buckets an admin connected them to (plus Miscellaneous)'},
+    {'config_key': 'bucket_priority', 'layer': 'LAYER_3', 'default': '["HVC", "CA", "IP", "FCC", "LVC"]', 'value_type': 'json', 'description': 'Which class bucket wins when a cheque fits several (JSON list of HVC, CA, IP, FCC, LVC)'},
+    {'config_key': 'bucket_hvc_min_amount', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'int', 'description': 'HVC: presented amount at or above this (rupees)'},
+    {'config_key': 'bucket_lvc_max_amount', 'layer': 'LAYER_3', 'default': '50000', 'value_type': 'int', 'description': 'LVC: presented amount below this (rupees)'},
+    {'config_key': 'bucket_frequent_min_cheques', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': 'FCC: at least this many cheques on the account in the window below'},
+    {'config_key': 'bucket_frequent_window_days', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': 'FCC window (days)'},
+    {'config_key': 'bucket_corporate_account_types', 'layer': 'LAYER_3', 'default': '["CORPORATE"]', 'value_type': 'json', 'description': "CA: CBS account types that count as corporate (JSON list); the bank's CA account list also applies"},
+    {'config_key': 'bucket_institution_account_types', 'layer': 'LAYER_3', 'default': '["INSTITUTION", "GOVERNMENT"]', 'value_type': 'json', 'description': "IP: CBS account types that count as institution (JSON list); the bank's IP account list also applies"},
+    {'config_key': 'bucket_overflow_after_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'An item nobody logged in can take moves to Miscellaneous after this many minutes'},
+    {'config_key': 'sip_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': 'SIP hold, bank-wide: the system decision is filed if no reviewer acts within this time'},
+    {'config_key': 'sip_iet_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Never hold a system decision within this many minutes of its IET'},
+    {'config_key': 'maker_checker_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': "ON: a reviewer's decision goes to a second person (the checker) before it is filed"},
+    {'config_key': 'checker_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': "Maker-checker: if no checker acts in this time the maker's decision is filed (never past the IET guard)"},
+    {'config_key': 'iet_minutes', 'layer': 'LAYER_3', 'default': '180', 'value_type': 'int', 'description': 'IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless.'},
+    {'config_key': 'ocr_min_confidence', 'layer': 'LAYER_3', 'default': '0.90', 'value_type': 'float', 'description': 'GOT-OCR2.0 confidence below this → human review'},
+    {'config_key': 'signature_min_match_score', 'layer': 'LAYER_3', 'default': '0.85', 'value_type': 'float', 'description': 'Siamese network score below this → human review'},
+    {'config_key': 'high_value_amount_threshold', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'float', 'description': 'Dual-approval threshold for high-value cheques (₹)'},
+    {'config_key': 'vault_miss_action', 'layer': 'LAYER_1', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'LOCKED — vault miss always routes to human review (Layer 1 constraint)'},
+    {'config_key': 'outward_frozen_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold).', 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'outward_dormant_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN.', 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'outward_npa_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN.', 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'rear_image_required', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'string', 'description': 'Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false: blank reverse is standard practice.', 'allowed': ['true', 'false']},
 ]
+
+_SCHEMA_BY_KEY = {e["config_key"]: e for e in _LAYER3_SCHEMA}
+_CLASS_BUCKETS = ("HVC", "CA", "IP", "FCC", "LVC")
+
+
+def _validate_config_value(entry: dict, raw: str) -> None:
+    """Refuse a value that could not be read back as the setting's type (or is outside its allowed set).
+    Raises HTTP 422. Layer-3 values are stored as text; the config reader parses them by value_type."""
+    import json as _json
+
+    def bad(msg: str):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{entry['config_key']}: {msg}")
+
+    vtype = entry.get("value_type", "string")
+    value = raw.strip()
+    if vtype == "int":
+        if not value.lstrip("-").isdigit() or int(value) < 0:
+            bad("must be a whole number, zero or more")
+    elif vtype == "float":
+        try:
+            if float(value) < 0:
+                raise ValueError
+        except ValueError:
+            bad("must be a number, zero or more")
+    elif vtype == "bool":
+        if value not in ("true", "false"):
+            bad("must be true or false")
+    elif vtype == "json":
+        try:
+            parsed = _json.loads(value)
+        except ValueError:
+            bad("must be valid JSON")
+        if not isinstance(parsed, list) or not parsed or not all(isinstance(x, str) and x.strip() for x in parsed):
+            bad("must be a non-empty JSON list of text values")
+        if entry["config_key"] == "bucket_priority" and not set(parsed) <= set(_CLASS_BUCKETS):
+            bad(f"may only contain {list(_CLASS_BUCKETS)}")
+    allowed = entry.get("allowed")
+    if allowed and value not in allowed:
+        bad(f"must be one of {allowed}")
+
 
 _ADMIN_ROLES = {"bank_it_admin", "ops_manager"}
 _CHECKER_ONLY = {"bank_it_admin"}
@@ -388,6 +433,8 @@ async def submit_threshold_change(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail=f"{body.config_key} is a Layer 1 platform constraint and cannot be changed")
 
+    _validate_config_value(_SCHEMA_BY_KEY[body.config_key], body.new_value)
+
     log.info("admin.submit_threshold_change",
              bank_id=bank_id, config_key=body.config_key, submitted_by=user_id)
 
@@ -528,6 +575,20 @@ async def approve_threshold_change(
             new_value = result["new_value"]
             submitted_by = result["submitted_by"]
             actioned_at = str(result["actioned_at"])
+            # Apply the approved value where the services read it. Until now approval only marked the pending row and
+            # published an event, so no approved setting ever changed.
+            await conn.execute(
+                """
+                INSERT INTO platform.config_values
+                    (config_id, bank_id, module, config_key, config_value, value_type, updated_by)
+                VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6)
+                ON CONFLICT (bank_id, module, config_key) DO UPDATE
+                   SET config_value = EXCLUDED.config_value, value_type = EXCLUDED.value_type,
+                       updated_by = EXCLUDED.updated_by, updated_at = now()
+                """,
+                bank_id, "cts", config_key, new_value,
+                _SCHEMA_BY_KEY.get(config_key, {}).get("value_type", "string"), user_id,
+            )
         except HTTPException:
             raise
         except Exception:
