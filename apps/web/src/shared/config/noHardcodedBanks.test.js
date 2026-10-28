@@ -5,12 +5,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = join(process.cwd(), 'src')
-const NAMES = /Saraswat|Federal Bank|Union Bank|Vasavi|Thrissur UCB|Ernakulam UCB/
+const NAMES = /Saraswat|Federal Bank|Union Bank|Vasavi|Thrissur UCB|Ernakulam UCB|Kalyan Janata|Mehsana|smb-mh-vasavi|smb-mh-kjsb|smb-gj-mucb/
 const ALLOWED = [
   'shared/config/bank.config.js', 'shared/config/federalBankBranches.js',
   'modules/cts/pages/CTSBranchMaster.jsx',      // per-bank keyed branch tables
   'modules/cts/pages/CTSProcessingUnits.jsx',   // per-bank keyed PU tables
   'modules/cts/pages/CTSDemoLive.jsx',          // deliberately lists several banks
+  'modules/admin/pages/SecurityViolations.jsx', // sample security events keyed by bank id
   'modules/cts/pages/CTSPresentment.jsx',       // drawee banks are other banks by definition
 ]
 

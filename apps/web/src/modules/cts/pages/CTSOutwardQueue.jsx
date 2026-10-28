@@ -109,7 +109,7 @@ const MOCK_HUMAN_REVIEW = [
     iqa_front_bw: 0.97, iqa_back_bw: 0.96, iqa_front_gray: 0.95,
     account_display: '****3308', payee_display: 'Deshmukh & Co.',
     amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: sampleSmb(0).name,
-    branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: 'smb-mh-vasavi',
+    branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: sampleSmb(0).id,
     reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
     scanner_id: 'SCN-ANDH-03', lot_number: `LOT_${sampleSmb(0).ifsc}_20260619_01`,
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,

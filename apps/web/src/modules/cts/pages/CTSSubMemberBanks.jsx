@@ -19,7 +19,7 @@ const ONBOARD_DATES = ['2026-01-15', '2026-01-22', '2026-02-01', '2026-02-10', '
 const BASE_MOCK_SUB_MEMBERS = [
   { id: 'SMB001', name: sampleSmb(0).name,  ifsc_prefix: sampleSmb(0).ifsc.slice(0, 4), sponsor_account: `${BANK_CONFIG.ifsc_prefix}00000001`, clearing_zones: ['MUMBAI'], status: 'ACTIVE',    daily_limit: 5000, cheques_today: 312, risk_level: 'LOW',  onboarded: '2026-01-15', contact: 'ops@vasavi.coop' },
   { id: 'SMB002', name: 'Cosmos Co-operative Bank',  ifsc_prefix: 'COSB', sponsor_account: 'SRCB00000002', clearing_zones: ['MUMBAI', 'PUNE'], status: 'ACTIVE', daily_limit: 3000, cheques_today: 187, risk_level: 'LOW', onboarded: '2026-02-20', contact: 'clearing@cosmosbank.in' },
-  { id: 'SMB003', name: 'Janata Sahakari Bank',      ifsc_prefix: 'JSBP', sponsor_account: 'SRCB00000003', clearing_zones: ['PUNE'], status: 'SUSPENDED', daily_limit: 2000, cheques_today: 0,   risk_level: 'HIGH', onboarded: '2026-03-05', contact: 'mgmt@janatasahakari.co.in' },
+  { id: 'SMB003', name: sampleSmb(2).name,      ifsc_prefix: sampleSmb(2).ifsc.slice(0, 4), sponsor_account: `${BANK_CONFIG.ifsc_prefix}00000003`, clearing_zones: ['PUNE'], status: 'SUSPENDED', daily_limit: 2000, cheques_today: 0,   risk_level: 'HIGH', onboarded: '2026-03-05', contact: 'mgmt@janatasahakari.co.in' },
 ]
 
 const MOCK_SUB_MEMBERS = (BANK_CONFIG.smbs ?? []).length > 0

@@ -9,7 +9,7 @@ import useSMBLedgers from '../hooks/useSMBLedgers'
 
 const MOCK_LEDGER = [
   {
-    sub_member_id: 'smb-mh-vasavi',
+    sub_member_id: sampleSmb(0).id,
     bank_name: sampleSmb(0).name,
     session_date: '2026-06-26',
     clearing_session: 'SESSION_1',
@@ -27,8 +27,8 @@ const MOCK_LEDGER = [
     ledger_updated_at: '2026-06-26T09:43:01Z',
   },
   {
-    sub_member_id: 'smb-mh-kjsb',
-    bank_name: 'Kalyan Janata Sahakari Bank',
+    sub_member_id: sampleSmb(1).id,
+    bank_name: sampleSmb(1).name,
     session_date: '2026-06-26',
     clearing_session: 'SESSION_1',
     total: 87,
@@ -45,8 +45,8 @@ const MOCK_LEDGER = [
     ledger_updated_at: '2026-06-26T09:43:02Z',
   },
   {
-    sub_member_id: 'smb-gj-mucb',
-    bank_name: 'Mehsana Urban Co-op Bank',
+    sub_member_id: sampleSmb(2).id,
+    bank_name: sampleSmb(2).name,
     session_date: '2026-06-26',
     clearing_session: 'SESSION_1',
     total: 211,
