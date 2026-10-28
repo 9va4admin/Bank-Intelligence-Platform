@@ -8,19 +8,30 @@ from fastapi.testclient import TestClient
 
 class _Conn:
     def __init__(self, pending):
-        self.pending, self.executed = pending, []
+        self.pending, self.executed, self.released = pending, [], False
 
     async def fetchrow(self, sql, *a):
+        self._live()
         return self.pending
 
     async def execute(self, sql, *a):
+        self._live()
         self.executed.append((sql, a))
+
+    def _live(self):
+        # asyncpg refuses to run anything on a connection that has gone back to the pool; a fake that allows it hid a bug
+        if self.released:
+            raise RuntimeError("connection has been released back to the pool")
 
 
 class _Acq:
     def __init__(self, conn): self.conn = conn
-    async def __aenter__(self): return self.conn
-    async def __aexit__(self, *x): return False
+    async def __aenter__(self):
+        self.conn.released = False
+        return self.conn
+    async def __aexit__(self, *x):
+        self.conn.released = True
+        return False
 
 
 class _Pool:

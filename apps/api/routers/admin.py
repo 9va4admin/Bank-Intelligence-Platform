@@ -545,55 +545,55 @@ async def approve_threshold_change(
                     """,
                     user_id, change_id, bank_id,
                 )
-            if result is None:
-                # Distinguish self-approval block from not-found — both audited
-                conflict = await conn.fetchrow(
-                    "SELECT submitted_by FROM platform.config_pending_changes "
-                    "WHERE change_id = $1 AND bank_id = $2 AND status = 'PENDING_APPROVAL'",
-                    change_id, bank_id,
-                )
-                if conflict and conflict["submitted_by"] == user_id:
+                if result is None:
+                    # Distinguish self-approval block from not-found — both audited
+                    conflict = await conn.fetchrow(
+                        "SELECT submitted_by FROM platform.config_pending_changes "
+                        "WHERE change_id = $1 AND bank_id = $2 AND status = 'PENDING_APPROVAL'",
+                        change_id, bank_id,
+                    )
+                    if conflict and conflict["submitted_by"] == user_id:
+                        await audit_stream_writer(
+                            event_type=AuditEventType.CONFIG_CHANGE.value,
+                            bank_id=bank_id,
+                            payload={"action": "SELF_APPROVAL_BLOCKED", "change_id": change_id,
+                                     "attempted_by": user_id},
+                        )
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Maker cannot approve their own change — four-eyes principle",
+                        )
                     await audit_stream_writer(
                         event_type=AuditEventType.CONFIG_CHANGE.value,
                         bank_id=bank_id,
-                        payload={"action": "SELF_APPROVAL_BLOCKED", "change_id": change_id,
-                                 "attempted_by": user_id},
+                        payload={"action": "APPROVE_NOT_FOUND", "change_id": change_id,
+                                 "approved_by": user_id},
                     )
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Maker cannot approve their own change — four-eyes principle",
-                    )
-                await audit_stream_writer(
-                    event_type=AuditEventType.CONFIG_CHANGE.value,
-                    bank_id=bank_id,
-                    payload={"action": "APPROVE_NOT_FOUND", "change_id": change_id,
-                             "approved_by": user_id},
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                        detail="Change not found or already actioned")
+                config_key = result["config_key"]
+                new_value = result["new_value"]
+                submitted_by = result["submitted_by"]
+                actioned_at = str(result["actioned_at"])
+                # Apply the approved value where the services read it. Until now approval only marked the pending row and
+                # published an event, so no approved setting ever changed.
+                await conn.execute(
+                    """
+                    INSERT INTO platform.config_values
+                        (config_id, bank_id, module, config_key, config_value, value_type, updated_by)
+                    VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (bank_id, module, config_key) DO UPDATE
+                       SET config_value = EXCLUDED.config_value, value_type = EXCLUDED.value_type,
+                           updated_by = EXCLUDED.updated_by, updated_at = now()
+                    """,
+                    bank_id, "cts", config_key, new_value,
+                    _SCHEMA_BY_KEY.get(config_key, {}).get("value_type", "string"), user_id,
                 )
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="Change not found or already actioned")
-            config_key = result["config_key"]
-            new_value = result["new_value"]
-            submitted_by = result["submitted_by"]
-            actioned_at = str(result["actioned_at"])
-            # Apply the approved value where the services read it. Until now approval only marked the pending row and
-            # published an event, so no approved setting ever changed.
-            await conn.execute(
-                """
-                INSERT INTO platform.config_values
-                    (config_id, bank_id, module, config_key, config_value, value_type, updated_by)
-                VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6)
-                ON CONFLICT (bank_id, module, config_key) DO UPDATE
-                   SET config_value = EXCLUDED.config_value, value_type = EXCLUDED.value_type,
-                       updated_by = EXCLUDED.updated_by, updated_at = now()
-                """,
-                bank_id, "cts", config_key, new_value,
-                _SCHEMA_BY_KEY.get(config_key, {}).get("value_type", "string"), user_id,
-            )
         except HTTPException:
             raise
         except Exception:
             log.warning("admin.approve_threshold_change.db_error",
-                        bank_id=bank_id, change_id=change_id)
+                        bank_id=bank_id, change_id=change_id, exc_info=True)
             config_key = "unknown"
             new_value = "unknown"
             submitted_by = "unknown"
