@@ -231,7 +231,7 @@ async def _fetch_dashboard_panels(
             iet_row = await conn.fetchrow(
                 """
                 SELECT
-                  COUNT(*) FILTER (WHERE iet_deadline < NOW() + INTERVAL '30 seconds') AS near_breach,
+                  COUNT(*) FILTER (WHERE iet_deadline < EXTRACT(EPOCH FROM NOW() + INTERVAL '30 seconds')) AS near_breach,
                   COUNT(*) AS in_processing
                 FROM cts.cheque_instruments
                 WHERE bank_id = $1
@@ -287,9 +287,9 @@ async def _fetch_vault_coverage(
                 bank_id,
             )
         yugabyte_accounts = int(row["accounts"] or 0)
-        redis_sig_keys = sum(
-            1 for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000)
-        )
+        redis_sig_keys = 0
+        async for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000):
+            redis_sig_keys += 1
         if yugabyte_accounts > 0:
             coverage_pct = min(100.0, redis_sig_keys / yugabyte_accounts * 100)
         else:

@@ -44,6 +44,7 @@ const ZONES = ['ALL', 'MUMBAI', 'DELHI', 'CHENNAI']
 export default function CTSMICRPrefixes() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
 
+  const [search, setSearch] = useState('')   // declared before the hook that reads it
   const liveItems = useMICRPrefixes({ pollEnabled: !isDemo, search })
 
   const MICR_SOURCE = useMemo(() => {
@@ -60,7 +61,6 @@ export default function CTSMICRPrefixes() {
     }))
   }, [isDemo, liveItems])
   const { isDark } = useTheme()
-  const [search, setSearch] = useState('')
   const [zone, setZone] = useState('ALL')
   const [editing, setEditing] = useState(null)
 

@@ -250,7 +250,7 @@ export default function LoginLog() {
         <div className="mb-5">
           <h1 className={`text-lg font-semibold ${th.heading}`}>Login Log</h1>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
-            {isSB
+            {isSBViewer
               ? 'Immutable audit trail of all login events across SB and sub-member banks'
               : 'Immutable audit trail of login events for your institution'}
           </p>
@@ -298,7 +298,7 @@ export default function LoginLog() {
           </div>
 
           {/* Bank type filter — only for SB viewers */}
-          {isSB && (
+          {isSBViewer && (
             <div className={`flex items-center gap-1 rounded-lg border p-1 ${isDark ? 'border-white/8 bg-white/3' : 'border-slate-200 bg-slate-100'}`}>
               {['ALL', 'SB', 'SMB'].map(t => (
                 <button key={t} onClick={() => setBankTypeFilter(t)}
@@ -317,7 +317,7 @@ export default function LoginLog() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Time', 'User', isSB && 'Bank', 'Event', 'IP (hash)', 'Device', 'Immudb', ''].filter(Boolean).map(h => (
+                {['Time', 'User', isSBViewer && 'Bank', 'Event', 'IP (hash)', 'Device', 'Immudb', ''].filter(Boolean).map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -325,7 +325,7 @@ export default function LoginLog() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isSB ? 8 : 7} className={`px-4 py-8 text-center ${th.muted}`}>No events match the current filters</td>
+                  <td colSpan={isSBViewer ? 8 : 7} className={`px-4 py-8 text-center ${th.muted}`}>No events match the current filters</td>
                 </tr>
               ) : filtered.map(ev => {
                 const meta = EVENT_TYPE_META[ev.event_type] ?? { label: ev.event_type, darkCls: th.pill, lightCls: th.pill }
@@ -337,7 +337,7 @@ export default function LoginLog() {
                       <div className={`font-medium ${th.heading}`}>{ev.display_name}</div>
                       <div className={th.muted}>{ev.email}</div>
                     </td>
-                    {isSB && (
+                    {isSBViewer && (
                       <td className="px-4 py-3">
                         <div className={th.body}>{ev.bank_id}</div>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${isDark ? 'bg-white/5 text-slate-400 border-white/8' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{ev.bank_type}</span>

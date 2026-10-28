@@ -181,7 +181,7 @@ export default function CTSCompliance() {
 
   const visible = filterResult === 'ALL' ? lotItems : lotItems.filter(i => i.result === filterResult)
 
-  const lotSeqMatch  = selectedLot.match(/_(\d{2})$/)
+  const lotSeqMatch  = (selectedLot ?? '').match(/_(\d{2})$/)
   const lotSeq       = lotSeqMatch ? lotSeqMatch[1] : '01'
   const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_${_compactToday()}_${sessionId}_LOT${lotSeq}.xml`
 
@@ -226,7 +226,7 @@ export default function CTSCompliance() {
     actions: (
       <div className="flex items-center gap-3">
         <select
-          value={selectedLot}
+          value={selectedLot ?? ""}
           onChange={e => { setSelectedLot(e.target.value); setFilterResult('ALL') }}
           className={`text-xs border rounded-lg px-3 py-1.5 max-w-xs truncate ${th.select}`}
         >

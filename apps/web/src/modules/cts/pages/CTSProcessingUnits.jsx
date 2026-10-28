@@ -19,7 +19,7 @@ import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranche
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
-const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
+const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO' && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
 
 // NGCH geographic zones (Federal Bank, large private banks)
 // + MICR city zones (co-operative banks, regional banks)
@@ -422,7 +422,9 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
 
 export default function CTSProcessingUnits() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_BRANCH_MASTER_LIVE=true: show and edit the real processing-unit table even in a DEMO build (same switch as Branch Master).
+  const isDemo = isDemoBuild && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
   const qc = useQueryClient()
 
   const [showForm, setShowForm] = useState(false)

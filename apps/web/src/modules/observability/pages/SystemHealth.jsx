@@ -143,7 +143,9 @@ function KafkaGroupRow({ group, isDark }) {
 
 export default function SystemHealth() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_BRANCH_MASTER_LIVE=true: read the real backend even in a DEMO build (otherwise this page stays on its placeholder).
+  const isDemo = isDemoBuild && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
   const { data, loading, error, lastFetch, reload } = useSystemHealth(bankId, { enabled: !isDemo })
 
   const th = {

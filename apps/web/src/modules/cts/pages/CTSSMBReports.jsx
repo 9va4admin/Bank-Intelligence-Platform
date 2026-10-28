@@ -373,7 +373,7 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
 export default function CTSSMBReports() {
   const { bankName, bankId, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const { setHeader } = usePageHeader()
+  usePageHeader({ subtitle: bankName })
   const [activeTab, setActiveTab] = useState(0)
 
   const liveReports = useSMBReports({ pollEnabled: !isDemo })
@@ -406,10 +406,6 @@ export default function CTSSMBReports() {
   const SESSIONS_SRC = (!isDemo && liveSessions && liveSessions.length > 0) ? liveSessions : MOCK_SESSIONS
   const RRF_SRC = MOCK_RRF  // RRF from live instrument data requires additional endpoint; keep mock as fallback
   const settlementData = isDemo || !liveSettlement ? MOCK_SETTLEMENT : liveSettlement
-
-  useEffect(() => {
-    setHeader({ title: 'SMB Reports', subtitle: bankName })
-  }, [setHeader, bankName])
 
   const th = {
     page:    isDark ? 'bg-navy-950'             : 'bg-slate-50',

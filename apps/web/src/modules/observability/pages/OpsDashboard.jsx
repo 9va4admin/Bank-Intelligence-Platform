@@ -200,7 +200,9 @@ function IETRiskBanner({ panel, isDark }) {
 
 export default function OpsDashboard() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_BRANCH_MASTER_LIVE=true: read the real backend even in a DEMO build (otherwise this page stays on its placeholder).
+  const isDemo = isDemoBuild && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
   const { data, loading, error, lastFetch, reload } = useOpsDashboard(bankId, { enabled: !isDemo })
 
   const th = {
