@@ -13,6 +13,7 @@ Routes:
   GET  /v1/cts/inward/live-flow
   GET  /v1/cts/inward/sessions
 """
+import inspect
 import time
 from typing import List, Literal, Optional
 
@@ -725,6 +726,16 @@ async def validate_review_decision(
     return ReviewDecisionResponse(instrument_id=instrument_id, workflow_id=workflow_id, signal_sent=signal_sent)
 
 
+async def _workflow_memo(wf) -> dict:
+    """The memo of a listed workflow. In temporalio it is an async method (a plain dict in older fakes)."""
+    memo = wf.memo
+    if callable(memo):
+        memo = memo()
+    if inspect.isawaitable(memo):
+        memo = await memo
+    return dict(memo or {})
+
+
 @router_v1.get(
     "/queue",
     response_model=QueueResponse,
@@ -755,13 +766,15 @@ async def get_human_review_queue(
                 _safe_temporal_param(smb_id_filter, "smb_id")
 
             async for wf in temporal_client.list_workflows(query=query, page_size=500):
-                if not wf.id.startswith(id_prefix) or (wf.memo or {}).get("bank_id", eff_bank_id) != eff_bank_id:
+                if not wf.id.startswith(id_prefix):
                     continue
-                if smb_id_filter and (wf.memo or {}).get("smb_id") != smb_id_filter:
+                memo = await _workflow_memo(wf)
+                if memo.get("bank_id", eff_bank_id) != eff_bank_id:
+                    continue
+                if smb_id_filter and memo.get("smb_id") != smb_id_filter:
                     continue
                 if len(items) >= limit:
                     break
-                memo = wf.memo or {}
                 items.append(QueueItem(
                     instrument_id=memo.get("instrument_id", wf.id.split("-")[-1]),
                     workflow_id=wf.id,

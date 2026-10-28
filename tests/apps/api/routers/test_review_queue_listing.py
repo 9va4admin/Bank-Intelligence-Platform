@@ -29,7 +29,10 @@ class _Temporal:
 
 
 def _wf(wid, **memo):
-    return SimpleNamespace(id=wid, memo=memo, start_time=None)
+    # temporalio 1.7.1: memo on a listed workflow is an async method, not a dict
+    async def _memo():
+        return memo
+    return SimpleNamespace(id=wid, memo=_memo, start_time=None)
 
 
 def _client(workflows, smb_id=None):
