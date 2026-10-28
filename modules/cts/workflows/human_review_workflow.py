@@ -24,7 +24,7 @@ instead of the watchdog's no-information CONFIRM fallback.
 import asyncio
 import time
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
@@ -75,6 +75,11 @@ class HumanReviewInput(BaseModel):
     # (reviewers are confirming an AI recommendation, not doing a full review).
     # Minimum 1 to prevent zero/negative timeout bugs.
     review_timeout_minutes: int = Field(default=55, ge=1)
+    # Buckets. bucket says which reviewer bucket the item belongs to. system_decision is set only for the SIP
+    # buckets, where the SYSTEM has already decided: a reviewer may confirm or overrule it, and if nobody acts before
+    # the timeout the system's own decision is filed (never the human-review auto-return).
+    bucket: Optional[str] = None
+    system_decision: Optional[Literal["CONFIRM", "RETURN"]] = None
 
 
 class ReviewDecision(BaseModel):
@@ -88,7 +93,7 @@ class ReviewDecision(BaseModel):
 class HumanReviewResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
-    outcome: str           # "REVIEWER_CONFIRMED" | "REVIEWER_RETURNED" | "TIMEOUT_AUTO_RETURNED"
+    outcome: str           # "REVIEWER_CONFIRMED" | "REVIEWER_RETURNED" | "TIMEOUT_AUTO_RETURNED" | "SIP_AUTO_FILED"
     filed_decision: str    # "CONFIRM" | "RETURN"
     acknowledgement_id: str
     reviewer_id: Optional[str] = None
@@ -117,15 +122,20 @@ async def push_to_review_queue(
             reason="event_producer unavailable (Kafka not configured)",
         )
         return
+    payload = {
+        "instrument_id": inp.instrument_id,
+        "workflow_id": inp.workflow_id,
+        "context_bundle": inp.context_bundle,
+        "iet_deadline": inp.iet_deadline,
+    }
+    if inp.bucket:
+        payload["bucket"] = inp.bucket
+    if inp.system_decision:
+        payload["system_decision"] = inp.system_decision
     await event_producer.publish(
         topic=f"cts.human.review.{inp.bank_id}",
         event_type="CTS_HUMAN_REVIEW_REQUIRED",
-        payload={
-            "instrument_id": inp.instrument_id,
-            "workflow_id": inp.workflow_id,
-            "context_bundle": inp.context_bundle,
-            "iet_deadline": inp.iet_deadline,
-        },
+        payload=payload,
         schema_version="1.0",
     )
     log.info(
@@ -196,6 +206,15 @@ class HumanReviewWorkflow:
             reviewer_id = self._decision.reviewer_id
             reason = self._decision.reason
             timed_out = False
+        elif inp.system_decision:
+            # SIP hold: nobody reviewed it in time, so the system's own decision stands.
+            ngch_action = inp.system_decision
+            outcome = "SIP_AUTO_FILED"
+            reviewer_id = None
+            reason = f"sip_review_timeout_{inp.review_timeout_minutes}min: system decision {inp.system_decision} filed"
+            timed_out = True
+            log.info("human_review.sip_timeout_system_decision", instrument_id=inp.instrument_id,
+                     bank_id=inp.bank_id, decision=inp.system_decision)
         else:
             ngch_action = "RETURN"
             outcome = "TIMEOUT_AUTO_RETURNED"
@@ -274,6 +293,7 @@ class HumanReviewWorkflow:
             "REVIEWER_CONFIRMED": "CTS_WF_HUMAN_CONFIRMED",
             "REVIEWER_RETURNED": "CTS_WF_HUMAN_RETURNED",
             "TIMEOUT_AUTO_RETURNED": "CTS_WF_REVIEW_TIMEOUT",
+            "SIP_AUTO_FILED": "CTS_WF_SIP_AUTO_FILED",
         }
         await workflow.execute_activity(
             write_audit,
@@ -289,6 +309,9 @@ class HumanReviewWorkflow:
                     "acknowledgement_id": ack_id,
                     "timed_out": timed_out,
                     "filed_by_watchdog": filed_by_watchdog,
+                    **({"bucket": inp.bucket} if inp.bucket else {}),
+                    **({"system_decision": inp.system_decision,
+                        "overrode_system": ngch_action != inp.system_decision} if inp.system_decision else {}),
                 },
             ),
             start_to_close_timeout=timedelta(seconds=15),
@@ -354,6 +377,13 @@ class HumanReviewWorkflow:
             reviewer_id = self._decision.reviewer_id
             reason = self._decision.reason
             timed_out = False
+        elif inp.system_decision:
+            # SIP hold: nobody reviewed it in time, so the system's own decision stands.
+            ngch_action = inp.system_decision
+            outcome = "SIP_AUTO_FILED"
+            reviewer_id = None
+            reason = f"sip_review_timeout_{inp.review_timeout_minutes}min: system decision {inp.system_decision} filed"
+            timed_out = True
         else:
             # Timeout — auto-return to protect bank
             ngch_action = "RETURN"
@@ -382,6 +412,7 @@ class HumanReviewWorkflow:
                 "REVIEWER_CONFIRMED": "CTS_WF_HUMAN_CONFIRMED",
                 "REVIEWER_RETURNED": "CTS_WF_HUMAN_RETURNED",
                 "TIMEOUT_AUTO_RETURNED": "CTS_WF_REVIEW_TIMEOUT",
+                "SIP_AUTO_FILED": "CTS_WF_SIP_AUTO_FILED",
             }
             await audit_writer.write(
                 event_type=_outcome_event_type[outcome],
@@ -394,6 +425,9 @@ class HumanReviewWorkflow:
                     "reason": reason,
                     "acknowledgement_id": ack_id,
                     "timed_out": timed_out,
+                    **({"bucket": inp.bucket} if inp.bucket else {}),
+                    **({"system_decision": inp.system_decision,
+                        "overrode_system": ngch_action != inp.system_decision} if inp.system_decision else {}),
                 },
             )
 

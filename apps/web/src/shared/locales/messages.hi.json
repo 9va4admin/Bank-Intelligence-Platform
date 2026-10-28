@@ -553,6 +553,18 @@
       "elapsed_minutes"
     ]
   },
+  "CTS_WF_SIP_AUTO_FILED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "elapsed_minutes"
+    ]
+  },
   "CTS_WF_REVIEW_IET_WARNING": {
     "text": "",
     "severity": "WARN",

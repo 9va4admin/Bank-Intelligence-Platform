@@ -9,6 +9,7 @@
  * Force-release: DELETE /v1/cts/admin/review/{instrument_id}/claim.
  * Assign / reassign: POST /v1/cts/admin/review/{instrument_id}/assign  { reviewer_id }.
  * Unassigned work: GET /v1/cts/queue (items whose assigned_to is empty).
+ * Bucket connections: GET /v1/cts/admin/buckets, PUT /v1/cts/admin/reviewers/{id}/buckets  { buckets: [...] }.
  * Roles: ops_manager, bank_it_admin.
  */
 import { useEffect, useState } from 'react'
@@ -19,6 +20,13 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 const REFETCH_MS = 30_000
+
+// Review buckets an admin can connect a reviewer to. MISC needs no connection: anyone may self-claim from it.
+const BUCKET_ORDER = ['HVC', 'CA', 'IP', 'LVC', 'FCC', 'SIP_SUCCESS', 'SIP_REJECT', 'HR']
+const BUCKET_LABEL = {
+  HVC: 'High value', CA: 'Corporate', IP: 'Institution', LVC: 'Low value', FCC: 'Frequent',
+  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous',
+}
 
 const MOCK_CLAIMS = [
   { instrument_id: 'CHQ-IN-20260811-0142', reviewer_id: 'ananya.krishnan', reviewer_name: 'Ananya Krishnan', claimed_at: '2026-08-11T09:31:00Z', tier: 1, reason: 'SIGNATURE_MISMATCH' },
@@ -180,6 +188,40 @@ export default function CTSAllocationAdmin() {
     },
   })
 
+  // --- bucket connections: which reviewer works which bucket (admin-controlled) ---
+  const { data: bucketData } = useQuery({
+    queryKey: ['allocation-buckets', bankId],
+    queryFn: async () => {
+      if (isDemo) return { routing_enabled: true, buckets: [] }
+      const res = await fetch('/v1/cts/admin/buckets', { credentials: 'include' })
+      if (!res.ok) return { routing_enabled: false, buckets: [] }
+      return res.json()
+    },
+    enabled: true,
+    refetchInterval: isDemo ? false : REFETCH_MS,
+    staleTime: 10_000,
+    retry: false,
+  })
+
+  const bucketsMutation = useMutation({
+    mutationFn: async ({ reviewerId, buckets }) => {
+      const res = await fetch(`/v1/cts/admin/reviewers/${encodeURIComponent(reviewerId)}/buckets`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buckets }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Could not update buckets')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['allocation-buckets', bankId] })
+    },
+  })
+
   const releaseMutation = useMutation({
     mutationFn: async (instrumentId) => {
       const res = await fetch(`/v1/cts/admin/review/${instrumentId}/claim`, {
@@ -196,6 +238,21 @@ export default function CTSAllocationAdmin() {
       qc.invalidateQueries({ queryKey: ['allocation-status', bankId] })
     },
   })
+
+  // reviewer -> set of connected buckets, for everyone who is online or already connected to something
+  const connected = {}
+  for (const b of bucketData?.buckets ?? []) {
+    for (const sub of b.subscribers) {
+      (connected[sub.reviewer_id] ||= new Set()).add(b.bucket)
+    }
+  }
+  const bucketReviewers = [...new Set([...(reviewersData?.active_reviewers ?? []).map(r => r.reviewer_id), ...Object.keys(connected)])].sort()
+  const onlineIds = new Set((reviewersData?.active_reviewers ?? []).map(r => r.reviewer_id))
+  function toggleBucket(reviewerId, bucket) {
+    const next = new Set(connected[reviewerId] ?? [])
+    next.has(bucket) ? next.delete(bucket) : next.add(bucket)
+    bucketsMutation.mutate({ reviewerId, buckets: BUCKET_ORDER.filter(b => next.has(b)) })
+  }
 
   const claims = statusData?.active_claims ?? []
   const unassigned = (queueData?.items ?? []).filter(i => !i.assigned_to)
@@ -306,6 +363,66 @@ export default function CTSAllocationAdmin() {
           )}
         </div>
 
+        {/* Bucket connections */}
+        <div className={`border rounded-lg overflow-hidden mb-5 ${th.card}`}>
+          <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between flex-wrap gap-2`}>
+            <span className={`text-xs font-semibold uppercase tracking-wider ${th.muted}`}>Bucket connections</span>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+              bucketData?.routing_enabled
+                ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700')}`}>
+              Bucket routing {bucketData?.routing_enabled ? 'ON' : 'OFF'}
+            </span>
+          </div>
+          {!bucketData?.routing_enabled && (
+            <p className={`px-4 py-2 text-xs ${th.muted}`}>
+              Routing is off, so every reviewer sees all work. Connect reviewers below, then switch on
+              <span className="font-mono"> bucket_routing_enabled</span> in operations config.
+            </p>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className={`px-4 py-2 text-left border-b ${th.divider} ${th.th}`}>Reviewer</th>
+                  {BUCKET_ORDER.map(b => (
+                    <th key={b} className={`px-2 py-2 text-center border-b ${th.divider} ${th.th}`}>{BUCKET_LABEL[b]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bucketReviewers.length === 0 && (
+                  <tr><td colSpan={BUCKET_ORDER.length + 1} className={`px-4 py-6 text-center text-sm ${th.muted}`}>
+                    No reviewers online yet. A reviewer appears here once they open the review queue.
+                  </td></tr>
+                )}
+                {bucketReviewers.map(rid => (
+                  <tr key={rid} className={`border-b ${th.row}`}>
+                    <td className={`px-4 py-2 text-sm ${th.body}`}>
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${onlineIds.has(rid) ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                      {rid}
+                    </td>
+                    {BUCKET_ORDER.map(b => (
+                      <td key={b} className="px-2 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          aria-label={`${rid} ${BUCKET_LABEL[b]}`}
+                          checked={connected[rid]?.has(b) ?? false}
+                          disabled={bucketsMutation.isPending}
+                          onChange={() => toggleBucket(rid, b)}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {bucketsMutation.isError && (
+            <p className="px-4 py-2 text-xs text-red-400">{bucketsMutation.error?.message}</p>
+          )}
+        </div>
+
         {/* Claims table */}
         <div className={`border rounded-lg overflow-hidden ${th.card}`}>
           <table className="w-full border-collapse">
@@ -398,6 +515,7 @@ export default function CTSAllocationAdmin() {
                 return (
                   <tr key={item.instrument_id} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>{item.instrument_id}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? (BUCKET_LABEL[item.bucket] ?? item.bucket) : ''}</td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.clearing_zone !== 'UNKNOWN' ? item.clearing_zone : ''}</td>
                     <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
                       {mins === null ? '' : mins <= 0 ? 'IET passed' : `IET in ${mins} min`}

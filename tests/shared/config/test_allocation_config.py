@@ -29,6 +29,7 @@ ALLOCATION_KEYS = {
     "cts.bucket_overflow_after_minutes": 10,
     "cts.sip_review_timeout_minutes": 15,
     "cts.bucket_routing_enabled": False,
+    "cts.sip_iet_guard_minutes": 10,
 }
 
 
@@ -48,3 +49,17 @@ async def test_get_cts_config_exposes_allocation_settings_under_their_bare_names
     for key, default in ALLOCATION_KEYS.items():
         assert cfg[key.removeprefix("cts.")] == default
     assert cfg["cts.iet_minutes"] == 180          # the existing dotted keys are unchanged
+
+
+@pytest.mark.asyncio
+async def test_workflow_thresholds_carry_the_bucket_and_sip_settings_under_bare_names():
+    """The cheque workflow reads these from its input config; if they are missing from the map it silently uses
+    defaults and a bank's setting has no effect."""
+    svc = ConfigService.__new__(ConfigService)
+    svc._bank_id, svc._ready, svc._redis, svc._db_pool = "kbl", True, None, None
+    cfg = await svc.get_workflow_thresholds("kbl")
+    for key in ("bucket_routing_enabled", "bucket_priority", "bucket_hvc_min_amount", "bucket_lvc_max_amount",
+                "bucket_frequent_min_cheques", "bucket_frequent_window_days", "bucket_corporate_account_types",
+                "bucket_institution_account_types", "sip_review_timeout_minutes", "sip_iet_guard_minutes"):
+        assert key in cfg, key
+    assert cfg["sip_iet_guard_minutes"] == 10 and cfg["bucket_routing_enabled"] is False

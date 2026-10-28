@@ -21,6 +21,13 @@ const ROUTES = {
       { reviewer_id: 'bob', expires_at: NOW + 200, load: 0, zones: ['ALL'] },
     ],
   },
+  '/v1/cts/admin/buckets': {
+    bank_id: 'kbl', routing_enabled: false,
+    buckets: [
+      { bucket: 'HVC', subscribers: [{ reviewer_id: 'alice', online: true, load: 3 }] },
+      { bucket: 'CA', subscribers: [] },
+    ],
+  },
   '/v1/cts/queue': {
     items: [
       { instrument_id: 'HELD-1', assigned_to: 'alice', iet_deadline: NOW + 7200, clearing_zone: 'UNKNOWN' },
@@ -36,6 +43,7 @@ beforeEach(() => {
     const path = String(url).split('?')[0]
     calls.push({ path, opts })
     if (path.endsWith('/assign')) return { ok: true, json: async () => ({ reviewer_id: 'bob' }) }
+    if (path.endsWith('/buckets') && opts.method === 'PUT') return { ok: true, json: async () => ({ reviewer_id: 'bob', buckets: [] }) }
     return { ok: true, json: async () => ROUTES[path] ?? {} }
   })
 })
@@ -85,5 +93,29 @@ describe('CTSAllocationAdmin', () => {
     const reassign = screen.getAllByRole('combobox').find(s => s.textContent.includes('Reassign'))
     const options = Array.from(reassign.querySelectorAll('option')).map(o => o.value).filter(Boolean)
     expect(options).toEqual(['bob'])
+  })
+
+  it('shows the bucket grid with existing connections ticked and warns that routing is off', async () => {
+    renderPage()
+    expect(await screen.findByText('Bucket connections')).toBeTruthy()
+    expect(await screen.findByText(/Bucket routing OFF/)).toBeTruthy()
+    expect((await screen.findByLabelText('alice High value')).checked).toBe(true)
+    expect(screen.getByLabelText('alice Corporate').checked).toBe(false)
+  })
+
+  it('connects a reviewer to another bucket, sending the full new set', async () => {
+    renderPage()
+    const box = await screen.findByLabelText('alice Corporate')
+    fireEvent.click(box)
+    await waitFor(() => expect(calls.some(c => c.path === '/v1/cts/admin/reviewers/alice/buckets' && c.opts.method === 'PUT')).toBe(true))
+    const put = calls.find(c => c.opts.method === 'PUT')
+    expect(JSON.parse(put.opts.body)).toEqual({ buckets: ['HVC', 'CA'] })
+  })
+
+  it('removes a connection by unticking it', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByLabelText('alice High value'))
+    await waitFor(() => expect(calls.some(c => c.opts.method === 'PUT')).toBe(true))
+    expect(JSON.parse(calls.find(c => c.opts.method === 'PUT').opts.body)).toEqual({ buckets: [] })
   })
 })

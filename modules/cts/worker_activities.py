@@ -209,6 +209,26 @@ class BoundCTSActivities:
         async with self._db_pool.acquire() as conn:
             return await _real(inp, cbs_connector=self._cbs_connector, db_conn=conn)
 
+    @activity.defn(name="classify_bucket")
+    async def classify_bucket(self, inp):
+        """Which review bucket a cheque belongs to (best-effort: a lookup that fails degrades, never raises)."""
+        from modules.cts.workflows.activities.classify_bucket import ClassifyBucketInput, classify_bucket as _real
+        if isinstance(inp, dict):
+            inp = ClassifyBucketInput(**inp)
+        pepper = await _get_pii_pepper(self._config_service, inp.bank_id) or None
+        if self._db_pool is None:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=None, pepper=pepper)
+        async with self._db_pool.acquire() as conn:
+            return await _real(inp, cbs_connector=self._cbs_connector, db_conn=conn, pepper=pepper)
+
+    @activity.defn(name="sip_hold_check")
+    async def sip_hold_check(self, inp):
+        """Should this system decision wait for a reviewer? Any fault answers no (never delays a filing)."""
+        from modules.cts.workflows.activities.classify_bucket import SipHoldInput, sip_hold_check as _real
+        if isinstance(inp, dict):
+            inp = SipHoldInput(**inp)
+        return await _real(inp, db_pool=self._db_pool, redis_client=self._redis_client)
+
     @activity.defn(name="check_image_quality")
     async def check_image_quality(self, inp):
         from modules.cts.workflows.activities.image_quality import IQAInput, check_image_quality as _real
@@ -764,6 +784,8 @@ class BoundCTSActivities:
             self.check_account_status,
             self.record_drawee_name,
             self.record_payee_name,
+            self.classify_bucket,
+            self.sip_hold_check,
             self.check_image_quality,
             self.load_signatures_from_cbs,
             self.load_pps_from_cbs,

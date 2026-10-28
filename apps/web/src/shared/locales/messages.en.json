@@ -553,6 +553,18 @@
       "elapsed_minutes"
     ]
   },
+  "CTS_WF_SIP_AUTO_FILED": {
+    "text": "No reviewer acted on system-processed cheque {instrument_id} within {elapsed_minutes} minutes — the system decision was filed.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "elapsed_minutes"
+    ]
+  },
   "CTS_WF_REVIEW_IET_WARNING": {
     "text": "IET warning for {instrument_id} in review queue — {minutes_remaining} minutes remaining.",
     "severity": "WARN",

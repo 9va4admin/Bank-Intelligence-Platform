@@ -197,6 +197,17 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   (`POST /v1/cts/admin/review/{id}/assign`) is pinned and audited. Claims are atomic (`SET NX`; the old read-then-write let two
   reviewers both win). Open: nothing sets an inward item's `clearing_zone` yet, so zone scoping is enforced only for items that carry
   one (zone-less items go to anyone); `AuditEvent` has no `user_id` field, so the actor must be in the payload.
+- **Review buckets and the SIP hold (2026-10-28, bank owner's design).** Nine buckets: HVC, CA, IP, LVC, FCC, SIP_SUCCESS, SIP_REJECT,
+  HR, MISC (`modules/cts/buckets.py`). A cheque that needs a human is classed by kind in the admin's `bucket_priority` order, else HR;
+  a system-decided cheque is SIP_SUCCESS or SIP_REJECT. Admins connect reviewers to buckets (`cts.reviewer_bucket_subscriptions`,
+  `PUT /v1/cts/admin/reviewers/{id}/buckets`); a reviewer works only those buckets plus MISC, which is self-claim only and receives
+  every de-allocated item and any item with no logged-in subscriber for `bucket_overflow_after_minutes` (it keeps `origin_bucket`).
+  Auto-assign, claim, admin assign and rebalance all stay inside the bucket. **SIP hold:** when routing is on and a reviewer connected
+  to the SIP bucket is logged in, the system decision is held for them (`sip_review_timeout_minutes`, one bank-wide value); a reviewer
+  may confirm or overrule, and on timeout the SYSTEM decision is filed (never the human-review auto-return). Never held when too close
+  to the IET (`sip_iet_guard_minutes`), for sub-member cheques, or on any failure. Everything is off until `cts.bucket_routing_enabled`.
+  Open: real CBS adapters do not yet fill `AccountInfo.account_type`, so CA/IP rely on the bank's account lists
+  (`cts.bucket_account_lists`) until each adapter maps its scheme codes; an admin screen for those lists is not built.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

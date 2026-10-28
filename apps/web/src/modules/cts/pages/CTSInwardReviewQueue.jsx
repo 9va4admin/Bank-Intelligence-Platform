@@ -51,6 +51,14 @@ const TIER_LABEL = { all: 'All', standard: 'Standard', high_value: 'High Value',
 const CATEGORIES = ['all', 'CHEQUE', 'DEMAND_DRAFT']
 const CATEGORY_LABEL = { all: 'All Instruments', CHEQUE: 'Cheques', DEMAND_DRAFT: 'Demand Drafts' }
 
+// Review buckets: HVC high value, CA corporate, IP institution, LVC low value, FCC frequent customer,
+// SIP system-processed (success / reject, held for a reviewer), HR general human review, MISC unallocated.
+const BUCKET_LABEL = {
+  HVC: 'High value', CA: 'Corporate', IP: 'Institution', LVC: 'Low value', FCC: 'Frequent customer',
+  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous',
+}
+const BUCKETS = ['all', ...Object.keys(BUCKET_LABEL)]
+
 const _T = (offsetMins) => Math.floor(Date.now() / 1000) + offsetMins * 60
 
 const MOCK_REVIEW_ITEMS = [
@@ -261,6 +269,17 @@ const TIER_L = {
   standard:   'bg-slate-100 text-slate-600 border-slate-300',
   high_value: 'bg-amber-50  text-amber-700 border-amber-200',
   very_high:  'bg-red-50    text-red-700   border-red-200',
+}
+
+function BucketBadge({ bucket, origin, isDark }) {
+  if (!bucket) return null
+  const cls = isDark ? 'border-sky-700/50 bg-sky-900/30 text-sky-300' : 'border-sky-200 bg-sky-50 text-sky-700'
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded border font-medium ${cls}`}
+          title={origin ? `Moved to Miscellaneous from ${BUCKET_LABEL[origin] ?? origin}` : undefined}>
+      {BUCKET_LABEL[bucket] ?? bucket}{bucket === 'MISC' && origin ? ` (from ${BUCKET_LABEL[origin] ?? origin})` : ''}
+    </span>
+  )
 }
 
 function TierBadge({ tier, isDark }) {
@@ -530,6 +549,7 @@ export default function CTSInwardReviewQueue() {
 
   const [tierFilter, setTierFilter]   = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [bucketFilter, setBucketFilter] = useState('all')
   const [expandedId, setExpandedId]   = useState(null)
   const [holdTarget, setHoldTarget]   = useState(null)
   const [returnTarget, setReturnTarget] = useState(null)
@@ -589,8 +609,12 @@ export default function CTSInwardReviewQueue() {
     if (categoryFilter !== 'all') {
       out = out.filter(it => (it.instrument_category || 'CHEQUE') === categoryFilter)
     }
+    if (bucketFilter !== 'all') {
+      out = out.filter(it => it.bucket === bucketFilter)
+    }
     return out
-  }, [rawItems, tierFilter, categoryFilter])
+  }, [rawItems, tierFilter, categoryFilter, bucketFilter])
+  const hasBuckets = rawItems.some(it => it.bucket)
   const remaining = useTickingCountdowns(rawItems)
   const sorted = [...items].sort((a, b) => (remaining[a.instrument_id] ?? 0) - (remaining[b.instrument_id] ?? 0))
 
@@ -963,6 +987,21 @@ export default function CTSInwardReviewQueue() {
           ))}
         </div>
 
+        {/* Bucket filter — shown once the bank has bucket routing on (items then carry a bucket) */}
+        {hasBuckets && (
+          <div className={`flex gap-1 mb-5 flex-wrap`}>
+            {BUCKETS.map(b => (
+              <button key={b} onClick={() => setBucketFilter(b)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  bucketFilter === b
+                    ? (isDark ? 'border-sky-500 text-sky-300 bg-sky-900/30' : 'border-sky-500 text-sky-700 bg-sky-50')
+                    : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                {b === 'all' ? 'All buckets' : BUCKET_LABEL[b]}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isLoading && <div className={`text-center py-16 ${th.muted}`}>Loading queue…</div>}
         {isError && <div className="text-center py-16 text-amber-400/70">Backend not reachable — retrying every 15s.</div>}
         {!isLoading && !isError && items.length === 0 && (
@@ -993,6 +1032,7 @@ export default function CTSInwardReviewQueue() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-mono text-sm font-semibold ${th.heading}`}>{item.instrument_id}</span>
                         <TierBadge tier={item.queue_tier} isDark={isDark} />
+                        <BucketBadge bucket={item.bucket} origin={item.origin_bucket} isDark={isDark} />
                         <StatusBadge status={item.status} claimedBy={item.claimed_by} isDark={isDark} />
                       </div>
                       <div className="flex items-center gap-3">

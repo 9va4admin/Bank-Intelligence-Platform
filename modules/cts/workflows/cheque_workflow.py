@@ -328,6 +328,98 @@ class ChequeProcessingWorkflow:
             inp.cts_config.get("human_review_max_wait_minutes", 55)
         )
 
+        def _get(obj, key):
+            return obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+
+        async def _classify(needs_human: bool, system_decision: Optional[str] = None) -> Optional[str]:
+            """The review bucket for this cheque, or None. Best-effort: it never raises and never delays or changes a
+            decision. Only runs when the bank has bucket routing on."""
+            if not inp.cts_config.get("bucket_routing_enabled"):
+                return None
+            try:
+                from modules.cts.workflows.activities.classify_bucket import ClassifyBucketInput
+                res = await workflow.execute_activity(
+                    "classify_bucket",
+                    ClassifyBucketInput(
+                        bank_id=inp.bank_id, instrument_id=inp.instrument_id, account_number=inp.account_number,
+                        presented_amount=inp.presented_amount, needs_human=needs_human, system_decision=system_decision,
+                        cfg={k: v for k, v in inp.cts_config.items() if k.startswith(("bucket_", "sip_"))},
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=RetryPolicy(maximum_attempts=1),
+                )
+                return _get(res, "bucket")
+            except Exception as _cls_exc:
+                if type(_cls_exc).__name__ == "CancelledError":
+                    raise
+                workflow.logger.warning(f"classify_bucket failed; continuing without a bucket: {type(_cls_exc).__name__}")
+                return None
+
+        async def _hold_for_sip(decision: str, rationale: str, context_extra: Optional[dict]) -> bool:
+            """Hand a SYSTEM decision to a reviewer in a SIP bucket instead of filing it here. True if it was handed
+            over (the review workflow then files either the reviewer's decision or, on timeout, the system's own).
+            Never holds when routing is off, for sub-member cheques, when too close to the IET, when nobody connected
+            to the bucket is logged in, or when anything fails: in all of those the decision is filed immediately."""
+            cfg = inp.cts_config
+            if not cfg.get("bucket_routing_enabled") or inp.smb_id:
+                return False
+            remaining_min = (inp.iet_deadline - workflow.now().timestamp()) / 60.0
+            guard = float(cfg.get("sip_iet_guard_minutes", 10))
+            if remaining_min <= guard:
+                return False
+            system_decision = "CONFIRM" if decision == "STP_CONFIRM" else "RETURN"
+            bucket = await _classify(False, system_decision)
+            if bucket not in ("SIP_SUCCESS", "SIP_REJECT"):
+                return False
+            try:
+                from modules.cts.workflows.activities.classify_bucket import SipHoldInput
+                check = await workflow.execute_activity(
+                    "sip_hold_check",
+                    SipHoldInput(bank_id=inp.bank_id, bucket=bucket,
+                                 cfg={k: v for k, v in cfg.items() if k.startswith(("bucket_", "sip_"))}),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=RetryPolicy(maximum_attempts=1),
+                )
+                if not _get(check, "hold"):
+                    return False
+            except Exception as _hold_exc:
+                if type(_hold_exc).__name__ == "CancelledError":
+                    raise
+                workflow.logger.warning(f"sip_hold_check failed; filing without a hold: {type(_hold_exc).__name__}")
+                return False
+
+            hold_minutes = max(1, int(round(min(float(cfg.get("sip_review_timeout_minutes", 15)), remaining_min - guard))))
+            try:
+                # If the IET watchdog ever has to fire, it must file the system's real decision, not a blind CONFIRM.
+                await watchdog.signal(IETWatchdogWorkflow.decision_ready, system_decision)
+            except Exception as exc:
+                log.critical("cheque_workflow.watchdog_signal_failed", instrument_id=inp.instrument_id, error=str(exc))
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_WF_HUMAN_REVIEW_QUEUED", bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                    payload={"rationale": rationale, "sip_hold": True, "bucket": bucket,
+                             "system_decision": system_decision, "hold_minutes": hold_minutes, **(context_extra or {})},
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+            await workflow.start_child_workflow(
+                HumanReviewWorkflow.run,
+                HumanReviewInput(
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id, workflow_id=wf_id,
+                    context_bundle={"rationale": rationale, "sip_hold": True, **(context_extra or {})},
+                    iet_deadline=inp.iet_deadline,
+                    review_timeout_minutes=hold_minutes,
+                    bucket=bucket, system_decision=system_decision,
+                ),
+                id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
+                task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
+                parent_close_policy=ParentClosePolicy.ABANDON,
+                memo={"instrument_id": inp.instrument_id, "instrument_category": _instrument_category},
+            )
+            return True
+
         async def finalise(
             decision: str, rationale: str, shap_values: Optional[dict] = None,
             context_extra: Optional[dict] = None,
@@ -441,7 +533,12 @@ class ChequeProcessingWorkflow:
                     instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc),
                 )
 
+            _sip_held = False
             if decision in ("STP_CONFIRM", "STP_RETURN"):
+                _sip_held = await _hold_for_sip(decision, rationale, context_extra)
+            if _sip_held:
+                rationale = f"sip_hold: {rationale}"      # held for a SIP-bucket reviewer; the review workflow files it
+            elif decision in ("STP_CONFIRM", "STP_RETURN"):
                 ngch_decision = "CONFIRM" if decision == "STP_CONFIRM" else "RETURN"
                 try:
                     await watchdog.signal(IETWatchdogWorkflow.decision_ready, ngch_decision)
@@ -523,6 +620,7 @@ class ChequeProcessingWorkflow:
                     start_to_close_timeout=timedelta(seconds=15),
                     retry_policy=_AUDIT_RETRY,
                 )
+                _hr_bucket = await _classify(True)
                 await workflow.start_child_workflow(
                     HumanReviewWorkflow.run,
                     HumanReviewInput(
@@ -531,6 +629,7 @@ class ChequeProcessingWorkflow:
                         context_bundle={"rationale": rationale, **(context_extra or {})},
                         iet_deadline=inp.iet_deadline,
                         review_timeout_minutes=review_timeout_minutes,
+                        bucket=_hr_bucket,
                     ),
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                     task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
@@ -601,7 +700,7 @@ class ChequeProcessingWorkflow:
                         workflow_decision=decision,
                         image_path=inp.image_url,
                         account_suffix=inp.account_number[-4:],
-                        ngch_filed_ok=(decision != "HUMAN_REVIEW"),
+                        ngch_filed_ok=(decision != "HUMAN_REVIEW" and not _sip_held),
                     ),
                     id=f"cts-feedback-emit-{inp.bank_id}-{inp.instrument_id}",
                     parent_close_policy=ParentClosePolicy.ABANDON,

@@ -44,6 +44,7 @@ class AccountInfo(BaseModel):
     currency: str = "INR"
     cbs_account_id: Optional[str] = None   # internal CBS ref, not PII
     holder_name: Optional[str] = None      # account holder (drawee) name — shown to inward reviewers, exempt from masking
+    account_type: Optional[str] = None     # CORPORATE | INSTITUTION | GOVERNMENT | INDIVIDUAL ... (drives the CA / IP review buckets)
 
 
 class StopPaymentResult(BaseModel):
