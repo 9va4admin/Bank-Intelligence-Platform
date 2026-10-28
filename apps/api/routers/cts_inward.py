@@ -662,6 +662,9 @@ async def submit_review_decision(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for review decisions")
 
     lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
+    if lock_svc is not None and not meta:
+        # Every queued item has an allocation record until its final decision is filed; none means it is not waiting.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is not waiting for review")
     if meta.get("stage") == "VALIDATION":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="A maker has already decided this cheque; a checker must use validate")

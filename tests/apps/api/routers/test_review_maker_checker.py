@@ -212,3 +212,9 @@ def test_after_a_makers_decision_the_item_stays_so_the_checker_stage_can_find_it
     run(lock.acquire_lock("I-1", "maker", CFG_ON))
     _decide(_client("maker", redis, CFG_ON))
     assert run(lock.get_item_meta(BANK, "I-1")) != {}
+
+
+def test_a_decision_on_an_item_that_is_no_longer_waiting_is_refused():
+    redis = FakeRedis()                                  # no allocation record: already filed (or never queued)
+    r = _decide(_client("maker", redis, CFG_ON))
+    assert r.status_code == 409 and "not waiting" in r.json()["detail"].lower()
