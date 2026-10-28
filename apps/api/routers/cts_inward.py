@@ -747,16 +747,20 @@ async def get_human_review_queue(
     if temporal_client is not None:
         try:
             safe_bank = _safe_temporal_param(eff_bank_id, "bank_id")
-            query = (
-                f"WorkflowType = 'HumanReviewWorkflow' "
-                f"AND ExecutionStatus = 'Running' "
-                f"AND BankId = '{safe_bank}'"
-            )
+            # The bank is in the workflow id (cts-humanreview-{bank}-{instrument}); no custom search attribute is needed
+            # (none was ever registered or set, which left this queue empty against a real Temporal).
+            query = "WorkflowType = 'HumanReviewWorkflow' AND ExecutionStatus = 'Running'"
+            id_prefix = f"cts-humanreview-{safe_bank}-"
             if smb_id_filter:
-                safe_smb = _safe_temporal_param(smb_id_filter, "smb_id")
-                query += f" AND SmbId = '{safe_smb}'"
+                _safe_temporal_param(smb_id_filter, "smb_id")
 
-            async for wf in temporal_client.list_workflows(query=query, page_size=limit):
+            async for wf in temporal_client.list_workflows(query=query, page_size=500):
+                if not wf.id.startswith(id_prefix) or (wf.memo or {}).get("bank_id", eff_bank_id) != eff_bank_id:
+                    continue
+                if smb_id_filter and (wf.memo or {}).get("smb_id") != smb_id_filter:
+                    continue
+                if len(items) >= limit:
+                    break
                 memo = wf.memo or {}
                 items.append(QueueItem(
                     instrument_id=memo.get("instrument_id", wf.id.split("-")[-1]),

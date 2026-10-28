@@ -166,6 +166,21 @@ class ChequeWorkflowResult(BaseModel):
     ai_recommendation: Optional[str] = None  # "CONFIRM" when stp_eligible
 
 
+def _review_memo(inp, instrument_category: str) -> dict:
+    """What the reviewer queue shows for a review workflow (read from the workflow memo; masked, never raw PII)."""
+    from shared.utils.masking import mask_amount, mask_customer_name
+    memo = {
+        "instrument_id": inp.instrument_id, "instrument_category": instrument_category, "bank_id": inp.bank_id,
+        "account_display": f"****{(inp.account_number or '')[-4:]}",
+        "payee_display": mask_customer_name(inp.presented_payee or ""),
+        "amount_range": mask_amount(float(inp.presented_amount or 0)),
+        "iet_deadline": float(inp.iet_deadline or 0.0),
+    }
+    if inp.smb_id:
+        memo["smb_id"] = inp.smb_id
+    return memo
+
+
 @workflow.defn
 class ChequeProcessingWorkflow:
     def __init__(self) -> None:
@@ -416,7 +431,7 @@ class ChequeProcessingWorkflow:
                 id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                 task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
                 parent_close_policy=ParentClosePolicy.ABANDON,
-                memo={"instrument_id": inp.instrument_id, "instrument_category": _instrument_category},
+                memo=_review_memo(inp, _instrument_category),
             )
             return True
 
@@ -638,7 +653,7 @@ class ChequeProcessingWorkflow:
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                     task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
                     parent_close_policy=ParentClosePolicy.ABANDON,
-                    memo={"instrument_id": inp.instrument_id, "instrument_category": _instrument_category},
+                    memo=_review_memo(inp, _instrument_category),
                 )
 
             # SMB side effects — only for sub-member-tagged instruments on terminal STP decisions.
