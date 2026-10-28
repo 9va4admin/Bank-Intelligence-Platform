@@ -208,6 +208,12 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   to the IET (`sip_iet_guard_minutes`), for sub-member cheques, or on any failure. Everything is off until `cts.bucket_routing_enabled`.
   Open: real CBS adapters do not yet fill `AccountInfo.account_type`, so CA/IP rely on the bank's account lists
   (`cts.bucket_account_lists`) until each adapter maps its scheme codes; an admin screen for those lists is not built.
+- **Maker-checker (2026-10-28).** `cts.maker_checker_enabled` (off by default): a reviewer's first decision (the maker's) is not filed; the item moves to
+  the `VAL` bucket and a different person confirms or overrules it (`POST /v1/cts/review/{id}/validate`; the maker is refused at claim, assign and
+  validate). No checker within `checker_review_timeout_minutes` files the maker's decision (never past the IET guard). Outward held items use
+  `cts.outward_review_stage` and `/outward/review/{id}/validate`; outward has no checker timeout yet. Found by the first live 4-user run
+  ([report](docs/reports/ASTRA_4User_MakerChecker_E2E_2026-10-28.md), kept untracked): approved admin settings had never been applied, and the reviewer
+  queue had always been empty on a real Temporal (it used a search attribute nothing set) - both fixed.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 
