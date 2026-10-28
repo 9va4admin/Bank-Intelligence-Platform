@@ -127,3 +127,22 @@ def test_the_validation_queue_lists_staged_items_with_who_made_the_decision():
     assert r.status_code == 200
     item = r.json()["items"][0]
     assert item["instrument_id"] == "I-1" and item["maker_id"] == "maker" and item["maker_decision"] == "CONFIRMED"
+
+
+def test_the_makers_queue_hides_an_instrument_once_a_stage_row_exists_even_after_the_checker_filed_it():
+    from apps.api.routers.cts_outward_data import SQL_MAKER_QUEUE
+    assert "outward_review_stage" in SQL_MAKER_QUEUE and "MAKER_DECIDED" not in SQL_MAKER_QUEUE
+
+
+def test_two_checkers_racing_on_the_same_item_get_a_409_not_a_500():
+    import asyncpg
+    db = FakeDb(); _client("maker", db=db).post("/v1/cts/outward/review/I-1/decide", json=BODY)
+    real = db.execute
+
+    async def conflict(sql, *a):
+        if " ".join(sql.split()).startswith("UPDATE cts.outward_review_stage"):
+            raise asyncpg.exceptions.SerializationError("conflict")
+        return await real(sql, *a)
+    db.execute = conflict
+    r = _client("checker", db=db).post("/v1/cts/outward/review/I-1/validate", json=BODY)
+    assert r.status_code == 409

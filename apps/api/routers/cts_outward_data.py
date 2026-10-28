@@ -28,6 +28,7 @@ import json
 from datetime import date
 from typing import List, Literal, Optional
 
+import asyncpg
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
@@ -409,6 +410,18 @@ class OutwardPipelineResponse(BaseModel):
 # ── Role constants ─────────────────────────────────────────────────────────────
 
 _OUTWARD_Q_ROLES = {"ops_reviewer", "ops_manager", "bank_it_admin", "branch_manager"}
+SQL_MAKER_QUEUE = ("SELECT instrument_id, scan_id AS cheque_number, NULL::text AS account_display, "
+                   "payee_display, amount_range, outcome AS status, NULL::float AS fraud_score, "
+                   "NULL::float AS ocr_confidence, reject_reason AS review_reason, "
+                   "scanned_at::text AS received_at, branch_id, lot_id, instrument_category "
+                   "FROM cts.outward_scan_events "
+                   "WHERE bank_id = $1 "
+                   "AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR') "
+                   "AND ($3::text IS NULL OR instrument_category = $3) "
+                   # any stage row means a maker has decided (waiting for a checker, or already filed): not the maker's work
+                   "AND NOT EXISTS (SELECT 1 FROM cts.outward_review_stage g WHERE g.bank_id = outward_scan_events.bank_id "
+                   "AND g.instrument_id = outward_scan_events.instrument_id) "
+                   "ORDER BY scanned_at DESC LIMIT $2")
 _OUTWARD_CHECK_ROLES = {"ops_reviewer", "ops_manager"}
 SQL_STAGE_INSERT = ("INSERT INTO cts.outward_review_stage (bank_id, instrument_id, maker_id, maker_decision, maker_reason) "
                     "VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING")
@@ -671,23 +684,7 @@ async def get_outward_human_review_queue(
         return OutwardQueueResponse(bank_id=bank_id, items=[], total=0)
 
     try:
-        rows = await db.fetch(
-            """
-            SELECT instrument_id, scan_id AS cheque_number, NULL::text AS account_display,
-                   payee_display, amount_range, outcome AS status, NULL::float AS fraud_score,
-                   NULL::float AS ocr_confidence, reject_reason AS review_reason,
-                   scanned_at::text AS received_at, branch_id, lot_id, instrument_category
-            FROM cts.outward_scan_events
-            WHERE bank_id = $1
-              AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR')
-              AND NOT EXISTS (SELECT 1 FROM cts.outward_review_stage g WHERE g.bank_id = outward_scan_events.bank_id
-                              AND g.instrument_id = outward_scan_events.instrument_id AND g.status = 'MAKER_DECIDED')
-              AND ($3::text IS NULL OR instrument_category = $3)
-            ORDER BY scanned_at DESC
-            LIMIT $2
-            """,
-            bank_id, limit, instrument_category,
-        )
+        rows = await db.fetch(SQL_MAKER_QUEUE, bank_id, limit, instrument_category)
     except Exception as exc:
         log.error("cts.outward_queue.query_failed", bank_id=bank_id, error=str(exc))
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
@@ -829,8 +826,12 @@ async def validate_outward_review(
                             detail="You made the first decision on this instrument; a different person must check it")
 
     signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason.strip())
-    async with db.acquire() as conn:
-        await conn.execute(SQL_STAGE_FINAL, bank_id, instrument_id, ctx.user_id)
+    try:
+        async with db.acquire() as conn:
+            await conn.execute(SQL_STAGE_FINAL, bank_id, instrument_id, ctx.user_id)
+    except asyncpg.exceptions.SerializationError as exc:
+        # Another checker finished this item at the same moment (YugabyteDB aborts the second writer).
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Another checker is handling this instrument") from exc
     log.info("cts.outward_review.validated", instrument_id=instrument_id, bank_id=bank_id, checker_id=ctx.user_id,
              maker_id=staged["maker_id"], overrode=body.action != staged["maker_decision"])
     return OutwardReviewDecisionResponse(
