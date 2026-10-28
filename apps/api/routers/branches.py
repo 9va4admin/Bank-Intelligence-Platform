@@ -303,7 +303,7 @@ def _row_to_branch(row: dict, bank_id: str) -> dict:
         "address": (row.get("Complete Address") or "").strip() or None,
         "pin_code": (row.get("PIN Code") or "").strip() or None,
         "phone_number": (row.get("Phone Number") or "").strip() or None,
-        "pu_id": None,
+        "pu_id": (row.get("PU ID") or "").strip() or None,     # optional column: the processing unit this branch maps to
         "smb_id": None,
         "scanner_input_mode": "UI_UPLOAD",
         "is_scanning_enabled": True,
@@ -752,12 +752,13 @@ async def bulk_import(
                                     "address = EXCLUDED.address, "
                                     "pin_code = EXCLUDED.pin_code, "
                                     "phone_number = EXCLUDED.phone_number, "
+                                    "pu_id = COALESCE(EXCLUDED.pu_id, cts.branches.pu_id), "
                                     "updated_at = NOW()",
                                     branch["branch_id"], branch["bank_id"],
                                     branch["branch_name"], branch["branch_ifsc"],
                                     branch["city"], branch["district"], branch["state"],
                                     branch["address"], branch["pin_code"], branch["phone_number"],
-                                    None, None, "UI_UPLOAD", True, True,
+                                    branch["pu_id"], None, "UI_UPLOAD", True, True,
                                     datetime.now(timezone.utc), "bulk-import",
                                 )
                                 # asyncpg returns "INSERT 0 1" or "UPDATE 1"

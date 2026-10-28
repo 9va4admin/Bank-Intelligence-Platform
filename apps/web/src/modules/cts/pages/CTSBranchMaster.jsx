@@ -72,6 +72,7 @@ const STATE_TO_PU = {
 const PU_OPTIONS_BY_BANK = {
   'federal-bank':   [{ id: 'SOUTH-MAIN', label: 'South Zone PU' }, { id: 'WEST-MAIN', label: 'West Zone PU' }, { id: 'NORTH-MAIN', label: 'North Zone PU' }, { id: 'EAST-MAIN', label: 'East Zone PU' }],
   'saraswat-coop':  [{ id: 'PU-MUM-01', label: 'Mumbai PU-01' }, { id: 'PU-MUM-02', label: 'Mumbai PU-02' }, { id: 'PU-PUN-01', label: 'Pune PU-01' }],
+  'central-bank-of-india': [{ id: 'CBIN-PU-MUMBAI', label: 'Mumbai Processing Unit' }, { id: 'CBIN-PU-DELHI', label: 'Delhi Processing Unit' }, { id: 'CBIN-PU-KOLKATA', label: 'Kolkata Processing Unit' }, { id: 'KBL-PU-01', label: 'Chennai Processing Unit' }, { id: 'CBIN-PU-HYDERABAD', label: 'Hyderabad Processing Unit' }, { id: 'CBIN-PU-AHMEDABAD', label: 'Ahmedabad Processing Unit' }],
   'karnataka-bank': [{ id: 'PU-SOUTH', label: 'South PU' }, { id: 'PU-NORTH', label: 'North PU' }],
   'union-bank':     [{ id: 'UBIN-PU-WEST', label: 'Western PU (Mumbai/Pune/Ahmedabad)' }, { id: 'UBIN-PU-SOUTH', label: 'Southern PU (Chennai/Bengaluru/Hyderabad)' }],
 }
@@ -496,7 +497,7 @@ function ImportModal({ isDark, onClose, qc }) {
         <div className="space-y-4">
           <div className={cardCls}>
             <p className={bodyText}>Upload your branch directory CSV with the following columns:</p>
-            <p className={`${mutedText} mt-2 font-mono`}>Branch Name, Complete Address, City, District, State, PIN Code, IFSC Code, Phone Number</p>
+            <p className={`${mutedText} mt-2 font-mono`}>Branch Name, Complete Address, City, District, State, PIN Code, IFSC Code, Phone Number [, PU ID (optional)]</p>
           </div>
 
           {/* Drop zone */}
