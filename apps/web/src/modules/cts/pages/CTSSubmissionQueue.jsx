@@ -2,6 +2,7 @@
  * CTSSubmissionQueue — Submission stage (Stage 3).
  * Cheque image visible in the detail panel via tabs: Front | Back | Pay-in Slip | Fields.
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
@@ -114,7 +115,7 @@ const MOCK_OUTWARD = [
 const MOCK_INWARD = [
   {
     // Payer (drawer): Girish V. Naik — Saraswat customer; Payee: Ramesh N. Rao — received at other bank
-    instrument_id: 'CHQ-IN-S001', account_display: '00000000004521', drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar', source_stage: 'STP',
+    instrument_id: 'CHQ-IN-S001', account_display: '00000000004521', drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Dadar', source_stage: 'STP',
     iet_deadline: new Date(Date.now() + 68 * 60000).toISOString(),
     date: '15/07/2026', payee: 'Ramesh N. Rao', drawer_name: 'Girish V. Naik',
     amount_figures: '₹45,000', amount_words: 'Forty Five Thousand Only', micr: '400005678',
@@ -123,7 +124,7 @@ const MOCK_INWARD = [
   },
   {
     // Payer (drawer): Kavita P. Shah — Saraswat customer; Payee: Meena S. Sharma — received at other bank
-    instrument_id: 'CHQ-IN-S002', account_display: '00000000008912', drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle', source_stage: 'VERIFIED',
+    instrument_id: 'CHQ-IN-S002', account_display: '00000000008912', drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Vile Parle', source_stage: 'VERIFIED',
     iet_deadline: new Date(Date.now() + 22 * 60000).toISOString(),
     date: '14/07/2026', payee: 'Meena S. Sharma', drawer_name: 'Kavita P. Shah',
     amount_figures: '₹3,20,000', amount_words: 'Three Lakh Twenty Thousand Only', micr: '400009012',
@@ -132,7 +133,7 @@ const MOCK_INWARD = [
   },
   {
     // Payer (drawer): Rohit D. Kulkarni — Saraswat customer; Payee: Suresh B. Agarwal — received at other bank
-    instrument_id: 'CHQ-IN-S003', account_display: '00000000006677', drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali', source_stage: 'VERIFIED',
+    instrument_id: 'CHQ-IN-S003', account_display: '00000000006677', drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Borivali', source_stage: 'VERIFIED',
     iet_deadline: new Date(Date.now() + 51 * 60000).toISOString(),
     date: '15/07/2026', payee: 'Suresh B. Agarwal', drawer_name: 'Rohit D. Kulkarni',
     amount_figures: '₹1,10,000', amount_words: 'One Lakh Ten Thousand Only', micr: '400007890',

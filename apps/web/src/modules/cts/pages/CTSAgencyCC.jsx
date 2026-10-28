@@ -9,6 +9,7 @@
  * this is an sbOnly page because only the agency itself operates it.
  * SMB users never see this page (AppShell sbOnly gate + useBankContext guard).
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -54,7 +55,7 @@ function useAgencyData({ pollEnabled }) {
 const MOCK_SB_CONNECTIONS = [
   {
     sb_connection_id: 'sbconn-saraswat',
-    sb_name: 'Saraswat Co-operative Bank',
+    sb_name: BANK_CONFIG.bank_name,
     sb_bank_id: 'saraswat-coop',
     connector_type: 'SFTP_GENERIC',
     is_active: true,
@@ -89,7 +90,7 @@ const MOCK_SESSIONS = [
   {
     session_id: 'sess-morning-saraswat',
     sb_bank_id: 'saraswat-coop',
-    sb_name: 'Saraswat Co-operative Bank',
+    sb_name: BANK_CONFIG.bank_name,
     session_type: 'MORNING',
     status: 'SUBMITTED',
     total_instruments: 234,
@@ -123,7 +124,7 @@ const MOCK_SESSIONS = [
   {
     session_id: 'sess-afternoon-saraswat',
     sb_bank_id: 'saraswat-coop',
-    sb_name: 'Saraswat Co-operative Bank',
+    sb_name: BANK_CONFIG.bank_name,
     session_type: 'AFTERNOON',
     status: 'OPEN',
     total_instruments: 0,

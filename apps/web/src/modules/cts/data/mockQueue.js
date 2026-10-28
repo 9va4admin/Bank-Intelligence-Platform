@@ -64,8 +64,8 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006221',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
-    branch: 'Ernakulam City',
+    bank: BANK_CONFIG.bank_name,
+    branch: 'Fort Branch, Mumbai',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****9027',
     payee_display: 'Menon Constructions Ltd.',
@@ -117,8 +117,8 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006248',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
-    branch: 'Aluva HO',
+    bank: BANK_CONFIG.bank_name,
+    branch: 'Andheri West Branch, Mumbai',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****3374',
     payee_display: 'Rajan Nair',
@@ -236,7 +236,7 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006271',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
+    bank: BANK_CONFIG.bank_name,
     branch: 'Kozhikode Main',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****6618',
@@ -290,7 +290,7 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006283',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
+    bank: BANK_CONFIG.bank_name,
     branch: 'Palakkad Market',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****1155',
