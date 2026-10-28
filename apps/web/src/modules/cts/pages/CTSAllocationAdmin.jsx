@@ -6,9 +6,12 @@
  * link to the config page.
  *
  * Real data: GET /api/v1/cts/allocation/status (refetches every 30s).
- * Force-release: DELETE /api/v1/cts/review/{instrument_id}/claim.
+ * Force-release: DELETE /v1/cts/admin/review/{instrument_id}/claim.
+ * Assign / reassign: POST /v1/cts/admin/review/{instrument_id}/assign  { reviewer_id }.
+ * Unassigned work: GET /v1/cts/queue (items whose assigned_to is empty).
  * Roles: ops_manager, bank_it_admin.
  */
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -37,10 +40,37 @@ function ModeTag({ mode, isDark }) {
   )
 }
 
+// Current time in seconds, refreshed on an interval, so countdowns never call Date.now() during render.
+function useNowSeconds(intervalMs = 15_000) {
+  const [now, setNow] = useState(() => Date.now() / 1000)
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now() / 1000), intervalMs)
+    return () => clearInterval(t)
+  }, [intervalMs])
+  return now
+}
+
+function ReviewerSelect({ reviewers, onPick, disabled, isDark, label = 'Reassign…' }) {
+  return (
+    <select
+      value=""
+      disabled={disabled || reviewers.length === 0}
+      onChange={(e) => e.target.value && onPick(e.target.value)}
+      className={`text-xs px-2 py-1 rounded border ${isDark ? 'bg-navy-900 border-white/10 text-slate-300' : 'bg-white border-slate-300 text-slate-700'}`}
+    >
+      <option value="">{reviewers.length === 0 ? 'no one online' : label}</option>
+      {reviewers.map(r => (
+        <option key={r.reviewer_id} value={r.reviewer_id}>{r.reviewer_id} ({r.load ?? 0} held)</option>
+      ))}
+    </select>
+  )
+}
+
 export default function CTSAllocationAdmin() {
   const { isDark } = useTheme()
   const { bankId, isDemo } = useBankContext()
   const qc = useQueryClient()
+  const nowSec = useNowSeconds()
 
   const th = {
     page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
@@ -108,9 +138,48 @@ export default function CTSAllocationAdmin() {
     retry: false,
   })
 
-  const allocationMode = cfgData?.allocation_mode ?? '—'
+  const allocationMode = statusData?.allocation_mode ?? cfgData?.allocation_mode ?? '—'
+  const strategy = statusData?.allocation_strategy
+  const maxPer = statusData?.max_per_reviewer
 
   // --- admin force-release mutation (separate endpoint from reviewer self-unclaim) ---
+  // --- unassigned work: queue items nobody holds, most urgent first (the queue API sorts by IET deadline) ---
+  const { data: queueData } = useQuery({
+    queryKey: ['allocation-unassigned', bankId],
+    queryFn: async () => {
+      if (isDemo) return { items: [] }
+      const res = await fetch('/v1/cts/queue?limit=100', { credentials: 'include' })
+      if (!res.ok) return { items: [] }
+      return res.json()
+    },
+    enabled: true,
+    refetchInterval: isDemo ? false : REFETCH_MS,
+    staleTime: 10_000,
+    retry: false,
+  })
+
+  // --- admin assign / reassign: pinned to the chosen reviewer, audited, never moved by the rebalancer ---
+  const assignMutation = useMutation({
+    mutationFn: async ({ instrumentId, reviewerId }) => {
+      const res = await fetch(`/v1/cts/admin/review/${instrumentId}/assign`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewer_id: reviewerId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Assign failed')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['allocation-status', bankId] })
+      qc.invalidateQueries({ queryKey: ['allocation-unassigned', bankId] })
+      qc.invalidateQueries({ queryKey: ['active-reviewers', bankId] })
+    },
+  })
+
   const releaseMutation = useMutation({
     mutationFn: async (instrumentId) => {
       const res = await fetch(`/v1/cts/admin/review/${instrumentId}/claim`, {
@@ -129,13 +198,14 @@ export default function CTSAllocationAdmin() {
   })
 
   const claims = statusData?.active_claims ?? []
+  const unassigned = (queueData?.items ?? []).filter(i => !i.assigned_to)
   const onlineReviewers = reviewersData?.active_reviewers ?? []
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString('en-IN', { hour12: false })
     : '—'
 
   function fmtExpiresIn(expires_at) {
-    const secs = Math.max(0, Math.round(expires_at - Date.now() / 1000))
+    const secs = Math.max(0, Math.round(expires_at - nowSec))
     if (secs <= 0) return 'expired'
     const m = Math.floor(secs / 60), s = secs % 60
     return `${m}m ${String(s).padStart(2, '0')}s`
@@ -156,6 +226,11 @@ export default function CTSAllocationAdmin() {
             <div className="flex items-center gap-2 text-xs">
               <span className={th.muted}>Mode:</span>
               <ModeTag mode={allocationMode} isDark={isDark} />
+              {strategy && allocationMode !== 'SELF' && (
+                <span className={th.muted}>
+                  {strategy === 'LEAST_LOADED' ? 'least loaded' : 'random'}{maxPer ? `, max ${maxPer} each` : ''}
+                </span>
+              )}
               <Link
                 to="/admin/config/operations"
                 className="text-blue-400 hover:underline text-xs"
@@ -218,6 +293,10 @@ export default function CTSAllocationAdmin() {
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="font-medium">{r.reviewer_id}</span>
+                  <span title="claims held now">{r.load ?? 0} held</span>
+                  {r.zones?.length > 0 && !r.zones.includes('ALL') && (
+                    <span className="font-mono" title="clearing zones">{r.zones.join('/')}</span>
+                  )}
                   <span className={`font-mono ${isDark ? 'text-emerald-600' : 'text-emerald-500'}`}>
                     {fmtExpiresIn(r.expires_at)}
                   </span>
@@ -232,7 +311,7 @@ export default function CTSAllocationAdmin() {
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                {['Instrument ID', 'Claimed By', 'Tier', 'Actions'].map(h => (
+                {['Instrument ID', 'Claimed By', 'Tier', 'Reassign to', 'Actions'].map(h => (
                   <th key={h} className={`px-4 py-2.5 text-left border-b ${th.divider} ${th.th}`}>
                     {h}
                   </th>
@@ -242,14 +321,14 @@ export default function CTSAllocationAdmin() {
             <tbody>
               {claims.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={4} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
+                  <td colSpan={5} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
                     No active claims — all instruments are unclaimed.
                   </td>
                 </tr>
               )}
               {isLoading && (
                 <tr>
-                  <td colSpan={4} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
+                  <td colSpan={5} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
                     Loading…
                   </td>
                 </tr>
@@ -267,6 +346,14 @@ export default function CTSAllocationAdmin() {
                     </td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>
                       {claim.tier || 'standard'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ReviewerSelect
+                        reviewers={onlineReviewers.filter(r => r.reviewer_id !== claim.reviewer_id)}
+                        disabled={assignMutation.isPending}
+                        isDark={isDark}
+                        onPick={(reviewerId) => assignMutation.mutate({ instrumentId: claim.instrument_id, reviewerId })}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -296,7 +383,46 @@ export default function CTSAllocationAdmin() {
           </table>
         </div>
 
+        {/* Unassigned work */}
+        <div className={`border rounded-lg overflow-hidden mt-5 ${th.card}`}>
+          <div className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b ${th.divider} ${th.muted}`}>
+            Unassigned in the queue ({unassigned.length}) <span className="font-normal normal-case">most urgent first</span>
+          </div>
+          <table className="w-full border-collapse">
+            <tbody>
+              {unassigned.length === 0 && (
+                <tr><td className={`px-4 py-6 text-center text-sm ${th.muted}`}>Nothing is waiting for an owner.</td></tr>
+              )}
+              {unassigned.slice(0, 25).map(item => {
+                const mins = item.iet_deadline ? Math.round((item.iet_deadline - nowSec) / 60) : null
+                return (
+                  <tr key={item.instrument_id} className={`border-b ${th.row}`}>
+                    <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>{item.instrument_id}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.clearing_zone !== 'UNKNOWN' ? item.clearing_zone : ''}</td>
+                    <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
+                      {mins === null ? '' : mins <= 0 ? 'IET passed' : `IET in ${mins} min`}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ReviewerSelect
+                        reviewers={onlineReviewers}
+                        label="Assign to…"
+                        disabled={assignMutation.isPending}
+                        isDark={isDark}
+                        onPick={(reviewerId) => assignMutation.mutate({ instrumentId: item.instrument_id, reviewerId })}
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {assignMutation.isError && (
+          <p className="text-xs text-red-400 mt-2">{assignMutation.error?.message}</p>
+        )}
+
         <p className={`text-xs mt-3 ${th.muted}`}>
+          Assign and Reassign pin the cheque to that reviewer: automatic rebalancing never moves it. Both are audited.
           Force Release removes a stale claim immediately.
           The reviewer will see a "Claim lost" notice on their next action.
           This is audited to Immudb.

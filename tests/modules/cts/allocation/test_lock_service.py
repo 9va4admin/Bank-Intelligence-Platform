@@ -21,7 +21,7 @@ def _make_redis():
     redis = AsyncMock()
     redis._store: dict = {}
 
-    async def set_nx(key, value, ex=None):
+    async def set_nx(key, value, ex=None, nx=False, xx=False):
         if key in redis._store:
             return False
         redis._store[key] = value
@@ -231,7 +231,7 @@ def _make_full_redis():
     redis._store: dict = {}
     redis._zsets: dict = {}
 
-    async def set_nx(key, value, ex=None):
+    async def set_nx(key, value, ex=None, nx=False, xx=False):
         if key in redis._store:
             return False
         redis._store[key] = value

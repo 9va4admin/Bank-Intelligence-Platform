@@ -84,6 +84,11 @@ class ReviewDecisionResponse(BaseModel):
     signal_sent: bool
 
 
+def _lock_service(redis):
+    from modules.cts.allocation.lock_service import LockService
+    return LockService(redis_client=redis)
+
+
 class QueueItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
@@ -102,6 +107,7 @@ class QueueItem(BaseModel):
     security_features: Optional[dict] = None
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
     drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
+    assigned_to: Optional[str] = None     # reviewer currently holding the claim, if any (allocation lock)
 
 
 class QueueResponse(BaseModel):
@@ -662,21 +668,24 @@ async def get_human_review_queue(
         items = [i.model_copy(update={"drawee_name": names.get(i.instrument_id)}) for i in items]
     log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
-    # --- Reviewer heartbeat + HYBRID deferred auto-assign ---
-    # Every queue poll registers the reviewer as active (5-min TTL in Redis).
-    # In HYBRID mode, we also fire any deferred auto-assigns whose timeout has passed.
+    # --- Reviewer heartbeat, deferred assignment, rebalancing -------------------------------------------------
+    # Every queue poll registers the reviewer as active (5-minute heartbeat in Redis), with their clearing zones.
+    # In AUTO and HYBRID modes the poll also (a) assigns items whose wait or retry has come due and (b) rebalances
+    # unopened auto-assigned work when someone new has logged in (or at most once per interval).
     redis = getattr(request.app.state, "redis_cts", None)
+    lock_svc = None
     if redis is not None and ctx.role.value in ("ops_reviewer", "ops_manager"):
         from modules.cts.allocation.lock_service import LockService
         from modules.cts.allocation.allocation_service import AllocationService
         lock_svc = LockService(redis_client=redis)
 
+        joined = False
         try:
-            await lock_svc.heartbeat_reviewer(eff_bank_id, ctx.user_id)
+            joined = await lock_svc.heartbeat_reviewer(
+                eff_bank_id, ctx.user_id, zones=list(getattr(ctx, "clearing_zones", None) or []))
         except Exception as exc:
             log.warning("cts.queue.heartbeat_failed", user_id=ctx.user_id, error=str(exc))
 
-        # HYBRID deferred auto-assign — check for instruments past their unclaimed timeout
         config_svc = getattr(request.app.state, "config_service", None)
         cts_config: dict = {}
         if config_svc is not None:
@@ -685,26 +694,49 @@ async def get_human_review_queue(
             except Exception:
                 pass
 
-        if cts_config.get("allocation_mode") == "HYBRID":
+        if cts_config.get("allocation_mode") in ("HYBRID", "AUTO"):
+            alloc_svc = AllocationService(lock_service=lock_svc)
             try:
-                alloc_svc = AllocationService(lock_service=lock_svc)
                 due = await lock_svc.pop_due_hybrid_pending(eff_bank_id, limit=10)
                 if due:
                     available = await lock_svc.get_active_reviewers(eff_bank_id)
+                    retry_seconds = int(cts_config.get("allocation_retry_seconds", 60))
                     for pending_id in due:
-                        # Only auto-assign if still unclaimed (reviewer may have self-claimed)
-                        holder = await lock_svc.get_lock_holder(pending_id)
-                        if holder is None:
-                            result = await alloc_svc.auto_assign(pending_id, available, cts_config)
-                            log.info(
-                                "cts.queue.hybrid_auto_assigned",
-                                instrument_id=pending_id,
-                                claimed=result.claimed,
-                                reviewer_id=result.reviewer_id,
-                                bank_id=eff_bank_id,
-                            )
+                        result = await alloc_svc.auto_assign(pending_id, available, cts_config, bank_id=eff_bank_id)
+                        log.info(
+                            "cts.queue.deferred_auto_assigned",
+                            instrument_id=pending_id,
+                            claimed=result.claimed,
+                            reviewer_id=result.reviewer_id,
+                            reason=result.reason,
+                            bank_id=eff_bank_id,
+                        )
+                        if not result.claimed and result.reason != "ALREADY_CLAIMED":
+                            # Nobody eligible right now: look again shortly rather than dropping the item.
+                            await lock_svc.add_hybrid_pending(eff_bank_id, pending_id, time.time() + retry_seconds)
             except Exception as exc:
-                log.warning("cts.queue.hybrid_auto_assign_error", bank_id=eff_bank_id, error=str(exc))
+                log.warning("cts.queue.deferred_auto_assign_error", bank_id=eff_bank_id, error=str(exc))
+
+            try:
+                if cts_config.get("allocation_rebalance_enabled", True) and (
+                    joined or await lock_svc.try_rebalance_gate(
+                        eff_bank_id, int(cts_config.get("allocation_rebalance_interval_seconds", 60)))
+                ):
+                    await alloc_svc.rebalance(eff_bank_id, cts_config)
+            except Exception as exc:
+                log.warning("cts.queue.rebalance_error", bank_id=eff_bank_id, error=str(exc))
+
+    # --- Zone scoping and ownership -------------------------------------------------------------------------
+    zones = list(getattr(ctx, "clearing_zones", None) or [])
+    if ctx.role.value == "ops_reviewer" and zones and "ALL" not in zones:
+        # A reviewer scoped to a clearing zone sees only that zone (and items whose zone is not known).
+        items = [i for i in items if i.clearing_zone in zones or i.clearing_zone in ("", "UNKNOWN")]
+    if redis is not None and items:
+        try:
+            holders = await (lock_svc or _lock_service(redis)).get_lock_holders([i.instrument_id for i in items])
+            items = [i.model_copy(update={"assigned_to": holders.get(i.instrument_id)}) for i in items]
+        except Exception as exc:
+            log.warning("cts.queue.holders_fetch_failed", bank_id=eff_bank_id, error=str(exc))
 
     return QueueResponse(items=items, total=len(items), bank_id=eff_bank_id)
 

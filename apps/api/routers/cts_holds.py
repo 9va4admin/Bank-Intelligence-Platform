@@ -19,7 +19,7 @@ from typing import Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import get_current_user_context
@@ -169,12 +169,17 @@ class AllocationStatusResponse(BaseModel):
     bank_id: str
     active_claims: list[AllocationStatusItem]
     total: int
+    allocation_mode: str = "SELF"
+    allocation_strategy: str = "LEAST_LOADED"
+    max_per_reviewer: int = 0
 
 
 class ActiveReviewerItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     reviewer_id: str
     expires_at: float  # Unix timestamp — heartbeat TTL expiry
+    zones: list[str] = []   # clearing zones the reviewer is scoped to ([] or ['ALL'] = any)
+    load: int = 0           # claims held right now
 
 
 class ActiveReviewersResponse(BaseModel):
@@ -722,7 +727,7 @@ async def claim_instrument(
         async def get(self, key):
             return None
 
-        async def set(self, key, value, ex=None):
+        async def set(self, key, value, ex=None, nx=False, xx=False):
             return True
 
         async def delete(self, key):
@@ -744,7 +749,16 @@ async def claim_instrument(
         except Exception:
             pass
 
-    result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
+    if redis is not None:
+        result = await alloc_svc.claim(
+            instrument_id, reviewer_id, cts_config, bank_id=bank_id,
+            reviewer_zones=list(getattr(ctx, "clearing_zones", None) or []),
+        )
+        if result.reason == "ZONE_RESTRICTED":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="This cheque belongs to a clearing zone you are not scoped to")
+    else:
+        result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
 
     from shared.audit.audit_event import AuditEvent, AuditEventType
     audit_writer = getattr(request.app.state, "audit_stream_writer", None)
@@ -755,6 +769,7 @@ async def claim_instrument(
             user_id=reviewer_id,
             payload={
                 "instrument_id": instrument_id,
+                "reviewer_id": reviewer_id,
                 "claimed": result.claimed,
                 "held_by": result.held_by,
                 "allocation_mode": cts_config.get("allocation_mode", "SELF"),
@@ -801,7 +816,7 @@ async def unclaim_instrument(
 
     class _NullRedis:
         async def get(self, key): return None
-        async def set(self, key, value, ex=None): return True
+        async def set(self, key, value, ex=None, nx=False, xx=False): return True
         async def delete(self, key): return 0
         async def scan(self, cursor, match=None, count=None): return (0, [])
 
@@ -810,7 +825,7 @@ async def unclaim_instrument(
     lock_svc = LockService(redis_client=redis if redis is not None else _NullRedis())
     alloc_svc = AllocationService(lock_service=lock_svc)
 
-    await alloc_svc.unclaim(instrument_id, reviewer_id, {})
+    await alloc_svc.unclaim(instrument_id, reviewer_id, {}, bank_id=bank_id if redis is not None else None)
 
     from shared.audit.audit_event import AuditEvent, AuditEventType
     audit_writer = getattr(request.app.state, "audit_stream_writer", None)
@@ -868,8 +883,21 @@ async def get_allocation_status(
             if cursor == 0:
                 break
 
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(bank_id)
+        except Exception:
+            pass
+
     log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
-    return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
+    return AllocationStatusResponse(
+        bank_id=bank_id, active_claims=claims, total=len(claims),
+        allocation_mode=cts_config.get("allocation_mode", "SELF"),
+        allocation_strategy=cts_config.get("allocation_strategy", "LEAST_LOADED"),
+        max_per_reviewer=int(cts_config.get("allocation_max_per_reviewer", 0) or 0),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -908,9 +936,13 @@ async def get_active_reviewers(
         await redis.zremrangebyscore(key, "-inf", now_ts)
         # Return remaining with their expiry scores
         raw = await redis.zrange(key, 0, -1, withscores=True)
-        for member, score in raw:
-            reviewer_id_val = member.decode() if isinstance(member, bytes) else member
-            reviewers.append(ActiveReviewerItem(reviewer_id=reviewer_id_val, expires_at=score))
+        ids = [m.decode() if isinstance(m, bytes) else m for m, _ in raw]
+        zones_by = await lock_svc.get_reviewer_zones(bank_id)
+        loads = await lock_svc.reviewer_loads(ids)
+        for reviewer_id_val, (_, score) in zip(ids, raw):
+            reviewers.append(ActiveReviewerItem(
+                reviewer_id=reviewer_id_val, expires_at=score,
+                zones=zones_by.get(reviewer_id_val, []), load=loads.get(reviewer_id_val, 0)))
 
     log.info("cts.alloc.reviewers", bank_id=bank_id, online=len(reviewers))
     return ActiveReviewersResponse(bank_id=bank_id, active_reviewers=reviewers, total=len(reviewers))
@@ -945,7 +977,7 @@ async def admin_force_release_claim(
 
     class _NullRedis:
         async def get(self, key): return None
-        async def set(self, key, value, ex=None): return True
+        async def set(self, key, value, ex=None, nx=False, xx=False): return True
         async def delete(self, key): return 0
         async def scan(self, cursor, match=None, count=None): return (0, [])
         async def expire(self, key, ttl): return 0
@@ -959,7 +991,7 @@ async def admin_force_release_claim(
     # Capture who held the lock before releasing (for the audit record)
     previous_holder = await lock_svc.get_lock_holder(instrument_id)
 
-    await lock_svc.force_release(instrument_id)
+    await lock_svc.force_release(instrument_id, bank_id=bank_id if redis is not None else None)
 
     from shared.audit.audit_event import AuditEvent, AuditEventType
     audit_writer = getattr(request.app.state, "audit_stream_writer", None)
@@ -988,4 +1020,105 @@ async def admin_force_release_claim(
         instrument_id=instrument_id,
         claimed=False,
         message=f"Force-released (was held by {previous_holder or 'nobody'})",
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/review/{instrument_id}/assign   (admin assign / reassign)
+# ---------------------------------------------------------------------------
+# Only ops_manager and bank_it_admin. The target must be a known reviewer of this bank (currently logged in, or a
+# registered ops_reviewer / ops_manager account) and must be allowed to work the cheque's clearing zone. The item is
+# pinned (never moved by the rebalancer) and the assignment is audited with the admin, the assignee and the previous holder.
+
+class AssignRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    reviewer_id: str = Field(min_length=1, max_length=128)
+
+
+class AssignResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    reviewer_id: str
+    previous_holder: Optional[str] = None
+    message: str
+
+
+@router_v1.post(
+    "/admin/review/{instrument_id}/assign",
+    response_model=AssignResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def admin_assign_review(
+    instrument_id: str,
+    body: AssignRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> AssignResponse:
+    bank_id = ctx.bank_id
+    admin_id = ctx.user_id
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+    if redis is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Allocation store unavailable")
+
+    from modules.cts.allocation.lock_service import LockService
+    from modules.cts.allocation.allocation_service import AllocationService, zone_allows
+    lock_svc = LockService(redis_client=redis)
+    alloc_svc = AllocationService(lock_service=lock_svc)
+
+    target = body.reviewer_id
+    active = await lock_svc.get_active_reviewers(bank_id)
+    known = target in active
+    if not known:
+        db = getattr(request.app.state, "db_pool_cts", None)
+        if db is not None:
+            try:
+                async with db.acquire() as conn:
+                    known = bool(await conn.fetchval(
+                        "SELECT 1 FROM platform.local_auth_accounts WHERE bank_id = $1 AND user_id = $2 "
+                        "AND role IN ('ops_reviewer', 'ops_manager') LIMIT 1", bank_id, target))
+            except Exception:  # noqa: BLE001 - an unreachable directory means we cannot vouch for the target
+                known = False
+    if not known:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
+
+    zones = (await lock_svc.get_reviewer_zones(bank_id)).get(target)
+    meta = await lock_svc.get_item_meta(bank_id, instrument_id)
+    if zones is not None and not zone_allows(meta.get("zone"), zones):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="That reviewer is not scoped to this cheque's clearing zone")
+
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(bank_id)
+        except Exception:
+            pass
+
+    previous_holder = await alloc_svc.assign(instrument_id, target, cts_config, bank_id=bank_id)
+
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        await audit_writer(AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_CLAIMED,
+            bank_id=bank_id,
+            user_id=admin_id,
+            payload={
+                "instrument_id": instrument_id,
+                "action": "ADMIN_ASSIGN",
+                "assigned_to": target,
+                "assigned_by": admin_id,
+                "previous_holder": previous_holder,
+            },
+        ))
+
+    log.info("cts.alloc.admin_assigned", instrument_id=instrument_id, assigned_to=target,
+             admin_id=admin_id, previous_holder=previous_holder, bank_id=bank_id)
+    return AssignResponse(
+        instrument_id=instrument_id, reviewer_id=target, previous_holder=previous_holder,
+        message=f"Assigned to {target} (was held by {previous_holder or 'nobody'})",
     )
