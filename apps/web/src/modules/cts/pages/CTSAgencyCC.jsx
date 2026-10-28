@@ -54,9 +54,9 @@ function useAgencyData({ pollEnabled }) {
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK_SB_CONNECTIONS = [
   {
-    sb_connection_id: 'sbconn-saraswat',
+    sb_connection_id: `sbconn-${BANK_CONFIG.bank_id}`,
     sb_name: BANK_CONFIG.bank_name,
-    sb_bank_id: 'saraswat-coop',
+    sb_bank_id: BANK_CONFIG.bank_id,
     connector_type: 'SFTP_GENERIC',
     is_active: true,
     last_tested_at: '2026-07-05T06:05:00Z',
@@ -88,8 +88,8 @@ const MOCK_SB_CONNECTIONS = [
 
 const MOCK_SESSIONS = [
   {
-    session_id: 'sess-morning-saraswat',
-    sb_bank_id: 'saraswat-coop',
+    session_id: `sess-morning-${BANK_CONFIG.bank_id}`,
+    sb_bank_id: BANK_CONFIG.bank_id,
     sb_name: BANK_CONFIG.bank_name,
     session_type: 'MORNING',
     status: 'SUBMITTED',
@@ -122,8 +122,8 @@ const MOCK_SESSIONS = [
     failure_reason: 'SB_CONNECTOR_FAILED',
   },
   {
-    session_id: 'sess-afternoon-saraswat',
-    sb_bank_id: 'saraswat-coop',
+    session_id: `sess-afternoon-${BANK_CONFIG.bank_id}`,
+    sb_bank_id: BANK_CONFIG.bank_id,
     sb_name: BANK_CONFIG.bank_name,
     session_type: 'AFTERNOON',
     status: 'OPEN',

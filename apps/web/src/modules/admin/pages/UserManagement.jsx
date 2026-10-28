@@ -136,7 +136,10 @@ const MOCK_USERS_BY_BANK = {
   ],
 }
 
-const MOCK_USERS = MOCK_USERS_BY_BANK[BANK_CONFIG.bank_id] ?? MOCK_USERS_BY_BANK['saraswat-coop']
+// A bank without its own sample list gets the default list, with emails on its own domain (never another bank's).
+const _EMAIL_DOMAIN = BANK_CONFIG.bank_id === 'central-bank-of-india' ? 'centralbank.co.in' : `${BANK_CONFIG.bank_id}.example`
+const MOCK_USERS = MOCK_USERS_BY_BANK[BANK_CONFIG.bank_id]
+  ?? MOCK_USERS_BY_BANK['saraswat-coop'].map(u => ({ ...u, email: u.email.replace(/@[^@]+$/, '@' + _EMAIL_DOMAIN) }))
 
 function fmt(iso) {
   if (!iso) return '—'
