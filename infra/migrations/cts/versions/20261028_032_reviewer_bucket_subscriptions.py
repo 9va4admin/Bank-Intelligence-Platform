@@ -37,6 +37,7 @@ def upgrade() -> None:
             bank_id      TEXT NOT NULL,
             bucket       TEXT NOT NULL CHECK (bucket IN ('CA','IP')),
             account_hash TEXT NOT NULL,
+            account_last4 TEXT NOT NULL DEFAULT '',   -- display only; the number itself is never stored
             added_by     TEXT NOT NULL,
             added_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
             PRIMARY KEY (bank_id, bucket, account_hash)

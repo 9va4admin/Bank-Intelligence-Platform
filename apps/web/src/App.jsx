@@ -10,6 +10,7 @@ import CTSVaultGapReport from './modules/cts/pages/CTSVaultGapReport'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
 import CTSAllocationAdmin from './modules/cts/pages/CTSAllocationAdmin'
+import CTSBucketConfig from './modules/cts/pages/CTSBucketConfig'
 import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
@@ -173,6 +174,7 @@ export default function App() {
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
+        <Route path="/admin/config/buckets" element={<CTSBucketConfig />} />
         {/* ASTRA Ops Dashboard — ops_manager + bank_it_admin (analytics) */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />

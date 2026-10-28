@@ -37,7 +37,7 @@ from apps.api.routers import msv
 from apps.api.routers import cts_ops
 from apps.api.routers import cts_dashboard
 from apps.api.routers import cts_smb
-from apps.api.routers import cts_holds
+from apps.api.routers import cts_holds, cts_bucket_lists
 from apps.api.routers import cts_scanner
 from apps.api.routers import cts_vault_ops
 from apps.api.routers import cts_admin_ops
@@ -469,6 +469,7 @@ app.include_router(cts_ops.router_v1)
 app.include_router(cts_dashboard.router_v1)
 app.include_router(cts_smb.router_v1)
 app.include_router(cts_holds.router_v1)
+app.include_router(cts_bucket_lists.router_v1)
 app.include_router(cts_scanner.router_v1)
 app.include_router(cts_vault_ops.router_v1)
 app.include_router(cts_admin_ops.router_v1)
