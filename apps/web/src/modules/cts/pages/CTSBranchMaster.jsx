@@ -9,7 +9,8 @@ import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranche
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: no backend, use client-side mock data.
 // POC/PROD: Vite proxy forwards /v1/* to the real backend — always use real API.
-const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
+// VITE_BRANCH_MASTER_LIVE=true makes this page read and write the real branch table even in a DEMO build.
+const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO' && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
 
 // ── Mock branch data (keyed by bank_id) ──────────────────────────────────
 
