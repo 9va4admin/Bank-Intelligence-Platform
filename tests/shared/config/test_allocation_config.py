@@ -29,6 +29,8 @@ ALLOCATION_KEYS = {
     "cts.bucket_overflow_after_minutes": 10,
     "cts.outward_session_cutoffs": ["14:30"],          # outward clearing session cut-off(s), local time - configurable per bank
     "cts.outward_session_timezone": "Asia/Kolkata",
+    "cts.outward_high_value_ranges": ["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"],
+    "cts.outward_bucket_priority": ["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"],
     "cts.outward_maker_scope": "CENTRAL",
     "cts.outward_branch_first_fallback_minutes": 10,
     "cts.outward_checker_scope": "ANY",

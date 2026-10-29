@@ -22,9 +22,10 @@ def run(coro):
 
 
 class FakeDb:
-    def __init__(self, held=(), pu_of=None, branch_of=None, age_of=None):
-        self.held = [dict(instrument_id=i, cheque_number=i, account_display="****", payee_display="P***", amount_range="r",
-                          status="MISMATCH_HELD", fraud_score=None, ocr_confidence=None, review_reason="x", pu_id=(pu_of or {}).get(i, "PU-1"),
+    def __init__(self, held=(), pu_of=None, branch_of=None, age_of=None, outcome_of=None, range_of=None, subs=None):
+        self.subs = subs or {}          # reviewer -> buckets
+        self.held = [dict(instrument_id=i, cheque_number=i, account_display="****", payee_display="P***", amount_range=(range_of or {}).get(i, "₹[<1L]"),
+                          status=(outcome_of or {}).get(i, "MISMATCH_HELD"), fraud_score=None, ocr_confidence=None, review_reason="x", pu_id=(pu_of or {}).get(i, "PU-1"),
                           age_seconds=(age_of or {}).get(i, 0.0),
                           received_at="t", branch_id=(branch_of or {}).get(i, "B1"), lot_id=None, instrument_category="CHEQUE") for i in held]
         self.stage, self.updates = {}, []
@@ -59,13 +60,16 @@ class FakeDb:
     async def fetchrow(self, sql, *args):
         if "cts.branches" in sql and "outward_scan_events" in sql:          # the PU of an instrument, through its branch
             row = next((r for r in self.held if r["instrument_id"] == args[1]), None)
-            return {"pu_id": row["pu_id"], "branch_id": row["branch_id"], "age_seconds": row["age_seconds"]} if row else None
+            return {"pu_id": row["pu_id"], "branch_id": row["branch_id"], "age_seconds": row["age_seconds"],
+                    "outcome": row["status"], "amount_range": row["amount_range"]} if row else None
         if "FROM cts.outward_review_stage" in sql:
             row = self.stage.get(args[1])
             return dict(row, instrument_id=args[1]) if row and row["status"] == "MAKER_DECIDED" else None
         return None
 
     async def fetch(self, sql, *args):
+        if "cts.reviewer_bucket_subscriptions" in sql:                          # the subscription store's own query
+            return [{"bucket": b, "reviewer_id": r} for r, buckets in self.subs.items() for b in buckets]
         if "LEFT JOIN cts.outward_scan_events" in sql:
             return [dict(v, instrument_id=k, cheque_number="C", payee_display="P***", amount_range="r", review_reason="r",
                          branch_id="b", lot_id=None, instrument_category="CHEQUE", made_at="2026-10-28T10:00:00",
@@ -288,3 +292,67 @@ def test_central_only_checkers_refuse_branch_staff():
     _client("maker", db, redis, cfg=cfg).post(DECIDE.format("A1"), json=BODY)
     assert _client("branchy", db, redis, cfg=cfg, branch_ids=["B1"]).post("/v1/cts/outward/review/A1/validate", json=BODY).status_code == 403
     assert _client("checker", db, redis, cfg=cfg).post("/v1/cts/outward/review/A1/validate", json=BODY).status_code == 200
+
+
+# --- buckets for held outward items -------------------------------------------------------------------------------------------
+
+BK = {**CFG, "bucket_routing_enabled": True, "bucket_overflow_after_minutes": 10, "allocation_mode": "SELF"}
+MIXED = dict(held=["MIS", "CMP", "HV"], outcome_of={"MIS": "MISMATCH_HELD", "CMP": "CTS_REJECTED", "HV": "HUMAN_REVIEW"},
+             range_of={"HV": "₹[10L-1Cr]"})
+
+
+def test_every_held_item_shows_its_bucket():
+    redis, db = FakeRedis(), FakeDb(**MIXED)
+    rows = _queue(_client("mgr", db, redis, cfg=BK, role="ops_manager"))
+    assert {k: v["bucket"] for k, v in rows.items()} == {"MIS": "OUT_MISMATCH", "CMP": "OUT_COMPLIANCE", "HV": "OUT_HV"}
+
+
+def test_a_reviewer_sees_only_the_buckets_they_are_connected_to():
+    redis, db = FakeRedis(), FakeDb(**MIXED, subs={"r1": ["OUT_MISMATCH"]})
+    assert set(_queue(_client("r1", db, redis, cfg=BK))) == {"MIS"}
+
+
+def test_without_bucket_routing_every_reviewer_sees_everything():
+    redis, db = FakeRedis(), FakeDb(**MIXED, subs={"r1": ["OUT_MISMATCH"]})
+    assert set(_queue(_client("r1", db, redis, cfg={**BK, "bucket_routing_enabled": False}))) == {"MIS", "CMP", "HV"}
+
+
+def test_a_reviewer_cannot_decide_an_item_in_a_bucket_they_are_not_connected_to():
+    redis, db = FakeRedis(), FakeDb(**MIXED, subs={"r1": ["OUT_MISMATCH"]})
+    c = _client("r1", db, redis, cfg=BK)
+    assert c.post(DECIDE.format("CMP"), json=BODY).status_code == 403
+    assert c.post(DECIDE.format("MIS"), json=BODY).status_code == 200
+
+
+def test_auto_assignment_gives_each_item_to_a_reviewer_connected_to_its_bucket():
+    redis, db = FakeRedis(), FakeDb(**MIXED, subs={"r1": ["OUT_MISMATCH"], "r2": ["OUT_COMPLIANCE", "OUT_HV"]})
+    for who in ("r1", "r2"):
+        run(LockService(redis).heartbeat_reviewer(BANK, who))
+    rows = _queue(_client("mgr", db, redis, cfg={**BK, "allocation_mode": "AUTO"}, role="ops_manager"))
+    assert {k: v["assigned_to"] for k, v in rows.items()} == {"MIS": "r1", "CMP": "r2", "HV": "r2"}
+
+
+def test_an_item_nobody_connected_is_logged_in_for_overflows_to_misc_and_anyone_can_take_it():
+    redis, db = FakeRedis(), FakeDb(held=["OLD"], outcome_of={"OLD": "CTS_REJECTED"}, age_of={"OLD": 15 * 60.0}, subs={"away": ["OUT_COMPLIANCE"]})
+    rows = _queue(_client("other", db, redis, cfg=BK))
+    assert rows["OLD"]["bucket"] == "MISC" and rows["OLD"]["origin_bucket"] == "OUT_COMPLIANCE"
+    assert _client("other", db, redis, cfg=BK).post(DECIDE.format("OLD"), json=BODY).status_code == 200
+
+
+def test_a_young_item_stays_in_its_bucket_even_with_nobody_logged_in():
+    redis, db = FakeRedis(), FakeDb(held=["NEW"], outcome_of={"NEW": "CTS_REJECTED"}, age_of={"NEW": 60.0}, subs={"away": ["OUT_COMPLIANCE"]})
+    assert _queue(_client("mgr", db, redis, cfg=BK, role="ops_manager"))["NEW"]["bucket"] == "OUT_COMPLIANCE"
+
+
+def test_a_released_item_stays_in_misc_and_is_not_reclassified():
+    redis, db = FakeRedis(), FakeDb(held=["A1"], outcome_of={"A1": "MISMATCH_HELD"}, subs={"r1": ["OUT_MISMATCH"]})
+    run(LockService(redis).set_item_meta(BANK, "A1", bucket="MISC", origin_bucket="OUT_MISMATCH", queued_at=1.0))
+    assert _queue(_client("mgr", db, redis, cfg=BK, role="ops_manager"))["A1"]["bucket"] == "MISC"
+
+
+def test_a_staged_decision_is_in_the_val_bucket_for_checkers_and_hidden_from_others():
+    redis, db = FakeRedis(), FakeDb(held=["A1"], subs={"maker": ["OUT_MISMATCH"], "chk": ["VAL"], "nobody": ["OUT_MISMATCH"]})
+    _client("maker", db, redis, cfg=BK).post(DECIDE.format("A1"), json=BODY)
+    rows = {i["instrument_id"]: i for i in _client("chk", db, redis, cfg=BK).get("/v1/cts/outward/validation-queue").json()["items"]}
+    assert rows["A1"]["bucket"] == "VAL"
+    assert _client("nobody", db, redis, cfg=BK).get("/v1/cts/outward/validation-queue").json()["items"] == []

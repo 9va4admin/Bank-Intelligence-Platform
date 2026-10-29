@@ -55,7 +55,7 @@ _OPA_CACHE_TTL_SECONDS = 1
 # when the DB pool is None during local development.
 _ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign", "cts.bucket_", "cts.sip_", "cts.maker_checker", "cts.checker_",
                         "cts.outward_session", "cts.outward_cutoff", "cts.outward_maker", "cts.outward_branch_first",
-                        "cts.outward_checker")
+                        "cts.outward_checker", "cts.outward_high_value", "cts.outward_bucket")
 
 _LAYER3_DEFAULTS: dict[str, Any] = {
     # ── CTS thresholds ──────────────────────────────────────────────────────────
@@ -122,6 +122,8 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.sip_iet_guard_minutes": 10,                  # never hold a system decision within this many minutes of its IET
     "cts.outward_session_cutoffs": ["14:30"],         # outward clearing session cut-off(s), local "HH:MM" - configurable per bank
     "cts.outward_session_timezone": "Asia/Kolkata",
+    "cts.outward_high_value_ranges": ["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"],   # outward items in these masked amount ranges are OUT_HV
+    "cts.outward_bucket_priority": ["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"],   # which outward bucket wins
     "cts.outward_maker_scope": "CENTRAL",             # who makes outward decisions: CENTRAL | BRANCH | BRANCH_FIRST
     "cts.outward_branch_first_fallback_minutes": 10,  # BRANCH_FIRST: central staff may take an item after it has waited this long
     "cts.outward_checker_scope": "ANY",               # who checks: ANY (not the maker) | CENTRAL

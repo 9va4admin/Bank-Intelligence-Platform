@@ -22,7 +22,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 CLASS_BUCKETS = ("HVC", "CA", "IP", "FCC", "LVC")
-ALL_BUCKETS = ("HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR", "VAL", "MISC")
+# OUT_* are the buckets of held outward items (see modules/cts/outward_buckets.py); VAL (checker) and MISC are shared.
+ALL_BUCKETS = ("HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR", "VAL", "MISC",
+               "OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW")
 
 # Safe defaults when a key is absent (the Layer 3 defaults in config_service carry the same values).
 _DEFAULT_PRIORITY = ["HVC", "CA", "IP", "FCC", "LVC"]

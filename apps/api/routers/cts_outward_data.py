@@ -35,6 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
+from modules.cts.outward_buckets import classify_outward
 from modules.cts.outward_scope import checker_allowed, maker_allowed
 from modules.cts.outward_sessions import next_cutoff, seconds_to_cutoff
 from shared.auth.rbac import UserContext
@@ -127,6 +128,8 @@ class OutwardQueueItem(BaseModel):
     assigned_to_me: Optional[bool] = None  # True when the caller holds it
     pu_id: Optional[str] = None           # the processing unit of the item's branch
     due_at: Optional[float] = None        # epoch seconds: when the session this item is for closes
+    bucket: Optional[str] = None          # OUT_HV | OUT_MISMATCH | OUT_COMPLIANCE | OUT_REVIEW | MISC (with bucket routing on)
+    origin_bucket: Optional[str] = None   # for MISC items: the bucket they came from
 
 
 class OutwardQueueResponse(BaseModel):
@@ -169,6 +172,8 @@ class OutwardValidationItem(BaseModel):
     assigned_to_me: Optional[bool] = None
     pu_id: Optional[str] = None
     due_at: Optional[float] = None
+    bucket: Optional[str] = None
+    origin_bucket: Optional[str] = None
 
 
 class OutwardValidationQueueResponse(BaseModel):
@@ -436,7 +441,7 @@ SQL_MAKER_QUEUE = ("SELECT instrument_id, scan_id AS cheque_number, NULL::text A
                    "AND NOT EXISTS (SELECT 1 FROM cts.outward_review_stage g WHERE g.bank_id = outward_scan_events.bank_id "
                    "AND g.instrument_id = outward_scan_events.instrument_id) "
                    "ORDER BY scanned_at DESC LIMIT $2")
-SQL_ITEM_PU = ("SELECT b.pu_id, e.branch_id, EXTRACT(EPOCH FROM (now() - e.scanned_at)) AS age_seconds "
+SQL_ITEM_PU = ("SELECT b.pu_id, e.branch_id, e.outcome, e.amount_range, EXTRACT(EPOCH FROM (now() - e.scanned_at)) AS age_seconds "
                "FROM cts.outward_scan_events e JOIN cts.branches b "
                "ON b.bank_id = e.bank_id AND b.branch_id = e.branch_id WHERE e.bank_id = $1 AND e.instrument_id = $2 LIMIT 1")
 _OUTWARD_CHECK_ROLES = {"ops_reviewer", "ops_manager"}
@@ -448,7 +453,7 @@ SQL_STAGE_FINAL = ("UPDATE cts.outward_review_stage SET status = 'FINAL', checke
                    "WHERE bank_id = $1 AND instrument_id = $2 AND status = 'MAKER_DECIDED'")
 SQL_STAGE_LIST = ("SELECT g.instrument_id, e.scan_id AS cheque_number, e.payee_display, e.amount_range, "
                   "e.reject_reason AS review_reason, e.branch_id, e.lot_id, e.instrument_category, "
-                  "g.maker_id, g.maker_decision, g.maker_reason, g.made_at::text AS made_at, "
+                  "e.outcome AS outcome, g.maker_id, g.maker_decision, g.maker_reason, g.made_at::text AS made_at, "
                   "EXTRACT(EPOCH FROM (now() - g.made_at)) AS age_seconds, "
                   "(SELECT b.pu_id FROM cts.branches b WHERE b.bank_id = g.bank_id AND b.branch_id = e.branch_id LIMIT 1) AS pu_id "
                   "FROM cts.outward_review_stage g LEFT JOIN cts.outward_scan_events e "
@@ -712,11 +717,15 @@ async def get_outward_human_review_queue(
     if ctx.role.value == "ops_reviewer":
         mine = list(getattr(ctx, "branch_ids", None) or [])
         rows = [r for r in rows if maker_allowed(cfg, mine, r.get("branch_id"), float(r.get("age_seconds") or 0.0))]
-    holders = await _holders_and_assign(
+    holders, metas = await _holders_and_assign(
         request, ctx, [r["instrument_id"] for r in rows], cfg,
         pu_by_id={r["instrument_id"]: r.get("pu_id") for r in rows},
         branch_by_id={r["instrument_id"]: r.get("branch_id") for r in rows},
-        age_by_id={r["instrument_id"]: float(r.get("age_seconds") or 0.0) for r in rows})
+        age_by_id={r["instrument_id"]: float(r.get("age_seconds") or 0.0) for r in rows},
+        bucket_by_id={r["instrument_id"]: classify_outward(r["status"], r["amount_range"], cfg) for r in rows})
+    if metas:
+        visible = await _reviewer_may_see(request, ctx, cfg, metas)
+        rows = [r for r in rows if r["instrument_id"] in visible]
     due_at = next_cutoff(time.time(), cfg)
     items = [
         OutwardQueueItem(
@@ -737,6 +746,8 @@ async def get_outward_human_review_queue(
             assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id,
             pu_id=r.get("pu_id"),
             due_at=due_at,
+            bucket=(metas.get(r["instrument_id"]) or {}).get("bucket"),
+            origin_bucket=(metas.get(r["instrument_id"]) or {}).get("origin_bucket"),
         )
         for r in rows
     ]
@@ -766,29 +777,55 @@ def _lock_service(request: Request):
     return LockService(redis_client=redis)
 
 
+def _subscriptions(request: Request):
+    from modules.cts.allocation.subscriptions import SubscriptionStore
+    return SubscriptionStore(getattr(request.app.state, "db_pool_cts", None), redis=getattr(request.app.state, "redis_cts", None))
+
+
 async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids: list, cfg: dict,
                               exclude_by_id: Optional[dict] = None, pu_by_id: Optional[dict] = None,
                               branch_by_id: Optional[dict] = None, age_by_id: Optional[dict] = None,
-                              phase: str = "maker") -> dict:
-    """Heartbeat the caller, assign unheld items in AUTO mode (never to an excluded person), return {instrument_id: holder}.
-    Outward items carry no bucket, so any active reviewer is eligible; their load counts alongside inward work."""
+                              bucket_by_id: Optional[dict] = None, phase: str = "maker") -> tuple:
+    """Heartbeat the caller; record each item's PU, deadline and bucket; overflow stale items to MISC; in AUTO mode assign
+    unheld items (never to an excluded person). Returns ({instrument_id: holder}, {instrument_id: item record}).
+    Outward items count in a reviewer's load alongside inward work."""
     lock = _lock_service(request)
     if lock is None or not instrument_ids:
-        return {}
+        return {}, {}
     bank_id = ctx.bank_id
+    routing = bool(cfg.get("bucket_routing_enabled"))
     try:
         if ctx.role.value in ("ops_reviewer", "ops_manager"):
             await lock.heartbeat_reviewer(bank_id, ctx.user_id, pu_ids=list(getattr(ctx, "pu_ids", None) or []),
                                           branch_ids=list(getattr(ctx, "branch_ids", None) or []))
         holders = dict(await lock.get_lock_holders(instrument_ids))
-        # What allocation needs to know about each item: its PU, and when its session closes (the deadline that makes
-        # an item urgent). Refreshed on every read because the next cut-off moves on once a session has closed.
+        # What allocation needs to know about each item: its PU, when its session closes (the deadline that makes an item
+        # urgent) and, with bucket routing on, its bucket. The deadline is refreshed on every read because the next cut-off
+        # moves on once a session has closed; the bucket is set once, so a released item is not pulled back out of MISC.
         deadline = next_cutoff(time.time(), cfg)
+        now = time.time()
         for iid in instrument_ids:
-            await lock.update_item_meta(bank_id, iid, pu_id=(pu_by_id or {}).get(iid), iet_deadline=deadline)
-        if cfg.get("allocation_mode") == "AUTO":
+            fields = {"pu_id": (pu_by_id or {}).get(iid), "iet_deadline": deadline}
+            if routing and (bucket_by_id or {}).get(iid):
+                existing = await lock.get_item_meta(bank_id, iid)
+                if not existing.get("bucket"):
+                    fields["bucket"] = bucket_by_id[iid]
+                    fields["queued_at"] = now - float((age_by_id or {}).get(iid, 0.0))
+                    if phase == "checker":
+                        fields["origin_bucket"] = (bucket_by_id or {}).get(f"origin:{iid}")
+                        fields["maker_id"] = (exclude_by_id or {}).get(iid)
+            await lock.update_item_meta(bank_id, iid, **fields)
+
+        alloc = None
+        if routing or cfg.get("allocation_mode") == "AUTO":
             from modules.cts.allocation.allocation_service import AllocationService
-            alloc = AllocationService(lock_service=lock)
+            alloc = AllocationService(lock_service=lock, subscriptions=_subscriptions(request) if routing else None)
+        if routing:
+            for iid in instrument_ids:
+                if not holders.get(iid):
+                    await alloc.overflow_if_stale(bank_id, iid, cfg)     # nobody connected is here: it moves to MISC
+
+        if cfg.get("allocation_mode") == "AUTO":
             available = await lock.get_active_reviewers(bank_id)
             branches_of = await lock.get_reviewer_branches(bank_id)
             for iid in instrument_ids:
@@ -804,10 +841,21 @@ async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids
                 res = await alloc.auto_assign(iid, eligible, cfg, bank_id=bank_id, exclude=excl or None)
                 if res.claimed:
                     holders[iid] = res.reviewer_id
-        return holders
+        metas = {iid: await lock.get_item_meta(bank_id, iid) for iid in instrument_ids}
+        return holders, metas
     except Exception as exc:  # noqa: BLE001 - allocation trouble must never hide the queue itself
         log.warning("cts.outward_alloc.failed", bank_id=bank_id, error=str(exc))
-        return {}
+        return {}, {}
+
+
+async def _reviewer_may_see(request: Request, ctx: UserContext, cfg: dict, metas: dict) -> set:
+    """The ids a reviewer may see with bucket routing on: those in a bucket they are connected to, or MISC.
+    Managers and admins see everything, and so does everyone when routing is off."""
+    if ctx.role.value != "ops_reviewer" or not cfg.get("bucket_routing_enabled"):
+        return set(metas) | {None}
+    from modules.cts.allocation.allocation_service import bucket_allows
+    mine = await _subscriptions(request).get_reviewer_buckets(ctx.bank_id, ctx.user_id)
+    return {iid for iid, m in metas.items() if bucket_allows(m.get("bucket"), mine)}
 
 
 async def _check_item_scope(request: Request, ctx: UserContext, instrument_id: str, cfg: dict, phase: str) -> None:
@@ -829,6 +877,17 @@ async def _check_item_scope(request: Request, ctx: UserContext, instrument_id: s
     if scope and "ALL" not in scope and row["pu_id"] and row["pu_id"] not in scope:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This instrument belongs to a processing unit you are not scoped to")
+    if cfg.get("bucket_routing_enabled"):
+        lock = _lock_service(request)
+        if lock is not None:
+            from modules.cts.allocation.allocation_service import bucket_allows
+            meta = await lock.get_item_meta(ctx.bank_id, instrument_id)
+            # An item nobody has listed yet has no record: judge it by what it was held for, as the queue would.
+            bucket = meta.get("bucket") or (classify_outward(row["outcome"], row["amount_range"], cfg) if phase != "checker" else None)
+            mine = await _subscriptions(request).get_reviewer_buckets(ctx.bank_id, ctx.user_id)
+            if not bucket_allows(bucket, mine):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="This instrument is in a bucket you are not connected to")
     branches = list(getattr(ctx, "branch_ids", None) or [])
     allowed = (checker_allowed(cfg, branches) if phase == "checker"
                else maker_allowed(cfg, branches, row["branch_id"], float(row["age_seconds"] or 0.0)))
@@ -1042,9 +1101,15 @@ async def get_outward_validation_queue(
     rows = await _file_overdue_maker_decisions(request, ctx, db, rows, cfg)
     if ctx.role.value == "ops_reviewer" and not checker_allowed(cfg, list(getattr(ctx, "branch_ids", None) or [])):
         rows = []
-    holders = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg,
-                                        exclude_by_id={r["instrument_id"]: r["maker_id"] for r in rows},
-                                        pu_by_id={r["instrument_id"]: r.get("pu_id") for r in rows}, phase="checker")
+    bucket_by_id = {r["instrument_id"]: "VAL" for r in rows}
+    bucket_by_id.update({f"origin:{r['instrument_id']}": classify_outward(r.get("outcome"), r.get("amount_range"), cfg) for r in rows})
+    holders, metas = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg,
+                                               exclude_by_id={r["instrument_id"]: r["maker_id"] for r in rows},
+                                               pu_by_id={r["instrument_id"]: r.get("pu_id") for r in rows},
+                                               bucket_by_id=bucket_by_id, phase="checker")
+    if metas:
+        visible = await _reviewer_may_see(request, ctx, cfg, metas)
+        rows = [r for r in rows if r["instrument_id"] in visible]
     due_at = next_cutoff(time.time(), cfg)
     items = [OutwardValidationItem(
         instrument_id=r["instrument_id"], cheque_number=r["cheque_number"] or "", payee_display=r["payee_display"] or "",
@@ -1052,7 +1117,8 @@ async def get_outward_validation_queue(
         instrument_category=r["instrument_category"] or "CHEQUE", maker_id=r["maker_id"],
         maker_decision=r["maker_decision"], maker_reason=r["maker_reason"], made_at=str(r["made_at"]),
         assigned_to=holders.get(r["instrument_id"]), assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id,
-        pu_id=r.get("pu_id"), due_at=due_at) for r in rows]
+        pu_id=r.get("pu_id"), due_at=due_at, bucket=(metas.get(r["instrument_id"]) or {}).get("bucket"),
+        origin_bucket=(metas.get(r["instrument_id"]) or {}).get("origin_bucket")) for r in rows]
     return OutwardValidationQueueResponse(bank_id=ctx.bank_id, items=items, total=len(items))
 
 

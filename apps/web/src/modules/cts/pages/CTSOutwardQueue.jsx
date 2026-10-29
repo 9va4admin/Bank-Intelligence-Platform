@@ -440,7 +440,9 @@ export default function CTSOutwardQueue() {
         bank:           BANK_CONFIG.bank_name,
         reason:         i.outcome,
         reason_label:   (OUTCOME_LABEL[i.outcome] ?? i.outcome)
+                        + (i.bucket && i.bucket !== 'MISC' ? ` · ${i.bucket.replace('OUT_', '').toLowerCase()}` : i.bucket === 'MISC' ? ' · miscellaneous' : '')
                         + (i.assigned_to ? (i.assigned_to_me ? ' · yours' : ` · held by ${i.assigned_to}`) : ''),
+        bucket:         i.bucket ?? null,
         assigned_to:    i.assigned_to ?? null,
         assigned_to_me: !!i.assigned_to_me,
         reject_reason:  i.review_reason ?? i.outcome,

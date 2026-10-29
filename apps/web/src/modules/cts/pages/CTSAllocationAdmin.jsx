@@ -23,10 +23,13 @@ import AppShell from '../../../shared/layout/AppShell'
 const REFETCH_MS = 30_000
 
 // Review buckets an admin can connect a reviewer to. MISC needs no connection: anyone may self-claim from it.
-const BUCKET_ORDER = ['HVC', 'CA', 'IP', 'LVC', 'FCC', 'SIP_SUCCESS', 'SIP_REJECT', 'HR']
+// VAL is the checker queue; the OUT_* buckets hold held outward items.
+const BUCKET_ORDER = ['HVC', 'CA', 'IP', 'LVC', 'FCC', 'SIP_SUCCESS', 'SIP_REJECT', 'HR', 'VAL',
+  'OUT_HV', 'OUT_MISMATCH', 'OUT_COMPLIANCE', 'OUT_REVIEW']
 const BUCKET_LABEL = {
   HVC: 'High value', CA: 'Corporate', IP: 'Institution', LVC: 'Low value', FCC: 'Frequent',
-  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous',
+  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous', VAL: 'Checker',
+  OUT_HV: 'Out · high value', OUT_MISMATCH: 'Out · mismatch', OUT_COMPLIANCE: 'Out · compliance', OUT_REVIEW: 'Out · review',
 }
 
 const MOCK_CLAIMS = [
@@ -168,6 +171,22 @@ export default function CTSAllocationAdmin() {
     staleTime: 10_000,
     retry: false,
   })
+
+  // --- outward items held for a person (same allocation: they are assigned, released and shown like inward ones) ---
+  const { data: outwardData } = useQuery({
+    queryKey: ['allocation-outward', bankId],
+    queryFn: async () => {
+      if (isDemo) return { items: [] }
+      const res = await fetch('/v1/cts/outward/human-review-queue?limit=100', { credentials: 'include' })
+      if (!res.ok) return { items: [] }
+      return res.json()
+    },
+    refetchInterval: isDemo ? false : REFETCH_MS,
+    staleTime: 10_000,
+    retry: false,
+  })
+  const outwardItems = outwardData?.items ?? []
+  const outwardUnassigned = outwardItems.filter(i => !i.assigned_to)
 
   // --- admin assign / reassign: pinned to the chosen reviewer, audited, never moved by the rebalancer ---
   const assignMutation = useMutation({
@@ -522,6 +541,41 @@ export default function CTSAllocationAdmin() {
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.pu_id ?? ''}</td>
                     <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
                       {mins === null ? '' : mins <= 0 ? 'IET passed' : `IET in ${mins} min`}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ReviewerSelect
+                        reviewers={onlineReviewers}
+                        label="Assign to…"
+                        disabled={assignMutation.isPending}
+                        isDark={isDark}
+                        onPick={(reviewerId) => assignMutation.mutate({ instrumentId: item.instrument_id, reviewerId })}
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {/* Outward items waiting for an owner */}
+        <div className={`border rounded-lg overflow-hidden mt-5 ${th.card}`}>
+          <div className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b ${th.divider} ${th.muted}`}>
+            Outward items waiting for an owner ({outwardUnassigned.length} of {outwardItems.length} held)
+          </div>
+          <table className="w-full border-collapse">
+            <tbody>
+              {outwardUnassigned.length === 0 && (
+                <tr><td className={`px-4 py-6 text-center text-sm ${th.muted}`}>No outward item is waiting for an owner.</td></tr>
+              )}
+              {outwardUnassigned.slice(0, 25).map(item => {
+                const mins = item.due_at ? Math.round((item.due_at - nowSec) / 60) : null
+                return (
+                  <tr key={item.instrument_id} className={`border-b ${th.row}`}>
+                    <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>{item.instrument_id}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? (BUCKET_LABEL[item.bucket] ?? item.bucket) : ''}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.pu_id ?? ''}</td>
+                    <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
+                      {mins === null ? '' : mins <= 0 ? 'Session closed' : `Session closes in ${mins} min`}
                     </td>
                     <td className="px-4 py-3">
                       <ReviewerSelect
