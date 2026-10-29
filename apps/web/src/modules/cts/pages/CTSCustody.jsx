@@ -32,6 +32,20 @@ const TABS = [
   ['due', 'Due for disposal'],
 ]
 
+function Table({ th, head, children }) {
+  return (
+    <table className="w-full text-sm">
+      <thead><tr className={`text-left text-xs uppercase ${th.muted} border-b ${th.divider}`}>
+        {head.map(h => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr></thead>
+      <tbody>{children}</tbody>
+    </table>
+  )
+}
+function Empty({ th, text }) {
+  return <p className={`px-3 py-8 text-sm text-center ${th.muted}`}>{text}</p>
+}
+
+
 export default function CTSCustody() {
   const { isDark } = useTheme()
   const th = {
@@ -83,7 +97,7 @@ export default function CTSCustody() {
       await call('/handovers', { method: 'POST', body: JSON.stringify({
         branch_id: branches[0], instrument_ids: chosen.map(i => i.instrument_id), courier_ref: courier || null }) })
       setPicked({}); setCourier('')
-    }, `Handed over ${chosen.length} originals`)
+    }, `Handed over ${chosen.length} original${chosen.length === 1 ? '' : 's'}`)
   }
   const receive = (h) => act(async () => {
     const r = await call(`/handovers/${encodeURIComponent(h.handover_id)}/receive`, {
@@ -92,15 +106,6 @@ export default function CTSCustody() {
   }, `Batch ${h.handover_id} received`)
   const dispose = (i) => act(() => call(`/instruments/${encodeURIComponent(i.instrument_id)}/dispose`, {
     method: 'POST', body: JSON.stringify({ reason: 'Retention period ended' }) }), `Disposed ${i.instrument_id}`)
-
-  const Table = ({ head, children }) => (
-    <table className="w-full text-sm">
-      <thead><tr className={`text-left text-xs uppercase ${th.muted} border-b ${th.divider}`}>
-        {head.map(h => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr></thead>
-      <tbody>{children}</tbody>
-    </table>
-  )
-  const Empty = ({ text }) => <p className={`px-3 py-8 text-sm text-center ${th.muted}`}>{text}</p>
 
   return (
     <AppShell>
@@ -132,8 +137,8 @@ export default function CTSCustody() {
                   Hand over {chosen.length || ''} selected
                 </button>
               </div>
-              {pending.items.length === 0 ? <Empty text="No originals waiting at a branch" /> : (
-                <Table head={['', 'Instrument', 'Branch', 'Payee', 'Amount', 'Held']}>
+              {pending.items.length === 0 ? <Empty th={th} text="No originals waiting at a branch" /> : (
+                <Table th={th} head={['', 'Instrument', 'Branch', 'Payee', 'Amount', 'Held']}>
                   {pending.items.map(i => (
                     <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
                       <td className="px-3 py-2"><input type="checkbox" aria-label={`Select ${i.instrument_id}`}
@@ -159,8 +164,8 @@ export default function CTSCustody() {
                   className={`px-2 py-1.5 text-sm rounded border ${th.input}`} />
                 <span className={`text-xs ${th.muted}`}>The person who sent a batch cannot receive it.</span>
               </div>
-              {transit.length === 0 ? <Empty text="Nothing in transit" /> : (
-                <Table head={['Batch', 'Branch', 'Items', 'Courier', 'Sent by', '']}>
+              {transit.length === 0 ? <Empty th={th} text="Nothing in transit" /> : (
+                <Table th={th} head={['Batch', 'Branch', 'Items', 'Courier', 'Sent by', '']}>
                   {transit.map(h => (
                     <tr key={h.handover_id} className={`border-b ${th.row} ${th.body}`}>
                       <td className="px-3 py-2 font-mono text-xs">{h.handover_id}</td>
@@ -180,8 +185,8 @@ export default function CTSCustody() {
           )}
 
           {tab === 'due' && (
-            due.length === 0 ? <Empty text="Nothing is due for disposal" /> : (
-              <Table head={['Instrument', 'Branch', 'Location', 'Retention ended', '']}>
+            due.length === 0 ? <Empty th={th} text="Nothing is due for disposal" /> : (
+              <Table th={th} head={['Instrument', 'Branch', 'Location', 'Retention ended', '']}>
                 {due.map(i => (
                   <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
                     <td className="px-3 py-2 font-mono text-xs">{i.instrument_id}</td>
