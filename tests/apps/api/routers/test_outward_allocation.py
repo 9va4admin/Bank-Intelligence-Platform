@@ -76,7 +76,7 @@ def _client(user, db, redis, cfg=CFG, role="ops_reviewer"):
     from apps.api.routers import cts_outward_data
     from apps.api.routers.cts_deps import get_current_user_context
     app = FastAPI(); app.include_router(cts_outward_data.router_v1)
-    ctx = MagicMock(); ctx.role = Role[role.upper()]; ctx.bank_id = BANK; ctx.user_id = user; ctx.clearing_zones = []
+    ctx = MagicMock(); ctx.role = Role[role.upper()]; ctx.bank_id = BANK; ctx.user_id = user; ctx.pu_ids = []
     app.dependency_overrides[get_current_user_context] = lambda: ctx
     app.state.db_pool_cts = db
     app.state.redis_cts = redis

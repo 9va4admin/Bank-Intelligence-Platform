@@ -51,7 +51,7 @@ class SessionClaims(BaseModel):
     role: str
     entity_type: str          # "sb" | "smb" | "branch" | "pu"
     entity_id: str
-    clearing_zones: list[str] = Field(default_factory=list)
+    pu_ids: list[str] = Field(default_factory=list)
     session_id: str           # JWT jti — Redis revocation key
     mfa_authenticated: bool
     issued_at: float
@@ -97,7 +97,7 @@ class SessionTokenService:
         entity_type: str,
         entity_id: str,
         mfa_authenticated: bool,
-        clearing_zones: Optional[list[str]] = None,
+        pu_ids: Optional[list[str]] = None,
     ) -> IssuedSession:
         if self._priv is None:
             raise RuntimeError("SessionTokenService has no private key — cannot issue")
@@ -106,7 +106,7 @@ class SessionTokenService:
         exp = now + self._ttl
         session_id = secrets.token_urlsafe(_SESSION_ID_BYTES)
         csrf = secrets.token_urlsafe(_CSRF_BYTES)
-        zones = list(clearing_zones or [])
+        zones = list(pu_ids or [])
 
         payload = {
             "sub": user_id,
@@ -121,7 +121,7 @@ class SessionTokenService:
             "role": role,
             "entity_type": entity_type,
             "entity_id": entity_id,
-            "clearing_zones": zones,
+            "pu_ids": zones,
             "mfa_authenticated": bool(mfa_authenticated),
             "csrf": csrf,
         }
@@ -136,7 +136,7 @@ class SessionTokenService:
             role=role,
             entity_type=entity_type,
             entity_id=entity_id,
-            clearing_zones=zones,
+            pu_ids=zones,
             session_id=session_id,
             mfa_authenticated=bool(mfa_authenticated),
             issued_at=float(now),
@@ -179,7 +179,7 @@ class SessionTokenService:
                 role=decoded["role"],
                 entity_type=decoded["entity_type"],
                 entity_id=decoded["entity_id"],
-                clearing_zones=list(decoded.get("clearing_zones", [])),
+                pu_ids=list(decoded.get("pu_ids", [])),
                 session_id=decoded["jti"],
                 mfa_authenticated=bool(decoded["mfa_authenticated"]),
                 issued_at=float(decoded["iat"]),

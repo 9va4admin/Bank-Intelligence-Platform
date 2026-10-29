@@ -1,11 +1,8 @@
 /**
  * Processing Unit Master — CRUD
  *
- * A Processing Unit (PU) is the clearing-zone level grouping for CTS.
- * Each PU maps to one NGCH grid zone, runs its own Temporal task queue,
- * and has its own Kafka inward topic.
- *
- * Constraint: exactly one PU per clearing zone per bank.
+ * A Processing Unit (PU) is a group of branches handled together: it runs its own Temporal task queue and has its
+ * own Kafka inward topic. A bank has one or more PUs and every branch belongs to one of them. There are no zones.
  *
  * Routes: /cts/admin/processing-units
  */
@@ -21,32 +18,29 @@ const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
 const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO' && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
 
-// NGCH geographic zones (Federal Bank, large private banks)
-// + MICR city zones (co-operative banks, regional banks)
-const VALID_ZONES = ['SOUTH', 'WEST', 'NORTH', 'EAST', 'MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'HYDERABAD', 'AHMEDABAD', 'BENGALURU']
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_PU_DB = {
   'karnataka-bank': [
-    { pu_id: 'MUMBAI-PU-01',    bank_id: 'karnataka-bank', pu_name: 'Mumbai Processing Unit',    clearing_zone: 'MUMBAI',    ngch_participant_code: 'MUMBAI-KARB-001',    temporal_task_queue: 'cts-processing-karnataka-bank-MUMBAI-PU-01',    kafka_inward_topic: 'cts.inward.karnataka-bank.MUMBAI-PU-01',    max_agent_swarm_size: 200, is_active: true,  created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
-    { pu_id: 'CHENNAI-PU-01',   bank_id: 'karnataka-bank', pu_name: 'Chennai Processing Unit',   clearing_zone: 'CHENNAI',   ngch_participant_code: 'CHENNAI-KARB-001',   temporal_task_queue: 'cts-processing-karnataka-bank-CHENNAI-PU-01',   kafka_inward_topic: 'cts.inward.karnataka-bank.CHENNAI-PU-01',   max_agent_swarm_size: 150, is_active: true,  created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
-    { pu_id: 'DELHI-PU-01',     bank_id: 'karnataka-bank', pu_name: 'Delhi Processing Unit',     clearing_zone: 'DELHI',     ngch_participant_code: 'DELHI-KARB-001',     temporal_task_queue: 'cts-processing-karnataka-bank-DELHI-PU-01',     kafka_inward_topic: 'cts.inward.karnataka-bank.DELHI-PU-01',     max_agent_swarm_size: 100, is_active: true,  created_at: '2026-07-01T09:10:00Z', created_by: 'admin' },
-    { pu_id: 'HYDERABAD-PU-01', bank_id: 'karnataka-bank', pu_name: 'Hyderabad Processing Unit', clearing_zone: 'HYDERABAD', ngch_participant_code: 'HYDERABAD-KARB-001', temporal_task_queue: 'cts-processing-karnataka-bank-HYDERABAD-PU-01', kafka_inward_topic: 'cts.inward.karnataka-bank.HYDERABAD-PU-01', max_agent_swarm_size: 100, is_active: false, created_at: '2026-07-01T09:15:00Z', created_by: 'admin' },
+    { pu_id: 'MUMBAI-PU-01',    bank_id: 'karnataka-bank', pu_name: 'Mumbai Processing Unit',    ngch_participant_code: 'MUMBAI-KARB-001',    temporal_task_queue: 'cts-processing-karnataka-bank-MUMBAI-PU-01',    kafka_inward_topic: 'cts.inward.karnataka-bank.MUMBAI-PU-01',    max_agent_swarm_size: 200, is_active: true,  created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
+    { pu_id: 'CHENNAI-PU-01',   bank_id: 'karnataka-bank', pu_name: 'Chennai Processing Unit',   ngch_participant_code: 'CHENNAI-KARB-001',   temporal_task_queue: 'cts-processing-karnataka-bank-CHENNAI-PU-01',   kafka_inward_topic: 'cts.inward.karnataka-bank.CHENNAI-PU-01',   max_agent_swarm_size: 150, is_active: true,  created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
+    { pu_id: 'DELHI-PU-01',     bank_id: 'karnataka-bank', pu_name: 'Delhi Processing Unit',     ngch_participant_code: 'DELHI-KARB-001',     temporal_task_queue: 'cts-processing-karnataka-bank-DELHI-PU-01',     kafka_inward_topic: 'cts.inward.karnataka-bank.DELHI-PU-01',     max_agent_swarm_size: 100, is_active: true,  created_at: '2026-07-01T09:10:00Z', created_by: 'admin' },
+    { pu_id: 'HYDERABAD-PU-01', bank_id: 'karnataka-bank', pu_name: 'Hyderabad Processing Unit', ngch_participant_code: 'HYDERABAD-KARB-001', temporal_task_queue: 'cts-processing-karnataka-bank-HYDERABAD-PU-01', kafka_inward_topic: 'cts.inward.karnataka-bank.HYDERABAD-PU-01', max_agent_swarm_size: 100, is_active: false, created_at: '2026-07-01T09:15:00Z', created_by: 'admin' },
   ],
   'saraswat-coop': [
-    { pu_id: 'MUMBAI-PU-01',  bank_id: 'saraswat-coop', pu_name: 'Mumbai PU',  clearing_zone: 'MUMBAI', ngch_participant_code: 'MUMBAI-SRCB-001',  temporal_task_queue: 'cts-processing-saraswat-coop-MUMBAI-PU-01',  kafka_inward_topic: 'cts.inward.saraswat-coop.MUMBAI-PU-01',  max_agent_swarm_size: 500, is_active: true, created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
-    { pu_id: 'PUNE-PU-01',   bank_id: 'saraswat-coop', pu_name: 'Pune PU',   clearing_zone: 'MUMBAI', ngch_participant_code: 'MUMBAI-SRCB-002',  temporal_task_queue: 'cts-processing-saraswat-coop-PUNE-PU-01',   kafka_inward_topic: 'cts.inward.saraswat-coop.PUNE-PU-01',   max_agent_swarm_size: 200, is_active: true, created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
+    { pu_id: 'MUMBAI-PU-01',  bank_id: 'saraswat-coop', pu_name: 'Mumbai PU', ngch_participant_code: 'MUMBAI-SRCB-001',  temporal_task_queue: 'cts-processing-saraswat-coop-MUMBAI-PU-01',  kafka_inward_topic: 'cts.inward.saraswat-coop.MUMBAI-PU-01',  max_agent_swarm_size: 500, is_active: true, created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
+    { pu_id: 'PUNE-PU-01',   bank_id: 'saraswat-coop', pu_name: 'Pune PU', ngch_participant_code: 'MUMBAI-SRCB-002',  temporal_task_queue: 'cts-processing-saraswat-coop-PUNE-PU-01',   kafka_inward_topic: 'cts.inward.saraswat-coop.PUNE-PU-01',   max_agent_swarm_size: 200, is_active: true, created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
   ],
   'federal-bank': [
-    { pu_id: 'SOUTH-MAIN', bank_id: 'federal-bank', pu_name: 'South Zone PU — Chennai NGCH', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-SOUTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.SOUTH-MAIN', max_agent_swarm_size: 500, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'WEST-MAIN',  bank_id: 'federal-bank', pu_name: 'West Zone PU — Mumbai NGCH',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-WEST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.WEST-MAIN',  max_agent_swarm_size: 300, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'NORTH-MAIN', bank_id: 'federal-bank', pu_name: 'North Zone PU — Delhi NGCH',  clearing_zone: 'NORTH', ngch_participant_code: 'NORTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-NORTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.NORTH-MAIN', max_agent_swarm_size: 200, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'EAST-MAIN',  bank_id: 'federal-bank', pu_name: 'East Zone PU — Kolkata NGCH', clearing_zone: 'EAST',  ngch_participant_code: 'EAST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-EAST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.EAST-MAIN',  max_agent_swarm_size: 100, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'SOUTH-MAIN', bank_id: 'federal-bank', pu_name: 'South PU', ngch_participant_code: 'SOUTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-SOUTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.SOUTH-MAIN', max_agent_swarm_size: 500, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'WEST-MAIN',  bank_id: 'federal-bank', pu_name: 'West PU',  ngch_participant_code: 'WEST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-WEST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.WEST-MAIN',  max_agent_swarm_size: 300, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'NORTH-MAIN', bank_id: 'federal-bank', pu_name: 'North PU', ngch_participant_code: 'NORTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-NORTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.NORTH-MAIN', max_agent_swarm_size: 200, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'EAST-MAIN',  bank_id: 'federal-bank', pu_name: 'East PU',  ngch_participant_code: 'EAST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-EAST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.EAST-MAIN',  max_agent_swarm_size: 100, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
   ],
   'union-bank': [
-    { pu_id: 'UBIN-PU-WEST',  bank_id: 'union-bank', pu_name: 'Union Bank Western PU',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-UBIN-001',  temporal_task_queue: 'cts-processing-union-bank-west',  kafka_inward_topic: 'cts.inward.union-bank.west',  max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'UBIN-PU-SOUTH', bank_id: 'union-bank', pu_name: 'Union Bank Southern PU', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-UBIN-001', temporal_task_queue: 'cts-processing-union-bank-south', kafka_inward_topic: 'cts.inward.union-bank.south', max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'UBIN-PU-WEST',  bank_id: 'union-bank', pu_name: 'Union Bank Western PU',  ngch_participant_code: 'WEST-UBIN-001',  temporal_task_queue: 'cts-processing-union-bank-west',  kafka_inward_topic: 'cts.inward.union-bank.west',  max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'UBIN-PU-SOUTH', bank_id: 'union-bank', pu_name: 'Union Bank Southern PU', ngch_participant_code: 'SOUTH-UBIN-001', temporal_task_queue: 'cts-processing-union-bank-south', kafka_inward_topic: 'cts.inward.union-bank.south', max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
   ],
 }
 
@@ -76,10 +70,6 @@ let _mockStore = ACTIVE_MOCK.map(p => ({ ...p }))
 function getMockPUs() { return [..._mockStore] }
 
 function createMockPU(data, bankId) {
-  const usedZones = _mockStore.map(p => p.clearing_zone)
-  if (usedZones.includes(data.clearing_zone)) {
-    throw new Error(`A Processing Unit already exists for zone ${data.clearing_zone}`)
-  }
   if (_mockStore.find(p => p.pu_id === data.pu_id)) {
     throw new Error(`Processing Unit ${data.pu_id} already exists`)
   }
@@ -132,32 +122,11 @@ function Badge({ active, isDark }) {
     : <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'bg-white/5 text-slate-500 border-white/10' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>Inactive</span>
 }
 
-function ZonePill({ zone }) {
-  const COLORS = {
-    SOUTH:     'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    WEST:      'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    NORTH:     'bg-violet-500/15 text-violet-400 border-violet-500/30',
-    EAST:      'bg-teal-500/15 text-teal-400 border-teal-500/30',
-    MUMBAI:    'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    DELHI:     'bg-violet-500/15 text-violet-400 border-violet-500/30',
-    CHENNAI:   'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    KOLKATA:   'bg-teal-500/15 text-teal-400 border-teal-500/30',
-    HYDERABAD: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-    AHMEDABAD: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
-    BENGALURU: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  }
-  return (
-    <span className={`inline-flex items-center text-[10px] px-2 py-0.5 rounded border font-medium ${COLORS[zone] ?? 'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
-      {zone}
-    </span>
-  )
-}
-
 // ── PU form modal ────────────────────────────────────────────────────────────
 
-function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) {
+function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
   const isEdit = mode === 'edit'
-  const empty = { pu_id: '', pu_name: '', clearing_zone: '', ngch_participant_code: '', max_agent_swarm_size: 200 }
+  const empty = { pu_id: '', pu_name: '', ngch_participant_code: '', max_agent_swarm_size: 200 }
   const [form, setForm] = useState(isEdit ? { ...initial } : empty)
   const [error, setError] = useState('')
 
@@ -174,10 +143,6 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
     hint:     isDark ? 'text-slate-600 text-[10px] mt-0.5' : 'text-slate-400 text-[10px] mt-0.5',
   }
 
-  const availableZones = isEdit
-    ? VALID_ZONES
-    : VALID_ZONES.filter(z => !existingZones.includes(z) || z === form.clearing_zone)
-
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   function handleSubmit(e) {
@@ -186,8 +151,6 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
     if (!form.pu_name.trim()) return setError('PU Name is required.')
     if (!isEdit) {
       if (!form.pu_id.trim()) return setError('PU ID is required.')
-      if (!form.clearing_zone) return setError('Clearing Zone is required.')
-      if (!form.ngch_participant_code.trim()) return setError('NGCH Participant Code is required.')
     }
     if (form.max_agent_swarm_size < 1) return setError('Max swarm size must be ≥ 1.')
     onSave(form)
@@ -230,31 +193,14 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
           {!isEdit && (
             <>
               <div>
-                <div className={th.label}>Clearing Zone *</div>
-                <select
-                  className={th.select}
-                  value={form.clearing_zone}
-                  onChange={e => set('clearing_zone', e.target.value)}
-                  required
-                >
-                  <option value="">Select zone…</option>
-                  {availableZones.map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </select>
-                <div className={th.hint}>One PU per zone per bank — immutable after creation.</div>
-              </div>
-
-              <div>
-                <div className={th.label}>NGCH Participant Code *</div>
+                <div className={th.label}>NGCH Participant Code (optional)</div>
                 <input
                   className={th.input}
-                  placeholder="MUMBAI-KARB-001"
+                  placeholder="Only if this PU files under its own code"
                   value={form.ngch_participant_code}
                   onChange={e => set('ngch_participant_code', e.target.value.toUpperCase())}
-                  required
                 />
-                <div className={th.hint}>Immutable after creation. Issued by NPCI / NGCH grid.</div>
+                <div className={th.hint}>Immutable after creation. Leave empty when the bank files under one code.</div>
               </div>
             </>
           )}
@@ -382,9 +328,8 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
     <>
       <tr className={`border-b transition-colors ${th.row}`}>
         <td className={`py-2.5 px-3 ${th.mono}`}>{pu.pu_id}</td>
-        <td className="py-2.5 px-3"><ZonePill zone={pu.clearing_zone} /></td>
         <td className={`py-2.5 px-3 text-sm ${th.body}`}>{pu.pu_name}</td>
-        <td className={`py-2.5 px-3 ${th.mono} text-[10px]`}>{pu.ngch_participant_code}</td>
+        <td className={`py-2.5 px-3 ${th.mono} text-[10px]`}>{pu.ngch_participant_code || '—'}</td>
         <td className={`py-2.5 px-3 tabular-nums text-sm ${th.muted}`}>{pu.max_agent_swarm_size}</td>
         <td className="py-2.5 px-3"><Badge active={pu.is_active} isDark={isDark} /></td>
         <td className="py-2.5 px-3">
@@ -453,7 +398,6 @@ export default function CTSProcessingUnits() {
   })
 
   const puList = isDemo ? getMockPUs() : (data?.processing_units ?? [])
-  const usedZones = puList.map(p => p.clearing_zone)
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -490,7 +434,6 @@ export default function CTSProcessingUnits() {
     createMut.mutate({
       pu_id:                form.pu_id,
       pu_name:              form.pu_name,
-      clearing_zone:        form.clearing_zone,
       ngch_participant_code: form.ngch_participant_code,
       max_agent_swarm_size: form.max_agent_swarm_size,
     })
@@ -515,7 +458,7 @@ export default function CTSProcessingUnits() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>Processing Unit Master</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              One PU per clearing zone per bank · each PU has its own Temporal queue and Kafka inward topic
+              A group of branches handled together · each PU has its own Temporal queue and Kafka inward topic
             </p>
           </div>
           <button
@@ -537,26 +480,13 @@ export default function CTSProcessingUnits() {
           </div>
         )}
 
-        {/* Info callout — used zones */}
-        {puList.length > 0 && (
-          <div className={`mb-4 text-xs px-4 py-2.5 rounded-lg border flex items-center gap-3 flex-wrap ${isDark ? 'bg-white/3 border-white/8 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
-            <span className="shrink-0 font-medium">Zones in use:</span>
-            {usedZones.map(z => <ZonePill key={z} zone={z} />)}
-            {VALID_ZONES.filter(z => !usedZones.includes(z)).length > 0 && (
-              <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>
-                Available: {VALID_ZONES.filter(z => !usedZones.includes(z)).join(', ')}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Table */}
         <div className={`rounded-lg border overflow-hidden ${th.card}`}>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {['PU ID', 'Zone', 'Name', 'NGCH Code', 'Max Swarm', 'Status', 'Actions'].map(h => (
+                  {['PU ID', 'Name', 'NGCH Code', 'Max Swarm', 'Status', 'Actions'].map(h => (
                     <th key={h} className={`px-3 py-2.5 text-left border-b ${th.divider} ${th.thCell}`}>{h}</th>
                   ))}
                 </tr>
@@ -622,7 +552,6 @@ export default function CTSProcessingUnits() {
       {showForm && (
         <PUFormModal
           mode="create"
-          existingZones={usedZones}
           onSave={handleSaveCreate}
           onClose={() => setShowForm(false)}
           isDark={isDark}
@@ -634,7 +563,6 @@ export default function CTSProcessingUnits() {
         <PUFormModal
           mode="edit"
           initial={editTarget}
-          existingZones={usedZones}
           onSave={handleSaveEdit}
           onClose={() => setEditTarget(null)}
           isDark={isDark}

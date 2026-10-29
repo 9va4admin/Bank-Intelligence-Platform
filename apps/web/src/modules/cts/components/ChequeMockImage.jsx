@@ -29,7 +29,7 @@ export default function ChequeMockImage({ fields, alterations, isDark }) {
         </div>
         <div className="text-right">
           <div className={`${sub} text-[10px]`}>CTS-2010 Compliant</div>
-          <div className={`${sub} text-[10px]`}>Mumbai Clearing Zone</div>
+          <div className={`${sub} text-[10px]`}>CTS-2010 image</div>
         </div>
       </div>
 

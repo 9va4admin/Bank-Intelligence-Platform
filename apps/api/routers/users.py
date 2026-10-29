@@ -45,7 +45,19 @@ _SB_ROLES = {
 }
 _SMB_ROLES = {"smb_admin", "smb_editor", "smb_viewer"}
 _VALID_ROLES = _SB_ROLES | _SMB_ROLES
-_VALID_ZONES = {"MUMBAI", "DELHI", "CHENNAI", "KOLKATA", "HYDERABAD", "BANGALORE", "ALL"}
+async def _pu_is_valid(pool, bank_id: str, pu_id: str) -> bool:
+    """'ALL' or a processing unit of this bank. Without a database (tests, dev) any non-empty id is accepted."""
+    if pu_id == "ALL":
+        return True
+    if pool is None:
+        return bool(pu_id)
+    try:
+        async with pool.acquire() as conn:
+            return bool(await conn.fetchval(
+                "SELECT 1 FROM cts.processing_units WHERE bank_id = $1 AND pu_id = $2 AND is_active", bank_id, pu_id))
+    except Exception:  # noqa: BLE001 - never block user admin on a lookup problem
+        return True
+
 _VALID_BANK_TYPES = {"SB", "SMB"}
 _VALID_PERMISSION_LEVELS = {"ADMIN", "EDIT", "READ_ONLY"}
 
@@ -83,7 +95,7 @@ class UserCreateRequest(BaseModel):
     role: str = Field(..., description="One of the ASTRA roles")
     bank_type: str = Field("SB", description="SB or SMB — immutable after creation")
     permission_level: str = Field("EDIT", description="ADMIN, EDIT, or READ_ONLY")
-    clearing_zone: str = Field("ALL", description="Zone scope for ops_reviewer")
+    pu_id: str = Field("ALL", description="Zone scope for ops_reviewer")
     employee_id: Optional[str] = None
     branch_code: Optional[str] = None
 
@@ -92,7 +104,7 @@ class UserUpdateRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     role: Optional[str] = None
     permission_level: Optional[str] = None
-    clearing_zone: Optional[str] = None
+    pu_id: Optional[str] = None
     is_active: Optional[bool] = None
     display_name: Optional[str] = None
     # bank_type intentionally absent — immutable after user creation; extra="forbid" rejects it
@@ -106,7 +118,7 @@ class UserResponse(BaseModel):
     role: str
     bank_type: str
     permission_level: str
-    clearing_zone: str
+    pu_id: str
     bank_id: str
     is_active: bool
     totp_enabled: bool
@@ -202,7 +214,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-001": {
         "user_id": "usr-001", "email": "ops1@bank.com", "display_name": "Ramesh Kumar",
         "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "MUMBAI", "bank_id": "hdfc-bank",
+        "pu_id": "MUMBAI", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1001",
         "branch_code": "BOM001", "created_at": datetime(2026, 1, 15, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 25, 9, 12, tzinfo=timezone.utc),
@@ -210,7 +222,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-002": {
         "user_id": "usr-002", "email": "fraud@bank.com", "display_name": "Priya Sharma",
         "role": "fraud_analyst", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": False, "employee_id": "EMP-1002",
         "branch_code": None, "created_at": datetime(2026, 2, 3, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 24, 16, 45, tzinfo=timezone.utc),
@@ -218,7 +230,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-003": {
         "user_id": "usr-003", "email": "mgr@bank.com", "display_name": "Sunil Mehta",
         "role": "ops_manager", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1003",
         "branch_code": None, "created_at": datetime(2026, 1, 10, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 25, 8, 55, tzinfo=timezone.utc),
@@ -226,7 +238,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-004": {
         "user_id": "usr-004", "email": "compliance@bank.com", "display_name": "Anita Desai",
         "role": "compliance_officer", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1004",
         "branch_code": None, "created_at": datetime(2026, 1, 10, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 23, 14, 20, tzinfo=timezone.utc),
@@ -234,7 +246,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-005": {
         "user_id": "usr-005", "email": "ops2@bank.com", "display_name": "Vikram Singh",
         "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "DELHI", "bank_id": "hdfc-bank",
+        "pu_id": "DELHI", "bank_id": "hdfc-bank",
         "is_active": False, "totp_enabled": False, "employee_id": "EMP-1005",
         "branch_code": "DEL002", "created_at": datetime(2026, 3, 20, tzinfo=timezone.utc),
         "last_login_at": None,
@@ -256,7 +268,7 @@ def _to_response(u: dict) -> UserResponse:
 def _row_to_user_dict(row: dict) -> dict:
     """Map a local_auth_accounts DB row to a UserResponse-compatible dict."""
     entity_type = row.get("entity_type") or "sb"
-    clearing_zones = row.get("clearing_zones") or []
+    pu_ids = row.get("pu_ids") or []
     email = row.get("email") or row.get("username", "")
     return {
         "user_id": str(row["user_id"]),
@@ -265,7 +277,7 @@ def _row_to_user_dict(row: dict) -> dict:
         "role": row["role"],
         "bank_type": "SMB" if entity_type == "smb" else "SB",
         "permission_level": "EDIT",   # not stored in this schema
-        "clearing_zone": clearing_zones[0] if clearing_zones else "ALL",
+        "pu_id": pu_ids[0] if pu_ids else "ALL",
         "bank_id": row["bank_id"],
         "is_active": bool(row.get("is_active", True)),
         "totp_enabled": bool(row.get("totp_enrolled", False)),
@@ -281,7 +293,7 @@ async def _db_fetch_user(pool: Any, user_id: str, bank_id: str) -> Optional[dict
         row = await conn.fetchrow(
             """
             SELECT user_id, bank_id, entity_type, entity_id, username, display_name,
-                   role, clearing_zones, is_active, totp_enrolled,
+                   role, pu_ids, is_active, totp_enrolled,
                    created_at, last_login_at, email
             FROM platform.local_auth_accounts
             WHERE user_id = $1 AND bank_id = $2
@@ -319,7 +331,7 @@ async def _db_fetch_users(
         rows = await conn.fetch(
             f"""
             SELECT user_id, bank_id, entity_type, entity_id, username, display_name,
-                   role, clearing_zones, is_active, totp_enrolled,
+                   role, pu_ids, is_active, totp_enrolled,
                    created_at, last_login_at, email
             FROM platform.local_auth_accounts
             WHERE {where}
@@ -345,8 +357,8 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
     """Insert a new local_auth_accounts row. Uses sentinel password_hash for SAML-managed users."""
     import secrets as _secrets
     entity_type = "smb" if user_data["bank_type"] == "SMB" else "sb"
-    clearing_zones = (
-        [user_data["clearing_zone"]] if user_data["clearing_zone"] != "ALL" else []
+    pu_ids = (
+        [user_data["pu_id"]] if user_data["pu_id"] != "ALL" else []
     )
     # Sentinel hash — this user authenticates via SAML, not local password
     password_hash = f"SAML_MANAGED:{_secrets.token_hex(16)}"
@@ -355,7 +367,7 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
             """
             INSERT INTO platform.local_auth_accounts
             (user_id, bank_id, entity_type, entity_id, username, display_name,
-             password_hash, role, clearing_zones, is_active, email, created_at)
+             password_hash, role, pu_ids, is_active, email, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             """,
             user_data["user_id"],
@@ -366,7 +378,7 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
             user_data["display_name"],
             password_hash,
             user_data["role"],
-            clearing_zones,
+            pu_ids,
             True,
             user_data["email"],
             user_data["created_at"],
@@ -381,13 +393,13 @@ async def _db_update_user(pool: Any, user_id: str, bank_id: str, updates: dict) 
     idx = 1
     field_map = {
         "role": "role",
-        "clearing_zone": None,      # special: convert to clearing_zones array
+        "pu_id": None,      # special: convert to pu_ids array
         "is_active": "is_active",
         "display_name": "display_name",
     }
-    if "clearing_zone" in updates and updates["clearing_zone"] is not None:
-        zone = updates["clearing_zone"]
-        set_clauses.append(f"clearing_zones = ${idx}")
+    if "pu_id" in updates and updates["pu_id"] is not None:
+        zone = updates["pu_id"]
+        set_clauses.append(f"pu_ids = ${idx}")
         params.append([zone] if zone != "ALL" else [])
         idx += 1
     for key in ("role", "is_active", "display_name"):
@@ -477,10 +489,9 @@ async def create_user(
         raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users (bank_type=SMB).")
     if body.bank_type == "SMB" and body.role in _SB_ROLES:
         raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users (bank_type=SB).")
-    if body.clearing_zone not in _VALID_ZONES:
-        raise HTTPException(status_code=422, detail=f"Invalid zone. Must be one of: {sorted(_VALID_ZONES)}")
-
     pool = getattr(request.app.state, "db_pool_cts", None)
+    if not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
+        raise HTTPException(status_code=422, detail="Unknown processing unit. Use ALL or a processing unit of this bank.")
     import uuid
     user_id = f"usr-{str(uuid.uuid4())[:8]}"
     now = datetime.now(timezone.utc)
@@ -495,7 +506,7 @@ async def create_user(
             "role": body.role,
             "bank_type": body.bank_type,
             "permission_level": body.permission_level,
-            "clearing_zone": body.clearing_zone,
+            "pu_id": body.pu_id,
             "bank_id": admin["bank_id"],
             "is_active": True,
             "totp_enabled": False,
@@ -515,7 +526,7 @@ async def create_user(
             "role": body.role,
             "bank_type": body.bank_type,
             "permission_level": body.permission_level,
-            "clearing_zone": body.clearing_zone,
+            "pu_id": body.pu_id,
             "bank_id": admin["bank_id"],
             "is_active": True,
             "totp_enabled": False,
@@ -574,14 +585,14 @@ async def update_user(
             raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users.")
         if existing["bank_type"] == "SMB" and body.role in _SB_ROLES:
             raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users.")
-    if body.clearing_zone is not None and body.clearing_zone not in _VALID_ZONES:
-        raise HTTPException(status_code=422, detail="Invalid zone")
+    if body.pu_id is not None and not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
+        raise HTTPException(status_code=422, detail="Unknown processing unit")
 
     if pool is not None:
         updates = {
             k: v for k, v in {
                 "role": body.role,
-                "clearing_zone": body.clearing_zone,
+                "pu_id": body.pu_id,
                 "is_active": body.is_active,
                 "display_name": body.display_name,
             }.items() if v is not None
@@ -596,8 +607,8 @@ async def update_user(
             u["permission_level"] = body.permission_level
         if body.role is not None:
             u["role"] = body.role
-        if body.clearing_zone is not None:
-            u["clearing_zone"] = body.clearing_zone
+        if body.pu_id is not None:
+            u["pu_id"] = body.pu_id
         if body.is_active is not None:
             u["is_active"] = body.is_active
         if body.display_name is not None:

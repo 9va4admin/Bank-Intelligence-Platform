@@ -66,7 +66,7 @@ def _full(session_service, **over):
     params = dict(
         user_id="usr-001", username="ops1", bank_id="saraswat-coop", bank_type="SB",
         permission_level="EDIT", role="ops_reviewer", entity_type="sb",
-        entity_id="saraswat-coop", clearing_zones=["MUMBAI"], mfa_authenticated=True,
+        entity_id="saraswat-coop", pu_ids=["MUMBAI"], mfa_authenticated=True,
     )
     params.update(over)
     return session_service.issue(**params)

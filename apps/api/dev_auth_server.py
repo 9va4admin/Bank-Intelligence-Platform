@@ -72,7 +72,7 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "display_name": "ASTRA Platform Admin", "role": "platform_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "__astra-platform__", "bank_id": "saraswat-coop",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     # ── Bank-specific dev accounts ─────────────────────────────────────────────
     "admin": {
@@ -80,21 +80,21 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "display_name": "Anita Rao", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     "ops": {
         "user_id": "usr-ops", "password": "Astra@1212",
         "display_name": "Sunil Mehta", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     "smb": {
         "user_id": "usr-smb", "password": "Astra@1212",
         "display_name": "Vasavi Admin", "role": "smb_admin",
         "bank_type": "SMB", "permission_level": "ADMIN",
         "entity_type": "smb", "entity_id": "smb-mh-vasavi", "bank_id": "smb-mh-vasavi",
-        "clearing_zones": ["MUMBAI"],
+        "pu_ids": ["MUMBAI"],
     },
     # ── Federal Bank dev accounts (VITE_BANK_ID=federal-bank) ─────────────────
     "fed-admin": {
@@ -102,21 +102,21 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "display_name": "Priya Nair", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     "fed-ops": {
         "user_id": "usr-fed-ops", "password": "Astra@1212",
         "display_name": "Rajan Thomas", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     "fed-reviewer": {
         "user_id": "usr-fed-rev", "password": "Astra@1212",
         "display_name": "Meena Pillai", "role": "ops_reviewer",
         "bank_type": "SB", "permission_level": "READ",
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     # ── Union Bank of India dev accounts (VITE_BANK_ID=union-bank) ────────────
     "ubi-admin": {
@@ -124,21 +124,21 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "display_name": "Rajesh Kumar", "role": "bank_it_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     "ubi-ops": {
         "user_id": "usr-ubi-ops", "password": "Astra@1212",
         "display_name": "Preethi Menon", "role": "ops_manager",
         "bank_type": "SB", "permission_level": "EDIT",
         "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
-        "clearing_zones": ["ALL"],
+        "pu_ids": ["ALL"],
     },
     "ubi-smb": {
         "user_id": "usr-ubi-smb", "password": "Astra@1212",
         "display_name": "NM Co-op Admin", "role": "smb_admin",
         "bank_type": "SMB", "permission_level": "ADMIN",
         "entity_type": "smb", "entity_id": "smb-mh-nmcb", "bank_id": "smb-mh-nmcb",
-        "clearing_zones": ["WEST"],
+        "pu_ids": ["WEST"],
     },
 }
 
@@ -210,7 +210,7 @@ class _DevConnector:
             user_id=acct["user_id"], username=credentials.username,
             display_name=acct["display_name"], entity_type=acct["entity_type"],
             entity_id=acct["entity_id"], bank_id=bank_id, role=acct["role"],
-            clearing_zones=acct["clearing_zones"], connector_used="local",
+            pu_ids=acct["pu_ids"], connector_used="local",
             bank_type=acct["bank_type"], permission_level=acct["permission_level"],
         )
 
@@ -259,7 +259,7 @@ CREATE TABLE IF NOT EXISTS platform.local_auth_accounts (
     role             TEXT NOT NULL,
     permission_level TEXT NOT NULL DEFAULT 'VIEW',
     bank_type        TEXT NOT NULL DEFAULT 'SB',
-    clearing_zones   TEXT[] NOT NULL DEFAULT '{}',
+    pu_ids   TEXT[] NOT NULL DEFAULT '{}',
     email            TEXT,
     phone            TEXT,
     totp_enrolled    BOOLEAN NOT NULL DEFAULT false,
@@ -343,7 +343,7 @@ CREATE TABLE IF NOT EXISTS cts.processing_units (
     pu_id                 TEXT NOT NULL,
     bank_id               TEXT NOT NULL,
     pu_name               TEXT NOT NULL,
-    clearing_zone         TEXT NOT NULL,
+    pu_id         TEXT NOT NULL,
     ngch_participant_code TEXT NOT NULL DEFAULT '',
     temporal_task_queue   TEXT NOT NULL DEFAULT '',
     kafka_inward_topic    TEXT NOT NULL DEFAULT '',
@@ -390,7 +390,7 @@ ALTER TABLE cts.branches DROP COLUMN IF EXISTS drop_folder_base_path;
 
 -- ── Union Bank of India demo seed — 2 PUs, 10 branches ───────────────────────
 INSERT INTO cts.processing_units
-  (pu_id, bank_id, pu_name, clearing_zone, ngch_participant_code,
+  (pu_id, bank_id, pu_name, pu_id, ngch_participant_code,
    temporal_task_queue, kafka_inward_topic, max_agent_swarm_size)
 VALUES
   ('UBIN-PU-WEST',  'union-bank', 'Union Bank Western PU',
@@ -574,7 +574,7 @@ CREATE TABLE IF NOT EXISTS config.bank_config (
 -- Use this to bootstrap any bank deployment, then create bank-specific users.
 INSERT INTO platform.local_auth_accounts
     (user_id, bank_id, entity_type, entity_id, username, display_name,
-     password_hash, role, permission_level, bank_type, clearing_zones, totp_enrolled)
+     password_hash, role, permission_level, bank_type, pu_ids, totp_enrolled)
 VALUES
   -- ASTRA platform super admin — saraswat-coop  (pwd: Astra@1212)
   ('usr-astra-sc', 'saraswat-coop', 'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',

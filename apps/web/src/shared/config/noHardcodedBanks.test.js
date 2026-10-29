@@ -34,3 +34,24 @@ describe('no hard-coded bank names in screens', () => {
     expect(offenders).toEqual([])
   })
 })
+
+// The zone concept is gone: a branch maps to a processing unit and that is all. The files below still carry NGCH-facing
+// "zone" fields (decision-log export, MICR routing rules, NGCH routing) and are tracked as the second slice of the removal.
+const ZONE_ALLOWED = [
+  'modules/cts/pages/CTSDecisionsLog.jsx',
+  'modules/cts/pages/CTSMICRPrefixes.jsx',
+  'modules/cts/pages/CTSNGCHRouting.jsx',
+]
+const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+
+describe('no clearing-zone concept in screens', () => {
+  it('no screen outside the tracked second-slice files uses clearing_zone / "Clearing Zone"', () => {
+    const offenders = []
+    for (const p of files(ROOT)) {
+      const rel = p.slice(ROOT.length + 1).split(String.fromCharCode(92)).join('/')
+      if (ZONE_ALLOWED.includes(rel) || rel === 'shared/config/bank.config.js' || rel.startsWith('components/landing/')) continue
+      if (/clearing_zone|Clearing Zone|clearingZone/i.test(stripComments(readFileSync(p, 'utf8')))) offenders.push(rel)
+    }
+    expect(offenders).toEqual([])
+  })
+})

@@ -178,7 +178,7 @@ class ActiveReviewerItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     reviewer_id: str
     expires_at: float  # Unix timestamp — heartbeat TTL expiry
-    zones: list[str] = []   # clearing zones the reviewer is scoped to ([] or ['ALL'] = any)
+    pu_ids: list[str] = []   # processing units the reviewer is scoped to ([] or ['ALL'] = any)
     load: int = 0           # claims held right now
 
 
@@ -773,12 +773,12 @@ async def claim_instrument(
             reviewer_buckets = await subs.get_reviewer_buckets(bank_id, reviewer_id)
         result = await alloc_svc.claim(
             instrument_id, reviewer_id, cts_config, bank_id=bank_id,
-            reviewer_zones=list(getattr(ctx, "clearing_zones", None) or []),
+            reviewer_pus=list(getattr(ctx, "pu_ids", None) or []),
             reviewer_buckets=reviewer_buckets,
         )
-        if result.reason == "ZONE_RESTRICTED":
+        if result.reason == "PU_RESTRICTED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail="This cheque belongs to a clearing zone you are not scoped to")
+                                detail="This cheque belongs to a processing unit you are not scoped to")
         if result.reason == "NOT_SUBSCRIBED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="This cheque is in a bucket you are not connected to")
@@ -968,12 +968,12 @@ async def get_active_reviewers(
         # Return remaining with their expiry scores
         raw = await redis.zrange(key, 0, -1, withscores=True)
         ids = [m.decode() if isinstance(m, bytes) else m for m, _ in raw]
-        zones_by = await lock_svc.get_reviewer_zones(bank_id)
+        pus_by = await lock_svc.get_reviewer_pus(bank_id)
         loads = await lock_svc.reviewer_loads(ids)
         for reviewer_id_val, (_, score) in zip(ids, raw):
             reviewers.append(ActiveReviewerItem(
                 reviewer_id=reviewer_id_val, expires_at=score,
-                zones=zones_by.get(reviewer_id_val, []), load=loads.get(reviewer_id_val, 0)))
+                pu_ids=pus_by.get(reviewer_id_val, []), load=loads.get(reviewer_id_val, 0)))
 
     log.info("cts.alloc.reviewers", bank_id=bank_id, online=len(reviewers))
     return ActiveReviewersResponse(bank_id=bank_id, active_reviewers=reviewers, total=len(reviewers))
@@ -1063,7 +1063,7 @@ async def admin_force_release_claim(
 # POST /admin/review/{instrument_id}/assign   (admin assign / reassign)
 # ---------------------------------------------------------------------------
 # Only ops_manager and bank_it_admin. The target must be a known reviewer of this bank (currently logged in, or a
-# registered ops_reviewer / ops_manager account) and must be allowed to work the cheque's clearing zone. The item is
+# registered ops_reviewer / ops_manager account) and must be allowed to work the cheque's processing unit. The item is
 # pinned (never moved by the rebalancer) and the assignment is audited with the admin, the assignee and the previous holder.
 
 class AssignRequest(BaseModel):
@@ -1100,7 +1100,7 @@ async def admin_assign_review(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Allocation store unavailable")
 
     from modules.cts.allocation.lock_service import LockService
-    from modules.cts.allocation.allocation_service import AllocationService, zone_allows
+    from modules.cts.allocation.allocation_service import AllocationService, pu_allows
     lock_svc = LockService(redis_client=redis)
     alloc_svc = AllocationService(lock_service=lock_svc)
 
@@ -1120,11 +1120,11 @@ async def admin_assign_review(
     if not known:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
 
-    zones = (await lock_svc.get_reviewer_zones(bank_id)).get(target)
+    pus = (await lock_svc.get_reviewer_pus(bank_id)).get(target)
     meta = await lock_svc.get_item_meta(bank_id, instrument_id)
-    if zones is not None and not zone_allows(meta.get("zone"), zones):
+    if pus is not None and not pu_allows(meta.get("pu_id"), pus):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="That reviewer is not scoped to this cheque's clearing zone")
+                            detail="That reviewer is not scoped to this cheque's processing unit")
 
     cts_config = await _cts_config(request, bank_id)
     alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=_subscriptions(request, redis))

@@ -146,7 +146,7 @@ async def handle_human_review_event(
     from modules.cts.allocation.allocation_service import AllocationService
 
     lock_svc = LockService(redis_client=redis)
-    zone = payload.get("clearing_zone") or (context_bundle or {}).get("clearing_zone")
+    pu_id = payload.get("pu_id") or (context_bundle or {}).get("pu_id")
     is_validation = payload.get("stage") == "VALIDATION"
     maker_id = payload.get("maker_id")
     try:
@@ -159,7 +159,7 @@ async def handle_human_review_event(
                 origin_bucket=prev.get("origin_bucket") or prev.get("bucket"),
                 maker_id=maker_id, maker_decision=payload.get("maker_decision"), stage="VALIDATION",
                 queued_at=_time.time(),
-                **({"zone": zone} if zone else {}),
+                **({"pu_id": pu_id} if pu_id else {}),
             )
             await lock_svc.force_release(instrument_id, bank_id=envelope.bank_id)
             if db is not None:
@@ -172,7 +172,7 @@ async def handle_human_review_event(
                     log.warning("human_review_consumer.escalate_failed", instrument_id=instrument_id, error=str(exc))
         else:
             await lock_svc.set_item_meta(
-                envelope.bank_id, instrument_id, zone=zone,
+                envelope.bank_id, instrument_id, pu_id=pu_id,
                 iet_deadline=float(iet_deadline) if iet_deadline else None,
                 bucket=payload.get("bucket") or "HR",          # an event that carries no bucket is general human review
                 queued_at=_time.time(),
@@ -215,7 +215,7 @@ async def handle_human_review_event(
                     active_reviewer_count=len(available),
                     reason=getattr(result, "reason", None),
                 )
-                # Nobody is free right now (not logged in, at the cap, or out of zone): try again shortly. The
+                # Nobody is free right now (not logged in, at the cap, or out of their processing unit): try again shortly. The
                 # retry is picked up by the next queue poll (pop_due_hybrid_pending), so the item is never dropped.
                 if getattr(result, "reason", None) not in ("MISC_SELF_CLAIM", "SELF_MODE"):
                     await lock_svc.add_hybrid_pending(envelope.bank_id, instrument_id, _time.time() + retry_seconds)

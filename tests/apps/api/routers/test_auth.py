@@ -76,7 +76,7 @@ class _MfaStore:
 def _identity(**over):
     d = dict(user_id="usr-001", username="ops1", display_name="Ops One",
              entity_type="sb", entity_id="saraswat-coop", bank_id="saraswat-coop",
-             role="ops_reviewer", clearing_zones=["MUMBAI"], connector_used="local",
+             role="ops_reviewer", pu_ids=["MUMBAI"], connector_used="local",
              bank_type="SB", permission_level="EDIT")
     d.update(over)
     return ASTRAIdentity(**d)
@@ -249,7 +249,7 @@ def _issue_full(ss):
     return ss.issue(
         user_id="usr-001", username="ops1", bank_id="test-bank", bank_type="SB",
         permission_level="EDIT", role="ops_reviewer", entity_type="sb",
-        entity_id="test-bank", mfa_authenticated=True, clearing_zones=[],
+        entity_id="test-bank", mfa_authenticated=True, pu_ids=[],
     )
 
 

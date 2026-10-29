@@ -277,7 +277,7 @@ class AuthService:
             role=identity.role,
             entity_type=identity.entity_type,
             entity_id=identity.entity_id,
-            clearing_zones=identity.clearing_zones,
+            pu_ids=identity.pu_ids,
             mfa_authenticated=mfa_authenticated,
         )
 
@@ -291,6 +291,6 @@ class AuthService:
             role=c.role,
             entity_type=c.entity_type,
             entity_id=c.entity_id,
-            clearing_zones=c.clearing_zones,
+            pu_ids=c.pu_ids,
             mfa_authenticated=mfa_authenticated,
         )

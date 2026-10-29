@@ -13,10 +13,10 @@ from tests.modules.cts.allocation.fake_redis import FakeRedis
 BANK = "kbl"
 
 
-def _env(iid="I-1", zone=None, deadline=None):
+def _env(iid="I-1", pu_id=None, deadline=None):
     payload = {"instrument_id": iid, "workflow_id": f"wf-{iid}", "context_bundle": {}, "iet_deadline": deadline}
-    if zone:
-        payload["clearing_zone"] = zone
+    if pu_id:
+        payload["pu_id"] = pu_id
     return KafkaEventEnvelope(event_id="e", event_type="CTS_HUMAN_REVIEW_REQUIRED", bank_id=BANK,
                               schema_version="1.0", payload=payload)
 
@@ -39,9 +39,9 @@ async def _run(envelope, redis, cfg):
 @pytest.mark.parametrize("mode", ["SELF", "AUTO", "HYBRID"])
 async def test_zone_and_deadline_are_remembered_in_every_mode(mode):
     redis = FakeRedis()
-    await _run(_env(zone="WEST", deadline=1234.0), redis, _cfg(allocation_mode=mode))
+    await _run(_env(pu_id="WEST", deadline=1234.0), redis, _cfg(allocation_mode=mode))
     meta = await LockService(redis).get_item_meta(BANK, "I-1")
-    assert meta["zone"] == "WEST" and meta["iet_deadline"] == 1234.0
+    assert meta["pu_id"] == "WEST" and meta["iet_deadline"] == 1234.0
 
 
 @pytest.mark.asyncio
@@ -158,13 +158,13 @@ def _val_env(iid="I-1", maker="maker", decision="CONFIRM"):
 @pytest.mark.asyncio
 async def test_a_validation_event_moves_the_item_to_val_and_remembers_the_maker_and_where_it_came_from():
     redis = FakeRedis(); lock = LockService(redis)
-    await lock.set_item_meta(BANK, "I-1", zone="WEST", iet_deadline=999.0, bucket="HVC", queued_at=1.0)
+    await lock.set_item_meta(BANK, "I-1", pu_id="WEST", iet_deadline=999.0, bucket="HVC", queued_at=1.0)
     await lock.acquire_lock("I-1", "maker", {})
     await _run(_val_env(), redis, _cfg(allocation_mode="SELF"))
     meta = await lock.get_item_meta(BANK, "I-1")
     assert (meta["bucket"], meta["origin_bucket"], meta["maker_id"], meta["maker_decision"], meta["stage"]) == \
            ("VAL", "HVC", "maker", "CONFIRM", "VALIDATION")
-    assert meta["zone"] == "WEST"                                     # what was known about the cheque is kept
+    assert meta["pu_id"] == "WEST"                                     # what was known about the cheque is kept
     assert await lock.get_lock_holder("I-1") is None                  # the maker no longer holds it
 
 

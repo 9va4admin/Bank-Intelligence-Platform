@@ -2,7 +2,7 @@ class AccessDeniedError(PermissionError):
     """Raised when a user lacks a required permission."""
 
 
-class InsufficientZoneScopeError(PermissionError):
+class InsufficientScopeError(PermissionError):
     """Raised when ops_reviewer attempts to access a clearing zone outside their scope."""
 
 

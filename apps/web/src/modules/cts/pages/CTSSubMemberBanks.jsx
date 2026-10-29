@@ -6,20 +6,13 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
 import useSMBList from '../hooks/useSMBList'
 
-function smbZone(state) {
-  if (['KL', 'TN', 'KA', 'AP', 'TG'].includes(state)) return 'SOUTH'
-  if (['MH', 'GA'].includes(state)) return 'WEST'
-  if (['DL', 'UP', 'RJ', 'HR', 'PB'].includes(state)) return 'NORTH'
-  return 'EAST'
-}
-
 const RISK_CYCLE = ['LOW', 'LOW', 'MEDIUM', 'LOW', 'LOW', 'MEDIUM', 'LOW', 'HIGH']
 const ONBOARD_DATES = ['2026-01-15', '2026-01-22', '2026-02-01', '2026-02-10', '2026-02-20', '2026-03-05', '2026-03-15', '2026-04-01']
 
 const BASE_MOCK_SUB_MEMBERS = [
-  { id: 'SMB001', name: sampleSmb(0).name,  ifsc_prefix: sampleSmb(0).ifsc.slice(0, 4), sponsor_account: `${BANK_CONFIG.ifsc_prefix}00000001`, clearing_zones: ['MUMBAI'], status: 'ACTIVE',    daily_limit: 5000, cheques_today: 312, risk_level: 'LOW',  onboarded: '2026-01-15', contact: 'ops@vasavi.coop' },
-  { id: 'SMB002', name: 'Cosmos Co-operative Bank',  ifsc_prefix: 'COSB', sponsor_account: 'SRCB00000002', clearing_zones: ['MUMBAI', 'PUNE'], status: 'ACTIVE', daily_limit: 3000, cheques_today: 187, risk_level: 'LOW', onboarded: '2026-02-20', contact: 'clearing@cosmosbank.in' },
-  { id: 'SMB003', name: sampleSmb(2).name,      ifsc_prefix: sampleSmb(2).ifsc.slice(0, 4), sponsor_account: `${BANK_CONFIG.ifsc_prefix}00000003`, clearing_zones: ['PUNE'], status: 'SUSPENDED', daily_limit: 2000, cheques_today: 0,   risk_level: 'HIGH', onboarded: '2026-03-05', contact: 'mgmt@janatasahakari.co.in' },
+  { id: 'SMB001', name: sampleSmb(0).name,  ifsc_prefix: sampleSmb(0).ifsc.slice(0, 4), sponsor_account: `${BANK_CONFIG.ifsc_prefix}00000001`, status: 'ACTIVE',    daily_limit: 5000, cheques_today: 312, risk_level: 'LOW',  onboarded: '2026-01-15', contact: 'ops@vasavi.coop' },
+  { id: 'SMB002', name: 'Cosmos Co-operative Bank',  ifsc_prefix: 'COSB', sponsor_account: 'SRCB00000002', status: 'ACTIVE', daily_limit: 3000, cheques_today: 187, risk_level: 'LOW', onboarded: '2026-02-20', contact: 'clearing@cosmosbank.in' },
+  { id: 'SMB003', name: sampleSmb(2).name,      ifsc_prefix: sampleSmb(2).ifsc.slice(0, 4), sponsor_account: `${BANK_CONFIG.ifsc_prefix}00000003`, status: 'SUSPENDED', daily_limit: 2000, cheques_today: 0,   risk_level: 'HIGH', onboarded: '2026-03-05', contact: 'mgmt@janatasahakari.co.in' },
 ]
 
 const MOCK_SUB_MEMBERS = (BANK_CONFIG.smbs ?? []).length > 0
@@ -28,7 +21,6 @@ const MOCK_SUB_MEMBERS = (BANK_CONFIG.smbs ?? []).length > 0
       name: smb.name,
       ifsc_prefix: smb.ifsc.substring(0, 4),
       sponsor_account: `${BANK_CONFIG.ifsc_prefix}${String(i + 1).padStart(8, '0')}`,
-      clearing_zones: [smbZone(smb.state)],
       status: i === 13 ? 'SUSPENDED' : 'ACTIVE',
       daily_limit: (smb.daily_avg ?? 50) * 10,
       cheques_today: i === 13 ? 0 : Math.round((smb.daily_avg ?? 50) * 0.85),
@@ -37,10 +29,6 @@ const MOCK_SUB_MEMBERS = (BANK_CONFIG.smbs ?? []).length > 0
       contact: `ops@${smb.shortName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.coop`,
     }))
   : BASE_MOCK_SUB_MEMBERS
-
-const CLEARING_ZONES = (BANK_CONFIG.smbs ?? []).length > 0
-  ? [...new Set(BANK_CONFIG.smbs.map(s => smbZone(s.state)))]
-  : ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
 
 function OnboardModal({ isDark, onClose, bankId }) {
   const th = {
@@ -56,18 +44,10 @@ function OnboardModal({ isDark, onClose, bankId }) {
   }
 
   const [form, setForm] = useState({
-    name: '', ifsc_prefix: '', sponsor_account: '', contact: '',
-    clearing_zones: [], daily_limit: '', risk_level: 'LOW',
+    name: '', ifsc_prefix: '', sponsor_account: '', contact: '', daily_limit: '', risk_level: 'LOW',
   })
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState(null)
-
-  const toggle_zone = (z) => setForm(f => ({
-    ...f,
-    clearing_zones: f.clearing_zones.includes(z)
-      ? f.clearing_zones.filter(x => x !== z)
-      : [...f.clearing_zones, z],
-  }))
 
   const registerMutation = useMutation({
     mutationFn: async () => {
@@ -81,7 +61,6 @@ function OnboardModal({ isDark, onClose, bankId }) {
           micr_prefix: form.ifsc_prefix,
           sponsor_account_number: form.sponsor_account,
           contact_email: form.contact,
-          clearing_zones: form.clearing_zones,
           daily_presentment_limit: parseInt(form.daily_limit) || 1000,
           risk_level: form.risk_level,
           return_rate_threshold: 0.15,
@@ -163,22 +142,6 @@ function OnboardModal({ isDark, onClose, bankId }) {
                 value={form.contact} onChange={e => setForm(f => ({...f, contact: e.target.value}))} />
             </div>
             <div>
-              <label className={`block mb-2 ${th.label}`}>Clearing Zones *</label>
-              <div className="flex flex-wrap gap-2">
-                {CLEARING_ZONES.map(z => {
-                  const active = form.clearing_zones.includes(z)
-                  return (
-                    <button type="button" key={z} onClick={() => toggle_zone(z)}
-                      className={`px-2.5 py-1 rounded-full border text-[10px] font-medium transition-all ${
-                        active
-                          ? (isDark ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-cyan-600 border-cyan-600 text-white')
-                          : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20' : 'bg-slate-100 border-slate-300 text-slate-500 hover:border-slate-400')
-                      }`}>{z}</button>
-                  )
-                })}
-              </div>
-            </div>
-            <div>
               <label className={`block mb-1 ${th.label}`}>Initial Risk Assessment</label>
               <div className="flex gap-2">
                 {['LOW', 'MEDIUM', 'HIGH'].map(r => (
@@ -198,7 +161,7 @@ function OnboardModal({ isDark, onClose, bankId }) {
             )}
             <div className={`pt-4 border-t ${th.divider} flex justify-end gap-2`}>
               <button type="button" onClick={onClose} className={`px-4 py-2 rounded-lg text-xs font-medium ${th.cancel}`}>Cancel</button>
-              <button type="submit" disabled={form.clearing_zones.length === 0 || registerMutation.isPending}
+              <button type="submit" disabled={registerMutation.isPending}
                 className={`px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-40 ${th.btn}`}>
                 {registerMutation.isPending ? 'Submitting…' : 'Submit for Compliance Review'}
               </button>
@@ -288,7 +251,7 @@ export default function CTSSubMemberBanks() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Bank Name', 'IFSC Prefix', 'Clearing Zones', 'Daily Limit', 'Today', 'Risk', 'Status', ''].map(h => (
+                {['Bank Name', 'IFSC Prefix', 'Daily Limit', 'Today', 'Risk', 'Status', ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -298,13 +261,6 @@ export default function CTSSubMemberBanks() {
                 <tr key={sm.id} className={`border-b cursor-pointer transition-colors ${th.row}`} onClick={() => setSelected(sm)}>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{sm.name}</td>
                   <td className={`px-4 py-3 font-mono ${th.body}`}>{sm.ifsc_prefix}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap">
-                      {sm.clearing_zones.map(z => (
-                        <span key={z} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${th.badge}`}>{z}</span>
-                      ))}
-                    </div>
-                  </td>
                   <td className={`px-4 py-3 ${th.body}`}>{sm.daily_limit.toLocaleString()} / day</td>
                   <td className={`px-4 py-3 ${th.body}`}>{sm.cheques_today}</td>
                   <td className="px-4 py-3">

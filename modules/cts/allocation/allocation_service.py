@@ -11,8 +11,8 @@ Auto-assignment (when a bank_id is supplied):
   * skips reviewers already at allocation_max_per_reviewer claims (0 = no cap)
   * an item inside allocation_urgent_margin_minutes of its IET deadline ignores the cap, because an item nobody
     picks up before its IET is deemed approved
-  * only considers reviewers scoped to the item's clearing zone (an item with no zone can go to anyone;
-    a reviewer scoped to "ALL" or to no zones can take any zone)
+  * only considers reviewers scoped to the item's processing unit (an item with no PU can go to anyone;
+    a reviewer scoped to "ALL" or to no PUs can take any PU)
   * records the assignment as "unopened" so rebalance() may move it; a reviewer opening the item (re-claiming it)
     pins it, and an admin assignment is pinned from the start
 
@@ -25,7 +25,7 @@ assign and rebalancing all stay inside the item's bucket. MISC is self-claim onl
 claim, or no active subscriber for a bucket within bucket_overflow_after_minutes, moves the item to MISC and remembers
 its origin_bucket. With routing off the bucket is informational and allocation is the flat pool described above.
 
-Callers without a bank_id get the original behaviour (random pick, no zones/cap), which keeps older call sites working.
+Callers without a bank_id get the original behaviour (random pick, no PUs/cap), which keeps older call sites working.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ import structlog
 
 log = structlog.get_logger()
 
-_ANY_ZONE = "ALL"
+_ANY_PU = "ALL"
 MISC = "MISC"
 
 
@@ -59,7 +59,7 @@ class AllocationResult:
     reviewer_id: Optional[str] = None  # set when claimed=True
     held_by: Optional[str] = None      # set when claimed=False and already held
     reason: Optional[str] = None       # why nothing was assigned: NO_ACTIVE_REVIEWERS | NO_ELIGIBLE_REVIEWER |
-                                       # ALL_AT_CAPACITY | ZONE_RESTRICTED | ALREADY_CLAIMED | SELF_MODE
+                                       # ALL_AT_CAPACITY | PU_RESTRICTED | ALREADY_CLAIMED | SELF_MODE
 
 
 @dataclass
@@ -67,11 +67,11 @@ class RebalanceResult:
     moves: list[tuple[str, str, str]] = field(default_factory=list)   # (instrument_id, from_reviewer, to_reviewer)
 
 
-def zone_allows(item_zone: Optional[str], reviewer_zones: Optional[list[str]]) -> bool:
-    """True if a reviewer scoped to reviewer_zones may work an item in item_zone."""
-    if not item_zone or not reviewer_zones:
+def pu_allows(item_pu: Optional[str], reviewer_pus: Optional[list[str]]) -> bool:
+    """True if a reviewer scoped to reviewer_pus may work an item in item_pu."""
+    if not item_pu or not reviewer_pus:
         return True
-    return _ANY_ZONE in reviewer_zones or item_zone in reviewer_zones
+    return _ANY_PU in reviewer_pus or item_pu in reviewer_pus
 
 
 class AllocationService:
@@ -83,7 +83,7 @@ class AllocationService:
 
     async def claim(
         self, instrument_id: str, reviewer_id: str, cts_config: dict,
-        bank_id: Optional[str] = None, reviewer_zones: Optional[list[str]] = None,
+        bank_id: Optional[str] = None, reviewer_pus: Optional[list[str]] = None,
         reviewer_buckets: Optional[list[str]] = None,
     ) -> AllocationResult:
         """Reviewer manually claims (or re-opens) an instrument.
@@ -91,7 +91,7 @@ class AllocationService:
         Works in all three modes (UI always shows the Claim button; backend enforces semantics). In AUTO mode the
         claim is still honoured: a human override of the auto-assignment is always permitted, and claiming an item
         you already hold counts as opening it, which pins it so the rebalancer never moves it.
-        A reviewer scoped to a clearing zone cannot claim an item from another zone.
+        A reviewer scoped to a processing unit cannot claim an item from another PU.
         """
         if bank_id:
             meta = await self._lock.get_item_meta(bank_id, instrument_id)
@@ -99,9 +99,9 @@ class AllocationService:
                 # Maker-checker: the person who made the first decision can never check it.
                 log.info("allocation.claim_refused_four_eyes", instrument_id=instrument_id, reviewer_id=reviewer_id)
                 return AllocationResult(claimed=False, reason="FOUR_EYES")
-            if reviewer_zones is not None and not zone_allows(meta.get("zone"), reviewer_zones):
-                log.info("allocation.claim_refused_zone", instrument_id=instrument_id, reviewer_id=reviewer_id)
-                return AllocationResult(claimed=False, reason="ZONE_RESTRICTED")
+            if reviewer_pus is not None and not pu_allows(meta.get("pu_id"), reviewer_pus):
+                log.info("allocation.claim_refused_pu", instrument_id=instrument_id, reviewer_id=reviewer_id)
+                return AllocationResult(claimed=False, reason="PU_RESTRICTED")
             if _routing(cts_config) and not bucket_allows(meta.get("bucket"), reviewer_buckets):
                 log.info("allocation.claim_refused_bucket", instrument_id=instrument_id, reviewer_id=reviewer_id,
                          bucket=meta.get("bucket"))
@@ -263,8 +263,8 @@ class AllocationService:
     async def _choose_candidates(self, instrument_id, available, cts_config, bank_id):
         """Eligible reviewers in preference order, or ([], reason)."""
         meta = await self._lock.get_item_meta(bank_id, instrument_id)
-        zones = await self._lock.get_reviewer_zones(bank_id)
-        eligible = [r for r in available if zone_allows(meta.get("zone"), zones.get(r))]
+        pus = await self._lock.get_reviewer_pus(bank_id)
+        eligible = [r for r in available if pu_allows(meta.get("pu_id"), pus.get(r))]
         if _routing(cts_config) and self._subs is not None and meta.get("bucket"):
             subscribers = set(await self._subs.get_subscribers(bank_id, meta["bucket"]))
             eligible = [r for r in eligible if r in subscribers]
@@ -299,7 +299,7 @@ class AllocationService:
         """Spread unopened auto-assigned work across the reviewers who are active now.
 
         Moves items from the most loaded reviewer to the least loaded one until their loads differ by at most one,
-        never moving an item the reviewer has opened, never across a clearing-zone restriction, and never more than
+        never moving an item the reviewer has opened, never across a processing-unit restriction, and never more than
         allocation_rebalance_max_moves in one pass. An item closest to its IET deadline is moved first so it lands
         on the reviewer with the most free capacity.
         """
@@ -310,7 +310,7 @@ class AllocationService:
         if len(active) < 2:
             return result
 
-        zones = await self._lock.get_reviewer_zones(bank_id)
+        pus = await self._lock.get_reviewer_pus(bank_id)
         by_bucket = await self._subs.get_all(bank_id) if (_routing(cts_config) and self._subs is not None) else None
         loads = await self._lock.reviewer_loads(active)
         movable: dict[str, list[str]] = {r: [] for r in active}
@@ -332,11 +332,11 @@ class AllocationService:
             moved = False
             for donor in donors:
                 # Try each receiver in load order: the least-loaded one may not be allowed to take any of this
-                # donor's items (zone, or not connected to the bucket), so the next one gets a chance.
+                # donor's items (processing unit, or not connected to the bucket), so the next one gets a chance.
                 for recv in (r for r in receivers if r != donor and loads[donor] - loads[r] >= 2):
                     for iid in list(movable[donor]):
                         meta = await self._lock.get_item_meta(bank_id, iid)
-                        if not zone_allows(meta.get("zone"), zones.get(recv)):
+                        if not pu_allows(meta.get("pu_id"), pus.get(recv)):
                             continue
                         if meta.get("maker_id") == recv:
                             continue                       # never hand a validation item to the person who made the decision

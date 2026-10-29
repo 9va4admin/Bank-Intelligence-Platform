@@ -144,6 +144,19 @@ activity result (Temporal history). A failed lookup degrades to "no name" and ne
 Surfaced as `drawee_name` on the inward queue and decision-log API rows and in the review UI. Outward Payee
 Name (front OCR + back endorsement + deposit-slip account → vault) is separate and not yet built.
 
+### 2.12 No Zone Concept - Branch Maps to a Processing Unit (2026-10-29, bank owner)
+
+A bank files to a **single NGCH grid** today, and a bank may have **one or more processing units (PUs)**. A branch maps to exactly one PU
+(`branches.pu_id`) - that is the whole model; there are **no clearing zones**. So a PU is a group of branches handled together (its own
+Temporal queue and Kafka inward topic), not a grid. Consequences, all done: the one-PU-per-zone unique index is dropped and `clearing_zone` /
+`ngch_participant_code` are optional on a PU (migration `20261029_034`); reviewers are scoped to PUs (`UserContext.pu_ids`, JWT claim `pu_ids`,
+`platform.local_auth_accounts.pu_ids`) and allocation scopes by `pu_id` (`pu_allows`, item meta `pu_id`, `reviewer-pus:` Redis key); the
+screens show PUs, not zones. **Second slice, not yet done** (NGCH-facing, needs a decision): `cts.clearing_zones` / `cts.processing_centers` /
+`cts.rpc_zones`, MICR routing rules' zone, the `ClearingZone` element in the RRF/CRL headers, the RPC pages and the decision-log export. The old
+columns (`processing_units.clearing_zone`, `local_auth_accounts.clearing_zones`, `cheque_instruments.clearing_zone`) are deprecated, unused, and
+dropped in a later release. Outward is expected to be able to be organised per PU, with a configurable session cut-off (2:30 pm today) and
+original-instrument custody (branch first, then central storage) - designed, not yet built.
+
 ### 2.11 Inward Safety Gates Added After Real-Image Testing (2026-10-13)
 
 Found by running 70 real KBL instruments (Lots 1, 2, 3) end to end; each has tests and, where stated, a live check.
@@ -370,7 +383,7 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 
 | Role | Module Access | Data Access | Config Access |
 |---|---|---|---|
-| ops_reviewer | CTS human queue | Own zone only | None |
+| ops_reviewer | CTS human queue | Own processing unit(s) only | None |
 | fraud_analyst | CTS analytics | Scores + SHAP, no PII | None |
 | ops_manager | CTS full | Cross-zone reports | Layer 3 |
 | bank_it_admin | Admin console | Infrastructure only | Layer 2 (maker-checker) |
@@ -378,7 +391,7 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 | rbi_examiner | Audit only (time-scoped) | Read-only, date-scoped | None |
 | ml_engineer | AI server + MLflow | Inference logs, no customer data | None |
 
-ABAC on top: `ops_reviewer` scoped to `clearing_zone`; all roles scoped to `bank_id`.
+ABAC on top: `ops_reviewer` scoped to processing units (`pu_ids`); all roles scoped to `bank_id`.
 
 ---
 

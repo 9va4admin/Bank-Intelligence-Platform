@@ -46,7 +46,7 @@ def _make_user_ctx(
         bank_id=bank_id,
         role=role,
         bank_type=bank_type,
-        clearing_zones=["MUMBAI"],
+        pu_ids=["MUMBAI"],
     )
 
 

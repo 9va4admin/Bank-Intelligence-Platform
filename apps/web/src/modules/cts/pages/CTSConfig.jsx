@@ -18,7 +18,6 @@ const LAYER2_CONFIG = [
   { key: 'module_cts_enabled',   label: 'CTS Module',       value: 'true' },
   { key: 'cbs_connector_type',   label: 'CBS Connector',    value: 'finacle' },
   { key: 'max_agent_swarm_size', label: 'Max Agent Swarm',  value: '500' },
-  { key: 'clearing_zones',       label: 'Clearing Zones',   value: 'MUMBAI, DELHI' },
   { key: 'gpu_profile',          label: 'GPU Profile',      value: 'production (4×A100)' },
 ]
 

@@ -60,13 +60,13 @@ class LDAPADConnector(AuthConnector):
         entity_type: str,
         entity_id: str,
         bank_id: str,
-        clearing_zones: Optional[list[str]] = None,
+        pu_ids: Optional[list[str]] = None,
     ) -> None:
         self.config = config
         self.entity_type = entity_type
         self.entity_id = entity_id
         self.bank_id = bank_id
-        self.clearing_zones = clearing_zones or []
+        self.pu_ids = pu_ids or []
 
     @property
     def connector_type(self) -> str:
@@ -115,7 +115,7 @@ class LDAPADConnector(AuthConnector):
             entity_id=self.entity_id,
             bank_id=self.bank_id,
             role=role,
-            clearing_zones=self.clearing_zones,
+            pu_ids=self.pu_ids,
             connector_used="ldap_ad",
         )
 

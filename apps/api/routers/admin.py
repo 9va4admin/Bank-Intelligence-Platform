@@ -321,7 +321,7 @@ class UserSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
     user_id: str
     role: str
-    clearing_zone: Optional[str] = None
+    pu_id: Optional[str] = None
     active: bool
 
 
@@ -1008,7 +1008,7 @@ async def list_users(
             async with pool.acquire() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT user_id, role, clearing_zones, is_active
+                    SELECT user_id, role, pu_ids, is_active
                     FROM platform.local_auth_accounts
                     WHERE bank_id = $1
                     ORDER BY created_at DESC
@@ -1020,7 +1020,7 @@ async def list_users(
                 UserSummary(
                     user_id=str(r["user_id"]),
                     role=r["role"],
-                    clearing_zone=(r["clearing_zones"] or [])[0] if r["clearing_zones"] else None,
+                    pu_id=(r["pu_ids"] or [])[0] if r["pu_ids"] else None,
                     active=bool(r["is_active"]),
                 )
                 for r in rows

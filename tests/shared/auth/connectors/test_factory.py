@@ -39,7 +39,7 @@ SB_SAML_CONFIG = {
                 "bind_dn_secret": "auth/ldap/bind_dn",
                 "bind_pw_secret": "auth/ldap/bind_pw",
             },
-            "clearing_zones": ["MUMBAI"],
+            "pu_ids": ["MUMBAI"],
         },
         "pu": {
             "integration_enabled": True,

@@ -79,16 +79,16 @@ async def list_open(conn: Any, bank_id: str, direction: Optional[str] = None, li
         f"AND status IN ('PENDING','ASSIGNED','IN_REVIEW') ORDER BY review_level DESC, created_at LIMIT $2", bank_id, limit)
 
 
-async def assign(conn: Any, *, bank_id: str, workflow_id: str, reviewer_id: str, zone: Optional[str] = None) -> bool:
+async def assign(conn: Any, *, bank_id: str, workflow_id: str, reviewer_id: str, pu_id: Optional[str] = None) -> bool:
     async with conn.transaction():
         row = await conn.fetchrow(
-            "UPDATE cts.human_review_items SET status='ASSIGNED', assigned_reviewer_id=$3, assigned_zone=$4, "
+            "UPDATE cts.human_review_items SET status='ASSIGNED', assigned_reviewer_id=$3, assigned_pu_id=$4, "
             "assigned_at=now(), updated_at=now() WHERE bank_id=$1 AND workflow_id=$2 "
-            "AND status IN ('PENDING','ASSIGNED') RETURNING review_id", bank_id, workflow_id, reviewer_id, zone)
+            "AND status IN ('PENDING','ASSIGNED') RETURNING review_id", bank_id, workflow_id, reviewer_id, pu_id)
         if row is None:
             return False
         await conn.execute(_HISTORY, row["review_id"], bank_id, "ASSIGNED", reviewer_id,
-                           json.dumps({"zone": zone}))
+                           json.dumps({"pu_id": pu_id}))
     return True
 
 

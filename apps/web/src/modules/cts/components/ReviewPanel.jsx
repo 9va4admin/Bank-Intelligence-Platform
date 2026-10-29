@@ -617,7 +617,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Instrument Metadata</div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
               {[
-                ['Instrument ID', item.instrument_id], ['Clearing Zone', item.clearing_zone],
+                ['Instrument ID', item.instrument_id], ['Processing Unit', item.pu_id ?? '—'],
                 ['CBS Type', item.cbs_type],           ['Received', new Date(item.received_at).toLocaleTimeString('en-IN')],
                 ['IET Deadline', new Date(item.iet_deadline).toLocaleTimeString('en-IN')],
                 ['Amount Range', item.amount_range],   ['OPA Rule', item.opa_rule || '—'],

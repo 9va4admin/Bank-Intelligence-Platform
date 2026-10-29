@@ -117,7 +117,7 @@ class SessionResponse(BaseModel):
     bank_type: str
     role: str
     permission_level: str
-    clearing_zones: list[str]
+    pu_ids: list[str]
     mfa_authenticated: bool
 
 
@@ -345,6 +345,6 @@ async def whoami(
         bank_type=claims.bank_type,
         role=claims.role,
         permission_level=claims.permission_level,
-        clearing_zones=claims.clearing_zones,
+        pu_ids=claims.pu_ids,
         mfa_authenticated=claims.mfa_authenticated,
     )

@@ -354,8 +354,8 @@ export default function CTSAllocationAdmin() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="font-medium">{r.reviewer_id}</span>
                   <span title="claims held now">{r.load ?? 0} held</span>
-                  {r.zones?.length > 0 && !r.zones.includes('ALL') && (
-                    <span className="font-mono" title="clearing zones">{r.zones.join('/')}</span>
+                  {r.pu_ids?.length > 0 && !r.pu_ids.includes('ALL') && (
+                    <span className="font-mono" title="processing units">{(r.pu_ids ?? []).join('/')}</span>
                   )}
                   <span className={`font-mono ${isDark ? 'text-emerald-600' : 'text-emerald-500'}`}>
                     {fmtExpiresIn(r.expires_at)}
@@ -519,7 +519,7 @@ export default function CTSAllocationAdmin() {
                   <tr key={item.instrument_id} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>{item.instrument_id}</td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? (BUCKET_LABEL[item.bucket] ?? item.bucket) : ''}</td>
-                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.clearing_zone !== 'UNKNOWN' ? item.clearing_zone : ''}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.pu_id ?? ''}</td>
                     <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
                       {mins === null ? '' : mins <= 0 ? 'IET passed' : `IET in ${mins} min`}
                     </td>

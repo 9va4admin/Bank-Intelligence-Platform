@@ -129,7 +129,7 @@ class QueueItem(BaseModel):
     account_display: str
     payee_display: str
     amount_range: str
-    clearing_zone: str
+    pu_id: Optional[str] = None
     received_at: float
     iet_deadline: float
     reason: str
@@ -215,7 +215,7 @@ class ChequeSearchResult(BaseModel):
     payee_display: str
     amount_range: str
     status: str
-    clearing_zone: str
+    pu_id: Optional[str] = None
     received_at: float
     fraud_score: Optional[float] = None
     ocr_confidence: Optional[float] = None
@@ -368,7 +368,7 @@ async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSear
     rows = await db.fetch(
         """
         SELECT instrument_id, cheque_number, account_display, payee_display,
-               amount_range, status, clearing_zone, received_at::text,
+               amount_range, status, pu_id, received_at::text,
                fraud_score, ocr_confidence
         FROM cts.cheque_instruments
         WHERE bank_id = $1
@@ -386,7 +386,7 @@ async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSear
             payee_display=r["payee_display"] or "",
             amount_range=r["amount_range"] or "",
             status=r["status"],
-            clearing_zone=r["clearing_zone"],
+            pu_id=r["pu_id"],
             received_at=r["received_at"],
             fraud_score=r["fraud_score"],
             ocr_confidence=r["ocr_confidence"],
@@ -786,7 +786,7 @@ async def get_human_review_queue(
                     account_display=memo.get("account_display", "****????"),
                     payee_display=memo.get("payee_display", "?***"),
                     amount_range=memo.get("amount_range", "₹[unknown]"),
-                    clearing_zone=memo.get("clearing_zone", "UNKNOWN"),
+                    pu_id=memo.get("pu_id"),
                     received_at=memo.get("received_at", wf.start_time.timestamp() if wf.start_time else 0.0),
                     iet_deadline=memo.get("iet_deadline", 0.0),
                     reason=memo.get("reason", "UNKNOWN"),
@@ -807,7 +807,7 @@ async def get_human_review_queue(
     log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
     # --- Reviewer heartbeat, deferred assignment, rebalancing -------------------------------------------------
-    # Every queue poll registers the reviewer as active (5-minute heartbeat in Redis), with their clearing zones.
+    # Every queue poll registers the reviewer as active (5-minute heartbeat in Redis), with the processing units they are scoped to.
     # In AUTO and HYBRID modes the poll also (a) assigns items whose wait or retry has come due and (b) rebalances
     # unopened auto-assigned work when someone new has logged in (or at most once per interval).
     redis = getattr(request.app.state, "redis_cts", None)
@@ -827,7 +827,7 @@ async def get_human_review_queue(
         joined = False
         try:
             joined = await lock_svc.heartbeat_reviewer(
-                eff_bank_id, ctx.user_id, zones=list(getattr(ctx, "clearing_zones", None) or []))
+                eff_bank_id, ctx.user_id, pu_ids=list(getattr(ctx, "pu_ids", None) or []))
         except Exception as exc:
             log.warning("cts.queue.heartbeat_failed", user_id=ctx.user_id, error=str(exc))
 
@@ -867,10 +867,10 @@ async def get_human_review_queue(
                 log.warning("cts.queue.rebalance_error", bank_id=eff_bank_id, error=str(exc))
 
     # --- Zone scoping and ownership -------------------------------------------------------------------------
-    zones = list(getattr(ctx, "clearing_zones", None) or [])
-    if ctx.role.value == "ops_reviewer" and zones and "ALL" not in zones:
-        # A reviewer scoped to a clearing zone sees only that zone (and items whose zone is not known).
-        items = [i for i in items if i.clearing_zone in zones or i.clearing_zone in ("", "UNKNOWN")]
+    scope = list(getattr(ctx, "pu_ids", None) or [])
+    if ctx.role.value == "ops_reviewer" and scope and "ALL" not in scope:
+        # A reviewer scoped to processing units sees only those (and items whose PU is not known).
+        items = [i for i in items if i.pu_id in scope or not i.pu_id]
     if redis is not None and items:
         try:
             svc = lock_svc or _lock_service(redis)

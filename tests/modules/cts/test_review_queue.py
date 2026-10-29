@@ -119,7 +119,7 @@ async def test_open_item_records_tier_and_starts_at_level_1():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fn,kwargs,event", [
-    (assign, dict(reviewer_id="usr-rev-1", zone="MUMBAI"), "ASSIGNED"),
+    (assign, dict(reviewer_id="usr-rev-1", pu_id="MUMBAI"), "ASSIGNED"),
     (start_review, dict(reviewer_id="usr-rev-1"), "IN_REVIEW"),
 ])
 async def test_transitions_update_status_and_append_history(fn, kwargs, event):

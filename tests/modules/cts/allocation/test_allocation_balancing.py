@@ -96,10 +96,10 @@ async def test_no_reviewers_gives_a_reason_not_an_error(lock, alloc):
 
 @pytest.mark.asyncio
 async def test_auto_assign_only_considers_reviewers_scoped_to_the_items_zone(lock, alloc):
-    await lock.heartbeat_reviewer(BANK, "west", zones=["WEST"])
-    await lock.heartbeat_reviewer(BANK, "east", zones=["EAST"])
-    await lock.heartbeat_reviewer(BANK, "mgr", zones=["ALL"])
-    await lock.set_item_meta(BANK, "i-1", zone="WEST")
+    await lock.heartbeat_reviewer(BANK, "west", pu_ids=["WEST"])
+    await lock.heartbeat_reviewer(BANK, "east", pu_ids=["EAST"])
+    await lock.heartbeat_reviewer(BANK, "mgr", pu_ids=["ALL"])
+    await lock.set_item_meta(BANK, "i-1", pu_id="WEST")
     await _hold(lock, "west", 2)                                    # west is busier, but east may not take it
     res = await alloc.auto_assign("i-1", ["west", "east", "mgr"], AUTO, bank_id=BANK)
     assert res.reviewer_id == "mgr"                                 # least loaded among the eligible (west, mgr)
@@ -107,32 +107,32 @@ async def test_auto_assign_only_considers_reviewers_scoped_to_the_items_zone(loc
 
 @pytest.mark.asyncio
 async def test_an_item_with_no_zone_can_go_to_anyone(lock, alloc):
-    await lock.heartbeat_reviewer(BANK, "east", zones=["EAST"])
+    await lock.heartbeat_reviewer(BANK, "east", pu_ids=["EAST"])
     res = await alloc.auto_assign("i-1", ["east"], AUTO, bank_id=BANK)
     assert res.claimed
 
 
 @pytest.mark.asyncio
 async def test_no_eligible_reviewer_for_the_zone_leaves_it_unassigned(lock, alloc):
-    await lock.heartbeat_reviewer(BANK, "east", zones=["EAST"])
-    await lock.set_item_meta(BANK, "i-1", zone="WEST")
+    await lock.heartbeat_reviewer(BANK, "east", pu_ids=["EAST"])
+    await lock.set_item_meta(BANK, "i-1", pu_id="WEST")
     res = await alloc.auto_assign("i-1", ["east"], AUTO, bank_id=BANK)
     assert res.claimed is False and res.reason == "NO_ELIGIBLE_REVIEWER"
 
 
 @pytest.mark.asyncio
 async def test_claim_is_refused_outside_the_reviewers_zone(lock, alloc):
-    await lock.set_item_meta(BANK, "i-1", zone="WEST")
-    res = await alloc.claim("i-1", "east", AUTO, bank_id=BANK, reviewer_zones=["EAST"])
-    assert res.claimed is False and res.reason == "ZONE_RESTRICTED"
-    ok = await alloc.claim("i-1", "west", AUTO, bank_id=BANK, reviewer_zones=["WEST"])
+    await lock.set_item_meta(BANK, "i-1", pu_id="WEST")
+    res = await alloc.claim("i-1", "east", AUTO, bank_id=BANK, reviewer_pus=["EAST"])
+    assert res.claimed is False and res.reason == "PU_RESTRICTED"
+    ok = await alloc.claim("i-1", "west", AUTO, bank_id=BANK, reviewer_pus=["WEST"])
     assert ok.claimed
 
 
 @pytest.mark.asyncio
 async def test_a_reviewer_with_all_zones_can_claim_anything(lock, alloc):
-    await lock.set_item_meta(BANK, "i-1", zone="WEST")
-    assert (await alloc.claim("i-1", "mgr", AUTO, bank_id=BANK, reviewer_zones=["ALL"])).claimed
+    await lock.set_item_meta(BANK, "i-1", pu_id="WEST")
+    assert (await alloc.claim("i-1", "mgr", AUTO, bank_id=BANK, reviewer_pus=["ALL"])).claimed
 
 
 # --- opening an item pins it -------------------------------------------------------------------------------
@@ -194,8 +194,8 @@ async def test_rebalance_respects_the_move_cap(lock, alloc):
 async def test_rebalance_respects_zones(lock, alloc):
     await _auto(lock, "west", 4)
     for i in range(4):
-        await lock.set_item_meta(BANK, f"west-{i}", zone="WEST")
-    await lock.heartbeat_reviewer(BANK, "west", zones=["WEST"]); await lock.heartbeat_reviewer(BANK, "east", zones=["EAST"])
+        await lock.set_item_meta(BANK, f"west-{i}", pu_id="WEST")
+    await lock.heartbeat_reviewer(BANK, "west", pu_ids=["WEST"]); await lock.heartbeat_reviewer(BANK, "east", pu_ids=["EAST"])
     res = await alloc.rebalance(BANK, AUTO)
     assert res.moves == []                                            # east may not take WEST items
 

@@ -60,7 +60,7 @@ def _build_app(repo_mock):
             bank_id="saraswat-coop",
             role=role,
             bank_type=BankType.SB,
-            clearing_zone="MUMBAI",
+            pu_id="MUMBAI",
         )
         return ctx
 
@@ -195,7 +195,7 @@ class TestApproveIFSCRegistry:
             bank_id="saraswat-coop",
             role=Role.BANK_IT_ADMIN,
             bank_type=BankType.SB,
-            clearing_zone="MUMBAI",
+            pu_id="MUMBAI",
         )
         with TestClient(app) as client:
             resp = client.put("/v1/cts/ifsc-registry/uuid-001/approve")
@@ -218,7 +218,7 @@ class TestApproveIFSCRegistry:
             bank_id="saraswat-coop",
             role=Role.OPS_MANAGER,
             bank_type=BankType.SB,
-            clearing_zone="MUMBAI",
+            pu_id="MUMBAI",
         )
         with TestClient(app) as client:
             resp = client.put("/v1/cts/ifsc-registry/uuid-001/approve")
@@ -240,7 +240,7 @@ class TestApproveIFSCRegistry:
             bank_id="saraswat-coop",
             role=Role.BANK_IT_ADMIN,
             bank_type=BankType.SB,
-            clearing_zone="MUMBAI",
+            pu_id="MUMBAI",
         )
         with TestClient(app) as client:
             resp = client.put("/v1/cts/ifsc-registry/ghost/approve")
@@ -264,7 +264,7 @@ class TestDeactivateIFSCRegistry:
             bank_id="saraswat-coop",
             role=Role.BANK_IT_ADMIN,
             bank_type=BankType.SB,
-            clearing_zone="MUMBAI",
+            pu_id="MUMBAI",
         )
         with TestClient(app) as client:
             resp = client.delete("/v1/cts/ifsc-registry/uuid-001")
@@ -287,7 +287,7 @@ class TestDeactivateIFSCRegistry:
             bank_id="saraswat-coop",
             role=Role.OPS_MANAGER,
             bank_type=BankType.SB,
-            clearing_zone="MUMBAI",
+            pu_id="MUMBAI",
         )
         with TestClient(app) as client:
             resp = client.delete("/v1/cts/ifsc-registry/uuid-001")

@@ -813,7 +813,7 @@ class TestCTSQueueRoute:
             "account_display": "****1234",
             "payee_display": "N***",
             "amount_range": "₹[1L-5L]",
-            "clearing_zone": "MUMBAI",
+            "pu_id": "MUMBAI",
             "received_at": 1_699_990_000.0,
             "iet_deadline": 1_700_010_800.0,
             "reason": "FRAUD_SCORE_HIGH",
@@ -845,7 +845,7 @@ class TestCTSQueueRoute:
         assert item["instrument_id"] == "INST001"
         assert item["reason"] == "FRAUD_SCORE_HIGH"
         assert item["fraud_score"] == 0.82
-        assert item["clearing_zone"] == "MUMBAI"
+        assert item["pu_id"] == "MUMBAI"
 
     def test_queue_temporal_error_returns_empty(self):
         """Temporal list_workflows error → empty queue (not 503)."""
@@ -889,7 +889,7 @@ class TestCTSQueueRoute:
                 "account_display": "****1234",
                 "payee_display": "N***",
                 "amount_range": "₹[1L-5L]",
-                "clearing_zone": "MUMBAI",
+                "pu_id": "MUMBAI",
                 "received_at": 1_699_990_000.0,
                 "iet_deadline": iet_deadline,
                 "reason": "OCR_LOW_CONFIDENCE",

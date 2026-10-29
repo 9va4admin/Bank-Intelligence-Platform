@@ -20,7 +20,7 @@ class ASTRAIdentity(BaseModel):
     entity_id: str
     bank_id: str
     role: str
-    clearing_zones: list[str] = []
+    pu_ids: list[str] = []
     # bank_type / permission_level are optional on the connector output — SAML/LDAP
     # may not carry them. AuthService derives fail-closed defaults when absent.
     bank_type: Optional[Literal["SB", "SMB"]] = None

@@ -82,7 +82,6 @@ def _sample_pu_payload(pu_id: str = "MUMBAI-PU-01") -> dict:
     return {
         "pu_id": pu_id,
         "pu_name": "Mumbai Processing Unit 01",
-        "clearing_zone": "MUMBAI",
         "ngch_participant_code": "MUMBAI-KARB-001",
         "max_agent_swarm_size": 200,
     }
@@ -107,7 +106,7 @@ class TestCreatePU:
         data = resp.json()
         assert data["pu_id"] == "MUMBAI-PU-01"
         assert data["pu_name"] == "Mumbai Processing Unit 01"
-        assert data["clearing_zone"] == "MUMBAI"
+        assert "clearing_zone" not in data           # no zone concept: a PU is a group of branches
         assert data["ngch_participant_code"] == "MUMBAI-KARB-001"
         assert data["is_active"] is True
         assert data["bank_id"] == "test-bank"
@@ -126,13 +125,18 @@ class TestCreatePU:
         data = resp.json()
         assert data["kafka_inward_topic"] == "cts.inward.test-bank.MUMBAI-PU-01"
 
-    def test_create_pu_zone_conflict(self):
+    def test_a_bank_can_have_several_pus(self):
         client = _pu_client()
         client.post("/v1/processing-units", json=_sample_pu_payload())
-        # Same zone, different pu_id — must be rejected
-        payload = _sample_pu_payload(pu_id="MUMBAI-PU-02")
+        resp = client.post("/v1/processing-units", json=_sample_pu_payload(pu_id="MUMBAI-PU-02"))
+        assert resp.status_code == 201                # one grid, several PUs: nothing limits PUs per bank
+
+    def test_a_pu_needs_no_ngch_participant_code(self):
+        client = _pu_client()
+        payload = _sample_pu_payload(pu_id="NOCODE-PU")
+        del payload["ngch_participant_code"]
         resp = client.post("/v1/processing-units", json=payload)
-        assert resp.status_code == 409
+        assert resp.status_code == 201 and resp.json()["ngch_participant_code"] is None
 
     def test_create_pu_duplicate_pu_id(self):
         client = _pu_client()
@@ -140,11 +144,10 @@ class TestCreatePU:
         resp = client.post("/v1/processing-units", json=_sample_pu_payload())
         assert resp.status_code == 409
 
-    def test_create_pu_two_different_zones_allowed(self):
+    def test_create_pu_two_different_pus_allowed(self):
         client = _pu_client()
         client.post("/v1/processing-units", json=_sample_pu_payload("MUMBAI-PU-01"))
         payload2 = _sample_pu_payload("DELHI-PU-01")
-        payload2["clearing_zone"] = "DELHI"
         payload2["ngch_participant_code"] = "DELHI-KARB-001"
         resp = client.post("/v1/processing-units", json=payload2)
         assert resp.status_code == 201
@@ -162,14 +165,7 @@ class TestCreatePU:
     def test_create_pu_missing_required_field(self):
         client = _pu_client()
         payload = _sample_pu_payload()
-        del payload["ngch_participant_code"]
-        resp = client.post("/v1/processing-units", json=payload)
-        assert resp.status_code == 422
-
-    def test_create_pu_invalid_clearing_zone(self):
-        client = _pu_client()
-        payload = _sample_pu_payload()
-        payload["clearing_zone"] = "INVALID_ZONE"
+        del payload["pu_name"]
         resp = client.post("/v1/processing-units", json=payload)
         assert resp.status_code == 422
 
@@ -198,7 +194,6 @@ class TestListPUs:
         client = _pu_client()
         client.post("/v1/processing-units", json=_sample_pu_payload("MUMBAI-PU-01"))
         p2 = _sample_pu_payload("DELHI-PU-01")
-        p2["clearing_zone"] = "DELHI"
         p2["ngch_participant_code"] = "DELHI-KARB-001"
         client.post("/v1/processing-units", json=p2)
         resp = client.get("/v1/processing-units")
@@ -220,7 +215,6 @@ class TestListPUs:
         client = _pu_client()
         client.post("/v1/processing-units", json=_sample_pu_payload("MUMBAI-PU-01"))
         p2 = _sample_pu_payload("DELHI-PU-01")
-        p2["clearing_zone"] = "DELHI"
         p2["ngch_participant_code"] = "DELHI-KARB-001"
         client.post("/v1/processing-units", json=p2)
         # Deactivate one
@@ -290,12 +284,6 @@ class TestUpdatePU:
         client = _pu_client()
         resp = client.put("/v1/processing-units/NONEXISTENT", json={"pu_name": "X"})
         assert resp.status_code == 404
-
-    def test_update_pu_clearing_zone_immutable(self):
-        client = _pu_client()
-        client.post("/v1/processing-units", json=_sample_pu_payload())
-        resp = client.put("/v1/processing-units/MUMBAI-PU-01", json={"clearing_zone": "DELHI"})
-        assert resp.status_code == 422
 
     def test_update_pu_id_immutable(self):
         client = _pu_client()

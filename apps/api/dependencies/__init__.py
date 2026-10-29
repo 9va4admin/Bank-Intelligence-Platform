@@ -30,7 +30,7 @@ def require_user_context(request: Request) -> UserContext:
             bank_id=claims.bank_id,
             bank_type=BankType(claims.bank_type),
             permission_level=PermissionLevel(claims.permission_level),
-            clearing_zones=claims.clearing_zones,
+            pu_ids=claims.pu_ids,
         )
     except ValueError as exc:  # unknown role/type/level in a (signed) token — fail closed
         raise HTTPException(

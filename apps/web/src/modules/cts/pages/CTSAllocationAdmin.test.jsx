@@ -17,8 +17,8 @@ const ROUTES = {
   '/v1/cts/allocation/reviewers': {
     bank_id: 'kbl', total: 2,
     active_reviewers: [
-      { reviewer_id: 'alice', expires_at: NOW + 200, load: 3, zones: ['WEST'] },
-      { reviewer_id: 'bob', expires_at: NOW + 200, load: 0, zones: ['ALL'] },
+      { reviewer_id: 'alice', expires_at: NOW + 200, load: 3, pu_ids: ['WEST'] },
+      { reviewer_id: 'bob', expires_at: NOW + 200, load: 0, pu_ids: ['ALL'] },
     ],
   },
   '/v1/cts/admin/buckets': {

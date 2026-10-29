@@ -54,16 +54,16 @@ async def test_expired_locks_do_not_count_as_load(redis, svc):
 
 @pytest.mark.asyncio
 async def test_heartbeat_reports_whether_the_reviewer_is_new_to_the_pool(svc):
-    assert await svc.heartbeat_reviewer(BANK, "alice", zones=["WEST"]) is True
-    assert await svc.heartbeat_reviewer(BANK, "alice", zones=["WEST"]) is False
+    assert await svc.heartbeat_reviewer(BANK, "alice", pu_ids=["WEST"]) is True
+    assert await svc.heartbeat_reviewer(BANK, "alice", pu_ids=["WEST"]) is False
     assert await svc.get_active_reviewers(BANK) == ["alice"]
 
 
 @pytest.mark.asyncio
-async def test_reviewer_zones_are_recorded_with_the_heartbeat(svc):
-    await svc.heartbeat_reviewer(BANK, "alice", zones=["WEST", "EAST"])
+async def test_reviewer_pus_are_recorded_with_the_heartbeat(svc):
+    await svc.heartbeat_reviewer(BANK, "alice", pu_ids=["WEST", "EAST"])
     await svc.heartbeat_reviewer(BANK, "bob")
-    zones = await svc.get_reviewer_zones(BANK)
+    zones = await svc.get_reviewer_pus(BANK)
     assert zones["alice"] == ["WEST", "EAST"] and zones.get("bob", []) == []
 
 
@@ -71,8 +71,8 @@ async def test_reviewer_zones_are_recorded_with_the_heartbeat(svc):
 
 @pytest.mark.asyncio
 async def test_item_meta_round_trips_zone_and_deadline(svc):
-    await svc.set_item_meta(BANK, "i-1", zone="WEST", iet_deadline=1234.5)
-    assert await svc.get_item_meta(BANK, "i-1") == {"zone": "WEST", "iet_deadline": 1234.5}
+    await svc.set_item_meta(BANK, "i-1", pu_id="WEST", iet_deadline=1234.5)
+    assert await svc.get_item_meta(BANK, "i-1") == {"pu_id": "WEST", "iet_deadline": 1234.5}
     assert await svc.get_item_meta(BANK, "unknown") == {}
 
 
@@ -149,7 +149,7 @@ async def test_release_and_force_release_clear_the_auto_mark(svc):
 
 @pytest.mark.asyncio
 async def test_forget_item_removes_meta_pending_and_auto_mark(svc):
-    await svc.set_item_meta(BANK, "i-1", zone="WEST")
+    await svc.set_item_meta(BANK, "i-1", pu_id="WEST")
     await svc.add_hybrid_pending(BANK, "i-1", 1.0)
     await svc.forget_item(BANK, "i-1")
     assert await svc.get_item_meta(BANK, "i-1") == {}

@@ -752,7 +752,7 @@ async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids
     bank_id = ctx.bank_id
     try:
         if ctx.role.value in ("ops_reviewer", "ops_manager"):
-            await lock.heartbeat_reviewer(bank_id, ctx.user_id, zones=list(getattr(ctx, "clearing_zones", None) or []))
+            await lock.heartbeat_reviewer(bank_id, ctx.user_id, pu_ids=list(getattr(ctx, "pu_ids", None) or []))
         holders = dict(await lock.get_lock_holders(instrument_ids))
         if cfg.get("allocation_mode") == "AUTO":
             from modules.cts.allocation.allocation_service import AllocationService

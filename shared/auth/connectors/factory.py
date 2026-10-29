@@ -78,16 +78,16 @@ class AuthConnectorFactory:
 
         integration_enabled: bool = entity_cfg.get("integration_enabled", False)
         integration_type: str = entity_cfg.get("integration_type", "local")
-        clearing_zones: list[str] = entity_cfg.get("clearing_zones", [])
+        pu_ids: list[str] = entity_cfg.get("pu_ids", [])
 
         if not integration_enabled or integration_type == "local":
             return self._build_local(entity_type, entity_id)
 
         if integration_type == "saml":
-            return self._build_saml(entity_type, entity_id, entity_cfg, clearing_zones)
+            return self._build_saml(entity_type, entity_id, entity_cfg, pu_ids)
 
         if integration_type == "ldap_ad":
-            return self._build_ldap_ad(entity_type, entity_id, entity_cfg, clearing_zones)
+            return self._build_ldap_ad(entity_type, entity_id, entity_cfg, pu_ids)
 
         raise AuthConnectorConfigError(
             f"Unknown integration_type '{integration_type}' for entity_type='{entity_type}'."
@@ -126,7 +126,7 @@ class AuthConnectorFactory:
         entity_type: str,
         entity_id: str,
         entity_cfg: dict,
-        clearing_zones: list[str],
+        pu_ids: list[str],
     ) -> AuthConnector:
         from shared.auth.connectors.saml import SAMLConnector, SAMLConnectorConfig
         saml_cfg_raw: dict = entity_cfg.get("saml", {})
@@ -142,7 +142,7 @@ class AuthConnectorFactory:
             entity_type=entity_type,
             entity_id=entity_id,
             bank_id=self.bank_id,
-            clearing_zones=clearing_zones,
+            pu_ids=pu_ids,
         )
 
     def _build_ldap_ad(
@@ -150,7 +150,7 @@ class AuthConnectorFactory:
         entity_type: str,
         entity_id: str,
         entity_cfg: dict,
-        clearing_zones: list[str],
+        pu_ids: list[str],
     ) -> AuthConnector:
         from shared.auth.connectors.ldap_ad import LDAPADConnector, LDAPADConnectorConfig
         ldap_cfg_raw: dict = entity_cfg.get("ldap_ad", {})
@@ -169,5 +169,5 @@ class AuthConnectorFactory:
             entity_type=entity_type,
             entity_id=entity_id,
             bank_id=self.bank_id,
-            clearing_zones=clearing_zones,
+            pu_ids=pu_ids,
         )

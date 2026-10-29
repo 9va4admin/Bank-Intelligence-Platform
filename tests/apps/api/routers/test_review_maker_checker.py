@@ -44,7 +44,7 @@ class _FakePool:
 def _ctx(user, role="ops_reviewer"):
     c = MagicMock()
     c.role = Role[role.upper()]; c.bank_id = BANK; c.user_id = user; c.bank_type = BankType.SB
-    c.smb_id = None; c.clearing_zones = ["ALL"]
+    c.smb_id = None; c.pu_ids = ["ALL"]
     return c
 
 

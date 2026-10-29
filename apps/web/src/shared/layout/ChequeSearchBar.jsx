@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const MOCK_RESULTS = [
-  { instrument_id: 'INS-2024-001234', cheque_number: '000234', account_display: '****4521', payee_display: 'R***', amount_range: '₹[1L-5L]', status: 'STP_CONFIRM', clearing_zone: 'MUMBAI', received_at: '2026-06-25T09:14:23Z', fraud_score: 0.12, ocr_confidence: 0.97 },
-  { instrument_id: 'INS-2024-001235', cheque_number: '000235', account_display: '****7890', payee_display: 'S***', amount_range: '₹[5L-10L]', status: 'HUMAN_REVIEW', clearing_zone: 'DELHI',  received_at: '2026-06-25T09:18:05Z', fraud_score: 0.74, ocr_confidence: 0.91 },
-  { instrument_id: 'INS-2024-001236', cheque_number: '000236', account_display: '****1122', payee_display: 'M***', amount_range: '₹[<1L]',    status: 'STP_RETURN',  clearing_zone: 'MUMBAI', received_at: '2026-06-25T08:52:11Z', fraud_score: 0.88, ocr_confidence: 0.95 },
+  { instrument_id: 'INS-2024-001234', cheque_number: '000234', account_display: '****4521', payee_display: 'R***', amount_range: '₹[1L-5L]', status: 'STP_CONFIRM', pu_id: 'MUMBAI', received_at: '2026-06-25T09:14:23Z', fraud_score: 0.12, ocr_confidence: 0.97 },
+  { instrument_id: 'INS-2024-001235', cheque_number: '000235', account_display: '****7890', payee_display: 'S***', amount_range: '₹[5L-10L]', status: 'HUMAN_REVIEW', pu_id: 'DELHI',  received_at: '2026-06-25T09:18:05Z', fraud_score: 0.74, ocr_confidence: 0.91 },
+  { instrument_id: 'INS-2024-001236', cheque_number: '000236', account_display: '****1122', payee_display: 'M***', amount_range: '₹[<1L]',    status: 'STP_RETURN',  pu_id: 'MUMBAI', received_at: '2026-06-25T08:52:11Z', fraud_score: 0.88, ocr_confidence: 0.95 },
 ]
 
 const STATUS_STYLE = {
@@ -169,7 +169,7 @@ export default function ChequeSearchBar({ isDark }) {
                           <span className="opacity-40">·</span>
                           <span>{r.amount_range}</span>
                           <span className="opacity-40">·</span>
-                          <span>{r.clearing_zone}</span>
+                          <span>{r.pu_id}</span>
                         </div>
                       </div>
                     </button>
@@ -248,7 +248,7 @@ function ChequeDetailModal({ item, isDark, onClose }) {
           {row('Account', item.account_display, true)}
           {row('Payee', item.payee_display)}
           {row('Amount Range', item.amount_range)}
-          {row('Clearing Zone', item.clearing_zone)}
+          {row('Processing Unit', item.pu_id)}
           {row('Received At', new Date(item.received_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))}
 
           <div className={`text-[10px] font-semibold uppercase tracking-widest mt-3 mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>AI Scores</div>

@@ -32,7 +32,7 @@ from shared.auth.exceptions import (
     AccessDeniedError,
     BankIsolationError,
     EngagementExpiredError,
-    InsufficientZoneScopeError,
+    InsufficientScopeError,
     PermissionLevelError,
     TenantIsolationError,
 )
@@ -231,7 +231,7 @@ class UserContext(BaseModel):
     bank_id: str
     bank_type: BankType                          # required — must be explicit in every JWT
     permission_level: PermissionLevel = PermissionLevel.READ_ONLY  # least-privilege default
-    clearing_zones: list[str] = Field(default_factory=list)
+    pu_ids: list[str] = Field(default_factory=list)
     engagement_expires_at: Optional[float] = None
     engagement_date_from: Optional[str] = None
     engagement_date_to: Optional[str] = None
@@ -251,7 +251,7 @@ class RBACPolicy:
       1. assert_tenant_access   — am I even allowed to see this tenant's data?
       2. assert_permission_level — do I have the right level (ADMIN/EDIT/READ_ONLY)?
       3. assert_permission       — does my role grant this specific permission?
-      4. assert_zone_access      — (ops_reviewer only) am I in the right zone?
+      4. assert_pu_access      — (ops_reviewer only) am I scoped to this processing unit?
       5. assert_engagement_active — (rbi_examiner only) is my engagement live?
     """
 
@@ -325,13 +325,13 @@ class RBACPolicy:
                 f"but operation requires '{required.value}'."
             )
 
-    def assert_zone_access(self, user: UserContext, requested_zone: str) -> None:
+    def assert_pu_access(self, user: UserContext, requested_pu: str) -> None:
         if user.role != Role.OPS_REVIEWER:
             return
-        if requested_zone not in user.clearing_zones:
-            raise InsufficientZoneScopeError(
-                f"ops_reviewer '{user.user_id}' is scoped to zones {user.clearing_zones} "
-                f"but requested zone '{requested_zone}'."
+        if requested_pu not in user.pu_ids:
+            raise InsufficientScopeError(
+                f"ops_reviewer '{user.user_id}' is scoped to processing units {user.pu_ids} "
+                f"but requested processing unit '{requested_pu}'."
             )
 
     def assert_engagement_active(self, user: UserContext) -> None:
@@ -355,7 +355,7 @@ class RBACPolicy:
         if user.role != Role.BRANCH_MANAGER:
             return
         if user.branch_code is None or user.branch_code != branch_code:
-            raise InsufficientZoneScopeError(
+            raise InsufficientScopeError(
                 f"branch_manager '{user.user_id}' is scoped to branch '{user.branch_code}' "
                 f"but requested branch '{branch_code}'."
             )

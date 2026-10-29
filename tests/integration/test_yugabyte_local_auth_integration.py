@@ -50,7 +50,7 @@ async def seeded_account(yugabyte_pool, bank_id):
             """
             INSERT INTO platform.local_auth_accounts
                 (user_id, bank_id, entity_type, entity_id, username, display_name,
-                 password_hash, role, clearing_zones, is_active, failed_attempts,
+                 password_hash, role, pu_ids, is_active, failed_attempts,
                  locked_until, email, phone)
             VALUES ($1, $2, 'smb', 'smb-pune-ucb', $3, 'IT Test User',
                     $4, 'smb_admin', ARRAY['MUMBAI']::text[], true, 0,
@@ -80,7 +80,7 @@ class TestAuthenticateAgainstRealTable:
         assert identity.entity_type == "smb"
         assert identity.entity_id == "smb-pune-ucb"
         assert identity.role == "smb_admin"
-        assert identity.clearing_zones == ["MUMBAI"]
+        assert identity.pu_ids == ["MUMBAI"]
         assert identity.connector_used == "local"
 
     @pytest.mark.asyncio

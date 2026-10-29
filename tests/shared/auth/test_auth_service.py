@@ -94,7 +94,7 @@ def _identity(**over):
     d = dict(
         user_id="usr-001", username="ops1", display_name="Ops One",
         entity_type="sb", entity_id="saraswat-coop", bank_id="saraswat-coop",
-        role="ops_reviewer", clearing_zones=["MUMBAI"], connector_used="local",
+        role="ops_reviewer", pu_ids=["MUMBAI"], connector_used="local",
         bank_type="SB", permission_level="EDIT",
     )
     d.update(over)

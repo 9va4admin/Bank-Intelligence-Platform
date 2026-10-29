@@ -40,7 +40,7 @@ def _client(workflows, smb_id=None):
     from apps.api.routers.cts_deps import get_current_user_context
     app = FastAPI(); app.include_router(cts_inward.router_v1)
     ctx = MagicMock(); ctx.role = Role.OPS_MANAGER; ctx.bank_id = BANK; ctx.user_id = "u"; ctx.bank_type = BankType.SB
-    ctx.smb_id = smb_id; ctx.clearing_zones = ["ALL"]
+    ctx.smb_id = smb_id; ctx.pu_ids = ["ALL"]
     if smb_id:                      # a sub-member user: their own bank id is the SMB; the items live under the sponsor
         ctx.bank_type = BankType.SMB; ctx.bank_id = smb_id; ctx.sponsor_bank_id = BANK
     app.dependency_overrides[get_current_user_context] = lambda: ctx
@@ -78,9 +78,9 @@ def test_a_sub_member_user_sees_only_their_own_items():
 
 def test_memo_fields_reach_the_queue_row():
     c = _client([_wf(f"cts-humanreview-{BANK}-A1", instrument_id="A1", account_display="****1234",
-                     iet_deadline=1234567.0, clearing_zone="MUMBAI")])
+                     iet_deadline=1234567.0, pu_id="MUMBAI")])
     row = c.get("/v1/cts/queue").json()["items"][0]
-    assert row["account_display"] == "****1234" and row["iet_deadline"] == 1234567.0 and row["clearing_zone"] == "MUMBAI"
+    assert row["account_display"] == "****1234" and row["iet_deadline"] == 1234567.0 and row["pu_id"] == "MUMBAI"
 
 
 def test_the_queue_says_which_items_the_caller_holds():

@@ -30,7 +30,7 @@ const MOCK_STP_SUCCESS_IQ = [
     fraud_score: 0.04, ocr_confidence: 0.98, sig_match_score: 0.96,
     sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
     bank: BANK_CONFIG.bank_name, branch: 'Fort Main',
-    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
@@ -56,7 +56,7 @@ const MOCK_STP_SUCCESS_IQ = [
     fraud_score: 0.06, ocr_confidence: 0.97, sig_match_score: 0.94,
     sig_specimen_available: true, sig_specimen_label: '2 specimens on file',
     bank: BANK_CONFIG.bank_name, branch: 'Andheri West',
-    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
@@ -82,7 +82,7 @@ const MOCK_STP_SUCCESS_IQ = [
     fraud_score: 0.03, ocr_confidence: 0.99, sig_match_score: 0.98,
     sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
     bank: BANK_CONFIG.bank_name, branch: 'Dadar Main',
-    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [

@@ -22,7 +22,7 @@ Tenant isolation rules:
   Nobody can edit or delete login logs — Immudb enforces immutability
 
 ABAC rules:
-  ops_reviewer further scoped to clearing_zone attribute
+  ops_reviewer further scoped to pu_id attribute
   All roles scoped to bank_id
   rbi_examiner access time-limited per engagement
   permission_level (ADMIN/EDIT/READ_ONLY) gates write operations within tenant
@@ -42,7 +42,7 @@ from shared.auth.rbac import (
 )
 from shared.auth.exceptions import (
     AccessDeniedError,
-    InsufficientZoneScopeError,
+    InsufficientScopeError,
     BankIsolationError,
     EngagementExpiredError,
     TenantIsolationError,
@@ -61,7 +61,7 @@ def ops_reviewer() -> UserContext:
         role=Role.OPS_REVIEWER,
         bank_id="test-bank",
         bank_type=BankType.SB,
-        clearing_zones=["MUMBAI"],
+        pu_ids=["MUMBAI"],
     )
 
 
@@ -168,24 +168,24 @@ def test_bank_it_admin_cannot_view_cts_queue(bank_it_admin):
 
 def test_ops_reviewer_access_own_zone_passes(ops_reviewer):
     policy = RBACPolicy()
-    policy.assert_zone_access(ops_reviewer, requested_zone="MUMBAI")  # no exception
+    policy.assert_pu_access(ops_reviewer, requested_pu="MUMBAI")  # no exception
 
 
 def test_ops_reviewer_access_other_zone_raises(ops_reviewer):
     policy = RBACPolicy()
-    with pytest.raises(InsufficientZoneScopeError):
-        policy.assert_zone_access(ops_reviewer, requested_zone="DELHI")
+    with pytest.raises(InsufficientScopeError):
+        policy.assert_pu_access(ops_reviewer, requested_pu="DELHI")
 
 
 def test_ops_manager_access_any_zone_passes(ops_manager):
     policy = RBACPolicy()
-    policy.assert_zone_access(ops_manager, requested_zone="DELHI")   # no exception
-    policy.assert_zone_access(ops_manager, requested_zone="MUMBAI")  # no exception
+    policy.assert_pu_access(ops_manager, requested_pu="DELHI")   # no exception
+    policy.assert_pu_access(ops_manager, requested_pu="MUMBAI")  # no exception
 
 
 def test_compliance_officer_access_any_zone_passes(compliance_officer):
     policy = RBACPolicy()
-    policy.assert_zone_access(compliance_officer, requested_zone="CHENNAI")
+    policy.assert_pu_access(compliance_officer, requested_pu="CHENNAI")
 
 
 # ---------------------------------------------------------------------------
@@ -891,7 +891,7 @@ class TestBranchManagerRole:
     def test_assert_branch_access_raises_on_mismatch(self):
         policy = RBACPolicy()
         user = self._branch_mgr(branch_code="SRCB0000034")
-        with pytest.raises(InsufficientZoneScopeError):
+        with pytest.raises(InsufficientScopeError):
             policy.assert_branch_access(user, "SRCB0000099")
 
     def test_assert_branch_access_passes_for_ops_manager(self):
@@ -905,7 +905,7 @@ class TestBranchManagerRole:
         policy = RBACPolicy()
         user = UserContext(
             user_id="rev", role=Role.OPS_REVIEWER, bank_id="test-bank",
-            clearing_zones=["MUMBAI"], bank_type=BankType.SB,
+            pu_ids=["MUMBAI"], bank_type=BankType.SB,
         )
         policy.assert_branch_access(user, "ANY_BRANCH_CODE")  # no restriction
 
@@ -916,5 +916,5 @@ class TestBranchManagerRole:
             user_id="bm", role=Role.BRANCH_MANAGER, bank_id="test-bank",
             branch_code=None, bank_type=BankType.SB,
         )
-        with pytest.raises(InsufficientZoneScopeError):
+        with pytest.raises(InsufficientScopeError):
             policy.assert_branch_access(user, "SRCB0000034")

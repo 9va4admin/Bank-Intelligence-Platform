@@ -79,7 +79,7 @@ class TestCreateUser:
             "email": "newuser@bank.com",
             "display_name": "New User",
             "role": "ops_reviewer",
-            "clearing_zone": "MUMBAI",
+            "pu_id": "MUMBAI",
         })
         assert resp.status_code == 201
         data = resp.json()
