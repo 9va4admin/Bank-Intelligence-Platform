@@ -260,6 +260,7 @@ CREATE TABLE IF NOT EXISTS platform.local_auth_accounts (
     permission_level TEXT NOT NULL DEFAULT 'VIEW',
     bank_type        TEXT NOT NULL DEFAULT 'SB',
     pu_ids   TEXT[] NOT NULL DEFAULT '{}',
+    branch_ids TEXT[] NOT NULL DEFAULT '{}',
     email            TEXT,
     phone            TEXT,
     totp_enrolled    BOOLEAN NOT NULL DEFAULT false,

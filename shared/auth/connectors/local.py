@@ -91,6 +91,7 @@ class LocalAuthConnector(AuthConnector):
             permission_level=account.get("permission_level", "READ_ONLY"),
             bank_type=account.get("bank_type", "SB"),
             pu_ids=account.get("pu_ids", []),
+            branch_ids=account.get("branch_ids", []),
             connector_used="local",
         )
 
@@ -142,7 +143,7 @@ class YugabyteDBLocalAuthConnector(LocalAuthConnector):
 
     _COLS = (
         "user_id, bank_id, entity_type, entity_id, username, display_name, "
-        "password_hash, role, permission_level, bank_type, pu_ids, "
+        "password_hash, role, permission_level, bank_type, pu_ids, branch_ids, "
         "is_active, failed_attempts, locked_until, email, phone"
     )
 

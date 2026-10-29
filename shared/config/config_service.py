@@ -54,7 +54,8 @@ _OPA_CACHE_TTL_SECONDS = 1
 # config service can return a sane value instead of crashing with AttributeError
 # when the DB pool is None during local development.
 _ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign", "cts.bucket_", "cts.sip_", "cts.maker_checker", "cts.checker_",
-                        "cts.outward_session", "cts.outward_cutoff")
+                        "cts.outward_session", "cts.outward_cutoff", "cts.outward_maker", "cts.outward_branch_first",
+                        "cts.outward_checker")
 
 _LAYER3_DEFAULTS: dict[str, Any] = {
     # ── CTS thresholds ──────────────────────────────────────────────────────────
@@ -121,6 +122,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.sip_iet_guard_minutes": 10,                  # never hold a system decision within this many minutes of its IET
     "cts.outward_session_cutoffs": ["14:30"],         # outward clearing session cut-off(s), local "HH:MM" - configurable per bank
     "cts.outward_session_timezone": "Asia/Kolkata",
+    "cts.outward_maker_scope": "CENTRAL",             # who makes outward decisions: CENTRAL | BRANCH | BRANCH_FIRST
+    "cts.outward_branch_first_fallback_minutes": 10,  # BRANCH_FIRST: central staff may take an item after it has waited this long
+    "cts.outward_checker_scope": "ANY",               # who checks: ANY (not the maker) | CENTRAL
     "cts.outward_cutoff_guard_minutes": 10,           # never leave a staged decision unfiled within this many minutes of the cut-off
     "cts.maker_checker_enabled": False,               # True: a reviewer's decision (the maker) goes to a checker before it is filed
     "cts.checker_review_timeout_minutes": 15,         # no checker in this time: the maker's decision is filed (never past the IET guard)

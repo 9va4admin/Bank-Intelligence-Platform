@@ -95,7 +95,8 @@ class UserCreateRequest(BaseModel):
     role: str = Field(..., description="One of the ASTRA roles")
     bank_type: str = Field("SB", description="SB or SMB — immutable after creation")
     permission_level: str = Field("EDIT", description="ADMIN, EDIT, or READ_ONLY")
-    pu_id: str = Field("ALL", description="Zone scope for ops_reviewer")
+    pu_id: str = Field("ALL", description="Processing unit scope for ops_reviewer (ALL = every PU)")
+    branch_ids: list[str] = Field(default_factory=list, description="Branches the user works at; empty = central staff")
     employee_id: Optional[str] = None
     branch_code: Optional[str] = None
 
@@ -105,6 +106,7 @@ class UserUpdateRequest(BaseModel):
     role: Optional[str] = None
     permission_level: Optional[str] = None
     pu_id: Optional[str] = None
+    branch_ids: Optional[list[str]] = None
     is_active: Optional[bool] = None
     display_name: Optional[str] = None
     # bank_type intentionally absent — immutable after user creation; extra="forbid" rejects it
@@ -119,6 +121,7 @@ class UserResponse(BaseModel):
     bank_type: str
     permission_level: str
     pu_id: str
+    branch_ids: list[str] = []
     bank_id: str
     is_active: bool
     totp_enabled: bool
@@ -258,7 +261,9 @@ _TOTP_SECRETS: dict[str, str] = {}
 
 
 def _to_response(u: dict) -> UserResponse:
-    return UserResponse(**{k: u[k] for k in UserResponse.model_fields})
+    data = {k: u[k] for k in UserResponse.model_fields if k != "branch_ids"}
+    data["branch_ids"] = list(u.get("branch_ids") or [])          # older records have none: central staff
+    return UserResponse(**data)
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +283,7 @@ def _row_to_user_dict(row: dict) -> dict:
         "bank_type": "SMB" if entity_type == "smb" else "SB",
         "permission_level": "EDIT",   # not stored in this schema
         "pu_id": pu_ids[0] if pu_ids else "ALL",
+        "branch_ids": list(row.get("branch_ids") or []),
         "bank_id": row["bank_id"],
         "is_active": bool(row.get("is_active", True)),
         "totp_enabled": bool(row.get("totp_enrolled", False)),
@@ -293,7 +299,7 @@ async def _db_fetch_user(pool: Any, user_id: str, bank_id: str) -> Optional[dict
         row = await conn.fetchrow(
             """
             SELECT user_id, bank_id, entity_type, entity_id, username, display_name,
-                   role, pu_ids, is_active, totp_enrolled,
+                   role, pu_ids, branch_ids, is_active, totp_enrolled,
                    created_at, last_login_at, email
             FROM platform.local_auth_accounts
             WHERE user_id = $1 AND bank_id = $2
@@ -331,7 +337,7 @@ async def _db_fetch_users(
         rows = await conn.fetch(
             f"""
             SELECT user_id, bank_id, entity_type, entity_id, username, display_name,
-                   role, pu_ids, is_active, totp_enrolled,
+                   role, pu_ids, branch_ids, is_active, totp_enrolled,
                    created_at, last_login_at, email
             FROM platform.local_auth_accounts
             WHERE {where}
@@ -367,8 +373,8 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
             """
             INSERT INTO platform.local_auth_accounts
             (user_id, bank_id, entity_type, entity_id, username, display_name,
-             password_hash, role, pu_ids, is_active, email, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             password_hash, role, pu_ids, branch_ids, is_active, email, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             """,
             user_data["user_id"],
             user_data["bank_id"],
@@ -379,6 +385,7 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
             password_hash,
             user_data["role"],
             pu_ids,
+            list(user_data.get("branch_ids") or []),
             True,
             user_data["email"],
             user_data["created_at"],
@@ -394,6 +401,7 @@ async def _db_update_user(pool: Any, user_id: str, bank_id: str, updates: dict) 
     field_map = {
         "role": "role",
         "pu_id": None,      # special: convert to pu_ids array
+        "branch_ids": "branch_ids",
         "is_active": "is_active",
         "display_name": "display_name",
     }
@@ -402,7 +410,7 @@ async def _db_update_user(pool: Any, user_id: str, bank_id: str, updates: dict) 
         set_clauses.append(f"pu_ids = ${idx}")
         params.append([zone] if zone != "ALL" else [])
         idx += 1
-    for key in ("role", "is_active", "display_name"):
+    for key in ("role", "is_active", "display_name", "branch_ids"):
         if key in updates and updates[key] is not None:
             set_clauses.append(f"{key} = ${idx}")
             params.append(updates[key])
@@ -507,6 +515,7 @@ async def create_user(
             "bank_type": body.bank_type,
             "permission_level": body.permission_level,
             "pu_id": body.pu_id,
+            "branch_ids": list(body.branch_ids),
             "bank_id": admin["bank_id"],
             "is_active": True,
             "totp_enabled": False,
@@ -527,6 +536,7 @@ async def create_user(
             "bank_type": body.bank_type,
             "permission_level": body.permission_level,
             "pu_id": body.pu_id,
+            "branch_ids": list(body.branch_ids),
             "bank_id": admin["bank_id"],
             "is_active": True,
             "totp_enabled": False,
@@ -595,6 +605,7 @@ async def update_user(
                 "pu_id": body.pu_id,
                 "is_active": body.is_active,
                 "display_name": body.display_name,
+                "branch_ids": body.branch_ids,
             }.items() if v is not None
         }
         u = await _db_update_user(pool, user_id, admin["bank_id"], updates)
@@ -609,6 +620,8 @@ async def update_user(
             u["role"] = body.role
         if body.pu_id is not None:
             u["pu_id"] = body.pu_id
+        if body.branch_ids is not None:
+            u["branch_ids"] = list(body.branch_ids)
         if body.is_active is not None:
             u["is_active"] = body.is_active
         if body.display_name is not None:

@@ -1,6 +1,6 @@
-"""Reviewers are scoped to processing units, not clearing zones.
+"""Reviewers are scoped to processing units, not clearing zones; users may be assigned to branches.
 
-Adds platform.local_auth_accounts.pu_ids (empty = unrestricted, as clearing_zones was). The old clearing_zones column is
+Adds platform.local_auth_accounts.pu_ids (empty = unrestricted, as clearing_zones was) and branch_ids (empty = central staff). The old clearing_zones column is
 left in place, unused, until a later release.
 
 Revision ID: 20261029_user_pu
@@ -17,7 +17,9 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("ALTER TABLE platform.local_auth_accounts ADD COLUMN IF NOT EXISTS pu_ids TEXT[] NOT NULL DEFAULT '{}'")
+    op.execute("ALTER TABLE platform.local_auth_accounts ADD COLUMN IF NOT EXISTS branch_ids TEXT[] NOT NULL DEFAULT '{}'")
 
 
 def downgrade() -> None:
+    op.execute("ALTER TABLE platform.local_auth_accounts DROP COLUMN IF EXISTS branch_ids")
     op.execute("ALTER TABLE platform.local_auth_accounts DROP COLUMN IF EXISTS pu_ids")

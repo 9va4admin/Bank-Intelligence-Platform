@@ -278,6 +278,7 @@ class AuthService:
             entity_type=identity.entity_type,
             entity_id=identity.entity_id,
             pu_ids=identity.pu_ids,
+            branch_ids=identity.branch_ids,
             mfa_authenticated=mfa_authenticated,
         )
 
@@ -292,5 +293,6 @@ class AuthService:
             entity_type=c.entity_type,
             entity_id=c.entity_id,
             pu_ids=c.pu_ids,
+            branch_ids=c.branch_ids,
             mfa_authenticated=mfa_authenticated,
         )

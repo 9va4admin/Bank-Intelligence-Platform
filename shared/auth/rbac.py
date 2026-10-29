@@ -232,6 +232,7 @@ class UserContext(BaseModel):
     bank_type: BankType                          # required — must be explicit in every JWT
     permission_level: PermissionLevel = PermissionLevel.READ_ONLY  # least-privilege default
     pu_ids: list[str] = Field(default_factory=list)
+    branch_ids: list[str] = Field(default_factory=list)   # branches the user works at ([] = central staff)
     engagement_expires_at: Optional[float] = None
     engagement_date_from: Optional[str] = None
     engagement_date_to: Optional[str] = None

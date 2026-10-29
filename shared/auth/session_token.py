@@ -52,6 +52,7 @@ class SessionClaims(BaseModel):
     entity_type: str          # "sb" | "smb" | "branch" | "pu"
     entity_id: str
     pu_ids: list[str] = Field(default_factory=list)
+    branch_ids: list[str] = Field(default_factory=list)   # branches this user works at ([] = central staff)
     session_id: str           # JWT jti — Redis revocation key
     mfa_authenticated: bool
     issued_at: float
@@ -98,6 +99,7 @@ class SessionTokenService:
         entity_id: str,
         mfa_authenticated: bool,
         pu_ids: Optional[list[str]] = None,
+        branch_ids: Optional[list[str]] = None,
     ) -> IssuedSession:
         if self._priv is None:
             raise RuntimeError("SessionTokenService has no private key — cannot issue")
@@ -122,6 +124,7 @@ class SessionTokenService:
             "entity_type": entity_type,
             "entity_id": entity_id,
             "pu_ids": zones,
+            "branch_ids": list(branch_ids or []),
             "mfa_authenticated": bool(mfa_authenticated),
             "csrf": csrf,
         }
@@ -137,6 +140,7 @@ class SessionTokenService:
             entity_type=entity_type,
             entity_id=entity_id,
             pu_ids=zones,
+            branch_ids=list(branch_ids or []),
             session_id=session_id,
             mfa_authenticated=bool(mfa_authenticated),
             issued_at=float(now),
@@ -180,6 +184,7 @@ class SessionTokenService:
                 entity_type=decoded["entity_type"],
                 entity_id=decoded["entity_id"],
                 pu_ids=list(decoded.get("pu_ids", [])),
+                branch_ids=list(decoded.get("branch_ids", [])),
                 session_id=decoded["jti"],
                 mfa_authenticated=bool(decoded["mfa_authenticated"]),
                 issued_at=float(decoded["iat"]),

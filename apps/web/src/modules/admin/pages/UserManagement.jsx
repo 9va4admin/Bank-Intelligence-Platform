@@ -205,6 +205,46 @@ function inputCls(isDark) {
 
 // ─── Create / Edit Modal ──────────────────────────────────────────────────────
 
+// Assign a user to branches (a branch maker). No branches = central staff. Search by branch name or IFSC.
+function BranchPicker({ value, onChange, isDark }) {
+  const [q, setQ] = useState('')
+  const { data } = useQuery({
+    queryKey: ['branch-picker', q],
+    enabled: q.trim().length >= 2,
+    queryFn: async () => {
+      const res = await fetch(`/v1/branches?q=${encodeURIComponent(q.trim())}&limit=8`, { credentials: 'include' })
+      if (!res.ok) throw new Error('branch search failed')
+      return (await res.json()).branches ?? []
+    },
+    retry: false,
+  })
+  const picked = value ?? []
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1 mb-1.5">
+        {picked.length === 0 && <span className="text-[11px] opacity-60">Central staff (no branch)</span>}
+        {picked.map(id => (
+          <button key={id} type="button" onClick={() => onChange(picked.filter(x => x !== id))}
+            className="px-2 py-0.5 rounded-full text-[10px] bg-cyan-600/20 text-cyan-300 border border-cyan-600/40" title="Remove">
+            {id} ✕
+          </button>
+        ))}
+      </div>
+      <input className={inputCls(isDark)} placeholder="Search branch name or IFSC to add…" value={q} onChange={e => setQ(e.target.value)} />
+      {(data ?? []).length > 0 && (
+        <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-white/10">
+          {data.filter(b => !picked.includes(b.branch_id)).map(b => (
+            <button key={b.branch_id} type="button" onClick={() => { onChange([...picked, b.branch_id]); setQ('') }}
+              className="block w-full text-left px-2 py-1 text-xs hover:bg-white/5">
+              {b.branch_name} <span className="opacity-60">· {b.branch_ifsc}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankMode }) {
   const isEdit = !!user
   const [form, setForm] = useState(user ? {
@@ -214,13 +254,14 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
     bank_type:        user.bank_type,
     permission_level: user.permission_level,
     pu_id:            user.pu_id || '',
+    branch_ids:       user.branch_ids || [],
     is_active:        user.is_active,
   } : {
     display_name: '', email: '',
     bank_type:        defaultBankType || 'SB',
     role:             defaultBankType === 'SMB' ? 'smb_editor' : 'ops_reviewer',
     permission_level: 'EDIT',
-    pu_id: '', is_active: true,
+    pu_id: '', branch_ids: [], is_active: true,
   })
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -303,6 +344,12 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
               <option value="ALL">ALL</option>
               {puChoices.map(z => <option key={z} value={z}>{z}</option>)}
             </select>
+          </Field>
+        )}
+
+        {showPU && (
+          <Field label="Branches" isDark={isDark} hint="Branch staff (a branch maker) are assigned to branches; leave empty for central staff">
+            <BranchPicker value={form.branch_ids} onChange={v => set('branch_ids', v)} isDark={isDark} />
           </Field>
         )}
 

@@ -21,6 +21,7 @@ class ASTRAIdentity(BaseModel):
     bank_id: str
     role: str
     pu_ids: list[str] = []
+    branch_ids: list[str] = []      # branches the user works at ([] = central staff)
     # bank_type / permission_level are optional on the connector output — SAML/LDAP
     # may not carry them. AuthService derives fail-closed defaults when absent.
     bank_type: Optional[Literal["SB", "SMB"]] = None

@@ -249,3 +249,12 @@ def test_validate_csrf_rejects_empty(svc):
     claims = svc.validate(issued.token)
     with pytest.raises(CSRFValidationError):
         svc.validate_csrf(claims, "")
+
+
+def test_branch_assignment_roundtrips_through_the_token(svc):
+    issued = _issue_sample(svc, branch_ids=["BR-001", "BR-002"])
+    assert svc.validate(issued.token).branch_ids == ["BR-001", "BR-002"]
+
+
+def test_a_token_without_branches_means_central_staff(svc):
+    assert svc.validate(_issue_sample(svc).token).branch_ids == []

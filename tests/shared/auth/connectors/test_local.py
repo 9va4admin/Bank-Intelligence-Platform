@@ -338,3 +338,12 @@ class TestYugabyteDBLocalAuthConnectorEndToEnd:
         assert isinstance(result, ASTRAIdentity)
         assert result.role == "ops_reviewer"
         conn.execute.assert_called_once()   # _update_on_success fired
+
+
+@pytest.mark.asyncio
+async def test_the_identity_carries_the_users_branch_assignment(connector):
+    account = {**_make_account(), "branch_ids": ["BR-001"]}
+    connector._fetch_account = AsyncMock(return_value=account)
+    connector._update_on_success = AsyncMock()
+    result = await connector.authenticate(LocalCredentials(username="ravi.mehta", password="Correct@Pass1"))
+    assert result.branch_ids == ["BR-001"]

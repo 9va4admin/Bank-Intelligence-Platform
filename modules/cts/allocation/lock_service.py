@@ -39,6 +39,7 @@ _HYBRID_PENDING_KEY_PREFIX = "hybrid-pending:"
 
 _DEFAULT_TTL_MINUTES = 10
 _PUS_KEY_PREFIX = "reviewer-pus:"
+_BRANCHES_KEY_PREFIX = "reviewer-branches:"
 _AUTO_KEY_PREFIX = "alloc-auto:"          # unopened, auto-assigned items: the only ones the rebalancer may move
 _ITEM_META_KEY_PREFIX = "alloc-item:"      # per-bank hash: instrument_id -> {"pu_id", "iet_deadline"}
 _REBALANCE_GATE_PREFIX = "alloc-rebalance-gate:"
@@ -152,6 +153,7 @@ class LockService:
         reviewer_id: str,
         ttl_seconds: int = _DEFAULT_HEARTBEAT_TTL_SECONDS,
         pu_ids: list[str] | None = None,
+        branch_ids: list[str] | None = None,
     ) -> bool:
         """Register reviewer as active. Returns True when they were not in the pool before (a new login). Score = expiry timestamp.
 
@@ -169,6 +171,10 @@ class LockService:
             zkey = f"{_PUS_KEY_PREFIX}{bank_id}"
             await self._redis.hset(zkey, reviewer_id, json.dumps(list(pu_ids)))
             await self._redis.expire(zkey, ttl_seconds * 2)
+        if branch_ids is not None:
+            bkey = f"{_BRANCHES_KEY_PREFIX}{bank_id}"
+            await self._redis.hset(bkey, reviewer_id, json.dumps(list(branch_ids)))
+            await self._redis.expire(bkey, ttl_seconds * 2)
         log.debug("allocation.reviewer_heartbeat", bank_id=bank_id, reviewer_id=reviewer_id)
         return bool(added)
 
@@ -227,6 +233,11 @@ class LockService:
     async def get_reviewer_pus(self, bank_id: str) -> dict[str, list[str]]:
         """reviewer_id -> processing units they are scoped to ([] or ["ALL"] means any PU)."""
         raw = await self._redis.hgetall(f"{_PUS_KEY_PREFIX}{bank_id}")
+        return {self._text(k): json.loads(self._text(v)) for k, v in (raw or {}).items()}
+
+    async def get_reviewer_branches(self, bank_id: str) -> dict[str, list[str]]:
+        """reviewer_id -> branches they work at ([] = central staff)."""
+        raw = await self._redis.hgetall(f"{_BRANCHES_KEY_PREFIX}{bank_id}")
         return {self._text(k): json.loads(self._text(v)) for k, v in (raw or {}).items()}
 
     async def reviewer_loads(self, reviewer_ids: list[str]) -> dict[str, int]:

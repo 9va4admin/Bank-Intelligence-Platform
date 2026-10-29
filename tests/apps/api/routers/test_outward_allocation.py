@@ -22,10 +22,11 @@ def run(coro):
 
 
 class FakeDb:
-    def __init__(self, held=(), pu_of=None):
+    def __init__(self, held=(), pu_of=None, branch_of=None, age_of=None):
         self.held = [dict(instrument_id=i, cheque_number=i, account_display="****", payee_display="P***", amount_range="r",
                           status="MISMATCH_HELD", fraud_score=None, ocr_confidence=None, review_reason="x", pu_id=(pu_of or {}).get(i, "PU-1"),
-                          received_at="t", branch_id="b", lot_id=None, instrument_category="CHEQUE") for i in held]
+                          age_seconds=(age_of or {}).get(i, 0.0),
+                          received_at="t", branch_id=(branch_of or {}).get(i, "B1"), lot_id=None, instrument_category="CHEQUE") for i in held]
         self.stage, self.updates = {}, []
 
     def acquire(self):
@@ -58,7 +59,7 @@ class FakeDb:
     async def fetchrow(self, sql, *args):
         if "cts.branches" in sql and "outward_scan_events" in sql:          # the PU of an instrument, through its branch
             row = next((r for r in self.held if r["instrument_id"] == args[1]), None)
-            return {"pu_id": row["pu_id"]} if row else None
+            return {"pu_id": row["pu_id"], "branch_id": row["branch_id"], "age_seconds": row["age_seconds"]} if row else None
         if "FROM cts.outward_review_stage" in sql:
             row = self.stage.get(args[1])
             return dict(row, instrument_id=args[1]) if row and row["status"] == "MAKER_DECIDED" else None
@@ -76,11 +77,11 @@ class FakeDb:
         return []
 
 
-def _client(user, db, redis, cfg=CFG, role="ops_reviewer", pu_ids=()):
+def _client(user, db, redis, cfg=CFG, role="ops_reviewer", pu_ids=(), branch_ids=()):
     from apps.api.routers import cts_outward_data
     from apps.api.routers.cts_deps import get_current_user_context
     app = FastAPI(); app.include_router(cts_outward_data.router_v1)
-    ctx = MagicMock(); ctx.role = Role[role.upper()]; ctx.bank_id = BANK; ctx.user_id = user; ctx.pu_ids = list(pu_ids)
+    ctx = MagicMock(); ctx.role = Role[role.upper()]; ctx.bank_id = BANK; ctx.user_id = user; ctx.pu_ids = list(pu_ids); ctx.branch_ids = list(branch_ids)
     app.dependency_overrides[get_current_user_context] = lambda: ctx
     app.state.db_pool_cts = db
     app.state.redis_cts = redis
@@ -238,3 +239,52 @@ def test_a_staged_decision_is_left_for_a_checker_while_the_cutoff_is_far():
     _client("maker", db, redis, cfg=cfg).post("/v1/cts/outward/review/A1/decide", json=BODY)
     db.stage["A1"]["age_seconds"] = 60.0
     assert len(_client("checker", db, redis, cfg=cfg).get("/v1/cts/outward/validation-queue").json()["items"]) == 1
+
+
+# --- who may make or check: branch staff, central staff, branch first ---------------------------------------------------------
+
+DECIDE = "/v1/cts/outward/review/{}/decide"
+
+
+def test_with_central_scope_branch_staff_neither_see_nor_decide_the_item():
+    redis, db = FakeRedis(), FakeDb(held=["A1"], branch_of={"A1": "B1"})
+    cfg = {**CFG, "outward_maker_scope": "CENTRAL", "allocation_mode": "SELF"}
+    assert "A1" not in _queue(_client("branch", db, redis, cfg=cfg, branch_ids=["B1"]))
+    assert _client("branch", db, redis, cfg=cfg, branch_ids=["B1"]).post(DECIDE.format("A1"), json=BODY).status_code == 403
+    assert "A1" in _queue(_client("central", db, redis, cfg=cfg))
+    assert _client("central", db, redis, cfg=cfg).post(DECIDE.format("A1"), json=BODY).status_code == 200
+
+
+def test_with_branch_scope_only_that_branchs_staff_may_decide():
+    redis, db = FakeRedis(), FakeDb(held=["A1", "A2"], branch_of={"A1": "B1", "A2": "B1"})
+    cfg = {**CFG, "outward_maker_scope": "BRANCH"}
+    assert _client("b2", db, redis, cfg=cfg, branch_ids=["B2"]).post(DECIDE.format("A1"), json=BODY).status_code == 403
+    assert _client("central", db, redis, cfg=cfg).post(DECIDE.format("A1"), json=BODY).status_code == 403
+    assert _client("b1", db, redis, cfg=cfg, branch_ids=["B1"]).post(DECIDE.format("A1"), json=BODY).status_code == 200
+
+
+def test_branch_first_lets_central_staff_in_only_after_the_wait():
+    redis, db = FakeRedis(), FakeDb(held=["NEW", "OLD"], branch_of={"NEW": "B1", "OLD": "B1"}, age_of={"NEW": 60.0, "OLD": 11 * 60.0})
+    cfg = {**CFG, "outward_maker_scope": "BRANCH_FIRST", "outward_branch_first_fallback_minutes": 10, "allocation_mode": "SELF"}
+    seen = set(_queue(_client("central", db, redis, cfg=cfg)))
+    assert seen == {"OLD"}
+    assert _client("central", db, redis, cfg=cfg).post(DECIDE.format("NEW"), json=BODY).status_code == 403
+    assert _client("central", db, redis, cfg=cfg).post(DECIDE.format("OLD"), json=BODY).status_code == 200
+
+
+def test_auto_assignment_gives_a_branch_item_to_the_branch_reviewer_not_the_central_one():
+    redis, db = FakeRedis(), FakeDb(held=["A1"], branch_of={"A1": "B1"})
+    lock = LockService(redis)
+    run(lock.heartbeat_reviewer(BANK, "central", branch_ids=[]))
+    run(lock.heartbeat_reviewer(BANK, "branch1", branch_ids=["B1"]))
+    cfg = {**CFG, "outward_maker_scope": "BRANCH"}
+    rows = _queue(_client("branch1", db, redis, cfg=cfg, branch_ids=["B1"]))
+    assert rows["A1"]["assigned_to"] == "branch1"
+
+
+def test_central_only_checkers_refuse_branch_staff():
+    redis, db = FakeRedis(), FakeDb(held=["A1"])
+    cfg = {**CFG, "outward_checker_scope": "CENTRAL"}
+    _client("maker", db, redis, cfg=cfg).post(DECIDE.format("A1"), json=BODY)
+    assert _client("branchy", db, redis, cfg=cfg, branch_ids=["B1"]).post("/v1/cts/outward/review/A1/validate", json=BODY).status_code == 403
+    assert _client("checker", db, redis, cfg=cfg).post("/v1/cts/outward/review/A1/validate", json=BODY).status_code == 200
