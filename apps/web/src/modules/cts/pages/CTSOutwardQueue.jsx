@@ -13,6 +13,7 @@
  * tag on every row. Real per-user branch/PU visibility scoping (who is mapped to
  * which PUs) is a backend RBAC feature — see the note at the bottom of this file.
  */
+import { csrfHeader } from '../../../shared/api/csrf'
 import { useState, useEffect, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -389,7 +390,9 @@ function STPSuccessPanel({ item, isDark }) {
 
 export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
-  const { bankId, isSMB, isDemo } = useBankContext()
+  const { bankId, isSMB, isDemo: isDemoBuild } = useBankContext()
+  // VITE_INWARD_LIVE=true: read the live outward queue (with allocation) even in a DEMO build; default is the sample data.
+  const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const [tab, setTab] = useState('review') // 'review' | 'stp_rejected' | 'stp_success'
   const demoReview    = useDemoData(MOCK_HUMAN_REVIEW)
   const demoRejected  = useDemoData(MOCK_STP_REJECTED)
@@ -398,6 +401,7 @@ export default function CTSOutwardQueue() {
   const [rejected, setRejected] = useState(demoRejected)
   const [stpSuccess, setStpSuccess] = useState(demoSuccess)
   const [decided, setDecided]   = useState([])
+  const [decideError, setDecideError] = useState(null)
   const [selected, setSelected] = useState(null)
 
   // POC/PROD: fetch live outward queue from backend every 10s
@@ -435,7 +439,10 @@ export default function CTSOutwardQueue() {
         branch:         i.branch_id ?? '—',
         bank:           BANK_CONFIG.bank_name,
         reason:         i.outcome,
-        reason_label:   OUTCOME_LABEL[i.outcome] ?? i.outcome,
+        reason_label:   (OUTCOME_LABEL[i.outcome] ?? i.outcome)
+                        + (i.assigned_to ? (i.assigned_to_me ? ' · yours' : ` · held by ${i.assigned_to}`) : ''),
+        assigned_to:    i.assigned_to ?? null,
+        assigned_to_me: !!i.assigned_to_me,
         reject_reason:  i.review_reason ?? i.outcome,
         review_reason:  i.review_reason ?? '',
         fraud_score:    i.fraud_score   ?? 0,
@@ -486,13 +493,29 @@ export default function CTSOutwardQueue() {
     else setRejected(r => r.filter(i => i.instrument_id !== instrumentId))
     setSelected(null)
 
-    // Send Temporal signal + update DB status — fire-and-forget, never blocks reviewer
-    fetch(`${API_BASE}/v1/cts/outward/review/${encodeURIComponent(instrumentId)}/decide`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, reason, reason_category: action === 'CONFIRMED' ? 'confirm' : 'reject' }),
-    }).catch(err => console.warn('outward review signal failed (non-blocking):', err))
+    // The server decides: another reviewer may hold the item, and with maker-checker on this is only the first decision.
+    // A refusal puts the item back in the list and says why.
+    if (isDemo) return
+    try {
+      const res = await fetch(`${API_BASE}/v1/cts/outward/review/${encodeURIComponent(instrumentId)}/decide`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
+        body: JSON.stringify({ action, reason, reason_category: action === 'CONFIRMED' ? 'confirm' : 'reject' }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setDecided(d => d.filter(e => e !== entry))
+        setDecideError(`${instrumentId}: ${err.detail || `HTTP ${res.status}`}`)
+        fetchLiveQueue()
+      } else {
+        setDecideError(null)
+      }
+    } catch (err) {
+      setDecided(d => d.filter(e => e !== entry))
+      setDecideError(`${instrumentId}: ${err.message}`)
+      fetchLiveQueue()
+    }
   }
 
   function selectItem(item) {
@@ -511,6 +534,9 @@ export default function CTSOutwardQueue() {
       <div className={`flex h-full ${th.page}`}>
         {/* List column */}
         <div className={`w-96 shrink-0 border-r ${th.divider} flex flex-col`}>
+          {decideError && (
+            <div role="alert" className="px-3 py-2 text-xs text-red-400 border-b border-red-500/30">{decideError}</div>
+          )}
           {/* Tabs */}
           <div className={`flex gap-1 px-3 pt-3 border-b ${th.divider} pb-2`}>
             {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'Rejected', rejectedQueue.length], ['stp_success', 'STP Success', successQueue.length]].map(([key, label, count]) => (

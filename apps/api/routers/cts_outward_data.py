@@ -120,6 +120,8 @@ class OutwardQueueItem(BaseModel):
     branch_id: Optional[str] = None
     lot_id: Optional[str] = None
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
+    assigned_to: Optional[str] = None     # reviewer holding the item (allocation lock), if any
+    assigned_to_me: Optional[bool] = None  # True when the caller holds it
 
 
 class OutwardQueueResponse(BaseModel):
@@ -158,6 +160,8 @@ class OutwardValidationItem(BaseModel):
     maker_decision: str
     maker_reason: str = ""
     made_at: IsoTimestamp
+    assigned_to: Optional[str] = None     # checker holding the item, if any
+    assigned_to_me: Optional[bool] = None
 
 
 class OutwardValidationQueueResponse(BaseModel):
@@ -428,10 +432,11 @@ SQL_STAGE_INSERT = ("INSERT INTO cts.outward_review_stage (bank_id, instrument_i
 SQL_STAGE_GET = ("SELECT maker_id, maker_decision FROM cts.outward_review_stage "
                  "WHERE bank_id = $1 AND instrument_id = $2 AND status = 'MAKER_DECIDED'")
 SQL_STAGE_FINAL = ("UPDATE cts.outward_review_stage SET status = 'FINAL', checker_id = $3, checked_at = now() "
-                   "WHERE bank_id = $1 AND instrument_id = $2")
+                   "WHERE bank_id = $1 AND instrument_id = $2 AND status = 'MAKER_DECIDED'")
 SQL_STAGE_LIST = ("SELECT g.instrument_id, e.scan_id AS cheque_number, e.payee_display, e.amount_range, "
                   "e.reject_reason AS review_reason, e.branch_id, e.lot_id, e.instrument_category, "
-                  "g.maker_id, g.maker_decision, g.maker_reason, g.made_at::text AS made_at "
+                  "g.maker_id, g.maker_decision, g.maker_reason, g.made_at::text AS made_at, "
+                  "EXTRACT(EPOCH FROM (now() - g.made_at)) AS age_seconds "
                   "FROM cts.outward_review_stage g LEFT JOIN cts.outward_scan_events e "
                   "ON e.bank_id = g.bank_id AND e.instrument_id = g.instrument_id "
                   "WHERE g.bank_id = $1 AND g.status = 'MAKER_DECIDED' ORDER BY g.made_at LIMIT $2")
@@ -689,6 +694,8 @@ async def get_outward_human_review_queue(
         log.error("cts.outward_queue.query_failed", bank_id=bank_id, error=str(exc))
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
 
+    cfg = await _cts_config(request, bank_id)
+    holders = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg)
     items = [
         OutwardQueueItem(
             instrument_id=r["instrument_id"],
@@ -704,20 +711,87 @@ async def get_outward_human_review_queue(
             branch_id=r["branch_id"],
             lot_id=r.get("lot_id"),
             instrument_category=r["instrument_category"] or "CHEQUE",
+            assigned_to=holders.get(r["instrument_id"]),
+            assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id,
         )
         for r in rows
     ]
     return OutwardQueueResponse(bank_id=bank_id, items=items, total=len(items))
 
 
-async def _maker_checker_on(request: Request, bank_id: str) -> bool:
+async def _cts_config(request: Request, bank_id: str) -> dict:
     cs = getattr(request.app.state, "config_service", None)
     if cs is None:
-        return False
+        return {}
     try:
-        return bool((await cs.get_cts_config(bank_id)).get("maker_checker_enabled"))
+        return dict(await cs.get_cts_config(bank_id))
     except Exception:  # noqa: BLE001 - config trouble must not change who can file a decision
-        return False
+        return {}
+
+
+async def _maker_checker_on(request: Request, bank_id: str) -> bool:
+    return bool((await _cts_config(request, bank_id)).get("maker_checker_enabled"))
+
+
+def _lock_service(request: Request):
+    """The same allocation locks the inward queue uses (None without Redis, in which case outward works as before)."""
+    redis = getattr(request.app.state, "redis_cts", None)
+    if redis is None:
+        return None
+    from modules.cts.allocation.lock_service import LockService
+    return LockService(redis_client=redis)
+
+
+async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids: list, cfg: dict,
+                              exclude_by_id: Optional[dict] = None) -> dict:
+    """Heartbeat the caller, assign unheld items in AUTO mode (never to an excluded person), return {instrument_id: holder}.
+    Outward items carry no bucket, so any active reviewer is eligible; their load counts alongside inward work."""
+    lock = _lock_service(request)
+    if lock is None or not instrument_ids:
+        return {}
+    bank_id = ctx.bank_id
+    try:
+        if ctx.role.value in ("ops_reviewer", "ops_manager"):
+            await lock.heartbeat_reviewer(bank_id, ctx.user_id, zones=list(getattr(ctx, "clearing_zones", None) or []))
+        holders = dict(await lock.get_lock_holders(instrument_ids))
+        if cfg.get("allocation_mode") == "AUTO":
+            from modules.cts.allocation.allocation_service import AllocationService
+            alloc = AllocationService(lock_service=lock)
+            available = await lock.get_active_reviewers(bank_id)
+            for iid in instrument_ids:
+                if holders.get(iid):
+                    continue
+                excl = {(exclude_by_id or {}).get(iid)} - {None}
+                res = await alloc.auto_assign(iid, available, cfg, bank_id=bank_id, exclude=excl or None)
+                if res.claimed:
+                    holders[iid] = res.reviewer_id
+        return holders
+    except Exception as exc:  # noqa: BLE001 - allocation trouble must never hide the queue itself
+        log.warning("cts.outward_alloc.failed", bank_id=bank_id, error=str(exc))
+        return {}
+
+
+async def _take_or_check_claim(request: Request, ctx: UserContext, instrument_id: str, cfg: dict) -> None:
+    """Whoever decides must hold the item: take it if free, refuse (409, without saying who) if another reviewer holds it."""
+    lock = _lock_service(request)
+    if lock is None:
+        return
+    holder = await lock.get_lock_holder(instrument_id)
+    if holder is not None and holder != ctx.user_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is being worked by another reviewer")
+    if holder is None and not await lock.acquire_lock(instrument_id, ctx.user_id, cfg):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is being worked by another reviewer")
+
+
+async def _release_claim(request: Request, ctx: UserContext, instrument_id: str) -> None:
+    lock = _lock_service(request)
+    if lock is None:
+        return
+    try:
+        await lock.release_lock(instrument_id, ctx.user_id, bank_id=ctx.bank_id)
+        await lock.forget_item(ctx.bank_id, instrument_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("cts.outward_alloc.release_failed", instrument_id=instrument_id, error=str(exc))
 
 
 async def _file_outward_decision(request: Request, ctx: UserContext, instrument_id: str, action: str, reason: str) -> bool:
@@ -772,18 +846,22 @@ async def decide_outward_review(
     instrument_id = _safe_temporal_param(instrument_id, "instrument_id")
 
     db = getattr(request.app.state, "db_pool_cts", None)
-    if db is not None and await _maker_checker_on(request, bank_id):
+    cfg = await _cts_config(request, bank_id)
+    await _take_or_check_claim(request, ctx, instrument_id, cfg)
+    if db is not None and cfg.get("maker_checker_enabled"):
         async with db.acquire() as conn:
             result = await conn.execute(SQL_STAGE_INSERT, bank_id, instrument_id, ctx.user_id, body.action, body.reason or "")
         if not str(result).endswith(" 1"):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail="A decision has already been made on this instrument and is waiting for a checker")
+        await _release_claim(request, ctx, instrument_id)        # free for a checker (never the maker)
         log.info("cts.outward_review.maker_decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
         return OutwardReviewDecisionResponse(
             instrument_id=instrument_id, action=body.action, workflow_signal_sent=False,
             message=f"Decision {body.action} recorded and sent to a checker; it is not final until the checker confirms.")
 
     signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason)
+    await _release_claim(request, ctx, instrument_id)
     log.info("cts.outward_review.decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
     return OutwardReviewDecisionResponse(
         instrument_id=instrument_id,
@@ -824,19 +902,53 @@ async def validate_outward_review(
     if staged["maker_id"] == ctx.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You made the first decision on this instrument; a different person must check it")
+    await _take_or_check_claim(request, ctx, instrument_id, await _cts_config(request, bank_id))
 
-    signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason.strip())
+    # Claim the decision first (only one checker, or the timeout, can move it from MAKER_DECIDED to FINAL), then file it.
     try:
         async with db.acquire() as conn:
-            await conn.execute(SQL_STAGE_FINAL, bank_id, instrument_id, ctx.user_id)
+            claimed = await conn.execute(SQL_STAGE_FINAL, bank_id, instrument_id, ctx.user_id)
     except asyncpg.exceptions.SerializationError as exc:
         # Another checker finished this item at the same moment (YugabyteDB aborts the second writer).
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Another checker is handling this instrument") from exc
+    if not str(claimed).endswith(" 1"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is not waiting for a checker")
+    signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason.strip())
+    await _release_claim(request, ctx, instrument_id)
     log.info("cts.outward_review.validated", instrument_id=instrument_id, bank_id=bank_id, checker_id=ctx.user_id,
              maker_id=staged["maker_id"], overrode=body.action != staged["maker_decision"])
     return OutwardReviewDecisionResponse(
         instrument_id=instrument_id, action=body.action, workflow_signal_sent=signal_sent,
         message=f"Decision {body.action} filed by the checker.")
+
+
+async def _file_overdue_maker_decisions(request: Request, ctx: UserContext, db, rows: list, cfg: dict) -> list:
+    """A staged decision no checker took within checker_review_timeout_minutes is filed on the maker's word (inward does the
+    same). Outward has no workflow to time out, so this runs whenever the validation queue is read. The conditional update
+    means a checker and this timeout can never both file the same item."""
+    from types import SimpleNamespace
+    timeout_s = max(1, int(cfg.get("checker_review_timeout_minutes", 15))) * 60
+    system = SimpleNamespace(bank_id=ctx.bank_id, user_id="SYSTEM")
+    kept = []
+    for r in rows:
+        if float(r.get("age_seconds") or 0.0) < timeout_s:
+            kept.append(r)
+            continue
+        try:
+            async with db.acquire() as conn:
+                claimed = await conn.execute(SQL_STAGE_FINAL, ctx.bank_id, r["instrument_id"], "SYSTEM")
+        except Exception as exc:  # noqa: BLE001 - leave it for a checker
+            log.warning("cts.outward_review.timeout_claim_failed", instrument_id=r["instrument_id"], error=str(exc))
+            kept.append(r)
+            continue
+        if not str(claimed).endswith(" 1"):
+            continue                                          # a checker got there first
+        await _file_outward_decision(request, system, r["instrument_id"], r["maker_decision"],
+                                     "Filed on the maker's decision: no checker acted in time")
+        await _release_claim(request, system, r["instrument_id"])
+        log.info("cts.outward_review.maker_auto_filed", instrument_id=r["instrument_id"], maker_id=r["maker_id"],
+                 action=r["maker_decision"], bank_id=ctx.bank_id)
+    return kept
 
 
 @router_v1.get("/outward/validation-queue", response_model=OutwardValidationQueueResponse)
@@ -856,11 +968,16 @@ async def get_outward_validation_queue(
     except Exception as exc:
         log.error("cts.outward_validation_queue.query_failed", bank_id=ctx.bank_id, error=str(exc))
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+    cfg = await _cts_config(request, ctx.bank_id)
+    rows = await _file_overdue_maker_decisions(request, ctx, db, rows, cfg)
+    holders = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg,
+                                        exclude_by_id={r["instrument_id"]: r["maker_id"] for r in rows})
     items = [OutwardValidationItem(
         instrument_id=r["instrument_id"], cheque_number=r["cheque_number"] or "", payee_display=r["payee_display"] or "",
         amount_range=r["amount_range"] or "", review_reason=r["review_reason"], branch_id=r["branch_id"], lot_id=r["lot_id"],
         instrument_category=r["instrument_category"] or "CHEQUE", maker_id=r["maker_id"],
-        maker_decision=r["maker_decision"], maker_reason=r["maker_reason"], made_at=str(r["made_at"])) for r in rows]
+        maker_decision=r["maker_decision"], maker_reason=r["maker_reason"], made_at=str(r["made_at"]),
+        assigned_to=holders.get(r["instrument_id"]), assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id) for r in rows]
     return OutwardValidationQueueResponse(bank_id=ctx.bank_id, items=items, total=len(items))
 
 
