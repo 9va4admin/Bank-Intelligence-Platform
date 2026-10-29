@@ -98,35 +98,38 @@ def _validate_config_value(entry: dict, raw: str) -> None:
     Raises HTTP 422. Layer-3 values are stored as text; the config reader parses them by value_type."""
     import json as _json
 
-    def bad(msg: str):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{entry['config_key']}: {msg}")
+    def bad(rule_key: str, **vars_):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=get_message("PLATFORM_CONFIG_VALUE_INVALID", config_key=entry["config_key"],
+                               reason=get_message(rule_key, **vars_)))
 
     vtype = entry.get("value_type", "string")
     value = raw.strip()
     if vtype == "int":
         if not value.lstrip("-").isdigit() or int(value) < 0:
-            bad("must be a whole number, zero or more")
+            bad("PLATFORM_CONFIG_RULE_WHOLE_NUMBER")
     elif vtype == "float":
         try:
             if float(value) < 0:
                 raise ValueError
         except ValueError:
-            bad("must be a number, zero or more")
+            bad("PLATFORM_CONFIG_RULE_NUMBER")
     elif vtype == "bool":
         if value not in ("true", "false"):
-            bad("must be true or false")
+            bad("PLATFORM_CONFIG_RULE_BOOL")
     elif vtype == "json":
         try:
             parsed = _json.loads(value)
         except ValueError:
-            bad("must be valid JSON")
+            bad("PLATFORM_CONFIG_RULE_JSON")
         if not isinstance(parsed, list) or not parsed or not all(isinstance(x, str) and x.strip() for x in parsed):
-            bad("must be a non-empty JSON list of text values")
+            bad("PLATFORM_CONFIG_RULE_JSON_LIST")
         if entry["config_key"] == "bucket_priority" and not set(parsed) <= set(_CLASS_BUCKETS):
-            bad(f"may only contain {list(_CLASS_BUCKETS)}")
+            bad("PLATFORM_CONFIG_RULE_BUCKETS_ONLY", allowed=str(list(_CLASS_BUCKETS)))
     allowed = entry.get("allowed")
     if allowed and value not in allowed:
-        bad(f"must be one of {allowed}")
+        bad("PLATFORM_CONFIG_RULE_ONE_OF", allowed=str(allowed))
 
 
 _ADMIN_ROLES = {"bank_it_admin", "ops_manager"}
@@ -218,7 +221,7 @@ _AUDIT_ACTOR_KEYS = ("approved_by", "rejected_by", "submitted_by", "attempted_by
 
 def _audit_unavailable() -> HTTPException:
     return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                         detail="The audit trail is unavailable, so this change was not made.")
+                         detail=get_message("PLATFORM_AUDIT_UNAVAILABLE"))
 
 
 async def _default_audit_stream_writer(**kwargs: Any) -> None:
@@ -597,7 +600,7 @@ async def approve_threshold_change(
                             )
                             raise HTTPException(
                                 status_code=status.HTTP_403_FORBIDDEN,
-                                detail="Maker cannot approve their own change — four-eyes principle",
+                                detail=get_message("PLATFORM_CONFIG_SELF_APPROVAL"),
                             )
                         await audit_stream_writer(
                             event_type=AuditEventType.CONFIG_CHANGE.value,
@@ -606,7 +609,7 @@ async def approve_threshold_change(
                                      "approved_by": user_id},
                         )
                         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                            detail="Change not found or already actioned")
+                                            detail=get_message("PLATFORM_CONFIG_CHANGE_NOT_FOUND"))
                     config_key = result["config_key"]
                     new_value = result["new_value"]
                     submitted_by = result["submitted_by"]
@@ -763,7 +766,7 @@ async def reject_threshold_change(
                              "rejected_by": user_id},
                 )
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="Change not found or already actioned")
+                                    detail=get_message("PLATFORM_CONFIG_CHANGE_NOT_FOUND"))
             config_key = result["config_key"]
             submitted_by = result["submitted_by"]
             actioned_at = str(result["actioned_at"])

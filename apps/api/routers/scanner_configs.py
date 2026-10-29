@@ -34,6 +34,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
+from shared.messages import get_message
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
 log = structlog.get_logger()
@@ -194,7 +195,7 @@ async def list_configs(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigListResponse:
     if current_user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.list") as span:
         bank_id = current_user["bank_id"]
@@ -231,7 +232,7 @@ async def create_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.create") as span:
         bank_id = current_user["bank_id"]
@@ -325,7 +326,7 @@ async def get_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = current_user["bank_id"]
     db_pool = _get_db_pool(request)
@@ -362,7 +363,7 @@ async def update_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.update") as span:
         bank_id = current_user["bank_id"]
@@ -441,7 +442,7 @@ async def delete_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.delete") as span:
         bank_id = current_user["bank_id"]

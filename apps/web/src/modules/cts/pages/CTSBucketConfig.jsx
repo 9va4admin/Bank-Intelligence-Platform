@@ -16,10 +16,11 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const LISTS = [
-  { id: 'CA', label: 'Corporate (CA)', hint: 'Corporate accounts. A cheque needing a human on one of these goes to the CA bucket.' },
-  { id: 'IP', label: 'Institution (IP)', hint: 'Institutions and government accounts. These go to the IP bucket.' },
+  { id: 'CA', label: 'CTS_WF_BUCKETCFG_LIST_CA_LABEL', hint: 'CTS_WF_BUCKETCFG_LIST_CA_HINT' },
+  { id: 'IP', label: 'CTS_WF_BUCKETCFG_LIST_IP_LABEL', hint: 'CTS_WF_BUCKETCFG_LIST_IP_HINT' },
 ]
 const MAX_PER_CALL = 5000
 
@@ -64,7 +65,7 @@ export default function CTSBucketConfig() {
 
   async function fetchPage(b, after) {
     const res = await fetch(`/v1/cts/admin/bucket-accounts/${b}?limit=50&cursor=${encodeURIComponent(after)}`, { credentials: 'include' })
-    if (!res.ok) throw new Error(res.status === 403 ? 'You do not have access to these lists.' : 'Could not load the list.')
+    if (!res.ok) throw new Error(msg(res.status === 403 ? 'CTS_WF_BUCKETCFG_ERR_NO_ACCESS' : 'CTS_WF_BUCKETCFG_ERR_LOAD'))
     return res.json()
   }
 
@@ -111,7 +112,7 @@ export default function CTSBucketConfig() {
   async function add() {
     const accounts = parseAccounts(text)
     if (accounts.length === 0) return
-    if (accounts.length > MAX_PER_CALL) { setError(`Add at most ${MAX_PER_CALL} accounts at a time.`); return }
+    if (accounts.length > MAX_PER_CALL) { setError(msg('CTS_WF_BUCKETCFG_ERR_MAX', { max: MAX_PER_CALL })); return }
     setBusy(true); setError(null); setResult(null)
     try {
       const res = await fetch(`/v1/cts/admin/bucket-accounts/${bucket}`, {
@@ -120,7 +121,7 @@ export default function CTSBucketConfig() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Could not add the accounts.')
+        throw new Error(err.detail || msg('CTS_WF_BUCKETCFG_ERR_ADD'))
       }
       setResult(await res.json()); setText('')
       await reload()
@@ -135,7 +136,7 @@ export default function CTSBucketConfig() {
     setBusy(true); setError(null)
     try {
       const res = await fetch(`/v1/cts/admin/bucket-accounts/${bucket}/${encodeURIComponent(hash)}`, { method: 'DELETE', credentials: 'include', headers: csrfHeader() })
-      if (!res.ok) throw new Error('Could not remove the account.')
+      if (!res.ok) throw new Error(msg('CTS_WF_BUCKETCFG_ERR_REMOVE'))
       await reload()
     } catch (e) {
       setError(e.message)
@@ -159,15 +160,15 @@ export default function CTSBucketConfig() {
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-        <h1 className={`text-lg font-semibold ${th.heading}`}>Bucket configuration</h1>
+        <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('CTS_WF_BUCKETCFG_TITLE')}</h1>
         <p className={`text-sm mt-0.5 mb-4 ${th.muted}`}>
-          Which accounts count as corporate or institution, and the rules that sort cheques into review buckets.
+          {msg('CTS_WF_BUCKETCFG_SUBTITLE')}
         </p>
 
         <div className={`flex gap-1 mb-5 border-b ${th.divider}`}>
-          {[['lists', 'Account lists'], ['rules', 'Bucket rules']].map(([id, label]) => (
+          {[['lists', 'CTS_WF_BUCKETCFG_TAB_LISTS'], ['rules', 'CTS_WF_BUCKETCFG_TAB_RULES']].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`text-sm px-3 py-2 border-b-2 -mb-px font-medium ${th.tab(tab === id)}`}>{label}</button>
+              className={`text-sm px-3 py-2 border-b-2 -mb-px font-medium ${th.tab(tab === id)}`}>{msg(label)}</button>
           ))}
         </div>
 
@@ -179,34 +180,34 @@ export default function CTSBucketConfig() {
                   className={`text-xs px-3 py-1.5 rounded-full border ${bucket === l.id
                     ? (isDark ? 'border-sky-500 text-sky-300 bg-sky-900/30' : 'border-sky-500 text-sky-700 bg-sky-50')
                     : (isDark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500')}`}>
-                  {l.label}
+                  {msg(l.label)}
                 </button>
               ))}
             </div>
-            <p className={`text-xs mb-3 ${th.muted}`}>{current.hint} Accounts are stored as keyed hashes plus the last four digits, never the number.</p>
+            <p className={`text-xs mb-3 ${th.muted}`}>{msg('CTS_WF_BUCKETCFG_HINT_WITH_NOTE', { hint: msg(current.hint) })}</p>
 
             <div className={`border rounded-lg p-4 mb-5 ${th.card}`}>
               <label htmlFor="acct-input" className={`text-xs font-semibold uppercase tracking-wider ${th.muted}`}>
-                Add accounts
+                {msg('CTS_WF_BUCKETCFG_ADD_ACCOUNTS')}
               </label>
               <textarea id="acct-input" value={text} onChange={e => setText(e.target.value)} rows={4}
-                placeholder="Paste account numbers, one per line or separated by commas"
+                placeholder={msg('CTS_WF_BUCKETCFG_ADD_PLACEHOLDER')}
                 className={`w-full mt-2 text-sm font-mono rounded border p-2 ${th.input}`} />
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <button onClick={add} disabled={busy || parsedCount === 0}
                   className={`text-sm px-3 py-1.5 rounded border ${busy || parsedCount === 0 ? 'opacity-50 cursor-not-allowed' : ''} ${isDark ? 'border-sky-600 text-sky-300 hover:bg-sky-900/30' : 'border-sky-600 text-sky-700 hover:bg-sky-50'}`}>
-                  Add {parsedCount > 0 ? `${parsedCount} ` : ''}to {bucket}
+                  {parsedCount > 0 ? msg('CTS_WF_BUCKETCFG_ADD_BUTTON_COUNT', { count: parsedCount, bucket }) : msg('CTS_WF_BUCKETCFG_ADD_BUTTON', { bucket })}
                 </button>
                 <label className={`text-xs cursor-pointer ${th.muted}`}>
-                  or upload a file <input type="file" accept=".csv,.txt" onChange={onFile} className="hidden" aria-label="Upload account numbers" />
-                  <span className="underline">choose file</span>
+                  {msg('CTS_WF_BUCKETCFG_UPLOAD_OR')} <input type="file" accept=".csv,.txt" onChange={onFile} className="hidden" aria-label={msg('CTS_WF_BUCKETCFG_UPLOAD_ARIA')} />
+                  <span className="underline">{msg('CTS_WF_BUCKETCFG_UPLOAD_CHOOSE')}</span>
                 </label>
-                <span className={`text-xs ${th.muted}`}>Up to {MAX_PER_CALL.toLocaleString('en-IN')} at a time.</span>
+                <span className={`text-xs ${th.muted}`}>{msg('CTS_WF_BUCKETCFG_UP_TO', { max: MAX_PER_CALL.toLocaleString('en-IN') })}</span>
               </div>
               {result && (
                 <p className={`text-sm mt-3 ${th.body}`} role="status">
-                  Added {result.added}. Already on the list: {result.already_present}.
-                  {result.invalid.length > 0 && ` Not valid (${result.invalid.length}): entries ending ${result.invalid.map(x => `…${x}`).join(', ')}.`}
+                  {msg('CTS_WF_BUCKETCFG_RESULT', { added: result.added, already: result.already_present })}
+                  {result.invalid.length > 0 && ' ' + msg('CTS_WF_BUCKETCFG_RESULT_INVALID', { count: result.invalid.length, ending: result.invalid.map(x => `…${x}`).join(', ') })}
                 </p>
               )}
               {shownError && <p className="text-sm mt-3 text-red-400" role="alert">{shownError}</p>}
@@ -214,16 +215,16 @@ export default function CTSBucketConfig() {
 
             <div className={`border rounded-lg overflow-hidden ${th.card}`}>
               <div className={`px-4 py-2.5 border-b ${th.divider} text-xs font-semibold uppercase tracking-wider ${th.muted}`}>
-                {current.label}: {total} account{total === 1 ? '' : 's'}
+                {total === 1 ? msg('CTS_WF_BUCKETCFG_TOTAL_ONE', { label: msg(current.label) }) : msg('CTS_WF_BUCKETCFG_TOTAL_MANY', { label: msg(current.label), count: total })}
               </div>
               <table className="w-full border-collapse">
                 <thead>
-                  <tr>{['Account', 'Added by', 'Added', ''].map(h => (
+                  <tr>{[msg('CTS_WF_BUCKETCFG_COL_ACCOUNT'), msg('CTS_WF_BUCKETCFG_COL_ADDED_BY'), msg('CTS_WF_BUCKETCFG_COL_ADDED'), ''].map(h => (
                     <th key={h} className={`px-4 py-2 text-left border-b ${th.divider} ${th.th}`}>{h}</th>))}</tr>
                 </thead>
                 <tbody>
                   {items.length === 0 && !loading && (
-                    <tr><td colSpan={4} className={`px-4 py-6 text-center text-sm ${th.muted}`}>No accounts on this list yet.</td></tr>
+                    <tr><td colSpan={4} className={`px-4 py-6 text-center text-sm ${th.muted}`}>{msg('CTS_WF_BUCKETCFG_EMPTY')}</td></tr>
                   )}
                   {items.map(it => (
                     <tr key={it.account_hash} className={`border-b ${th.row}`}>
@@ -232,9 +233,9 @@ export default function CTSBucketConfig() {
                       <td className={`px-4 py-2 text-xs ${th.muted}`}>{String(it.added_at).slice(0, 16).replace('T', ' ')}</td>
                       <td className="px-4 py-2 text-right">
                         <button onClick={() => remove(it.account_hash)} disabled={busy}
-                          aria-label={`Remove account ending ${it.account_last4}`}
+                          aria-label={msg('CTS_WF_BUCKETCFG_REMOVE_ARIA', { last4: it.account_last4 })}
                           className={`text-xs px-2 py-1 rounded border ${isDark ? 'border-red-700/50 text-red-400 hover:bg-red-900/30' : 'border-red-300 text-red-600 hover:bg-red-50'}`}>
-                          Remove
+                          {msg('CTS_WF_BUCKETCFG_REMOVE')}
                         </button>
                       </td>
                     </tr>
@@ -243,7 +244,7 @@ export default function CTSBucketConfig() {
               </table>
               {cursor && (
                 <div className="p-3 text-center">
-                  <button onClick={loadMore} disabled={loadingMore} className={`text-xs underline ${th.muted}`}>Load more</button>
+                  <button onClick={loadMore} disabled={loadingMore} className={`text-xs underline ${th.muted}`}>{msg('CTS_WF_BUCKETCFG_LOAD_MORE')}</button>
                 </div>
               )}
             </div>
@@ -253,14 +254,13 @@ export default function CTSBucketConfig() {
         {tab === 'rules' && (
           <div className={`border rounded-lg overflow-hidden ${th.card}`}>
             <div className={`px-4 py-3 border-b ${th.divider} text-sm ${th.body}`}>
-              These values are changed in <Link to="/admin/config/operations" className="text-blue-400 hover:underline">Operations config</Link>,
-              where a change is proposed by an ops manager and approved by a bank IT admin.
+              {msg('CTS_WF_BUCKETCFG_RULES_INTRO_1')} <Link to="/admin/config/operations" className="text-blue-400 hover:underline">{msg('CTS_WF_BUCKETCFG_RULES_LINK')}</Link>{msg('CTS_WF_BUCKETCFG_RULES_INTRO_2')}
             </div>
             <table className="w-full border-collapse">
-              <thead><tr>{['Setting', 'Current value', 'What it does'].map(h => (
+              <thead><tr>{[msg('CTS_WF_BUCKETCFG_COL_SETTING'), msg('CTS_WF_BUCKETCFG_COL_VALUE'), msg('CTS_WF_BUCKETCFG_COL_WHAT')].map(h => (
                 <th key={h} className={`px-4 py-2 text-left border-b ${th.divider} ${th.th}`}>{h}</th>))}</tr></thead>
               <tbody>
-                {ruleValues === null && <tr><td colSpan={3} className={`px-4 py-6 text-center text-sm ${th.muted}`}>Loading…</td></tr>}
+                {ruleValues === null && <tr><td colSpan={3} className={`px-4 py-6 text-center text-sm ${th.muted}`}>{msg('CTS_WF_BUCKETCFG_LOADING')}</td></tr>}
                 {ruleValues && RULE_KEYS.filter(k => ruleValues[k]).map(k => (
                   <tr key={k} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-2 font-mono text-xs ${th.body}`}>{k}</td>

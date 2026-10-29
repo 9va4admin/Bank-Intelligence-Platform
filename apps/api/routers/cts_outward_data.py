@@ -38,6 +38,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 from modules.cts.outward_buckets import classify_outward
 from modules.cts.outward_scope import checker_allowed, maker_allowed
 from modules.cts.outward_sessions import next_cutoff, seconds_to_cutoff
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 from .cts_deps import (
@@ -569,7 +570,7 @@ async def get_outward_file_download_url(
 ) -> OutwardFileDownloadResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     minio_client = getattr(request.app.state, "minio_client", None)
     if minio_client is not None:
@@ -698,7 +699,7 @@ async def get_outward_human_review_queue(
     instrument_category: Optional[str] = Query(None),
 ) -> OutwardQueueResponse:
     if ctx.role.value not in _OUTWARD_Q_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     if limit > 100:
         limit = 100
@@ -711,7 +712,7 @@ async def get_outward_human_review_queue(
         rows = await db.fetch(SQL_MAKER_QUEUE, bank_id, limit, instrument_category)
     except Exception as exc:
         log.error("cts.outward_queue.query_failed", bank_id=bank_id, error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
 
     cfg = await _cts_config(request, bank_id)
     if ctx.role.value == "ops_reviewer":
@@ -882,7 +883,7 @@ async def _check_item_scope(request: Request, ctx: UserContext, instrument_id: s
     scope = list(getattr(ctx, "pu_ids", None) or [])
     if scope and "ALL" not in scope and row["pu_id"] and row["pu_id"] not in scope:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="This instrument belongs to a processing unit you are not scoped to")
+                            detail=get_message("CTS_OUT_PU_NOT_SCOPED"))
     if cfg.get("bucket_routing_enabled"):
         lock = _lock_service(request)
         if lock is not None:
@@ -893,14 +894,13 @@ async def _check_item_scope(request: Request, ctx: UserContext, instrument_id: s
             mine = await _subscriptions(request).get_reviewer_buckets(ctx.bank_id, ctx.user_id)
             if not bucket_allows(bucket, mine):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="This instrument is in a bucket you are not connected to")
+                                    detail=get_message("CTS_OUT_BUCKET_NOT_CONNECTED"))
     branches = list(getattr(ctx, "branch_ids", None) or [])
     allowed = (checker_allowed(cfg, branches) if phase == "checker"
                else maker_allowed(cfg, branches, row["branch_id"], float(row["age_seconds"] or 0.0)))
     if not allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You are not set up to " + ("check" if phase == "checker" else "make decisions on") +
-                                   " this instrument (branch or central scope)")
+                            detail=get_message("CTS_OUT_SCOPE_CANNOT_CHECK" if phase == "checker" else "CTS_OUT_SCOPE_CANNOT_DECIDE"))
 
 
 async def _take_or_check_claim(request: Request, ctx: UserContext, instrument_id: str, cfg: dict, phase: str = "maker") -> None:
@@ -911,9 +911,9 @@ async def _take_or_check_claim(request: Request, ctx: UserContext, instrument_id
         return
     holder = await lock.get_lock_holder(instrument_id)
     if holder is not None and holder != ctx.user_id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is being worked by another reviewer")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_HELD_BY_ANOTHER"))
     if holder is None and not await lock.acquire_lock(instrument_id, ctx.user_id, cfg):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is being worked by another reviewer")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_HELD_BY_ANOTHER"))
 
 
 async def _release_claim(request: Request, ctx: UserContext, instrument_id: str) -> None:
@@ -974,7 +974,7 @@ async def decide_outward_review(
 ) -> OutwardReviewDecisionResponse:
     """The reviewer's decision. With maker-checker on it is the maker's: staged for a checker, not yet final."""
     if ctx.role.value not in _OUTWARD_Q_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     instrument_id = _safe_temporal_param(instrument_id, "instrument_id")
 
@@ -986,7 +986,7 @@ async def decide_outward_review(
             result = await conn.execute(SQL_STAGE_INSERT, bank_id, instrument_id, ctx.user_id, body.action, body.reason or "")
         if not str(result).endswith(" 1"):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail="A decision has already been made on this instrument and is waiting for a checker")
+                                detail=get_message("CTS_OUT_ALREADY_STAGED"))
         await _release_claim(request, ctx, instrument_id)        # free for a checker (never the maker)
         log.info("cts.outward_review.maker_decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
         return OutwardReviewDecisionResponse(
@@ -1017,24 +1017,24 @@ async def validate_outward_review(
 ) -> OutwardReviewDecisionResponse:
     """The checker's decision on a staged maker decision: confirm or overrule it. Never the maker."""
     if ctx.role.value not in _OUTWARD_CHECK_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     instrument_id = _safe_temporal_param(instrument_id, "instrument_id")
     if not body.reason or not body.reason.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for validation")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("CTS_OUT_REVIEW_REASON_REQUIRED"))
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
     if not await _maker_checker_on(request, bank_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Maker-checker is not enabled for this bank")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_MAKER_CHECKER_OFF"))
 
     async with db.acquire() as conn:
         staged = await conn.fetchrow(SQL_STAGE_GET, bank_id, instrument_id)
     if not staged:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is not waiting for a checker")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_NOT_WAITING_CHECKER"))
     if staged["maker_id"] == ctx.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You made the first decision on this instrument; a different person must check it")
+                            detail=get_message("CTS_OUT_MAKER_CANNOT_CHECK"))
     await _take_or_check_claim(request, ctx, instrument_id, await _cts_config(request, bank_id), phase="checker")
 
     # Claim the decision first (only one checker, or the timeout, can move it from MAKER_DECIDED to FINAL), then file it.
@@ -1043,9 +1043,9 @@ async def validate_outward_review(
             claimed = await conn.execute(SQL_STAGE_FINAL, bank_id, instrument_id, ctx.user_id)
     except asyncpg.exceptions.SerializationError as exc:
         # Another checker finished this item at the same moment (YugabyteDB aborts the second writer).
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Another checker is handling this instrument") from exc
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_OTHER_CHECKER")) from exc
     if not str(claimed).endswith(" 1"):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This instrument is not waiting for a checker")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_NOT_WAITING_CHECKER"))
     signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason.strip())
     await _release_claim(request, ctx, instrument_id)
     log.info("cts.outward_review.validated", instrument_id=instrument_id, bank_id=bank_id, checker_id=ctx.user_id,
@@ -1115,7 +1115,7 @@ async def get_outward_validation_queue(
 ) -> OutwardValidationQueueResponse:
     """Outward instruments whose maker has decided and which wait for a checker."""
     if ctx.role.value not in _OUTWARD_CHECK_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
         return OutwardValidationQueueResponse(bank_id=ctx.bank_id, items=[], total=0)
@@ -1123,7 +1123,7 @@ async def get_outward_validation_queue(
         rows = await db.fetch(SQL_STAGE_LIST, ctx.bank_id, limit)
     except Exception as exc:
         log.error("cts.outward_validation_queue.query_failed", bank_id=ctx.bank_id, error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
     cfg = await _cts_config(request, ctx.bank_id)
     rows = await _file_overdue_maker_decisions(request, ctx, db, rows, cfg)
     if ctx.role.value == "ops_reviewer" and not checker_allowed(cfg, list(getattr(ctx, "branch_ids", None) or [])):
@@ -1157,7 +1157,7 @@ async def get_outward_settlement(
     clearing_date: OptIsoTimestamp = None,
 ) -> SettlementResponse:
     if ctx.role.value not in {"ops_manager", "bank_it_admin", "compliance_officer"}:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     target_date = clearing_date or date.today().isoformat()
 
@@ -1184,7 +1184,7 @@ async def get_outward_settlement(
         )
     except Exception as exc:
         log.error("cts.settlement.query_failed", bank_id=bank_id, error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
 
     sessions = [
         SessionSettlementRow(
@@ -1225,11 +1225,11 @@ async def get_lot_instruments(
     ctx: UserContext = Depends(get_current_user_context),
 ):
     if ctx.role.value not in _LOT_READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     bank_id = ctx.bank_id
 
@@ -1286,11 +1286,11 @@ async def get_outward_analytics_daily(
     instrument_category: Optional[str] = Query(None),
 ):
     if ctx.role.value not in _ANALYTICS_READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     bank_id = ctx.bank_id
     days = max(1, min(days, 30))
@@ -1354,7 +1354,7 @@ async def get_outward_reconciliation(
     instrument_category: Optional[str] = Query(None),
 ) -> ReconciliationOverviewResponse:
     if ctx.role.value not in _RECON_READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     date_str = recon_date or date.today().isoformat()
@@ -1444,7 +1444,7 @@ async def list_outward_lots(
     clearing_date: OptIsoTimestamp = None,
 ) -> LotsListResponse:
     if ctx.role.value not in _LOTS_LIST_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     date_str = clearing_date or date.today().isoformat()
@@ -1811,7 +1811,7 @@ async def get_outward_pipeline(
         )
     except Exception as exc:
         log.error("cts.outward_pipeline.query_failed", bank_id=bank_id, error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
 
     instruments = [
         OutwardPipelineInstrument(

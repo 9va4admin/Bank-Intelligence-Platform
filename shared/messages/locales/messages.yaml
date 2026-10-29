@@ -3294,3 +3294,958 @@ CTS_OUT_CUSTODY_DISPOSE_REASON:
   variables: []
   en: "Retention period ended"
   hi: ""
+
+# ──────────────────────────────────────────────────────────────────
+# API ERRORS — review, maker-checker, scope, auth, config (moved off literals)
+# ──────────────────────────────────────────────────────────────────
+
+PLATFORM_AUDIT_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The audit trail is unavailable, so this change was not made."
+  hi: ""
+
+PLATFORM_CONFIG_SELF_APPROVAL:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Maker cannot approve their own change — four-eyes principle"
+  hi: ""
+
+PLATFORM_CONFIG_CHANGE_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Change not found or already actioned"
+  hi: ""
+
+AUTH_INSUFFICIENT_PERMISSIONS:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Insufficient permissions"
+  hi: ""
+
+AUTH_INSUFFICIENT_ROLE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Insufficient role"
+  hi: ""
+
+AUTH_ACCOUNT_DISABLED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This account has been disabled"
+  hi: ""
+
+PLATFORM_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Database unavailable"
+  hi: ""
+
+PLATFORM_HASH_SECRET_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Hashing secret unavailable"
+  hi: ""
+
+PLATFORM_PU_UNKNOWN_OR_ALL:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Unknown processing unit. Use ALL or a processing unit of this bank."
+  hi: ""
+
+PLATFORM_PU_UNKNOWN:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Unknown processing unit"
+  hi: ""
+
+VAULT_ACCOUNT_NOT_ON_LIST:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Account is not on this list"
+  hi: ""
+
+CTS_WF_REVIEW_PU_NOT_SCOPED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This cheque belongs to a processing unit you are not scoped to"
+  hi: ""
+
+CTS_WF_REVIEW_MAKER_CANNOT_CHECK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "You made the first decision on this cheque; a different person must check it"
+  hi: ""
+
+CTS_WF_ASSIGN_REVIEWER_PU_NOT_SCOPED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That reviewer is not scoped to this cheque's processing unit"
+  hi: ""
+
+CTS_WF_ASSIGN_REVIEWER_WAS_MAKER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That reviewer made the first decision on this cheque; a different person must check it"
+  hi: ""
+
+CTS_WF_REVIEW_HELD_BY_ANOTHER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This cheque is being worked by another reviewer"
+  hi: ""
+
+CTS_WF_REVIEW_SIGNAL_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to send review signal"
+  hi: ""
+
+CTS_WF_REVIEW_REASON_REQUIRED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "reason is required for review decisions"
+  hi: ""
+
+CTS_WF_REVIEW_NOT_PENDING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This cheque is not waiting for review"
+  hi: ""
+
+CTS_WF_REVIEW_USE_VALIDATE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "A maker has already decided this cheque; a checker must use validate"
+  hi: ""
+
+CTS_WF_VALIDATE_REASON_REQUIRED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "reason is required for validation"
+  hi: ""
+
+CTS_WF_MAKER_CHECKER_OFF:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Maker-checker is not enabled for this bank"
+  hi: ""
+
+CTS_WF_VALIDATE_NOT_PENDING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This cheque is not waiting for a checker"
+  hi: ""
+
+CTS_OUT_PU_NOT_SCOPED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This instrument belongs to a processing unit you are not scoped to"
+  hi: ""
+
+CTS_OUT_BUCKET_NOT_CONNECTED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This instrument is in a bucket you are not connected to"
+  hi: ""
+
+CTS_OUT_SCOPE_CANNOT_DECIDE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "You are not set up to make decisions on this instrument (branch or central scope)"
+  hi: ""
+
+CTS_OUT_SCOPE_CANNOT_CHECK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "You are not set up to check this instrument (branch or central scope)"
+  hi: ""
+
+CTS_OUT_HELD_BY_ANOTHER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This instrument is being worked by another reviewer"
+  hi: ""
+
+CTS_OUT_ALREADY_STAGED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "A decision has already been made on this instrument and is waiting for a checker"
+  hi: ""
+
+CTS_OUT_NOT_WAITING_CHECKER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This instrument is not waiting for a checker"
+  hi: ""
+
+CTS_OUT_MAKER_CANNOT_CHECK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "You made the first decision on this instrument; a different person must check it"
+  hi: ""
+
+CTS_OUT_OTHER_CHECKER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Another checker is handling this instrument"
+  hi: ""
+
+CTS_OUT_REVIEW_REASON_REQUIRED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "reason is required for validation"
+  hi: ""
+
+# Configuration value rules and bucket account lists
+
+PLATFORM_CONFIG_VALUE_INVALID:
+  severity: WARN
+  surface: [UI]
+  variables: [config_key, reason]
+  en: "{config_key}: {reason}"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_WHOLE_NUMBER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "must be a whole number, zero or more"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_NUMBER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "must be a number, zero or more"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_BOOL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "must be true or false"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_JSON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "must be valid JSON"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_JSON_LIST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "must be a non-empty JSON list of text values"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_BUCKETS_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: [allowed]
+  en: "may only contain {allowed}"
+  hi: ""
+
+PLATFORM_CONFIG_RULE_ONE_OF:
+  severity: INFO
+  surface: [UI]
+  variables: [allowed]
+  en: "must be one of {allowed}"
+  hi: ""
+
+CTS_WF_ACCOUNT_LIST_BUCKETS_ONLY:
+  severity: WARN
+  surface: [UI]
+  variables: [buckets]
+  en: "Only {buckets} have account lists"
+  hi: ""
+
+# BUCKET CONFIGURATION SCREEN
+
+CTS_WF_BUCKETCFG_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bucket configuration"
+  hi: ""
+
+CTS_WF_BUCKETCFG_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Which accounts count as corporate or institution, and the rules that sort cheques into review buckets."
+  hi: ""
+
+CTS_WF_BUCKETCFG_TAB_LISTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account lists"
+  hi: ""
+
+CTS_WF_BUCKETCFG_TAB_RULES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bucket rules"
+  hi: ""
+
+CTS_WF_BUCKETCFG_LIST_CA_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Corporate (CA)"
+  hi: ""
+
+CTS_WF_BUCKETCFG_LIST_CA_HINT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Corporate accounts. A cheque needing a human on one of these goes to the CA bucket."
+  hi: ""
+
+CTS_WF_BUCKETCFG_LIST_IP_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Institution (IP)"
+  hi: ""
+
+CTS_WF_BUCKETCFG_LIST_IP_HINT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Institutions and government accounts. These go to the IP bucket."
+  hi: ""
+
+CTS_WF_BUCKETCFG_HINT_WITH_NOTE:
+  severity: INFO
+  surface: [UI]
+  variables: [hint]
+  en: "{hint} Accounts are stored as keyed hashes plus the last four digits, never the number."
+  hi: ""
+
+CTS_WF_BUCKETCFG_ADD_ACCOUNTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add accounts"
+  hi: ""
+
+CTS_WF_BUCKETCFG_ADD_PLACEHOLDER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Paste account numbers, one per line or separated by commas"
+  hi: ""
+
+CTS_WF_BUCKETCFG_ADD_BUTTON:
+  severity: INFO
+  surface: [UI]
+  variables: [bucket]
+  en: "Add to {bucket}"
+  hi: ""
+
+CTS_WF_BUCKETCFG_ADD_BUTTON_COUNT:
+  severity: INFO
+  surface: [UI]
+  variables: [count, bucket]
+  en: "Add {count} to {bucket}"
+  hi: ""
+
+CTS_WF_BUCKETCFG_UPLOAD_OR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "or upload a file"
+  hi: ""
+
+CTS_WF_BUCKETCFG_UPLOAD_CHOOSE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "choose file"
+  hi: ""
+
+CTS_WF_BUCKETCFG_UPLOAD_ARIA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Upload account numbers"
+  hi: ""
+
+CTS_WF_BUCKETCFG_UP_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [max]
+  en: "Up to {max} at a time."
+  hi: ""
+
+CTS_WF_BUCKETCFG_RESULT:
+  severity: INFO
+  surface: [UI]
+  variables: [added, already]
+  en: "Added {added}. Already on the list: {already}."
+  hi: ""
+
+CTS_WF_BUCKETCFG_RESULT_INVALID:
+  severity: WARN
+  surface: [UI]
+  variables: [count, ending]
+  en: "Not valid ({count}): entries ending {ending}."
+  hi: ""
+
+CTS_WF_BUCKETCFG_TOTAL_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: [label]
+  en: "{label}: 1 account"
+  hi: ""
+
+CTS_WF_BUCKETCFG_TOTAL_MANY:
+  severity: INFO
+  surface: [UI]
+  variables: [label, count]
+  en: "{label}: {count} accounts"
+  hi: ""
+
+CTS_WF_BUCKETCFG_COL_ACCOUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account"
+  hi: ""
+
+CTS_WF_BUCKETCFG_COL_ADDED_BY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Added by"
+  hi: ""
+
+CTS_WF_BUCKETCFG_COL_ADDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Added"
+  hi: ""
+
+CTS_WF_BUCKETCFG_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No accounts on this list yet."
+  hi: ""
+
+CTS_WF_BUCKETCFG_REMOVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove"
+  hi: ""
+
+CTS_WF_BUCKETCFG_REMOVE_ARIA:
+  severity: INFO
+  surface: [UI]
+  variables: [last4]
+  en: "Remove account ending {last4}"
+  hi: ""
+
+CTS_WF_BUCKETCFG_LOAD_MORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Load more"
+  hi: ""
+
+CTS_WF_BUCKETCFG_RULES_INTRO_1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "These values are changed in"
+  hi: ""
+
+CTS_WF_BUCKETCFG_RULES_LINK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Operations config"
+  hi: ""
+
+CTS_WF_BUCKETCFG_RULES_INTRO_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: ", where a change is proposed by an ops manager and approved by a bank IT admin."
+  hi: ""
+
+CTS_WF_BUCKETCFG_COL_SETTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Setting"
+  hi: ""
+
+CTS_WF_BUCKETCFG_COL_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Current value"
+  hi: ""
+
+CTS_WF_BUCKETCFG_COL_WHAT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What it does"
+  hi: ""
+
+CTS_WF_BUCKETCFG_LOADING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Loading…"
+  hi: ""
+
+CTS_WF_BUCKETCFG_ERR_NO_ACCESS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "You do not have access to these lists."
+  hi: ""
+
+CTS_WF_BUCKETCFG_ERR_LOAD:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Could not load the list."
+  hi: ""
+
+CTS_WF_BUCKETCFG_ERR_MAX:
+  severity: WARN
+  surface: [UI]
+  variables: [max]
+  en: "Add at most {max} accounts at a time."
+  hi: ""
+
+CTS_WF_BUCKETCFG_ERR_ADD:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Could not add the accounts."
+  hi: ""
+
+CTS_WF_BUCKETCFG_ERR_REMOVE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Could not remove the account."
+  hi: ""
+
+# SCREEN WORDING — buckets, allocation panel, outward queue, validation, user management, gateway strip
+
+CTS_WF_BUCKET_HVC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "High value"
+  hi: ""
+
+CTS_WF_BUCKET_CA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Corporate"
+  hi: ""
+
+CTS_WF_BUCKET_IP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Institution"
+  hi: ""
+
+CTS_WF_BUCKET_LVC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Low value"
+  hi: ""
+
+CTS_WF_BUCKET_FCC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Frequent customer"
+  hi: ""
+
+CTS_WF_BUCKET_SIP_SUCCESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SIP success"
+  hi: ""
+
+CTS_WF_BUCKET_SIP_REJECT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SIP reject"
+  hi: ""
+
+CTS_WF_BUCKET_HR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Human review"
+  hi: ""
+
+CTS_WF_BUCKET_MISC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Miscellaneous"
+  hi: ""
+
+CTS_WF_BUCKET_VAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Checker"
+  hi: ""
+
+CTS_WF_BUCKET_OUT_HV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Out · high value"
+  hi: ""
+
+CTS_WF_BUCKET_OUT_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Out · mismatch"
+  hi: ""
+
+CTS_WF_BUCKET_OUT_COMPLIANCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Out · compliance"
+  hi: ""
+
+CTS_WF_BUCKET_OUT_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Out · review"
+  hi: ""
+
+CTS_WF_BUCKET_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All buckets"
+  hi: ""
+
+CTS_WF_BUCKET_MOVED_TO_MISC:
+  severity: INFO
+  surface: [UI]
+  variables: [origin]
+  en: "Moved to Miscellaneous from {origin}"
+  hi: ""
+
+CTS_WF_BUCKET_MISC_FROM:
+  severity: INFO
+  surface: [UI]
+  variables: [bucket, origin]
+  en: "{bucket} (from {origin})"
+  hi: ""
+
+CTS_WF_ALLOC_PU_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "processing units"
+  hi: ""
+
+CTS_WF_ALLOC_ASSIGN_TO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Assign to…"
+  hi: ""
+
+CTS_WF_ALLOC_OUTWARD_HEADER:
+  severity: INFO
+  surface: [UI]
+  variables: [waiting, held]
+  en: "Outward items waiting for an owner ({waiting} of {held} held)"
+  hi: ""
+
+CTS_WF_ALLOC_OUTWARD_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No outward item is waiting for an owner."
+  hi: ""
+
+CTS_WF_ALLOC_SESSION_CLOSED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Session closed"
+  hi: ""
+
+CTS_WF_ALLOC_SESSION_CLOSES_IN:
+  severity: INFO
+  surface: [UI]
+  variables: [mins]
+  en: "Session closes in {mins} min"
+  hi: ""
+
+CTS_OUT_Q_OUTCOME_HUMAN_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Flagged for human review"
+  hi: ""
+
+CTS_OUT_Q_OUTCOME_MISMATCH_HELD:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Amount mismatch — held"
+  hi: ""
+
+CTS_OUT_Q_OUTCOME_CTS_REJECTED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "CTS compliance failure"
+  hi: ""
+
+CTS_OUT_Q_OUTCOME_WORKFLOW_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Processing error"
+  hi: ""
+
+CTS_OUT_Q_OUTCOME_STP_RETURN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP auto-return"
+  hi: ""
+
+CTS_OUT_Q_OUTCOME_STP_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP auto-filed"
+  hi: ""
+
+CTS_OUT_Q_BUCKET_OUT_HV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "high value"
+  hi: ""
+
+CTS_OUT_Q_BUCKET_OUT_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "mismatch"
+  hi: ""
+
+CTS_OUT_Q_BUCKET_OUT_COMPLIANCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "compliance"
+  hi: ""
+
+CTS_OUT_Q_BUCKET_OUT_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "review"
+  hi: ""
+
+CTS_OUT_Q_BUCKET_MISC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "miscellaneous"
+  hi: ""
+
+CTS_OUT_Q_YOURS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "yours"
+  hi: ""
+
+CTS_OUT_Q_HELD_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [holder]
+  en: "held by {holder}"
+  hi: ""
+
+CTS_WF_VAL_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Validation failed"
+  hi: ""
+
+CTS_WF_VAL_MAKER_DECIDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Maker decided"
+  hi: ""
+
+CTS_WF_VAL_AGREES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Checker agrees with the maker"
+  hi: ""
+
+CTS_WF_VAL_RETURNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Returned by checker"
+  hi: ""
+
+CTS_WF_VAL_FIRST_DECISION_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The first decision, which the checker confirms or overrules"
+  hi: ""
+
+CTS_WF_REVIEW_CONFIRMED_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Confirmed (PAY) by reviewer"
+  hi: ""
+
+AUTH_USER_CENTRAL_STAFF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Central staff (no branch)"
+  hi: ""
+
+AUTH_USER_REMOVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove"
+  hi: ""
+
+AUTH_USER_BRANCH_SEARCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Search branch name or IFSC to add…"
+  hi: ""
+
+AUTH_USER_PU_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Processing Unit"
+  hi: ""
+
+AUTH_USER_PU_HINT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The PU this reviewer works (ALL = every PU)"
+  hi: ""
+
+AUTH_USER_BRANCHES_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branches"
+  hi: ""
+
+AUTH_USER_BRANCHES_HINT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branch staff (a branch maker) are assigned to branches; leave empty for central staff"
+  hi: ""
+
+CTS_OUT_GATEWAY_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NGCH Gateway · Processing Units"
+  hi: ""
+
+CTS_OUT_GATEWAY_DEGRADED_ONE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "1 PU degraded"
+  hi: ""
+
+CTS_OUT_GATEWAY_DEGRADED_MANY:
+  severity: WARN
+  surface: [UI]
+  variables: [count]
+  en: "{count} PUs degraded"
+  hi: ""
+
+CTS_OUT_GATEWAY_IET_RISK:
+  severity: WARN
+  surface: [UI]
+  variables: [count]
+  en: "· {count} IET risk"
+  hi: ""

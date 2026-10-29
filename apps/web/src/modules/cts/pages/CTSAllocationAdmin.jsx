@@ -13,6 +13,8 @@
  * Roles: ops_manager, bank_it_admin.
  */
 import { csrfHeader } from '../../../shared/api/csrf'
+import { msg } from '../../../shared/messages'
+import { bucketLabel } from '../bucketLabels'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -26,11 +28,6 @@ const REFETCH_MS = 30_000
 // VAL is the checker queue; the OUT_* buckets hold held outward items.
 const BUCKET_ORDER = ['HVC', 'CA', 'IP', 'LVC', 'FCC', 'SIP_SUCCESS', 'SIP_REJECT', 'HR', 'VAL',
   'OUT_HV', 'OUT_MISMATCH', 'OUT_COMPLIANCE', 'OUT_REVIEW']
-const BUCKET_LABEL = {
-  HVC: 'High value', CA: 'Corporate', IP: 'Institution', LVC: 'Low value', FCC: 'Frequent',
-  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous', VAL: 'Checker',
-  OUT_HV: 'Out · high value', OUT_MISMATCH: 'Out · mismatch', OUT_COMPLIANCE: 'Out · compliance', OUT_REVIEW: 'Out · review',
-}
 
 const MOCK_CLAIMS = [
   { instrument_id: 'CHQ-IN-20260811-0142', reviewer_id: 'ananya.krishnan', reviewer_name: 'Ananya Krishnan', claimed_at: '2026-08-11T09:31:00Z', tier: 1, reason: 'SIGNATURE_MISMATCH' },
@@ -360,7 +357,7 @@ export default function CTSAllocationAdmin() {
                   <span className="font-medium">{r.reviewer_id}</span>
                   <span title="claims held now">{r.load ?? 0} held</span>
                   {r.pu_ids?.length > 0 && !r.pu_ids.includes('ALL') && (
-                    <span className="font-mono" title="processing units">{(r.pu_ids ?? []).join('/')}</span>
+                    <span className="font-mono" title={msg('CTS_WF_ALLOC_PU_TITLE')}>{(r.pu_ids ?? []).join('/')}</span>
                   )}
                   <span className={`font-mono ${isDark ? 'text-emerald-600' : 'text-emerald-500'}`}>
                     {fmtExpiresIn(r.expires_at)}
@@ -394,7 +391,7 @@ export default function CTSAllocationAdmin() {
                 <tr>
                   <th className={`px-4 py-2 text-left border-b ${th.divider} ${th.th}`}>Reviewer</th>
                   {BUCKET_ORDER.map(b => (
-                    <th key={b} className={`px-2 py-2 text-center border-b ${th.divider} ${th.th}`}>{BUCKET_LABEL[b]}</th>
+                    <th key={b} className={`px-2 py-2 text-center border-b ${th.divider} ${th.th}`}>{bucketLabel(b)}</th>
                   ))}
                 </tr>
               </thead>
@@ -414,7 +411,7 @@ export default function CTSAllocationAdmin() {
                       <td key={b} className="px-2 py-2 text-center">
                         <input
                           type="checkbox"
-                          aria-label={`${rid} ${BUCKET_LABEL[b]}`}
+                          aria-label={`${rid} ${bucketLabel(b)}`}
                           checked={connected[rid]?.has(b) ?? false}
                           disabled={bucketsMutation.isPending}
                           onChange={() => toggleBucket(rid, b)}
@@ -523,7 +520,7 @@ export default function CTSAllocationAdmin() {
                 return (
                   <tr key={item.instrument_id} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>{item.instrument_id}</td>
-                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? (BUCKET_LABEL[item.bucket] ?? item.bucket) : ''}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? bucketLabel(item.bucket) : ''}</td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.pu_id ?? ''}</td>
                     <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
                       {mins === null ? '' : mins <= 0 ? 'IET passed' : `IET in ${mins} min`}
@@ -531,7 +528,7 @@ export default function CTSAllocationAdmin() {
                     <td className="px-4 py-3">
                       <ReviewerSelect
                         reviewers={onlineReviewers}
-                        label="Assign to…"
+                        label={msg('CTS_WF_ALLOC_ASSIGN_TO')}
                         disabled={assignMutation.isPending}
                         isDark={isDark}
                         onPick={(reviewerId) => assignMutation.mutate({ instrumentId: item.instrument_id, reviewerId })}
@@ -546,27 +543,27 @@ export default function CTSAllocationAdmin() {
         {/* Outward items waiting for an owner */}
         <div className={`border rounded-lg overflow-hidden mt-5 ${th.card}`}>
           <div className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b ${th.divider} ${th.muted}`}>
-            Outward items waiting for an owner ({outwardUnassigned.length} of {outwardItems.length} held)
+            {msg('CTS_WF_ALLOC_OUTWARD_HEADER', { waiting: outwardUnassigned.length, held: outwardItems.length })}
           </div>
           <table className="w-full border-collapse">
             <tbody>
               {outwardUnassigned.length === 0 && (
-                <tr><td className={`px-4 py-6 text-center text-sm ${th.muted}`}>No outward item is waiting for an owner.</td></tr>
+                <tr><td className={`px-4 py-6 text-center text-sm ${th.muted}`}>{msg('CTS_WF_ALLOC_OUTWARD_EMPTY')}</td></tr>
               )}
               {outwardUnassigned.slice(0, 25).map(item => {
                 const mins = item.due_at ? Math.round((item.due_at - nowSec) / 60) : null
                 return (
                   <tr key={item.instrument_id} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>{item.instrument_id}</td>
-                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? (BUCKET_LABEL[item.bucket] ?? item.bucket) : ''}</td>
+                    <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? bucketLabel(item.bucket) : ''}</td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.pu_id ?? ''}</td>
                     <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
-                      {mins === null ? '' : mins <= 0 ? 'Session closed' : `Session closes in ${mins} min`}
+                      {mins === null ? '' : mins <= 0 ? msg('CTS_WF_ALLOC_SESSION_CLOSED') : msg('CTS_WF_ALLOC_SESSION_CLOSES_IN', { mins })}
                     </td>
                     <td className="px-4 py-3">
                       <ReviewerSelect
                         reviewers={onlineReviewers}
-                        label="Assign to…"
+                        label={msg('CTS_WF_ALLOC_ASSIGN_TO')}
                         disabled={assignMutation.isPending}
                         isDark={isDark}
                         onPick={(reviewerId) => assignMutation.mutate({ instrumentId: item.instrument_id, reviewerId })}

@@ -23,6 +23,7 @@ from apps.api.routers.cts_deps import (
     get_current_bank_id,
     get_current_user_context,
 )
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -498,7 +499,7 @@ async def list_vault_stop_cheques(
     Role-gated: ops_manager, bank_it_admin, compliance_officer only.
     """
     if ctx.role.value not in _STOP_CHEQUE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
 

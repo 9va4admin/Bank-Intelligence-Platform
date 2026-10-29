@@ -24,6 +24,7 @@ from apps.api.routers.cts_deps import (
     get_current_bank_id,
     get_current_user_context,
 )
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -160,7 +161,7 @@ async def get_recent_scan_events(
 ) -> ScanMonitorResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     if limit > 100:
         limit = 100
 
@@ -184,7 +185,7 @@ async def get_recent_scan_events(
         )
     except Exception as exc:
         log.error("cts.scan_monitor.query_failed", bank_id=bank_id, error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
 
     events = [
         ScanEventItem(

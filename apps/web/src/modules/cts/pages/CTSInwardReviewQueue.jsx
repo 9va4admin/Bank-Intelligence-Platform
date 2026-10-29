@@ -21,6 +21,8 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import ChequeImageViewer from '../components/ChequeImageViewer'
+import { msg } from '../../../shared/messages'
+import { INWARD_BUCKETS, bucketLabel } from '../bucketLabels'
 
 function _viewerProps(item) {
   return {
@@ -55,11 +57,7 @@ const CATEGORY_LABEL = { all: 'All Instruments', CHEQUE: 'Cheques', DEMAND_DRAFT
 
 // Review buckets: HVC high value, CA corporate, IP institution, LVC low value, FCC frequent customer,
 // SIP system-processed (success / reject, held for a reviewer), HR general human review, MISC unallocated.
-const BUCKET_LABEL = {
-  HVC: 'High value', CA: 'Corporate', IP: 'Institution', LVC: 'Low value', FCC: 'Frequent customer',
-  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous',
-}
-const BUCKETS = ['all', ...Object.keys(BUCKET_LABEL)]
+const BUCKETS = ['all', ...INWARD_BUCKETS]
 
 const _T = (offsetMins) => Math.floor(Date.now() / 1000) + offsetMins * 60
 
@@ -278,8 +276,8 @@ function BucketBadge({ bucket, origin, isDark }) {
   const cls = isDark ? 'border-sky-700/50 bg-sky-900/30 text-sky-300' : 'border-sky-200 bg-sky-50 text-sky-700'
   return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${cls}`}
-          title={origin ? `Moved to Miscellaneous from ${BUCKET_LABEL[origin] ?? origin}` : undefined}>
-      {BUCKET_LABEL[bucket] ?? bucket}{bucket === 'MISC' && origin ? ` (from ${BUCKET_LABEL[origin] ?? origin})` : ''}
+          title={origin ? msg('CTS_WF_BUCKET_MOVED_TO_MISC', { origin: bucketLabel(origin) }) : undefined}>
+      {bucket === 'MISC' && origin ? msg('CTS_WF_BUCKET_MISC_FROM', { bucket: bucketLabel(bucket), origin: bucketLabel(origin) }) : bucketLabel(bucket)}
     </span>
   )
 }
@@ -699,7 +697,7 @@ export default function CTSInwardReviewQueue() {
       return
     }
     try {
-      await apiPost(`/v1/cts/review/${item.instrument_id}/decide`, { action: 'CONFIRM', reason: 'Confirmed (PAY) by reviewer' })
+      await apiPost(`/v1/cts/review/${item.instrument_id}/decide`, { action: 'CONFIRM', reason: msg('CTS_WF_REVIEW_CONFIRMED_REASON') })
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
       showToast(`Confirmed (PAY) ${item.instrument_id}`)
     } catch (e) { showToast(e.message, 'error') }
@@ -1009,7 +1007,7 @@ export default function CTSInwardReviewQueue() {
                   bucketFilter === b
                     ? (isDark ? 'border-sky-500 text-sky-300 bg-sky-900/30' : 'border-sky-500 text-sky-700 bg-sky-50')
                     : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
-                {b === 'all' ? 'All buckets' : BUCKET_LABEL[b]}
+                {b === 'all' ? msg('CTS_WF_BUCKET_ALL') : bucketLabel(b)}
               </button>
             ))}
           </div>

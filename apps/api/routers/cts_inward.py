@@ -33,6 +33,7 @@ from apps.api.routers.cts_deps import (
 )
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
+from shared.messages import get_message
 from shared.auth.rbac import RBACPolicy, Role, UserContext
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -601,9 +602,9 @@ async def _take_or_check_claim(lock_svc, instrument_id: str, reviewer_id: str, c
         return
     holder = await lock_svc.get_lock_holder(instrument_id)
     if holder is not None and holder != reviewer_id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is being worked by another reviewer")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_REVIEW_HELD_BY_ANOTHER"))
     if holder is None and not await lock_svc.acquire_lock(instrument_id, reviewer_id, cts_config):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is being worked by another reviewer")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_REVIEW_HELD_BY_ANOTHER"))
 
 
 async def _signal_review(request, workflow_id: str, signal_name: str, decision, instrument_id: str, bank_id: str) -> bool:
@@ -617,7 +618,7 @@ async def _signal_review(request, workflow_id: str, signal_name: str, decision, 
         return True
     except Exception as exc:
         log.error("cts.review_signal_error", instrument_id=instrument_id, bank_id=bank_id, error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Failed to send review signal") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("CTS_WF_REVIEW_SIGNAL_FAILED")) from exc
 
 
 async def _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision) -> None:
@@ -658,17 +659,17 @@ async def submit_review_decision(
 ) -> ReviewDecisionResponse:
     """A reviewer's decision (the maker's, when maker-checker is on)."""
     if ctx.role.value not in _REVIEW_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     if not body.reason or not body.reason.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for review decisions")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("CTS_WF_REVIEW_REASON_REQUIRED"))
 
     lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
     if lock_svc is not None and not meta:
         # Every queued item has an allocation record until its final decision is filed; none means it is not waiting.
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is not waiting for review")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_REVIEW_NOT_PENDING"))
     if meta.get("stage") == "VALIDATION":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="A maker has already decided this cheque; a checker must use validate")
+                            detail=get_message("CTS_WF_REVIEW_USE_VALIDATE"))
     await _take_or_check_claim(lock_svc, instrument_id, reviewer_id, cts_config)
 
     workflow_id = f"cts-humanreview-{bank_id}-{instrument_id}"
@@ -705,18 +706,18 @@ async def validate_review_decision(
 ) -> ReviewDecisionResponse:
     """The checker's decision on a cheque a maker has decided: confirm it or overrule it. Never the maker."""
     if ctx.role.value not in _REVIEW_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     if not body.reason or not body.reason.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="reason is required for validation")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("CTS_WF_VALIDATE_REASON_REQUIRED"))
 
     lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
     if not cts_config.get("maker_checker_enabled"):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Maker-checker is not enabled for this bank")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_MAKER_CHECKER_OFF"))
     if meta.get("stage") != "VALIDATION":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This cheque is not waiting for a checker")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_VALIDATE_NOT_PENDING"))
     if meta.get("maker_id") == reviewer_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You made the first decision on this cheque; a different person must check it")
+                            detail=get_message("CTS_WF_REVIEW_MAKER_CANNOT_CHECK"))
     await _take_or_check_claim(lock_svc, instrument_id, reviewer_id, cts_config)
 
     workflow_id = f"cts-humanreview-{bank_id}-{instrument_id}"
@@ -1094,11 +1095,11 @@ async def get_inward_analytics(
 ):
     bank_id = ctx.bank_id
     if ctx.role not in _INWARD_ANALYTICS_READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     if pool is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     days = max(1, min(days, 30))
 

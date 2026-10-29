@@ -33,6 +33,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -499,7 +500,7 @@ async def create_user(
         raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users (bank_type=SB).")
     pool = getattr(request.app.state, "db_pool_cts", None)
     if not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
-        raise HTTPException(status_code=422, detail="Unknown processing unit. Use ALL or a processing unit of this bank.")
+        raise HTTPException(status_code=422, detail=get_message("PLATFORM_PU_UNKNOWN_OR_ALL"))
     import uuid
     user_id = f"usr-{str(uuid.uuid4())[:8]}"
     now = datetime.now(timezone.utc)
@@ -596,7 +597,7 @@ async def update_user(
         if existing["bank_type"] == "SMB" and body.role in _SB_ROLES:
             raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users.")
     if body.pu_id is not None and not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
-        raise HTTPException(status_code=422, detail="Unknown processing unit")
+        raise HTTPException(status_code=422, detail=get_message("PLATFORM_PU_UNKNOWN"))
 
     if pool is not None:
         updates = {

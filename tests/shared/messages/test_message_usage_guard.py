@@ -13,7 +13,10 @@ ROOT = Path(__file__).resolve().parents[3]
 YAML_KEYS = set(re.findall(r"^([A-Z][A-Z0-9_]+):\s*$", (ROOT / "shared/messages/locales/messages.yaml").read_text(encoding="utf-8"), re.M))
 
 GUARDED_ROUTERS = ["apps/api/routers/cts_custody.py"]
-GUARDED_SCREENS = ["apps/web/src/modules/cts/pages/CTSCustody.jsx"]
+GUARDED_SCREENS = [
+    "apps/web/src/modules/cts/pages/CTSCustody.jsx",
+    "apps/web/src/modules/cts/pages/CTSBucketConfig.jsx",
+]
 
 
 def _tracked(*suffixes):

@@ -12,6 +12,7 @@ import structlog
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
@@ -85,7 +86,7 @@ async def get_current_user_context(
         log.warning("cts.live_scope.unexpected_row", user_id=ctx.user_id)
         return ctx
     if not active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_ACCOUNT_DISABLED"))
     return ctx.model_copy(update={"pu_ids": pu_ids, "branch_ids": branch_ids})
 
 

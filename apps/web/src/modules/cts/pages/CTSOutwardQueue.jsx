@@ -23,6 +23,8 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import OutwardReviewPanel from '../components/OutwardReviewPanel'
 import { demoChequeUrl } from '../demoImages'
 import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
+import { msg } from '../../../shared/messages'
+import { bucketShort } from '../bucketLabels'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -415,14 +417,9 @@ export default function CTSOutwardQueue() {
       const items = data.items ?? []
 
       // Human-readable labels for outcomes shown on the card reason badge
-      const OUTCOME_LABEL = {
-        HUMAN_REVIEW:  'Flagged for human review',
-        MISMATCH_HELD: 'Amount mismatch — held',
-        CTS_REJECTED:  'CTS compliance failure',
-        WORKFLOW_ERROR:'Processing error',
-        STP_RETURN:    'STP auto-return',
-        STP_CONFIRMED: 'STP auto-filed',
-      }
+      const OUTCOME_LABEL = Object.fromEntries(
+        ['HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR', 'STP_RETURN', 'STP_CONFIRMED']
+          .map(k => [k, msg(`CTS_OUT_Q_OUTCOME_${k}`)]))
 
       // Mapper: produces the shape OutwardRow / STPSuccessRow expect
       const scanImgUrl = (instrumentId, view = 'front_bw') => {
@@ -441,8 +438,8 @@ export default function CTSOutwardQueue() {
         bank:           BANK_CONFIG.bank_name,
         reason:         i.outcome,
         reason_label:   (OUTCOME_LABEL[i.outcome] ?? i.outcome)
-                        + (i.bucket && i.bucket !== 'MISC' ? ` · ${i.bucket.replace('OUT_', '').toLowerCase()}` : i.bucket === 'MISC' ? ' · miscellaneous' : '')
-                        + (i.assigned_to ? (i.assigned_to_me ? ' · yours' : ` · held by ${i.assigned_to}`) : ''),
+                        + (i.bucket ? ` · ${bucketShort(i.bucket)}` : '')
+                        + (i.assigned_to ? ` · ${i.assigned_to_me ? msg('CTS_OUT_Q_YOURS') : msg('CTS_OUT_Q_HELD_BY', { holder: i.assigned_to })}` : ''),
         bucket:         i.bucket ?? null,
         assigned_to:    i.assigned_to ?? null,
         assigned_to_me: !!i.assigned_to_me,

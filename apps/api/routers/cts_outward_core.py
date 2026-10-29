@@ -36,6 +36,7 @@ from apps.api.routers.cts_deps import (
     get_temporal_client,
     get_kafka_producer,
 )
+from shared.messages import get_message
 from shared.auth.rbac import Role, UserContext
 from shared.config.config_service import config_service
 
@@ -635,7 +636,7 @@ async def get_hub_summary(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> HubSummaryResponse:
     if ctx.role.value not in _HUB_READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     today = date.today().isoformat()
@@ -672,12 +673,12 @@ async def seal_lot(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> dict:
     if ctx.role.value not in _HUB_WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     state = getattr(getattr(request, "app", None), "state", None)
     db_pool = getattr(state, "db_pool_cts", None) if state else None
     if db_pool is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     bank_id = ctx.bank_id
     async with db_pool.acquire() as conn:
@@ -704,12 +705,12 @@ async def seal_all_lots(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> dict:
     if ctx.role.value not in _HUB_WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     state = getattr(getattr(request, "app", None), "state", None)
     db_pool = getattr(state, "db_pool_cts", None) if state else None
     if db_pool is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     bank_id = ctx.bank_id
     today = date.today()
@@ -743,11 +744,11 @@ async def get_session_report(
     bank_id = ctx.bank_id
     allowed = {"ops_manager", "bank_it_admin", "ops_reviewer", "fraud_analyst"}
     if ctx.role.value not in allowed:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     db = getattr(request.app.state, "db", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     row = await db.fetchrow(
         """
@@ -1086,11 +1087,11 @@ async def open_scanner_session(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> ScannerSessionOpenResponse:
     if ctx.role.value not in _SESSION_OPEN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     import uuid as _uuid
     from datetime import date as _date, datetime as _dt, timezone as _tz
@@ -1144,11 +1145,11 @@ async def close_scanner_session(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> ScannerSessionCloseResponse:
     if ctx.role.value not in _SESSION_OPEN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     from datetime import datetime as _dt, timezone as _tz
 

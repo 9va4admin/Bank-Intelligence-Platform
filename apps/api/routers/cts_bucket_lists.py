@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.routers.cts_deps import get_current_user_context
 from apps.api.schemas.types import IsoTimestamp
+from shared.messages import get_message
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.config.config_service import config_service
@@ -78,16 +79,16 @@ class RemoveResponse(BaseModel):
 
 def _check(ctx: UserContext, bucket: str) -> None:
     if ctx.role.value not in _ADMIN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     if bucket not in LIST_BUCKETS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail=f"Only {list(LIST_BUCKETS)} have account lists")
+                            detail=get_message("CTS_WF_ACCOUNT_LIST_BUCKETS_ONLY", buckets=str(list(LIST_BUCKETS))))
 
 
 def _db(request: Request):
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
     return db
 
 
@@ -125,7 +126,7 @@ async def add_bucket_accounts(
         pepper = await config_service.get_secret("pii_hash_pepper")
     except Exception as exc:  # noqa: BLE001 - without the secret nothing may be stored
         log.error("bucket_lists.pepper_unavailable", error=str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Hashing secret unavailable") from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_HASH_SECRET_UNAVAILABLE")) from exc
 
     added = already = 0
     invalid: list[str] = []
@@ -158,6 +159,6 @@ async def remove_bucket_account(
     async with _db(request).acquire() as conn:
         result = await conn.execute(SQL_DELETE, ctx.bank_id, bucket, account_hash)
     if not result.endswith(" 1"):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account is not on this list")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("VAULT_ACCOUNT_NOT_ON_LIST"))
     await _audit(request, ctx, {"action": "BUCKET_ACCOUNTS_REMOVED", "bucket": bucket, "removed": 1})
     return RemoveResponse(bucket=bucket, removed=True)

@@ -34,6 +34,7 @@ from apps.api.routers.cts_deps import (
 )
 from modules.cts.ifsc.models import IFSCCreateRequest, IFSCEntry, IFSCListResponse
 from modules.cts.ifsc.repository import IFSCDuplicateError
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -80,7 +81,7 @@ async def get_instrument_digest(
 ) -> InstrumentDigestResponse:
     db_pool = getattr(request.app.state, "db_pool", None)
     if db_pool is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -539,7 +540,7 @@ async def get_auth_login_log(
     limit: int = Query(200, ge=1, le=500),
 ) -> AuthLogResponse:
     if ctx.role.value not in _AUTH_LOG_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)

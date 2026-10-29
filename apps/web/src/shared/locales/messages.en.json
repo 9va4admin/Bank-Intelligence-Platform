@@ -4950,5 +4950,1134 @@
       "UI"
     ],
     "variables": []
+  },
+  "PLATFORM_AUDIT_UNAVAILABLE": {
+    "text": "The audit trail is unavailable, so this change was not made.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_SELF_APPROVAL": {
+    "text": "Maker cannot approve their own change — four-eyes principle",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_CHANGE_NOT_FOUND": {
+    "text": "Change not found or already actioned",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_INSUFFICIENT_PERMISSIONS": {
+    "text": "Insufficient permissions",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_INSUFFICIENT_ROLE": {
+    "text": "Insufficient role",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_ACCOUNT_DISABLED": {
+    "text": "This account has been disabled",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_DB_UNAVAILABLE": {
+    "text": "Database unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_HASH_SECRET_UNAVAILABLE": {
+    "text": "Hashing secret unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_PU_UNKNOWN_OR_ALL": {
+    "text": "Unknown processing unit. Use ALL or a processing unit of this bank.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_PU_UNKNOWN": {
+    "text": "Unknown processing unit",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "VAULT_ACCOUNT_NOT_ON_LIST": {
+    "text": "Account is not on this list",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_PU_NOT_SCOPED": {
+    "text": "This cheque belongs to a processing unit you are not scoped to",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_MAKER_CANNOT_CHECK": {
+    "text": "You made the first decision on this cheque; a different person must check it",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_ASSIGN_REVIEWER_PU_NOT_SCOPED": {
+    "text": "That reviewer is not scoped to this cheque's processing unit",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_ASSIGN_REVIEWER_WAS_MAKER": {
+    "text": "That reviewer made the first decision on this cheque; a different person must check it",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_HELD_BY_ANOTHER": {
+    "text": "This cheque is being worked by another reviewer",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_SIGNAL_FAILED": {
+    "text": "Failed to send review signal",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_REASON_REQUIRED": {
+    "text": "reason is required for review decisions",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_NOT_PENDING": {
+    "text": "This cheque is not waiting for review",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_USE_VALIDATE": {
+    "text": "A maker has already decided this cheque; a checker must use validate",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_VALIDATE_REASON_REQUIRED": {
+    "text": "reason is required for validation",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_MAKER_CHECKER_OFF": {
+    "text": "Maker-checker is not enabled for this bank",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_VALIDATE_NOT_PENDING": {
+    "text": "This cheque is not waiting for a checker",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_PU_NOT_SCOPED": {
+    "text": "This instrument belongs to a processing unit you are not scoped to",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_BUCKET_NOT_CONNECTED": {
+    "text": "This instrument is in a bucket you are not connected to",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_SCOPE_CANNOT_DECIDE": {
+    "text": "You are not set up to make decisions on this instrument (branch or central scope)",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_SCOPE_CANNOT_CHECK": {
+    "text": "You are not set up to check this instrument (branch or central scope)",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_HELD_BY_ANOTHER": {
+    "text": "This instrument is being worked by another reviewer",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_ALREADY_STAGED": {
+    "text": "A decision has already been made on this instrument and is waiting for a checker",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_NOT_WAITING_CHECKER": {
+    "text": "This instrument is not waiting for a checker",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_MAKER_CANNOT_CHECK": {
+    "text": "You made the first decision on this instrument; a different person must check it",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_OTHER_CHECKER": {
+    "text": "Another checker is handling this instrument",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_REVIEW_REASON_REQUIRED": {
+    "text": "reason is required for validation",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_VALUE_INVALID": {
+    "text": "{config_key}: {reason}",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "config_key",
+      "reason"
+    ]
+  },
+  "PLATFORM_CONFIG_RULE_WHOLE_NUMBER": {
+    "text": "must be a whole number, zero or more",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_RULE_NUMBER": {
+    "text": "must be a number, zero or more",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_RULE_BOOL": {
+    "text": "must be true or false",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_RULE_JSON": {
+    "text": "must be valid JSON",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_RULE_JSON_LIST": {
+    "text": "must be a non-empty JSON list of text values",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CONFIG_RULE_BUCKETS_ONLY": {
+    "text": "may only contain {allowed}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "allowed"
+    ]
+  },
+  "PLATFORM_CONFIG_RULE_ONE_OF": {
+    "text": "must be one of {allowed}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "allowed"
+    ]
+  },
+  "CTS_WF_ACCOUNT_LIST_BUCKETS_ONLY": {
+    "text": "Only {buckets} have account lists",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "buckets"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_TITLE": {
+    "text": "Bucket configuration",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_SUBTITLE": {
+    "text": "Which accounts count as corporate or institution, and the rules that sort cheques into review buckets.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_TAB_LISTS": {
+    "text": "Account lists",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_TAB_RULES": {
+    "text": "Bucket rules",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_LIST_CA_LABEL": {
+    "text": "Corporate (CA)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_LIST_CA_HINT": {
+    "text": "Corporate accounts. A cheque needing a human on one of these goes to the CA bucket.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_LIST_IP_LABEL": {
+    "text": "Institution (IP)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_LIST_IP_HINT": {
+    "text": "Institutions and government accounts. These go to the IP bucket.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_HINT_WITH_NOTE": {
+    "text": "{hint} Accounts are stored as keyed hashes plus the last four digits, never the number.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hint"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_ADD_ACCOUNTS": {
+    "text": "Add accounts",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_ADD_PLACEHOLDER": {
+    "text": "Paste account numbers, one per line or separated by commas",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_ADD_BUTTON": {
+    "text": "Add to {bucket}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bucket"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_ADD_BUTTON_COUNT": {
+    "text": "Add {count} to {bucket}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "bucket"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_UPLOAD_OR": {
+    "text": "or upload a file",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_UPLOAD_CHOOSE": {
+    "text": "choose file",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_UPLOAD_ARIA": {
+    "text": "Upload account numbers",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_UP_TO": {
+    "text": "Up to {max} at a time.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "max"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_RESULT": {
+    "text": "Added {added}. Already on the list: {already}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "added",
+      "already"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_RESULT_INVALID": {
+    "text": "Not valid ({count}): entries ending {ending}.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "ending"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_TOTAL_ONE": {
+    "text": "{label}: 1 account",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "label"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_TOTAL_MANY": {
+    "text": "{label}: {count} accounts",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "label",
+      "count"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_COL_ACCOUNT": {
+    "text": "Account",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_COL_ADDED_BY": {
+    "text": "Added by",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_COL_ADDED": {
+    "text": "Added",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_EMPTY": {
+    "text": "No accounts on this list yet.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_REMOVE": {
+    "text": "Remove",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_REMOVE_ARIA": {
+    "text": "Remove account ending {last4}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "last4"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_LOAD_MORE": {
+    "text": "Load more",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_RULES_INTRO_1": {
+    "text": "These values are changed in",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_RULES_LINK": {
+    "text": "Operations config",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_RULES_INTRO_2": {
+    "text": ", where a change is proposed by an ops manager and approved by a bank IT admin.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_COL_SETTING": {
+    "text": "Setting",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_COL_VALUE": {
+    "text": "Current value",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_COL_WHAT": {
+    "text": "What it does",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_LOADING": {
+    "text": "Loading…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_ERR_NO_ACCESS": {
+    "text": "You do not have access to these lists.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_ERR_LOAD": {
+    "text": "Could not load the list.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_ERR_MAX": {
+    "text": "Add at most {max} accounts at a time.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "max"
+    ]
+  },
+  "CTS_WF_BUCKETCFG_ERR_ADD": {
+    "text": "Could not add the accounts.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKETCFG_ERR_REMOVE": {
+    "text": "Could not remove the account.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_HVC": {
+    "text": "High value",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_CA": {
+    "text": "Corporate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_IP": {
+    "text": "Institution",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_LVC": {
+    "text": "Low value",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_FCC": {
+    "text": "Frequent customer",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_SIP_SUCCESS": {
+    "text": "SIP success",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_SIP_REJECT": {
+    "text": "SIP reject",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_HR": {
+    "text": "Human review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_MISC": {
+    "text": "Miscellaneous",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_VAL": {
+    "text": "Checker",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_OUT_HV": {
+    "text": "Out · high value",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_OUT_MISMATCH": {
+    "text": "Out · mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_OUT_COMPLIANCE": {
+    "text": "Out · compliance",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_OUT_REVIEW": {
+    "text": "Out · review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_ALL": {
+    "text": "All buckets",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_BUCKET_MOVED_TO_MISC": {
+    "text": "Moved to Miscellaneous from {origin}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "origin"
+    ]
+  },
+  "CTS_WF_BUCKET_MISC_FROM": {
+    "text": "{bucket} (from {origin})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bucket",
+      "origin"
+    ]
+  },
+  "CTS_WF_ALLOC_PU_TITLE": {
+    "text": "processing units",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_ALLOC_ASSIGN_TO": {
+    "text": "Assign to…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_ALLOC_OUTWARD_HEADER": {
+    "text": "Outward items waiting for an owner ({waiting} of {held} held)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "waiting",
+      "held"
+    ]
+  },
+  "CTS_WF_ALLOC_OUTWARD_EMPTY": {
+    "text": "No outward item is waiting for an owner.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_ALLOC_SESSION_CLOSED": {
+    "text": "Session closed",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_ALLOC_SESSION_CLOSES_IN": {
+    "text": "Session closes in {mins} min",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mins"
+    ]
+  },
+  "CTS_OUT_Q_OUTCOME_HUMAN_REVIEW": {
+    "text": "Flagged for human review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_OUTCOME_MISMATCH_HELD": {
+    "text": "Amount mismatch — held",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_OUTCOME_CTS_REJECTED": {
+    "text": "CTS compliance failure",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_OUTCOME_WORKFLOW_ERROR": {
+    "text": "Processing error",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_OUTCOME_STP_RETURN": {
+    "text": "STP auto-return",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_OUTCOME_STP_CONFIRMED": {
+    "text": "STP auto-filed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_BUCKET_OUT_HV": {
+    "text": "high value",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_BUCKET_OUT_MISMATCH": {
+    "text": "mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_BUCKET_OUT_COMPLIANCE": {
+    "text": "compliance",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_BUCKET_OUT_REVIEW": {
+    "text": "review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_BUCKET_MISC": {
+    "text": "miscellaneous",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_YOURS": {
+    "text": "yours",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_Q_HELD_BY": {
+    "text": "held by {holder}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "holder"
+    ]
+  },
+  "CTS_WF_VAL_FAILED": {
+    "text": "Validation failed",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_VAL_MAKER_DECIDED": {
+    "text": "Maker decided",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_VAL_AGREES": {
+    "text": "Checker agrees with the maker",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_VAL_RETURNED": {
+    "text": "Returned by checker",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_VAL_FIRST_DECISION_TITLE": {
+    "text": "The first decision, which the checker confirms or overrules",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WF_REVIEW_CONFIRMED_REASON": {
+    "text": "Confirmed (PAY) by reviewer",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_CENTRAL_STAFF": {
+    "text": "Central staff (no branch)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_REMOVE": {
+    "text": "Remove",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_BRANCH_SEARCH": {
+    "text": "Search branch name or IFSC to add…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_PU_LABEL": {
+    "text": "Processing Unit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_PU_HINT": {
+    "text": "The PU this reviewer works (ALL = every PU)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_BRANCHES_LABEL": {
+    "text": "Branches",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "AUTH_USER_BRANCHES_HINT": {
+    "text": "Branch staff (a branch maker) are assigned to branches; leave empty for central staff",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_GATEWAY_TITLE": {
+    "text": "NGCH Gateway · Processing Units",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_GATEWAY_DEGRADED_ONE": {
+    "text": "1 PU degraded",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_GATEWAY_DEGRADED_MANY": {
+    "text": "{count} PUs degraded",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "CTS_OUT_GATEWAY_IET_RISK": {
+    "text": "· {count} IET risk",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
   }
 }

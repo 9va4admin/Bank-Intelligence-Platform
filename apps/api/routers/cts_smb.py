@@ -24,6 +24,7 @@ from apps.api.routers.cts_deps import (
     get_current_user_context,
     _SMB_REPORTS_MAX_ROWS,
 )
+from shared.messages import get_message
 from shared.auth.rbac import BankType, UserContext
 
 log = structlog.get_logger()
@@ -386,7 +387,7 @@ async def register_sub_member(
                 )
         except Exception as exc:
             log.error("smb.register.db_failed", bank_id=bank_id, error=str(exc))
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
     return SMBRegistrationResponse(
         sub_member_id=body.sub_member_id,
         status="REGISTERED",
@@ -515,7 +516,7 @@ async def get_all_smb_ledgers(
     if ctx.bank_type != BankType.SB:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
     if ctx.role.value not in _SMB_LEDGERS_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     date_str = session_date or date.today().isoformat()

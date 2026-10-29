@@ -28,6 +28,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
+from shared.messages import get_message
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
 log = structlog.get_logger()
@@ -58,13 +59,13 @@ def get_current_user(request: Request) -> dict[str, Any]:
 
 def _require_read(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     return user
 
 
 def _require_write(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     return user
 
 

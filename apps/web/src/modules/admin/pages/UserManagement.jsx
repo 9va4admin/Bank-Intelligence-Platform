@@ -10,6 +10,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { msg } from '../../../shared/messages'
 
 const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 
@@ -222,15 +223,15 @@ function BranchPicker({ value, onChange, isDark }) {
   return (
     <div>
       <div className="flex flex-wrap gap-1 mb-1.5">
-        {picked.length === 0 && <span className="text-[11px] opacity-60">Central staff (no branch)</span>}
+        {picked.length === 0 && <span className="text-[11px] opacity-60">{msg('AUTH_USER_CENTRAL_STAFF')}</span>}
         {picked.map(id => (
           <button key={id} type="button" onClick={() => onChange(picked.filter(x => x !== id))}
-            className="px-2 py-0.5 rounded-full text-[10px] bg-cyan-600/20 text-cyan-300 border border-cyan-600/40" title="Remove">
+            className="px-2 py-0.5 rounded-full text-[10px] bg-cyan-600/20 text-cyan-300 border border-cyan-600/40" title={msg('AUTH_USER_REMOVE')}>
             {id} ✕
           </button>
         ))}
       </div>
-      <input className={inputCls(isDark)} placeholder="Search branch name or IFSC to add…" value={q} onChange={e => setQ(e.target.value)} />
+      <input className={inputCls(isDark)} placeholder={msg('AUTH_USER_BRANCH_SEARCH')} value={q} onChange={e => setQ(e.target.value)} />
       {(data ?? []).length > 0 && (
         <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-white/10">
           {data.filter(b => !picked.includes(b.branch_id)).map(b => (
@@ -338,7 +339,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
         </div>
 
         {showPU && (
-          <Field label="Processing Unit" isDark={isDark} hint="The PU this reviewer works (ALL = every PU)">
+          <Field label={msg('AUTH_USER_PU_LABEL')} isDark={isDark} hint={msg('AUTH_USER_PU_HINT')}>
             <select className={inputCls(isDark)} value={form.pu_id} onChange={e => set('pu_id', e.target.value)}>
               <option value="">— select PU —</option>
               <option value="ALL">ALL</option>
@@ -348,7 +349,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
         )}
 
         {showPU && (
-          <Field label="Branches" isDark={isDark} hint="Branch staff (a branch maker) are assigned to branches; leave empty for central staff">
+          <Field label={msg('AUTH_USER_BRANCHES_LABEL')} isDark={isDark} hint={msg('AUTH_USER_BRANCHES_HINT')}>
             <BranchPicker value={form.branch_ids} onChange={v => set('branch_ids', v)} isDark={isDark} />
           </Field>
         )}

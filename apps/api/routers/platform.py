@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
@@ -235,7 +236,7 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
             check_id="micr_prefixes", label="MICR Prefixes configured",
-            status="WARN", detail="DB unavailable",
+            status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"),
             action_url="/cts/config/micr-prefixes",
         )
     try:
@@ -267,7 +268,7 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
             check_id="ops_users", label="Ops reviewers configured",
-            status="WARN", detail="DB unavailable",
+            status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"),
             action_url="/admin/users",
         )
     try:
@@ -712,7 +713,7 @@ async def get_readiness(
     role    = user["role"]    if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool  = getattr(request.app.state, "db_pool_cts", None)
     redis_cts = getattr(request.app.state, "redis_cts", None)
@@ -756,7 +757,7 @@ async def run_smoke_tests(
 ) -> SmokeTestRunResponse:
     role = user["role"] if isinstance(user, dict) else user.role
     if role not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = body.bank_id
     entity  = body.entity
@@ -940,7 +941,7 @@ async def onboard_bank(
     _require_platform_admin(ctx)
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
     async with db.acquire() as conn:
         row = await conn.fetchrow(
             f"INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type, ngch_member_code) "
@@ -971,7 +972,7 @@ async def list_banks(
     _require_platform_admin(ctx)
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
     async with db.acquire() as conn:
         rows = await conn.fetch(f"SELECT {_BANK_COLS} FROM platform.banks ORDER BY bank_id LIMIT 100")
     return BankListResponse(banks=[_bank_response(r) for r in rows])

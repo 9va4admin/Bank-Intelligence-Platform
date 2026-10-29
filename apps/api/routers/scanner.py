@@ -34,6 +34,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
+from shared.messages import get_message
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from opentelemetry import trace
@@ -215,7 +216,7 @@ async def register_scanner(
     stores it locally and uses it on every heartbeat call.
     """
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner.register") as span:
         bank_id = current_user["bank_id"]
@@ -504,7 +505,7 @@ async def fleet_status(
 ) -> FleetResponse:
     """Fleet monitoring — all scanner registrations for the authenticated bank."""
     if current_user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner.fleet") as span:
         bank_id = current_user["bank_id"]
@@ -562,7 +563,7 @@ async def agent_status(
         span.set_attribute("branch_id", branch_id)
 
         if role not in ("bank_it_admin", "platform_admin", "ops_manager"):
-            raise HTTPException(status_code=403, detail="Insufficient role")
+            raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
         db_pool = _get_db_pool(request)
         if db_pool:
@@ -632,7 +633,7 @@ async def branch_scanner_status(
 ) -> RegistrationSummary:
     """Per-branch scanner status — returns the active registration for this branch."""
     if current_user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner.branch_status") as span:
         bank_id = current_user["bank_id"]
@@ -690,7 +691,7 @@ async def deactivate_scanner(
     Token rotation: deactivate then re-register to issue a fresh token.
     """
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner.deactivate") as span:
         bank_id = current_user["bank_id"]

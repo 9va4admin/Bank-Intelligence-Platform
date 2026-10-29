@@ -19,6 +19,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
 import useOpsDashboard from '../hooks/useOpsDashboard'
+import { msg } from '../../../shared/messages'
 
 // The bank files to one NGCH grid through one gateway, and its work is organised in processing units (PUs). The gateway going
 // DEGRADED is an NPCI-connectivity risk, not a routine stat, so it is shown first on My Bank; the PUs show where work is queued.
@@ -38,10 +39,10 @@ function GatewayStrip({ isDark }) {
   return (
     <Link to="/cts/admin/processing-units" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>NGCH Gateway · Processing Units</span>
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>{msg('CTS_OUT_GATEWAY_TITLE')}</span>
         {degraded.length > 0 && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
-            {degraded.length} PU{degraded.length > 1 ? 's' : ''} degraded
+            {degraded.length === 1 ? msg('CTS_OUT_GATEWAY_DEGRADED_ONE') : msg('CTS_OUT_GATEWAY_DEGRADED_MANY', { count: degraded.length })}
           </span>
         )}
       </div>
@@ -56,7 +57,7 @@ function GatewayStrip({ isDark }) {
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
               <span className="font-medium">{z.pu}</span>
-              {!ok && <span className="font-mono opacity-80">· {z.iet_risk} IET risk</span>}
+              {!ok && <span className="font-mono opacity-80">{msg('CTS_OUT_GATEWAY_IET_RISK', { count: z.iet_risk })}</span>}
             </div>
           )
         })}

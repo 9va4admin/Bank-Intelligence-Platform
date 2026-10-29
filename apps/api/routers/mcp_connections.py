@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.audit.stream_buffer import buffer_audit_event
 from shared.auth.rbac import RBACPolicy, UserContext
@@ -358,7 +359,7 @@ async def get_current_user(
 
 def _require_admin(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] not in _ALLOWED_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     return user
 
 

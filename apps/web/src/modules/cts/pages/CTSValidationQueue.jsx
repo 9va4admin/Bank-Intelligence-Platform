@@ -39,7 +39,7 @@ async function postValidation(instrumentId, action, reason) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Validation failed')
+    throw new Error(err.detail || msg('CTS_WF_VAL_FAILED'))
   }
 }
 
@@ -49,7 +49,7 @@ function adaptStagedOutward(i) {
   return {
     instrument_id: i.instrument_id,
     source_stage: 'VERIFIED',
-    outcome_label: 'Maker decided',
+    outcome_label: msg('CTS_WF_VAL_MAKER_DECIDED'),
     instrument_category: i.instrument_category || 'CHEQUE',
     account_display: '****',
     drawer_name: '—',
@@ -69,7 +69,7 @@ async function postOutwardValidation(instrumentId, action, reason) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Validation failed')
+    throw new Error(err.detail || msg('CTS_WF_VAL_FAILED'))
   }
 }
 
@@ -116,6 +116,7 @@ function useInwardValidationQueue({ pollEnabled, bankId }) {
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -932,13 +933,13 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   function handleApprove(instrumentId) {
     const staged = instruments.find(i => i.instrument_id === instrumentId)
     if (!isInward && !isDemo && staged?.staged_outward) {
-      submitOutwardValidation(instrumentId, staged.maker_decision, 'Checker agrees with the maker')
+      submitOutwardValidation(instrumentId, staged.maker_decision, msg('CTS_WF_VAL_AGREES'))
       return
     }
     if (isInward && !isDemo) {
       // Approve = the checker agrees with the maker.
       const inst = instruments.find(i => i.instrument_id === instrumentId)
-      submitValidation(instrumentId, inst?.maker_decision ?? 'CONFIRM', 'Checker agrees with the maker')
+      submitValidation(instrumentId, inst?.maker_decision ?? 'CONFIRM', msg('CTS_WF_VAL_AGREES'))
       return
     }
     removeRow(instrumentId)
@@ -948,12 +949,12 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
     setReturnOpenFor(null)
     const staged = instruments.find(i => i.instrument_id === instrumentId)
     if (!isInward && !isDemo && staged?.staged_outward) {
-      submitOutwardValidation(instrumentId, 'REJECTED', reason || 'Returned by checker')
+      submitOutwardValidation(instrumentId, 'REJECTED', reason || msg('CTS_WF_VAL_RETURNED'))
       return
     }
     if (isInward && !isDemo) {
       // Return = the checker overrules to RETURN, with the chosen return reason.
-      submitValidation(instrumentId, 'RETURN', reason || 'Returned by checker')
+      submitValidation(instrumentId, 'RETURN', reason || msg('CTS_WF_VAL_RETURNED'))
       return
     }
     removeRow(instrumentId)
@@ -1100,7 +1101,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                           {inst.name_match && <NameMatchBadge verdict={inst.name_match} isDark={isDark} short />}
                         </div>
                         {inst.maker_id && (
-                          <div className={`text-[10px] mt-0.5 ${th.muted}`} title="The first decision, which the checker confirms or overrules">
+                          <div className={`text-[10px] mt-0.5 ${th.muted}`} title={msg('CTS_WF_VAL_FIRST_DECISION_TITLE')}>
                             Maker {inst.maker_id}: <span className="font-semibold">{inst.maker_decision}</span>
                           </div>
                         )}
