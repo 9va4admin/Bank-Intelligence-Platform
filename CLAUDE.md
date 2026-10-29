@@ -211,7 +211,10 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
 - **Maker-checker (2026-10-28).** `cts.maker_checker_enabled` (off by default): a reviewer's first decision (the maker's) is not filed; the item moves to
   the `VAL` bucket and a different person confirms or overrules it (`POST /v1/cts/review/{id}/validate`; the maker is refused at claim, assign and
   validate). No checker within `checker_review_timeout_minutes` files the maker's decision (never past the IET guard). Outward held items use
-  `cts.outward_review_stage` and `/outward/review/{id}/validate`; outward has no checker timeout yet. Found by the first live 4-user run
+  `cts.outward_review_stage` and `/outward/review/{id}/validate`. Outward held items share the inward allocation locks and heartbeat pool
+  (no buckets): a reviewer holds an item while deciding, AUTO mode assigns on queue poll (HYBRID does not), the maker's decision releases it for a
+  checker (never the maker), and a staged decision no checker takes within `checker_review_timeout_minutes` is filed on the maker's word when the
+  validation queue is next read (outward has no workflow to time out). Found by the first live 4-user run
   ([report](docs/reports/ASTRA_4User_MakerChecker_E2E_2026-10-28.md), kept untracked): approved admin settings had never been applied, and the reviewer
   queue had always been empty on a real Temporal (it used a search attribute nothing set) - both fixed.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
