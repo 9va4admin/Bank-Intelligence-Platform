@@ -36,7 +36,7 @@ function GatewayStrip({ isDark }) {
   }
   const degraded = PU_STATUS.filter(z => z.status !== 'ACTIVE')
   return (
-    <Link to="/cts/rpc" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
+    <Link to="/cts/admin/processing-units" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
       <div className="flex items-center justify-between mb-2">
         <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>NGCH Gateway · Processing Units</span>
         {degraded.length > 0 && (

@@ -130,13 +130,6 @@ const SIDEBAR_MODULES = [
         ],
       },
       {
-        label: 'RPC — NGCH Gateway',
-        directLink: true,
-        items: [
-          { to: '/cts/rpc', label: 'RPC — NGCH Gateway', perm: 'cts:view_analytics', sbOnly: true },
-        ],
-      },
-      {
         label: 'Outward Clearing',
         items: [
           { to: '/cts/hub',                         label: 'Hub Manager',                  perm: 'cts:submit_decision', sbOnly: true },
@@ -293,7 +286,6 @@ const ROUTE_LABELS = {
   '/cts/endorsement':   ['Processing', 'Endorsement'],
   '/cts/iqa':           ['Processing', 'Image Quality Assessment'],
   '/cts/scanner':       ['Processing', 'Scanner SDK'],
-  '/cts/rpc':           ['RPC — NGCH Gateway', 'Zone Gateway Status'],
   '/cts/pipeline':          ['Drawee Process', 'Inward Pipeline — AI View'],
   '/cts/inward-pipeline':   ['Drawee Process', 'Inward Pipeline — Animated'],
   '/cts/demo':              ['Demo', 'End-to-End Live Demo — Presentment · NPCI · Drawee'],

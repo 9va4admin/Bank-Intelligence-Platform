@@ -152,18 +152,19 @@ queue and Kafka inward topic), not a grid. Done: the one-PU-per-zone index is go
 on a PU (migration `20261029_034`); reviewers are scoped to PUs (`UserContext.pu_ids`, JWT claim `pu_ids`, `local_auth_accounts.pu_ids`) and
 allocation scopes by `pu_id` (`pu_allows`, item meta `pu_id`, `reviewer-pus:` Redis key); the RRF and CRL no longer carry a zone (NPCI's
 specifications in `docs/npci/source/` define no zone element - checked); day-end sealing files every PU's lots under the one bank-default
-centre; MICR routing rules and the NGCH routing screen have no zone; no screen shows a zone (a test fails the build if one does). **Still to
-retire** (they embody "one RPC per zone"): the RPC consolidation page and `/v1/cts/rpc/zones`, the tables `cts.clearing_zones` /
-`processing_centers` / `rpc_zones`, and the deprecated unused columns (`processing_units.clearing_zone`, `local_auth_accounts.clearing_zones`,
-`cheque_instruments.clearing_zone`, `micr_routing_rules.clearing_zone`).
+centre; MICR routing rules and the NGCH routing screen have no zone; no screen shows a zone (a test fails the build if one does). **Retired (2026-10-29):** the RPC consolidation page, its route and nav entry, and `GET /v1/cts/rpc/zones` (a removal agreed with the bank
+owner; the API was never released to a bank, so no `/v2` was needed). **Kept on purpose:** the tables `cts.clearing_zones` /
+`processing_centers` / `rpc_zones` and the deprecated unused columns (`processing_units.clearing_zone`, `local_auth_accounts.clearing_zones`,
+`cheque_instruments.clearing_zone`, `micr_routing_rules.clearing_zone`) - `cts.clearing_sessions` still has foreign keys to the zone and centre
+tables (day-end sealing uses one DEFAULT row), so dropping them is a separate migration once sessions stop referencing them, and columns are
+dropped by the rename-keep-drop pattern in the database rules.
 
 **Outward (2026-10-29):** the session cut-off is bank configuration (`cts.outward_session_cutoffs`, a list of local "HH:MM", default 14:30;
 `outward_session_timezone`; `modules/cts/outward_sessions.py`) and drives allocation urgency, filing of staged decisions
 `outward_cutoff_guard_minutes` before the cut-off, and the checker timeout. Outward items carry their branch's PU in the allocation record.
 Who may make a decision is `cts.outward_maker_scope` = CENTRAL (default) | BRANCH | BRANCH_FIRST (+ `outward_branch_first_fallback_minutes`),
 and who may check is `outward_checker_scope` = ANY | CENTRAL (`modules/cts/outward_scope.py`); a user is branch staff when assigned branches
-(`branch_ids`, set in User Management) and central staff when not. Not yet built: outward buckets and outward rows in the Allocation panel,
-and the original-instrument custody register (branch first, then central storage).
+(`branch_ids`, set in User Management) and central staff when not. Outward buckets, the Allocation panel rows and the original-instrument custody register (branch first, then central storage) are built.
 
 ### 2.11 Inward Safety Gates Added After Real-Image Testing (2026-10-13)
 

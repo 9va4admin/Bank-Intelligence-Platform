@@ -16,7 +16,6 @@ Routes:
   GET  /v1/cts/admin/login-log
   GET  /v1/cts/admin/ngch-routing
   GET  /v1/cts/admin/micr-prefixes
-  GET  /v1/cts/rpc/zones
 """
 from __future__ import annotations
 
@@ -721,79 +720,3 @@ async def get_micr_prefixes(
         for r in rows
     ]
     return MICRPrefixesResponse(bank_id=bank_id, items=items, total=len(items))
-
-
-# ---------------------------------------------------------------------------
-# RPC Zones
-# ---------------------------------------------------------------------------
-
-class RPCZoneItem(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    zone_id: str
-    zone_name: str
-    ngch_node: str
-    instrument_count_today: int
-    settled_count: int
-    pending_count: int
-    status: str
-    last_sync_at: OptIsoTimestamp = None
-
-
-class RPCZonesResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    bank_id: str
-    zones: list[RPCZoneItem]
-    total: int
-
-
-@router_v1.get("/rpc/zones", response_model=RPCZonesResponse)
-async def get_rpc_zones(
-    request: Request,
-    ctx: UserContext = Depends(get_current_user_context),
-) -> RPCZonesResponse:
-    bank_id = ctx.bank_id
-    db = getattr(request.app.state, "db_pool_cts", None)
-    if db is None:
-        return RPCZonesResponse(bank_id=bank_id, zones=[], total=0)
-
-    try:
-        rows = await db.fetch(
-            """
-            SELECT
-                z.zone_id,
-                z.zone_name,
-                z.ngch_node,
-                z.status,
-                z.last_sync_at::text,
-                COUNT(l.lot_id)::int                                             AS instrument_count_today,
-                COUNT(l.lot_id) FILTER (WHERE l.status = 'SETTLED')::int        AS settled_count,
-                COUNT(l.lot_id) FILTER (WHERE l.status NOT IN ('SETTLED','PARTIAL_FAIL'))::int AS pending_count
-            FROM cts.rpc_zones z
-            LEFT JOIN cts.lots l
-                   ON l.zone_id = z.zone_id
-                  AND l.bank_id = $1
-                  AND l.created_at::date = CURRENT_DATE
-            WHERE z.bank_id = $1
-            GROUP BY z.zone_id, z.zone_name, z.ngch_node, z.status, z.last_sync_at
-            ORDER BY z.zone_name
-            """,
-            bank_id,
-        )
-    except Exception as exc:
-        log.warning("cts.rpc_zones.query_failed", bank_id=bank_id, error=str(exc))
-        return RPCZonesResponse(bank_id=bank_id, zones=[], total=0)
-
-    zones = [
-        RPCZoneItem(
-            zone_id=r["zone_id"],
-            zone_name=r["zone_name"],
-            ngch_node=r["ngch_node"] or "",
-            instrument_count_today=r["instrument_count_today"],
-            settled_count=r["settled_count"],
-            pending_count=r["pending_count"],
-            status=r["status"] or "ACTIVE",
-            last_sync_at=r["last_sync_at"],
-        )
-        for r in rows
-    ]
-    return RPCZonesResponse(bank_id=bank_id, zones=zones, total=len(zones))
