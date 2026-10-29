@@ -27,6 +27,9 @@ ALLOCATION_KEYS = {
     "cts.bucket_corporate_account_types": ["CORPORATE"],
     "cts.bucket_institution_account_types": ["INSTITUTION", "GOVERNMENT"],
     "cts.bucket_overflow_after_minutes": 10,
+    "cts.outward_session_cutoffs": ["14:30"],          # outward clearing session cut-off(s), local time - configurable per bank
+    "cts.outward_session_timezone": "Asia/Kolkata",
+    "cts.outward_cutoff_guard_minutes": 10,
     "cts.sip_review_timeout_minutes": 15,
     "cts.bucket_routing_enabled": False,
     "cts.sip_iet_guard_minutes": 10,

@@ -25,6 +25,7 @@ Routes:
 from __future__ import annotations
 
 import json
+import time
 from datetime import date
 from typing import List, Literal, Optional
 
@@ -34,6 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
+from modules.cts.outward_sessions import next_cutoff, seconds_to_cutoff
 from shared.auth.rbac import UserContext
 
 from .cts_deps import (
@@ -122,6 +124,8 @@ class OutwardQueueItem(BaseModel):
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT"
     assigned_to: Optional[str] = None     # reviewer holding the item (allocation lock), if any
     assigned_to_me: Optional[bool] = None  # True when the caller holds it
+    pu_id: Optional[str] = None           # the processing unit of the item's branch
+    due_at: Optional[float] = None        # epoch seconds: when the session this item is for closes
 
 
 class OutwardQueueResponse(BaseModel):
@@ -162,6 +166,8 @@ class OutwardValidationItem(BaseModel):
     made_at: IsoTimestamp
     assigned_to: Optional[str] = None     # checker holding the item, if any
     assigned_to_me: Optional[bool] = None
+    pu_id: Optional[str] = None
+    due_at: Optional[float] = None
 
 
 class OutwardValidationQueueResponse(BaseModel):
@@ -417,7 +423,9 @@ _OUTWARD_Q_ROLES = {"ops_reviewer", "ops_manager", "bank_it_admin", "branch_mana
 SQL_MAKER_QUEUE = ("SELECT instrument_id, scan_id AS cheque_number, NULL::text AS account_display, "
                    "payee_display, amount_range, outcome AS status, NULL::float AS fraud_score, "
                    "NULL::float AS ocr_confidence, reject_reason AS review_reason, "
-                   "scanned_at::text AS received_at, branch_id, lot_id, instrument_category "
+                   "scanned_at::text AS received_at, branch_id, lot_id, instrument_category, "
+                   "(SELECT b.pu_id FROM cts.branches b WHERE b.bank_id = outward_scan_events.bank_id "
+                   "AND b.branch_id = outward_scan_events.branch_id LIMIT 1) AS pu_id "
                    "FROM cts.outward_scan_events "
                    "WHERE bank_id = $1 "
                    "AND outcome IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'CTS_REJECTED', 'WORKFLOW_ERROR') "
@@ -426,6 +434,8 @@ SQL_MAKER_QUEUE = ("SELECT instrument_id, scan_id AS cheque_number, NULL::text A
                    "AND NOT EXISTS (SELECT 1 FROM cts.outward_review_stage g WHERE g.bank_id = outward_scan_events.bank_id "
                    "AND g.instrument_id = outward_scan_events.instrument_id) "
                    "ORDER BY scanned_at DESC LIMIT $2")
+SQL_ITEM_PU = ("SELECT b.pu_id FROM cts.outward_scan_events e JOIN cts.branches b "
+               "ON b.bank_id = e.bank_id AND b.branch_id = e.branch_id WHERE e.bank_id = $1 AND e.instrument_id = $2 LIMIT 1")
 _OUTWARD_CHECK_ROLES = {"ops_reviewer", "ops_manager"}
 SQL_STAGE_INSERT = ("INSERT INTO cts.outward_review_stage (bank_id, instrument_id, maker_id, maker_decision, maker_reason) "
                     "VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING")
@@ -436,7 +446,8 @@ SQL_STAGE_FINAL = ("UPDATE cts.outward_review_stage SET status = 'FINAL', checke
 SQL_STAGE_LIST = ("SELECT g.instrument_id, e.scan_id AS cheque_number, e.payee_display, e.amount_range, "
                   "e.reject_reason AS review_reason, e.branch_id, e.lot_id, e.instrument_category, "
                   "g.maker_id, g.maker_decision, g.maker_reason, g.made_at::text AS made_at, "
-                  "EXTRACT(EPOCH FROM (now() - g.made_at)) AS age_seconds "
+                  "EXTRACT(EPOCH FROM (now() - g.made_at)) AS age_seconds, "
+                  "(SELECT b.pu_id FROM cts.branches b WHERE b.bank_id = g.bank_id AND b.branch_id = e.branch_id LIMIT 1) AS pu_id "
                   "FROM cts.outward_review_stage g LEFT JOIN cts.outward_scan_events e "
                   "ON e.bank_id = g.bank_id AND e.instrument_id = g.instrument_id "
                   "WHERE g.bank_id = $1 AND g.status = 'MAKER_DECIDED' ORDER BY g.made_at LIMIT $2")
@@ -695,7 +706,9 @@ async def get_outward_human_review_queue(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
 
     cfg = await _cts_config(request, bank_id)
-    holders = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg)
+    holders = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg,
+                                        pu_by_id={r["instrument_id"]: r.get("pu_id") for r in rows})
+    due_at = next_cutoff(time.time(), cfg)
     items = [
         OutwardQueueItem(
             instrument_id=r["instrument_id"],
@@ -713,6 +726,8 @@ async def get_outward_human_review_queue(
             instrument_category=r["instrument_category"] or "CHEQUE",
             assigned_to=holders.get(r["instrument_id"]),
             assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id,
+            pu_id=r.get("pu_id"),
+            due_at=due_at,
         )
         for r in rows
     ]
@@ -743,7 +758,7 @@ def _lock_service(request: Request):
 
 
 async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids: list, cfg: dict,
-                              exclude_by_id: Optional[dict] = None) -> dict:
+                              exclude_by_id: Optional[dict] = None, pu_by_id: Optional[dict] = None) -> dict:
     """Heartbeat the caller, assign unheld items in AUTO mode (never to an excluded person), return {instrument_id: holder}.
     Outward items carry no bucket, so any active reviewer is eligible; their load counts alongside inward work."""
     lock = _lock_service(request)
@@ -754,6 +769,11 @@ async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids
         if ctx.role.value in ("ops_reviewer", "ops_manager"):
             await lock.heartbeat_reviewer(bank_id, ctx.user_id, pu_ids=list(getattr(ctx, "pu_ids", None) or []))
         holders = dict(await lock.get_lock_holders(instrument_ids))
+        # What allocation needs to know about each item: its PU, and when its session closes (the deadline that makes
+        # an item urgent). Refreshed on every read because the next cut-off moves on once a session has closed.
+        deadline = next_cutoff(time.time(), cfg)
+        for iid in instrument_ids:
+            await lock.update_item_meta(bank_id, iid, pu_id=(pu_by_id or {}).get(iid), iet_deadline=deadline)
         if cfg.get("allocation_mode") == "AUTO":
             from modules.cts.allocation.allocation_service import AllocationService
             alloc = AllocationService(lock_service=lock)
@@ -771,8 +791,28 @@ async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids
         return {}
 
 
+async def _check_pu_scope(request: Request, ctx: UserContext, instrument_id: str) -> None:
+    """A reviewer scoped to processing units may only work items of those PUs (an item whose PU is unknown is open to all)."""
+    scope = list(getattr(ctx, "pu_ids", None) or [])
+    if ctx.role.value != "ops_reviewer" or not scope or "ALL" in scope:
+        return
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return
+    try:
+        async with db.acquire() as conn:
+            row = await conn.fetchrow(SQL_ITEM_PU, ctx.bank_id, instrument_id)
+    except Exception:  # noqa: BLE001 - a lookup problem must not lock reviewers out
+        return
+    pu = row["pu_id"] if row else None
+    if pu and pu not in scope:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This instrument belongs to a processing unit you are not scoped to")
+
+
 async def _take_or_check_claim(request: Request, ctx: UserContext, instrument_id: str, cfg: dict) -> None:
     """Whoever decides must hold the item: take it if free, refuse (409, without saying who) if another reviewer holds it."""
+    await _check_pu_scope(request, ctx, instrument_id)
     lock = _lock_service(request)
     if lock is None:
         return
@@ -928,10 +968,12 @@ async def _file_overdue_maker_decisions(request: Request, ctx: UserContext, db, 
     means a checker and this timeout can never both file the same item."""
     from types import SimpleNamespace
     timeout_s = max(1, int(cfg.get("checker_review_timeout_minutes", 15))) * 60
+    guard_s = max(0, int(cfg.get("outward_cutoff_guard_minutes", 10))) * 60
+    near_cutoff = seconds_to_cutoff(time.time(), cfg) <= guard_s       # file now: a decision must never miss the session
     system = SimpleNamespace(bank_id=ctx.bank_id, user_id="SYSTEM")
     kept = []
     for r in rows:
-        if float(r.get("age_seconds") or 0.0) < timeout_s:
+        if float(r.get("age_seconds") or 0.0) < timeout_s and not near_cutoff:
             kept.append(r)
             continue
         try:
@@ -944,7 +986,7 @@ async def _file_overdue_maker_decisions(request: Request, ctx: UserContext, db, 
         if not str(claimed).endswith(" 1"):
             continue                                          # a checker got there first
         await _file_outward_decision(request, system, r["instrument_id"], r["maker_decision"],
-                                     "Filed on the maker's decision: no checker acted in time")
+                                     "Filed on the maker's decision: no checker acted before the timeout or the session cut-off")
         await _release_claim(request, system, r["instrument_id"])
         log.info("cts.outward_review.maker_auto_filed", instrument_id=r["instrument_id"], maker_id=r["maker_id"],
                  action=r["maker_decision"], bank_id=ctx.bank_id)
@@ -971,13 +1013,16 @@ async def get_outward_validation_queue(
     cfg = await _cts_config(request, ctx.bank_id)
     rows = await _file_overdue_maker_decisions(request, ctx, db, rows, cfg)
     holders = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg,
-                                        exclude_by_id={r["instrument_id"]: r["maker_id"] for r in rows})
+                                        exclude_by_id={r["instrument_id"]: r["maker_id"] for r in rows},
+                                        pu_by_id={r["instrument_id"]: r.get("pu_id") for r in rows})
+    due_at = next_cutoff(time.time(), cfg)
     items = [OutwardValidationItem(
         instrument_id=r["instrument_id"], cheque_number=r["cheque_number"] or "", payee_display=r["payee_display"] or "",
         amount_range=r["amount_range"] or "", review_reason=r["review_reason"], branch_id=r["branch_id"], lot_id=r["lot_id"],
         instrument_category=r["instrument_category"] or "CHEQUE", maker_id=r["maker_id"],
         maker_decision=r["maker_decision"], maker_reason=r["maker_reason"], made_at=str(r["made_at"]),
-        assigned_to=holders.get(r["instrument_id"]), assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id) for r in rows]
+        assigned_to=holders.get(r["instrument_id"]), assigned_to_me=holders.get(r["instrument_id"]) == ctx.user_id,
+        pu_id=r.get("pu_id"), due_at=due_at) for r in rows]
     return OutwardValidationQueueResponse(bank_id=ctx.bank_id, items=items, total=len(items))
 
 
