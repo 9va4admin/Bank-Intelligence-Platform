@@ -20,45 +20,42 @@ import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
 import useOpsDashboard from '../hooks/useOpsDashboard'
 
-// RPC zones — each is a live, independent connection to NGCH for its clearing
-// zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
-// Shown first on My Bank: an RPC going DEGRADED is an NPCI-connectivity risk,
-// not a routine stat — it belongs above the fold, not three clicks deep.
-const ZONE_STATUS = [
-  { zone: 'MUMBAI',    status: 'ACTIVE',   pending: 14, iet_risk: 2 },
-  { zone: 'DELHI',     status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
-  { zone: 'CHENNAI',   status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
-  { zone: 'KOLKATA',   status: 'ACTIVE',   pending: 3,  iet_risk: 0 },
-  { zone: 'HYDERABAD', status: 'DEGRADED', pending: 21, iet_risk: 5 },
+// The bank files to one NGCH grid through one gateway, and its work is organised in processing units (PUs). The gateway going
+// DEGRADED is an NPCI-connectivity risk, not a routine stat, so it is shown first on My Bank; the PUs show where work is queued.
+const PU_STATUS = [
+  { pu: 'PU-1', status: 'ACTIVE',   pending: 14, iet_risk: 2 },
+  { pu: 'PU-2', status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
+  { pu: 'PU-3', status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
+  { pu: 'PU-4', status: 'DEGRADED', pending: 21, iet_risk: 5 },
 ]
 
-function ZoneGatewayStrip({ isDark }) {
+function GatewayStrip({ isDark }) {
   const th = {
     card: isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
     label: isDark ? 'text-slate-400' : 'text-slate-500',
   }
-  const degraded = ZONE_STATUS.filter(z => z.status !== 'ACTIVE')
+  const degraded = PU_STATUS.filter(z => z.status !== 'ACTIVE')
   return (
     <Link to="/cts/rpc" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>RPC — NGCH Gateway Status</span>
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>NGCH Gateway · Processing Units</span>
         {degraded.length > 0 && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
-            {degraded.length} zone{degraded.length > 1 ? 's' : ''} degraded
+            {degraded.length} PU{degraded.length > 1 ? 's' : ''} degraded
           </span>
         )}
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        {ZONE_STATUS.map(z => {
+        {PU_STATUS.map(z => {
           const ok = z.status === 'ACTIVE'
           return (
-            <div key={z.zone} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
+            <div key={z.pu} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
               ok
                 ? (isDark ? 'border-emerald-700/30 bg-emerald-900/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700')
                 : (isDark ? 'border-red-700/40 bg-red-900/20 text-red-300' : 'border-red-200 bg-red-50 text-red-700')
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
-              <span className="font-medium">{z.zone}</span>
+              <span className="font-medium">{z.pu}</span>
               {!ok && <span className="font-mono opacity-80">· {z.iet_risk} IET risk</span>}
             </div>
           )
@@ -478,7 +475,7 @@ export default function CTSOpsDashboard() {
         </div>
 
         <div className="px-6 py-5 max-w-7xl">
-          {dashTab === 'mybank' && <ZoneGatewayStrip isDark={isDark} />}
+          {dashTab === 'mybank' && <GatewayStrip isDark={isDark} />}
           {dashTab === 'smb' && (
             <SMBFilterBar smbs={smbs} selectedSmbId={selectedSmbId} onSelect={setSelectedSmbId} isDark={isDark} />
           )}

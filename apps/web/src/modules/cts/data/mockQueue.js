@@ -336,8 +336,7 @@ export const MOCK_QUEUE = [
   },
 ]
 
-// Federal Bank SOUTH zone — SESSION_1 (10:30 AM session)
-// Total inward across all 4 zones: ~36,000/day; SOUTH zone SESSION_1 share: ~5,200
+// Sample daily summary for SESSION_1 (10:30 AM session)
 export const BATCH_STATS = {
   date: '11-Aug-2026',
   total_inward: 5241,

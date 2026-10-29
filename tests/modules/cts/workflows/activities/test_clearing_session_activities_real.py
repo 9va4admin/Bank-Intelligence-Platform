@@ -54,9 +54,9 @@ class Pool:
         return A()
 
 
-def _lot_row(lot_id="LOT-1", pu_id="KBL-PU-01", routing_no="KARB", branch_ifsc="KARB0000001", zone="CHENNAI"):
+def _lot_row(lot_id="LOT-1", pu_id="KBL-PU-01", routing_no="KARB", branch_ifsc="KARB0000001"):
     return {"lot_id": lot_id, "sequence_number": 1, "instrument_count": 3, "branch_id": "br-1",
-            "branch_ifsc": branch_ifsc, "pu_id": pu_id, "routing_no": routing_no, "zone_id": zone}
+            "branch_ifsc": branch_ifsc, "pu_id": pu_id, "routing_no": routing_no}
 
 
 @pytest.mark.asyncio
@@ -69,8 +69,7 @@ async def test_seal_all_lots_queries_by_bank_and_date_not_scanner_session_id():
     )
     assert res.status == "OK"
     assert res.sealed_lots == [{"lot_id": "LOT-1", "sequence_number": 1, "instrument_count": 3, "branch_id": "br-1",
-                                "branch_ifsc": "KARB0000001", "pu_id": "KBL-PU-01", "routing_no": "KARB",
-                                "zone_id": "CHENNAI"}]
+                                "branch_ifsc": "KARB0000001", "pu_id": "KBL-PU-01", "routing_no": "KARB"}]
     sql, args = conn.executed and conn.executed[-1] or (None, None)
     # a clearing_sessions row must be inserted, addressing a real center_id (not left null)
     insert_sql = [c for c in conn.executed if "INSERT INTO cts.clearing_sessions" in c[0]]
@@ -127,14 +126,14 @@ async def test_mark_lots_submitted_updates_lot_and_instrument_rows():
 
 
 @pytest.mark.asyncio
-async def test_seal_all_lots_works_for_a_pu_with_no_zone():
-    """A PU no longer has a clearing zone (a bank files to one grid): its lots must still seal, under the default centre."""
-    row = dict(_lot_row(), zone_id=None)
-    conn = Conn(lot_rows=[row], zone_row=None, center_row=None)
+async def test_all_lots_of_a_bank_go_under_its_single_processing_centre():
+    """A bank files to one grid: lots of every PU seal under the one bank-default centre, whatever the PU."""
+    conn = Conn(lot_rows=[_lot_row("L1", pu_id="PU-A"), _lot_row("L2", pu_id="PU-B")], zone_row=None, center_row=None)
     res = await seal_all_lots(
-        SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=["NEW-PU"], clearing_date="2026-09-21"),
+        SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=[], clearing_date="2026-09-21"),
         db_pool=Pool(conn),
     )
-    assert res.status == "OK"
-    zone_inserts = [c for c in conn.executed if "INSERT INTO cts.clearing_zones" in c[0]]
-    assert zone_inserts and all(None not in c[1] for c in zone_inserts), "a NULL zone id must never be inserted"
+    assert res.status == "OK" and len(res.sealed_lots) == 2
+    centre_inserts = [c for c in conn.executed if "INSERT INTO cts.processing_centers" in c[0]]
+    assert len(centre_inserts) == 1                                  # one centre, not one per PU
+    assert all(None not in c[1] for c in conn.executed if "INSERT INTO cts.clearing_zones" in c[0])

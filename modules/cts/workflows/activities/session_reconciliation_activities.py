@@ -233,7 +233,6 @@ async def generate_rrf(
                 bank_ifsc=inp.bank_ifsc,
                 bank_id=inp.bank_id,
                 session_id=inp.session_id,
-                clearing_zone="",   # resolved by session context; not in GenerateRRFInput
                 generated_at=_now,
                 returns=_return_items,
             )

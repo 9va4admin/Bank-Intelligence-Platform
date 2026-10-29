@@ -603,7 +603,6 @@ class NGCHRoutingRule(BaseModel):
     model_config = ConfigDict(frozen=True)
     rule_id: str
     micr_prefix: str
-    clearing_zone: str
     destination: str
     priority: int
     active: bool
@@ -630,7 +629,7 @@ async def get_ngch_routing(
     try:
         rows = await db.fetch(
             f"""
-            SELECT rule_id, micr_prefix, clearing_zone, destination,
+            SELECT rule_id, micr_prefix, destination,
                    priority, active, updated_at::text
             FROM cts.ngch_routing_rules
             WHERE bank_id = $1
@@ -647,7 +646,6 @@ async def get_ngch_routing(
         NGCHRoutingRule(
             rule_id=r["rule_id"],
             micr_prefix=r["micr_prefix"],
-            clearing_zone=r["clearing_zone"],
             destination=r["destination"],
             priority=r["priority"],
             active=bool(r["active"]),
@@ -668,7 +666,6 @@ class MICRPrefixItem(BaseModel):
     micr_prefix: str
     bank_name: str
     bank_ifsc: str
-    clearing_zone: str
     active: bool
     updated_at: IsoTimestamp
 
@@ -699,7 +696,7 @@ async def get_micr_prefixes(
         rows = await db.fetch(
             f"""
             SELECT prefix_id, micr_prefix, bank_name, bank_ifsc,
-                   clearing_zone, active, updated_at::text
+                   active, updated_at::text
             FROM cts.micr_prefix_routing
             WHERE bank_id = $1
               {search_clause}
@@ -718,7 +715,6 @@ async def get_micr_prefixes(
             micr_prefix=r["micr_prefix"],
             bank_name=r["bank_name"],
             bank_ifsc=r["bank_ifsc"] or "",
-            clearing_zone=r["clearing_zone"] or "",
             active=bool(r["active"]),
             updated_at=r["updated_at"] or "",
         )

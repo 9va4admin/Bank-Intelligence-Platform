@@ -128,7 +128,6 @@ def test_rrf_document_total_returns_matches_items():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=items,
     )
@@ -156,7 +155,6 @@ def test_generator_produces_valid_xml_string():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=[item],
     )
@@ -184,7 +182,6 @@ def test_generator_xml_has_correct_root_element():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=[item],
     )
@@ -212,7 +209,6 @@ def test_generator_xml_header_contains_bank_and_session():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=[item],
     )
@@ -223,7 +219,7 @@ def test_generator_xml_header_contains_bank_and_session():
     assert header.find(f'{_N}BankIFSC').text == 'SVCB0000001'
     assert header.find(f'{_N}SessionID').text == 'SES-0619-001'
     assert header.find(f'{_N}TotalReturns').text == '1'
-    assert header.find(f'{_N}ClearingZone').text == 'MUMBAI'
+    assert header.find(f'{_N}ClearingZone') is None        # NPCI's specifications define no zone element; a bank files to one grid
 
 
 def test_generator_xml_return_item_has_all_required_fields():
@@ -245,7 +241,6 @@ def test_generator_xml_return_item_has_all_required_fields():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=[item],
     )
@@ -284,7 +279,6 @@ def test_generator_xml_multiple_items():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=items,
     )
@@ -301,7 +295,6 @@ def test_generator_filename_follows_ngch_convention():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=[],
     )
@@ -320,7 +313,6 @@ def test_generator_rejects_empty_returns_list():
         bank_ifsc='SVCB0000001',
         bank_id='saraswat-mah',
         session_id='SES-0619-001',
-        clearing_zone='MUMBAI',
         generated_at=datetime(2026, 6, 19, 14, 30, tzinfo=timezone.utc),
         returns=[],
     )

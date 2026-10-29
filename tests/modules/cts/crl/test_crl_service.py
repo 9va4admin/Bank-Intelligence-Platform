@@ -43,7 +43,6 @@ def test_branch_resolution_has_required_fields():
         pu_id="PU-MUMBAI-01",
         ifsc_code="SBIN0001234",
         micr_code="400002001",
-        clearing_zone="MUMBAI",
         temporal_task_queue="cts-processing-saraswat-PU-MUMBAI-01",
         kafka_inward_topic="cts.inward.saraswat.PU-MUMBAI-01",
     )
@@ -57,7 +56,6 @@ def test_branch_resolution_serialises_to_dict():
     r = BranchResolution(
         branch_id="b1", bank_id="sb1", pu_id="pu1",
         ifsc_code="SBIN0001", micr_code="400001001",
-        clearing_zone="MUMBAI",
         temporal_task_queue="cts-processing-sb1-pu1",
         kafka_inward_topic="cts.inward.sb1.pu1",
     )
@@ -72,14 +70,12 @@ def test_branch_resolution_from_dict_roundtrip():
     original = BranchResolution(
         branch_id="b1", bank_id="sb1", pu_id="pu1",
         ifsc_code="SBIN0001", micr_code="400001001",
-        clearing_zone="MUMBAI",
         temporal_task_queue="cts-processing-sb1-pu1",
         kafka_inward_topic="cts.inward.sb1.pu1",
     )
     restored = BranchResolution.from_dict(original.to_dict())
     assert restored.branch_id == original.branch_id
     assert restored.pu_id == original.pu_id
-    assert restored.clearing_zone == original.clearing_zone
 
 
 # ── 3. Cache key helpers ──────────────────────────────────────────────────────
@@ -104,7 +100,6 @@ async def test_resolve_returns_cached_value_without_db_call():
     cached_resolution = BranchResolution(
         branch_id="b1", bank_id="sb1", pu_id="pu1",
         ifsc_code="SBIN0001234", micr_code="400001001",
-        clearing_zone="MUMBAI",
         temporal_task_queue="cts-processing-sb1-pu1",
         kafka_inward_topic="cts.inward.sb1.pu1",
     )
@@ -129,7 +124,6 @@ async def test_resolve_cache_hit_does_not_call_redis_set():
     cached = BranchResolution(
         branch_id="b1", bank_id="sb1", pu_id="pu1",
         ifsc_code="SBIN0001234", micr_code="400001001",
-        clearing_zone="MUMBAI",
         temporal_task_queue="cts-processing-sb1-pu1",
         kafka_inward_topic="cts.inward.sb1.pu1",
     )
@@ -154,7 +148,6 @@ async def test_resolve_cache_miss_queries_db():
     db_row = {
         "branch_id": "b2", "bank_id": "sb2", "pu_id": "pu2",
         "branch_ifsc": "HDFC0000001", "micr_code": "400151001",
-        "clearing_zone": "MUMBAI",
         "temporal_task_queue": "cts-processing-sb2-pu2",
         "kafka_inward_topic": "cts.inward.sb2.pu2",
     }
@@ -179,7 +172,6 @@ async def test_resolve_cache_miss_populates_cache():
     db_row = {
         "branch_id": "b3", "bank_id": "sb3", "pu_id": "pu3",
         "branch_ifsc": "KOTAK0000001", "micr_code": "400485001",
-        "clearing_zone": "MUMBAI",
         "temporal_task_queue": "cts-processing-sb3-pu3",
         "kafka_inward_topic": "cts.inward.sb3.pu3",
     }
@@ -330,7 +322,6 @@ async def test_resolve_micr_falls_back_to_ifsc_resolution():
     cached = BranchResolution(
         branch_id="b4", bank_id="sb4", pu_id="pu4",
         ifsc_code="AXIS0001234", micr_code="400151002",
-        clearing_zone="MUMBAI",
         temporal_task_queue="cts-processing-sb4-pu4",
         kafka_inward_topic="cts.inward.sb4.pu4",
     )

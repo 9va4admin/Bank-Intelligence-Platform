@@ -166,7 +166,6 @@ class RRFDocument:
     bank_ifsc: str
     bank_id: str
     session_id: str
-    clearing_zone: str
     generated_at: datetime
     returns: list[ReturnItem]
 

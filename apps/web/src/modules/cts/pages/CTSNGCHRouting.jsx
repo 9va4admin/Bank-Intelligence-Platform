@@ -47,43 +47,19 @@ function useNGCHStatus({ pollEnabled }) {
 const ROUTING_RULES = [
   {
     id: 'R001',
-    name: 'Default Mumbai Zone',
-    condition: 'MICR prefix 4xxxxx',
-    destination: 'CTS-MUMBAI Grid',
-    grid: 'MUMBAI',
+    name: 'Default NGCH Route',
+    condition: 'Any MICR prefix',
+    destination: 'NGCH',
     priority: 10,
-    type: 'ZONE',
+    type: 'DEFAULT',
     status: 'ACTIVE',
-    filings_today: 1842,
-  },
-  {
-    id: 'R002',
-    name: 'Default Delhi Zone',
-    condition: 'MICR prefix 1xxxxx',
-    destination: 'CTS-DELHI Grid',
-    grid: 'DELHI',
-    priority: 10,
-    type: 'ZONE',
-    status: 'ACTIVE',
-    filings_today: 934,
-  },
-  {
-    id: 'R003',
-    name: 'Default Chennai Zone',
-    condition: 'MICR prefix 5xxxxx or 6xxxxx',
-    destination: 'CTS-CHENNAI Grid',
-    grid: 'CHENNAI',
-    priority: 10,
-    type: 'ZONE',
-    status: 'ACTIVE',
-    filings_today: 612,
+    filings_today: 3388,
   },
   {
     id: 'R004',
     name: 'High-Value Override',
-    condition: 'Amount > ₹5,00,000 (any zone)',
-    destination: 'CTS-MUMBAI Priority Lane',
-    grid: 'MUMBAI',
+    condition: 'Amount > ₹5,00,000',
+    destination: 'NGCH Priority Lane',
     priority: 5,
     type: 'OVERRIDE',
     status: 'ACTIVE',
@@ -93,8 +69,7 @@ const ROUTING_RULES = [
     id: 'R005',
     name: 'Government Cheque Route',
     condition: "Payee name contains 'GOVT OF' or 'INCOME TAX'",
-    destination: 'CTS-MUMBAI Govt Lane',
-    grid: 'MUMBAI',
+    destination: 'NGCH Govt Lane',
     priority: 3,
     type: 'SPECIAL',
     status: 'ACTIVE',
@@ -105,7 +80,6 @@ const ROUTING_RULES = [
     name: 'Sub-Member Sponsor Route',
     condition: 'Drawee bank is sponsored sub-member',
     destination: 'Sponsor Bank Clearing Account',
-    grid: 'SPONSOR',
     priority: 4,
     type: 'SUB_MEMBER',
     status: 'ACTIVE',
@@ -114,9 +88,8 @@ const ROUTING_RULES = [
   {
     id: 'R007',
     name: 'IET Emergency Fallback',
-    condition: 'T-30s watchdog trigger (any zone)',
-    destination: 'Emergency NGCH Queue (any available grid)',
-    grid: 'ANY',
+    condition: 'T-30s watchdog trigger',
+    destination: 'Emergency NGCH Queue',
     priority: 1,
     type: 'EMERGENCY',
     status: 'ACTIVE',
@@ -135,14 +108,14 @@ const NGCH_STATUS = {
 }
 
 const TYPE_COLORS_D = {
-  ZONE: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
+  DEFAULT: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
   OVERRIDE: 'bg-violet-900/40 text-violet-300 border-violet-700/50',
   SPECIAL: 'bg-amber-900/40 text-amber-300 border-amber-700/50',
   SUB_MEMBER: 'bg-cyan-900/40 text-cyan-300 border-cyan-700/50',
   EMERGENCY: 'bg-red-900/40 text-red-300 border-red-700/50',
 }
 const TYPE_COLORS_L = {
-  ZONE: 'bg-blue-100 text-blue-700 border-blue-300',
+  DEFAULT: 'bg-blue-100 text-blue-700 border-blue-300',
   OVERRIDE: 'bg-violet-100 text-violet-700 border-violet-300',
   SPECIAL: 'bg-amber-100 text-amber-700 border-amber-300',
   SUB_MEMBER: 'bg-cyan-100 text-cyan-700 border-cyan-300',
@@ -164,9 +137,8 @@ export default function CTSNGCHRouting() {
       name: r.destination,
       condition: `MICR prefix ${r.micr_prefix}`,
       destination: r.destination,
-      grid: r.clearing_zone,
       priority: r.priority,
-      type: 'ZONE',
+      type: 'DEFAULT',
       status: r.active ? 'ACTIVE' : 'INACTIVE',
     }))
   }, [isDemo, liveRules])
@@ -231,7 +203,7 @@ export default function CTSNGCHRouting() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Priority', 'Rule Name', 'Condition', 'Destination Grid', 'Type', 'Filed Today', 'Status', ''].map(h => (
+                {['Priority', 'Rule Name', 'Condition', 'Destination', 'Type', 'Filed Today', 'Status', ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>

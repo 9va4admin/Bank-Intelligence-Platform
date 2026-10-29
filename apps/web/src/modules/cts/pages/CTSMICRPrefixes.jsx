@@ -29,17 +29,16 @@ function useMICRPrefixes({ pollEnabled, search }) {
 }
 
 const MOCK_MICR_PREFIXES = [
-  { id: 1, prefix: '400002',  bank: 'State Bank of India',          branch: 'Fort, Mumbai',           zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
-  { id: 2, prefix: '400004',  bank: 'HDFC Bank',                    branch: 'Nariman Point, Mumbai',  zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
-  { id: 3, prefix: '400229',  bank: 'ICICI Bank',                   branch: 'BKC, Mumbai',            zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
-  { id: 4, prefix: '110002',  bank: 'Punjab National Bank',         branch: 'Connaught Place, Delhi', zone: 'DELHI',  grid: 'CTS-DELHI',  status: 'ACTIVE'   },
-  { id: 5, prefix: '110029',  bank: 'Axis Bank',                    branch: 'Nehru Place, Delhi',     zone: 'DELHI',  grid: 'CTS-DELHI',  status: 'ACTIVE'   },
-  { id: 6, prefix: '560001',  bank: 'Canara Bank',                  branch: 'MG Road, Bengaluru',     zone: 'CHENNAI',grid: 'CTS-CHENNAI',status: 'ACTIVE'   },
-  { id: 7, prefix: '380001',  bank: 'Bank of Baroda',               branch: 'CG Road, Ahmedabad',     zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
-  { id: 8, prefix: '999001',  bank: 'TEST BANK (UAT)',              branch: 'Test Branch',            zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'INACTIVE' },
+  { id: 1, prefix: '400002',  bank: 'State Bank of India',          branch: 'Fort, Mumbai',           status: 'ACTIVE'   },
+  { id: 2, prefix: '400004',  bank: 'HDFC Bank',                    branch: 'Nariman Point, Mumbai',  status: 'ACTIVE'   },
+  { id: 3, prefix: '400229',  bank: 'ICICI Bank',                   branch: 'BKC, Mumbai',            status: 'ACTIVE'   },
+  { id: 4, prefix: '110002',  bank: 'Punjab National Bank',         branch: 'Connaught Place, Delhi',  status: 'ACTIVE'   },
+  { id: 5, prefix: '110029',  bank: 'Axis Bank',                    branch: 'Nehru Place, Delhi',      status: 'ACTIVE'   },
+  { id: 6, prefix: '560001',  bank: 'Canara Bank',                  branch: 'MG Road, Bengaluru',    status: 'ACTIVE'   },
+  { id: 7, prefix: '380001',  bank: 'Bank of Baroda',               branch: 'CG Road, Ahmedabad',     status: 'ACTIVE'   },
+  { id: 8, prefix: '999001',  bank: 'TEST BANK (UAT)',              branch: 'Test Branch',            status: 'INACTIVE' },
 ]
 
-const ZONES = ['ALL', 'MUMBAI', 'DELHI', 'CHENNAI']
 
 export default function CTSMICRPrefixes() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
@@ -55,13 +54,10 @@ export default function CTSMICRPrefixes() {
       prefix: i.micr_prefix,
       bank: i.bank_name,
       branch: `IFSC: ${i.bank_ifsc}`,
-      zone: i.clearing_zone || 'MUMBAI',
-      grid: `CTS-${i.clearing_zone || 'MUMBAI'}`,
       status: i.active ? 'ACTIVE' : 'INACTIVE',
     }))
   }, [isDemo, liveItems])
   const { isDark } = useTheme()
-  const [zone, setZone] = useState('ALL')
   const [editing, setEditing] = useState(null)
 
   const th = {
@@ -77,7 +73,6 @@ export default function CTSMICRPrefixes() {
   }
 
   const filtered = MICR_SOURCE.filter(m =>
-    (zone === 'ALL' || m.zone === zone) &&
     (m.prefix.includes(search) || m.bank.toLowerCase().includes(search.toLowerCase()) || m.branch.toLowerCase().includes(search.toLowerCase()))
   )
 
@@ -103,17 +98,6 @@ export default function CTSMICRPrefixes() {
             placeholder="Search prefix, bank, or branch…"
             className={`flex-1 h-8 px-3 rounded-lg border text-xs outline-none transition-colors ${th.input}`}
           />
-          <div className="flex gap-1.5">
-            {ZONES.map(z => (
-              <button
-                key={z}
-                onClick={() => setZone(z)}
-                className={`px-3 h-8 rounded-lg text-xs font-medium transition-all border ${zone === z ? 'bg-cyan-600 text-white border-cyan-600' : `${th.card} ${th.muted} hover:${th.body}`}`}
-              >
-                {z}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Info callout */}
@@ -126,7 +110,7 @@ export default function CTSMICRPrefixes() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['MICR Prefix', 'Drawee Bank', 'Branch', 'Zone', 'Grid', 'Status', ''].map(h => (
+                {['MICR Prefix', 'Drawee Bank', 'Branch', 'Status', ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -137,10 +121,6 @@ export default function CTSMICRPrefixes() {
                   <td className={`px-4 py-3 font-mono font-semibold tracking-widest ${th.heading}`}>{m.prefix}</td>
                   <td className={`px-4 py-3 ${th.body}`}>{m.bank}</td>
                   <td className={`px-4 py-3 ${th.muted}`}>{m.branch}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${th.badge}`}>{m.zone}</span>
-                  </td>
-                  <td className={`px-4 py-3 text-[11px] font-mono ${th.muted}`}>{m.grid}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${m.status === 'ACTIVE' ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                       {m.status}
@@ -177,7 +157,7 @@ export default function CTSMICRPrefixes() {
                 <button onClick={() => setEditing(null)} className={th.muted}>✕</button>
               </div>
               <div className="space-y-3">
-                {[['Bank Name', editing.bank], ['Branch', editing.branch], ['Grid', editing.grid]].map(([label, val]) => (
+                {[['Bank Name', editing.bank], ['Branch', editing.branch]].map(([label, val]) => (
                   <div key={label}>
                     <label className={`text-xs ${th.muted}`}>{label}</label>
                     <input defaultValue={val} className={`w-full mt-1 h-8 px-3 rounded-lg border text-xs outline-none transition-colors ${th.input}`} />

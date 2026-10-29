@@ -47,7 +47,6 @@ class RRFGenerator:
         header = ET.SubElement(root, 'Header')
         ET.SubElement(header, 'BankIFSC').text         = doc.bank_ifsc
         ET.SubElement(header, 'SessionID').text         = doc.session_id
-        ET.SubElement(header, 'ClearingZone').text      = doc.clearing_zone
         ET.SubElement(header, 'GeneratedAt').text       = doc.generated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
         ET.SubElement(header, 'TotalReturns').text      = str(doc.total_returns)
         ET.SubElement(header, 'FiledWithinIETCount').text = str(

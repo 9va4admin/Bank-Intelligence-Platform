@@ -147,15 +147,23 @@ Name (front OCR + back endorsement + deposit-slip account → vault) is separate
 ### 2.12 No Zone Concept - Branch Maps to a Processing Unit (2026-10-29, bank owner)
 
 A bank files to a **single NGCH grid** today, and a bank may have **one or more processing units (PUs)**. A branch maps to exactly one PU
-(`branches.pu_id`) - that is the whole model; there are **no clearing zones**. So a PU is a group of branches handled together (its own
-Temporal queue and Kafka inward topic), not a grid. Consequences, all done: the one-PU-per-zone unique index is dropped and `clearing_zone` /
-`ngch_participant_code` are optional on a PU (migration `20261029_034`); reviewers are scoped to PUs (`UserContext.pu_ids`, JWT claim `pu_ids`,
-`platform.local_auth_accounts.pu_ids`) and allocation scopes by `pu_id` (`pu_allows`, item meta `pu_id`, `reviewer-pus:` Redis key); the
-screens show PUs, not zones. **Second slice, not yet done** (NGCH-facing, needs a decision): `cts.clearing_zones` / `cts.processing_centers` /
-`cts.rpc_zones`, MICR routing rules' zone, the `ClearingZone` element in the RRF/CRL headers, the RPC pages and the decision-log export. The old
-columns (`processing_units.clearing_zone`, `local_auth_accounts.clearing_zones`, `cheque_instruments.clearing_zone`) are deprecated, unused, and
-dropped in a later release. Outward is expected to be able to be organised per PU, with a configurable session cut-off (2:30 pm today) and
-original-instrument custody (branch first, then central storage) - designed, not yet built.
+(`branches.pu_id`) - that is the whole model; there are **no clearing zones**. A PU is a group of branches handled together (its own Temporal
+queue and Kafka inward topic), not a grid. Done: the one-PU-per-zone index is gone and `clearing_zone` / `ngch_participant_code` are optional
+on a PU (migration `20261029_034`); reviewers are scoped to PUs (`UserContext.pu_ids`, JWT claim `pu_ids`, `local_auth_accounts.pu_ids`) and
+allocation scopes by `pu_id` (`pu_allows`, item meta `pu_id`, `reviewer-pus:` Redis key); the RRF and CRL no longer carry a zone (NPCI's
+specifications in `docs/npci/source/` define no zone element - checked); day-end sealing files every PU's lots under the one bank-default
+centre; MICR routing rules and the NGCH routing screen have no zone; no screen shows a zone (a test fails the build if one does). **Still to
+retire** (they embody "one RPC per zone"): the RPC consolidation page and `/v1/cts/rpc/zones`, the tables `cts.clearing_zones` /
+`processing_centers` / `rpc_zones`, and the deprecated unused columns (`processing_units.clearing_zone`, `local_auth_accounts.clearing_zones`,
+`cheque_instruments.clearing_zone`, `micr_routing_rules.clearing_zone`).
+
+**Outward (2026-10-29):** the session cut-off is bank configuration (`cts.outward_session_cutoffs`, a list of local "HH:MM", default 14:30;
+`outward_session_timezone`; `modules/cts/outward_sessions.py`) and drives allocation urgency, filing of staged decisions
+`outward_cutoff_guard_minutes` before the cut-off, and the checker timeout. Outward items carry their branch's PU in the allocation record.
+Who may make a decision is `cts.outward_maker_scope` = CENTRAL (default) | BRANCH | BRANCH_FIRST (+ `outward_branch_first_fallback_minutes`),
+and who may check is `outward_checker_scope` = ANY | CENTRAL (`modules/cts/outward_scope.py`); a user is branch staff when assigned branches
+(`branch_ids`, set in User Management) and central staff when not. Not yet built: outward buckets and outward rows in the Allocation panel,
+and the original-instrument custody register (branch first, then central storage).
 
 ### 2.11 Inward Safety Gates Added After Real-Image Testing (2026-10-13)
 

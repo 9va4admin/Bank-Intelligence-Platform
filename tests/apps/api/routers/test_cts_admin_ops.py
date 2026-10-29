@@ -539,7 +539,6 @@ class TestAdminNGCHRouting:
         row = {
             "rule_id": "R-001",
             "micr_prefix": "400002",
-            "clearing_zone": "MUMBAI",
             "destination": "NGCH-MUM-1",
             "priority": 1,
             "active": True,
@@ -595,7 +594,6 @@ class TestAdminMICRPrefixes:
             "micr_prefix": "400002",
             "bank_name": "SBI Mumbai",
             "bank_ifsc": "SBIN0001234",
-            "clearing_zone": "MUMBAI",
             "active": True,
             "updated_at": "2026-09-09T00:00:00",
         }

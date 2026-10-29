@@ -50,7 +50,7 @@ const IQA_FAIL_REASONS = [
 ]
 
 function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001') {
-  const zones = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI']
+  const pus = ['PU-1', 'PU-2', 'PU-3', 'PU-4']
   const statuses = ['CAPTURED', 'IQA_PASS', 'IQA_FAIL', 'AI_EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'NGCH_REJECT']
   const weights  = [0.05, 0.08, 0.04, 0.15, 0.12, 0.20, 0.28, 0.08]
   function pick() {
@@ -90,7 +90,7 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
         if (ch === 'BACK_ANNOTATION') return { extracted_account: fullAcct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
         return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-${_todayPresentment()}`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  ${new Date().toLocaleDateString('en-GB')}` }
       })(),
-      zone: zones[idx % zones.length],
+      pu: pus[idx % pus.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       lot_number: `LOT_${bankIfsc}_${_todayPresentment()}_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
@@ -326,7 +326,7 @@ function BatchRow({ item, selected, onClick, isDark }) {
           <span>·</span>
           <span>{item.amount}</span>
           <span>·</span>
-          <span>{item.zone}</span>
+          <span>{item.pu}</span>
           {item.lot_seq && (
             <>
               <span>·</span>
@@ -491,7 +491,7 @@ function DetailPanel({ item, isDark }) {
     { label: 'Account (masked)',val: item.account_display, mono: true },
     { label: 'Payee Name',      val: item.payee,           mono: false },
     { label: 'Amount',          val: item.amount,          mono: true },
-    { label: 'Zone',            val: item.zone,            mono: false },
+    { label: 'PU',              val: item.pu,            mono: false },
     { label: 'MICR Code',       val: item.micr,            mono: true },
     { label: 'Date on Cheque',  val: item.date_on_cheque,  mono: false },
     { label: 'Scanner ID',      val: item.scanner_id,      mono: true },
@@ -512,7 +512,7 @@ function DetailPanel({ item, isDark }) {
       <div className={`shrink-0 px-5 py-3 border-b ${th.divider} flex items-center gap-3 flex-wrap`}>
         <span className={`text-[13px] font-mono font-semibold ${th.id}`}>{item.instrument_id}</span>
         <span className={`text-[10px] font-mono`}>·</span>
-        <span className={`text-[11px] ${th.muted}`}>{item.zone}</span>
+        <span className={`text-[11px] ${th.muted}`}>{item.pu}</span>
         <span className={`text-[10px] px-2 py-0.5 rounded border ${s.bg} ${s.color} font-medium`}>{s.label}</span>
         {item.ngch_ack_id && (
           <span className={`text-[9px] font-mono ${th.lbl}`}>ACK: {item.ngch_ack_id.slice(-12)}</span>

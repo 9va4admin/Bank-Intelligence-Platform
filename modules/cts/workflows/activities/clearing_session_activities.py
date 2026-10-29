@@ -114,8 +114,7 @@ async def seal_all_lots(
             rows = await conn.fetch(
                 """
                 SELECT l.lot_id, l.sequence_number, l.instrument_count, l.branch_id,
-                       b.branch_ifsc, b.pu_id, pu.ngch_participant_code AS routing_no,
-                       pu.clearing_zone AS zone_id
+                       b.branch_ifsc, b.pu_id, pu.ngch_participant_code AS routing_no
                   FROM cts.lots l
                   JOIN cts.branches b ON b.branch_id = l.branch_id AND b.bank_id = l.bank_id
                   JOIN cts.processing_units pu ON pu.pu_id = b.pu_id AND pu.bank_id = l.bank_id
@@ -128,15 +127,8 @@ async def seal_all_lots(
             )
             sealed = [dict(r) for r in rows]
 
-            # A PU has no zone any more (one grid per bank); lots of such a PU go under the bank-default centre.
-            zones = {r["zone_id"] or "DEFAULT" for r in sealed}
-            center_id = None
-            for zone_id in zones:
-                center_id = await _ensure_zone_and_center(conn, inp.bank_id, zone_id)
-            if center_id is None:
-                # No lots yet (EMPTY_SESSION path) — still record the session under a bank-default zone so the
-                # audit trail has a row, rather than skipping the insert.
-                center_id = await _ensure_zone_and_center(conn, inp.bank_id, "DEFAULT")
+            # A bank files to one grid, so one processing centre: the bank-default centre, whatever the PUs of the lots.
+            center_id = await _ensure_zone_and_center(conn, inp.bank_id, "DEFAULT")
 
             await conn.execute(
                 """
