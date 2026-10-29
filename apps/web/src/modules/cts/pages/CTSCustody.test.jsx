@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 
 vi.mock('../../../shared/layout/AppShell', () => ({ default: ({ children }) => <div>{children}</div> }))
@@ -6,6 +6,9 @@ vi.mock('../../../shared/theme/ThemeContext', () => ({ useTheme: () => ({ isDark
 vi.mock('../../../shared/api/csrf', () => ({ csrfHeader: () => ({ 'X-CSRF-Token': 't' }) }))
 
 import CTSCustody from './CTSCustody'
+import { initMessages } from '../../../shared/messages'
+
+beforeAll(async () => { await initMessages('en') })
 
 const PENDING = { hold_days: 7, items: [
   { instrument_id: 'I1', cheque_number: '000111', branch_id: 'B1', payee_display: 'P***', amount_range: 'r', age_days: 9.2, overdue: true },

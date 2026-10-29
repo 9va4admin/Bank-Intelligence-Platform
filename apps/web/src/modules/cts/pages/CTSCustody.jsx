@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { csrfHeader } from '../../../shared/api/csrf'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const BASE = `${API_BASE}/v1/cts/custody`
@@ -22,15 +23,15 @@ async function call(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.method && options.method !== 'GET' ? csrfHeader() : {}) },
   })
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`)
+  if (!res.ok) throw new Error(body.detail || msg('CTS_OUT_CUSTODY_MSG_REQUEST_FAILED', { status: res.status }))
   return body
 }
 
 const TABS = [
-  ['pending', 'At branch'],
-  ['transit', 'In transit'],
-  ['due', 'Due for disposal'],
-  ['missing', 'Missing'],
+  ['pending', 'CTS_OUT_CUSTODY_TAB_PENDING'],
+  ['transit', 'CTS_OUT_CUSTODY_TAB_TRANSIT'],
+  ['due', 'CTS_OUT_CUSTODY_TAB_DUE'],
+  ['missing', 'CTS_OUT_CUSTODY_TAB_MISSING'],
 ]
 
 function Table({ th, head, children }) {
@@ -70,7 +71,7 @@ export default function CTSCustody() {
   const [picked, setPicked] = useState({})
   const [courier, setCourier] = useState('')
   const [location, setLocation] = useState('')
-  const [msg, setMsg] = useState(null)
+  const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -85,9 +86,9 @@ export default function CTSCustody() {
   useEffect(() => { load() }, [load])
 
   const act = async (fn, okText) => {
-    setBusy(true); setMsg(null)
-    try { await fn(); setMsg({ ok: true, text: okText }); await load() }
-    catch (e) { setMsg({ ok: false, text: e.message }) }
+    setBusy(true); setNotice(null)
+    try { await fn(); setNotice({ ok: true, text: okText }); await load() }
+    catch (e) { setNotice({ ok: false, text: e.message }) }
     finally { setBusy(false) }
   }
 
@@ -95,56 +96,56 @@ export default function CTSCustody() {
   const handOver = () => {
     // One batch is one branch: a handover from several branches would be several parcels.
     const branches = [...new Set(chosen.map(i => i.branch_id))]
-    if (branches.length !== 1) { setMsg({ ok: false, text: 'Pick items from one branch for each batch' }); return }
+    if (branches.length !== 1) { setNotice({ ok: false, text: msg('CTS_OUT_CUSTODY_MSG_ONE_BRANCH') }); return }
     act(async () => {
       await call('/handovers', { method: 'POST', body: JSON.stringify({
         branch_id: branches[0], instrument_ids: chosen.map(i => i.instrument_id), courier_ref: courier || null }) })
       setPicked({}); setCourier('')
-    }, `Handed over ${chosen.length} original${chosen.length === 1 ? '' : 's'}`)
+    }, chosen.length === 1 ? msg('CTS_OUT_CUSTODY_MSG_HANDED_OVER_ONE') : msg('CTS_OUT_CUSTODY_MSG_HANDED_OVER_MANY', { count: chosen.length }))
   }
   const receive = (h) => act(async () => {
     const r = await call(`/handovers/${encodeURIComponent(h.handover_id)}/receive`, {
       method: 'POST', body: JSON.stringify({ location }) })
-    if (r.missing.length) throw new Error(`Received with ${r.missing.length} missing — flagged`)
-  }, `Batch ${h.handover_id} received`)
+    if (r.missing.length) throw new Error(msg('CTS_OUT_CUSTODY_MSG_RECEIVED_MISSING', { missing: r.missing.length }))
+  }, msg('CTS_OUT_CUSTODY_MSG_RECEIVED', { handover_id: h.handover_id }))
   const dispose = (i) => act(() => call(`/instruments/${encodeURIComponent(i.instrument_id)}/dispose`, {
-    method: 'POST', body: JSON.stringify({ reason: 'Retention period ended' }) }), `Disposed ${i.instrument_id}`)
+    method: 'POST', body: JSON.stringify({ reason: msg('CTS_OUT_CUSTODY_DISPOSE_REASON') }) }), msg('CTS_OUT_CUSTODY_MSG_DISPOSED', { instrument_id: i.instrument_id }))
 
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-        <h1 className={`text-lg font-semibold ${th.heading}`}>Original instruments — custody</h1>
+        <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('CTS_OUT_CUSTODY_TITLE')}</h1>
         <p className={`text-sm mt-1 mb-4 ${th.muted}`}>
-          Kept at the branch up to {pending.hold_days} days, then handed over to central storage, received by someone else, and kept until retention ends.
+          {msg('CTS_OUT_CUSTODY_SUBTITLE', { hold_days: pending.hold_days })}
         </p>
 
         <div className="flex gap-2 mb-4">
           {TABS.map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`px-3 py-1.5 text-sm rounded-md border ${tab === k ? th.btn : `${th.card} ${th.body}`}`}>
-              {label}{` (${{ pending: pending.items.length, transit: transit.length, due: due.length, missing: missingItems.length }[k]})`}
+              {msg('CTS_OUT_CUSTODY_TAB_WITH_COUNT', { label: msg(label), count: { pending: pending.items.length, transit: transit.length, due: due.length, missing: missingItems.length }[k] })}
             </button>
           ))}
         </div>
 
-        {msg && <p role="status" className={`mb-3 text-sm ${msg.ok ? 'text-emerald-500' : 'text-red-500'}`}>{msg.text}</p>}
+        {notice && <p role="status" className={`mb-3 text-sm ${notice.ok ? 'text-emerald-500' : 'text-red-500'}`}>{notice.text}</p>}
 
         <div className={`rounded-lg border ${th.card}`}>
           {tab === 'pending' && (
             <>
               <div className={`flex items-center gap-3 p-3 border-b ${th.divider}`}>
-                <input value={courier} onChange={e => setCourier(e.target.value)} placeholder="Courier / docket reference"
+                <input value={courier} onChange={e => setCourier(e.target.value)} placeholder={msg('CTS_OUT_CUSTODY_COURIER_PLACEHOLDER')}
                   className={`px-2 py-1.5 text-sm rounded border ${th.input}`} />
                 <button disabled={busy || chosen.length === 0} onClick={handOver}
                   className={`px-3 py-1.5 text-sm rounded-md disabled:opacity-40 ${th.btn}`}>
-                  Hand over {chosen.length || ''} selected
+                  {msg('CTS_OUT_CUSTODY_HAND_OVER_BUTTON', { count: chosen.length || '' })}
                 </button>
               </div>
-              {pending.items.length === 0 ? <Empty th={th} text="No originals waiting at a branch" /> : (
-                <Table th={th} head={['', 'Instrument', 'Branch', 'Payee', 'Amount', 'Held']}>
+              {pending.items.length === 0 ? <Empty th={th} text={msg('CTS_OUT_CUSTODY_EMPTY_PENDING')} /> : (
+                <Table th={th} head={['', msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'), msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('CTS_OUT_CUSTODY_COL_PAYEE'), msg('CTS_OUT_CUSTODY_COL_AMOUNT'), msg('CTS_OUT_CUSTODY_COL_HELD')]}>
                   {pending.items.map(i => (
                     <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
-                      <td className="px-3 py-2"><input type="checkbox" aria-label={`Select ${i.instrument_id}`}
+                      <td className="px-3 py-2"><input type="checkbox" aria-label={msg('CTS_OUT_CUSTODY_SELECT_ARIA', { instrument_id: i.instrument_id })}
                         checked={!!picked[i.instrument_id]}
                         onChange={e => setPicked(p => ({ ...p, [i.instrument_id]: e.target.checked }))} /></td>
                       <td className="px-3 py-2 font-mono text-xs">{i.cheque_number ?? i.instrument_id}</td>
@@ -152,7 +153,7 @@ export default function CTSCustody() {
                       <td className="px-3 py-2">{i.payee_display}</td>
                       <td className="px-3 py-2">{i.amount_range}</td>
                       <td className={`px-3 py-2 ${i.overdue ? th.warn : ''}`}>
-                        {i.age_days.toFixed(1)} d{i.overdue ? ' — overdue' : ''}</td>
+                        {msg(i.overdue ? 'CTS_OUT_CUSTODY_AGE_OVERDUE' : 'CTS_OUT_CUSTODY_AGE', { days: i.age_days.toFixed(1) })}</td>
                     </tr>
                   ))}
                 </Table>
@@ -163,12 +164,12 @@ export default function CTSCustody() {
           {tab === 'transit' && (
             <>
               <div className={`flex items-center gap-3 p-3 border-b ${th.divider}`}>
-                <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Storage location (box / shelf)"
+                <input value={location} onChange={e => setLocation(e.target.value)} placeholder={msg('CTS_OUT_CUSTODY_LOCATION_PLACEHOLDER')}
                   className={`px-2 py-1.5 text-sm rounded border ${th.input}`} />
-                <span className={`text-xs ${th.muted}`}>The person who sent a batch cannot receive it.</span>
+                <span className={`text-xs ${th.muted}`}>{msg('CTS_OUT_CUSTODY_SENDER_NOTE')}</span>
               </div>
-              {transit.length === 0 ? <Empty th={th} text="Nothing in transit" /> : (
-                <Table th={th} head={['Batch', 'Branch', 'Items', 'Courier', 'Sent by', '']}>
+              {transit.length === 0 ? <Empty th={th} text={msg('CTS_OUT_CUSTODY_EMPTY_TRANSIT')} /> : (
+                <Table th={th} head={[msg('CTS_OUT_CUSTODY_COL_BATCH'), msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('CTS_OUT_CUSTODY_COL_ITEMS'), msg('CTS_OUT_CUSTODY_COL_COURIER'), msg('CTS_OUT_CUSTODY_COL_SENT_BY'), '']}>
                   {transit.map(h => (
                     <tr key={h.handover_id} className={`border-b ${th.row} ${th.body}`}>
                       <td className="px-3 py-2 font-mono text-xs">{h.handover_id}</td>
@@ -178,7 +179,7 @@ export default function CTSCustody() {
                       <td className="px-3 py-2">{h.created_by}</td>
                       <td className="px-3 py-2 text-right">
                         <button disabled={busy || !location} onClick={() => receive(h)}
-                          className={`px-3 py-1 text-xs rounded-md disabled:opacity-40 ${th.btn}`}>Receive</button>
+                          className={`px-3 py-1 text-xs rounded-md disabled:opacity-40 ${th.btn}`}>{msg('CTS_OUT_CUSTODY_RECEIVE_BUTTON')}</button>
                       </td>
                     </tr>
                   ))}
@@ -188,8 +189,8 @@ export default function CTSCustody() {
           )}
 
           {tab === 'missing' && (
-            missingItems.length === 0 ? <Empty th={th} text="No originals are missing" /> : (
-              <Table th={th} head={['Instrument', 'Branch', 'Batch', 'Flagged']}>
+            missingItems.length === 0 ? <Empty th={th} text={msg('CTS_OUT_CUSTODY_EMPTY_MISSING')} /> : (
+              <Table th={th} head={[msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'), msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('CTS_OUT_CUSTODY_COL_BATCH'), msg('CTS_OUT_CUSTODY_COL_FLAGGED')]}>
                 {missingItems.map(i => (
                   <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
                     <td className="px-3 py-2 font-mono text-xs">{i.instrument_id}</td>
@@ -203,8 +204,8 @@ export default function CTSCustody() {
           )}
 
           {tab === 'due' && (
-            due.length === 0 ? <Empty th={th} text="Nothing is due for disposal" /> : (
-              <Table th={th} head={['Instrument', 'Branch', 'Location', 'Retention ended', '']}>
+            due.length === 0 ? <Empty th={th} text={msg('CTS_OUT_CUSTODY_EMPTY_DUE')} /> : (
+              <Table th={th} head={[msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'), msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('CTS_OUT_CUSTODY_COL_LOCATION'), msg('CTS_OUT_CUSTODY_COL_RETENTION_ENDED'), '']}>
                 {due.map(i => (
                   <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
                     <td className="px-3 py-2 font-mono text-xs">{i.instrument_id}</td>
@@ -213,7 +214,7 @@ export default function CTSCustody() {
                     <td className="px-3 py-2">{i.retention_until}</td>
                     <td className="px-3 py-2 text-right">
                       <button disabled={busy} onClick={() => dispose(i)}
-                        className={`px-3 py-1 text-xs rounded-md disabled:opacity-40 ${th.btn}`}>Dispose</button>
+                        className={`px-3 py-1 text-xs rounded-md disabled:opacity-40 ${th.btn}`}>{msg('CTS_OUT_CUSTODY_DISPOSE_BUTTON')}</button>
                     </td>
                   </tr>
                 ))}

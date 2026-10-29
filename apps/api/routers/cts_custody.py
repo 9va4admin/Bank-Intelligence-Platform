@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.api.schemas.types import OptIsoTimestamp
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
+from shared.messages import get_message
 
 from .cts_deps import get_current_user_context
 
@@ -217,7 +218,7 @@ class HistoryResponse(BaseModel):
 def _db(request: Request):
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("CTS_OUT_CUSTODY_DB_UNAVAILABLE"))
     return db
 
 
@@ -258,7 +259,7 @@ async def pending(request: Request, ctx: UserContext = Depends(get_current_user_
     """Originals still at a branch. Branch staff see their own branches; managers see all; central staff have no branch."""
     role, mine = ctx.role.value, _branches(ctx)
     if role not in _MANAGERS and not mine:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Branch staff or a manager only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_BRANCH_OR_MANAGER_ONLY"))
     hold = int((await _cfg(request, ctx.bank_id)).get("custody_branch_hold_days", 7))
     rows = []
     async with _db(request).acquire() as conn:
@@ -277,20 +278,20 @@ async def create_handover(body: HandoverRequest, request: Request,
                           ctx: UserContext = Depends(get_current_user_context)) -> HandoverResponse:
     role = ctx.role.value
     if role not in _MANAGERS and body.branch_id not in _branches(ctx):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only hand over from your own branch")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_OWN_BRANCH_ONLY"))
     ids = list(dict.fromkeys(body.instrument_ids))
     handover_id = "HO-" + uuid.uuid4().hex[:10].upper()
     async with _db(request).acquire() as conn:
         ok = {r["instrument_id"] for r in await conn.fetch(SQL_ELIGIBLE, ctx.bank_id, body.branch_id, ids)}
         if ok != set(ids):
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                detail="Some instruments are not accepted originals of this branch still held there")
+                                detail=get_message("CTS_OUT_CUSTODY_ITEMS_NOT_ELIGIBLE"))
         async with conn.transaction():
             await conn.execute(SQL_INSERT_HANDOVER, ctx.bank_id, handover_id, body.branch_id, body.courier_ref, body.notes,
                                len(ids), ctx.user_id)
             for iid in ids:
                 if _count(await conn.execute(SQL_INSERT_CUSTODY, ctx.bank_id, iid, body.branch_id, handover_id)) != 1:
-                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An instrument was handed over meanwhile")
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_CUSTODY_HANDED_OVER_MEANWHILE"))
                 await conn.execute(SQL_EVENT, ctx.bank_id, iid, handover_id, "HANDED_OVER", ctx.user_id, body.courier_ref)
     _audit(request, AuditEventType.CUSTODY_HANDED_OVER, ctx.bank_id,
            {"handover_id": handover_id, "branch_id": body.branch_id, "item_count": len(ids), "actor": ctx.user_id})
@@ -302,7 +303,7 @@ async def create_handover(body: HandoverRequest, request: Request,
 async def list_handovers(request: Request, status_filter: Optional[str] = Query(default=None, alias="status"),
                          ctx: UserContext = Depends(get_current_user_context)) -> HandoverListResponse:
     if ctx.role.value not in _STORAGE:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_NOT_PERMITTED"))
     async with _db(request).acquire() as conn:
         rows = await conn.fetch(SQL_HANDOVERS, ctx.bank_id, status_filter)
     mine = _branches(ctx)
@@ -314,31 +315,31 @@ async def list_handovers(request: Request, status_filter: Optional[str] = Query(
 async def receive_handover(handover_id: str, body: ReceiveRequest, request: Request,
                            ctx: UserContext = Depends(get_current_user_context)) -> ReceiveResponse:
     if ctx.role.value not in _STORAGE or _branches(ctx):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Central storage staff only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_STORAGE_STAFF_ONLY"))
     cfg = await _cfg(request, ctx.bank_id)
     years = int(cfg.get("custody_retention_years", 10))
     async with _db(request).acquire() as conn:
         h = await conn.fetchrow(SQL_HANDOVER_ONE, ctx.bank_id, handover_id)
         if not h:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Handover not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("CTS_OUT_CUSTODY_BATCH_NOT_FOUND"))
         if h["created_by"] == ctx.user_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="The person who sent a batch cannot receive it")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_SENDER_CANNOT_RECEIVE"))
         if h["status"] != "IN_TRANSIT":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This batch has already been received")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_CUSTODY_BATCH_ALREADY_RECEIVED"))
         batch = [r["instrument_id"] for r in await conn.fetch(SQL_HANDOVER_ITEMS, ctx.bank_id, handover_id)]
         if body.received_ids is None:
             arrived = list(batch)
         else:
             unknown = set(body.received_ids) - set(batch)
             if unknown:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Some items are not in this batch")
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("CTS_OUT_CUSTODY_ITEMS_NOT_IN_BATCH"))
             arrived = [i for i in batch if i in set(body.received_ids)]
         missing = [i for i in batch if i not in set(arrived)]
         result = "DISCREPANCY" if missing else "RECEIVED"
         async with conn.transaction():
             # Claim the batch first: only one receiver wins, so a double click or a race cannot receive it twice.
             if _count(await conn.execute(SQL_RECEIVE_HANDOVER, ctx.bank_id, handover_id, result, ctx.user_id, body.notes)) != 1:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This batch has already been received")
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_OUT_CUSTODY_BATCH_ALREADY_RECEIVED"))
             for iid in arrived:
                 await conn.execute(SQL_RECEIVE_ITEM, ctx.bank_id, iid, ctx.user_id, body.location, years)
                 await conn.execute(SQL_EVENT, ctx.bank_id, iid, handover_id, "RECEIVED", ctx.user_id, body.location)
@@ -353,7 +354,7 @@ async def receive_handover(handover_id: str, body: ReceiveRequest, request: Requ
 @router_v1.get("/due-for-disposal", response_model=DueResponse)
 async def due_for_disposal(request: Request, ctx: UserContext = Depends(get_current_user_context)) -> DueResponse:
     if ctx.role.value not in _MANAGERS:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Managers only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_MANAGERS_ONLY"))
     async with _db(request).acquire() as conn:
         rows = await conn.fetch(SQL_DUE, ctx.bank_id)
     return DueResponse(items=[DueItem(**{k: (str(v) if k == "retention_until" and v is not None else v)
@@ -364,7 +365,7 @@ async def due_for_disposal(request: Request, ctx: UserContext = Depends(get_curr
 async def missing(request: Request, ctx: UserContext = Depends(get_current_user_context)) -> MissingResponse:
     """Originals that were handed over but not in the box at receipt. They stay listed until someone resolves them."""
     if ctx.role.value not in _MANAGERS:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Managers only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_MANAGERS_ONLY"))
     async with _db(request).acquire() as conn:
         rows = await conn.fetch(SQL_MISSING_LIST, ctx.bank_id)
     return MissingResponse(items=[MissingItem(**{k: v for k, v in dict(r).items() if k in MissingItem.model_fields}) for r in rows])
@@ -374,14 +375,14 @@ async def missing(request: Request, ctx: UserContext = Depends(get_current_user_
 async def dispose(instrument_id: str, body: DisposeRequest, request: Request,
                   ctx: UserContext = Depends(get_current_user_context)) -> DisposeResponse:
     if ctx.role.value not in _MANAGERS:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Managers only")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_MANAGERS_ONLY"))
     async with _db(request).acquire() as conn:
         if not await conn.fetchrow(SQL_CUSTODY_ONE, ctx.bank_id, instrument_id):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No custody record for this instrument")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("CTS_OUT_CUSTODY_NO_RECORD"))
         async with conn.transaction():
             if _count(await conn.execute(SQL_DISPOSE, ctx.bank_id, instrument_id, ctx.user_id)) != 1:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                    detail="Not in storage, or its retention period has not ended")
+                                    detail=get_message("CTS_OUT_CUSTODY_CANNOT_DISPOSE"))
             await conn.execute(SQL_EVENT, ctx.bank_id, instrument_id, None, "DISPOSED", ctx.user_id, body.reason)
     _audit(request, AuditEventType.CUSTODY_DISPOSED, ctx.bank_id,
            {"instrument_id": instrument_id, "reason": body.reason, "actor": ctx.user_id})
@@ -392,7 +393,7 @@ async def dispose(instrument_id: str, body: DisposeRequest, request: Request,
 async def history(instrument_id: str, request: Request,
                   ctx: UserContext = Depends(get_current_user_context)) -> HistoryResponse:
     if ctx.role.value not in _STORAGE:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("CTS_OUT_CUSTODY_NOT_PERMITTED"))
     async with _db(request).acquire() as conn:
         rows = await conn.fetch(SQL_HISTORY, ctx.bank_id, instrument_id)
     return HistoryResponse(instrument_id=instrument_id, events=[HistoryEvent(**{k: v for k, v in dict(r).items()

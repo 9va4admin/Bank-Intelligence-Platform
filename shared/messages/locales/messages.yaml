@@ -2912,3 +2912,385 @@ PLATFORM_BANK_ONBOARDED:
   variables: [bank_id, onboarded_by]
   en: "Bank {bank_id} was onboarded to the platform by {onboarded_by}."
   hi: ""
+
+# ──────────────────────────────────────────────────────────────────
+# CUSTODY OF ORIGINAL INSTRUMENTS (API errors + screen text)
+# ──────────────────────────────────────────────────────────────────
+
+CTS_OUT_CUSTODY_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Database unavailable"
+  hi: ""
+
+CTS_OUT_CUSTODY_BRANCH_OR_MANAGER_ONLY:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Branch staff or a manager only"
+  hi: ""
+
+CTS_OUT_CUSTODY_OWN_BRANCH_ONLY:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "You can only hand over from your own branch"
+  hi: ""
+
+CTS_OUT_CUSTODY_ITEMS_NOT_ELIGIBLE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Some instruments are not accepted originals of this branch still held there"
+  hi: ""
+
+CTS_OUT_CUSTODY_HANDED_OVER_MEANWHILE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "An instrument was handed over meanwhile"
+  hi: ""
+
+CTS_OUT_CUSTODY_NOT_PERMITTED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Not permitted"
+  hi: ""
+
+CTS_OUT_CUSTODY_STORAGE_STAFF_ONLY:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Central storage staff only"
+  hi: ""
+
+CTS_OUT_CUSTODY_BATCH_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Handover not found"
+  hi: ""
+
+CTS_OUT_CUSTODY_SENDER_CANNOT_RECEIVE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "The person who sent a batch cannot receive it"
+  hi: ""
+
+CTS_OUT_CUSTODY_BATCH_ALREADY_RECEIVED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This batch has already been received"
+  hi: ""
+
+CTS_OUT_CUSTODY_ITEMS_NOT_IN_BATCH:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Some items are not in this batch"
+  hi: ""
+
+CTS_OUT_CUSTODY_MANAGERS_ONLY:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Managers only"
+  hi: ""
+
+CTS_OUT_CUSTODY_NO_RECORD:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "No custody record for this instrument"
+  hi: ""
+
+CTS_OUT_CUSTODY_CANNOT_DISPOSE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Not in storage, or its retention period has not ended"
+  hi: ""
+
+CTS_OUT_CUSTODY_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Original instruments — custody"
+  hi: ""
+
+CTS_OUT_CUSTODY_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: [hold_days]
+  en: "Kept at the branch up to {hold_days} days, then handed over to central storage, received by someone else, and kept until retention ends."
+  hi: ""
+
+CTS_OUT_CUSTODY_TAB_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "At branch"
+  hi: ""
+
+CTS_OUT_CUSTODY_TAB_TRANSIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "In transit"
+  hi: ""
+
+CTS_OUT_CUSTODY_TAB_DUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Due for disposal"
+  hi: ""
+
+CTS_OUT_CUSTODY_TAB_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Missing"
+  hi: ""
+
+CTS_OUT_CUSTODY_TAB_WITH_COUNT:
+  severity: INFO
+  surface: [UI]
+  variables: [label, count]
+  en: "{label} ({count})"
+  hi: ""
+
+CTS_OUT_CUSTODY_COURIER_PLACEHOLDER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Courier / docket reference"
+  hi: ""
+
+CTS_OUT_CUSTODY_LOCATION_PLACEHOLDER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Storage location (box / shelf)"
+  hi: ""
+
+CTS_OUT_CUSTODY_HAND_OVER_BUTTON:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "Hand over {count} selected"
+  hi: ""
+
+CTS_OUT_CUSTODY_RECEIVE_BUTTON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Receive"
+  hi: ""
+
+CTS_OUT_CUSTODY_DISPOSE_BUTTON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Dispose"
+  hi: ""
+
+CTS_OUT_CUSTODY_SENDER_NOTE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The person who sent a batch cannot receive it."
+  hi: ""
+
+CTS_OUT_CUSTODY_EMPTY_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No originals waiting at a branch"
+  hi: ""
+
+CTS_OUT_CUSTODY_EMPTY_TRANSIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nothing in transit"
+  hi: ""
+
+CTS_OUT_CUSTODY_EMPTY_DUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nothing is due for disposal"
+  hi: ""
+
+CTS_OUT_CUSTODY_EMPTY_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No originals are missing"
+  hi: ""
+
+CTS_OUT_CUSTODY_SELECT_ARIA:
+  severity: INFO
+  surface: [UI]
+  variables: [instrument_id]
+  en: "Select {instrument_id}"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_INSTRUMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Instrument"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_BRANCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branch"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_PAYEE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_AMOUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_HELD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Held"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_BATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Batch"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_ITEMS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Items"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_COURIER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Courier"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_SENT_BY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sent by"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_LOCATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Location"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_RETENTION_ENDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Retention ended"
+  hi: ""
+
+CTS_OUT_CUSTODY_COL_FLAGGED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Flagged"
+  hi: ""
+
+CTS_OUT_CUSTODY_AGE:
+  severity: INFO
+  surface: [UI]
+  variables: [days]
+  en: "{days} d"
+  hi: ""
+
+CTS_OUT_CUSTODY_AGE_OVERDUE:
+  severity: WARN
+  surface: [UI]
+  variables: [days]
+  en: "{days} d — overdue"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_ONE_BRANCH:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Pick items from one branch for each batch"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_HANDED_OVER_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Handed over 1 original"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_HANDED_OVER_MANY:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "Handed over {count} originals"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_RECEIVED:
+  severity: INFO
+  surface: [UI]
+  variables: [handover_id]
+  en: "Batch {handover_id} received"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_RECEIVED_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: [missing]
+  en: "Received with {missing} missing — flagged"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_DISPOSED:
+  severity: INFO
+  surface: [UI]
+  variables: [instrument_id]
+  en: "Disposed {instrument_id}"
+  hi: ""
+
+CTS_OUT_CUSTODY_MSG_REQUEST_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [status]
+  en: "Request failed ({status})"
+  hi: ""
+
+CTS_OUT_CUSTODY_DISPOSE_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Retention period ended"
+  hi: ""

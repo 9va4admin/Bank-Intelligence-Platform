@@ -4495,5 +4495,460 @@
       "bank_id",
       "onboarded_by"
     ]
+  },
+  "CTS_OUT_CUSTODY_DB_UNAVAILABLE": {
+    "text": "Database unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_BRANCH_OR_MANAGER_ONLY": {
+    "text": "Branch staff or a manager only",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_OWN_BRANCH_ONLY": {
+    "text": "You can only hand over from your own branch",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_ITEMS_NOT_ELIGIBLE": {
+    "text": "Some instruments are not accepted originals of this branch still held there",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_HANDED_OVER_MEANWHILE": {
+    "text": "An instrument was handed over meanwhile",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_NOT_PERMITTED": {
+    "text": "Not permitted",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_STORAGE_STAFF_ONLY": {
+    "text": "Central storage staff only",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_BATCH_NOT_FOUND": {
+    "text": "Handover not found",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SENDER_CANNOT_RECEIVE": {
+    "text": "The person who sent a batch cannot receive it",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_BATCH_ALREADY_RECEIVED": {
+    "text": "This batch has already been received",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_ITEMS_NOT_IN_BATCH": {
+    "text": "Some items are not in this batch",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_MANAGERS_ONLY": {
+    "text": "Managers only",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_NO_RECORD": {
+    "text": "No custody record for this instrument",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_CANNOT_DISPOSE": {
+    "text": "Not in storage, or its retention period has not ended",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TITLE": {
+    "text": "Original instruments — custody",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SUBTITLE": {
+    "text": "Kept at the branch up to {hold_days} days, then handed over to central storage, received by someone else, and kept until retention ends.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hold_days"
+    ]
+  },
+  "CTS_OUT_CUSTODY_TAB_PENDING": {
+    "text": "At branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_TRANSIT": {
+    "text": "In transit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_DUE": {
+    "text": "Due for disposal",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_MISSING": {
+    "text": "Missing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_WITH_COUNT": {
+    "text": "{label} ({count})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "label",
+      "count"
+    ]
+  },
+  "CTS_OUT_CUSTODY_COURIER_PLACEHOLDER": {
+    "text": "Courier / docket reference",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_LOCATION_PLACEHOLDER": {
+    "text": "Storage location (box / shelf)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_HAND_OVER_BUTTON": {
+    "text": "Hand over {count} selected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "CTS_OUT_CUSTODY_RECEIVE_BUTTON": {
+    "text": "Receive",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_DISPOSE_BUTTON": {
+    "text": "Dispose",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SENDER_NOTE": {
+    "text": "The person who sent a batch cannot receive it.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_PENDING": {
+    "text": "No originals waiting at a branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_TRANSIT": {
+    "text": "Nothing in transit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_DUE": {
+    "text": "Nothing is due for disposal",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_MISSING": {
+    "text": "No originals are missing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SELECT_ARIA": {
+    "text": "Select {instrument_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_CUSTODY_COL_INSTRUMENT": {
+    "text": "Instrument",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_BRANCH": {
+    "text": "Branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_PAYEE": {
+    "text": "Payee",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_AMOUNT": {
+    "text": "Amount",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_HELD": {
+    "text": "Held",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_BATCH": {
+    "text": "Batch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_ITEMS": {
+    "text": "Items",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_COURIER": {
+    "text": "Courier",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_SENT_BY": {
+    "text": "Sent by",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_LOCATION": {
+    "text": "Location",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_RETENTION_ENDED": {
+    "text": "Retention ended",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_FLAGGED": {
+    "text": "Flagged",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_AGE": {
+    "text": "{days} d",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "days"
+    ]
+  },
+  "CTS_OUT_CUSTODY_AGE_OVERDUE": {
+    "text": "{days} d — overdue",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "days"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_ONE_BRANCH": {
+    "text": "Pick items from one branch for each batch",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_MSG_HANDED_OVER_ONE": {
+    "text": "Handed over 1 original",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_MSG_HANDED_OVER_MANY": {
+    "text": "Handed over {count} originals",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_RECEIVED": {
+    "text": "Batch {handover_id} received",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "handover_id"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_RECEIVED_MISSING": {
+    "text": "Received with {missing} missing — flagged",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "missing"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_DISPOSED": {
+    "text": "Disposed {instrument_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_REQUEST_FAILED": {
+    "text": "Request failed ({status})",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "status"
+    ]
+  },
+  "CTS_OUT_CUSTODY_DISPOSE_REASON": {
+    "text": "Retention period ended",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
   }
 }

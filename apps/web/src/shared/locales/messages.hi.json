@@ -4495,5 +4495,460 @@
       "bank_id",
       "onboarded_by"
     ]
+  },
+  "CTS_OUT_CUSTODY_DB_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_BRANCH_OR_MANAGER_ONLY": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_OWN_BRANCH_ONLY": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_ITEMS_NOT_ELIGIBLE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_HANDED_OVER_MEANWHILE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_NOT_PERMITTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_STORAGE_STAFF_ONLY": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_BATCH_NOT_FOUND": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SENDER_CANNOT_RECEIVE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_BATCH_ALREADY_RECEIVED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_ITEMS_NOT_IN_BATCH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_MANAGERS_ONLY": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_NO_RECORD": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_CANNOT_DISPOSE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TITLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SUBTITLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hold_days"
+    ]
+  },
+  "CTS_OUT_CUSTODY_TAB_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_TRANSIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_DUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_MISSING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_TAB_WITH_COUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "label",
+      "count"
+    ]
+  },
+  "CTS_OUT_CUSTODY_COURIER_PLACEHOLDER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_LOCATION_PLACEHOLDER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_HAND_OVER_BUTTON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "CTS_OUT_CUSTODY_RECEIVE_BUTTON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_DISPOSE_BUTTON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SENDER_NOTE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_TRANSIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_DUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_EMPTY_MISSING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_SELECT_ARIA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_CUSTODY_COL_INSTRUMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_BRANCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_PAYEE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_AMOUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_HELD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_BATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_ITEMS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_COURIER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_SENT_BY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_LOCATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_RETENTION_ENDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_COL_FLAGGED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_AGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "days"
+    ]
+  },
+  "CTS_OUT_CUSTODY_AGE_OVERDUE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "days"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_ONE_BRANCH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_MSG_HANDED_OVER_ONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OUT_CUSTODY_MSG_HANDED_OVER_MANY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_RECEIVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "handover_id"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_RECEIVED_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "missing"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_DISPOSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_CUSTODY_MSG_REQUEST_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "status"
+    ]
+  },
+  "CTS_OUT_CUSTODY_DISPOSE_REASON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
   }
 }
