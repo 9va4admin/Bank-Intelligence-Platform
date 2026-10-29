@@ -236,6 +236,7 @@ def _build_routing_table() -> dict[AuditEventType, RoutingSpec]:
                 E.CTS_ALLOC_CLAIMED, E.CTS_ALLOC_AUTO_ASSIGNED, E.CTS_ALLOC_UNCLAIMED,
                 E.SCANNER_CONFIG_CREATED, E.SCANNER_CONFIG_UPDATED, E.SCANNER_CONFIG_DELETED,
                 E.BRANCH_CREATED, E.BRANCH_UPDATED, E.BRANCH_DELETED, E.BRANCH_BULK_IMPORTED,
+                E.CUSTODY_HANDED_OVER, E.CUSTODY_RECEIVED, E.CUSTODY_DISPOSED,   # original-instrument custody trail
                 E.PU_CREATED, E.PU_UPDATED, E.PU_DEACTIVATED, E.PU_BRANCH_ASSIGNED, E.PU_BRANCH_REASSIGNED,
                 E.CONFIG_L2_CHANGE_REQUESTED,        # visible in the maker-checker queue; same policy as CONFIG_CHANGE
                 E.SESSION_REPORT_GENERATED,

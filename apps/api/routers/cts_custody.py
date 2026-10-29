@@ -24,6 +24,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from apps.api.schemas.types import OptIsoTimestamp
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 
@@ -104,7 +105,7 @@ class PendingItem(BaseModel):
     branch_name: Optional[str] = None
     amount_range: Optional[str] = None
     payee_display: Optional[str] = None
-    captured_at: Optional[str] = None
+    captured_at: OptIsoTimestamp = None
     age_days: float = 0.0
     overdue: bool = False                 # held at the branch longer than custody_branch_hold_days
 
@@ -133,9 +134,9 @@ class HandoverResponse(BaseModel):
     notes: Optional[str] = None
     item_count: int = 0
     created_by: Optional[str] = None
-    created_at: Optional[str] = None
+    created_at: OptIsoTimestamp = None
     received_by: Optional[str] = None
-    received_at: Optional[str] = None
+    received_at: OptIsoTimestamp = None
 
 
 class HandoverListResponse(BaseModel):
@@ -173,7 +174,7 @@ class MissingItem(BaseModel):
     branch_id: Optional[str] = None
     branch_name: Optional[str] = None
     handover_id: Optional[str] = None
-    flagged_at: Optional[str] = None
+    flagged_at: OptIsoTimestamp = None
 
 
 class MissingResponse(BaseModel):
