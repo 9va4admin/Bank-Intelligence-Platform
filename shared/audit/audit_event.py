@@ -95,6 +95,11 @@ class AuditEventType(str, Enum):
     BRANCH_DELETED = "BRANCH_DELETED"             # soft-delete (is_active=false)
     BRANCH_BULK_IMPORTED = "BRANCH_BULK_IMPORTED" # CSV bulk upsert completed
 
+    # ── Custody of original instruments ────────────────────────────────────────
+    CUSTODY_HANDED_OVER = "CUSTODY_HANDED_OVER"   # branch sent a batch of originals to central storage
+    CUSTODY_RECEIVED = "CUSTODY_RECEIVED"         # central storage received the batch (missing items flagged)
+    CUSTODY_DISPOSED = "CUSTODY_DISPOSED"         # an original was disposed of after its retention ended
+
     # ── Processing Unit Master ─────────────────────────────────────────────────
     PU_CREATED = "PU_CREATED"
     PU_UPDATED = "PU_UPDATED"

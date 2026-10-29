@@ -238,6 +238,12 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   validation queue is next read (outward has no workflow to time out). Found by the first live 4-user run
   ([report](docs/reports/ASTRA_4User_MakerChecker_E2E_2026-10-28.md), kept untracked): approved admin settings had never been applied, and the reviewer
   queue had always been empty on a real Temporal (it used a search attribute nothing set) - both fixed.
+- **Custody of original instruments (2026-10-29).** Accepted outward originals stay at the branch, are handed over in a batch (courier
+  reference), are received at central storage by a *different* person (items not in the box become MISSING and the batch a DISCREPANCY),
+  are kept to `cts.custody_retention_years`, then disposed of by a manager only after retention ends. `cts.custody_branch_hold_days` flags
+  late handovers. Tables `cts.instrument_custody`, `cts.custody_handovers`, append-only `cts.custody_events` (migration `20261029_036`);
+  rows are registered lazily from accepted `outward_scan_events`, no workflow hook. Router `cts_custody.py`, screen `CTSCustody.jsx`
+  (`/cts/outward/custody`). Open: the 10-year default is a placeholder to confirm with the bank; no per-SMB scoping yet.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

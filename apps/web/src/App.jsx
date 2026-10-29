@@ -15,6 +15,7 @@ import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
 import CTSValidationQueue from './modules/cts/pages/CTSValidationQueue'
+import CTSCustody from './modules/cts/pages/CTSCustody'
 import CTSSubmissionQueue from './modules/cts/pages/CTSSubmissionQueue'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
@@ -107,6 +108,7 @@ export default function App() {
         <Route path="/cts/outward/verification" element={<CTSOutwardQueue />} />
         <Route path="/cts/outward/queue"        element={<CTSValidationQueue mode="outward" />} />
         <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
+        <Route path="/cts/outward/custody"      element={<CTSCustody />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/vault/upload" element={<CTSVaultUpload />} />
         <Route path="/cts/vault-gaps" element={<CTSVaultGapReport />} />
