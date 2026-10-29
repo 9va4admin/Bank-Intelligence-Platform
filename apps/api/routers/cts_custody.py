@@ -1,5 +1,5 @@
 """
-CTS custody of original instruments — 7 routes.
+CTS custody of original instruments — 8 routes.
 
 An accepted outward original stays at its branch for a while, is handed over in a batch (with a courier reference) to
 central storage, is received there by a different person, is kept to the end of the retention period, and is then disposed
@@ -11,6 +11,7 @@ Routes:
   GET  /v1/cts/custody/handovers                    batches (filter by status)
   POST /v1/cts/custody/handovers/{id}/receive       central storage receives a batch
   GET  /v1/cts/custody/due-for-disposal             stored originals whose retention has ended
+  GET  /v1/cts/custody/missing                      originals not in the box at receipt
   POST /v1/cts/custody/instruments/{id}/dispose     dispose of one (manager, only after retention)
   GET  /v1/cts/custody/instruments/{id}/history     every step of one original
 """
@@ -78,6 +79,11 @@ SQL_DUE = (
     "(SELECT b.branch_name FROM cts.branches b WHERE b.bank_id = instrument_custody.bank_id AND b.branch_id = instrument_custody.branch_id LIMIT 1) AS branch_name, "
     "location, retention_until::text AS retention_until FROM cts.instrument_custody "
     "WHERE bank_id = $1 AND status = 'STORED' AND retention_until <= current_date ORDER BY retention_until LIMIT 500")
+SQL_MISSING_LIST = (
+    "SELECT instrument_id, branch_id, "
+    "(SELECT b.branch_name FROM cts.branches b WHERE b.bank_id = instrument_custody.bank_id AND b.branch_id = instrument_custody.branch_id LIMIT 1) AS branch_name, "
+    "handover_id, updated_at::text AS flagged_at FROM cts.instrument_custody WHERE bank_id = $1 AND status = 'MISSING' "
+    "ORDER BY updated_at LIMIT 500")
 SQL_CUSTODY_ONE = "SELECT instrument_id, branch_id, status FROM cts.instrument_custody WHERE bank_id = $1 AND instrument_id = $2"
 SQL_DISPOSE = (
     "UPDATE cts.instrument_custody SET status = 'DISPOSED', disposed_by = $3, disposed_at = now(), updated_at = now() "
@@ -159,6 +165,20 @@ class DueItem(BaseModel):
     branch_name: Optional[str] = None
     location: Optional[str] = None
     retention_until: Optional[str] = None
+
+
+class MissingItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
+    handover_id: Optional[str] = None
+    flagged_at: Optional[str] = None
+
+
+class MissingResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: List[MissingItem]
 
 
 class DueResponse(BaseModel):
@@ -337,6 +357,16 @@ async def due_for_disposal(request: Request, ctx: UserContext = Depends(get_curr
         rows = await conn.fetch(SQL_DUE, ctx.bank_id)
     return DueResponse(items=[DueItem(**{k: (str(v) if k == "retention_until" and v is not None else v)
                                          for k, v in dict(r).items() if k in DueItem.model_fields}) for r in rows])
+
+
+@router_v1.get("/missing", response_model=MissingResponse)
+async def missing(request: Request, ctx: UserContext = Depends(get_current_user_context)) -> MissingResponse:
+    """Originals that were handed over but not in the box at receipt. They stay listed until someone resolves them."""
+    if ctx.role.value not in _MANAGERS:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Managers only")
+    async with _db(request).acquire() as conn:
+        rows = await conn.fetch(SQL_MISSING_LIST, ctx.bank_id)
+    return MissingResponse(items=[MissingItem(**{k: v for k, v in dict(r).items() if k in MissingItem.model_fields}) for r in rows])
 
 
 @router_v1.post("/instruments/{instrument_id}/dispose", response_model=DisposeResponse)

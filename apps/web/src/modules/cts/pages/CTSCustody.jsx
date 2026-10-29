@@ -30,6 +30,7 @@ const TABS = [
   ['pending', 'At branch'],
   ['transit', 'In transit'],
   ['due', 'Due for disposal'],
+  ['missing', 'Missing'],
 ]
 
 function Table({ th, head, children }) {
@@ -65,6 +66,7 @@ export default function CTSCustody() {
   const [pending, setPending] = useState({ items: [], hold_days: 7 })
   const [transit, setTransit] = useState([])
   const [due, setDue] = useState([])
+  const [missingItems, setMissingItems] = useState([])
   const [picked, setPicked] = useState({})
   const [courier, setCourier] = useState('')
   const [location, setLocation] = useState('')
@@ -72,12 +74,13 @@ export default function CTSCustody() {
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const [p, t, d] = await Promise.allSettled([
-      call('/pending'), call('/handovers?status=IN_TRANSIT'), call('/due-for-disposal'),
+    const [p, t, d, m] = await Promise.allSettled([
+      call('/pending'), call('/handovers?status=IN_TRANSIT'), call('/due-for-disposal'), call('/missing'),
     ])
     if (p.status === 'fulfilled') setPending(p.value)
     if (t.status === 'fulfilled') setTransit(t.value.handovers ?? [])
     if (d.status === 'fulfilled') setDue(d.value.items ?? [])
+    if (m.status === 'fulfilled') setMissingItems(m.value.items ?? [])
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -119,7 +122,7 @@ export default function CTSCustody() {
           {TABS.map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`px-3 py-1.5 text-sm rounded-md border ${tab === k ? th.btn : `${th.card} ${th.body}`}`}>
-              {label}{k === 'pending' ? ` (${pending.items.length})` : k === 'transit' ? ` (${transit.length})` : ` (${due.length})`}
+              {label}{` (${{ pending: pending.items.length, transit: transit.length, due: due.length, missing: missingItems.length }[k]})`}
             </button>
           ))}
         </div>
@@ -182,6 +185,21 @@ export default function CTSCustody() {
                 </Table>
               )}
             </>
+          )}
+
+          {tab === 'missing' && (
+            missingItems.length === 0 ? <Empty th={th} text="No originals are missing" /> : (
+              <Table th={th} head={['Instrument', 'Branch', 'Batch', 'Flagged']}>
+                {missingItems.map(i => (
+                  <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
+                    <td className="px-3 py-2 font-mono text-xs">{i.instrument_id}</td>
+                    <td className="px-3 py-2">{i.branch_name ?? i.branch_id}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{i.handover_id}</td>
+                    <td className={`px-3 py-2 ${th.warn}`}>{i.flagged_at}</td>
+                  </tr>
+                ))}
+              </Table>
+            )
           )}
 
           {tab === 'due' && (

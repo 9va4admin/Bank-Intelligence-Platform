@@ -50,6 +50,8 @@ class FakeDb:
         if sql == C.SQL_DUE:
             return [dict(c, instrument_id=i) for i, c in self.custody.items()
                     if c["status"] == "STORED" and c["retention_until"] <= date.today()]
+        if sql == C.SQL_MISSING_LIST:
+            return [dict(c, instrument_id=i) for i, c in self.custody.items() if c["status"] == "MISSING"]
         if sql == C.SQL_HISTORY:
             return [e for e in self.events if e["instrument_id"] == a[1]]
         raise AssertionError("unexpected fetch: " + sql[:70])
@@ -203,3 +205,11 @@ def test_an_instruments_history_lists_every_step():
     _client("store", db).post(f"/v1/cts/custody/handovers/{hid}/receive", json={"location": "BOX-12"})
     events = _client("mgr", db).get("/v1/cts/custody/instruments/I1/history").json()["events"]
     assert [e["event"] for e in events] == ["HANDED_OVER", "RECEIVED"]
+
+
+def test_originals_missing_at_receipt_are_listed_for_managers_and_storage_staff():
+    db = _db(); hid = _handed_over(db)
+    _client("store", db).post(f"/v1/cts/custody/handovers/{hid}/receive", json={"location": "BOX-12", "received_ids": ["I1"]})
+    rows = _client("mgr", db).get("/v1/cts/custody/missing").json()["items"]
+    assert [r["instrument_id"] for r in rows] == ["I2"]
+    assert _client("b1", db, role="ops_reviewer", branch_ids=["B1"]).get("/v1/cts/custody/missing").status_code == 403
