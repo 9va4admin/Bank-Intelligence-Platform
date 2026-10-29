@@ -32,3 +32,12 @@ describe('CTSOutwardQueue (live)', () => {
     expect(screen.getByText(/held by usr-other/)).toBeTruthy()
   })
 })
+
+describe('CTSOutwardQueue tab choice (live)', () => {
+  it('opens on the Rejected tab when every held item is a rejection, so the reviewer is not shown an empty queue', async () => {
+    globalThis.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ items: [item('R-1', { outcome: 'CTS_REJECTED' }), item('R-2', { outcome: 'MISMATCH_HELD' })] }) }))
+    render(<MemoryRouter><CTSOutwardQueue /></MemoryRouter>)
+    expect(await screen.findByText(/CTS compliance failure/)).toBeTruthy()
+    expect(screen.queryByText('No items awaiting review')).toBeNull()
+  })
+})

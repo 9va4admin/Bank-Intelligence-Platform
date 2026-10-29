@@ -82,3 +82,19 @@ class TestHealthEndpoints:
         # No Authorization header
         assert client.get("/health/live").status_code == 200
         assert client.get("/health/ready").status_code == 200
+
+
+class TestValidationHandler:
+    """A malformed request must come back as the generic 422, not crash the handler into a 500."""
+
+    def test_returns_generic_422_with_a_request_id(self):
+        import asyncio
+        import json
+        from fastapi.exceptions import RequestValidationError
+        from apps.api.main import _validation_handler
+
+        resp = asyncio.run(_validation_handler(None, RequestValidationError([])))
+        body = json.loads(resp.body)
+        assert resp.status_code == 422
+        assert body["error_code"] == "INVALID_REQUEST"
+        assert body["request_id"]

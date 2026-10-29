@@ -14,7 +14,7 @@
  * which PUs) is a backend RBAC feature — see the note at the bottom of this file.
  */
 import { csrfHeader } from '../../../shared/api/csrf'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -394,6 +394,7 @@ export default function CTSOutwardQueue() {
   // VITE_INWARD_LIVE=true: read the live outward queue (with allocation) even in a DEMO build; default is the sample data.
   const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const [tab, setTab] = useState('review') // 'review' | 'stp_rejected' | 'stp_success'
+  const tabPicked = useRef(false)          // once the user picks a tab, live data never moves them
   const demoReview    = useDemoData(MOCK_HUMAN_REVIEW)
   const demoRejected  = useDemoData(MOCK_STP_REJECTED)
   const demoSuccess   = useDemoData(MOCK_STP_SUCCESS)
@@ -408,7 +409,7 @@ export default function CTSOutwardQueue() {
   const fetchLiveQueue = useCallback(async () => {
     if (isDemo) return
     try {
-      const res = await fetch(`${API_BASE}/v1/cts/outward/human-review-queue?limit=100`, { credentials: 'include' })
+      const res = await fetch(`${API_BASE}/v1/cts/outward/human-review-queue?limit=500`, { credentials: 'include' })
       if (!res.ok) return
       const data = await res.json()
       const items = data.items ?? []
@@ -455,7 +456,12 @@ export default function CTSOutwardQueue() {
         front_gray_url: scanImgUrl(i.instrument_id, 'front_gray'),
       })
 
-      setReview(items.filter(i => i.outcome === 'HUMAN_REVIEW').map(toRow))
+      const inReview = items.filter(i => i.outcome === 'HUMAN_REVIEW')
+      const inRejected = items.filter(i => i.outcome === 'STP_RETURN' || i.outcome === 'MISMATCH_HELD' ||
+        i.outcome === 'CTS_REJECTED' || i.outcome === 'WORKFLOW_ERROR')
+      // Open on the tab that has work in it rather than an empty one.
+      if (!tabPicked.current && inReview.length === 0 && inRejected.length > 0) setTab('stp_rejected')
+      setReview(inReview.map(toRow))
       setRejected(items.filter(i =>
         i.outcome === 'STP_RETURN' || i.outcome === 'MISMATCH_HELD' ||
         i.outcome === 'CTS_REJECTED' || i.outcome === 'WORKFLOW_ERROR'
@@ -544,7 +550,7 @@ export default function CTSOutwardQueue() {
             {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'Rejected', rejectedQueue.length], ['stp_success', 'STP Success', successQueue.length]].map(([key, label, count]) => (
               <button
                 key={key}
-                onClick={() => { setTab(key); setSelected(null) }}
+                onClick={() => { tabPicked.current = true; setTab(key); setSelected(null) }}
                 className={`flex-1 text-[11px] font-semibold px-2 py-2 rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
                   tab === key
                     ? (isDark ? 'bg-white/10 text-white border-white/15' : 'bg-slate-800 text-white border-slate-800')

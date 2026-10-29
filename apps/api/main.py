@@ -490,7 +490,7 @@ async def _validation_handler(request: Request, exc: RequestValidationError) -> 
     from opentelemetry import trace
     span = trace.get_current_span()
     ctx = span.get_span_context() if span else None
-    request_id = format(ctx.trace_id, "032x") if ctx and ctx.is_valid() else "unknown"
+    request_id = format(ctx.trace_id, "032x") if ctx and ctx.is_valid else "unknown"
     return JSONResponse(
         status_code=422,
         content={
