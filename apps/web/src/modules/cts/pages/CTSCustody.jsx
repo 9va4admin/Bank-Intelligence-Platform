@@ -145,7 +145,7 @@ export default function CTSCustody() {
                         checked={!!picked[i.instrument_id]}
                         onChange={e => setPicked(p => ({ ...p, [i.instrument_id]: e.target.checked }))} /></td>
                       <td className="px-3 py-2 font-mono text-xs">{i.cheque_number ?? i.instrument_id}</td>
-                      <td className="px-3 py-2">{i.branch_id}</td>
+                      <td className="px-3 py-2">{i.branch_name ?? i.branch_id}</td>
                       <td className="px-3 py-2">{i.payee_display}</td>
                       <td className="px-3 py-2">{i.amount_range}</td>
                       <td className={`px-3 py-2 ${i.overdue ? th.warn : ''}`}>
@@ -169,7 +169,7 @@ export default function CTSCustody() {
                   {transit.map(h => (
                     <tr key={h.handover_id} className={`border-b ${th.row} ${th.body}`}>
                       <td className="px-3 py-2 font-mono text-xs">{h.handover_id}</td>
-                      <td className="px-3 py-2">{h.branch_id}</td>
+                      <td className="px-3 py-2">{h.branch_name ?? h.branch_id}</td>
                       <td className="px-3 py-2">{h.item_count}</td>
                       <td className="px-3 py-2">{h.courier_ref ?? '—'}</td>
                       <td className="px-3 py-2">{h.created_by}</td>
@@ -190,7 +190,7 @@ export default function CTSCustody() {
                 {due.map(i => (
                   <tr key={i.instrument_id} className={`border-b ${th.row} ${th.body}`}>
                     <td className="px-3 py-2 font-mono text-xs">{i.instrument_id}</td>
-                    <td className="px-3 py-2">{i.branch_id}</td>
+                    <td className="px-3 py-2">{i.branch_name ?? i.branch_id}</td>
                     <td className="px-3 py-2">{i.location ?? '—'}</td>
                     <td className="px-3 py-2">{i.retention_until}</td>
                     <td className="px-3 py-2 text-right">

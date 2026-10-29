@@ -36,7 +36,9 @@ _STORAGE = {"ops_reviewer", "ops_manager", "bank_it_admin"}
 
 # ── SQL (module constants: the tests and the router share them) ───────────────────────────────────────────────────────────────
 SQL_PENDING = (
-    "SELECT e.instrument_id, e.micr_suffix AS cheque_number, e.branch_id, e.amount_range, e.payee_display, "
+    "SELECT e.instrument_id, e.micr_suffix AS cheque_number, e.branch_id, "
+    "(SELECT b.branch_name FROM cts.branches b WHERE b.bank_id = e.bank_id AND b.branch_id = e.branch_id LIMIT 1) AS branch_name, "
+    "e.amount_range, e.payee_display, "
     "e.scanned_at::text AS captured_at, EXTRACT(EPOCH FROM (now() - e.scanned_at)) / 86400.0 AS age_days "
     "FROM cts.outward_scan_events e WHERE e.bank_id = $1 AND e.outcome = 'ACCEPTED' AND e.instrument_id IS NOT NULL "
     "AND ($2::text IS NULL OR e.branch_id = $2) "
@@ -53,7 +55,9 @@ SQL_INSERT_CUSTODY = (
     "INSERT INTO cts.instrument_custody (bank_id, instrument_id, branch_id, status, handover_id) "
     "VALUES ($1, $2, $3, 'IN_TRANSIT', $4) ON CONFLICT DO NOTHING")
 SQL_HANDOVERS = (
-    "SELECT handover_id, branch_id, status, courier_ref, notes, item_count, created_by, created_at::text AS created_at, "
+    "SELECT handover_id, branch_id, "
+    "(SELECT b.branch_name FROM cts.branches b WHERE b.bank_id = custody_handovers.bank_id AND b.branch_id = custody_handovers.branch_id LIMIT 1) AS branch_name, "
+    "status, courier_ref, notes, item_count, created_by, created_at::text AS created_at, "
     "received_by, received_at::text AS received_at FROM cts.custody_handovers "
     "WHERE bank_id = $1 AND ($2::text IS NULL OR status = $2) ORDER BY created_at DESC LIMIT 200")
 SQL_HANDOVER_ONE = (
@@ -70,7 +74,9 @@ SQL_MISSING_ITEM = (
     "UPDATE cts.instrument_custody SET status = 'MISSING', updated_at = now() "
     "WHERE bank_id = $1 AND instrument_id = $2 AND status = 'IN_TRANSIT'")
 SQL_DUE = (
-    "SELECT instrument_id, branch_id, location, retention_until::text AS retention_until FROM cts.instrument_custody "
+    "SELECT instrument_id, branch_id, "
+    "(SELECT b.branch_name FROM cts.branches b WHERE b.bank_id = instrument_custody.bank_id AND b.branch_id = instrument_custody.branch_id LIMIT 1) AS branch_name, "
+    "location, retention_until::text AS retention_until FROM cts.instrument_custody "
     "WHERE bank_id = $1 AND status = 'STORED' AND retention_until <= current_date ORDER BY retention_until LIMIT 500")
 SQL_CUSTODY_ONE = "SELECT instrument_id, branch_id, status FROM cts.instrument_custody WHERE bank_id = $1 AND instrument_id = $2"
 SQL_DISPOSE = (
@@ -89,6 +95,7 @@ class PendingItem(BaseModel):
     instrument_id: str
     cheque_number: Optional[str] = None
     branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
     amount_range: Optional[str] = None
     payee_display: Optional[str] = None
     captured_at: Optional[str] = None
@@ -114,6 +121,7 @@ class HandoverResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     handover_id: str
     branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
     status: str
     courier_ref: Optional[str] = None
     notes: Optional[str] = None
@@ -148,6 +156,7 @@ class DueItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
     branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
     location: Optional[str] = None
     retention_until: Optional[str] = None
 
