@@ -31,7 +31,6 @@ workflow:
   vault_miss_action: HUMAN_REVIEW   # vault miss ALWAYS → human review, never AUTO_RETURN
 
 # ── Deployment Topology (BANK-CONFIGURABLE) ─────────────────────────────────
-clearing_zones: []                  # e.g. [MUMBAI, DELHI] — set per bank
 max_agent_swarm_size: 500           # max parallel cheque-processing pods (KEDA ceiling)
 gpu_profile: pilot                  # pilot (4×RTX4090) | production (4×A100)
 

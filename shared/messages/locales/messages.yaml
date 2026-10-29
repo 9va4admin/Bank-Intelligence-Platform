@@ -2853,8 +2853,8 @@ BRANCH_IFSC_DUPLICATE:
 PU_CREATED:
   severity: INFO
   surface: [AUDIT]
-  variables: [pu_id, pu_name, clearing_zone, created_by]
-  en: "Processing Unit {pu_id} ({pu_name}) created for zone {clearing_zone} by {created_by}."
+  variables: [pu_id, pu_name, created_by]
+  en: "Processing Unit {pu_id} ({pu_name}) created by {created_by}."
   hi: ""
 
 PU_UPDATED:
@@ -2876,13 +2876,6 @@ PU_NOT_FOUND:
   surface: [UI]
   variables: [pu_id]
   en: "Processing Unit {pu_id} not found."
-  hi: ""
-
-PU_ZONE_CONFLICT:
-  severity: ERROR
-  surface: [UI, AUDIT]
-  variables: [clearing_zone, existing_pu_id]
-  en: "A Processing Unit already exists for zone {clearing_zone} — existing PU: {existing_pu_id}. Only one PU per clearing zone per bank is permitted."
   hi: ""
 
 PU_BRANCH_ASSIGNED:

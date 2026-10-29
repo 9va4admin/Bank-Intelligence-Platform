@@ -87,7 +87,6 @@ datacenters:
 
 # ── NGCH Clearing Zones ───────────────────────────────────────────────────────
 # Union Bank of India clears in all four NGCH zones (pan-India PSB)
-clearing_zones: [WEST, SOUTH, NORTH, EAST]
 
 # ── Branches (10 demo branches) ───────────────────────────────────────────────
 branches:

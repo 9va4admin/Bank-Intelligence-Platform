@@ -817,7 +817,8 @@ async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids
             await lock.update_item_meta(bank_id, iid, **fields)
 
         alloc = None
-        if routing or cfg.get("allocation_mode") == "AUTO":
+        mode = cfg.get("allocation_mode")
+        if routing or mode in ("AUTO", "HYBRID"):
             from modules.cts.allocation.allocation_service import AllocationService
             alloc = AllocationService(lock_service=lock, subscriptions=_subscriptions(request) if routing else None)
         if routing:
@@ -825,11 +826,16 @@ async def _holders_and_assign(request: Request, ctx: UserContext, instrument_ids
                 if not holders.get(iid):
                     await alloc.overflow_if_stale(bank_id, iid, cfg)     # nobody connected is here: it moves to MISC
 
-        if cfg.get("allocation_mode") == "AUTO":
+        if mode in ("AUTO", "HYBRID"):
+            # HYBRID: an item is left for self-claim until it has waited hybrid_auto_assign_timeout_minutes, then it is
+            # assigned like AUTO. Outward has no consumer to schedule that, so the item's own age decides.
+            hybrid_wait_s = float(cfg.get("hybrid_auto_assign_timeout_minutes", 5)) * 60
             available = await lock.get_active_reviewers(bank_id)
             branches_of = await lock.get_reviewer_branches(bank_id)
             for iid in instrument_ids:
                 if holders.get(iid):
+                    continue
+                if mode == "HYBRID" and (age_by_id or {}).get(iid, 0.0) < hybrid_wait_s:
                     continue
                 excl = {(exclude_by_id or {}).get(iid)} - {None}
                 # Only reviewers the bank's maker (or checker) scope lets work this item: its branch, central staff, or both.
@@ -1080,6 +1086,27 @@ async def _file_overdue_maker_decisions(request: Request, ctx: UserContext, db, 
     return kept
 
 
+async def sweep_overdue_outward(app, bank_id: str) -> int:
+    """File every staged outward decision no checker took in time (or that is close to the session cut-off), without anyone
+    having to open the validation queue. Run on a timer by the API process; safe to run on every pod, because the claim in
+    _file_overdue_maker_decisions is a conditional update. Returns how many it filed."""
+    from types import SimpleNamespace
+    db = getattr(app.state, "db_pool_cts", None)
+    if db is None:
+        return 0
+    request = SimpleNamespace(app=app)
+    try:
+        rows = await db.fetch(SQL_STAGE_LIST, bank_id, 500)
+        cfg = await _cts_config(request, bank_id)
+        if not cfg.get("maker_checker_enabled") or not rows:
+            return 0
+        kept = await _file_overdue_maker_decisions(request, SimpleNamespace(bank_id=bank_id, user_id="SYSTEM"), db, rows, cfg)
+    except Exception as exc:  # noqa: BLE001 - the next tick tries again; a failed sweep must never stop the loop
+        log.warning("cts.outward_review.sweep_failed", bank_id=bank_id, error=str(exc))
+        return 0
+    return len(rows) - len(kept)
+
+
 @router_v1.get("/outward/validation-queue", response_model=OutwardValidationQueueResponse)
 async def get_outward_validation_queue(
     request: Request,
@@ -1106,6 +1133,7 @@ async def get_outward_validation_queue(
     holders, metas = await _holders_and_assign(request, ctx, [r["instrument_id"] for r in rows], cfg,
                                                exclude_by_id={r["instrument_id"]: r["maker_id"] for r in rows},
                                                pu_by_id={r["instrument_id"]: r.get("pu_id") for r in rows},
+                                               age_by_id={r["instrument_id"]: float(r.get("age_seconds") or 0.0) for r in rows},
                                                bucket_by_id=bucket_by_id, phase="checker")
     if metas:
         visible = await _reviewer_may_see(request, ctx, cfg, metas)

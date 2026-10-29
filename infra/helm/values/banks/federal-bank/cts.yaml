@@ -18,7 +18,6 @@ kafka:
 
 # ── Clearing ─────────────────────────────────────────────────────────────────
 # Federal Bank is pan-India — all four NGCH clearing zones
-clearing_zones: [SOUTH, WEST, NORTH, EAST]
 
 # Federal Bank volumes: ~35,000 own inward + ~1,000 SMB inward = ~36,000/day
 max_agent_swarm_size: 500

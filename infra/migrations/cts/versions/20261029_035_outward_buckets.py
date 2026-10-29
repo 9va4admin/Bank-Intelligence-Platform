@@ -26,5 +26,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DELETE FROM cts.reviewer_bucket_subscriptions WHERE bucket LIKE 'OUT\_%'")
+    op.execute(r"DELETE FROM cts.reviewer_bucket_subscriptions WHERE bucket LIKE 'OUT\_%'")
     _set(_OLD)

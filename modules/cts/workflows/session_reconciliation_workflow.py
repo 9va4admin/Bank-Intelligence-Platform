@@ -44,6 +44,7 @@ class SessionReconciliationInput(BaseModel):
     bank_ifsc: str
     clearing_date: str
     submitted_count: int
+    submitted_instrument_ids: list[str] = []   # the instruments the session submitted, so a missing report row is caught
 
 
 class SessionReconciliationResult(BaseModel):
@@ -102,6 +103,8 @@ class SessionReconciliationWorkflow:
                 bank_id=inp.bank_id,
                 settlement_rows=settlement.rows,
                 submitted_count=inp.submitted_count,
+                submitted_instrument_ids=inp.submitted_instrument_ids,
+                report_unavailable=settlement.degraded,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_CBS_RETRY,

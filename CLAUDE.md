@@ -153,11 +153,12 @@ on a PU (migration `20261029_034`); reviewers are scoped to PUs (`UserContext.pu
 allocation scopes by `pu_id` (`pu_allows`, item meta `pu_id`, `reviewer-pus:` Redis key); the RRF and CRL no longer carry a zone (NPCI's
 specifications in `docs/npci/source/` define no zone element - checked); day-end sealing files every PU's lots under the one bank-default
 centre; MICR routing rules and the NGCH routing screen have no zone; no screen shows a zone (a test fails the build if one does). **Retired (2026-10-29):** the RPC consolidation page, its route and nav entry, and `GET /v1/cts/rpc/zones` (a removal agreed with the bank
-owner; the API was never released to a bank, so no `/v2` was needed). **Kept on purpose:** the tables `cts.clearing_zones` /
-`processing_centers` / `rpc_zones` and the deprecated unused columns (`processing_units.clearing_zone`, `local_auth_accounts.clearing_zones`,
-`cheque_instruments.clearing_zone`, `micr_routing_rules.clearing_zone`) - `cts.clearing_sessions` still has foreign keys to the zone and centre
-tables (day-end sealing uses one DEFAULT row), so dropping them is a separate migration once sessions stop referencing them, and columns are
-dropped by the rename-keep-drop pattern in the database rules.
+owner; the API was never released to a bank, so no `/v2` was needed). **Dropped from the schema** (cts migration `20261029_037`, platform
+`20261029_drop_clearing_zones`): the tables `cts.clearing_zones` / `processing_centers` / `rpc_zones`, every `center_id` column
+(`clearing_sessions`, `cheque_instruments`, `branches_master`) and the zone columns (`processing_units.clearing_zone`,
+`human_review_items.assigned_zone`, `local_auth_accounts.clearing_zones`). A clearing session now carries no centre. The migration drops
+columns in one step, an explicit exception to the rename-keep-drop rule in the database rules, because the owner asked and nothing read them.
+The Helm `clearing_zones` values keys are gone too; the IdP attribute for reviewer scope is now `pu_ids` (optional `branch_ids`).
 
 **Outward (2026-10-29):** the session cut-off is bank configuration (`cts.outward_session_cutoffs`, a list of local "HH:MM", default 14:30;
 `outward_session_timezone`; `modules/cts/outward_sessions.py`) and drives allocation urgency, filing of staged decisions
@@ -245,6 +246,12 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   late handovers. Tables `cts.instrument_custody`, `cts.custody_handovers`, append-only `cts.custody_events` (migration `20261029_036`);
   rows are registered lazily from accepted `outward_scan_events`, no workflow hook. Router `cts_custody.py`, screen `CTSCustody.jsx`
   (`/cts/outward/custody`). Open: the 10-year default is a placeholder to confirm with the bank; no per-SMB scoping yet.
+- **Outward timers and HYBRID (2026-10-29).** The API runs a 60-second sweep (`sweep_overdue_outward`) that files staged outward decisions no checker took
+  within `checker_review_timeout_minutes` or that are inside `outward_cutoff_guard_minutes` of the cut-off; it no longer depends on someone opening
+  the validation queue. Outward HYBRID leaves an item for self-claim until it has waited `hybrid_auto_assign_timeout_minutes`, then assigns it like AUTO.
+  A reviewer's scope (PUs, branches, buckets) is read from the session, so a change by an admin applies at the reviewer's next sign-in or refresh;
+  items they already hold keep their lock until it expires (10 minutes). Still open: real CBS adapters do not map `account_type` (needs each CBS's real
+  scheme-code field), and the custody retention default (10 years) is a placeholder to confirm with the bank.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

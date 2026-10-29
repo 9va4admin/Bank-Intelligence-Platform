@@ -44,7 +44,6 @@ auth:
         "saraswat-ops-manager":    ops_manager
         "saraswat-it-admin":       bank_it_admin
         "saraswat-compliance":     compliance_officer
-    clearing_zones: [MUMBAI]
 
   # Branch scanner operators → LDAP-AD (Saraswat AD domain, LDAPS)
   branch:
@@ -112,7 +111,6 @@ datacenters:
     active: false
 
 # ── NGCH Clearing Zone ───────────────────────────────────────────────────────
-clearing_zones: [MUMBAI]
 
 # ── Notifications ────────────────────────────────────────────────────────────
 notifications:

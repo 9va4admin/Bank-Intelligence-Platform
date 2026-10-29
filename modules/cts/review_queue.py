@@ -69,7 +69,7 @@ async def list_open(conn: Any, bank_id: str, direction: Optional[str] = None, li
     """Open items only (PENDING/ASSIGNED). Explicit columns, bounded limit — never SELECT *."""
     limit = max(1, min(int(limit), 100))
     cols = ("review_id, bank_id, direction, instrument_ref, workflow_id, escalation_reason, status, "
-            "queue_tier, review_level, assigned_zone, assigned_reviewer_id, review_deadline_at, iet_deadline_at, created_at")
+            "queue_tier, review_level, assigned_pu_id, assigned_reviewer_id, review_deadline_at, iet_deadline_at, created_at")
     if direction:
         return await conn.fetch(
             f"SELECT {cols} FROM cts.human_review_items WHERE bank_id=$1 AND direction=$2 "

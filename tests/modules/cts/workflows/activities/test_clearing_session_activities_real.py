@@ -2,8 +2,8 @@
   1. seal_all_lots looked up lots by the API-invented random session_id — lots carry the SCANNER session_id, so
      the query always returned []. Real grouping key is (bank_id, clearing_date, pu_ids-derived branches).
   2. It selected status='SEALED', but endorsement moves lots to 'ENDORSED' — never matched a real lot.
-  3. Nothing ever inserted the cts.clearing_sessions row, and it needs a center_id (FK to processing_centers,
-     itself FK to clearing_zones) that is never created anywhere.
+  3. Nothing ever inserted the cts.clearing_sessions row. (It once needed a center_id FK to a zone/centre table nobody
+     created; the zone concept is gone, so the row carries no centre at all.)
   4. update_session_status wrote npci_ack_ref/updated_at, which do not exist on cts.clearing_sessions
      (real columns: ngch_session_ref, no updated_at).
 """
@@ -61,7 +61,7 @@ def _lot_row(lot_id="LOT-1", pu_id="KBL-PU-01", routing_no="KARB", branch_ifsc="
 
 @pytest.mark.asyncio
 async def test_seal_all_lots_queries_by_bank_and_date_not_scanner_session_id():
-    conn = Conn(lot_rows=[_lot_row()], zone_row={"zone_id": "CHENNAI"}, center_row={"center_id": "c-1"})
+    conn = Conn(lot_rows=[_lot_row()])
     res = await seal_all_lots(
         SealAllLotsInput(session_id="clearsess-abcd1234", bank_id="kbl", pu_ids=["KBL-PU-01"],
                          clearing_date="2026-09-21"),
@@ -71,27 +71,26 @@ async def test_seal_all_lots_queries_by_bank_and_date_not_scanner_session_id():
     assert res.sealed_lots == [{"lot_id": "LOT-1", "sequence_number": 1, "instrument_count": 3, "branch_id": "br-1",
                                 "branch_ifsc": "KARB0000001", "pu_id": "KBL-PU-01", "routing_no": "KARB"}]
     sql, args = conn.executed and conn.executed[-1] or (None, None)
-    # a clearing_sessions row must be inserted, addressing a real center_id (not left null)
+    # a clearing_sessions row must be inserted, with no centre or zone
     insert_sql = [c for c in conn.executed if "INSERT INTO cts.clearing_sessions" in c[0]]
     assert insert_sql, "no INSERT into cts.clearing_sessions"
-    assert "c-1" in insert_sql[0][1]
+    assert "center_id" not in insert_sql[0][0]
     assert res.session_uuid
 
 
 @pytest.mark.asyncio
-async def test_seal_all_lots_creates_zone_and_center_when_missing():
-    conn = Conn(lot_rows=[_lot_row()], zone_row=None, center_row=None)
+async def test_seal_all_lots_never_touches_zone_or_centre_tables():
+    conn = Conn(lot_rows=[_lot_row()])
     await seal_all_lots(
         SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=["KBL-PU-01"], clearing_date="2026-09-21"),
         db_pool=Pool(conn),
     )
-    assert any("INSERT INTO cts.clearing_zones" in c[0] for c in conn.executed)
-    assert any("INSERT INTO cts.processing_centers" in c[0] for c in conn.executed)
+    assert not any("clearing_zones" in c[0] or "processing_centers" in c[0] for c in conn.executed)
 
 
 @pytest.mark.asyncio
 async def test_seal_all_lots_empty_pu_ids_means_all_pus_of_bank():
-    conn = Conn(lot_rows=[_lot_row()], zone_row={"zone_id": "CHENNAI"}, center_row={"center_id": "c-1"})
+    conn = Conn(lot_rows=[_lot_row()])
     res = await seal_all_lots(
         SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=[], clearing_date="2026-09-21"),
         db_pool=Pool(conn),
@@ -126,14 +125,12 @@ async def test_mark_lots_submitted_updates_lot_and_instrument_rows():
 
 
 @pytest.mark.asyncio
-async def test_all_lots_of_a_bank_go_under_its_single_processing_centre():
-    """A bank files to one grid: lots of every PU seal under the one bank-default centre, whatever the PU."""
-    conn = Conn(lot_rows=[_lot_row("L1", pu_id="PU-A"), _lot_row("L2", pu_id="PU-B")], zone_row=None, center_row=None)
+async def test_lots_of_every_pu_seal_into_one_session():
+    """A bank files to one grid: lots of every PU seal under the one session, whatever the PU."""
+    conn = Conn(lot_rows=[_lot_row("L1", pu_id="PU-A"), _lot_row("L2", pu_id="PU-B")])
     res = await seal_all_lots(
         SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=[], clearing_date="2026-09-21"),
         db_pool=Pool(conn),
     )
     assert res.status == "OK" and len(res.sealed_lots) == 2
-    centre_inserts = [c for c in conn.executed if "INSERT INTO cts.processing_centers" in c[0]]
-    assert len(centre_inserts) == 1                                  # one centre, not one per PU
-    assert all(None not in c[1] for c in conn.executed if "INSERT INTO cts.clearing_zones" in c[0])
+    assert len([c for c in conn.executed if "INSERT INTO cts.clearing_sessions" in c[0]]) == 1

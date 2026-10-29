@@ -4396,7 +4396,6 @@
     "variables": [
       "pu_id",
       "pu_name",
-      "clearing_zone",
       "created_by"
     ]
   },
@@ -4433,18 +4432,6 @@
     ],
     "variables": [
       "pu_id"
-    ]
-  },
-  "PU_ZONE_CONFLICT": {
-    "text": "",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "clearing_zone",
-      "existing_pu_id"
     ]
   },
   "PU_BRANCH_ASSIGNED": {

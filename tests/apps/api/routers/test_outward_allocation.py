@@ -122,6 +122,14 @@ def test_auto_mode_assigns_unassigned_items_to_the_reviewers_who_are_active():
     assert owners == {"r1", "r2"}                       # least-loaded spreads the work over both
 
 
+def test_hybrid_mode_leaves_a_fresh_item_for_self_claim_but_assigns_one_that_has_waited():
+    redis, db = FakeRedis(), FakeDb(held=["NEW", "OLD"], age_of={"NEW": 60.0, "OLD": 6 * 60.0})   # hybrid timeout is 5 minutes
+    run(LockService(redis).heartbeat_reviewer(BANK, "r1"))
+    rows = _queue(_client("r1", db, redis, cfg={**CFG, "allocation_mode": "HYBRID", "hybrid_auto_assign_timeout_minutes": 5}))
+    assert rows["NEW"]["assigned_to"] is None            # inside the self-claim window
+    assert rows["OLD"]["assigned_to"] == "r1"            # nobody took it in time: the system assigns it
+
+
 def test_self_mode_leaves_items_for_reviewers_to_claim():
     redis, db = FakeRedis(), FakeDb(held=["A1"])
     rows = _queue(_client("r1", db, redis, cfg={**CFG, "allocation_mode": "SELF"}))
@@ -168,6 +176,19 @@ def test_a_staged_decision_no_checker_takes_in_time_is_filed_on_the_makers_word(
     rows = _client("checker", db, redis).get("/v1/cts/outward/validation-queue").json()["items"]
     assert rows == [] and db.stage["A1"]["status"] == "FINAL" and db.stage["A1"]["checker_id"] == "SYSTEM"
     assert db.updates and db.updates[0][0] == "STP_CONFIRM"       # the maker's CONFIRMED was filed
+
+
+def test_the_sweeper_files_an_overdue_staged_decision_without_anyone_opening_the_queue():
+    from apps.api.routers.cts_outward_data import sweep_overdue_outward
+    redis, db = FakeRedis(), FakeDb(held=["A1", "A2"])
+    c = _client("maker", db, redis)
+    c.post("/v1/cts/outward/review/A1/decide", json=BODY)
+    c.post("/v1/cts/outward/review/A2/decide", json=BODY)
+    db.stage["A1"]["age_seconds"] = 16 * 60.0                    # past the checker timeout
+    db.stage["A2"]["age_seconds"] = 60.0                         # still fresh
+    filed = run(sweep_overdue_outward(c.app, "kbl"))
+    assert filed == 1 and db.stage["A1"]["status"] == "FINAL" and db.stage["A1"]["checker_id"] == "SYSTEM"
+    assert db.stage["A2"]["status"] == "MAKER_DECIDED"
 
 
 def test_a_staged_decision_within_the_timeout_is_left_for_a_checker():

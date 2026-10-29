@@ -49,7 +49,6 @@ def _make_rrf_document(items=None):
         bank_ifsc="SVCB0000001",
         bank_id="saraswat-coop",
         session_id="SES001",
-        clearing_zone="MUMBAI",
         generated_at=datetime(2026, 6, 19, 16, 0, 0, tzinfo=timezone.utc),
         returns=items,
     )
