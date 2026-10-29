@@ -124,3 +124,17 @@ async def test_mark_lots_submitted_updates_lot_and_instrument_rows():
     stmts = [c[0] for c in conn.executed]
     assert any("UPDATE cts.lots" in s for s in stmts)
     assert any("UPDATE cts.cheque_instruments" in s and "ngch_instrument_ref" not in s for s in stmts) or            any("UPDATE cts.cheque_instruments" in s for s in stmts)
+
+
+@pytest.mark.asyncio
+async def test_seal_all_lots_works_for_a_pu_with_no_zone():
+    """A PU no longer has a clearing zone (a bank files to one grid): its lots must still seal, under the default centre."""
+    row = dict(_lot_row(), zone_id=None)
+    conn = Conn(lot_rows=[row], zone_row=None, center_row=None)
+    res = await seal_all_lots(
+        SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=["NEW-PU"], clearing_date="2026-09-21"),
+        db_pool=Pool(conn),
+    )
+    assert res.status == "OK"
+    zone_inserts = [c for c in conn.executed if "INSERT INTO cts.clearing_zones" in c[0]]
+    assert zone_inserts and all(None not in c[1] for c in zone_inserts), "a NULL zone id must never be inserted"

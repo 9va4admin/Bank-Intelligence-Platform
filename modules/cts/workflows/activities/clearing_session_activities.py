@@ -128,7 +128,8 @@ async def seal_all_lots(
             )
             sealed = [dict(r) for r in rows]
 
-            zones = {r["zone_id"] for r in sealed}
+            # A PU has no zone any more (one grid per bank); lots of such a PU go under the bank-default centre.
+            zones = {r["zone_id"] or "DEFAULT" for r in sealed}
             center_id = None
             for zone_id in zones:
                 center_id = await _ensure_zone_and_center(conn, inp.bank_id, zone_id)
