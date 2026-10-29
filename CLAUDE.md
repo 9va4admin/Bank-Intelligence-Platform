@@ -249,8 +249,11 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
 - **Outward timers and HYBRID (2026-10-29).** The API runs a 60-second sweep (`sweep_overdue_outward`) that files staged outward decisions no checker took
   within `checker_review_timeout_minutes` or that are inside `outward_cutoff_guard_minutes` of the cut-off; it no longer depends on someone opening
   the validation queue. Outward HYBRID leaves an item for self-claim until it has waited `hybrid_auto_assign_timeout_minutes`, then assigns it like AUTO.
-  A reviewer's scope (PUs, branches, buckets) is read from the session, so a change by an admin applies at the reviewer's next sign-in or refresh;
-  items they already hold keep their lock until it expires (10 minutes). Still open: real CBS adapters do not map `account_type` (needs each CBS's real
+  A reviewer's access is read from the database on every CTS request (`get_current_user_context`): PUs and branches for locally managed accounts, and
+  the active flag, so an admin narrowing access or disabling an account takes effect on the very next request, not at session refresh. Bucket
+  subscriptions were already read per request. Users who sign in through an identity provider have no local row and keep the scope the provider gave
+  them. If the lookup fails the session's scope is used (a database blip must not lock every reviewer out). Items already locked by a reviewer
+  keep their lock until it expires (10 minutes), but every decision re-checks scope. Still open: real CBS adapters do not map `account_type` (needs each CBS's real
   scheme-code field), and the custody retention default (10 years) is a placeholder to confirm with the bank.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
