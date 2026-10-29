@@ -138,21 +138,7 @@ export default function CTSAllocationAdmin() {
     retry: false,
   })
 
-  // --- config query for current allocation_mode ---
-  const { data: cfgData } = useQuery({
-    queryKey: ['cts-config-alloc-mode', bankId],
-    queryFn: async () => {
-      if (isDemo) return { allocation_mode: 'HYBRID' }
-      const res = await fetch(`/v1/admin/config/keys?prefix=allocation&bank_id=${bankId}`, { credentials: 'include' })
-      if (!res.ok) return {}
-      return res.json()
-    },
-    enabled: true,
-    staleTime: 30_000,
-    retry: false,
-  })
-
-  const allocationMode = statusData?.allocation_mode ?? cfgData?.allocation_mode ?? '—'
+  const allocationMode = statusData?.allocation_mode ?? '—'
   const strategy = statusData?.allocation_strategy
   const maxPer = statusData?.max_per_reviewer
 
