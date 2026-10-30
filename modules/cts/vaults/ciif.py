@@ -165,7 +165,7 @@ def parse_ciif_csv(text: str, today: date) -> tuple[list[CIIFRecord], list[CIIFE
 def parse_ciif_xml(text: str, today: date) -> tuple[list[CIIFRecord], list[CIIFError], dict]:
     """XML form. DOCTYPE/entity declarations are refused outright (no external entity or expansion attacks)."""
     if re.search(r"<!DOCTYPE|<!ENTITY", text, re.I):
-        return [], [CIIFError(0, "file", "DOCTYPE and entity declarations are not allowed")], {}
+        return [], [CIIFError(0, "file", get_message("CTS_DOCTYPE_AND_ENTITY_DECLARATIONS_ARE"))], {}
     import xml.etree.ElementTree as ET
     try:
         root = ET.fromstring(text)

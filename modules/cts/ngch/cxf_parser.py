@@ -192,9 +192,9 @@ class CXFParser:
                 )
             return ivd_offsets[view]
 
-        fbw  = _off("Front BW")
-        bbw  = _off("Back BW")
-        fgry = _off("Front Gray")
+        fbw  = _off(get_message("CTS_FRONT_BW"))
+        bbw  = _off(get_message("CTS_BACK_BW"))
+        fgry = _off(get_message("UI_COMMON_FRONT_GRAY"))
 
         return ParsedCXFItem(
             item_seq_no=item_seq_no,

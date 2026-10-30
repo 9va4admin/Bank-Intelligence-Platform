@@ -153,7 +153,7 @@ class VaultUploadProcessor:
             header = set(rows[0].keys())
             missing = required - header
             if missing:
-                await self._fail_batch(batch_id, f"Missing required columns: {missing}")
+                await self._fail_batch(batch_id, get_message("CTS_MISSING_REQUIRED_COLUMNS_2", missing=missing))
                 raise ValueError(get_message("CTS_CSV_MISSING_REQUIRED_COLUMNS_FOR", vault_type=vault_type, missing=missing))
 
         # Referential integrity: bulk-check all accounts exist in cts.account_vault.

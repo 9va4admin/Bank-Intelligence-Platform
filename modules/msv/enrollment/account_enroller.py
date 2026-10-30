@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.msv.ai.embedding_model import EmbeddingModelUnavailableError
 from shared.cbs_connector.exceptions import CBSUnavailableError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.msv.enrollment")
@@ -136,7 +137,7 @@ class AccountEnroller:
                 )
 
             except EmbeddingModelUnavailableError as exc:
-                error = f"EMBEDDING_MODEL_UNAVAILABLE: {exc}"
+                error = get_message("MSV_EMBEDDING_MODEL_UNAVAILABLE_2", exc=exc)
                 log.error(
                     "msv.enroll.embedding_failed",
                     bank_id=bank_id,
@@ -152,7 +153,7 @@ class AccountEnroller:
                 )
 
             except CBSUnavailableError as exc:
-                error = f"CBS_UNAVAILABLE: {exc}"
+                error = get_message("MSV_CBS_UNAVAILABLE", exc=exc)
                 log.error(
                     "msv.enroll.cbs_failed",
                     bank_id=bank_id,
@@ -168,7 +169,7 @@ class AccountEnroller:
                 )
 
             except Exception as exc:
-                error = f"UNEXPECTED_ERROR: {exc}"
+                error = get_message("MSV_UNEXPECTED_ERROR", exc=exc)
                 log.error(
                     "msv.enroll.unexpected_error",
                     bank_id=bank_id,

@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
+from shared.messages import get_message
 
 
 @dataclass
@@ -67,7 +68,7 @@ class LotManager:
 
     def assign(self, instrument_id: str, lot_number: str) -> None:
         if lot_number not in self._lots:
-            raise KeyError(f"Lot '{lot_number}' does not exist")
+            raise KeyError(get_message("CTS_LOT_DOES_NOT_EXIST", lot_number=lot_number))
         self._lots[lot_number].instrument_ids.append(instrument_id)
         self._instrument_lot_map[instrument_id] = lot_number
 

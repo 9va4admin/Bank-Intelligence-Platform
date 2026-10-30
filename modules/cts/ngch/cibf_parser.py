@@ -91,11 +91,11 @@ class CIBFParser:
             )
 
         ds_fbw,  img_fbw  = _slice(
-            item.front_bw_ds_offset,  item.front_bw_image_offset,  item.front_bw_image_length,  "Front BW")
+            item.front_bw_ds_offset,  item.front_bw_image_offset,  item.front_bw_image_length,  get_message("CTS_FRONT_BW"))
         ds_bbw,  img_bbw  = _slice(
-            item.back_bw_ds_offset,   item.back_bw_image_offset,   item.back_bw_image_length,   "Back BW")
+            item.back_bw_ds_offset,   item.back_bw_image_offset,   item.back_bw_image_length,   get_message("CTS_BACK_BW"))
         ds_fgry, img_fgry = _slice(
-            item.front_gray_ds_offset, item.front_gray_image_offset, item.front_gray_image_length, "Front Gray")
+            item.front_gray_ds_offset, item.front_gray_image_offset, item.front_gray_image_length, get_message("UI_COMMON_FRONT_GRAY"))
 
         log.debug(
             "cibf_parser.extracted",
