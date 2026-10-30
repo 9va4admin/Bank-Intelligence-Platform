@@ -198,6 +198,13 @@ layer3:
     allocation_mode: "SELF"                     # SELF | HYBRID | AUTO  (see AllocationService)
     allocation_lock_ttl_minutes: 10             # Redis lock TTL; reviewer loses lock if inactive > this
     hybrid_auto_assign_timeout_minutes: 5       # HYBRID only: auto-assign fires if unclaimed after this many minutes
+    allocation_strategy: "LEAST_LOADED"         # LEAST_LOADED | RANDOM — who an auto-assigned item goes to
+    allocation_max_per_reviewer: 10             # auto-assign cap per reviewer (0 = none); urgent items ignore it
+    allocation_urgent_margin_minutes: 30        # items this close to their IET jump the queue and ignore the cap
+    allocation_rebalance_enabled: true          # spread unopened auto-assigned work as more reviewers log in
+    allocation_rebalance_interval_seconds: 60   # at most one rebalance per bank per interval (a new login bypasses it)
+    allocation_rebalance_max_moves: 20          # cap on items moved in one rebalance
+    allocation_retry_seconds: 60                # retry delay when no eligible reviewer is available
 
   vault:
     error_files:

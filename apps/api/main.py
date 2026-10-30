@@ -72,6 +72,8 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.error("api_gateway.config_service_init_failed", error=str(exc))
         raise
+    # Routers read bank settings via request.app.state.config_service; without this they all saw "no config".
+    app.state.config_service = config_service
 
     # --- Session service (RS256 keys from Vault) ---
     # Backs AuthenticationMiddleware: validates the httpOnly session cookie on every

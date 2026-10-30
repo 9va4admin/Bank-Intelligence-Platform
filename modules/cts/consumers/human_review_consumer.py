@@ -142,6 +142,19 @@ async def handle_human_review_event(
 
     allocation_mode = cts_config.get("allocation_mode", "SELF")
 
+    from modules.cts.allocation.lock_service import LockService
+    from modules.cts.allocation.allocation_service import AllocationService
+
+    lock_svc = LockService(redis_client=redis)
+    zone = payload.get("clearing_zone") or (context_bundle or {}).get("clearing_zone")
+    try:
+        await lock_svc.set_item_meta(
+            envelope.bank_id, instrument_id, zone=zone,
+            iet_deadline=float(iet_deadline) if iet_deadline else None,
+        )
+    except Exception as exc:
+        log.warning("human_review_consumer.item_meta_failed", instrument_id=instrument_id, error=str(exc))
+
     if allocation_mode == "SELF":
         log.debug(
             "human_review_consumer.allocation_self_mode_no_op",
@@ -150,17 +163,14 @@ async def handle_human_review_event(
         )
         return
 
-    from modules.cts.allocation.lock_service import LockService
-    from modules.cts.allocation.allocation_service import AllocationService
-
-    lock_svc = LockService(redis_client=redis)
     alloc_svc = AllocationService(lock_service=lock_svc)
+    retry_seconds = int(cts_config.get("allocation_retry_seconds", 60))
 
     if allocation_mode == "AUTO":
         # Immediately auto-assign from the active reviewer pool
         try:
             available = await lock_svc.get_active_reviewers(envelope.bank_id)
-            result = await alloc_svc.auto_assign(instrument_id, available, cts_config)
+            result = await alloc_svc.auto_assign(instrument_id, available, cts_config, bank_id=envelope.bank_id)
             if result.claimed:
                 log.info(
                     "human_review_consumer.auto_assigned",
@@ -174,7 +184,11 @@ async def handle_human_review_event(
                     instrument_id=instrument_id,
                     bank_id=envelope.bank_id,
                     active_reviewer_count=len(available),
+                    reason=getattr(result, "reason", None),
                 )
+                # Nobody is free right now (not logged in, at the cap, or out of zone): try again shortly. The
+                # retry is picked up by the next queue poll (pop_due_hybrid_pending), so the item is never dropped.
+                await lock_svc.add_hybrid_pending(envelope.bank_id, instrument_id, _time.time() + retry_seconds)
         except Exception as exc:
             log.error(
                 "human_review_consumer.auto_assign_error",
@@ -188,7 +202,12 @@ async def handle_human_review_event(
         # if no reviewer has self-claimed by then. pop_due_hybrid_pending() is called
         # on each queue poll in cts_inward.py.
         timeout_minutes = int(cts_config.get("hybrid_auto_assign_timeout_minutes", 5))
-        assign_after_ts = _time.time() + timeout_minutes * 60
+        now = _time.time()
+        assign_after_ts = now + timeout_minutes * 60
+        if iet_deadline:
+            # An item nobody picks up before its IET is deemed approved: never wait past the urgent margin.
+            urgent_from = float(iet_deadline) - float(cts_config.get("allocation_urgent_margin_minutes", 0)) * 60
+            assign_after_ts = max(now, min(assign_after_ts, urgent_from))
         try:
             await lock_svc.add_hybrid_pending(envelope.bank_id, instrument_id, assign_after_ts)
             log.info(

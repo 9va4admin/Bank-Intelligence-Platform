@@ -53,6 +53,8 @@ _OPA_CACHE_TTL_SECONDS = 1
 # NEVER reference these literals from anywhere else — they exist only so that the
 # config service can return a sane value instead of crashing with AttributeError
 # when the DB pool is None during local development.
+_ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign")
+
 _LAYER3_DEFAULTS: dict[str, Any] = {
     # ── CTS thresholds ──────────────────────────────────────────────────────────
     "cts.iet_minutes": 180,
@@ -93,6 +95,17 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.alteration_risk_threshold": 0.65,
     "cts.iet_emergency_buffer_seconds": 30,
     "cts.human_review_max_wait_minutes": 55,
+    # ── Human-review allocation (see modules/cts/allocation) ───────────────────
+    "cts.allocation_mode": "SELF",                    # SELF | HYBRID | AUTO
+    "cts.allocation_lock_ttl_minutes": 10,            # a claim lapses if the holder is idle this long
+    "cts.hybrid_auto_assign_timeout_minutes": 5,      # HYBRID: auto-assign after this long unclaimed
+    "cts.allocation_strategy": "LEAST_LOADED",        # LEAST_LOADED | RANDOM
+    "cts.allocation_max_per_reviewer": 10,            # auto-assign cap per reviewer; 0 = no cap (urgent items ignore it)
+    "cts.allocation_urgent_margin_minutes": 30,       # items this close to their IET jump the queue and ignore the cap
+    "cts.allocation_rebalance_enabled": True,         # spread unopened auto-assigned work as reviewers log in
+    "cts.allocation_rebalance_interval_seconds": 60,  # at most one rebalance per bank per interval (joins bypass it)
+    "cts.allocation_rebalance_max_moves": 20,         # cap on items moved in one rebalance
+    "cts.allocation_retry_seconds": 60,               # retry delay when no eligible reviewer is available
     "cts.cheque_validity_days": 90,
     "cts.pps_mandatory_threshold": 500000,
     # Layer 4 business-policy rules (CLAUDE.md §2.6) — evaluated by shared.policy_engine.
@@ -476,8 +489,13 @@ class ConfigService:
             "cts.ocr_min_confidence",
             "cts.signature_min_match_score",
         ]
-        results = await asyncio.gather(*[self.get(k) for k in keys])
-        return dict(zip(keys, results))
+        alloc_keys = [k for k in _LAYER3_DEFAULTS if k.startswith(_ALLOCATION_PREFIXES)]
+        results = await asyncio.gather(*[self.get(k) for k in keys + alloc_keys])
+        out = dict(zip(keys + alloc_keys, results))
+        # Allocation code (queue router, review consumer) reads bare names; the dotted keys above stay as they were.
+        for k in alloc_keys:
+            out[k.removeprefix("cts.")] = out[k]
+        return out
 
     async def get_workflow_thresholds(self, bank_id: str | None = None) -> dict:
         """Return all thresholds that ChequeProcessingWorkflow reads from

@@ -189,6 +189,14 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
 - **CIIF (PPS issue file) loads into the PPS vault** via `process_ciif` / `POST /v1/cts/vault/upload/pps/ciif`. The spec does not say whether
   Amount is rupees or paise, so `cts.ciif_amount_unit` is required with no default (refused when unset). Vault amounts convert via
   Decimal (the old float conversion turned 0.29 into 28 paise).
+- **Human-review allocation (2026-10-28).** SELF / HYBRID / AUTO modes were unreachable: `get_cts_config()` returned only seven dotted keys
+  and `app.state.config_service` was never set, so every router and the consumer saw the SELF default. Both fixed (guard test
+  `tests/apps/api/test_main_config_wiring.py`). Auto-assignment is now least-loaded with a per-reviewer cap (urgent items, within
+  `allocation_urgent_margin_minutes` of their IET, ignore the cap), scoped to the reviewer's clearing zone, retried when nobody is
+  free, and rebalanced when someone new logs in; a reviewer opening an item pins it, and admin assign/reassign
+  (`POST /v1/cts/admin/review/{id}/assign`) is pinned and audited. Claims are atomic (`SET NX`; the old read-then-write let two
+  reviewers both win). Open: nothing sets an inward item's `clearing_zone` yet, so zone scoping is enforced only for items that carry
+  one (zone-less items go to anyone); `AuditEvent` has no `user_id` field, so the actor must be in the payload.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 
