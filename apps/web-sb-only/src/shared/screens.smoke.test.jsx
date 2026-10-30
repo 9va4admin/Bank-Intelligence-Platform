@@ -21,10 +21,8 @@ const leakedKey = (text) => (text.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g) ??
 
 afterEach(() => cleanup())
 
-// Pages that cannot be rendered by this harness today, for reasons that predate the wording work (see the notes in the pull request):
-//   LoginPage.jsx           imports qrcode.react, which web-sb-only's package.json does not list, so the page cannot load here
-//   CTSInwardReviewQueue.jsx kills the test process when it renders against an empty API answer (it did so before any wording change)
-const KNOWN_BROKEN = new Set(['auth/pages/LoginPage.jsx', 'cts/pages/CTSInwardReviewQueue.jsx'])
+// Pages this harness cannot render; empty on purpose, add a page here only with the reason beside it.
+const KNOWN_BROKEN = new Set([])
 
 describe('every page renders and shows real wording', () => {
   for (const [path, load] of Object.entries(pages)) {

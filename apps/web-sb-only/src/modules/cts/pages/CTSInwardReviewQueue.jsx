@@ -13,7 +13,7 @@
  * Tier filter: All / Standard / High Value / Very High
  * IET countdown live-ticks every second, turns red ≤ 30 min
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -362,7 +362,8 @@ export default function CTSInwardReviewQueue() {
     refetchInterval: 12_000,
   })
 
-  const items = data?.items ?? []
+  // Stable identity: a fresh [] each render would re-run the countdown effect, which sets state, which renders again, forever.
+  const items = useMemo(() => data?.items ?? [], [data])
   const remaining = useTickingCountdowns(items)
 
   // Sort by IET deadline ascending (most urgent first)
