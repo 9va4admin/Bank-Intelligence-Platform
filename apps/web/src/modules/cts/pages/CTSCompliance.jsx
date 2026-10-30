@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -222,7 +223,7 @@ export default function CTSCompliance() {
   }
 
   usePageHeader({
-    subtitle: 'Per-lot image quality attestation · RBI CTS-2010 Standard',
+    subtitle: msg('UI_COMPLIANCE_PER_LOT_IMAGE_QUALITY_ATTESTATION'),
     actions: (
       <div className="flex items-center gap-3">
         <select
@@ -241,7 +242,7 @@ export default function CTSCompliance() {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Download Certificate
+          {msg('UI_COMPLIANCE_DOWNLOAD_CERTIFICATE')}
         </button>
       </div>
     ),
@@ -254,11 +255,11 @@ export default function CTSCompliance() {
         {/* KPI strip */}
         <div className="grid grid-cols-5 gap-3 mb-6">
           {[
-            { label: 'Instruments',   value: lotItems.length, color: th.heading },
-            { label: 'Passed',        value: passed,          color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'Failed',        value: failed,          color: failed > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-            { label: 'Pass Rate',     value: `${passRate}%`,  color: parseFloat(passRate) === 100 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600') },
-            { label: 'Overall',       value: overall,         color: overallColor },
+            { label: msg('UI_COMMON_INSTRUMENTS'),   value: lotItems.length, color: th.heading },
+            { label: msg('UI_COMPLIANCE_PASSED'),        value: passed,          color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: msg('UI_COMMON_FAILED'),        value: failed,          color: failed > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: msg('UI_COMPLIANCE_PASS_RATE'),     value: `${passRate}%`,  color: parseFloat(passRate) === 100 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600') },
+            { label: msg('UI_COMPLIANCE_OVERALL'),       value: overall,         color: overallColor },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -269,14 +270,14 @@ export default function CTSCompliance() {
 
         {/* CTS-2010 Standard thresholds reference */}
         <div className={`border rounded-xl p-4 mb-4 ${th.card}`}>
-          <div className={`text-xs font-medium ${th.heading} mb-3`}>CTS-2010 Standard Thresholds (RBI Mandate)</div>
+          <div className={`text-xs font-medium ${th.heading} mb-3`}>{msg('UI_COMPLIANCE_CTS_2010_STANDARD_THRESHOLDS_RBI')}</div>
           <div className="grid grid-cols-5 gap-4">
             {[
-              { label: 'Min DPI',         value: `${CTS2010.MIN_DPI} dpi` },
-              { label: 'Colour Depth',    value: `${CTS2010.MIN_COLOUR_DEPTH}-bit RGB` },
-              { label: 'Max File Size',   value: `${CTS2010.MAX_FILE_SIZE_KB} KB` },
-              { label: 'Min IQA Score',   value: `≥ ${CTS2010.MIN_IQA_SCORE}` },
-              { label: 'MICR Band Min',   value: `≥ ${CTS2010.MICR_BAND_MIN}` },
+              { label: msg('UI_COMPLIANCE_MIN_DPI'),         value: `${CTS2010.MIN_DPI} dpi` },
+              { label: msg('UI_COMPLIANCE_COLOUR_DEPTH'),    value: `${CTS2010.MIN_COLOUR_DEPTH}-bit RGB` },
+              { label: msg('UI_COMPLIANCE_MAX_FILE_SIZE'),   value: `${CTS2010.MAX_FILE_SIZE_KB} KB` },
+              { label: msg('UI_COMPLIANCE_MIN_IQA_SCORE'),   value: `≥ ${CTS2010.MIN_IQA_SCORE}` },
+              { label: msg('UI_COMPLIANCE_MICR_BAND_MIN'),   value: `≥ ${CTS2010.MICR_BAND_MIN}` },
             ].map(t => (
               <div key={t.label}>
                 <div className={`text-[10px] ${th.faint}`}>{t.label}</div>
@@ -288,8 +289,8 @@ export default function CTSCompliance() {
 
         {/* Filter bar */}
         <div className="flex items-center gap-2 mb-4">
-          <span className={`text-xs ${th.muted}`}>Filter:</span>
-          {['ALL', 'PASS', 'FAIL'].map(f => (
+          <span className={`text-xs ${th.muted}`}>{msg('UI_COMPLIANCE_FILTER')}</span>
+          {['ALL', msg('UI_COMPLIANCE_PASS'), msg('UI_COMPLIANCE_FAIL')].map(f => (
             <button
               key={f}
               onClick={() => setFilterResult(f)}
@@ -304,19 +305,19 @@ export default function CTSCompliance() {
               {f === 'ALL' ? 'All' : f}
             </button>
           ))}
-          <span className={`ml-auto text-[10px] ${th.faint}`}>{visible.length} of {lotItems.length} instruments</span>
+          <span className={`ml-auto text-[10px] ${th.faint}`}>{msg('UI_COMPLIANCE_OF_INSTRUMENTS', { count: visible.length, count2: lotItems.length })}</span>
         </div>
 
         {/* Instruments table */}
         <div className={`border rounded-xl overflow-hidden ${th.card}`}>
           <div className={`grid grid-cols-12 gap-2 px-4 py-2 border-b ${th.divider} text-[10px] ${th.faint} font-medium uppercase tracking-wider`}>
-            <div className="col-span-3">Instrument ID</div>
-            <div className="col-span-1">Cheque</div>
-            <div className="col-span-1 text-center">DPI</div>
-            <div className="col-span-2">Front IQA</div>
-            <div className="col-span-2">Rear IQA</div>
-            <div className="col-span-2">MICR Score</div>
-            <div className="col-span-1 text-center">Result</div>
+            <div className="col-span-3">{msg('UI_COMMON_INSTRUMENT_ID')}</div>
+            <div className="col-span-1">{msg('UI_COMPLIANCE_CHEQUE')}</div>
+            <div className="col-span-1 text-center">{msg('UI_COMPLIANCE_DPI')}</div>
+            <div className="col-span-2">{msg('UI_COMPLIANCE_FRONT_IQA')}</div>
+            <div className="col-span-2">{msg('UI_COMPLIANCE_REAR_IQA')}</div>
+            <div className="col-span-2">{msg('UI_COMPLIANCE_MICR_SCORE')}</div>
+            <div className="col-span-1 text-center">{msg('UI_COMPLIANCE_RESULT')}</div>
           </div>
 
           {visible.map(item => (
@@ -358,7 +359,7 @@ export default function CTSCompliance() {
 
         {/* Filename preview */}
         <div className={`mt-3 text-[10px] ${th.faint}`}>
-          Certificate file: <span className={th.mono}>{certFilename}</span>
+          {msg('UI_COMPLIANCE_CERTIFICATE_FILE')} <span className={th.mono}>{certFilename}</span>
         </div>
       </div>
     </AppShell>

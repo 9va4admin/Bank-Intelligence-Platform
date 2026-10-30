@@ -4,6 +4,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -135,7 +136,7 @@ export default function CTSEndorsement() {
           bank_ifsc: bankIfsc || TEMPLATE.bank_ifsc,
         }),
       })
-      if (!res.ok) throw new Error('Endorsement failed')
+      if (!res.ok) throw new Error(msg('UI_ENDORSEMENT_ENDORSEMENT_FAILED'))
       return res.json()
     },
     onSuccess: (_, { lot, ids }) => {
@@ -166,7 +167,7 @@ export default function CTSEndorsement() {
   }
 
   usePageHeader({
-    subtitle: `Automated reverse-image stamping — ${TEMPLATE.bank_name} · ${TEMPLATE.bank_ifsc}`,
+    subtitle: msg('UI_ENDORSEMENT_AUTOMATED_REVERSE_IMAGE_STAMPING', { bank_name: TEMPLATE.bank_name, bank_ifsc: TEMPLATE.bank_ifsc }),
     actions: (
       <button
         onClick={endorseAll}
@@ -193,24 +194,24 @@ export default function CTSEndorsement() {
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
             {
-              label: 'Total Instruments',
+              label: msg('UI_ENDORSEMENT_TOTAL_INSTRUMENTS'),
               value: activeInstruments.length,
               color: th.heading,
             },
             {
-              label: 'Endorsed',
+              label: msg('UI_ENDORSEMENT_ENDORSED'),
               value: endorsed,
               color: isDark ? 'text-emerald-400' : 'text-emerald-600',
             },
             {
-              label: 'Pending',
+              label: msg('UI_COMMON_PENDING'),
               value: pending,
               color: pending > 0
                 ? (isDark ? 'text-amber-400' : 'text-amber-600')
                 : (isDark ? 'text-emerald-400' : 'text-emerald-600'),
             },
             {
-              label: 'Lots Complete',
+              label: msg('UI_ENDORSEMENT_LOTS_COMPLETE'),
               value: `${lotsComplete} / 4`,
               color: isDark ? 'text-violet-400' : 'text-violet-600',
             },
@@ -224,7 +225,7 @@ export default function CTSEndorsement() {
 
         {/* Endorsement template editor */}
         <div className={`border rounded-xl p-4 mb-4 ${th.card}`}>
-          <div className={`text-xs font-medium ${th.heading} mb-2`}>Endorsement Stamp Template</div>
+          <div className={`text-xs font-medium ${th.heading} mb-2`}>{msg('UI_ENDORSEMENT_ENDORSEMENT_STAMP_TEMPLATE')}</div>
 
           {/* Static stamp preview */}
           <div className={`border rounded-lg px-4 py-3 text-xs mb-3 ${
@@ -234,17 +235,17 @@ export default function CTSEndorsement() {
               {TEMPLATE.bank_name}
             </div>
             <div className={`${th.muted} mt-0.5`}>
-              {TEMPLATE.branch_name} · IFSC: {TEMPLATE.bank_ifsc}
+              {msg('UI_ENDORSEMENT_IFSC', { branch_name: TEMPLATE.branch_name, bank_ifsc: TEMPLATE.bank_ifsc })}
             </div>
-            <div className={`mt-1 ${th.body}`}>Payee's Account Credited: ****XXXX</div>
-            <div className={th.body}>Date of Presentation: {PRESENTATION_DATE}</div>
+            <div className={`mt-1 ${th.body}`}>{msg('UI_ENDORSEMENT_PAYEE_S_ACCOUNT_CREDITED_XXXX')}</div>
+            <div className={th.body}>{msg('UI_ENDORSEMENT_DATE_OF_PRESENTATION', { PRESENTATION_DATE })}</div>
             <div className={`mt-1 italic ${th.muted}`}>{endorsementText}</div>
           </div>
 
           {/* Editable endorsement text */}
           <div className="flex flex-col gap-1">
             <label className={`text-[10px] font-medium ${th.faint} uppercase tracking-wider`}>
-              Endorsement Text (editable)
+             {msg('UI_ENDORSEMENT_ENDORSEMENT_TEXT_EDITABLE')}
             </label>
             <textarea
               value={endorsementText}
@@ -283,7 +284,7 @@ export default function CTSEndorsement() {
                     {isLotDone ? '✓ Complete' : `${lotPending} pending`}
                   </span>
                   <span className={`text-xs ${th.muted}`}>
-                    {lotEndorsed} / {lotInstruments.length} endorsed
+                    {msg('UI_ENDORSEMENT_ENDORSED_2', { lotEndorsed, count: lotInstruments.length })}
                   </span>
                 </div>
                 <button
@@ -304,12 +305,12 @@ export default function CTSEndorsement() {
 
               {/* Table header */}
               <div className={`grid grid-cols-12 gap-2 px-4 py-2 border-b ${th.divider} text-[10px] ${th.faint} font-medium uppercase tracking-wider`}>
-                <div className="col-span-4">Instrument ID</div>
-                <div className="col-span-2">Cheque No</div>
-                <div className="col-span-2">Account</div>
-                <div className="col-span-1">Lot</div>
-                <div className="col-span-2 text-center">Status</div>
-                <div className="col-span-1 text-right">Action</div>
+                <div className="col-span-4">{msg('UI_COMMON_INSTRUMENT_ID')}</div>
+                <div className="col-span-2">{msg('UI_ENDORSEMENT_CHEQUE_NO')}</div>
+                <div className="col-span-2">{msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}</div>
+                <div className="col-span-1">{msg('UI_COMMON_LOT')}</div>
+                <div className="col-span-2 text-center">{msg('UI_COMMON_STATUS')}</div>
+                <div className="col-span-1 text-right">{msg('UI_COMMON_ACTION')}</div>
               </div>
 
               {lotInstruments.map(instr => {
@@ -342,7 +343,7 @@ export default function CTSEndorsement() {
                               : 'text-slate-300 cursor-not-allowed'
                         }`}
                       >
-                        View
+                       {msg('UI_ENDORSEMENT_VIEW')}
                       </button>
                     </div>
                   </div>
@@ -365,12 +366,12 @@ export default function CTSEndorsement() {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <span className={`text-sm font-semibold ${th.heading}`}>Endorsement Stamp Preview</span>
+                <span className={`text-sm font-semibold ${th.heading}`}>{msg('UI_ENDORSEMENT_ENDORSEMENT_STAMP_PREVIEW')}</span>
                 <button
                   onClick={() => setSelected(null)}
                   className={`text-xs ${th.muted}`}
                 >
-                  ✕ Close
+                 {msg('UI_COMMON_CLOSE')}
                 </button>
               </div>
 
@@ -383,15 +384,15 @@ export default function CTSEndorsement() {
                 </div>
                 <div className={`${th.muted} mb-2`}>{TEMPLATE.branch_name}</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-2">
-                  <div className={th.faint}>IFSC</div>
+                  <div className={th.faint}>{msg('UI_COMMON_IFSC')}</div>
                   <div className={`font-mono ${th.body}`}>{TEMPLATE.bank_ifsc}</div>
-                  <div className={th.faint}>Instrument ID</div>
+                  <div className={th.faint}>{msg('UI_COMMON_INSTRUMENT_ID')}</div>
                   <div className={`font-mono ${th.body} text-[10px]`}>{selected.id}</div>
-                  <div className={th.faint}>Cheque No</div>
+                  <div className={th.faint}>{msg('UI_ENDORSEMENT_CHEQUE_NO')}</div>
                   <div className={th.body}>{selected.cheque}</div>
-                  <div className={th.faint}>Account Credited</div>
+                  <div className={th.faint}>{msg('UI_ENDORSEMENT_ACCOUNT_CREDITED')}</div>
                   <div className={`font-mono ${th.body}`}>****{selected.suffix}</div>
-                  <div className={th.faint}>Presentation Date</div>
+                  <div className={th.faint}>{msg('UI_ENDORSEMENT_PRESENTATION_DATE')}</div>
                   <div className={th.body}>{PRESENTATION_DATE}</div>
                 </div>
                 <div className={`border-t pt-2 italic ${
@@ -405,7 +406,7 @@ export default function CTSEndorsement() {
               <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] font-mono break-all ${
                 isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-50 text-slate-500'
               }`}>
-                <div className={`text-[9px] uppercase tracking-wider ${th.faint} mb-1`}>QR Data</div>
+                <div className={`text-[9px] uppercase tracking-wider ${th.faint} mb-1`}>{msg('UI_ENDORSEMENT_QR_DATA')}</div>
                 {buildQrData(selected, TEMPLATE.bank_ifsc)}
               </div>
             </div>

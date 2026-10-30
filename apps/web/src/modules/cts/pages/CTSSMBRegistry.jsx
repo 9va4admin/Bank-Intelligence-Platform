@@ -6,6 +6,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import useSMBList from '../hooks/useSMBList'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -87,10 +88,10 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-3 mb-4">
         {[
-          { label: 'Cheques Today', value: smb.cheques_today.toLocaleString() },
-          { label: 'Forwarded', value: smb.forwarding_today.toLocaleString() },
-          { label: 'Return Rate', value: `${returnPct}%`, warn: shieldOver },
-          { label: 'Shield Status', value: smb.shield_status, badge: SHIELD[smb.shield_status] },
+          { label: msg('UI_SMBREGISTRY_CHEQUES_TODAY'), value: smb.cheques_today.toLocaleString() },
+          { label: msg('UI_INWARDPIPELINE_FORWARDED'), value: smb.forwarding_today.toLocaleString() },
+          { label: msg('UI_COMMON_RETURN_RATE'), value: `${returnPct}%`, warn: shieldOver },
+          { label: msg('UI_SMBLEDGER_SHIELD_STATUS'), value: smb.shield_status, badge: SHIELD[smb.shield_status] },
         ].map(({ label, value, warn, badge }) => (
           <div key={label} className={`rounded-lg p-3 ${th.kv}`}>
             <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -104,23 +105,23 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
 
       {/* Vault */}
       <div className={`rounded-lg p-3 ${th.kv} mb-4`}>
-        <div className={`text-[11px] font-medium mb-2 ${th.muted}`}>Vault Status</div>
+        <div className={`text-[11px] font-medium mb-2 ${th.muted}`}>{msg('UI_SMBREGISTRY_VAULT_STATUS')}</div>
         <div className="flex gap-6 text-xs">
           <div>
-            <span className={th.muted}>Signatures: </span>
+            <span className={th.muted}>{msg('UI_SMBREGISTRY_SIGNATURES')} </span>
             <span className={`font-semibold ${th.heading}`}>{smb.signature_count.toLocaleString()}</span>
           </div>
           <div>
-            <span className={th.muted}>PPS Entries: </span>
+            <span className={th.muted}>{msg('UI_SMBREGISTRY_PPS_ENTRIES')} </span>
             <span className={`font-semibold ${th.heading}`}>{smb.pps_entry_count.toLocaleString()}</span>
           </div>
           <div>
-            <span className={th.muted}>Last Sync: </span>
+            <span className={th.muted}>{msg('UI_SMBREGISTRY_LAST_SYNC')} </span>
             <span className={`font-semibold ${SYNC[smb.last_sync_status]}`}>{smb.last_sync_status}</span>
-            <span className={`ml-1 ${th.muted}`}>{smb.last_vault_sync_at.substring(11, 19)} UTC</span>
+            <span className={`ml-1 ${th.muted}`}>{msg('UI_SMBREGISTRY_UTC', { last_vault_sync_at: smb.last_vault_sync_at.substring(11, 19) })}</span>
           </div>
           <div>
-            <span className={th.muted}>CBS: </span>
+            <span className={th.muted}>{msg('UI_SMBREGISTRY_CBS')} </span>
             <span className={`font-mono font-semibold ${th.body}`}>{smb.cbs_connector}</span>
           </div>
         </div>
@@ -128,11 +129,11 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
 
       {/* Threshold bars */}
       <div className={`rounded-lg p-3 ${th.kv} mb-4`}>
-        <div className={`text-[11px] font-medium mb-2 ${th.muted}`}>Return Rate Shield</div>
+        <div className={`text-[11px] font-medium mb-2 ${th.muted}`}>{msg('UI_SMBLEDGER_RETURN_RATE_SHIELD')}</div>
         <div className="space-y-2">
           {[
-            { label: `Soft Hold (${smb.soft_hold_threshold}%)`, threshold: smb.soft_hold_threshold, color: 'bg-amber-500' },
-            { label: `Hard Stop (${smb.hard_stop_threshold}%)`, threshold: smb.hard_stop_threshold, color: 'bg-red-500' },
+            { label: msg('UI_SMBREGISTRY_SOFT_HOLD', { soft_hold_threshold: smb.soft_hold_threshold }), threshold: smb.soft_hold_threshold, color: 'bg-amber-500' },
+            { label: msg('UI_SMBREGISTRY_HARD_STOP', { hard_stop_threshold: smb.hard_stop_threshold }), threshold: smb.hard_stop_threshold, color: 'bg-red-500' },
           ].map(({ label, threshold, color }) => (
             <div key={label} className="flex items-center gap-3 text-xs">
               <span className={`w-28 ${th.muted}`}>{label}</span>
@@ -153,12 +154,12 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
           onClick={() => onVaultSync(smb.sub_member_id)}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-violet-900/40 text-violet-300 hover:bg-violet-900/60 border border-violet-700/50' : 'bg-violet-100 text-violet-700 hover:bg-violet-200 border border-violet-300'}`}
         >
-          ↻ Trigger Vault Sync
+         {msg('UI_SMBREGISTRY_TRIGGER_VAULT_SYNC')}
         </button>
         <button
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
         >
-          View Forwarding Log →
+         {msg('UI_SMBREGISTRY_VIEW_FORWARDING_LOG')}
         </button>
         <button
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${smb.is_active ? (isDark ? 'bg-red-900/30 text-red-300 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100') : (isDark ? 'bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100')}`}
@@ -232,7 +233,7 @@ export default function CTSSMBRegistry() {
         method: 'POST',
         credentials: 'include',
       })
-      if (!res.ok) throw new Error('Sync trigger failed')
+      if (!res.ok) throw new Error(msg('UI_MCPCONFIG_SYNC_TRIGGER_FAILED'))
       return res.json()
     },
     onSuccess: () => setSyncingId(null),
@@ -250,8 +251,8 @@ export default function CTSSMBRegistry() {
         <div className={`flex-1 flex items-center justify-center ${th.page}`}>
           <div className="text-center">
             <div className="text-4xl mb-4">🏦</div>
-            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
-            <div className={`text-sm ${th.muted}`}>The SMB Registry is managed exclusively by Sponsor Banks. Contact your sponsor bank for registry changes.</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>{msg('UI_COMMON_SB_ONLY_FEATURE')}</div>
+            <div className={`text-sm ${th.muted}`}>{msg('UI_SMBREGISTRY_THE_SMB_REGISTRY_IS_MANAGED')}</div>
           </div>
         </div>
       </AppShell>
@@ -264,24 +265,24 @@ export default function CTSSMBRegistry() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>SMB Vault & CBS</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Sub-Member Banks sponsored for CTS clearing — vault health, return rate shield, forwarding status</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_SMBREGISTRY_SMB_VAULT_CBS')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_SMBREGISTRY_SUB_MEMBER_BANKS_SPONSORED_FOR')}</p>
           </div>
           <button
             onClick={() => navigate('/admin/sub-member-banks')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'}`}
           >
-            Onboard / Manage → Admin
+           {msg('UI_SMBREGISTRY_ONBOARD_MANAGE_ADMIN')}
           </button>
         </div>
 
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Sub-Members', value: SMB_SOURCE.length },
-            { label: 'Active', value: activeCount },
-            { label: 'Cheques Today', value: totalCheques.toLocaleString() },
-            { label: 'Shield Alerts', value: holdCount, warn: holdCount > 0 },
+            { label: msg('UI_SMBREGISTRY_SUB_MEMBERS'), value: SMB_SOURCE.length },
+            { label: msg('UI_COMMON_ACTIVE'), value: activeCount },
+            { label: msg('UI_SMBREGISTRY_CHEQUES_TODAY'), value: totalCheques.toLocaleString() },
+            { label: msg('UI_SMBLEDGER_SHIELD_ALERTS'), value: holdCount, warn: holdCount > 0 },
           ].map(({ label, value, warn }) => (
             <div key={label} className={`rounded-xl border px-4 py-3 ${th.card}`}>
               <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -295,7 +296,7 @@ export default function CTSSMBRegistry() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Bank', 'MICR Prefix', 'CBS', 'Today', 'Return Rate', 'Vault', 'Last Sync', 'Shield', ''].map(h => (
+                {[msg('UI_COMMON_BANK'), msg('UI_MICRPREFIXES_MICR_PREFIX'), 'CBS', msg('UI_SMBREGISTRY_TODAY'), msg('UI_COMMON_RETURN_RATE'), msg('UI_COMMON_VAULT'), msg('UI_COMMON_LAST_SYNC'), msg('UI_SMBLEDGER_SHIELD'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -321,8 +322,8 @@ export default function CTSSMBRegistry() {
                   </td>
                   <td className="px-4 py-3">
                     <div className={`text-[11px] ${th.muted}`}>
-                      <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{smb.signature_count.toLocaleString()}</span> sig /&nbsp;
-                      <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{smb.pps_entry_count.toLocaleString()}</span> PPS
+                      <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{smb.signature_count.toLocaleString()}</span> {msg('UI_SMBREGISTRY_SIG')}
+                      <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{smb.pps_entry_count.toLocaleString()}</span> {msg('UI_SMBREGISTRY_PPS')}
                     </div>
                   </td>
                   <td className="px-4 py-3">

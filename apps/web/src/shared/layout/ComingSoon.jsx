@@ -1,4 +1,5 @@
 import AppShell from './AppShell'
+import { msg } from '../messages'
 
 export default function ComingSoon({ module, icon, desc }) {
   return (
@@ -10,7 +11,7 @@ export default function ComingSoon({ module, icon, desc }) {
           <p className="text-white/40 text-sm max-w-sm">{desc}</p>
         </div>
         <div className="px-4 py-1.5 rounded-full border border-gold-400/30 text-gold-400 text-xs font-medium tracking-widest uppercase">
-          Coming in Phase {module === 'Fleet' || module === 'Disputes' ? '4' : '3'}
+         {msg('UI_COMINGSOON_COMING_IN_PHASE', { value: module === 'Fleet' || module === 'Disputes' ? '4' : '3' })}
         </div>
       </div>
     </AppShell>

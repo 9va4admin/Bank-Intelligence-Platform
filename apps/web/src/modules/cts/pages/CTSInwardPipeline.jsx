@@ -8,6 +8,7 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import { getStpStream } from '../data/mockQueue'
 import useInwardAnalytics from '../hooks/useInwardAnalytics'
+import { msg } from '../../../shared/messages'
 
 // ─── Sub-member bank definitions (mock — live data via Kafka cts.smb.inbound) ─
 
@@ -23,10 +24,10 @@ const SMB_LIST = [
 
 // SMB pipeline has fewer stages — sponsor bank does forwarding, not full AI
 const SMB_STAGES = [
-  { id: 'recv',    label: 'Received',   icon: '⬇', color: 'sky'     },
-  { id: 'valid',   label: 'Validated',  icon: '✓',  color: 'violet'  },
-  { id: 'forward', label: 'Forwarded',  icon: '→',  color: 'indigo'  },
-  { id: 'ngch',    label: 'NGCH Filed', icon: '📤', color: 'emerald' },
+  { id: 'recv',    label: msg('UI_COMMON_RECEIVED'),   icon: '⬇', color: 'sky'     },
+  { id: 'valid',   label: msg('UI_INWARDPIPELINE_VALIDATED'),  icon: '✓',  color: 'violet'  },
+  { id: 'forward', label: msg('UI_INWARDPIPELINE_FORWARDED'),  icon: '→',  color: 'indigo'  },
+  { id: 'ngch',    label: msg('UI_COMMON_NGCH_FILED'), icon: '📤', color: 'emerald' },
 ]
 
 // ─── Pipeline stage definitions (Phase 3 — drawee inward order) ──────────────
@@ -38,7 +39,7 @@ const SMB_STAGES = [
 const STAGES = [
   {
     id: 'inward',
-    label: 'NGCH Inward',
+    label: msg('UI_INWARDPIPELINE_NGCH_INWARD'),
     sub: 'RBI clearing grid',
     icon: '⬇',
     color: 'sky',
@@ -46,7 +47,7 @@ const STAGES = [
   },
   {
     id: 'alteration',
-    label: 'Alteration',
+    label: msg('UI_INWARDPIPELINE_ALTERATION'),
     sub: 'Qwen2-VL · FIRST',
     icon: '🔍',
     color: 'violet',
@@ -54,7 +55,7 @@ const STAGES = [
   },
   {
     id: 'cts2010',
-    label: 'CTS-2010',
+    label: msg('UI_DEMOPIPELINE_CTS_2010'),
     sub: 'Image quality',
     icon: '🖼',
     color: 'blue',
@@ -62,7 +63,7 @@ const STAGES = [
   },
   {
     id: 'stop_pay',
-    label: 'Stop Payment',
+    label: msg('UI_COMMON_STOP_PAYMENT'),
     sub: 'Bloom + CBS',
     icon: '🛑',
     color: 'red',
@@ -70,7 +71,7 @@ const STAGES = [
   },
   {
     id: 'pps_sig',
-    label: 'PPS · Signature',
+    label: msg('UI_INWARDPIPELINE_PPS_SIGNATURE'),
     sub: 'Vault + Siamese',
     icon: '✍',
     color: 'indigo',
@@ -78,7 +79,7 @@ const STAGES = [
   },
   {
     id: 'fraud',
-    label: 'Fraud Score',
+    label: msg('UI_COMMON_FRAUD_SCORE'),
     sub: 'XGBoost + SHAP',
     icon: '🛡',
     color: 'amber',
@@ -86,7 +87,7 @@ const STAGES = [
   },
   {
     id: 'cbs',
-    label: 'CBS · Account',
+    label: msg('UI_INWARDPIPELINE_CBS_ACCOUNT'),
     sub: 'Balance + Status',
     icon: '🏦',
     color: 'cyan',
@@ -94,7 +95,7 @@ const STAGES = [
   },
   {
     id: 'decision',
-    label: 'Decision',
+    label: msg('UI_COMMON_DECISION'),
     sub: 'AI synthesis',
     icon: '⚡',
     color: 'emerald',
@@ -194,9 +195,9 @@ function StageCard({ stage, count, active, isDark }) {
       <div className={`text-[9px] leading-tight mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{stage.sub}</div>
       {/* Count */}
       <div className={`text-xl font-black font-mono leading-none tabular-nums ${c.text}`}>{count}</div>
-      <div className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>processed</div>
+      <div className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_PROCESSED')}</div>
       {stage.avgMs && (
-        <div className={`text-[9px] mt-1 font-mono ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>~{stage.avgMs}ms</div>
+        <div className={`text-[9px] mt-1 font-mono ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_MS', { avgMs: stage.avgMs })}</div>
       )}
     </div>
   )
@@ -235,7 +236,7 @@ function DecisionFanout({ confirms, returns, humanReview, isDark }) {
         <div className="text-base leading-none mb-0.5">{icon}</div>
         <div className={`text-[10px] font-bold ${c.text} leading-tight`}>{label}</div>
         <div className={`text-xl font-black font-mono ${c.text} tabular-nums leading-none mt-0.5`}>{count}</div>
-        <div className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{pct}% of total</div>
+        <div className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_OF_TOTAL', { pct })}</div>
       </div>
     )
   }
@@ -269,9 +270,9 @@ function DecisionFanout({ confirms, returns, humanReview, isDark }) {
       </svg>
       {/* Arm cards — gap matches FANOUT_GAP so card centers hit SVG endpoints */}
       <div className="flex flex-col" style={{ gap: FANOUT_GAP }}>
-        <Arm label="STP Confirm"  count={confirms}    pct={confirmPct} color="emerald" icon="✓" />
-        <Arm label="Human Review" count={humanReview} pct={reviewPct}  color="amber"   icon="👤" />
-        <Arm label="STP Return"   count={returns}     pct={returnPct}  color="red"     icon="✕" />
+        <Arm label={msg('UI_INWARDPIPELINE_STP_CONFIRM')}  count={confirms}    pct={confirmPct} color="emerald" icon="✓" />
+        <Arm label={msg('UI_COMMON_HUMAN_REVIEW')} count={humanReview} pct={reviewPct}  color="amber"   icon="👤" />
+        <Arm label={msg('UI_COMMON_STP_RETURN')}   count={returns}     pct={returnPct}  color="red"     icon="✕" />
       </div>
     </div>
   )
@@ -311,10 +312,10 @@ function FiledTerminus({ total, isDark }) {
           style={{ boxShadow: '0 0 18px 0 #6366f122' }}
         >
           <div className="text-xl mb-1">📤</div>
-          <div className="text-[10px] font-bold text-indigo-400 leading-tight">NGCH Filed</div>
+          <div className="text-[10px] font-bold text-indigo-400 leading-tight">{msg('UI_COMMON_NGCH_FILED')}</div>
         <div className="text-lg font-black font-mono text-indigo-400 tabular-nums">{total}</div>
-        <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>decisions filed</div>
-        <div className={`text-[9px] font-mono mt-1 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Immudb ✓</div>
+        <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_DECISIONS_FILED')}</div>
+        <div className={`text-[9px] font-mono mt-1 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_IMMUDB')}</div>
         </div>
       </div>
     </div>
@@ -327,10 +328,10 @@ function ActivityLog({ events, isDark }) {
   return (
     <div className={`rounded-xl border overflow-hidden ${isDark ? 'bg-white/2 border-white/6' : 'bg-white border-slate-200'}`}>
       <div className={`px-3 py-2 border-b flex items-center justify-between ${isDark ? 'border-white/6' : 'border-slate-100'}`}>
-        <span className={`text-[10px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Live Activity</span>
+        <span className={`text-[10px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_INWARDPIPELINE_LIVE_ACTIVITY')}</span>
         <span className="flex items-center gap-1 text-[9px] text-emerald-500">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Live
+         {msg('UI_COMMON_LIVE')}
         </span>
       </div>
       <div className="divide-y" style={{ borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9' }}>
@@ -342,7 +343,7 @@ function ActivityLog({ events, isDark }) {
             <span className={`ml-auto shrink-0 font-semibold ${ev.outcome === 'CONFIRM' ? 'text-emerald-500' : ev.outcome === 'RETURN' ? 'text-red-500' : 'text-amber-500'}`}>
               {ev.outcome === 'CONFIRM' ? '✓ STP' : ev.outcome === 'RETURN' ? '✕ RTN' : '👤 HRQ'}
             </span>
-            <span className={`shrink-0 font-mono ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{ev.ms}ms</span>
+            <span className={`shrink-0 font-mono ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_COMMON_MS', { ms: ev.ms })}</span>
           </div>
         ))}
       </div>
@@ -407,11 +408,11 @@ function SMBLane({ smb, counts, activeStage, alerts, isDark, onSelect, selected 
       <div className="flex items-center gap-4 ml-2 shrink-0">
         <div className="flex flex-col items-end">
           <span className={`text-[10px] font-mono font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{total}</span>
-          <span className={`text-[8px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>filed</span>
+          <span className={`text-[8px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_FILED')}</span>
         </div>
         <div className="flex flex-col items-end">
           <span className={`text-[10px] font-mono font-semibold ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{Math.max(0, pending)}</span>
-          <span className={`text-[8px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>in-flight</span>
+          <span className={`text-[8px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_IN_FLIGHT')}</span>
         </div>
       </div>
 
@@ -419,10 +420,10 @@ function SMBLane({ smb, counts, activeStage, alerts, isDark, onSelect, selected 
       <div className="ml-auto shrink-0">
         {hasAlert ? (
           <span className="flex items-center gap-1 text-[9px] font-semibold text-amber-500 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
-            ⚠ {alerts} alert{alerts > 1 ? 's' : ''}
+           {msg('UI_INWARDPIPELINE_ALERT', { alerts, value: alerts > 1 ? 's' : '' })}
           </span>
         ) : (
-          <span className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>✓ nominal</span>
+          <span className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_INWARDPIPELINE_NOMINAL')}</span>
         )}
       </div>
     </button>
@@ -455,7 +456,7 @@ function IETRing({ minutesLeft = 180, isDark }) {
           {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}
         </text>
         <text x="36" y="44" textAnchor="middle" fill={isDark ? '#475569' : '#94a3b8'} fontSize="7">
-          IET left
+         {msg('UI_INWARDPIPELINE_IET_LEFT')}
         </text>
       </svg>
     </div>
@@ -605,16 +606,16 @@ export default function CTSInwardPipeline() {
   }, STP_TICK_MS * 1.5)
 
   usePageHeader({
-    subtitle: 'Inward Processing Pipeline · AI Agent Swarm · Real-time',
+    subtitle: msg('UI_INWARDPIPELINE_INWARD_PROCESSING_PIPELINE_AI_AGENT'),
     actions: (
       <div className="flex items-center gap-3">
         <IETRing minutesLeft={ietMinutes} isDark={isDark} />
         <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-400 bg-white/4' : 'border-slate-200 text-slate-500 bg-white'}`}>
-          p99 · {totalMs}ms
+         {msg('UI_INWARDPIPELINE_P99_MS', { totalMs })}
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          500 agents active
+         {msg('UI_INWARDPIPELINE_500_AGENTS_ACTIVE')}
         </div>
       </div>
     ),
@@ -647,7 +648,7 @@ export default function CTSInwardPipeline() {
                   : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
                 }`}
             >
-              Sponsor Bank Pipeline
+             {msg('UI_INWARDPIPELINE_SPONSOR_BANK_PIPELINE')}
             </button>
           )}
           <button
@@ -670,12 +671,12 @@ export default function CTSInwardPipeline() {
         {/* ── Top KPI strip (SB view) ── */}
         {view === 'sb' && <div className={`shrink-0 px-6 py-3 border-b ${th.divider} flex items-center gap-6`}>
           {[
-            { label: 'Total Inward',    val: stageCounts.inward, color: isDark ? 'text-sky-400'     : 'text-sky-600'     },
-            { label: 'STP Confirmed',   val: confirms,           color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'STP Returned',    val: returns,            color: isDark ? 'text-red-400'     : 'text-red-600'     },
-            { label: 'Human Review',    val: humanReview,        color: isDark ? 'text-amber-400'   : 'text-amber-600'   },
-            { label: 'STP Rate',        val: `${stpRate}%`,      color: isDark ? 'text-violet-400'  : 'text-violet-600'  },
-            { label: 'Immudb Writes',   val: total,              color: isDark ? 'text-indigo-400'  : 'text-indigo-600'  },
+            { label: msg('UI_COMMON_TOTAL_INWARD'),    val: stageCounts.inward, color: isDark ? 'text-sky-400'     : 'text-sky-600'     },
+            { label: msg('UI_COMMON_STP_CONFIRMED'),   val: confirms,           color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: msg('UI_COMMON_STP_RETURNED'),    val: returns,            color: isDark ? 'text-red-400'     : 'text-red-600'     },
+            { label: msg('UI_COMMON_HUMAN_REVIEW'),    val: humanReview,        color: isDark ? 'text-amber-400'   : 'text-amber-600'   },
+            { label: msg('UI_COMMON_STP_RATE'),        val: `${stpRate}%`,      color: isDark ? 'text-violet-400'  : 'text-violet-600'  },
+            { label: msg('UI_INWARDPIPELINE_IMMUDB_WRITES'),   val: total,              color: isDark ? 'text-indigo-400'  : 'text-indigo-600'  },
           ].map(k => (
             <div key={k.label} className="flex items-baseline gap-2">
               <span className={`text-2xl font-black font-mono tabular-nums ${k.color}`}>{k.val}</span>
@@ -684,7 +685,7 @@ export default function CTSInwardPipeline() {
           ))}
           <div className="ml-auto">
             <ThroughputSparkline data={throughput} isDark={isDark} />
-            <div className={`text-[9px] text-center mt-0.5 ${th.faint}`}>cheques/tick</div>
+            <div className={`text-[9px] text-center mt-0.5 ${th.faint}`}>{msg('UI_INWARDPIPELINE_CHEQUES_TICK')}</div>
           </div>
         </div>}
 
@@ -699,11 +700,11 @@ export default function CTSInwardPipeline() {
                 {isSB ? (
                   <>
                     <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
-                      Sponsor Bank: <span className="font-semibold">{SPONSOR_BANK.name}</span>
+                     {msg('UI_INWARDPIPELINE_SPONSOR_BANK')} <span className="font-semibold">{SPONSOR_BANK.name}</span>
                       <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{SPONSOR_BANK.ifsc}</span>
                     </span>
                     <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
-                      Forwarding instruments for {SMB_LIST.length} sub-members via SMBForwardingWorkflow
+                     {msg('UI_INWARDPIPELINE_FORWARDING_INSTRUMENTS_FOR_SUB_MEMBE', { count: SMB_LIST.length })}
                     </span>
                   </>
                 ) : (
@@ -713,7 +714,7 @@ export default function CTSInwardPipeline() {
                       <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{bankIfsc}</span>
                     </span>
                     <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
-                      Routed through sponsor: <span className="font-semibold">{sponsorBankName}</span>
+                     {msg('UI_INWARDPIPELINE_ROUTED_THROUGH_SPONSOR')} <span className="font-semibold">{sponsorBankName}</span>
                       <span className={`ml-1 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{sponsorBankIfsc}</span>
                     </span>
                   </>
@@ -722,7 +723,7 @@ export default function CTSInwardPipeline() {
 
               {/* Header row */}
               <div className={`flex items-center gap-4 px-4 py-2 border-b ${th.divider} sticky top-0 z-10 ${isDark ? 'bg-[#020817]' : 'bg-slate-50'}`}>
-                <div className={`w-36 shrink-0 text-[9px] font-semibold uppercase tracking-widest ${th.muted}`}>Sub-Member Bank</div>
+                <div className={`w-36 shrink-0 text-[9px] font-semibold uppercase tracking-widest ${th.muted}`}>{msg('UI_INWARDPIPELINE_SUB_MEMBER_BANK')}</div>
                 <div className="flex items-center gap-1 shrink-0">
                   {SMB_STAGES.map((stage, i) => (
                     <div key={stage.id} className="flex items-center gap-1">
@@ -732,11 +733,11 @@ export default function CTSInwardPipeline() {
                   ))}
                 </div>
                 <div className="flex items-center gap-4 ml-2 shrink-0">
-                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Filed</span>
-                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>In-Flight</span>
+                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_COMMON_FILED')}</span>
+                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_COMMON_IN_FLIGHT')}</span>
                 </div>
                 <div className="ml-auto">
-                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Status</span>
+                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_COMMON_STATUS')}</span>
                 </div>
               </div>
 
@@ -768,7 +769,7 @@ export default function CTSInwardPipeline() {
               {/* Aggregate footer — SB only */}
               {isSB && (
               <div className={`px-4 py-3 flex items-center gap-6 border-t ${th.divider} ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
-                <span className={`text-[10px] font-semibold ${th.muted}`}>All SMBs combined</span>
+                <span className={`text-[10px] font-semibold ${th.muted}`}>{msg('UI_INWARDPIPELINE_ALL_SMBS_COMBINED')}</span>
                 {['recv','valid','forward','ngch'].map(stage => (
                   <div key={stage} className="flex items-baseline gap-1">
                     <span className={`text-base font-black font-mono tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -780,10 +781,10 @@ export default function CTSInwardPipeline() {
                 <div className="ml-auto flex items-center gap-2">
                   {Object.values(smbAlerts).reduce((a, b) => a + b, 0) > 0 ? (
                     <span className="text-[10px] font-semibold text-amber-500">
-                      ⚠ {Object.values(smbAlerts).reduce((a, b) => a + b, 0)} alerts need attention
+                     {msg('UI_INWARDPIPELINE_ALERTS_NEED_ATTENTION', { Object: Object.values(smbAlerts).reduce((a, b) => a + b, 0) })}
                     </span>
                   ) : (
-                    <span className={`text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ All SMBs nominal</span>
+                    <span className={`text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{msg('UI_INWARDPIPELINE_ALL_SMBS_NOMINAL')}</span>
                   )}
                 </div>
               </div>
@@ -829,7 +830,7 @@ export default function CTSInwardPipeline() {
                       {alerts > 0 && (
                         <div className={`mt-2 rounded-xl border px-3 py-2.5 ${isDark ? 'bg-amber-900/10 border-amber-700/30' : 'bg-amber-50 border-amber-200'}`}>
                           <div className={`text-[10px] font-semibold mb-1 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-                            ⚠ {alerts} Active Alert{alerts > 1 ? 's' : ''}
+                           {msg('UI_INWARDPIPELINE_ACTIVE_ALERT', { alerts, value: alerts > 1 ? 's' : '' })}
                           </div>
                           <div className={`text-[9px] leading-relaxed ${isDark ? 'text-amber-400/70' : 'text-amber-600/80'}`}>
                             {alerts === 1
@@ -840,9 +841,9 @@ export default function CTSInwardPipeline() {
                       )}
                       {/* Routing info */}
                       <div className={`mt-2 rounded-xl border px-3 py-2.5 ${isDark ? 'bg-white/3 border-white/8' : 'bg-slate-50 border-slate-200'}`}>
-                        <div className={`text-[9px] font-semibold uppercase tracking-widest mb-1.5 ${th.muted}`}>Routing</div>
+                        <div className={`text-[9px] font-semibold uppercase tracking-widest mb-1.5 ${th.muted}`}>{msg('UI_INWARDPIPELINE_ROUTING')}</div>
                         <div className={`text-[9px] leading-relaxed ${th.faint}`}>
-                          Instruments forwarded via <span className="font-mono">SMBForwardingWorkflow</span> → sponsor lot → NGCH submission. SMB bears return risk; SB bears IET responsibility.
+                         {msg('UI_INWARDPIPELINE_INSTRUMENTS_FORWARDED_VIA')} <span className="font-mono">{msg('UI_INWARDPIPELINE_SMBFORWARDINGWORKFLOW')}</span> {msg('UI_INWARDPIPELINE_SPONSOR_LOT_NGCH_SUBMISSION_SMB')}
                         </div>
                       </div>
                     </div>
@@ -852,8 +853,8 @@ export default function CTSInwardPipeline() {
                 <div className={`flex-1 flex items-center justify-center p-6 text-center`}>
                   <div>
                     <div className="text-3xl mb-3">🏦</div>
-                    <div className={`text-[11px] font-semibold mb-1 ${th.heading}`}>Select an SMB</div>
-                    <div className={`text-[10px] ${th.muted}`}>Click any sub-member bank row to see its pipeline detail and alerts</div>
+                    <div className={`text-[11px] font-semibold mb-1 ${th.heading}`}>{msg('UI_INWARDPIPELINE_SELECT_AN_SMB')}</div>
+                    <div className={`text-[10px] ${th.muted}`}>{msg('UI_INWARDPIPELINE_CLICK_ANY_SUB_MEMBER_BANK')}</div>
                   </div>
                 </div>
               )}
@@ -869,7 +870,7 @@ export default function CTSInwardPipeline() {
 
             {/* Row label */}
             <div className={`text-[9px] font-semibold uppercase tracking-widest shrink-0 ${th.faint}`}>
-              Inward Cheque Processing — One AI Agent Per Cheque — Wall Clock &lt; 600ms
+             {msg('UI_INWARDPIPELINE_INWARD_CHEQUE_PROCESSING_ONE_AI')}
             </div>
 
             {/* Main pipeline flow — horizontally scrollable if viewport too narrow */}
@@ -915,7 +916,7 @@ export default function CTSInwardPipeline() {
               {/* Stage timing bar */}
               <div className={`flex-1 rounded-xl border px-3 py-2.5 ${th.card}`}>
                 <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>
-                  Latency Budget — &lt; 600ms target
+                 {msg('UI_INWARDPIPELINE_LATENCY_BUDGET_600MS_TARGET')}
                 </div>
                 <div className="flex items-end gap-1 h-10">
                   {STAGES.filter(s => s.avgMs).map((stage) => {
@@ -923,7 +924,7 @@ export default function CTSInwardPipeline() {
                     const pct = (stage.avgMs / 600) * 100
                     return (
                       <div key={stage.id} className="flex flex-col items-center gap-0.5 flex-1">
-                        <div className={`text-[7px] font-mono ${c.text}`}>{stage.avgMs}ms</div>
+                        <div className={`text-[7px] font-mono ${c.text}`}>{msg('UI_INWARDPIPELINE_MS_2', { avgMs: stage.avgMs })}</div>
                         <div
                           className={`w-full rounded-t ${c.dot} opacity-70 transition-all duration-500`}
                           style={{ height: `${Math.max(3, pct * 0.32)}px` }}
@@ -933,9 +934,9 @@ export default function CTSInwardPipeline() {
                     )
                   })}
                   <div className="flex flex-col items-center gap-0.5 flex-1">
-                    <div className="text-[7px] font-mono text-indigo-400">∑ {STAGES.filter(s=>s.avgMs).reduce((a,s)=>a+s.avgMs,0)}ms</div>
+                    <div className="text-[7px] font-mono text-indigo-400">{msg('UI_INWARDPIPELINE_MS_3', { STAGES: STAGES.filter(s=>s.avgMs).reduce((a,s)=>a+s.avgMs,0) })}</div>
                     <div className="w-full rounded-t bg-indigo-400 opacity-70" style={{ height: '16px' }} />
-                    <div className={`text-[7px] truncate w-full text-center ${th.faint}`}>Total</div>
+                    <div className={`text-[7px] truncate w-full text-center ${th.faint}`}>{msg('UI_COMMON_TOTAL')}</div>
                   </div>
                 </div>
               </div>
@@ -945,10 +946,10 @@ export default function CTSInwardPipeline() {
                 <span className="text-base shrink-0 mt-0.5">⏱</span>
                 <div>
                   <div className={`text-[10px] font-semibold mb-0.5 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-                    IET Watchdog — T-30s Emergency Filing
+                   {msg('UI_INWARDPIPELINE_IET_WATCHDOG_T_30S_EMERGENCY')}
                   </div>
                   <div className={`text-[9px] leading-relaxed ${isDark ? 'text-amber-400/70' : 'text-amber-600/80'}`}>
-                    Parallel IETWatchdogWorkflow per cheque. Auto-files to NGCH before IET breach. {ietMinutes}m left in clearing window.
+                   {msg('UI_INWARDPIPELINE_PARALLEL_IETWATCHDOGWORKFLOW_PER_CHE', { ietMinutes })}
                   </div>
                 </div>
               </div>
@@ -959,7 +960,7 @@ export default function CTSInwardPipeline() {
           {/* Right: live log */}
           <div className={`w-72 shrink-0 border-l ${th.divider} flex flex-col`}>
             <div className={`px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>Live Decisions</div>
+              <div className={`text-xs font-semibold ${th.heading}`}>{msg('UI_INWARDPIPELINE_LIVE_DECISIONS')}</div>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
               <ActivityLog events={activityLog} isDark={isDark} />
@@ -967,11 +968,11 @@ export default function CTSInwardPipeline() {
 
             {/* Session footer */}
             <div className={`shrink-0 px-4 py-4 border-t ${th.divider} space-y-3`}>
-              <div className={`text-[10px] font-extrabold uppercase tracking-widest ${th.heading}`}>Session</div>
+              <div className={`text-[10px] font-extrabold uppercase tracking-widest ${th.heading}`}>{msg('UI_COMMON_SESSION')}</div>
               {[
-                { label: 'STP Confirmed',  val: confirms,    color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-                { label: 'STP Returned',   val: returns,     color: isDark ? 'text-red-400'     : 'text-red-600'     },
-                { label: 'Human Review',   val: humanReview, color: isDark ? 'text-amber-400'   : 'text-amber-600'   },
+                { label: msg('UI_COMMON_STP_CONFIRMED'),  val: confirms,    color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+                { label: msg('UI_COMMON_STP_RETURNED'),   val: returns,     color: isDark ? 'text-red-400'     : 'text-red-600'     },
+                { label: msg('UI_COMMON_HUMAN_REVIEW'),   val: humanReview, color: isDark ? 'text-amber-400'   : 'text-amber-600'   },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between">
                   <span className={`text-[11px] ${th.muted}`}>{row.label}</span>
@@ -979,7 +980,7 @@ export default function CTSInwardPipeline() {
                 </div>
               ))}
               <div className={`flex items-center justify-between pt-2 border-t ${th.divider}`}>
-                <span className={`text-[11px] ${th.muted}`}>STP Rate</span>
+                <span className={`text-[11px] ${th.muted}`}>{msg('UI_COMMON_STP_RATE')}</span>
                 <span className={`text-3xl font-black font-mono leading-none tabular-nums ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>{stpRate}%</span>
               </div>
             </div>

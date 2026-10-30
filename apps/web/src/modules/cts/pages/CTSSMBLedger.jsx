@@ -4,6 +4,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useSMBLedgers from '../hooks/useSMBLedgers'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -80,11 +81,11 @@ const SHIELD_L = {
 function DecisionBar({ row, isDark }) {
   const total = row.total || 1
   const segments = [
-    { pct: row.stp_confirm / total, color: isDark ? 'bg-emerald-600' : 'bg-emerald-500', label: 'Confirm' },
-    { pct: row.stp_return  / total, color: isDark ? 'bg-red-600' : 'bg-red-500',     label: 'Return'  },
-    { pct: row.human_review / total, color: isDark ? 'bg-amber-500' : 'bg-amber-400', label: 'Review'  },
+    { pct: row.stp_confirm / total, color: isDark ? 'bg-emerald-600' : 'bg-emerald-500', label: msg('UI_SMBLEDGER_CONFIRM') },
+    { pct: row.stp_return  / total, color: isDark ? 'bg-red-600' : 'bg-red-500',     label: msg('UI_COMMON_RETURN_2')  },
+    { pct: row.human_review / total, color: isDark ? 'bg-amber-500' : 'bg-amber-400', label: msg('UI_BATCHSTATS_REVIEW')  },
     { pct: row.iet_emergency / total, color: isDark ? 'bg-red-900' : 'bg-red-200',   label: 'IET'     },
-    { pct: row.in_flight / total,    color: isDark ? 'bg-slate-600' : 'bg-slate-300', label: 'Flight'  },
+    { pct: row.in_flight / total,    color: isDark ? 'bg-slate-600' : 'bg-slate-300', label: msg('UI_SMBLEDGER_FLIGHT')  },
   ]
   return (
     <div className="flex h-2 rounded-full overflow-hidden w-32 gap-px">
@@ -122,12 +123,12 @@ function LedgerDetailPanel({ row, isDark, onClose }) {
       {/* Decision breakdown grid */}
       <div className="grid grid-cols-6 gap-3 mb-4">
         {[
-          { label: 'STP Confirm', value: row.stp_confirm, color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-          { label: 'STP Return', value: row.stp_return, color: isDark ? 'text-red-400' : 'text-red-600' },
-          { label: 'Human Review', value: row.human_review, color: isDark ? 'text-amber-400' : 'text-amber-600' },
-          { label: 'IET Emergency', value: row.iet_emergency, color: isDark ? 'text-red-300' : 'text-red-700' },
-          { label: 'In-Flight', value: row.in_flight, color: th.muted },
-          { label: 'Total', value: row.total, color: th.heading },
+          { label: msg('UI_INWARDPIPELINE_STP_CONFIRM'), value: row.stp_confirm, color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+          { label: msg('UI_COMMON_STP_RETURN'), value: row.stp_return, color: isDark ? 'text-red-400' : 'text-red-600' },
+          { label: msg('UI_COMMON_HUMAN_REVIEW'), value: row.human_review, color: isDark ? 'text-amber-400' : 'text-amber-600' },
+          { label: msg('UI_SMBLEDGER_IET_EMERGENCY'), value: row.iet_emergency, color: isDark ? 'text-red-300' : 'text-red-700' },
+          { label: msg('UI_COMMON_IN_FLIGHT'), value: row.in_flight, color: th.muted },
+          { label: msg('UI_COMMON_TOTAL'), value: row.total, color: th.heading },
         ].map(({ label, value, color }) => (
           <div key={label} className={`rounded-lg p-3 text-center ${th.kv}`}>
             <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -139,32 +140,32 @@ function LedgerDetailPanel({ row, isDark, onClose }) {
       {/* Shield and audit */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className={`rounded-lg p-4 space-y-3 ${th.kv}`}>
-          <div className={`text-[11px] font-medium ${th.muted}`}>Return Rate Shield</div>
+          <div className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_SMBLEDGER_RETURN_RATE_SHIELD')}</div>
           <div className="flex items-center gap-4">
             <div>
               <div className={`text-xl font-bold ${row.return_rate > 0.20 ? (isDark ? 'text-amber-300' : 'text-amber-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}`}>
                 {returnPct}%
               </div>
-              <div className={`text-[11px] ${th.muted}`}>Return Rate</div>
+              <div className={`text-[11px] ${th.muted}`}>{msg('UI_COMMON_RETURN_RATE')}</div>
             </div>
             <div>
               <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${SHIELD[row.shield_status]}`}>
                 {row.shield_status.replace('_', ' ')}
               </span>
-              <div className={`text-[11px] mt-1 ${th.muted}`}>Shield Status</div>
+              <div className={`text-[11px] mt-1 ${th.muted}`}>{msg('UI_SMBLEDGER_SHIELD_STATUS')}</div>
             </div>
             <div>
               <div className={`text-xl font-bold ${th.heading}`}>{row.avg_fraud_score.toFixed(2)}</div>
-              <div className={`text-[11px] ${th.muted}`}>Avg Fraud Score</div>
+              <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBLEDGER_AVG_FRAUD_SCORE')}</div>
             </div>
           </div>
         </div>
         <div className={`rounded-lg p-4 space-y-3 ${th.kv}`}>
-          <div className={`text-[11px] font-medium ${th.muted}`}>Filing & Audit Integrity</div>
+          <div className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_SMBLEDGER_FILING_AUDIT_INTEGRITY')}</div>
           <div className="space-y-2 text-xs">
             {[
-              { label: 'NGCH Filed', value: row.ngch_filed, total: row.total },
-              { label: 'Audit Written', value: row.audit_written, total: row.total },
+              { label: msg('UI_COMMON_NGCH_FILED'), value: row.ngch_filed, total: row.total },
+              { label: msg('UI_SMBLEDGER_AUDIT_WRITTEN'), value: row.audit_written, total: row.total },
             ].map(({ label, value, total }) => (
               <div key={label} className="flex items-center gap-3">
                 <span className={`w-28 ${th.muted}`}>{label}</span>
@@ -181,7 +182,7 @@ function LedgerDetailPanel({ row, isDark, onClose }) {
       </div>
 
       <div className={`text-[11px] ${th.muted}`}>
-        Last updated: {row.ledger_updated_at.replace('T', ' ').replace('Z', ' UTC')}
+       {msg('UI_SMBLEDGER_LAST_UPDATED', { ledger_updated_at: row.ledger_updated_at.replace('T', ' ').replace('Z', ' UTC') })}
       </div>
     </div>
   )
@@ -247,8 +248,8 @@ export default function CTSSMBLedger() {
         <div className={`flex-1 flex items-center justify-center ${th.page}`}>
           <div className="text-center">
             <div className="text-4xl mb-4">🏦</div>
-            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
-            <div className={`text-sm ${th.muted}`}>The SMB Batch Ledger is managed by the Sponsor Bank. Contact your sponsor bank for ledger information.</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>{msg('UI_COMMON_SB_ONLY_FEATURE')}</div>
+            <div className={`text-sm ${th.muted}`}>{msg('UI_SMBLEDGER_THE_SMB_BATCH_LEDGER_IS')}</div>
           </div>
         </div>
       </AppShell>
@@ -261,8 +262,8 @@ export default function CTSSMBLedger() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>SMB Batch Ledger</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Session-level clearing summary per Sub-Member Bank — decisions, return rates, NGCH filing integrity</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_SMBLEDGER_SMB_BATCH_LEDGER')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_SMBLEDGER_SESSION_LEVEL_CLEARING_SUMMARY_PER')}</p>
           </div>
           <input
             type="date"
@@ -275,11 +276,11 @@ export default function CTSSMBLedger() {
         {/* KPI strip */}
         <div className="grid grid-cols-5 gap-3 mb-5">
           {[
-            { label: 'Total Cheques', value: totalCheques.toLocaleString() },
-            { label: 'STP Confirm', value: totalConfirm.toLocaleString(), color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'STP Return', value: totalReturn.toLocaleString(), color: isDark ? 'text-red-400' : 'text-red-600' },
-            { label: 'Human Review', value: totalReview.toLocaleString(), color: isDark ? 'text-amber-400' : 'text-amber-600' },
-            { label: 'Shield Alerts', value: shieldAlerts, color: shieldAlerts > 0 ? (isDark ? 'text-amber-300' : 'text-amber-600') : undefined },
+            { label: msg('UI_SMBLEDGER_TOTAL_CHEQUES'), value: totalCheques.toLocaleString() },
+            { label: msg('UI_INWARDPIPELINE_STP_CONFIRM'), value: totalConfirm.toLocaleString(), color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: msg('UI_COMMON_STP_RETURN'), value: totalReturn.toLocaleString(), color: isDark ? 'text-red-400' : 'text-red-600' },
+            { label: msg('UI_COMMON_HUMAN_REVIEW'), value: totalReview.toLocaleString(), color: isDark ? 'text-amber-400' : 'text-amber-600' },
+            { label: msg('UI_SMBLEDGER_SHIELD_ALERTS'), value: shieldAlerts, color: shieldAlerts > 0 ? (isDark ? 'text-amber-300' : 'text-amber-600') : undefined },
           ].map(({ label, value, color }) => (
             <div key={label} className={`rounded-xl border px-4 py-3 ${th.card}`}>
               <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -293,7 +294,7 @@ export default function CTSSMBLedger() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Bank', 'Session', 'Confirm', 'Return', 'Review', 'IET', 'Return %', 'Decisions', 'Shield', 'NGCH', ''].map(h => (
+                {[msg('UI_COMMON_BANK'), msg('UI_COMMON_SESSION'), msg('UI_SMBLEDGER_CONFIRM'), msg('UI_COMMON_RETURN_2'), msg('UI_BATCHSTATS_REVIEW'), 'IET', msg('UI_COMMON_RETURN'), msg('UI_SMBLEDGER_DECISIONS'), msg('UI_SMBLEDGER_SHIELD'), msg('UI_COMMON_NGCH'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -334,7 +335,7 @@ export default function CTSSMBLedger() {
                   </td>
                   <td className="px-4 py-3">
                     <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>
-                      Detail →
+                     {msg('UI_COMMON_DETAIL')}
                     </button>
                   </td>
                 </tr>

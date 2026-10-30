@@ -5,6 +5,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
 import useSMBList from '../hooks/useSMBList'
+import { msg } from '../../../shared/messages'
 
 const RISK_CYCLE = ['LOW', 'LOW', 'MEDIUM', 'LOW', 'LOW', 'MEDIUM', 'LOW', 'HIGH']
 const ONBOARD_DATES = ['2026-01-15', '2026-01-22', '2026-02-01', '2026-02-10', '2026-02-20', '2026-03-05', '2026-03-15', '2026-04-01']
@@ -68,8 +69,8 @@ function OnboardModal({ isDark, onClose, bankId }) {
         }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Registration failed' }))
-        throw new Error(err.detail || 'Registration failed')
+        const err = await res.json().catch(() => ({ detail: msg('UI_SUBMEMBERBANKS_REGISTRATION_FAILED') }))
+        throw new Error(err.detail || msg('UI_SUBMEMBERBANKS_REGISTRATION_FAILED'))
       }
       return res.json()
     },
@@ -93,8 +94,8 @@ function OnboardModal({ isDark, onClose, bankId }) {
       <div className={th.modal}>
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className={`text-base font-semibold ${th.heading}`}>Onboard Sub-Member Bank</h2>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Register a new bank for CTS clearing access via this institution</p>
+            <h2 className={`text-base font-semibold ${th.heading}`}>{msg('UI_SUBMEMBERBANKS_ONBOARD_SUB_MEMBER_BANK')}</h2>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_SUBMEMBERBANKS_REGISTER_A_NEW_BANK_FOR')}</p>
           </div>
           <button onClick={onClose} className={`text-xs ${th.muted} hover:${th.heading} px-2`}>✕</button>
         </div>
@@ -102,49 +103,49 @@ function OnboardModal({ isDark, onClose, bankId }) {
         {submitted ? (
           <div className="py-8 text-center">
             <div className="text-2xl mb-2">✓</div>
-            <p className={`text-sm font-medium ${th.heading}`}>Onboarding request submitted</p>
-            <p className={`text-xs mt-1 ${th.muted}`}>Compliance review will be initiated within 24 hours.</p>
+            <p className={`text-sm font-medium ${th.heading}`}>{msg('UI_SUBMEMBERBANKS_ONBOARDING_REQUEST_SUBMITTED')}</p>
+            <p className={`text-xs mt-1 ${th.muted}`}>{msg('UI_SUBMEMBERBANKS_COMPLIANCE_REVIEW_WILL_BE_INITIATED')}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={`block mb-1 ${th.label}`}>Bank Name *</label>
+                <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_BANK_NAME')}</label>
                 <input required className={`w-full rounded-lg border px-3 py-2 text-xs ${th.input}`}
-                  placeholder="e.g. Janata Co-operative Bank"
+                  placeholder={msg('UI_SUBMEMBERBANKS_E_G_JANATA_CO_OPERATIVE')}
                   value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
               </div>
               <div>
-                <label className={`block mb-1 ${th.label}`}>IFSC Prefix *</label>
+                <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_IFSC_PREFIX')}</label>
                 <input required maxLength={4} className={`w-full rounded-lg border px-3 py-2 text-xs font-mono uppercase ${th.input}`}
-                  placeholder="e.g. JNCB"
+                  placeholder={msg('UI_SUBMEMBERBANKS_E_G_JNCB')}
                   value={form.ifsc_prefix} onChange={e => setForm(f => ({...f, ifsc_prefix: e.target.value.toUpperCase()}))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={`block mb-1 ${th.label}`}>Sponsor Account *</label>
+                <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_SPONSOR_ACCOUNT')}</label>
                 <input required className={`w-full rounded-lg border px-3 py-2 text-xs font-mono ${th.input}`}
-                  placeholder="SVCB00000001"
+                  placeholder={msg('UI_SUBMEMBERBANKS_SVCB00000001')}
                   value={form.sponsor_account} onChange={e => setForm(f => ({...f, sponsor_account: e.target.value}))} />
               </div>
               <div>
-                <label className={`block mb-1 ${th.label}`}>Daily Cheque Limit *</label>
+                <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_DAILY_CHEQUE_LIMIT')}</label>
                 <input required type="number" min={1} className={`w-full rounded-lg border px-3 py-2 text-xs ${th.input}`}
                   placeholder="5000"
                   value={form.daily_limit} onChange={e => setForm(f => ({...f, daily_limit: e.target.value}))} />
               </div>
             </div>
             <div>
-              <label className={`block mb-1 ${th.label}`}>Ops Contact Email *</label>
+              <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_OPS_CONTACT_EMAIL')}</label>
               <input required type="email" className={`w-full rounded-lg border px-3 py-2 text-xs ${th.input}`}
                 placeholder="ops@subbank.coop"
                 value={form.contact} onChange={e => setForm(f => ({...f, contact: e.target.value}))} />
             </div>
             <div>
-              <label className={`block mb-1 ${th.label}`}>Initial Risk Assessment</label>
+              <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_INITIAL_RISK_ASSESSMENT')}</label>
               <div className="flex gap-2">
-                {['LOW', 'MEDIUM', 'HIGH'].map(r => (
+                {['LOW', msg('UI_SUBMEMBERBANKS_MEDIUM'), msg('UI_SUBMEMBERBANKS_HIGH')].map(r => (
                   <button type="button" key={r} onClick={() => setForm(f => ({...f, risk_level: r}))}
                     className={`px-3 py-1 rounded-lg border text-[10px] font-semibold transition-all ${
                       form.risk_level === r
@@ -160,7 +161,7 @@ function OnboardModal({ isDark, onClose, bankId }) {
               </div>
             )}
             <div className={`pt-4 border-t ${th.divider} flex justify-end gap-2`}>
-              <button type="button" onClick={onClose} className={`px-4 py-2 rounded-lg text-xs font-medium ${th.cancel}`}>Cancel</button>
+              <button type="button" onClick={onClose} className={`px-4 py-2 rounded-lg text-xs font-medium ${th.cancel}`}>{msg('UI_COMMON_CANCEL')}</button>
               <button type="submit" disabled={registerMutation.isPending}
                 className={`px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-40 ${th.btn}`}>
                 {registerMutation.isPending ? 'Submitting…' : 'Submit for Compliance Review'}
@@ -205,8 +206,8 @@ export default function CTSSubMemberBanks() {
         <div className={`flex-1 flex items-center justify-center ${th.page}`}>
           <div className="text-center">
             <div className="text-4xl mb-4">🏦</div>
-            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
-            <div className={`text-sm ${th.muted}`}>Sub-member onboarding is managed by the Sponsor Bank. This page is not available for SMB users.</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>{msg('UI_COMMON_SB_ONLY_FEATURE')}</div>
+            <div className={`text-sm ${th.muted}`}>{msg('UI_SUBMEMBERBANKS_SUB_MEMBER_ONBOARDING_IS_MANAGED')}</div>
           </div>
         </div>
       </AppShell>
@@ -220,24 +221,24 @@ export default function CTSSubMemberBanks() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Sub-Member Banks</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Banks sponsored by this institution for CTS clearing access</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_SUB_MEMBER_BANKS')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_SUBMEMBERBANKS_BANKS_SPONSORED_BY_THIS_INSTITUTION')}</p>
           </div>
           <button
             onClick={() => setShowAdd(true)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${th.btn}`}
           >
-            <span>+ Onboard Sub-Member</span>
+            <span>{msg('UI_SUBMEMBERBANKS_ONBOARD_SUB_MEMBER')}</span>
           </button>
         </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Sub-Members', value: smbs.length },
-            { label: 'Active', value: smbs.filter(s => s.status === 'ACTIVE').length },
-            { label: 'Cheques Today', value: smbs.reduce((a, s) => a + (s.cheques_today ?? 0), 0).toLocaleString() },
-            { label: 'Suspended', value: smbs.filter(s => s.status === 'SUSPENDED').length },
+            { label: msg('UI_SUBMEMBERBANKS_TOTAL_SUB_MEMBERS'), value: smbs.length },
+            { label: msg('UI_COMMON_ACTIVE'), value: smbs.filter(s => s.status === 'ACTIVE').length },
+            { label: msg('UI_SMBREGISTRY_CHEQUES_TODAY'), value: smbs.reduce((a, s) => a + (s.cheques_today ?? 0), 0).toLocaleString() },
+            { label: msg('UI_SUBMEMBERBANKS_SUSPENDED'), value: smbs.filter(s => s.status === 'SUSPENDED').length },
           ].map(({ label, value }) => (
             <div key={label} className={`rounded-xl border px-4 py-3 ${th.card}`}>
               <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -251,7 +252,7 @@ export default function CTSSubMemberBanks() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Bank Name', 'IFSC Prefix', 'Daily Limit', 'Today', 'Risk', 'Status', ''].map(h => (
+                {[msg('UI_SUBMEMBERBANKS_BANK_NAME_2'), msg('UI_SUBMEMBERBANKS_IFSC_PREFIX_2'), msg('UI_SUBMEMBERBANKS_DAILY_LIMIT'), msg('UI_SMBREGISTRY_TODAY'), msg('UI_SUBMEMBERBANKS_RISK'), msg('UI_COMMON_STATUS'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -261,7 +262,7 @@ export default function CTSSubMemberBanks() {
                 <tr key={sm.id} className={`border-b cursor-pointer transition-colors ${th.row}`} onClick={() => setSelected(sm)}>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{sm.name}</td>
                   <td className={`px-4 py-3 font-mono ${th.body}`}>{sm.ifsc_prefix}</td>
-                  <td className={`px-4 py-3 ${th.body}`}>{sm.daily_limit.toLocaleString()} / day</td>
+                  <td className={`px-4 py-3 ${th.body}`}>{msg('UI_SUBMEMBERBANKS_DAY', { daily_limit: sm.daily_limit.toLocaleString() })}</td>
                   <td className={`px-4 py-3 ${th.body}`}>{sm.cheques_today}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${RISK[sm.risk_level]}`}>{sm.risk_level}</span>
@@ -272,7 +273,7 @@ export default function CTSSubMemberBanks() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>View →</button>
+                    <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>{msg('UI_SUBMEMBERBANKS_VIEW')}</button>
                   </td>
                 </tr>
               ))}
@@ -285,7 +286,7 @@ export default function CTSSubMemberBanks() {
           <div className={`mt-5 rounded-xl border p-5 ${th.card}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`font-semibold ${th.heading}`}>{selected.name}</h2>
-              <button onClick={() => setSelected(null)} className={`text-xs ${th.muted} hover:${th.body}`}>✕ Close</button>
+              <button onClick={() => setSelected(null)} className={`text-xs ${th.muted} hover:${th.body}`}>{msg('UI_COMMON_CLOSE')}</button>
             </div>
             <div className="grid grid-cols-3 gap-4 text-xs">
               {[
@@ -307,10 +308,10 @@ export default function CTSSubMemberBanks() {
                 {selected.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
               </button>
               <button className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                Edit Limits
+               {msg('UI_SUBMEMBERBANKS_EDIT_LIMITS')}
               </button>
               <button className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                View Risk Report
+               {msg('UI_SUBMEMBERBANKS_VIEW_RISK_REPORT')}
               </button>
             </div>
           </div>

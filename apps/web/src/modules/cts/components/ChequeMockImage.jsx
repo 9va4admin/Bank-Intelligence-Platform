@@ -1,4 +1,5 @@
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { msg } from '../../../shared/messages'
 export default function ChequeMockImage({ fields, alterations, isDark }) {
   const wrap   = isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
   const bank   = isDark ? 'text-slate-300' : 'text-slate-800'
@@ -18,44 +19,44 @@ export default function ChequeMockImage({ fields, alterations, isDark }) {
     <div className={`rounded-xl border ${wrap} p-5 font-mono text-xs relative overflow-hidden`}>
       {/* Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-        <div className={`${wmark} text-6xl font-bold rotate-[-30deg] tracking-widest`}>SPECIMEN</div>
+        <div className={`${wmark} text-6xl font-bold rotate-[-30deg] tracking-widest`}>{msg('UI_CHEQUEMOCKIMAGE_SPECIMEN')}</div>
       </div>
 
       {/* Bank header */}
       <div className="flex justify-between items-start mb-4">
         <div>
           <div className={`${bank} font-bold text-sm`}>{BANK_CONFIG.bank_name}</div>
-          <div className={`${sub} text-[10px]`}>Branch: Andheri (W), Mumbai — IFSC: SRCB0000001</div>
+          <div className={`${sub} text-[10px]`}>{msg('UI_CHEQUEMOCKIMAGE_BRANCH_ANDHERI_W_MUMBAI_IFSC')}</div>
         </div>
         <div className="text-right">
-          <div className={`${sub} text-[10px]`}>CTS-2010 Compliant</div>
-          <div className={`${sub} text-[10px]`}>CTS-2010 image</div>
+          <div className={`${sub} text-[10px]`}>{msg('UI_CHEQUEMOCKIMAGE_CTS_2010_COMPLIANT')}</div>
+          <div className={`${sub} text-[10px]`}>{msg('UI_CHEQUEMOCKIMAGE_CTS_2010_IMAGE')}</div>
         </div>
       </div>
 
       {/* Date */}
       <div className="flex justify-end mb-3">
         <div className={`border rounded px-3 py-1 ${dateBx}`}>
-          Date: <span className={dateVl}>{fields.date}</span>
+         {msg('UI_CHEQUEMOCKIMAGE_DATE')} <span className={dateVl}>{fields.date}</span>
         </div>
       </div>
 
       {/* Pay line */}
       <div className={`border-b border-dashed ${divDash} pb-2 mb-3`}>
-        <span className={payLbl}>Pay </span>
+        <span className={payLbl}>{msg('UI_CHEQUEMOCKIMAGE_PAY')} </span>
         <span className={`${payNm} font-semibold`}>{fields.payee}</span>
-        <span className={payLbl}> or Bearer</span>
+        <span className={payLbl}> {msg('UI_CHEQUEMOCKIMAGE_OR_BEARER')}</span>
       </div>
 
       {/* Amount words */}
       <div className={`border-b border-dashed ${divDash} pb-2 mb-3 flex items-center gap-2`}>
-        <span className={payLbl}>Rupees </span>
+        <span className={payLbl}>{msg('UI_CHEQUEMOCKIMAGE_RUPEES')} </span>
         <span className={`${wordTx} ${alterations ? 'line-through text-red-400/70 decoration-red-400' : ''}`}>
           {fields.amount_words}
         </span>
         {alterations && (
           <span className="text-[10px] text-red-400 border border-red-400/30 rounded px-1 py-0.5 ml-1">
-            ⚠ POSSIBLE ALTERATION
+           {msg('UI_CHEQUEMOCKIMAGE_POSSIBLE_ALTERATION')}
           </span>
         )}
       </div>
@@ -72,7 +73,7 @@ export default function ChequeMockImage({ fields, alterations, isDark }) {
         <div className={`${micrTx} font-mono tracking-widest text-[11px]`}>
           ⑈ {fields.micr} ⑈  400160002 ⑆  ****7234 ⑈
         </div>
-        <div className={`${micrTx} text-[10px]`}>MICR Band</div>
+        <div className={`${micrTx} text-[10px]`}>{msg('UI_CHEQUEMOCKIMAGE_MICR_BAND')}</div>
       </div>
     </div>
   )

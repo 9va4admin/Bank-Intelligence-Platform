@@ -63,9 +63,9 @@ function makeFieldsMeta(ocr, confidences = {}) {
 }
 
 const DEPOSIT_CHANNEL_CFG = {
-  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾', clr: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', clrL: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
-  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️',  clr: 'text-sky-400 bg-sky-500/10 border-sky-500/30',             clrL: 'text-sky-700 bg-sky-50 border-sky-400'             },
-  KIOSK:           { label: 'Kiosk/CDM',   icon: '🏧',  clr: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    clrL: 'text-violet-700 bg-violet-50 border-violet-400'    },
+  PAY_IN_SLIP:     { label: msg('UI_COMMON_PAY_IN_SLIP'), icon: '🧾', clr: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', clrL: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
+  BACK_ANNOTATION: { label: msg('UI_COMMON_BACK_NOTE'),   icon: '✍️',  clr: 'text-sky-400 bg-sky-500/10 border-sky-500/30',             clrL: 'text-sky-700 bg-sky-50 border-sky-400'             },
+  KIOSK:           { label: msg('UI_OUTWARDQUEUE_KIOSK_CDM'),   icon: '🏧',  clr: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    clrL: 'text-violet-700 bg-violet-50 border-violet-400'    },
 }
 
 const MOCK_HUMAN_REVIEW = [
@@ -75,7 +75,7 @@ const MOCK_HUMAN_REVIEW = [
     account_display: '****4471', payee_display: 'Kiran Traders',
     amount_range: '₹[5L-10L]', micr: '400001002841', bank: BANK_CONFIG.bank_name,
     branch: 'Fort Mumbai Branch', pu: 'UBIN-PU-WEST', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'AMOUNT_MISMATCH', reason_label: 'Amount words/figures variance', received_at: '11:42 AM',
+    reason: 'AMOUNT_MISMATCH', reason_label: msg('UI_OUTWARDQUEUE_AMOUNT_WORDS_FIGURES_VARIANCE'), received_at: '11:42 AM',
     scanner_id: 'SCN-FRT-02', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260811_01`,
     ocr_confidence: 0.91, vision_compliance: 0.97, micr_confidence: 0.99,
     checks: { signature_present: true, amount_words_match: false, date_valid: true, cts_valid: true },
@@ -94,7 +94,7 @@ const MOCK_HUMAN_REVIEW = [
     account_display: '****9021', payee_display: 'Om Enterprises',
     amount_range: '₹[1L-5L]', micr: '400001002855', bank: BANK_CONFIG.bank_name,
     branch: 'FC Road Pune Branch', pu: 'UBIN-PU-WEST', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'ENDORSEMENT_IRREGULAR', reason_label: 'Endorsement irregular', received_at: '11:47 AM',
+    reason: 'ENDORSEMENT_IRREGULAR', reason_label: msg('UI_OUTWARDQUEUE_ENDORSEMENT_IRREGULAR'), received_at: '11:47 AM',
     scanner_id: 'SCN-FCR-01', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260811_02`,
     ocr_confidence: 0.95, vision_compliance: 0.88, micr_confidence: 0.98,
     checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: false },
@@ -113,7 +113,7 @@ const MOCK_HUMAN_REVIEW = [
     account_display: '****3308', payee_display: 'Deshmukh & Co.',
     amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: sampleSmb(0).name,
     branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: sampleSmb(0).id,
-    reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
+    reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: msg('UI_OUTWARDQUEUE_HIGH_VALUE_DUAL_APPROVAL'), received_at: '11:53 AM',
     scanner_id: 'SCN-ANDH-03', lot_number: `LOT_${sampleSmb(0).ifsc}_20260619_01`,
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
     checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
@@ -136,7 +136,7 @@ const MOCK_STP_REJECTED = [
     account_display: '****7712', payee_display: 'Bhagwati Steels',
     amount_range: '₹[1L-5L]', micr: '400001002771', bank: BANK_CONFIG.bank_name,
     branch: 'Anna Salai Chennai Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'CTS_COMPLIANCE_FAILURE', reason_label: 'CTS compliance failure — auto-rejected', received_at: '10:58 AM',
+    reason: 'CTS_COMPLIANCE_FAILURE', reason_label: msg('UI_OUTWARDQUEUE_CTS_COMPLIANCE_FAILURE_AUTO_REJECTED'), received_at: '10:58 AM',
     scanner_id: 'SCN-ANS-01', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260811_01`,
     ocr_confidence: 0.86, vision_compliance: 0.61, micr_confidence: 0.94,
     checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: false },
@@ -151,7 +151,7 @@ const MOCK_STP_REJECTED = [
     stp_decision: {
       engine: 'CTS-2010 Compliance Validator', rule: 'crossing_lines_missing',
       confidence: 0.61, threshold: 0.85, decided_at: '10:58:41 AM',
-      detail: 'Vision compliance score 61% below the 85% CTS-2010 auto-accept threshold — account-payee crossing lines not detected on front image. Auto-rejected before NGCH submission.',
+      detail: msg('UI_OUTWARDQUEUE_VISION_COMPLIANCE_SCORE_61_BELOW'),
     },
   },
   {
@@ -160,7 +160,7 @@ const MOCK_STP_REJECTED = [
     account_display: '****2245', payee_display: 'Shree Ambika Traders',
     amount_range: '₹[<1L]', micr: '400160002788', bank: 'Andheri Urban Co-op Bank',
     branch: 'Andheri (E)', pu: 'PU-MUM-04', bank_slug: 'smb-mh-andheri',
-    reason: 'DATE_INVALID', reason_label: 'Date invalid / stale — auto-rejected', received_at: '11:05 AM',
+    reason: 'DATE_INVALID', reason_label: msg('UI_OUTWARDQUEUE_DATE_INVALID_STALE_AUTO_REJECTED'), received_at: '11:05 AM',
     scanner_id: 'SCN-ANDE-02', lot_number: `LOT_${sampleSmb(0).ifsc}_20260619_02`,
     ocr_confidence: 0.93, vision_compliance: 0.95, micr_confidence: 0.97,
     checks: { signature_present: true, amount_words_match: true, date_valid: false, cts_valid: true },
@@ -175,7 +175,7 @@ const MOCK_STP_REJECTED = [
     stp_decision: {
       engine: 'CTS-2010 Compliance Validator', rule: 'stale_instrument_date',
       confidence: 0.97, threshold: 0.90, decided_at: '11:05:18 AM',
-      detail: 'Cheque date 02-Jan-2026 exceeds the 3-month validity window as of presentation (19-Jun-2026). Auto-rejected per NI Act staleness rule — never auto-returned to drawee without human sign-off on outward side.',
+      detail: msg('UI_OUTWARDQUEUE_CHEQUE_DATE_02_JAN_2026'),
     },
   },
 ]
@@ -187,7 +187,7 @@ const MOCK_STP_SUCCESS = [
     account_display: '****9182', payee_display: 'Malabar Trading Co.',
     amount_range: '₹[<1L]', micr: '400001002661', bank: BANK_CONFIG.bank_name,
     branch: 'MG Road Bengaluru Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    reason: 'STP_CONFIRMED', reason_label: msg('UI_VALIDATIONQUEUE_STP_AUTO_FILED'),
     received_at: '10:15 AM', filed_at: '10:15:03 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_01`,
     scanner_id: 'SCN-MGB-01', ngch_ref: 'NGCH-20260812-CTS2-00461',
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
@@ -206,7 +206,7 @@ const MOCK_STP_SUCCESS = [
     account_display: '****3340', payee_display: 'Rajasthan Spices Exports',
     amount_range: '₹[1L-5L]', micr: '400001002704', bank: BANK_CONFIG.bank_name,
     branch: 'Connaught Place Delhi Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    reason: 'STP_CONFIRMED', reason_label: msg('UI_VALIDATIONQUEUE_STP_AUTO_FILED'),
     received_at: '10:28 AM', filed_at: '10:28:07 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_01`,
     scanner_id: 'SCN-CPD-01', ngch_ref: 'NGCH-20260812-CTS2-00467',
     ocr_confidence: 0.97, vision_compliance: 0.98, micr_confidence: 0.99,
@@ -226,7 +226,7 @@ const MOCK_STP_SUCCESS = [
     account_display: '****5501', payee_display: 'Dalhousie Auto Parts',
     amount_range: '₹[<1L]', micr: '400001002731', bank: BANK_CONFIG.bank_name,
     branch: 'Dalhousie Kolkata Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    reason: 'STP_CONFIRMED', reason_label: msg('UI_VALIDATIONQUEUE_STP_AUTO_FILED'),
     received_at: '10:44 AM', filed_at: '10:44:05 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_01`,
     scanner_id: 'SCN-DLS-01', ngch_ref: 'NGCH-20260812-CTS2-00471',
     ocr_confidence: 0.99, vision_compliance: 0.99, micr_confidence: 0.99,
@@ -246,7 +246,7 @@ const MOCK_STP_SUCCESS = [
     account_display: '****8826', payee_display: 'Abids Textiles Exports',
     amount_range: '₹[<1L]', micr: '400001002791', bank: BANK_CONFIG.bank_name,
     branch: 'Abids Hyderabad Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
-    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    reason: 'STP_CONFIRMED', reason_label: msg('UI_VALIDATIONQUEUE_STP_AUTO_FILED'),
     received_at: '11:02 AM', filed_at: '11:02:04 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_02`,
     scanner_id: 'SCN-ABD-01', ngch_ref: 'NGCH-20260812-CTS2-00479',
     ocr_confidence: 0.96, vision_compliance: 0.97, micr_confidence: 0.98,
@@ -315,7 +315,7 @@ function STPSuccessRow({ item, isDark, selected, onClick }) {
       </div>
       <div className="flex items-center gap-2 mt-2">
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-300'}`}>
-          STP Filed to NGCH
+         {msg('UI_OUTWARDQUEUE_STP_FILED_TO_NGCH')}
         </span>
         <span className={`text-[10px] ml-auto ${th.sub}`}>{item.amount_range}</span>
       </div>
@@ -338,7 +338,7 @@ function STPSuccessPanel({ item, isDark }) {
     <div className={`flex-1 flex items-center justify-center ${th.panel}`}>
       <div className={`text-sm ${th.label} text-center`}>
         <div className="text-3xl mb-3">✓</div>
-        Select an instrument to view STP filing details
+       {msg('UI_OUTWARDQUEUE_SELECT_AN_INSTRUMENT_TO_VIEW')}
       </div>
     </div>
   )
@@ -363,9 +363,9 @@ function STPSuccessPanel({ item, isDark }) {
     <div className={`flex-1 overflow-y-auto px-6 py-5 ${th.panel}`}>
       <div className="flex items-center gap-3 mb-5">
         <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDark ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-emerald-700 border-emerald-300 bg-emerald-50'}`}>
-          STP Confirmed — Filed to NGCH
+         {msg('UI_OUTWARDQUEUE_STP_CONFIRMED_FILED_TO_NGCH')}
         </span>
-        <span className={`text-xs ${th.label}`}>Read-only · No action required</span>
+        <span className={`text-xs ${th.label}`}>{msg('UI_OUTWARDQUEUE_READ_ONLY_NO_ACTION_REQUIRED')}</span>
       </div>
       <div className={`border rounded-xl overflow-hidden ${th.card} mb-4`}>
         <table className="w-full">
@@ -483,10 +483,10 @@ export default function CTSOutwardQueue() {
   const activeList = tab === 'review' ? reviewQueue : tab === 'stp_rejected' ? rejectedQueue : successQueue
 
   usePageHeader({
-    subtitle: 'Outward Q · Human Review + STP Rejected · action required before NGCH filing',
+    subtitle: msg('UI_OUTWARDQUEUE_OUTWARD_Q_HUMAN_REVIEW_STP'),
     actions: (
       <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'}`}>
-        {reviewQueue.length + rejectedQueue.length} pending
+        {msg('UI_OUTWARDQUEUE_PENDING', { value: reviewQueue.length + rejectedQueue.length })}
       </div>
     ),
   })
@@ -577,7 +577,7 @@ export default function CTSOutwardQueue() {
 
             {decided.length > 0 && (
               <>
-                <div className={`text-[10px] ${th.muted} uppercase tracking-widest pt-3 pb-1 px-1`}>Decided this session</div>
+                <div className={`text-[10px] ${th.muted} uppercase tracking-widest pt-3 pb-1 px-1`}>{msg('UI_COMMON_DECIDED_THIS_SESSION')}</div>
                 {decided.map(d => (
                   <div key={d.instrument_id} className={`rounded-xl border px-4 py-3 opacity-50 ${isDark ? 'border-white/5 bg-white/5' : 'border-slate-100 bg-slate-50'}`}>
                     <div className="flex items-center justify-between">

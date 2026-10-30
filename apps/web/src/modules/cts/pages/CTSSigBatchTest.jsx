@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { msg } from '../../../shared/messages'
 
 const MAX = 5
 
@@ -14,7 +15,7 @@ async function fetchPreview(file) {
     headers: { 'X-CSRF-Token': sessionStorage.getItem('astra-csrf') || '' },
     body: fd,
   })
-  if (!r.ok) throw new Error(`preview HTTP ${r.status}`)
+  if (!r.ok) throw new Error(msg('UI_SIGBATCHTEST_PREVIEW_HTTP', { status: r.status }))
   const blob = await r.blob()
   return URL.createObjectURL(blob)
 }
@@ -68,7 +69,7 @@ function ResultCard({ file, isDark }) {
     extractSig(file)
       .then(d => {
         if (d.error?.startsWith('SIG_DETECTOR_OFFLINE')) {
-          setErr('Sig detector offline — start it with:\ncd apps/sig_detector; python main.py')
+          setErr(msg('UI_SIGBATCHTEST_SIG_DETECTOR_OFFLINE_START_IT'))
           setState('offline')
         } else if (d.signature_present && d.signature_crops?.length) {
           setB64(d.signature_crops[0]); setState('sig')
@@ -86,7 +87,7 @@ function ResultCard({ file, isDark }) {
       <p className={`text-xs truncate mb-3 ${th.fname}`} title={file.name}>{file.name}</p>
 
       {/* Original cheque — reduced size */}
-      <p className={`mb-1 ${th.label}`}>Original</p>
+      <p className={`mb-1 ${th.label}`}>{msg('UI_SIGBATCHTEST_ORIGINAL')}</p>
       {origUrl
         ? <img src={origUrl} alt="original" className="w-full rounded object-contain bg-white" style={{ maxHeight: 90 }} />
         : <div className="w-full h-16 rounded bg-slate-700/20 animate-pulse" />
@@ -96,8 +97,8 @@ function ResultCard({ file, isDark }) {
       <div className={`my-3 border-t ${th.divider}`} />
 
       {/* Extracted signature */}
-      <p className={`mb-1 ${th.label}`}>Extracted Signature</p>
-      {state === 'loading'  && <p className={th.spin}>processing…</p>}
+      <p className={`mb-1 ${th.label}`}>{msg('UI_SIGBATCHTEST_EXTRACTED_SIGNATURE')}</p>
+      {state === 'loading'  && <p className={th.spin}>{msg('UI_SIGBATCHTEST_PROCESSING')}</p>}
       {state === 'sig'      && (
         <img
           src={`data:image/png;base64,${b64}`}
@@ -106,7 +107,7 @@ function ResultCard({ file, isDark }) {
           style={{ maxHeight: 100 }}
         />
       )}
-      {state === 'nosig'    && <p className={th.nosig}>No signature found</p>}
+      {state === 'nosig'    && <p className={th.nosig}>{msg('UI_SIGBATCHTEST_NO_SIGNATURE_FOUND')}</p>}
       {state === 'offline'  && <p className={th.offline} style={{ whiteSpace: 'pre-line' }}>⚠ {errMsg}</p>}
       {state === 'error'    && <p className={th.err}>{errMsg}</p>}
 
@@ -117,8 +118,8 @@ function ResultCard({ file, isDark }) {
 export default function CTSSigBatchTest() {
   const { isDark } = useTheme()
   usePageHeader({
-    title: 'Signature Batch Test',
-    subtitle: 'Upload up to 5 cheques — compares original with extracted signature',
+    title: msg('UI_SIGBATCHTEST_SIGNATURE_BATCH_TEST'),
+    subtitle: msg('UI_SIGBATCHTEST_UPLOAD_UP_TO_5_CHEQUES'),
   })
 
   const [files, setFiles] = useState([])
@@ -152,7 +153,7 @@ export default function CTSSigBatchTest() {
           onDrop={e => { e.preventDefault(); pick(e.dataTransfer.files) }}
         >
           <p className={`text-sm ${th.body}`}>
-            Click or drag &amp; drop up to {MAX} cheque images (jpg / png / tif)
+           {msg('UI_SIGBATCHTEST_CLICK_OR_DRAG_DROP_UP', { MAX })}
           </p>
           {files.length > 0 && (
             <ul className="mt-3 space-y-0.5">
@@ -171,7 +172,7 @@ export default function CTSSigBatchTest() {
           onClick={() => setRun(true)}
           className="mt-4 px-6 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm rounded-lg transition-colors"
         >
-          ▶ Extract Signatures
+         {msg('UI_SIGBATCHTEST_EXTRACT_SIGNATURES')}
         </button>
 
         {/* Results — one card per cheque */}

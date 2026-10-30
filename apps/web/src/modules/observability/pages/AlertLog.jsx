@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -23,7 +24,7 @@ function useAlerts(bankId, limit, { enabled = true } = {}) {
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/v1/ops/alerts?limit=${limit}`, { credentials: 'include' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       setData(await res.json())
     } catch (e) {
       setError(e.message)
@@ -95,19 +96,19 @@ export default function AlertLog() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <Link to="/ops/dashboard" className={`text-xs ${th.muted} hover:underline`}>Ops Dashboard</Link>
+              <Link to="/ops/dashboard" className={`text-xs ${th.muted} hover:underline`}>{msg('UI_COMMON_OPS_DASHBOARD')}</Link>
               <span className={`text-xs ${th.muted}`}>/</span>
-              <span className={`text-xs ${th.muted}`}>Alert Log</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_ALERT_LOG')}</span>
             </div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>
-              Alert Log
+             {msg('UI_COMMON_ALERT_LOG')}
               {total > 0 && (
                 <span className="ml-2 text-sm font-normal text-red-400">
-                  {total} event{total !== 1 ? 's' : ''} (24h)
+                  {msg('UI_ALERTLOG_EVENT_24H', { total, value: total !== 1 ? 's' : '' })}
                 </span>
               )}
             </h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>CRITICAL + ERROR events — last 24 hours — no PII</p>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_ALERTLOG_CRITICAL_ERROR_EVENTS_LAST_24')}</p>
           </div>
           <div className="flex items-center gap-3">
             <select
@@ -116,9 +117,9 @@ export default function AlertLog() {
               className={`text-xs rounded-lg border px-2.5 py-1.5 bg-transparent
                 ${isDark ? 'border-white/12 text-slate-300' : 'border-slate-200 text-slate-700'}`}
             >
-              <option value={10}>Last 10</option>
-              <option value={25}>Last 25</option>
-              <option value={50}>Last 50</option>
+              <option value={10}>{msg('UI_ALERTLOG_LAST_10')}</option>
+              <option value={25}>{msg('UI_ALERTLOG_LAST_25')}</option>
+              <option value={50}>{msg('UI_ALERTLOG_LAST_50')}</option>
             </select>
             <button
               onClick={reload}
@@ -141,7 +142,7 @@ export default function AlertLog() {
         {degraded && !error && (
           <div className={`text-sm px-4 py-3 rounded-xl mb-4 border
             ${isDark ? 'bg-amber-900/10 border-amber-700/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-            Audit DB unavailable — alert log cannot be fetched.
+           {msg('UI_ALERTLOG_AUDIT_DB_UNAVAILABLE_ALERT_LOG')}
           </div>
         )}
 
@@ -149,10 +150,10 @@ export default function AlertLog() {
           {/* Table header */}
           <div className={`grid grid-cols-12 px-5 py-3 border-b text-[11px] uppercase tracking-widest font-semibold ${th.muted}
             ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
-            <span className="col-span-2">Severity</span>
-            <span className="col-span-5">Event Type</span>
-            <span className="col-span-3">Time</span>
-            <span className="col-span-2 text-right">Ack.</span>
+            <span className="col-span-2">{msg('UI_EXCEPTIONS_SEVERITY_2')}</span>
+            <span className="col-span-5">{msg('UI_ALERTLOG_EVENT_TYPE')}</span>
+            <span className="col-span-3">{msg('UI_COMMON_TIME')}</span>
+            <span className="col-span-2 text-right">{msg('UI_ALERTLOG_ACK')}</span>
           </div>
 
           {alerts.length === 0 && !loading && (
@@ -190,7 +191,7 @@ export default function AlertLog() {
 
         {alerts.length > 0 && total > alerts.length && (
           <p className={`text-xs mt-3 text-center ${th.muted}`}>
-            Showing {alerts.length} of {total} events. Increase limit to see more.
+           {msg('UI_ALERTLOG_SHOWING_OF_EVENTS_INCREASE_LIMIT', { count: alerts.length, total })}
           </p>
         )}
       </div>

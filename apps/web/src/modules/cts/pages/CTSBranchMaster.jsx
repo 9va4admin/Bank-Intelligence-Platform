@@ -5,6 +5,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
+import { msg as uiMsg } from '../../../shared/messages'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: no backend, use client-side mock data.
@@ -70,11 +71,11 @@ const STATE_TO_PU = {
 }
 
 const PU_OPTIONS_BY_BANK = {
-  'federal-bank':   [{ id: 'SOUTH-MAIN', label: 'South Zone PU' }, { id: 'WEST-MAIN', label: 'West Zone PU' }, { id: 'NORTH-MAIN', label: 'North Zone PU' }, { id: 'EAST-MAIN', label: 'East Zone PU' }],
-  'saraswat-coop':  [{ id: 'PU-MUM-01', label: 'Mumbai PU-01' }, { id: 'PU-MUM-02', label: 'Mumbai PU-02' }, { id: 'PU-PUN-01', label: 'Pune PU-01' }],
-  'central-bank-of-india': [{ id: 'CBIN-PU-MUMBAI', label: 'Mumbai Processing Unit' }, { id: 'CBIN-PU-DELHI', label: 'Delhi Processing Unit' }, { id: 'CBIN-PU-KOLKATA', label: 'Kolkata Processing Unit' }, { id: 'KBL-PU-01', label: 'Chennai Processing Unit' }, { id: 'CBIN-PU-HYDERABAD', label: 'Hyderabad Processing Unit' }, { id: 'CBIN-PU-AHMEDABAD', label: 'Ahmedabad Processing Unit' }],
-  'karnataka-bank': [{ id: 'PU-SOUTH', label: 'South PU' }, { id: 'PU-NORTH', label: 'North PU' }],
-  'union-bank':     [{ id: 'UBIN-PU-WEST', label: 'Western PU (Mumbai/Pune/Ahmedabad)' }, { id: 'UBIN-PU-SOUTH', label: 'Southern PU (Chennai/Bengaluru/Hyderabad)' }],
+  'federal-bank':   [{ id: 'SOUTH-MAIN', label: uiMsg('UI_BRANCHMASTER_SOUTH_ZONE_PU') }, { id: 'WEST-MAIN', label: uiMsg('UI_BRANCHMASTER_WEST_ZONE_PU') }, { id: 'NORTH-MAIN', label: uiMsg('UI_BRANCHMASTER_NORTH_ZONE_PU') }, { id: 'EAST-MAIN', label: uiMsg('UI_BRANCHMASTER_EAST_ZONE_PU') }],
+  'saraswat-coop':  [{ id: 'PU-MUM-01', label: uiMsg('UI_BRANCHMASTER_MUMBAI_PU_01') }, { id: 'PU-MUM-02', label: uiMsg('UI_BRANCHMASTER_MUMBAI_PU_02') }, { id: 'PU-PUN-01', label: uiMsg('UI_BRANCHMASTER_PUNE_PU_01') }],
+  'central-bank-of-india': [{ id: 'CBIN-PU-MUMBAI', label: uiMsg('UI_BRANCHMASTER_MUMBAI_PROCESSING_UNIT') }, { id: 'CBIN-PU-DELHI', label: uiMsg('UI_BRANCHMASTER_DELHI_PROCESSING_UNIT') }, { id: 'CBIN-PU-KOLKATA', label: uiMsg('UI_BRANCHMASTER_KOLKATA_PROCESSING_UNIT') }, { id: 'KBL-PU-01', label: uiMsg('UI_BRANCHMASTER_CHENNAI_PROCESSING_UNIT') }, { id: 'CBIN-PU-HYDERABAD', label: uiMsg('UI_BRANCHMASTER_HYDERABAD_PROCESSING_UNIT') }, { id: 'CBIN-PU-AHMEDABAD', label: uiMsg('UI_BRANCHMASTER_AHMEDABAD_PROCESSING_UNIT') }],
+  'karnataka-bank': [{ id: 'PU-SOUTH', label: uiMsg('UI_BRANCHMASTER_SOUTH_PU') }, { id: 'PU-NORTH', label: uiMsg('UI_BRANCHMASTER_NORTH_PU') }],
+  'union-bank':     [{ id: 'UBIN-PU-WEST', label: uiMsg('UI_BRANCHMASTER_WESTERN_PU_MUMBAI_PUNE_AHMEDABAD') }, { id: 'UBIN-PU-SOUTH', label: uiMsg('UI_BRANCHMASTER_SOUTHERN_PU_CHENNAI_BENGALURU_HYDERA') }],
 }
 const ACTIVE_PU_OPTIONS = PU_OPTIONS_BY_BANK[BANK_CONFIG.bank_id] ?? []
 
@@ -100,7 +101,7 @@ const ACTIVE_MOCK_BRANCHES = MOCK_BRANCHES_DB[BANK_CONFIG.bank_id] ?? []
 
 function parseCsvText(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim())
-  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row.')
+  if (lines.length < 2) throw new Error(uiMsg('UI_BRANCHMASTER_CSV_MUST_HAVE_A_HEADER'))
 
   const errors = []
   let validCount = 0
@@ -113,20 +114,20 @@ function parseCsvText(text) {
     const rowNum = i + 1
 
     if (cols.length < 8) {
-      errors.push({ row: rowNum, error: `Expected 8 columns, found ${cols.length}` })
+      errors.push({ row: rowNum, error: uiMsg('UI_BRANCHMASTER_EXPECTED_8_COLUMNS_FOUND', { count: cols.length }) })
       continue
     }
     const [branchName, , , , , pinCode, ifsc] = cols
     if (!branchName?.trim()) {
-      errors.push({ row: rowNum, error: 'Branch Name is empty' })
+      errors.push({ row: rowNum, error: uiMsg('UI_BRANCHMASTER_BRANCH_NAME_IS_EMPTY') })
       continue
     }
     if (!ifsc || ifsc.trim().length !== 11) {
-      errors.push({ row: rowNum, error: `IFSC "${ifsc?.trim()}" must be exactly 11 characters` })
+      errors.push({ row: rowNum, error: uiMsg('UI_BRANCHMASTER_IFSC_MUST_BE_EXACTLY_11', { ifsc: ifsc?.trim() }) })
       continue
     }
     if (!/^\d{6}$/.test(pinCode?.trim())) {
-      errors.push({ row: rowNum, error: `PIN Code "${pinCode?.trim()}" must be 6 digits` })
+      errors.push({ row: rowNum, error: uiMsg('UI_BRANCHMASTER_PIN_CODE_MUST_BE_6', { pinCode: pinCode?.trim() }) })
       continue
     }
     validCount++
@@ -138,7 +139,7 @@ async function readFileAsText(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader()
     r.onload = e => resolve(e.target.result)
-    r.onerror = () => reject(new Error('Could not read file'))
+    r.onerror = () => reject(new Error(uiMsg('UI_BRANCHMASTER_COULD_NOT_READ_FILE')))
     r.readAsText(file)
   })
 }
@@ -281,7 +282,7 @@ function Modal({ title, onClose, isDark, children }) {
     header: isDark ? 'flex items-center justify-between px-6 py-4 border-b border-white/10' : 'flex items-center justify-between px-6 py-4 border-b border-slate-200',
     title: isDark ? 'text-white font-semibold text-base' : 'text-slate-900 font-semibold text-base',
     close: isDark ? 'text-slate-400 hover:text-white transition-colors' : 'text-slate-400 hover:text-slate-700 transition-colors',
-    body: 'px-6 py-5 space-y-4',
+    body: uiMsg('UI_BRANCHMASTER_PX_6_PY_5_SPACE'),
   }
   return (
     <div className={th.overlay} onClick={onClose}>
@@ -321,9 +322,9 @@ function Select({ isDark, children, ...props }) {
 }
 
 const SCANNER_MODE_LABELS = {
-  UI_UPLOAD:   { short: 'UI', label: 'UI Upload',   desc: 'Operator uploads cheque images via web UI' },
-  FOLDER_DROP: { short: 'FDR', label: 'Folder Drop', desc: 'Scanner writes to folder; ASTRA watcher picks up' },
-  SDK_PUSH:    { short: 'SDK', label: 'SDK Push',    desc: 'Scanner SDK calls POST /v1/cts/outward/scan/submit' },
+  UI_UPLOAD:   { short: 'UI', label: uiMsg('UI_BRANCHMASTER_UI_UPLOAD'),   desc: uiMsg('UI_BRANCHMASTER_OPERATOR_UPLOADS_CHEQUE_IMAGES_VIA') },
+  FOLDER_DROP: { short: 'FDR', label: uiMsg('UI_BRANCHMASTER_FOLDER_DROP'), desc: uiMsg('UI_BRANCHMASTER_SCANNER_WRITES_TO_FOLDER_ASTRA') },
+  SDK_PUSH:    { short: 'SDK', label: uiMsg('UI_BRANCHMASTER_SDK_PUSH'),    desc: uiMsg('UI_BRANCHMASTER_SCANNER_SDK_CALLS_POST_V1') },
 }
 
 function BranchFormModal({ branch, isDark, onClose, onSave }) {
@@ -348,11 +349,11 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
   }
 
   function handleSubmit() {
-    if (!form.branch_name.trim()) return setErr('Branch name is required.')
+    if (!form.branch_name.trim()) return setErr(uiMsg('UI_BRANCHMASTER_BRANCH_NAME_IS_REQUIRED'))
     if (!isEdit) {
-      if (!form.branch_ifsc.trim()) return setErr('IFSC code is required.')
-      if (form.branch_ifsc.length !== 11) return setErr('IFSC must be exactly 11 characters.')
-      if (!/^[A-Za-z0-9]+$/.test(form.branch_ifsc)) return setErr('IFSC must be alphanumeric.')
+      if (!form.branch_ifsc.trim()) return setErr(uiMsg('UI_BRANCHMASTER_IFSC_CODE_IS_REQUIRED'))
+      if (form.branch_ifsc.length !== 11) return setErr(uiMsg('UI_BRANCHMASTER_IFSC_MUST_BE_EXACTLY_11_2'))
+      if (!/^[A-Za-z0-9]+$/.test(form.branch_ifsc)) return setErr(uiMsg('UI_BRANCHMASTER_IFSC_MUST_BE_ALPHANUMERIC'))
     }
     const basePayload = {
       branch_name:   form.branch_name,
@@ -375,37 +376,37 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
   return (
     <Modal title={isEdit ? 'Edit Branch' : 'Add Branch'} onClose={onClose} isDark={isDark}>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Branch Name *" isDark={isDark}>
-          <Input isDark={isDark} value={form.branch_name} onChange={e => handleChange('branch_name', e.target.value)} placeholder="Koramangala Branch" />
+        <Field label={uiMsg('UI_BRANCHMASTER_BRANCH_NAME')} isDark={isDark}>
+          <Input isDark={isDark} value={form.branch_name} onChange={e => handleChange('branch_name', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KORAMANGALA_BRANCH')} />
         </Field>
         <Field label={isEdit ? 'IFSC Code (read-only)' : 'IFSC Code *'} isDark={isDark}>
-          <Input isDark={isDark} value={form.branch_ifsc} onChange={e => handleChange('branch_ifsc', e.target.value)} placeholder="KARB0000123" maxLength={11} disabled={isEdit} />
+          <Input isDark={isDark} value={form.branch_ifsc} onChange={e => handleChange('branch_ifsc', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KARB0000123')} maxLength={11} disabled={isEdit} />
         </Field>
-        <Field label="City" isDark={isDark}>
-          <Input isDark={isDark} value={form.city} onChange={e => handleChange('city', e.target.value)} placeholder="Bengaluru" />
+        <Field label={uiMsg('UI_BRANCHMASTER_CITY')} isDark={isDark}>
+          <Input isDark={isDark} value={form.city} onChange={e => handleChange('city', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_BENGALURU')} />
         </Field>
-        <Field label="District" isDark={isDark}>
-          <Input isDark={isDark} value={form.district} onChange={e => handleChange('district', e.target.value)} placeholder="Bengaluru Urban" />
+        <Field label={uiMsg('UI_BRANCHMASTER_DISTRICT')} isDark={isDark}>
+          <Input isDark={isDark} value={form.district} onChange={e => handleChange('district', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_BENGALURU_URBAN')} />
         </Field>
-        <Field label="State" isDark={isDark}>
-          <Input isDark={isDark} value={form.state} onChange={e => handleChange('state', e.target.value)} placeholder="Karnataka" />
+        <Field label={uiMsg('UI_BRANCHMASTER_STATE')} isDark={isDark}>
+          <Input isDark={isDark} value={form.state} onChange={e => handleChange('state', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KARNATAKA')} />
         </Field>
-        <Field label="PIN Code" isDark={isDark}>
+        <Field label={uiMsg('UI_BRANCHMASTER_PIN_CODE')} isDark={isDark}>
           <Input isDark={isDark} value={form.pin_code} onChange={e => handleChange('pin_code', e.target.value)} placeholder="560034" maxLength={6} />
         </Field>
-        <Field label="Phone Number" isDark={isDark}>
+        <Field label={uiMsg('UI_BRANCHMASTER_PHONE_NUMBER')} isDark={isDark}>
           <Input isDark={isDark} value={form.phone_number} onChange={e => handleChange('phone_number', e.target.value)} placeholder="08025534567" />
         </Field>
-        <Field label="Address" isDark={isDark}>
-          <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="80 Feet Road, Koramangala" />
+        <Field label={uiMsg('UI_BRANCHMASTER_ADDRESS')} isDark={isDark}>
+          <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_80_FEET_ROAD_KORAMANGALA')} />
         </Field>
       </div>
 
       {/* PU assignment */}
       {ACTIVE_PU_OPTIONS.length > 0 && (
-        <Field label="Processing Unit (PU)" isDark={isDark}>
+        <Field label={uiMsg('UI_BRANCHMASTER_PROCESSING_UNIT_PU')} isDark={isDark}>
           <Select isDark={isDark} value={form.pu_id} onChange={e => handleChange('pu_id', e.target.value)}>
-            <option value="">— Unassigned —</option>
+            <option value="">{uiMsg('UI_BRANCHMASTER_UNASSIGNED')}</option>
             {ACTIVE_PU_OPTIONS.map(pu => (
               <option key={pu.id} value={pu.id}>{pu.label} ({pu.id})</option>
             ))}
@@ -415,8 +416,8 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
 
       {/* Scanner configuration — full width below the grid */}
       <div className={`mt-1 p-4 rounded-xl border ${isDark ? 'border-white/8 bg-white/3' : 'border-slate-200 bg-slate-50'}`}>
-        <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Scanner Configuration</p>
-        <Field label="Scanner Input Mode" isDark={isDark}>
+        <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{uiMsg('UI_BRANCHMASTER_SCANNER_CONFIGURATION')}</p>
+        <Field label={uiMsg('UI_BRANCHMASTER_SCANNER_INPUT_MODE')} isDark={isDark}>
           <Select isDark={isDark} value={form.scanner_input_mode} onChange={e => handleChange('scanner_input_mode', e.target.value)}>
             {Object.entries(SCANNER_MODE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v.label}</option>
@@ -427,20 +428,20 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
 
         {form.scanner_input_mode === 'FOLDER_DROP' && (
           <p className={`mt-3 ${infoCls}`}>
-            Folder path and OEM settings are configured in <strong>Scanner Config</strong> (Admin → Scanner Config). Set the drop folder path there after saving this branch.
+           {uiMsg('UI_BRANCHMASTER_FOLDER_PATH_AND_OEM_SETTINGS')} <strong>{uiMsg('UI_BRANCHMASTER_SCANNER_CONFIG')}</strong> {uiMsg('UI_BRANCHMASTER_ADMIN_SCANNER_CONFIG_SET_THE')}
           </p>
         )}
 
         {form.scanner_input_mode === 'SDK_PUSH' && (
           <p className={`mt-3 ${infoCls}`}>
-            SDK endpoint: <span className="font-mono">POST /v1/cts/outward/scan/submit</span> — scanner SDK calls this directly. No folder configuration required.
+           {uiMsg('UI_BRANCHMASTER_SDK_ENDPOINT')} <span className="font-mono">{uiMsg('UI_BRANCHMASTER_POST_V1_CTS_OUTWARD_SCAN')}</span> {uiMsg('UI_BRANCHMASTER_SCANNER_SDK_CALLS_THIS_DIRECTLY')}
           </p>
         )}
       </div>
 
       {err && <p className="text-red-400 text-xs mt-2">{err}</p>}
       <div className="flex justify-end gap-3 pt-2">
-        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>Cancel</button>
+        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
         <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Branch'}</button>
       </div>
     </Modal>
@@ -492,12 +493,12 @@ function ImportModal({ isDark, onClose, qc }) {
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
 
   return (
-    <Modal title="Import Branch Directory (CSV)" onClose={onClose} isDark={isDark}>
+    <Modal title={uiMsg('UI_BRANCHMASTER_IMPORT_BRANCH_DIRECTORY_CSV')} onClose={onClose} isDark={isDark}>
       {step === 'pick' && (
         <div className="space-y-4">
           <div className={cardCls}>
-            <p className={bodyText}>Upload your branch directory CSV with the following columns:</p>
-            <p className={`${mutedText} mt-2 font-mono`}>Branch Name, Complete Address, City, District, State, PIN Code, IFSC Code, Phone Number [, PU ID (optional)]</p>
+            <p className={bodyText}>{uiMsg('UI_BRANCHMASTER_UPLOAD_YOUR_BRANCH_DIRECTORY_CSV')}</p>
+            <p className={`${mutedText} mt-2 font-mono`}>{uiMsg('UI_BRANCHMASTER_BRANCH_NAME_COMPLETE_ADDRESS_CITY')}</p>
           </div>
 
           {/* Drop zone */}
@@ -511,14 +512,14 @@ function ImportModal({ isDark, onClose, qc }) {
           >
             <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => setFile(e.target.files[0])} />
             {file
-              ? <p className={`${bodyText} font-medium`}>📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
-              : <p className={mutedText}>Drag & drop CSV or click to browse</p>
+              ? <p className={`${bodyText} font-medium`}>{uiMsg('UI_BRANCHMASTER_KB', { name: file.name, value: (file.size / 1024).toFixed(1) })}</p>
+              : <p className={mutedText}>{uiMsg('UI_BRANCHMASTER_DRAG_DROP_CSV_OR_CLICK')}</p>
             }
           </div>
 
           {err && <p className="text-red-400 text-xs">{err}</p>}
           <div className="flex justify-end gap-3">
-            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>Cancel</button>
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
             <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40`} onClick={handlePreview} disabled={!file || loading}>
               {loading ? 'Validating…' : 'Validate CSV'}
             </button>
@@ -530,9 +531,9 @@ function ImportModal({ isDark, onClose, qc }) {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Valid rows', value: preview.valid_count, color: 'text-emerald-400' },
-              { label: 'Errors', value: preview.error_count, color: 'text-red-400' },
-              { label: 'Total', value: preview.valid_count + preview.error_count, color: isDark ? 'text-white' : 'text-slate-900' },
+              { label: uiMsg('UI_BRANCHMASTER_VALID_ROWS'), value: preview.valid_count, color: 'text-emerald-400' },
+              { label: uiMsg('UI_BRANCHMASTER_ERRORS'), value: preview.error_count, color: 'text-red-400' },
+              { label: uiMsg('UI_COMMON_TOTAL'), value: preview.valid_count + preview.error_count, color: isDark ? 'text-white' : 'text-slate-900' },
             ].map(s => (
               <div key={s.label} className={cardCls}>
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -543,16 +544,16 @@ function ImportModal({ isDark, onClose, qc }) {
 
           {preview.errors.length > 0 && (
             <div className={`${cardCls} max-h-40 overflow-y-auto`}>
-              <p className="text-red-400 text-xs font-semibold mb-2">Row errors (will be skipped):</p>
+              <p className="text-red-400 text-xs font-semibold mb-2">{uiMsg('UI_BRANCHMASTER_ROW_ERRORS_WILL_BE_SKIPPED')}</p>
               {preview.errors.map((e, i) => (
-                <p key={i} className="text-xs text-red-300 font-mono">Row {e.row}: {e.error}</p>
+                <p key={i} className="text-xs text-red-300 font-mono">{uiMsg('UI_BRANCHMASTER_ROW', { row: e.row, error: e.error })}</p>
               ))}
             </div>
           )}
 
           {err && <p className="text-red-400 text-xs">{err}</p>}
           <div className="flex justify-end gap-3">
-            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={() => setStep('pick')}>Back</button>
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={() => setStep('pick')}>{uiMsg('UI_BRANCHMASTER_BACK')}</button>
             <button
               className={`${btnCls} bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40`}
               onClick={handleConfirm}
@@ -567,12 +568,12 @@ function ImportModal({ isDark, onClose, qc }) {
       {step === 'done' && result && (
         <div className="space-y-4 text-center">
           <p className="text-4xl">✅</p>
-          <p className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>Import complete</p>
+          <p className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>{uiMsg('UI_BRANCHMASTER_IMPORT_COMPLETE')}</p>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Imported', value: result.imported_count, color: 'text-emerald-400' },
-              { label: 'Updated', value: result.skipped_count, color: 'text-violet-400' },
-              { label: 'Errors', value: result.error_count, color: 'text-red-400' },
+              { label: uiMsg('UI_BRANCHMASTER_IMPORTED'), value: result.imported_count, color: 'text-emerald-400' },
+              { label: uiMsg('UI_BRANCHMASTER_UPDATED'), value: result.skipped_count, color: 'text-violet-400' },
+              { label: uiMsg('UI_BRANCHMASTER_ERRORS'), value: result.error_count, color: 'text-red-400' },
             ].map(s => (
               <div key={s.label} className={cardCls}>
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -580,7 +581,7 @@ function ImportModal({ isDark, onClose, qc }) {
               </div>
             ))}
           </div>
-          <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={onClose}>Done</button>
+          <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={onClose}>{uiMsg('UI_USERMANAGEMENT_DONE')}</button>
         </div>
       )}
     </Modal>
@@ -652,36 +653,32 @@ function ScannerRegistrationModal({ branch, isDark, onClose }) {
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
 
   return (
-    <Modal title={`Register Scanner — ${branch.branch_name}`} onClose={onClose} isDark={isDark}>
+    <Modal title={uiMsg('UI_BRANCHMASTER_REGISTER_SCANNER', { branch_name: branch.branch_name })} onClose={onClose} isDark={isDark}>
       {step === 'idle' && (
         <div className="space-y-4">
           <div className={th.card}>
             <p className={th.body}>
-              This will generate a <strong>one-time 8-character registration code</strong> for{' '}
+             {uiMsg('UI_BRANCHMASTER_THIS_WILL_GENERATE_A')} <strong>{uiMsg('UI_BRANCHMASTER_ONE_TIME_8_CHARACTER_REGISTRATION')}</strong> {uiMsg('UI_BRANCHMASTER_FOR')}
               <strong>{branch.branch_name}</strong> ({branch.branch_ifsc}).
             </p>
             <p className={`mt-2 ${th.muted}`}>
-              Read this code to your branch IT coordinator over phone or secure email.
-              They enter it in the ASTRA installer wizard — the installer contacts this
-              server, verifies the code, and writes the correct branch configuration
-              automatically. The IT admin never types a branch ID.
+             {uiMsg('UI_BRANCHMASTER_READ_THIS_CODE_TO_YOUR')}
             </p>
             <p className={`mt-2 ${th.muted}`}>
-              The code expires in <strong>24 hours</strong> and is <strong>single-use</strong>.
-              Generating a new code invalidates any previous pending code for this branch.
+             {uiMsg('UI_BRANCHMASTER_THE_CODE_EXPIRES_IN')} <strong>{uiMsg('UI_BRANCHMASTER_24_HOURS')}</strong> {uiMsg('UI_BRANCHMASTER_AND_IS')} <strong>{uiMsg('UI_BRANCHMASTER_SINGLE_USE')}</strong>{uiMsg('UI_BRANCHMASTER_GENERATING_A_NEW_CODE_INVALIDATES')}
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>Cancel</button>
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
             <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleGenerate}>
-              Generate Code
+             {uiMsg('UI_BRANCHMASTER_GENERATE_CODE')}
             </button>
           </div>
         </div>
       )}
 
       {step === 'loading' && (
-        <div className={`text-center py-8 ${th.muted}`}>Generating…</div>
+        <div className={`text-center py-8 ${th.muted}`}>{uiMsg('UI_BRANCHMASTER_GENERATING')}</div>
       )}
 
       {step === 'done' && codeData && (
@@ -689,27 +686,27 @@ function ScannerRegistrationModal({ branch, isDark, onClose }) {
           {/* The code — large, easy to read aloud */}
           <div className={th.code}>
             <p className={`text-xs font-medium mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Registration Code for {branch.branch_name}
+             {uiMsg('UI_BRANCHMASTER_REGISTRATION_CODE_FOR', { branch_name: branch.branch_name })}
             </p>
             <p className={`text-4xl font-bold tracking-[0.25em] font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {codeData.code}
             </p>
             <p className={`mt-3 text-xs ${secsLeft < 3600 ? 'text-amber-400' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Expires in {formatCountdown(secsLeft)}
+             {uiMsg('UI_BRANCHMASTER_EXPIRES_IN', { formatCountdown: formatCountdown(secsLeft) })}
             </p>
           </div>
 
           {/* Instructions for the IT admin to relay */}
           <div className={th.card}>
             <p className={`text-xs font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Tell the branch IT coordinator:
+             {uiMsg('UI_BRANCHMASTER_TELL_THE_BRANCH_IT_COORDINATOR')}
             </p>
             <ol className={`${th.muted} space-y-1 list-decimal list-inside`}>
-              <li>Run <strong>ASTRA-Scanner-Setup-{'{version}'}.exe</strong> as Administrator</li>
-              <li>Enter server URL: <span className="font-mono">{window.location.origin}</span></li>
-              <li>Enter registration code: <span className="font-mono font-bold">{codeData.code}</span></li>
-              <li>Click <strong>Verify →</strong> — branch details appear automatically</li>
-              <li>Complete the wizard to install the Windows service</li>
+              <li>{uiMsg('UI_BRANCHMASTER_RUN')} <strong>{uiMsg('UI_BRANCHMASTER_ASTRA_SCANNER_SETUP_EXE', { version: '{version}' })}</strong> {uiMsg('UI_BRANCHMASTER_AS_ADMINISTRATOR')}</li>
+              <li>{uiMsg('UI_BRANCHMASTER_ENTER_SERVER_URL')} <span className="font-mono">{window.location.origin}</span></li>
+              <li>{uiMsg('UI_BRANCHMASTER_ENTER_REGISTRATION_CODE')} <span className="font-mono font-bold">{codeData.code}</span></li>
+              <li>{uiMsg('UI_BRANCHMASTER_CLICK')} <strong>{uiMsg('UI_SCANNERSETUPGUIDE_VERIFY')}</strong> {uiMsg('UI_BRANCHMASTER_BRANCH_DETAILS_APPEAR_AUTOMATICALLY')}</li>
+              <li>{uiMsg('UI_BRANCHMASTER_COMPLETE_THE_WIZARD_TO_INSTALL')}</li>
             </ol>
           </div>
 
@@ -724,10 +721,10 @@ function ScannerRegistrationModal({ branch, isDark, onClose }) {
               className={`${btnCls} ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}
               onClick={handleGenerate}
             >
-              Regenerate
+             {uiMsg('UI_BRANCHMASTER_REGENERATE')}
             </button>
             <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={onClose}>
-              Done
+             {uiMsg('UI_USERMANAGEMENT_DONE')}
             </button>
           </div>
         </div>
@@ -737,8 +734,8 @@ function ScannerRegistrationModal({ branch, isDark, onClose }) {
         <div className="space-y-4">
           <p className="text-red-400 text-sm">{err}</p>
           <div className="flex justify-end gap-3">
-            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>Cancel</button>
-            <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleGenerate}>Retry</button>
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
+            <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleGenerate}>{uiMsg('UI_BRANCHMASTER_RETRY')}</button>
           </div>
         </div>
       )}
@@ -750,16 +747,16 @@ function DeleteConfirmModal({ branch, isDark, onClose, onConfirm }) {
   const bodyText = isDark ? 'text-slate-300 text-sm' : 'text-slate-700 text-sm'
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
   return (
-    <Modal title="Deactivate Branch" onClose={onClose} isDark={isDark}>
+    <Modal title={uiMsg('UI_BRANCHMASTER_DEACTIVATE_BRANCH')} onClose={onClose} isDark={isDark}>
       <p className={bodyText}>
-        Are you sure you want to deactivate <strong>{branch.branch_ifsc}</strong> — {branch.branch_name}?
+       {uiMsg('UI_BRANCHMASTER_ARE_YOU_SURE_YOU_WANT')} <strong>{branch.branch_ifsc}</strong> — {branch.branch_name}?
       </p>
       <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        The branch will be marked inactive (soft-delete). Existing scan records are preserved.
+       {uiMsg('UI_BRANCHMASTER_THE_BRANCH_WILL_BE_MARKED')}
       </p>
       <div className="flex justify-end gap-3 pt-2">
-        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>Cancel</button>
-        <button className={`${btnCls} bg-red-600 text-white hover:bg-red-500`} onClick={onConfirm}>Deactivate</button>
+        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
+        <button className={`${btnCls} bg-red-600 text-white hover:bg-red-500`} onClick={onConfirm}>{uiMsg('UI_COMMON_DEACTIVATE')}</button>
       </div>
     </Modal>
   )
@@ -799,19 +796,19 @@ export default function CTSBranchMaster() {
 
   const createMut = useMutation({
     mutationFn: createBranch,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast('Branch created.', 'green') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast(uiMsg('UI_BRANCHMASTER_BRANCH_CREATED'), 'green') },
     onError: e => showToast(e.message, 'red'),
   })
 
   const updateMut = useMutation({
     mutationFn: ({ ifsc, payload }) => updateBranch(ifsc, payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast('Branch updated.', 'green') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast(uiMsg('UI_BRANCHMASTER_BRANCH_UPDATED'), 'green') },
     onError: e => showToast(e.message, 'red'),
   })
 
   const deleteMut = useMutation({
     mutationFn: ifsc => deleteBranch(ifsc),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast('Branch deactivated.', 'green') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast(uiMsg('UI_BRANCHMASTER_BRANCH_DEACTIVATED'), 'green') },
     onError: e => showToast(e.message, 'red'),
   })
 
@@ -830,9 +827,9 @@ export default function CTSBranchMaster() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Branch Master</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_BRANCHMASTER_BRANCH_MASTER')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              {total} branch{total !== 1 ? 'es' : ''} registered
+              {uiMsg('UI_BRANCHMASTER_BRANCH_REGISTERED', { total, value: total !== 1 ? 'es' : '' })}
             </p>
           </div>
           <div className="flex gap-2">
@@ -840,13 +837,13 @@ export default function CTSBranchMaster() {
               onClick={() => setModal('import')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
             >
-              Import CSV
+             {uiMsg('UI_BRANCHMASTER_IMPORT_CSV')}
             </button>
             <button
               onClick={() => { setSelected(null); setModal('create') }}
               className="px-3 py-1.5 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-500 transition-colors"
             >
-              + Add Branch
+             {uiMsg('UI_BRANCHMASTER_ADD_BRANCH')}
             </button>
           </div>
         </div>
@@ -872,9 +869,9 @@ export default function CTSBranchMaster() {
               value={filters.isActive === null ? '' : String(filters.isActive)}
               onChange={e => { setFilters(f => ({ ...f, isActive: e.target.value === '' ? null : e.target.value === 'true' })); setPage(1) }}
             >
-              <option value="">All statuses</option>
-              <option value="true">Active only</option>
-              <option value="false">Inactive only</option>
+              <option value="">{uiMsg('UI_BRANCHMASTER_ALL_STATUSES')}</option>
+              <option value="true">{uiMsg('UI_BRANCHMASTER_ACTIVE_ONLY')}</option>
+              <option value="false">{uiMsg('UI_BRANCHMASTER_INACTIVE_ONLY')}</option>
             </select>
           </div>
         </div>
@@ -884,22 +881,22 @@ export default function CTSBranchMaster() {
           <table className="w-full">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['IFSC', 'Branch Name', 'City', 'State', 'District', 'Phone', 'PU', 'Scanner', 'Status', ''].map(h => (
+                {[uiMsg('UI_COMMON_IFSC'), uiMsg('UI_BRANCHMASTER_BRANCH_NAME_2'), uiMsg('UI_BRANCHMASTER_CITY'), uiMsg('UI_BRANCHMASTER_STATE'), uiMsg('UI_BRANCHMASTER_DISTRICT'), uiMsg('UI_BRANCHMASTER_PHONE'), 'PU', uiMsg('UI_COMMON_SCANNER'), uiMsg('UI_COMMON_STATUS'), ''].map(h => (
                   <th key={h} className={`text-left px-4 py-3 ${th.th}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={10} className={`text-center py-12 ${th.muted}`}>Loading…</td></tr>
+                <tr><td colSpan={10} className={`text-center py-12 ${th.muted}`}>{uiMsg('CTS_WF_BUCKETCFG_LOADING')}</td></tr>
               )}
               {isError && (
-                <tr><td colSpan={10} className="text-center py-12 text-red-400 text-sm">Failed to load branches.</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-red-400 text-sm">{uiMsg('UI_BRANCHMASTER_FAILED_TO_LOAD_BRANCHES')}</td></tr>
               )}
               {!isLoading && branches.length === 0 && (
                 <tr>
                   <td colSpan={10} className={`text-center py-12 ${th.muted} text-sm`}>
-                    No branches found. Use <strong>Import CSV</strong> to load your branch directory.
+                   {uiMsg('UI_BRANCHMASTER_NO_BRANCHES_FOUND_USE')} <strong>{uiMsg('UI_BRANCHMASTER_IMPORT_CSV')}</strong> {uiMsg('UI_BRANCHMASTER_TO_LOAD_YOUR_BRANCH_DIRECTORY')}
                   </td>
                 </tr>
               )}
@@ -914,7 +911,7 @@ export default function CTSBranchMaster() {
                   <td className={`px-4 py-3 text-sm`}>
                     {b.pu_id
                       ? <span className="font-mono text-xs text-violet-400">{b.pu_id}</span>
-                      : <span className={`text-xs ${th.muted} italic`}>unassigned</span>
+                      : <span className={`text-xs ${th.muted} italic`}>{uiMsg('UI_BRANCHMASTER_UNASSIGNED_2')}</span>
                     }
                   </td>
                   <td className="px-4 py-3">
@@ -939,7 +936,7 @@ export default function CTSBranchMaster() {
                       {/* Register Scanner — only for SDK_PUSH active branches */}
                       {b.is_active && b.scanner_input_mode === 'SDK_PUSH' && (
                         <button
-                          title="Generate one-time installer registration code"
+                          title={uiMsg('UI_BRANCHMASTER_GENERATE_ONE_TIME_INSTALLER_REGISTRA')}
                           className={`p-1.5 rounded transition-colors text-violet-400 hover:text-violet-300 ${isDark ? 'hover:bg-violet-900/30' : 'hover:bg-violet-50'}`}
                           onClick={() => { setSelected(b); setModal('register-scanner') }}
                         >
@@ -950,7 +947,7 @@ export default function CTSBranchMaster() {
                         </button>
                       )}
                       <button
-                        title="Edit branch"
+                        title={uiMsg('UI_BRANCHMASTER_EDIT_BRANCH')}
                         className={`p-1.5 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
                         onClick={() => { setSelected(b); setModal('edit') }}
                       >
@@ -960,7 +957,7 @@ export default function CTSBranchMaster() {
                       </button>
                       {b.is_active && (
                         <button
-                          title="Deactivate branch"
+                          title={uiMsg('UI_BRANCHMASTER_DEACTIVATE_BRANCH_2')}
                           className={`p-1.5 rounded transition-colors text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}
                           onClick={() => { setSelected(b); setModal('delete') }}
                         >
@@ -981,7 +978,7 @@ export default function CTSBranchMaster() {
         {total > PAGE_SIZE && (
           <div className="flex items-center justify-between mt-3 px-1">
             <p className={`text-xs ${th.muted}`}>
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} branches
+             {uiMsg('UI_BRANCHMASTER_SHOWING_OF_BRANCHES', { value: (page - 1) * PAGE_SIZE + 1, Math: Math.min(page * PAGE_SIZE, total), total })}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -989,17 +986,17 @@ export default function CTSBranchMaster() {
                 onClick={() => setPage(p => p - 1)}
                 className={`px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-40 ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
               >
-                ← Prev
+               {uiMsg('UI_BRANCHMASTER_PREV')}
               </button>
               <span className={`text-xs font-medium ${th.muted}`}>
-                Page {page} of {Math.ceil(total / PAGE_SIZE)}
+               {uiMsg('UI_BRANCHMASTER_PAGE_OF', { page, Math: Math.ceil(total / PAGE_SIZE) })}
               </span>
               <button
                 disabled={page >= Math.ceil(total / PAGE_SIZE)}
                 onClick={() => setPage(p => p + 1)}
                 className={`px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-40 ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
               >
-                Next →
+               {uiMsg('UI_BRANCHMASTER_NEXT')}
               </button>
             </div>
           </div>

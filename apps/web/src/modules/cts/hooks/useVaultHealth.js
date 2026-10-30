@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 60_000  // vault health refreshes every 60s
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -21,7 +22,7 @@ export default function useVaultHealth({ pollEnabled = true } = {}) {
       const res = await fetch(`${API_BASE}/v1/cts/vault/health`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setHealth(json)
       setError(null)

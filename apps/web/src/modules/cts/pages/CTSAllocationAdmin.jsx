@@ -69,7 +69,7 @@ function ReviewerSelect({ reviewers, onPick, disabled, isDark, label = 'Reassign
     >
       <option value="">{reviewers.length === 0 ? 'no one online' : label}</option>
       {reviewers.map(r => (
-        <option key={r.reviewer_id} value={r.reviewer_id}>{r.reviewer_id} ({r.load ?? 0} held)</option>
+        <option key={r.reviewer_id} value={r.reviewer_id}>{msg('UI_ALLOCATIONADMIN_HELD', { reviewer_id: r.reviewer_id, value: r.load ?? 0 })}</option>
       ))}
     </select>
   )
@@ -106,7 +106,7 @@ export default function CTSAllocationAdmin() {
     queryFn: async () => {
       if (isDemo) return { active_claims: MOCK_CLAIMS }
       const res = await fetch(`/v1/cts/allocation/status?bank_id=${bankId}`, { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load allocation status')
+      if (!res.ok) throw new Error(msg('UI_ALLOCATIONADMIN_FAILED_TO_LOAD_ALLOCATION_STATUS'))
       return res.json()
     },
     enabled: true,
@@ -182,7 +182,7 @@ export default function CTSAllocationAdmin() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Assign failed')
+        throw new Error(err.detail || msg('UI_ALLOCATIONADMIN_ASSIGN_FAILED'))
       }
       return res.json()
     },
@@ -218,7 +218,7 @@ export default function CTSAllocationAdmin() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Could not update buckets')
+        throw new Error(err.detail || msg('UI_ALLOCATIONADMIN_COULD_NOT_UPDATE_BUCKETS'))
       }
       return res.json()
     },
@@ -235,7 +235,7 @@ export default function CTSAllocationAdmin() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Release failed')
+        throw new Error(err.detail || msg('UI_ALLOCATIONADMIN_RELEASE_FAILED'))
       }
       return res.json()
     },
@@ -279,14 +279,14 @@ export default function CTSAllocationAdmin() {
         {/* Page header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Allocation Control Panel</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_ALLOCATIONADMIN_ALLOCATION_CONTROL_PANEL')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              Active reviewer claims across the inward human review queue.
+             {msg('UI_ALLOCATIONADMIN_ACTIVE_REVIEWER_CLAIMS_ACROSS_THE')}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs">
-              <span className={th.muted}>Mode:</span>
+              <span className={th.muted}>{msg('UI_ALLOCATIONADMIN_MODE')}</span>
               <ModeTag mode={allocationMode} isDark={isDark} />
               {strategy && allocationMode !== 'SELF' && (
                 <span className={th.muted}>
@@ -297,10 +297,10 @@ export default function CTSAllocationAdmin() {
                 to="/admin/config/operations"
                 className="text-blue-400 hover:underline text-xs"
               >
-                Change →
+               {msg('UI_ALLOCATIONADMIN_CHANGE')}
               </Link>
             </div>
-            <span className={`text-xs ${th.muted}`}>Updated {lastUpdated}</span>
+            <span className={`text-xs ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_UPDATED', { lastUpdated })}</span>
           </div>
         </div>
 
@@ -310,25 +310,25 @@ export default function CTSAllocationAdmin() {
             <div className={`text-2xl font-bold ${th.heading}`}>
               {isLoading ? '…' : claims.length}
             </div>
-            <div className={`text-xs ${th.muted} mt-0.5`}>Active Claims</div>
+            <div className={`text-xs ${th.muted} mt-0.5`}>{msg('UI_ALLOCATIONADMIN_ACTIVE_CLAIMS')}</div>
           </div>
           <div className={`h-8 w-px ${th.divider}`} />
           <div>
             <div className={`text-sm font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
               {onlineReviewers.length}
             </div>
-            <div className={`text-xs ${th.muted}`}>reviewers online now</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_REVIEWERS_ONLINE_NOW')}</div>
           </div>
           <div className={`h-8 w-px ${th.divider}`} />
           <div>
             <div className={`text-sm ${th.body}`}>
               {[...new Set(claims.map(c => c.reviewer_id))].length}
             </div>
-            <div className={`text-xs ${th.muted}`}>with active claims</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_WITH_ACTIVE_CLAIMS')}</div>
           </div>
           {isError && (
             <div className="ml-auto text-xs text-red-400">
-              Failed to load — retrying in 30s
+             {msg('UI_ALLOCATIONADMIN_FAILED_TO_LOAD_RETRYING_IN')}
             </div>
           )}
         </div>
@@ -336,15 +336,14 @@ export default function CTSAllocationAdmin() {
         {/* Online reviewers panel */}
         <div className={`border rounded-lg p-4 mb-5 ${th.card}`}>
           <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>
-            Reviewers Online Now
+           {msg('UI_ALLOCATIONADMIN_REVIEWERS_ONLINE_NOW_2')}
             <span className={`ml-2 font-normal normal-case ${th.muted}`}>
-              (heartbeat expires after 5 min of inactivity)
+             {msg('UI_ALLOCATIONADMIN_HEARTBEAT_EXPIRES_AFTER_5_MIN')}
             </span>
           </div>
           {onlineReviewers.length === 0 ? (
             <p className={`text-sm ${th.muted}`}>
-              No reviewers currently active. In AUTO/HYBRID mode, auto-assign will queue
-              instruments until a reviewer opens the review queue page.
+             {msg('UI_ALLOCATIONADMIN_NO_REVIEWERS_CURRENTLY_ACTIVE_IN')}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -355,7 +354,7 @@ export default function CTSAllocationAdmin() {
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="font-medium">{r.reviewer_id}</span>
-                  <span title="claims held now">{r.load ?? 0} held</span>
+                  <span title={msg('UI_ALLOCATIONADMIN_CLAIMS_HELD_NOW')}>{msg('UI_ALLOCATIONADMIN_HELD_2', { value: r.load ?? 0 })}</span>
                   {r.pu_ids?.length > 0 && !r.pu_ids.includes('ALL') && (
                     <span className="font-mono" title={msg('CTS_WF_ALLOC_PU_TITLE')}>{(r.pu_ids ?? []).join('/')}</span>
                   )}
@@ -371,25 +370,25 @@ export default function CTSAllocationAdmin() {
         {/* Bucket connections */}
         <div className={`border rounded-lg overflow-hidden mb-5 ${th.card}`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between flex-wrap gap-2`}>
-            <span className={`text-xs font-semibold uppercase tracking-wider ${th.muted}`}>Bucket connections</span>
+            <span className={`text-xs font-semibold uppercase tracking-wider ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_BUCKET_CONNECTIONS')}</span>
             <span className={`text-xs px-2 py-0.5 rounded font-medium ${
               bucketData?.routing_enabled
                 ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
                 : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700')}`}>
-              Bucket routing {bucketData?.routing_enabled ? 'ON' : 'OFF'}
+             {msg('UI_ALLOCATIONADMIN_BUCKET_ROUTING', { value: bucketData?.routing_enabled ? 'ON' : 'OFF' })}
             </span>
           </div>
           {!bucketData?.routing_enabled && (
             <p className={`px-4 py-2 text-xs ${th.muted}`}>
-              Routing is off, so every reviewer sees all work. Connect reviewers below, then switch on
-              <span className="font-mono"> bucket_routing_enabled</span> in operations config.
+             {msg('UI_ALLOCATIONADMIN_ROUTING_IS_OFF_SO_EVERY')}
+              <span className="font-mono"> {msg('UI_ALLOCATIONADMIN_BUCKET_ROUTING_ENABLED')}</span> {msg('UI_ALLOCATIONADMIN_IN_OPERATIONS_CONFIG')}
             </p>
           )}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className={`px-4 py-2 text-left border-b ${th.divider} ${th.th}`}>Reviewer</th>
+                  <th className={`px-4 py-2 text-left border-b ${th.divider} ${th.th}`}>{msg('UI_ALLOCATIONADMIN_REVIEWER')}</th>
                   {BUCKET_ORDER.map(b => (
                     <th key={b} className={`px-2 py-2 text-center border-b ${th.divider} ${th.th}`}>{bucketLabel(b)}</th>
                   ))}
@@ -398,7 +397,7 @@ export default function CTSAllocationAdmin() {
               <tbody>
                 {bucketReviewers.length === 0 && (
                   <tr><td colSpan={BUCKET_ORDER.length + 1} className={`px-4 py-6 text-center text-sm ${th.muted}`}>
-                    No reviewers online yet. A reviewer appears here once they open the review queue.
+                   {msg('UI_ALLOCATIONADMIN_NO_REVIEWERS_ONLINE_YET_A')}
                   </td></tr>
                 )}
                 {bucketReviewers.map(rid => (
@@ -433,7 +432,7 @@ export default function CTSAllocationAdmin() {
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                {['Instrument ID', 'Claimed By', 'Tier', 'Reassign to', 'Actions'].map(h => (
+                {[msg('UI_COMMON_INSTRUMENT_ID'), msg('UI_ALLOCATIONADMIN_CLAIMED_BY'), msg('UI_ALLOCATIONADMIN_TIER'), msg('UI_ALLOCATIONADMIN_REASSIGN_TO'), msg('UI_COMMON_ACTIONS')].map(h => (
                   <th key={h} className={`px-4 py-2.5 text-left border-b ${th.divider} ${th.th}`}>
                     {h}
                   </th>
@@ -444,14 +443,14 @@ export default function CTSAllocationAdmin() {
               {claims.length === 0 && !isLoading && (
                 <tr>
                   <td colSpan={5} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
-                    No active claims — all instruments are unclaimed.
+                   {msg('UI_ALLOCATIONADMIN_NO_ACTIVE_CLAIMS_ALL_INSTRUMENTS')}
                   </td>
                 </tr>
               )}
               {isLoading && (
                 <tr>
                   <td colSpan={5} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
-                    Loading…
+                   {msg('CTS_WF_BUCKETCFG_LOADING')}
                   </td>
                 </tr>
               )}
@@ -508,12 +507,12 @@ export default function CTSAllocationAdmin() {
         {/* Unassigned work */}
         <div className={`border rounded-lg overflow-hidden mt-5 ${th.card}`}>
           <div className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b ${th.divider} ${th.muted}`}>
-            Unassigned in the queue ({unassigned.length}) <span className="font-normal normal-case">most urgent first</span>
+           {msg('UI_ALLOCATIONADMIN_UNASSIGNED_IN_THE_QUEUE', { count: unassigned.length })} <span className="font-normal normal-case">{msg('UI_ALLOCATIONADMIN_MOST_URGENT_FIRST')}</span>
           </div>
           <table className="w-full border-collapse">
             <tbody>
               {unassigned.length === 0 && (
-                <tr><td className={`px-4 py-6 text-center text-sm ${th.muted}`}>Nothing is waiting for an owner.</td></tr>
+                <tr><td className={`px-4 py-6 text-center text-sm ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_NOTHING_IS_WAITING_FOR_AN')}</td></tr>
               )}
               {unassigned.slice(0, 25).map(item => {
                 const mins = item.iet_deadline ? Math.round((item.iet_deadline - nowSec) / 60) : null
@@ -580,10 +579,7 @@ export default function CTSAllocationAdmin() {
         )}
 
         <p className={`text-xs mt-3 ${th.muted}`}>
-          Assign and Reassign pin the cheque to that reviewer: automatic rebalancing never moves it. Both are audited.
-          Force Release removes a stale claim immediately.
-          The reviewer will see a "Claim lost" notice on their next action.
-          This is audited to Immudb.
+         {msg('UI_ALLOCATIONADMIN_ASSIGN_AND_REASSIGN_PIN_THE')}
         </p>
       </div>
     </AppShell>

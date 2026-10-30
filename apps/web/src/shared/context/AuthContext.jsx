@@ -9,6 +9,7 @@
  * ever learns "am I signed in" and the non-secret identity fields.
  */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { msg } from '../messages'
 
 const AuthContext = createContext(null)
 
@@ -57,7 +58,7 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
+  if (!ctx) throw new Error(msg('UI_AUTHCONTEXT_USEAUTH_MUST_BE_USED_INSIDE'))
   return ctx
 }
 

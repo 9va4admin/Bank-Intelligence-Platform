@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 2 * 60_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -23,7 +24,7 @@ export default function useSMBForwardingLog({ statusFilter = null, pollEnabled =
       const res = await fetch(`${API_BASE}/v1/cts/smb/forwarding-log?${params}`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setItems(json.items ?? [])
       setTotal(json.total ?? 0)

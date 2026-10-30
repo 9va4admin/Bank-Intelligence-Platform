@@ -6,16 +6,17 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import useVaultHealth from '../hooks/useVaultHealth'
 import useVaultMisses from '../hooks/useVaultMisses'
+import { msg } from '../../../shared/messages'
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
 const SB_VAULT_DATA = [
-  { label: 'Signature Vault', keys: 18_432, hitRate: 99.2, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
-  { label: 'PPS Vault',       keys: 12_817, hitRate: 98.7, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+  { label: msg('UI_COMMON_SIGNATURE_VAULT'), keys: 18_432, hitRate: 99.2, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+  { label: msg('UI_VAULTSTATUS_PPS_VAULT'),       keys: 12_817, hitRate: 98.7, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
 ]
 const SMB_VAULT_DATA = [
-  { label: 'Signature Vault', keys: 2_841, hitRate: 99.1, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
-  { label: 'PPS Vault',       keys: 1_924, hitRate: 98.5, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+  { label: msg('UI_COMMON_SIGNATURE_VAULT'), keys: 2_841, hitRate: 99.1, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+  { label: msg('UI_VAULTSTATUS_PPS_VAULT'),       keys: 1_924, hitRate: 98.5, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
 ]
 const VAULT_METRICS = [
   { hour: '10:00', sig: 99.4, pps: 98.9 },
@@ -150,7 +151,7 @@ export default function CTSVaultStatus() {
     if (!liveHealth) return null
     return [
       {
-        label: 'Signature Vault',
+        label: msg('UI_COMMON_SIGNATURE_VAULT'),
         keys: liveHealth.sig_key_count,
         hitRate: 99.2,  // hit rate computed separately; keep mock for chart
         lastSync: liveHealth.sig_last_sync || VAULT_DATA_MOCK[0]?.lastSync,
@@ -159,7 +160,7 @@ export default function CTSVaultStatus() {
         missAction: liveHealth.miss_action,
       },
       {
-        label: 'PPS Vault',
+        label: msg('UI_VAULTSTATUS_PPS_VAULT'),
         keys: liveHealth.pps_key_count,
         hitRate: 98.7,
         lastSync: liveHealth.pps_last_sync || VAULT_DATA_MOCK[1]?.lastSync,
@@ -183,7 +184,7 @@ export default function CTSVaultStatus() {
     }))
   }, [isDemo, liveMisses])
 
-  usePageHeader({ subtitle: 'Signature Vault · PPS Vault · VaultSyncWorkflow' })
+  usePageHeader({ subtitle: msg('UI_VAULTSTATUS_SIGNATURE_VAULT_PPS_VAULT_VAULTSYNCW') })
 
   const th = {
     page:      isDark ? 'bg-navy-950 text-white'                      : 'bg-slate-50 text-slate-900',
@@ -219,38 +220,38 @@ export default function CTSVaultStatus() {
 
           {/* Signature vault */}
           <div className="flex flex-col items-center justify-center py-7 px-6 gap-2">
-            <HealthRing rate={sig?.hitRate ?? 0} label="Signature Hit Rate" color="#10b981" isDark={isDark} />
+            <HealthRing rate={sig?.hitRate ?? 0} label={msg('UI_VAULTSTATUS_SIGNATURE_HIT_RATE')} color="#10b981" isDark={isDark} />
             <div className="text-center mt-1">
               <span className={`text-xl font-bold font-mono ${th.heading}`}>{sig?.keys?.toLocaleString()}</span>
-              <span className={`text-xs ml-1.5 ${th.muted}`}>keys loaded</span>
+              <span className={`text-xs ml-1.5 ${th.muted}`}>{msg('UI_VAULTSTATUS_KEYS_LOADED')}</span>
             </div>
             <span className="text-xs font-semibold text-emerald-500">{sig?.status}</span>
           </div>
 
           {/* PPS vault */}
           <div className="flex flex-col items-center justify-center py-7 px-6 gap-2">
-            <HealthRing rate={pps?.hitRate ?? 0} label="PPS Hit Rate" color="#8b5cf6" isDark={isDark} />
+            <HealthRing rate={pps?.hitRate ?? 0} label={msg('UI_VAULTSTATUS_PPS_HIT_RATE')} color="#8b5cf6" isDark={isDark} />
             <div className="text-center mt-1">
               <span className={`text-xl font-bold font-mono ${th.heading}`}>{pps?.keys?.toLocaleString()}</span>
-              <span className={`text-xs ml-1.5 ${th.muted}`}>keys loaded</span>
+              <span className={`text-xs ml-1.5 ${th.muted}`}>{msg('UI_VAULTSTATUS_KEYS_LOADED')}</span>
             </div>
             <span className="text-xs font-semibold text-emerald-500">{pps?.status}</span>
           </div>
 
           {/* Next sync countdown */}
           <div className="flex flex-col items-center justify-center py-7 px-6 gap-3">
-            <div className={`text-[10px] uppercase tracking-widest font-semibold ${th.muted}`}>Next Sync</div>
+            <div className={`text-[10px] uppercase tracking-widest font-semibold ${th.muted}`}>{msg('UI_VAULTSTATUS_NEXT_SYNC')}</div>
             <div className={`text-4xl font-bold font-mono tabular-nums ${th.heading}`}>{countdown}</div>
-            <div className={`text-xs ${th.muted}`}>Daily at 06:00 AM IST</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_VAULTSTATUS_DAILY_AT_06_00_AM')}</div>
             {lastSync && (
               <div className={`text-xs ${th.faint}`}>
-                Last run: <span className="font-mono">{lastSync.duration}</span>
+               {msg('UI_VAULTSTATUS_LAST_RUN')} <span className="font-mono">{lastSync.duration}</span>
                 {' · '}
                 <span className={SYNC_STATUS_COLOR[lastSync.status]}>{lastSync.status}</span>
               </div>
             )}
             <div className={`flex items-center gap-1.5 text-[10px] font-semibold border rounded px-2 py-0.5 ${th.lockBadge}`}>
-              🔒 Miss → HUMAN_REVIEW
+             {msg('UI_VAULTSTATUS_MISS_HUMAN_REVIEW')}
             </div>
           </div>
         </div>
@@ -261,20 +262,20 @@ export default function CTSVaultStatus() {
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
               <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
             </svg>
-            <span className="font-semibold">{missCount} vault miss{missCount !== 1 ? 'es' : ''} today</span>
-            <span className="text-xs opacity-75">All instruments automatically routed to Human Review Queue — see table below</span>
+            <span className="font-semibold">{msg('UI_VAULTSTATUS_VAULT_MISS_TODAY', { missCount, value: missCount !== 1 ? 'es' : '' })}</span>
+            <span className="text-xs opacity-75">{msg('UI_VAULTSTATUS_ALL_INSTRUMENTS_AUTOMATICALLY_ROUTED')}</span>
           </div>
         )}
 
         {/* ── Hit rate trend chart ── */}
         <div className={`border rounded-xl p-5 mb-5 ${th.card}`}>
-          <div className={`text-sm font-semibold ${th.heading} mb-5`}>Hit Rate — Last 12 Hours</div>
+          <div className={`text-sm font-semibold ${th.heading} mb-5`}>{msg('UI_VAULTSTATUS_HIT_RATE_LAST_12_HOURS')}</div>
 
           <div className="grid grid-cols-2 gap-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                <span className={`text-xs font-medium ${th.body}`}>Signature Vault</span>
+                <span className={`text-xs font-medium ${th.body}`}>{msg('UI_COMMON_SIGNATURE_VAULT')}</span>
               </div>
               <TrendBars data={chartData} field="sig" color="#10b981" />
               <div className="flex justify-between mt-2">
@@ -286,7 +287,7 @@ export default function CTSVaultStatus() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2.5 h-2.5 rounded-full bg-violet-500 shrink-0" />
-                <span className={`text-xs font-medium ${th.body}`}>PPS Vault</span>
+                <span className={`text-xs font-medium ${th.body}`}>{msg('UI_VAULTSTATUS_PPS_VAULT')}</span>
               </div>
               <TrendBars data={chartData} field="pps" color="#8b5cf6" />
               <div className="flex justify-between mt-2">
@@ -298,30 +299,30 @@ export default function CTSVaultStatus() {
 
           <div className={`flex items-center flex-wrap gap-5 mt-5 pt-4 border-t ${th.divSm}`}>
             {[
-              { color: '#10b981', range: '≥ 99%',      label: 'On target' },
-              { color: '#f59e0b', range: '98.5–99%',   label: 'Watch' },
-              { color: '#ef4444', range: '< 98.5%',    label: 'Alert' },
+              { color: '#10b981', range: '≥ 99%',      label: msg('UI_VAULTSTATUS_ON_TARGET') },
+              { color: '#f59e0b', range: '98.5–99%',   label: msg('UI_OUTWARDPIPELINEMONITOR_WATCH') },
+              { color: '#ef4444', range: '< 98.5%',    label: msg('UI_VAULTSTATUS_ALERT') },
             ].map(({ color, range, label }) => (
               <div key={range} className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color }} />
                 <span className={`text-[10px] ${th.faint}`}>{range} · {label}</span>
               </div>
             ))}
-            <span className={`ml-auto text-[10px] ${th.faint}`}>Bar height scaled 96–100%</span>
+            <span className={`ml-auto text-[10px] ${th.faint}`}>{msg('UI_VAULTSTATUS_BAR_HEIGHT_SCALED_96_100')}</span>
           </div>
         </div>
 
         {/* ── Recent vault misses ── */}
         <div className={`border rounded-xl mb-5 ${th.card}`}>
           <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-            <span className={`text-sm font-semibold ${th.heading}`}>Recent Vault Misses</span>
-            <span className="text-[10px] text-amber-500 uppercase tracking-wide font-semibold">All → Human Review</span>
+            <span className={`text-sm font-semibold ${th.heading}`}>{msg('UI_VAULTSTATUS_RECENT_VAULT_MISSES')}</span>
+            <span className="text-[10px] text-amber-500 uppercase tracking-wide font-semibold">{msg('UI_VAULTSTATUS_ALL_HUMAN_REVIEW')}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className={`${th.thCell} border-b ${th.divSm}`}>
-                  {['Time', 'Instrument', 'Vault', 'Account', 'Reason', 'Routed To'].map(h => (
+                  {[msg('UI_COMMON_TIME'), msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'), msg('UI_COMMON_VAULT'), msg('CTS_WF_BUCKETCFG_COL_ACCOUNT'), msg('UI_COMMON_REASON'), msg('UI_VAULTSTATUS_ROUTED_TO')].map(h => (
                     <th key={h} className="text-left px-4 py-2 font-normal">{h}</th>
                   ))}
                 </tr>
@@ -349,19 +350,19 @@ export default function CTSVaultStatus() {
         {/* ── Sync log ── */}
         <div className={`border rounded-xl ${th.card}`}>
           <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-            <span className={`text-sm font-semibold ${th.heading}`}>VaultSyncWorkflow Log</span>
-            <span className={`text-[10px] ${th.faint}`}>Last 7 days</span>
+            <span className={`text-sm font-semibold ${th.heading}`}>{msg('UI_VAULTSTATUS_VAULTSYNCWORKFLOW_LOG')}</span>
+            <span className={`text-[10px] ${th.faint}`}>{msg('UI_VAULTSTATUS_LAST_7_DAYS')}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className={`${th.thCell} border-b ${th.divSm}`}>
-                  <th className="text-left px-4 py-2 font-normal">Date / Time</th>
-                  <th className="text-left px-4 py-2 font-normal">Event</th>
-                  <th className="text-right px-4 py-2 font-normal">Sig Keys</th>
-                  <th className="text-right px-4 py-2 font-normal">PPS Keys</th>
-                  <th className="text-right px-4 py-2 font-normal">Duration</th>
-                  <th className="text-right px-4 py-2 font-normal">Status</th>
+                  <th className="text-left px-4 py-2 font-normal">{msg('UI_VAULTSTATUS_DATE_TIME')}</th>
+                  <th className="text-left px-4 py-2 font-normal">{msg('UI_VAULTSTATUS_EVENT')}</th>
+                  <th className="text-right px-4 py-2 font-normal">{msg('UI_VAULTSTATUS_SIG_KEYS')}</th>
+                  <th className="text-right px-4 py-2 font-normal">{msg('UI_VAULTSTATUS_PPS_KEYS')}</th>
+                  <th className="text-right px-4 py-2 font-normal">{msg('UI_VAULTSTATUS_DURATION')}</th>
+                  <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_STATUS')}</th>
                 </tr>
               </thead>
               <tbody>

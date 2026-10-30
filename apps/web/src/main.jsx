@@ -3,13 +3,14 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './shared/theme/ThemeContext'
 import './index.css'
-import App from './App.jsx'
 import { initMessages } from './shared/messages'
 
 const queryClient = new QueryClient()
 
-// Load the message bundle first: screens take their wording from it, and show the key until it is loaded.
-initMessages('en').finally(() => {
+// Screens take their wording from the message bundle, and some read it when their module loads. So the bundle is loaded first and the
+// app (and with it every screen) is imported only afterwards.
+initMessages('en').finally(async () => {
+  const { default: App } = await import('./App.jsx')
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>

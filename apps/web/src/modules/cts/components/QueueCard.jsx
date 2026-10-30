@@ -1,5 +1,6 @@
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import IETTimer from './IETTimer'
+import { msg } from '../../../shared/messages'
 
 const REASON_COLORS_D = {
   SIGNATURE_LOW_CONFIDENCE: 'text-amber-300 bg-amber-400/10 border-amber-400/20',
@@ -76,7 +77,7 @@ export default function QueueCard({ item, selected, onClick, isDark = true }) {
         </span>
         {item.principal_tag === 'SUB_MEMBER' && (
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${isDark ? 'text-amber-300 bg-amber-400/10 border-amber-400/30' : 'text-amber-700 bg-amber-100 border-amber-400'}`}>
-            SUB-MEMBER
+           {msg('UI_QUEUECARD_SUB_MEMBER')}
           </span>
         )}
         <span className={`text-[10px] ${amtC}`}>{item.amount_range}</span>

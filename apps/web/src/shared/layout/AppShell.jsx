@@ -5,7 +5,9 @@ import { PageHeaderCtx } from './PageHeaderContext'
 import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
 import { BANK_CONFIG } from '../config/bank.config'
-import CommandPalette from './CommandPalette'
+import CommandPalette from './CommandPalette'import { msg } from '../messages'
+import { msg as uiMsg } from '../messages'
+
 
 // ── Notification data ────────────────────────────────────────────────────────
 
@@ -13,28 +15,28 @@ const _ago = (mins) => Date.now() - mins * 60000
 
 const MOCK_NOTIFICATIONS = [
   { id: 'n1', severity: 'CRITICAL', read: false, ts: _ago(3),
-    title: 'IET risk — 22 min remaining',
-    body: 'INS-20260812-00144: very high value ₹1.25 Cr with stop payment instruction. Claim immediately.',
+    title: uiMsg('UI_APPSHELL_IET_RISK_22_MIN_REMAINING'),
+    body: uiMsg('UI_APPSHELL_INS_20260812_00144_VERY_HIGH'),
     action: '/cts/inward/review-queue' },
   { id: 'n2', severity: 'CRITICAL', read: false, ts: _ago(9),
-    title: 'Stop payment detected',
-    body: 'Active stop payment on INS-20260812-00144 flagged by CBS connector. Instrument locked pending review.',
+    title: uiMsg('UI_APPSHELL_STOP_PAYMENT_DETECTED'),
+    body: uiMsg('UI_APPSHELL_ACTIVE_STOP_PAYMENT_ON_INS'),
     action: '/cts/inward/review-queue' },
   { id: 'n3', severity: 'WARN', read: false, ts: _ago(16),
-    title: 'Vault miss — 3 accounts',
-    body: 'Signature vault returned no match for 3 accounts in today\'s batch. All routed to HRQ.',
+    title: uiMsg('UI_APPSHELL_VAULT_MISS_3_ACCOUNTS'),
+    body: uiMsg('UI_APPSHELL_SIGNATURE_VAULT_RETURNED_NO_MATCH'),
     action: '/cts/vault/gaps' },
   { id: 'n4', severity: 'WARN', read: true, ts: _ago(34),
-    title: 'OCR confidence degraded',
-    body: 'GOT-OCR2.0 returned confidence < 0.82 on 4 instruments this session. Review AI decisions.',
+    title: uiMsg('UI_APPSHELL_OCR_CONFIDENCE_DEGRADED'),
+    body: uiMsg('UI_APPSHELL_GOT_OCR2_0_RETURNED_CONFIDENCE'),
     action: '/cts/decisions' },
   { id: 'n5', severity: 'INFO', read: true, ts: _ago(52),
-    title: 'Vault sync completed',
-    body: '2,847 signature records refreshed. PPS vault updated. Next sync at 06:00 AM.',
+    title: uiMsg('UI_APPSHELL_VAULT_SYNC_COMPLETED'),
+    body: uiMsg('UI_APPSHELL_2_847_SIGNATURE_RECORDS_REFRESHED'),
     action: '/cts/vault/status' },
   { id: 'n6', severity: 'INFO', read: true, ts: _ago(94),
-    title: 'Morning session cleared',
-    body: 'Clearing session 2026-08-12: 609 instruments, ₹27.4 Cr settled. IET breach rate: 0.000%.',
+    title: uiMsg('UI_APPSHELL_MORNING_SESSION_CLEARED'),
+    body: uiMsg('UI_APPSHELL_CLEARING_SESSION_2026_08_12'),
     action: null },
 ]
 
@@ -47,14 +49,14 @@ function fmtNotifTs(ts) {
 }
 
 const SEV_D = {
-  CRITICAL: { dot: 'bg-red-500',    badge: 'bg-red-900/50 text-red-300 border-red-700/40',    ring: 'border-red-700/30' },
-  WARN:     { dot: 'bg-amber-400',  badge: 'bg-amber-900/40 text-amber-300 border-amber-700/40', ring: 'border-amber-700/20' },
-  INFO:     { dot: 'bg-blue-400',   badge: 'bg-blue-900/40 text-blue-300 border-blue-700/40',  ring: 'border-white/8' },
+  CRITICAL: { dot: 'bg-red-500',    badge: uiMsg('UI_APPSHELL_BG_RED_900_50_TEXT'),    ring: 'border-red-700/30' },
+  WARN:     { dot: 'bg-amber-400',  badge: uiMsg('UI_APPSHELL_BG_AMBER_900_40_TEXT'), ring: 'border-amber-700/20' },
+  INFO:     { dot: 'bg-blue-400',   badge: uiMsg('UI_APPSHELL_BG_BLUE_900_40_TEXT'),  ring: 'border-white/8' },
 }
 const SEV_L = {
-  CRITICAL: { dot: 'bg-red-500',    badge: 'bg-red-50 text-red-700 border-red-200',     ring: 'border-red-200' },
-  WARN:     { dot: 'bg-amber-400',  badge: 'bg-amber-50 text-amber-700 border-amber-200', ring: 'border-amber-100' },
-  INFO:     { dot: 'bg-blue-400',   badge: 'bg-blue-50 text-blue-700 border-blue-200',   ring: 'border-slate-200' },
+  CRITICAL: { dot: 'bg-red-500',    badge: uiMsg('UI_APPSHELL_BG_RED_50_TEXT_RED'),     ring: 'border-red-200' },
+  WARN:     { dot: 'bg-amber-400',  badge: uiMsg('UI_APPSHELL_BG_AMBER_50_TEXT_AMBER'), ring: 'border-amber-100' },
+  INFO:     { dot: 'bg-blue-400',   badge: uiMsg('UI_APPSHELL_BG_BLUE_50_TEXT_BLUE'),   ring: 'border-slate-200' },
 }
 
 // Nav item visibility is controlled by two independent gates:
@@ -116,142 +118,142 @@ const SIDEBAR_MODULES = [
     Icon: CtsIcon,
     sections: [
       {
-        label: 'Dashboard',
+        label: uiMsg('UI_APPSHELL_DASHBOARD'),
         directLink: true,
         items: [
-          { to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true, perm: 'cts:view_queue' },
+          { to: '/cts/ops-dashboard', label: uiMsg('UI_COMMON_OPS_DASHBOARD'), end: true, perm: 'cts:view_queue' },
         ],
       },
       {
-        label: 'Settlement',
+        label: uiMsg('UI_COMMON_SETTLEMENT'),
         directLink: true,
         items: [
-          { to: '/cts/settlement', label: 'Settlement', perm: 'smb:view_ledger' },
+          { to: '/cts/settlement', label: uiMsg('UI_COMMON_SETTLEMENT'), perm: 'smb:view_ledger' },
         ],
       },
       {
-        label: 'Outward Clearing',
+        label: uiMsg('UI_APPSHELL_OUTWARD_CLEARING'),
         items: [
-          { to: '/cts/hub',                         label: 'Hub Manager',                  perm: 'cts:submit_decision', sbOnly: true },
-          { to: '/cts/outward',                     label: 'Outward Monitor',   end: true, perm: 'cts:view_queue'      },
-          { to: '/cts/outward/pipeline-monitor',    label: 'Pipeline Monitor',            perm: 'cts:view_analytics'  },
-          { to: '/cts/outward/verification',        label: 'Verification OQ',             perm: 'cts:view_queue'      },
-          { to: '/cts/outward/queue',               label: 'Validation OQ',               perm: 'cts:submit_decision' },
-          { to: '/cts/outward/submission',          label: 'Submission OQ',               perm: 'cts:submit_decision' },
-          { to: '/cts/outward/custody',             label: 'Originals Custody',           perm: 'cts:view_queue'      },
-          { to: '/cts/presentment-file',            label: 'Outward File',                perm: 'cts:view_queue'      },
+          { to: '/cts/hub',                         label: uiMsg('UI_HUBDASHBOARD_HUB_MANAGER'),                  perm: 'cts:submit_decision', sbOnly: true },
+          { to: '/cts/outward',                     label: uiMsg('UI_APPSHELL_OUTWARD_MONITOR'),   end: true, perm: 'cts:view_queue'      },
+          { to: '/cts/outward/pipeline-monitor',    label: uiMsg('UI_APPSHELL_PIPELINE_MONITOR'),            perm: 'cts:view_analytics'  },
+          { to: '/cts/outward/verification',        label: uiMsg('UI_APPSHELL_VERIFICATION_OQ'),             perm: 'cts:view_queue'      },
+          { to: '/cts/outward/queue',               label: uiMsg('UI_APPSHELL_VALIDATION_OQ'),               perm: 'cts:submit_decision' },
+          { to: '/cts/outward/submission',          label: uiMsg('UI_APPSHELL_SUBMISSION_OQ'),               perm: 'cts:submit_decision' },
+          { to: '/cts/outward/custody',             label: uiMsg('UI_APPSHELL_ORIGINALS_CUSTODY'),           perm: 'cts:view_queue'      },
+          { to: '/cts/presentment-file',            label: uiMsg('UI_APPSHELL_OUTWARD_FILE'),                perm: 'cts:view_queue'      },
         ],
       },
       {
-        label: 'Inward Clearing',
+        label: uiMsg('UI_APPSHELL_INWARD_CLEARING'),
         items: [
-          { to: '/cts/pipeline',               label: 'Inward Monitor',              perm: 'cts:view_analytics'  },
-          { to: '/cts/inward/verification',    label: 'Verification IQ',             perm: 'cts:view_queue'      },
-          { to: '/cts',                        label: 'Validation IQ',  end: true,   perm: 'cts:view_queue'      },
-          { to: '/cts/inward/submission',      label: 'Submission IQ',               perm: 'cts:submit_decision' },
-          { to: '/cts/inward/review-queue',    label: 'Human Review Queue',          perm: 'cts:view_queue'      },
-          { to: '/cts/hold-queue',             label: 'Hold Queue',                  perm: 'cts:view_queue'      },
-          { to: '/cts/recall',                 label: 'Recall',                      perm: 'cts:submit_decision' },
+          { to: '/cts/pipeline',               label: uiMsg('UI_APPSHELL_INWARD_MONITOR'),              perm: 'cts:view_analytics'  },
+          { to: '/cts/inward/verification',    label: uiMsg('UI_APPSHELL_VERIFICATION_IQ'),             perm: 'cts:view_queue'      },
+          { to: '/cts',                        label: uiMsg('UI_APPSHELL_VALIDATION_IQ'),  end: true,   perm: 'cts:view_queue'      },
+          { to: '/cts/inward/submission',      label: uiMsg('UI_APPSHELL_SUBMISSION_IQ'),               perm: 'cts:submit_decision' },
+          { to: '/cts/inward/review-queue',    label: uiMsg('UI_APPSHELL_HUMAN_REVIEW_QUEUE'),          perm: 'cts:view_queue'      },
+          { to: '/cts/hold-queue',             label: uiMsg('UI_APPSHELL_HOLD_QUEUE'),                  perm: 'cts:view_queue'      },
+          { to: '/cts/recall',                 label: uiMsg('UI_RECALL_RECALL'),                      perm: 'cts:submit_decision' },
           // SMB Dashboard removed — "Dashboard" nav item shows it directly to SMB users now
-          { to: '/cts/smb/review-queue',       label: 'SMB Review Queue',           smbOnly: true, smbMgmt: true, perm: 'cts:view_queue'   },
-          { to: '/cts/smb/reports',            label: 'SMB Reports',                smbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'  },
+          { to: '/cts/smb/review-queue',       label: uiMsg('UI_APPSHELL_SMB_REVIEW_QUEUE'),           smbOnly: true, smbMgmt: true, perm: 'cts:view_queue'   },
+          { to: '/cts/smb/reports',            label: uiMsg('UI_APPSHELL_SMB_REPORTS'),                smbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'  },
         ],
       },
       {
-        label: 'Processing',
+        label: uiMsg('UI_COMMON_PROCESSING'),
         items: [
-          { to: '/cts/batches',            label: 'Batches',          perm: 'cts:submit_decision'                },
-          { to: '/cts/vault',              label: 'Vault',            perm: 'cts:view_queue'                     },
-          { to: '/cts/vault-sync',         label: 'PPS & Stop Cheque',perm: 'cts:view_queue'                     },
-          { to: '/cts/vault/upload',       label: 'Vault Upload',     perm: 'admin:manage'                       },
-          { to: '/cts/sub-member',         label: 'SMB Session Monitor', sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
-          { to: '/cts/smb/registry',       label: 'SMB Vault & CBS',    sbOnly: true, smbMgmt: true, perm: 'smb:register'         },
-          { to: '/cts/smb/ledger',         label: 'SMB Ledger',       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
-          { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log',      sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
-          { to: '/cts/endorsement',        label: 'Endorsement',      perm: 'cts:submit_decision'                },
-          { to: '/cts/exceptions',         label: 'Exceptions',       perm: 'cts:view_queue'                     },
-          { to: '/cts/iqa',               label: 'Image Quality',    perm: 'cts:view_queue'                     },
-          { to: '/cts/scanner',            label: 'Scanner SDK',      perm: 'cts:submit_decision'                },
-          { to: '/cts/agency-cc',         label: 'Agency Cmd Center', perm: 'cts:view_analytics', sbOnly: true      },
-          { to: '/cts/rf-drawee',         label: 'Rejection File - By Drawee Bank', perm: 'cts:submit_decision' },
+          { to: '/cts/batches',            label: uiMsg('UI_APPSHELL_BATCHES'),          perm: 'cts:submit_decision'                },
+          { to: '/cts/vault',              label: uiMsg('UI_COMMON_VAULT'),            perm: 'cts:view_queue'                     },
+          { to: '/cts/vault-sync',         label: uiMsg('UI_APPSHELL_PPS_STOP_CHEQUE'),perm: 'cts:view_queue'                     },
+          { to: '/cts/vault/upload',       label: uiMsg('UI_COMMON_VAULT_UPLOAD'),     perm: 'admin:manage'                       },
+          { to: '/cts/sub-member',         label: uiMsg('UI_APPSHELL_SMB_SESSION_MONITOR'), sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/registry',       label: uiMsg('UI_SMBREGISTRY_SMB_VAULT_CBS'),    sbOnly: true, smbMgmt: true, perm: 'smb:register'         },
+          { to: '/cts/smb/ledger',         label: uiMsg('UI_APPSHELL_SMB_LEDGER'),       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/forwarding-log', label: uiMsg('UI_APPSHELL_SMB_FWD_LOG'),      sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/endorsement',        label: uiMsg('UI_APPSHELL_ENDORSEMENT'),      perm: 'cts:submit_decision'                },
+          { to: '/cts/exceptions',         label: uiMsg('UI_COMMON_EXCEPTIONS'),       perm: 'cts:view_queue'                     },
+          { to: '/cts/iqa',               label: uiMsg('UI_DEMOLIVE_IMAGE_QUALITY'),    perm: 'cts:view_queue'                     },
+          { to: '/cts/scanner',            label: uiMsg('UI_APPSHELL_SCANNER_SDK'),      perm: 'cts:submit_decision'                },
+          { to: '/cts/agency-cc',         label: uiMsg('UI_APPSHELL_AGENCY_CMD_CENTER'), perm: 'cts:view_analytics', sbOnly: true      },
+          { to: '/cts/rf-drawee',         label: uiMsg('UI_APPSHELL_REJECTION_FILE_BY_DRAWEE_BANK'), perm: 'cts:submit_decision' },
         ],
       },
       {
-        label: 'Reports',
+        label: uiMsg('UI_APPSHELL_REPORTS'),
         items: [
-          { to: '/cts/decisions',       label: 'Decisions Log',      perm: 'cts:view_analytics'  },
-          { to: '/cts/vault-gaps',      label: 'Vault Gap Report',   perm: 'cts:view_analytics'  },
-          { to: '/cts/discrepancy',     label: 'Discrepancy',        perm: 'cts:view_analytics'  },
-          { to: '/cts/reconciliation',  label: 'Reconciliation',     perm: 'smb:view_ledger'     },
-          { to: '/cts/analytics',       label: 'Analytics',          perm: 'cts:view_analytics'  },
-          { to: '/cts/compliance',      label: 'Compliance Cert',    perm: 'audit:read'          },
+          { to: '/cts/decisions',       label: uiMsg('UI_DECISIONSLOG_DECISIONS_LOG'),      perm: 'cts:view_analytics'  },
+          { to: '/cts/vault-gaps',      label: uiMsg('UI_APPSHELL_VAULT_GAP_REPORT'),   perm: 'cts:view_analytics'  },
+          { to: '/cts/discrepancy',     label: uiMsg('UI_APPSHELL_DISCREPANCY'),        perm: 'cts:view_analytics'  },
+          { to: '/cts/reconciliation',  label: uiMsg('UI_APPSHELL_RECONCILIATION'),     perm: 'smb:view_ledger'     },
+          { to: '/cts/analytics',       label: uiMsg('UI_APPSHELL_ANALYTICS'),          perm: 'cts:view_analytics'  },
+          { to: '/cts/compliance',      label: uiMsg('UI_APPSHELL_COMPLIANCE_CERT'),    perm: 'audit:read'          },
         ],
       },
       {
-        label: 'Branch Portal',
+        label: uiMsg('UI_BRANCHDASHBOARD_BRANCH_PORTAL'),
         items: [
-          { to: '/branch',              label: 'Branch Dashboard',  perm: 'cts:view_queue'      },
-          { to: '/branch/scan',         label: 'Scanner Monitor',   perm: 'cts:submit_decision' },
-          { to: '/branch/mismatch',     label: 'Mismatch Queue',    perm: 'cts:submit_decision' },
-          { to: '/branch/history',      label: 'Session History',   perm: 'cts:view_queue'      },
-          { to: '/branch/hold-queue',   label: 'Inward Hold Queue', perm: 'cts:view_queue'      },
+          { to: '/branch',              label: uiMsg('UI_APPSHELL_BRANCH_DASHBOARD'),  perm: 'cts:view_queue'      },
+          { to: '/branch/scan',         label: uiMsg('UI_COMMON_SCANNER_MONITOR'),   perm: 'cts:submit_decision' },
+          { to: '/branch/mismatch',     label: uiMsg('UI_COMMON_MISMATCH_QUEUE'),    perm: 'cts:submit_decision' },
+          { to: '/branch/history',      label: uiMsg('UI_COMMON_SESSION_HISTORY'),   perm: 'cts:view_queue'      },
+          { to: '/branch/hold-queue',   label: uiMsg('UI_COMMON_INWARD_HOLD_QUEUE'), perm: 'cts:view_queue'      },
         ],
       },
       {
-        label: 'Miscellaneous',
+        label: uiMsg('CTS_WF_BUCKET_MISC'),
         items: [
-          { to: '/cts/demo',            label: '⚡ Live Demo',        perm: 'cts:view_queue'     },
-          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)', perm: 'cts:view_analytics' },
-          { to: '/cts/cloud-ai-demo',   label: '☁️ Cloud AI Extract', perm: 'cts:view_queue'     },
-          { to: '/cts/sig-batch-test',  label: '🖊️ Sig Batch Test',   perm: 'cts:view_queue'     },
+          { to: '/cts/demo',            label: uiMsg('UI_APPSHELL_LIVE_DEMO'),        perm: 'cts:view_queue'     },
+          { to: '/cts/inward-pipeline', label: uiMsg('UI_APPSHELL_PIPELINE_ANIMATED'), perm: 'cts:view_analytics' },
+          { to: '/cts/cloud-ai-demo',   label: uiMsg('UI_APPSHELL_CLOUD_AI_EXTRACT'), perm: 'cts:view_queue'     },
+          { to: '/cts/sig-batch-test',  label: uiMsg('UI_APPSHELL_SIG_BATCH_TEST'),   perm: 'cts:view_queue'     },
         ],
       },
     ],
   },
   {
     id: 'ops',
-    label: 'Ops',
+    label: uiMsg('UI_APPSHELL_OPS'),
     fullLabel: 'Platform Operations',
     Icon: OpsIcon,
     sections: [
       {
-        label: 'ASTRA Ops Dashboard',
+        label: uiMsg('UI_OPSDASHBOARD_ASTRA_OPS_DASHBOARD'),
         items: [
-          { to: '/ops/dashboard',    label: 'Ops Overview',  perm: 'cts:view_analytics' },
-          { to: '/ops/model-health',   label: 'Model Health',   perm: 'ai:model_metrics' },
-          { to: '/ops/ocr-feedback',   label: 'OCR Feedback',   perm: 'ai:model_metrics' },
-          { to: '/ops/alerts',       label: 'Alert Log',     perm: 'cts:view_analytics' },
-          { to: '/ops/system',       label: 'System Health', perm: 'cts:view_analytics' },
+          { to: '/ops/dashboard',    label: uiMsg('UI_APPSHELL_OPS_OVERVIEW'),  perm: 'cts:view_analytics' },
+          { to: '/ops/model-health',   label: uiMsg('UI_COMMON_MODEL_HEALTH'),   perm: 'ai:model_metrics' },
+          { to: '/ops/ocr-feedback',   label: uiMsg('UI_OCRFEEDBACK_OCR_FEEDBACK'),   perm: 'ai:model_metrics' },
+          { to: '/ops/alerts',       label: uiMsg('UI_COMMON_ALERT_LOG'),     perm: 'cts:view_analytics' },
+          { to: '/ops/system',       label: uiMsg('UI_COMMON_SYSTEM_HEALTH'), perm: 'cts:view_analytics' },
         ],
       },
     ],
   },
   {
     id: 'admin',
-    label: 'Admin',
+    label: uiMsg('UI_APPSHELL_ADMIN'),
     fullLabel: 'Administration',
     Icon: AdminIcon,
     sections: [
       {
-        label: 'Admin',
+        label: uiMsg('UI_APPSHELL_ADMIN'),
         items: [
-          { to: '/admin/users',                  label: 'User Management',  perm: 'user:manage'          },
-          { to: '/cts/schedules',                label: 'Schedules',        perm: 'config:layer3:submit' },
-          { to: '/cts/config',                   label: 'Configuration',    perm: 'config:layer3:submit' },
-          { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks', perm: 'smb:config_change',  sbOnly: true, smbMgmt: true },
-          { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes',    perm: 'config:layer2:change' },
-          { to: '/cts/config/thresholds',        label: 'Thresholds',       perm: 'config:layer3:submit' },
-          { to: '/cts/config/ngch-routing',      label: 'NGCH Routing',     perm: 'config:layer2:change', sbOnly: true },
-          { to: '/cts/config/mcp-connections',   label: 'MCP Connections',  perm: 'config:layer2:change' },
-          { to: '/cts/admin/branches',            label: 'Branch Master',    perm: 'config:layer2:change' },
-          { to: '/admin/scanner-setup-guide',     label: 'Scanner Setup Guide', perm: 'config:layer2:change' },
-          { to: '/cts/admin/processing-units',    label: 'PU Master',        perm: 'config:layer2:change' },
-          { to: '/admin/config/operations',      label: 'Operations Config', perm: 'config:layer3:submit' },
-          { to: '/admin/config/platform',       label: 'Platform Config',   perm: 'config:layer2:change' },
-          { to: '/admin/allocation',            label: 'Allocation Panel',  perm: 'config:layer3:submit' },
-          { to: '/admin/config/buckets',        label: 'Bucket Config',     perm: 'config:layer3:submit' },
-          { to: '/admin/security-violations',    label: 'Security Alerts',  perm: 'admin:console', sbOnly: true },
-          { to: '/admin/smoke-test',            label: '✓ Go-Live Test',   perm: 'config:layer2:change' },
+          { to: '/admin/users',                  label: uiMsg('UI_USERMANAGEMENT_USER_MANAGEMENT'),  perm: 'user:manage'          },
+          { to: '/cts/schedules',                label: uiMsg('UI_APPSHELL_SCHEDULES'),        perm: 'config:layer3:submit' },
+          { to: '/cts/config',                   label: uiMsg('UI_APPSHELL_CONFIGURATION'),    perm: 'config:layer3:submit' },
+          { to: '/cts/config/sub-member-banks',  label: uiMsg('UI_COMMON_SUB_MEMBER_BANKS'), perm: 'smb:config_change',  sbOnly: true, smbMgmt: true },
+          { to: '/cts/config/micr-prefixes',     label: uiMsg('UI_APPSHELL_MICR_PREFIXES'),    perm: 'config:layer2:change' },
+          { to: '/cts/config/thresholds',        label: uiMsg('UI_APPSHELL_THRESHOLDS'),       perm: 'config:layer3:submit' },
+          { to: '/cts/config/ngch-routing',      label: uiMsg('UI_NGCHROUTING_NGCH_ROUTING'),     perm: 'config:layer2:change', sbOnly: true },
+          { to: '/cts/config/mcp-connections',   label: uiMsg('UI_APPSHELL_MCP_CONNECTIONS'),  perm: 'config:layer2:change' },
+          { to: '/cts/admin/branches',            label: uiMsg('UI_BRANCHMASTER_BRANCH_MASTER'),    perm: 'config:layer2:change' },
+          { to: '/admin/scanner-setup-guide',     label: uiMsg('UI_APPSHELL_SCANNER_SETUP_GUIDE'), perm: 'config:layer2:change' },
+          { to: '/cts/admin/processing-units',    label: uiMsg('UI_APPSHELL_PU_MASTER'),        perm: 'config:layer2:change' },
+          { to: '/admin/config/operations',      label: uiMsg('UI_OPERATIONSCONFIG_OPERATIONS_CONFIG'), perm: 'config:layer3:submit' },
+          { to: '/admin/config/platform',       label: uiMsg('UI_PLATFORMCONFIG_PLATFORM_CONFIG'),   perm: 'config:layer2:change' },
+          { to: '/admin/allocation',            label: uiMsg('UI_APPSHELL_ALLOCATION_PANEL'),  perm: 'config:layer3:submit' },
+          { to: '/admin/config/buckets',        label: uiMsg('UI_APPSHELL_BUCKET_CONFIG'),     perm: 'config:layer3:submit' },
+          { to: '/admin/security-violations',    label: uiMsg('UI_APPSHELL_SECURITY_ALERTS'),  perm: 'admin:console', sbOnly: true },
+          { to: '/admin/smoke-test',            label: uiMsg('UI_APPSHELL_GO_LIVE_TEST'),   perm: 'config:layer2:change' },
         ],
       },
     ],
@@ -259,8 +261,8 @@ const SIDEBAR_MODULES = [
 ]
 
 const PROFILE_MENU = [
-  { to: '/profile', label: 'My Profile', icon: '👤' },
-  { to: '/logout',  label: 'Sign Out',   icon: '→'  },
+  { to: '/profile', label: uiMsg('UI_PROFILE_MY_PROFILE'), icon: '👤' },
+  { to: '/logout',  label: uiMsg('UI_APPSHELL_SIGN_OUT'),   icon: '→'  },
 ]
 
 const ROUTE_LABELS = {
@@ -431,7 +433,7 @@ export default function AppShell({ children }) {
             </div>
             {!collapsed && (
               <span className={`text-sm font-bold tracking-tight leading-none transition-opacity ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                stra
+               {uiMsg('UI_APPSHELL_STRA')}
               </span>
             )}
           </Link>
@@ -439,7 +441,7 @@ export default function AppShell({ children }) {
             <button
               onClick={() => setCollapsed(true)}
               className={`ml-auto p-1 rounded-md opacity-40 hover:opacity-100 transition-opacity ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
-              title="Collapse sidebar"
+              title={uiMsg('UI_APPSHELL_COLLAPSE_SIDEBAR')}
             >
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 4L6 8l4 4" />
@@ -450,7 +452,7 @@ export default function AppShell({ children }) {
             <button
               onClick={() => setCollapsed(false)}
               className={`w-full flex justify-center p-1 rounded-md opacity-40 hover:opacity-100 transition-opacity ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
-              title="Expand sidebar"
+              title={uiMsg('UI_APPSHELL_EXPAND_SIDEBAR')}
             >
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 4l4 4-4 4" />
@@ -521,14 +523,14 @@ export default function AppShell({ children }) {
             {/* Command palette trigger */}
             <button
               onClick={() => setCmdOpen(true)}
-              title="Command palette (Ctrl+K)"
+              title={uiMsg('UI_APPSHELL_COMMAND_PALETTE_CTRL_K')}
               className={`hidden sm:flex items-center gap-1.5 text-[11px] rounded-lg px-2 py-1.5 border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
             >
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" className="w-3 h-3">
                 <circle cx="6.5" cy="6.5" r="4.5" />
                 <path d="M10 10l3.5 3.5" strokeLinecap="round" />
               </svg>
-              <span className="hidden md:inline">Search</span>
+              <span className="hidden md:inline">{uiMsg('UI_APPSHELL_SEARCH')}</span>
               <kbd className={`hidden md:inline font-mono text-[9px] px-1 py-0.5 rounded ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>⌘K</kbd>
             </button>
 
@@ -536,7 +538,7 @@ export default function AppShell({ children }) {
             <div className="relative">
               <button
                 onClick={() => setNotifOpen(v => !v)}
-                title="Notifications"
+                title={uiMsg('UI_APPSHELL_NOTIFICATIONS')}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${notifOpen ? (isDark ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-800') : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
               >
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
@@ -619,7 +621,7 @@ export default function AppShell({ children }) {
             {/* Header */}
             <div className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
               <div>
-                <h2 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Notifications</h2>
+                <h2 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{uiMsg('UI_APPSHELL_NOTIFICATIONS')}</h2>
                 <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
                 </p>
@@ -630,7 +632,7 @@ export default function AppShell({ children }) {
                     onClick={markAllRead}
                     className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                   >
-                    Mark all read
+                   {uiMsg('UI_APPSHELL_MARK_ALL_READ')}
                   </button>
                 )}
                 <button
@@ -687,7 +689,7 @@ export default function AppShell({ children }) {
             {/* Footer */}
             <div className={`px-5 py-3 border-t shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
               <p className={`text-[10px] text-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                Powered by PlatformHealthCheckWorkflow · 60s cadence
+               {uiMsg('UI_APPSHELL_POWERED_BY_PLATFORMHEALTHCHECKWORKFL')}
               </p>
             </div>
           </div>

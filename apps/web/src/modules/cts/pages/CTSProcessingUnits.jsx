@@ -13,6 +13,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
+import { msg as uiMsg } from '../../../shared/messages'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
@@ -71,7 +72,7 @@ function getMockPUs() { return [..._mockStore] }
 
 function createMockPU(data, bankId) {
   if (_mockStore.find(p => p.pu_id === data.pu_id)) {
-    throw new Error(`Processing Unit ${data.pu_id} already exists`)
+    throw new Error(uiMsg('UI_PROCESSINGUNITS_PROCESSING_UNIT_ALREADY_EXISTS', { pu_id: data.pu_id }))
   }
   const pu = {
     ...data,
@@ -89,7 +90,7 @@ function createMockPU(data, bankId) {
 
 function updateMockPU(puId, data) {
   const idx = _mockStore.findIndex(p => p.pu_id === puId)
-  if (idx === -1) throw new Error(`PU ${puId} not found`)
+  if (idx === -1) throw new Error(uiMsg('UI_PROCESSINGUNITS_PU_NOT_FOUND', { puId }))
   _mockStore[idx] = { ..._mockStore[idx], ...data, updated_at: new Date().toISOString() }
   return _mockStore[idx]
 }
@@ -118,8 +119,8 @@ async function apiFetch(path, opts = {}) {
 
 function Badge({ active, isDark }) {
   return active
-    ? <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Active</span>
-    : <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'bg-white/5 text-slate-500 border-white/10' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>Inactive</span>
+    ? <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">{uiMsg('UI_COMMON_ACTIVE')}</span>
+    : <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'bg-white/5 text-slate-500 border-white/10' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>{uiMsg('UI_PROCESSINGUNITS_INACTIVE')}</span>
 }
 
 // ── PU form modal ────────────────────────────────────────────────────────────
@@ -148,11 +149,11 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
   function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.pu_name.trim()) return setError('PU Name is required.')
+    if (!form.pu_name.trim()) return setError(uiMsg('UI_PROCESSINGUNITS_PU_NAME_IS_REQUIRED'))
     if (!isEdit) {
-      if (!form.pu_id.trim()) return setError('PU ID is required.')
+      if (!form.pu_id.trim()) return setError(uiMsg('UI_PROCESSINGUNITS_PU_ID_IS_REQUIRED'))
     }
-    if (form.max_agent_swarm_size < 1) return setError('Max swarm size must be ≥ 1.')
+    if (form.max_agent_swarm_size < 1) return setError(uiMsg('UI_PROCESSINGUNITS_MAX_SWARM_SIZE_MUST_BE'))
     onSave(form)
   }
 
@@ -167,23 +168,23 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isEdit && (
             <div>
-              <div className={th.label}>PU ID *</div>
+              <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_PU_ID')}</div>
               <input
                 className={th.input}
-                placeholder="MUMBAI-PU-01"
+                placeholder={uiMsg('UI_PROCESSINGUNITS_MUMBAI_PU_01')}
                 value={form.pu_id}
                 onChange={e => set('pu_id', e.target.value.toUpperCase())}
                 required
               />
-              <div className={th.hint}>Immutable after creation. E.g. MUMBAI-PU-01</div>
+              <div className={th.hint}>{uiMsg('UI_PROCESSINGUNITS_IMMUTABLE_AFTER_CREATION_E_G')}</div>
             </div>
           )}
 
           <div>
-            <div className={th.label}>PU Name *</div>
+            <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_PU_NAME')}</div>
             <input
               className={th.input}
-              placeholder="Mumbai Processing Unit"
+              placeholder={uiMsg('UI_BRANCHMASTER_MUMBAI_PROCESSING_UNIT')}
               value={form.pu_name}
               onChange={e => set('pu_name', e.target.value)}
               required
@@ -193,20 +194,20 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
           {!isEdit && (
             <>
               <div>
-                <div className={th.label}>NGCH Participant Code (optional)</div>
+                <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_NGCH_PARTICIPANT_CODE_OPTIONAL')}</div>
                 <input
                   className={th.input}
-                  placeholder="Only if this PU files under its own code"
+                  placeholder={uiMsg('UI_PROCESSINGUNITS_ONLY_IF_THIS_PU_FILES')}
                   value={form.ngch_participant_code}
                   onChange={e => set('ngch_participant_code', e.target.value.toUpperCase())}
                 />
-                <div className={th.hint}>Immutable after creation. Leave empty when the bank files under one code.</div>
+                <div className={th.hint}>{uiMsg('UI_PROCESSINGUNITS_IMMUTABLE_AFTER_CREATION_LEAVE_EMPTY')}</div>
               </div>
             </>
           )}
 
           <div>
-            <div className={th.label}>Max Agent Swarm Size</div>
+            <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_MAX_AGENT_SWARM_SIZE')}</div>
             <input
               type="number"
               min={1}
@@ -215,12 +216,12 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
               value={form.max_agent_swarm_size}
               onChange={e => set('max_agent_swarm_size', parseInt(e.target.value) || 1)}
             />
-            <div className={th.hint}>Max parallel agents for this PU during a clearing session (1–1000).</div>
+            <div className={th.hint}>{uiMsg('UI_PROCESSINGUNITS_MAX_PARALLEL_AGENTS_FOR_THIS')}</div>
           </div>
 
           {isEdit && (
             <div className="flex items-center gap-3">
-              <label className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Active</label>
+              <label className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{uiMsg('UI_COMMON_ACTIVE')}</label>
               <button
                 type="button"
                 onClick={() => set('is_active', !form.is_active)}
@@ -245,7 +246,7 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
               onClick={onClose}
               className={`px-4 text-sm rounded-lg py-2 transition-colors border ${isDark ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
             >
-              Cancel
+             {uiMsg('UI_COMMON_CANCEL')}
             </button>
           </div>
         </form>
@@ -272,7 +273,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
     muted: isDark ? 'text-slate-400' : 'text-slate-500',
   }
 
-  if (isLoading) return <div className={`px-6 py-3 text-xs ${th.muted}`}>Loading branches…</div>
+  if (isLoading) return <div className={`px-6 py-3 text-xs ${th.muted}`}>{uiMsg('UI_PROCESSINGUNITS_LOADING_BRANCHES')}</div>
 
   if (branches.length === 0) {
     return (
@@ -287,7 +288,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
       <table className="w-full text-xs">
         <thead>
           <tr>
-            {['IFSC', 'Branch Name', 'City', 'Scanning', 'Status'].map(h => (
+            {[uiMsg('UI_COMMON_IFSC'), uiMsg('UI_BRANCHMASTER_BRANCH_NAME_2'), uiMsg('UI_BRANCHMASTER_CITY'), uiMsg('UI_PROCESSINGUNITS_SCANNING'), uiMsg('UI_COMMON_STATUS')].map(h => (
               <th key={h} className={`text-left py-1 pr-4 font-medium uppercase tracking-wide text-[10px] ${th.muted}`}>{h}</th>
             ))}
           </tr>
@@ -340,13 +341,13 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
             >
               {expanded ? '▲ Branches' : `▼ Branches${(DEMO_BRANCHES_BY_PU[pu.pu_id]?.length ?? 0) > 0 ? ` (${DEMO_BRANCHES_BY_PU[pu.pu_id].length})` : ''}`}
             </button>
-            <button onClick={() => onEdit(pu)} className={th.btnGhost}>Edit</button>
+            <button onClick={() => onEdit(pu)} className={th.btnGhost}>{uiMsg('UI_COMMON_EDIT')}</button>
             {pu.is_active && (
               <button
                 onClick={() => onDeactivate(pu.pu_id)}
                 className="text-xs px-2 py-0.5 border border-red-500/30 rounded text-red-400 hover:border-red-400/60 hover:text-red-300 transition-colors"
               >
-                Deactivate
+               {uiMsg('UI_COMMON_DEACTIVATE')}
               </button>
             )}
           </div>
@@ -456,16 +457,16 @@ export default function CTSProcessingUnits() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Processing Unit Master</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_PROCESSINGUNITS_PROCESSING_UNIT_MASTER')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              A group of branches handled together · each PU has its own Temporal queue and Kafka inward topic
+             {uiMsg('UI_PROCESSINGUNITS_A_GROUP_OF_BRANCHES_HANDLED')}
             </p>
           </div>
           <button
             onClick={() => setShowForm(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
           >
-            + Add PU
+           {uiMsg('UI_PROCESSINGUNITS_ADD_PU')}
           </button>
         </div>
 
@@ -486,7 +487,7 @@ export default function CTSProcessingUnits() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {['PU ID', 'Name', 'NGCH Code', 'Max Swarm', 'Status', 'Actions'].map(h => (
+                  {[uiMsg('UI_PROCESSINGUNITS_PU_ID_2'), uiMsg('UI_CHEQUEIMAGEVIEWER_NAME'), uiMsg('UI_PROCESSINGUNITS_NGCH_CODE'), uiMsg('UI_PROCESSINGUNITS_MAX_SWARM'), uiMsg('UI_COMMON_STATUS'), uiMsg('UI_COMMON_ACTIONS')].map(h => (
                     <th key={h} className={`px-3 py-2.5 text-left border-b ${th.divider} ${th.thCell}`}>{h}</th>
                   ))}
                 </tr>
@@ -494,20 +495,20 @@ export default function CTSProcessingUnits() {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={7} className={`px-3 py-8 text-center text-xs ${th.muted}`}>Loading…</td>
+                    <td colSpan={7} className={`px-3 py-8 text-center text-xs ${th.muted}`}>{uiMsg('CTS_WF_BUCKETCFG_LOADING')}</td>
                   </tr>
                 )}
                 {isError && !isDemo && (
                   <tr>
                     <td colSpan={7} className="px-3 py-8 text-center text-xs text-red-400">
-                      Failed to load. No backend running in POC mode.
+                     {uiMsg('UI_PROCESSINGUNITS_FAILED_TO_LOAD_NO_BACKEND')}
                     </td>
                   </tr>
                 )}
                 {!isLoading && puList.length === 0 && (
                   <tr>
                     <td colSpan={7} className={`px-3 py-10 text-center text-xs ${th.muted}`}>
-                      No Processing Units configured yet. Click <strong>+ Add PU</strong> to create the first one.
+                     {uiMsg('UI_PROCESSINGUNITS_NO_PROCESSING_UNITS_CONFIGURED_YET')} <strong>{uiMsg('UI_PROCESSINGUNITS_ADD_PU')}</strong> {uiMsg('UI_PROCESSINGUNITS_TO_CREATE_THE_FIRST_ONE')}
                     </td>
                   </tr>
                 )}
@@ -530,16 +531,16 @@ export default function CTSProcessingUnits() {
         {/* Tech detail card */}
         {puList.length > 0 && (
           <div className={`mt-4 rounded-lg border p-4 ${th.card}`}>
-            <p className={`text-[10px] font-medium uppercase tracking-wider mb-3 ${th.muted}`}>Computed Infrastructure Keys (read-only)</p>
+            <p className={`text-[10px] font-medium uppercase tracking-wider mb-3 ${th.muted}`}>{uiMsg('UI_PROCESSINGUNITS_COMPUTED_INFRASTRUCTURE_KEYS_READ_ON')}</p>
             <div className="space-y-2">
               {puList.filter(p => p.is_active).map(pu => (
                 <div key={pu.pu_id} className="flex flex-wrap gap-x-6 gap-y-1 text-[10px]">
                   <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{pu.pu_id}</span>
                   <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>
-                    Queue: <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.temporal_task_queue}</code>
+                   {uiMsg('UI_PROCESSINGUNITS_QUEUE')} <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.temporal_task_queue}</code>
                   </span>
                   <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>
-                    Topic: <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.kafka_inward_topic}</code>
+                   {uiMsg('UI_PROCESSINGUNITS_TOPIC')} <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.kafka_inward_topic}</code>
                   </span>
                 </div>
               ))}

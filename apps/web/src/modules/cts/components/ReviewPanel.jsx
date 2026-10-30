@@ -12,6 +12,7 @@ import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
 import ChequeImageViewer from './ChequeImageViewer'
 import { getReturnReasons, getReasonByLabel } from '../data/returnReasons'
+import { msg } from '../../../shared/messages'
 
 const RECENT_KEY = 'astra-recent-return-reasons'
 const getRecentReasons = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] } }
@@ -41,18 +42,18 @@ function ExtractionPopover({ meta, isDark, onClose }) {
   const confColor = confPct >= 92 ? 'text-emerald-400' : confPct >= 80 ? 'text-amber-400' : 'text-red-400'
   return (
     <div ref={ref} className={`absolute z-50 bottom-full mb-1 left-0 w-64 rounded-xl border shadow-2xl p-3 text-[11px] ${isDark ? 'bg-navy-900 border-white/15' : 'bg-white border-slate-200'}`}>
-      <div className={`text-[9px] uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>AI Extraction Detail</div>
+      <div className={`text-[9px] uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_AI_EXTRACTION_DETAIL')}</div>
       <div className="space-y-1.5">
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Extracted by</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_EXTRACTED_BY')}</span>
           <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? 'GOT-OCR2.0'}</span>
         </div>
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Raw value</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_RAW_VALUE')}</span>
           <span className={`font-mono font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{String(meta?.extracted_value ?? '—')}</span>
         </div>
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Confidence</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_COMMON_CONFIDENCE')}</span>
           <span className={`font-mono font-semibold ${confColor}`}>{confPct}%</span>
         </div>
       </div>
@@ -64,10 +65,10 @@ function ExtractionPopover({ meta, isDark, onClose }) {
 
 function SourceBadge({ source, isDark }) {
   if (source === 'STP') return (
-    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>STP</span>
+    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>{msg('UI_COMMON_STP')}</span>
   )
   return (
-    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>MANUAL</span>
+    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>{msg('UI_COMMON_MANUAL')}</span>
   )
 }
 
@@ -112,16 +113,16 @@ function SigPanel({ item, isDark }) {
   if (!item.sig_specimen_available) {
     return (
       <div className="rounded-xl border border-purple-400/30 bg-purple-400/5 p-4">
-        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Signature Verification</div>
+        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">{msg('UI_REVIEWPANEL_SIGNATURE_VERIFICATION')}</div>
         <div className="flex items-center gap-3 mb-3">
           <span className="text-2xl">🔍</span>
           <div>
-            <div className="text-sm font-semibold text-purple-300">No Specimen On File</div>
+            <div className="text-sm font-semibold text-purple-300">{msg('UI_REVIEWPANEL_NO_SPECIMEN_ON_FILE')}</div>
             <div className={`text-xs mt-0.5 ${muted}`}>{item.sig_specimen_label}</div>
           </div>
         </div>
         <div className={`text-xs ${isDark ? 'bg-white/5' : 'bg-slate-50'} rounded-lg p-3 ${muted}`}>
-          Vault miss — no specimen for {item.account_display}. Auto-return is <span className="text-purple-300 font-medium">never</span> permitted.
+         {msg('UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_FOR', { account_display: item.account_display })} <span className="text-purple-300 font-medium">{msg('UI_REVIEWPANEL_NEVER')}</span> {msg('UI_REVIEWPANEL_PERMITTED')}
         </div>
       </div>
     )
@@ -135,18 +136,18 @@ function SigPanel({ item, isDark }) {
       <div className="flex items-center gap-4">
         <div className="shrink-0 flex items-baseline gap-1">
           <span className={`text-2xl font-bold font-mono ${color}`}>{matchPct}%</span>
-          <span className="text-[10px] text-slate-500">match</span>
+          <span className="text-[10px] text-slate-500">{msg('UI_REVIEWPANEL_MATCH')}</span>
         </div>
         <div className="flex-1 space-y-1">
           <div className={`h-1.5 ${isDark ? 'bg-white/5' : 'bg-slate-100'} rounded-full overflow-hidden`}>
             <div className={`h-full rounded-full ${barColor}`} style={{ width: `${matchPct}%` }} />
           </div>
           <div className={`flex justify-between text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-            <span>0%</span><span>threshold 85%</span><span>100%</span>
+            <span>0%</span><span>{msg('UI_REVIEWPANEL_THRESHOLD_85')}</span><span>100%</span>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest">Siamese SNN</div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest">{msg('UI_REVIEWPANEL_SIAMESE_SNN')}</div>
           <div className="text-[10px] text-slate-500">{item.sig_specimen_label}</div>
         </div>
       </div>
@@ -185,14 +186,14 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
       {open && (
         <div className={`absolute bottom-full mb-1 left-0 right-0 z-50 rounded-lg border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
           <div className={`px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reasons…"
+            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={msg('UI_OUTWARDREVIEWPANEL_SEARCH_REASONS')}
               className={`w-full text-xs bg-transparent outline-none ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
             />
           </div>
           <div className="max-h-52 overflow-y-auto">
             {!search && getRecentReasons().length > 0 && (
               <div>
-                <div className={`px-3 pt-2 pb-1 text-[9px] uppercase font-semibold tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Recent</div>
+                <div className={`px-3 pt-2 pb-1 text-[9px] uppercase font-semibold tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_RECENT')}</div>
                 {getRecentReasons().map(r => (
                   <button key={r} type="button" onMouseDown={() => { setReturnReason(r); setOpen(false) }}
                     className={`w-full text-left px-3 py-2 text-xs transition-colors ${isDark ? 'hover:bg-white/5 text-amber-400' : 'hover:bg-amber-50 text-amber-600'}`}
@@ -258,7 +259,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
   if (!item) {
     return (
       <div className={`flex-1 flex items-center justify-center text-sm ${th.lbl}`}>
-        <div className="text-center"><div className="text-4xl mb-3">📋</div><div>Select a cheque to verify</div></div>
+        <div className="text-center"><div className="text-4xl mb-3">📋</div><div>{msg('UI_OUTWARDREVIEWPANEL_SELECT_A_CHEQUE_TO_VERIFY')}</div></div>
       </div>
     )
   }
@@ -271,9 +272,9 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
   const minsLeft    = Math.max(0, Math.round(remainingMs / 60000))
 
   const cheqViews = [
-    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
-    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
-    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+    { key: 'BFB', label: msg('UI_COMMON_FRONT_B_W'),  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+    { key: 'BBB', label: msg('UI_COMMON_BACK_B_W'),   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+    { key: 'BFG', label: msg('UI_COMMON_FRONT_GRAY'), url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
   ]
 
   const ocrFieldDefs = [
@@ -299,7 +300,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {item.principal_tag === 'SUB_MEMBER' && (
         <div className={`px-6 py-1.5 flex items-center gap-2 border-b text-[11px] font-medium ${isDark ? 'bg-amber-400/5 border-amber-400/20 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
-          <span className="font-semibold">SUB-MEMBER</span>
+          <span className="font-semibold">{msg('UI_QUEUECARD_SUB_MEMBER')}</span>
           <span className="opacity-60">·</span>
           <span>{item.sub_member_name}</span>
         </div>
@@ -334,8 +335,8 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
         <div className="flex items-center gap-3 py-1.5">
           {[
             { label: 'OCR',   pct: item.ocr_confidence,                      bar: item.ocr_confidence >= 0.92 ? 'bg-emerald-500' : item.ocr_confidence >= 0.80 ? 'bg-amber-400' : 'bg-red-400' },
-            { label: 'Sig',   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
-            { label: 'Fraud', pct: item.fraud_score,                          bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500' },
+            { label: msg('UI_REVIEWPANEL_SIG'),   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
+            { label: msg('UI_COMMON_FRAUD'), pct: item.fraud_score,                          bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500' },
             { label: 'IET',   pct: ietPct, display: `${minsLeft}m`,           bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400' },
           ].map(({ label, pct, bar, display }) => (
             <div key={label} className="flex items-center gap-1.5">
@@ -349,7 +350,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
         </div>
 
         <div className="flex gap-1 pt-0.5">
-          {['overview', 'cheque', 'ai analysis', 'passport'].map(t => (
+          {['overview', 'cheque', msg('UI_OUTWARDREVIEWPANEL_AI_ANALYSIS'), 'passport'].map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-1.5 text-xs font-medium rounded-t-lg capitalize transition-colors ${tab === t ? th.tabActive : th.tabIdle}`}
             >{t}</button>
@@ -365,15 +366,15 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
               <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${isDark ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
                 <span className="text-base mt-0.5">✓</span>
                 <div>
-                  <div className="text-xs font-semibold">STP Auto-Confirmed</div>
-                  <div className="text-[11px] opacity-70 mt-0.5">All AI checks passed. Filed to NGCH automatically. No manual action required.</div>
+                  <div className="text-xs font-semibold">{msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED')}</div>
+                  <div className="text-[11px] opacity-70 mt-0.5">{msg('UI_REVIEWPANEL_ALL_AI_CHECKS_PASSED_FILED')}</div>
                 </div>
               </div>
             ) : (
               <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${reasonColor}`}>
                 <span className="text-base mt-0.5">⚠</span>
                 <div>
-                  <div className="text-xs font-semibold">Flagged: {item.reason_label}</div>
+                  <div className="text-xs font-semibold">{msg('UI_REVIEWPANEL_FLAGGED', { reason_label: item.reason_label })}</div>
                   <div className="text-[11px] opacity-70 mt-0.5">
                     {item.reason === 'VAULT_MISS' ? 'Vault miss — no specimen on file. Auto-return is never permitted.' : 'AI confidence below threshold — manual verification required before IET.'}
                   </div>
@@ -383,8 +384,8 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'OCR',       val: `${Math.round(item.ocr_confidence * 100)}%`,       sub: 'confidence', color: th.heading },
-                { label: 'Signature', val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : 'vault miss', color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
-                { label: 'Fraud',     val: `${Math.round(item.fraud_score * 100)}%`,           sub: 'risk score',  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
+                { label: msg('UI_COMMON_SIGNATURE'), val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : 'vault miss', color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
+                { label: msg('UI_COMMON_FRAUD'),     val: `${Math.round(item.fraud_score * 100)}%`,           sub: 'risk score',  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
               ].map(({ label, val, sub, color }) => (
                 <div key={label} className={`rounded-xl p-3 text-center ${th.glass}`}>
                   <div className={`text-[10px] ${th.lbl} uppercase tracking-wide mb-0.5`}>{label}</div>
@@ -394,7 +395,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
               ))}
             </div>
             <div className={`rounded-xl p-4 ${th.glass}`}>
-              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>OCR Fields · click ⓘ for AI detail</div>
+              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>{msg('UI_REVIEWPANEL_OCR_FIELDS_CLICK_FOR_AI')}</div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {ocrFieldDefs.map(([label, key]) => (
                   <VerifyFieldRow key={key} label={label} fieldKey={key}
@@ -418,7 +419,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             <div className="flex items-center gap-4">
               <FraudGauge score={item.fraud_score} />
               <div className={`flex-1 rounded-xl p-4 space-y-2 ${th.glass}`}>
-                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>Model Stack</div>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>{msg('UI_REVIEWPANEL_MODEL_STACK')}</div>
                 {[
                   { lbl: 'OCR',        model: 'GOT-OCR2.0',                                                              score: item.ocr_confidence,                            risk: false },
                   { lbl: 'Alteration', model: `Qwen2-VL ${item.alteration_result?.cascade_level === 2 ? '72B' : '7B'}`, score: item.alteration_result?.tamper_risk_score ?? 0, risk: true  },
@@ -451,13 +452,13 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             {/* Security Print Features */}
             {item.security_features && (
               <div className={`rounded-xl p-4 ${th.glass}`}>
-                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Security Print Features · CTS-2010</div>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>{msg('UI_REVIEWPANEL_SECURITY_PRINT_FEATURES_CTS_2010')}</div>
                 <div className="space-y-2">
                   {[
-                    { label: 'Void Pantograph',  key: 'void_pantograph'      },
-                    { label: '₹ Symbol',         key: 'rupee_symbol'         },
-                    { label: 'Micro-lettering',  key: 'micro_lettering'      },
-                    { label: 'Printer CTS-2010', key: 'printer_name_cts2010' },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_VOID_PANTOGRAPH'),  key: 'void_pantograph'      },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_SYMBOL'),         key: 'rupee_symbol'         },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_MICRO_LETTERING'),  key: 'micro_lettering'      },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_PRINTER_CTS_2010'), key: 'printer_name_cts2010' },
                   ].map(({ label, key }) => {
                     const ok = item.security_features[key] === true
                     return (
@@ -478,7 +479,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
               <div className={`rounded-xl p-4 ${th.glass}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>
-                    Alteration Detection · Qwen2-VL {item.alteration_result.cascade_level === 2 ? '72B' : '7B'}
+                   {msg('UI_REVIEWPANEL_ALTERATION_DETECTION_QWEN2_VL', { value: item.alteration_result.cascade_level === 2 ? '72B' : '7B' })}
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                     item.alteration_result.alteration_detected
@@ -492,8 +493,8 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                 {/* Score pills */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {[
-                    { label: 'Tamper Risk',      score: item.alteration_result.tamper_risk_score    },
-                    { label: 'Physical Anomaly', score: item.alteration_result.physical_anomaly_score },
+                    { label: msg('UI_REVIEWPANEL_TAMPER_RISK'),      score: item.alteration_result.tamper_risk_score    },
+                    { label: msg('UI_REVIEWPANEL_PHYSICAL_ANOMALY'), score: item.alteration_result.physical_anomaly_score },
                   ].map(({ label, score }) => {
                     const pct = Math.round(score * 100)
                     const color = pct >= 70 ? 'bg-red-400' : pct >= 40 ? 'bg-amber-400' : 'bg-emerald-400'
@@ -517,7 +518,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                 {/* Altered fields */}
                 {item.alteration_result.altered_fields?.length > 0 && (
                   <div className="mb-3">
-                    <div className={`text-[10px] ${th.lbl} mb-1.5`}>Altered Fields</div>
+                    <div className={`text-[10px] ${th.lbl} mb-1.5`}>{msg('UI_REVIEWPANEL_ALTERED_FIELDS')}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {item.alteration_result.altered_fields.map(f => (
                         <span key={f} className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isDark ? 'bg-red-900/30 border-red-700/40 text-red-300' : 'bg-red-100 border-red-300 text-red-700'}`}>
@@ -531,10 +532,10 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                 {/* Per-anomaly breakdown */}
                 {(() => {
                   const TYPES = [
-                    { key: 'ink_physics_anomalies',      label: 'Ink Physics',      flags: a => [a.pressure_inconsistency && 'Pressure ↓', a.bleed_anomaly && 'Ink Bleed', a.flow_reversal && 'Flow ↺'].filter(Boolean) },
-                    { key: 'paper_fibre_anomalies',      label: 'Paper Fibre',      flags: a => [a.fibre_distortion_detected && 'Fibre Distortion', a.gloss_patch_detected && 'Gloss Patch'].filter(Boolean) },
-                    { key: 'correction_fluid_anomalies', label: 'Correction Fluid', flags: a => [a.luminance_spike_detected && 'Bright Patch', a.edge_sharpness_ratio > 2 && `Edge Ratio ${a.edge_sharpness_ratio?.toFixed(1)}`].filter(Boolean) },
-                    { key: 'chemical_alteration_anomalies', label: 'Chemical',      flags: a => [a.halo_detected && 'Halo', a.colour_shift_detected && 'Colour Shift'].filter(Boolean) },
+                    { key: 'ink_physics_anomalies',      label: msg('UI_REVIEWPANEL_INK_PHYSICS'),      flags: a => [a.pressure_inconsistency && 'Pressure ↓', a.bleed_anomaly && 'Ink Bleed', a.flow_reversal && 'Flow ↺'].filter(Boolean) },
+                    { key: 'paper_fibre_anomalies',      label: msg('UI_REVIEWPANEL_PAPER_FIBRE'),      flags: a => [a.fibre_distortion_detected && 'Fibre Distortion', a.gloss_patch_detected && 'Gloss Patch'].filter(Boolean) },
+                    { key: 'correction_fluid_anomalies', label: msg('UI_REVIEWPANEL_CORRECTION_FLUID'), flags: a => [a.luminance_spike_detected && 'Bright Patch', a.edge_sharpness_ratio > 2 && `Edge Ratio ${a.edge_sharpness_ratio?.toFixed(1)}`].filter(Boolean) },
+                    { key: 'chemical_alteration_anomalies', label: msg('UI_REVIEWPANEL_CHEMICAL'),      flags: a => [a.halo_detected && 'Halo', a.colour_shift_detected && 'Colour Shift'].filter(Boolean) },
                   ]
                   const rows = TYPES.flatMap(t =>
                     (item.alteration_result[t.key] ?? []).map(a => ({ ...a, typeLabel: t.label, flags: t.flags(a) }))
@@ -542,7 +543,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                   if (!rows.length) return null
                   return (
                     <div className="space-y-1.5">
-                      <div className={`text-[10px] ${th.lbl} mb-1`}>Anomaly Breakdown</div>
+                      <div className={`text-[10px] ${th.lbl} mb-1`}>{msg('UI_REVIEWPANEL_ANOMALY_BREAKDOWN')}</div>
                       {rows.map((a, i) => (
                         <div key={i} className={`flex items-center justify-between text-[11px] rounded-lg px-3 py-1.5 ${isDark ? 'bg-red-900/10 border border-red-800/20' : 'bg-red-50 border border-red-200'}`}>
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -565,7 +566,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             {item.uv_security && (
               <div className={`rounded-xl p-4 ${th.glass}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>UV Security Features · CTS-2010</div>
+                  <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>{msg('UI_REVIEWPANEL_UV_SECURITY_FEATURES_CTS_2010')}</div>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                     item.uv_security.uv_security_passed
                       ? (isDark ? 'bg-emerald-900/40 border-emerald-700/50 text-emerald-300' : 'bg-emerald-100 border-emerald-300 text-emerald-700')
@@ -576,9 +577,9 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: 'Pentograph Pattern', ok: item.uv_security.pentograph_authentic,    confidence: item.uv_security.pentograph_confidence,       notes: item.uv_security.pentograph_notes },
-                    { label: 'Security Thread',    ok: item.uv_security.security_thread_present, confidence: item.uv_security.security_thread_confidence,  notes: item.uv_security.security_thread_notes,  extra: item.uv_security.security_thread_position },
-                    { label: 'UV Watermark',       ok: item.uv_security.uv_watermark_present,    confidence: item.uv_security.uv_watermark_confidence,     notes: item.uv_security.uv_watermark_notes },
+                    { label: msg('UI_REVIEWPANEL_PENTOGRAPH_PATTERN'), ok: item.uv_security.pentograph_authentic,    confidence: item.uv_security.pentograph_confidence,       notes: item.uv_security.pentograph_notes },
+                    { label: msg('UI_REVIEWPANEL_SECURITY_THREAD'),    ok: item.uv_security.security_thread_present, confidence: item.uv_security.security_thread_confidence,  notes: item.uv_security.security_thread_notes,  extra: item.uv_security.security_thread_position },
+                    { label: msg('UI_REVIEWPANEL_UV_WATERMARK'),       ok: item.uv_security.uv_watermark_present,    confidence: item.uv_security.uv_watermark_confidence,     notes: item.uv_security.uv_watermark_notes },
                   ].map(({ label, ok, confidence, notes, extra }) => (
                     <div key={label} className={`rounded-lg px-3 py-2 flex items-start gap-3 ${
                       ok
@@ -589,7 +590,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className={`text-[11px] font-semibold ${ok ? (isDark ? 'text-emerald-300' : 'text-emerald-800') : (isDark ? 'text-red-300' : 'text-red-800')}`}>{label}</span>
-                          <span className={`text-[10px] font-mono ${th.lbl}`}>{Math.round(confidence * 100)}% conf.</span>
+                          <span className={`text-[10px] font-mono ${th.lbl}`}>{msg('UI_REVIEWPANEL_CONF', { Math: Math.round(confidence * 100) })}</span>
                         </div>
                         {notes && <div className={`text-[10px] ${th.lbl} mt-0.5 truncate`}>{notes}</div>}
                         {extra && <div className={`text-[10px] ${th.lbl} mt-0.5`}>{extra.replace(/_/g, ' ')}</div>}
@@ -599,7 +600,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                 </div>
                 {item.uv_security.uv_risk_score != null && (
                   <div className="mt-3 flex items-center gap-3">
-                    <span className={`text-[10px] ${th.lbl} shrink-0`}>UV Risk Score</span>
+                    <span className={`text-[10px] ${th.lbl} shrink-0`}>{msg('UI_REVIEWPANEL_UV_RISK_SCORE')}</span>
                     <div className={`flex-1 h-1 ${th.barBg} rounded-full overflow-hidden`}>
                       <div className={`h-full rounded-full ${item.uv_security.uv_risk_score >= 0.5 ? 'bg-red-400' : item.uv_security.uv_risk_score >= 0.2 ? 'bg-amber-400' : 'bg-emerald-400'}`}
                         style={{ width: `${item.uv_security.uv_risk_score * 100}%` }} />
@@ -614,7 +615,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
 
         {tab === 'passport' && (
           <div className={`rounded-xl p-4 ${th.glass}`}>
-            <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Instrument Metadata</div>
+            <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>{msg('UI_REVIEWPANEL_INSTRUMENT_METADATA')}</div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
               {[
                 ['Instrument ID', item.instrument_id], ['Processing Unit', item.pu_id ?? '—'],
@@ -637,8 +638,8 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
       {readOnly ? (
         <div className={`shrink-0 border-t ${th.border} px-6 py-2.5 flex items-center gap-3 ${isDark ? 'bg-emerald-950/20' : 'bg-emerald-50'}`}>
           <span className="w-2 h-2 rounded-full bg-emerald-500 flex-none" />
-          <span className={`text-xs font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>STP Auto-Confirmed</span>
-          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Filed to NGCH - No action required</span>
+          <span className={`text-xs font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED')}</span>
+          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_REVIEWPANEL_FILED_TO_NGCH_NO_ACTION')}</span>
         </div>
       ) : (
         <div className={`shrink-0 border-t ${th.border} px-6 py-3 flex items-center gap-2 ${th.foot} backdrop-blur`}>
@@ -648,7 +649,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
           >{submitting ? 'Filing…' : '✕ Return'}</button>
           <button onClick={handleApprove} disabled={submitting}
             className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
-          >Approve → Validation IQ</button>
+          >{msg('UI_REVIEWPANEL_APPROVE_VALIDATION_IQ')}</button>
         </div>
       )}
     </div>

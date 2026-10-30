@@ -1,5 +1,6 @@
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 /* ─────────────────────────────────────────────────────────────
    Flow data — phases × steps for the scanner registration guide
@@ -8,7 +9,7 @@ const PHASES = [
   {
     id: 'generate',
     phase: 'Phase 1',
-    title: 'Generate Registration Code',
+    title: msg('UI_SCANNERSETUPGUIDE_GENERATE_REGISTRATION_CODE'),
     actor: 'Ops Manager · Bank HQ',
     accentD: 'border-violet-500',
     accentL: 'border-violet-500',
@@ -29,20 +30,20 @@ const PHASES = [
     steps: [
       {
         n: 1,
-        title: 'Open Branch Master',
-        detail: 'Go to Admin → Branch Master. Locate the target branch. Confirm Scanner Mode is SDK_PUSH and Status is Active. Branches in FOLDER_DROP or UI_UPLOAD mode do not get a scanner token.',
+        title: msg('UI_SCANNERSETUPGUIDE_OPEN_BRANCH_MASTER'),
+        detail: msg('UI_SCANNERSETUPGUIDE_GO_TO_ADMIN_BRANCH_MASTER'),
         security: null,
       },
       {
         n: 2,
-        title: 'Click the Register Scanner icon (🔑)',
-        detail: 'A key icon appears on every row where Scanner Mode = SDK_PUSH. Click it to open the Registration panel for that branch.',
+        title: msg('UI_SCANNERSETUPGUIDE_CLICK_THE_REGISTER_SCANNER_ICON'),
+        detail: msg('UI_SCANNERSETUPGUIDE_A_KEY_ICON_APPEARS_ON'),
         security: null,
       },
       {
         n: 3,
-        title: 'Click "Generate Registration Code"',
-        detail: 'The ASTRA server creates an 8-character one-time code tied exclusively to this branch. A 24-hour countdown starts immediately. The code appears in large monospace type — easy to read over the phone.',
+        title: msg('UI_SCANNERSETUPGUIDE_CLICK_GENERATE_REGISTRATION_CODE'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_ASTRA_SERVER_CREATES_AN'),
         security: 'Only one active code per branch at a time. Generating a new code automatically invalidates any previous pending code for this branch.',
       },
     ],
@@ -50,7 +51,7 @@ const PHASES = [
   {
     id: 'handoff',
     phase: 'Handoff',
-    title: 'Secure Code Delivery',
+    title: msg('UI_SCANNERSETUPGUIDE_SECURE_CODE_DELIVERY'),
     actor: 'Ops Manager → Branch IT Coordinator',
     accentD: 'border-amber-500',
     accentL: 'border-amber-500',
@@ -71,8 +72,8 @@ const PHASES = [
     steps: [
       {
         n: 4,
-        title: 'Read the code to the Branch IT Coordinator',
-        detail: 'Call the branch IT coordinator and read the 8-character code aloud (e.g. "SARAS-3X7Q"). Alternatively use your bank\'s secure internal messaging system. Do not send via plain email or SMS.',
+        title: msg('UI_SCANNERSETUPGUIDE_READ_THE_CODE_TO_THE'),
+        detail: msg('UI_SCANNERSETUPGUIDE_CALL_THE_BRANCH_IT_COORDINATOR'),
         security: 'The code expires in 24 hours and is single-use. Even if intercepted, it only works for the exact branch it was generated for — the branch identity is server-authoritative.',
       },
     ],
@@ -80,7 +81,7 @@ const PHASES = [
   {
     id: 'install',
     phase: 'Phase 2',
-    title: 'Run Installer at the Branch',
+    title: msg('UI_SCANNERSETUPGUIDE_RUN_INSTALLER_AT_THE_BRANCH'),
     actor: 'Branch IT Coordinator · Teller PC',
     accentD: 'border-sky-500',
     accentL: 'border-sky-500',
@@ -101,26 +102,26 @@ const PHASES = [
     steps: [
       {
         n: 5,
-        title: 'Obtain the installer from IT portal',
-        detail: 'Download ASTRA-Scanner-Setup-v{version}.exe from the bank\'s internal software portal. Verify the SHA-256 checksum printed on the portal matches before running. The installer is built once in CI and deployed to all branches — no branch-specific build needed.',
+        title: msg('UI_SCANNERSETUPGUIDE_OBTAIN_THE_INSTALLER_FROM_IT'),
+        detail: msg('UI_SCANNERSETUPGUIDE_DOWNLOAD_ASTRA_SCANNER_SETUP_V', { version: '{version}' }),
         security: null,
       },
       {
         n: 6,
-        title: 'Run installer as Windows Administrator',
-        detail: 'Right-click the .exe → "Run as administrator". Accept the UAC prompt. The installer requires admin rights to install the Windows service and set token.dat file permissions.',
+        title: msg('UI_SCANNERSETUPGUIDE_RUN_INSTALLER_AS_WINDOWS_ADMINISTRAT'),
+        detail: msg('UI_SCANNERSETUPGUIDE_RIGHT_CLICK_THE_EXE_RUN'),
         security: null,
       },
       {
         n: 7,
-        title: 'Enter exactly 2 fields',
-        detail: 'The installer wizard shows only two input fields: (1) ASTRA Server URL — same for all branches in your bank, provided by bank IT; (2) Registration Code — the 8-character code you received from Ops Manager.',
+        title: msg('UI_SCANNERSETUPGUIDE_ENTER_EXACTLY_2_FIELDS'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_INSTALLER_WIZARD_SHOWS_ONLY'),
         security: 'No branch name, no branch ID, no region — these are returned by the server and cannot be overridden by the installer. This prevents any branch from impersonating another.',
       },
       {
         n: 8,
-        title: 'Click "Verify →"',
-        detail: 'The installer contacts the ASTRA server, submits the code and the PC\'s machine name, and receives all branch configuration automatically. A green tick confirms a successful exchange.',
+        title: msg('UI_SCANNERSETUPGUIDE_CLICK_VERIFY'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_INSTALLER_CONTACTS_THE_ASTRA'),
         security: null,
       },
     ],
@@ -128,7 +129,7 @@ const PHASES = [
   {
     id: 'server',
     phase: 'Automatic',
-    title: 'Server-Side Exchange',
+    title: msg('UI_SCANNERSETUPGUIDE_SERVER_SIDE_EXCHANGE'),
     actor: 'ASTRA Platform · No human action',
     accentD: 'border-slate-500',
     accentL: 'border-slate-400',
@@ -149,20 +150,20 @@ const PHASES = [
     steps: [
       {
         n: 9,
-        title: 'Code atomically consumed from Redis',
-        detail: 'The server executes a single atomic GETDEL on the Redis key scanner_reg:{bank_id}:{code}. The code is gone the instant it is read — it cannot be replayed, even within the same millisecond.',
+        title: msg('UI_SCANNERSETUPGUIDE_CODE_ATOMICALLY_CONSUMED_FROM_REDIS'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_SERVER_EXECUTES_A_SINGLE', { bank_id: '{bank_id}', code: '{code}' }),
         security: 'Atomic single-use: even if the network request arrives twice simultaneously, only one exchange succeeds. The second attempt gets a 401.',
       },
       {
         n: 10,
-        title: 'Branch config loaded & machine-bound token issued',
-        detail: 'The server reads branch details (branch_id, IFSC, endorsement settings, UV scan flags) from YugabyteDB and generates a random API token. The token is stored in cts.scanner_tokens bound to this machine name — it will not authenticate from any other PC.',
+        title: msg('UI_SCANNERSETUPGUIDE_BRANCH_CONFIG_LOADED_MACHINE_BOUND'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_SERVER_READS_BRANCH_DETAILS'),
         security: null,
       },
       {
         n: 11,
-        title: 'Full config returned to installer',
-        detail: 'Response includes: branch_id, bank_id, bank_ifsc, api_url, endorsement_text, enable_imprinter, enable_uv_scan, and the raw API token (shown only once, never stored on the server).',
+        title: msg('UI_SCANNERSETUPGUIDE_FULL_CONFIG_RETURNED_TO_INSTALLER'),
+        detail: msg('UI_SCANNERSETUPGUIDE_RESPONSE_INCLUDES_BRANCH_ID_BANK'),
         security: null,
       },
     ],
@@ -170,7 +171,7 @@ const PHASES = [
   {
     id: 'live',
     phase: 'Phase 3',
-    title: 'Scanner Goes Live',
+    title: msg('UI_SCANNERSETUPGUIDE_SCANNER_GOES_LIVE'),
     actor: 'Installer → Windows Service → Teller PC',
     accentD: 'border-emerald-500',
     accentL: 'border-emerald-500',
@@ -191,26 +192,26 @@ const PHASES = [
     steps: [
       {
         n: 12,
-        title: 'config.ini written to installation folder',
-        detail: 'Non-secret configuration is saved: [server] url, [branch] id, ifsc, [scanner] enable_uv, enable_imprinter, endorsement_text. This file can be read by any Windows user — it contains no credentials.',
+        title: msg('UI_SCANNERSETUPGUIDE_CONFIG_INI_WRITTEN_TO_INSTALLATION'),
+        detail: msg('UI_SCANNERSETUPGUIDE_NON_SECRET_CONFIGURATION_IS_SAVED'),
         security: null,
       },
       {
         n: 13,
-        title: 'token.dat written with restricted NTFS permissions',
-        detail: 'The API token is saved to token.dat immediately next to config.ini. The installer then calls the Windows AccessControl API to restrict permissions: Read/Write for SYSTEM and Administrators group only. Standard user accounts (including the teller login) cannot read this file.',
+        title: msg('UI_SCANNERSETUPGUIDE_TOKEN_DAT_WRITTEN_WITH_RESTRICTED'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_API_TOKEN_IS_SAVED'),
         security: 'Even if a teller\'s Windows account is compromised, the attacker cannot extract the scanner token. Only the service (running as SYSTEM) can read it.',
       },
       {
         n: 14,
-        title: 'ASTRAScannerAgent service installed and started',
-        detail: 'The installer registers ASTRAScannerAgent as a Windows service set to Automatic (start on boot). The service starts immediately. On the Branch Scan Monitor in ASTRA, the branch will show as "Connected" within seconds.',
+        title: msg('UI_SCANNERSETUPGUIDE_ASTRASCANNERAGENT_SERVICE_INSTALLED'),
+        detail: msg('UI_SCANNERSETUPGUIDE_THE_INSTALLER_REGISTERS_ASTRASCANNER'),
         security: null,
       },
       {
         n: 15,
-        title: '✅ Scanner Operational — Teller can begin',
-        detail: 'Load cheques into the Canon CR-120 / CR-150 feeder. Each cheque is automatically captured (front + back image, hardware MICR), UV scanned, and submitted to ASTRA CTS. The teller sees real-time status in the BranchScan monitor on their workstation.',
+        title: msg('UI_SCANNERSETUPGUIDE_SCANNER_OPERATIONAL_TELLER_CAN_BEGIN'),
+        detail: msg('UI_SCANNERSETUPGUIDE_LOAD_CHEQUES_INTO_THE_CANON'),
         security: null,
       },
     ],
@@ -220,33 +221,33 @@ const PHASES = [
 const SECURITY_PRINCIPLES = [
   {
     icon: '🔒',
-    title: 'Branch ID is server-authoritative',
-    desc: 'The IT coordinator enters zero branch identity. The server returns it. No forgery possible.',
+    title: msg('UI_SCANNERSETUPGUIDE_BRANCH_ID_IS_SERVER_AUTHORITATIVE'),
+    desc: msg('UI_SCANNERSETUPGUIDE_THE_IT_COORDINATOR_ENTERS_ZERO'),
   },
   {
     icon: '⚡',
-    title: 'Single-use code (atomic)',
-    desc: 'Redis GETDEL — code vanishes on first successful exchange. No replay window.',
+    title: msg('UI_SCANNERSETUPGUIDE_SINGLE_USE_CODE_ATOMIC'),
+    desc: msg('UI_SCANNERSETUPGUIDE_REDIS_GETDEL_CODE_VANISHES_ON'),
   },
   {
     icon: '🖥️',
-    title: 'Machine-bound token',
-    desc: 'Token stored in cts.scanner_tokens with machine_id = COMPUTERNAME. Fails auth on any other PC.',
+    title: msg('UI_SCANNERSETUPGUIDE_MACHINE_BOUND_TOKEN'),
+    desc: msg('UI_SCANNERSETUPGUIDE_TOKEN_STORED_IN_CTS_SCANNER'),
   },
   {
     icon: '🛡️',
-    title: 'token.dat is unreadable by users',
-    desc: 'NTFS ACL: SYSTEM + Administrators only. Standard teller account cannot read it.',
+    title: msg('UI_SCANNERSETUPGUIDE_TOKEN_DAT_IS_UNREADABLE_BY'),
+    desc: msg('UI_SCANNERSETUPGUIDE_NTFS_ACL_SYSTEM_ADMINISTRATORS_ONLY'),
   },
   {
     icon: '⏰',
-    title: '24-hour code expiry',
-    desc: 'Unexchanged codes auto-expire from Redis. No dangling codes after installation window.',
+    title: msg('UI_SCANNERSETUPGUIDE_24_HOUR_CODE_EXPIRY'),
+    desc: msg('UI_SCANNERSETUPGUIDE_UNEXCHANGED_CODES_AUTO_EXPIRE_FROM'),
   },
   {
     icon: '🔑',
-    title: 'One active code per branch',
-    desc: 'Generating a new code invalidates the previous one. No duplicate registrations.',
+    title: msg('UI_SCANNERSETUPGUIDE_ONE_ACTIVE_CODE_PER_BRANCH'),
+    desc: msg('UI_SCANNERSETUPGUIDE_GENERATING_A_NEW_CODE_INVALIDATES'),
   },
 ]
 
@@ -372,40 +373,37 @@ export default function ScannerSetupGuide() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`text-xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded border ${th.tag}`}>
-                    Training Guide
+                   {msg('UI_SCANNERSETUPGUIDE_TRAINING_GUIDE')}
                   </span>
                   <span className={`text-xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded border ${th.badge}`}>
-                    For Bank IT Admin
+                   {msg('UI_SCANNERSETUPGUIDE_FOR_BANK_IT_ADMIN')}
                   </span>
                 </div>
                 <h1 className={`text-2xl font-bold ${th.heading} mt-2`}>
-                  Scanner Registration Flow
+                 {msg('UI_SCANNERSETUPGUIDE_SCANNER_REGISTRATION_FLOW')}
                 </h1>
                 <p className={`text-sm mt-1 ${th.muted}`}>
-                  Canon CR-120 / CR-150 · ASTRA CTS Edge Agent · Windows Service
+                 {msg('UI_SCANNERSETUPGUIDE_CANON_CR_120_CR_150')}
                 </p>
               </div>
               <div className={`text-right text-xs ${th.muted} flex-shrink-0`}>
-                <div>ASTRA Platform</div>
-                <div>CTS-SCANNER-SETUP-001</div>
-                <div>Rev 2026-09-01</div>
+                <div>{msg('UI_SCANNERSETUPGUIDE_ASTRA_PLATFORM')}</div>
+                <div>{msg('UI_SCANNERSETUPGUIDE_CTS_SCANNER_SETUP_001')}</div>
+                <div>{msg('UI_SCANNERSETUPGUIDE_REV_2026_09_01')}</div>
               </div>
             </div>
 
             {/* Intro */}
             <div className={`mt-4 p-4 rounded-xl border ${th.card} text-sm ${th.body} leading-relaxed`}>
-              <strong className={th.heading}>Overview:</strong> This guide walks through the complete process
-              of registering a new branch scanner with ASTRA CTS — from generating a one-time code at
-              bank headquarters to the scanner agent going live on the teller PC. The entire setup
-              takes under 10 minutes. The branch IT coordinator needs to enter only 2 fields.
+              <strong className={th.heading}>{msg('UI_SCANNERSETUPGUIDE_OVERVIEW')}</strong> {msg('UI_SCANNERSETUPGUIDE_THIS_GUIDE_WALKS_THROUGH_THE')}
             </div>
 
             {/* Quick stats */}
             <div className="grid grid-cols-3 gap-3 mt-3">
               {[
-                { label: 'Steps total', value: '15' },
-                { label: 'Fields in installer', value: '2' },
-                { label: 'Time to live', value: '< 10 min' },
+                { label: msg('UI_SCANNERSETUPGUIDE_STEPS_TOTAL'), value: '15' },
+                { label: msg('UI_SCANNERSETUPGUIDE_FIELDS_IN_INSTALLER'), value: '2' },
+                { label: msg('UI_SCANNERSETUPGUIDE_TIME_TO_LIVE'), value: '< 10 min' },
               ].map(s => (
                 <div key={s.label} className={`rounded-xl border ${th.card} px-4 py-3 text-center`}>
                   <div className={`text-2xl font-bold tabular-nums ${th.heading}`}>{s.value}</div>
@@ -417,12 +415,12 @@ export default function ScannerSetupGuide() {
 
           {/* ── Who Does What ──────────────────────────── */}
           <div className={`mb-6 p-4 rounded-xl border ${th.card}`}>
-            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>Actors in this process</div>
+            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>{msg('UI_SCANNERSETUPGUIDE_ACTORS_IN_THIS_PROCESS')}</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               {[
-                { color: 'violet', label: 'Ops Manager', loc: 'Bank HQ', desc: 'Generates registration code in Branch Master' },
-                { color: 'sky', label: 'Branch IT', loc: 'At branch', desc: 'Runs installer on teller PC with the code' },
-                { color: 'slate', label: 'ASTRA Server', loc: 'Automatic', desc: 'Validates code, issues machine-bound token' },
+                { color: 'violet', label: msg('UI_SCANNERSETUPGUIDE_OPS_MANAGER'), loc: 'Bank HQ', desc: msg('UI_SCANNERSETUPGUIDE_GENERATES_REGISTRATION_CODE_IN_BRANC') },
+                { color: 'sky', label: msg('UI_SCANNERSETUPGUIDE_BRANCH_IT'), loc: 'At branch', desc: msg('UI_SCANNERSETUPGUIDE_RUNS_INSTALLER_ON_TELLER_PC') },
+                { color: 'slate', label: msg('UI_SCANNERSETUPGUIDE_ASTRA_SERVER'), loc: 'Automatic', desc: msg('UI_SCANNERSETUPGUIDE_VALIDATES_CODE_ISSUES_MACHINE_BOUND') },
               ].map(a => (
                 <div key={a.label} className={`flex gap-3 p-3 rounded-lg ${isDark ? 'bg-navy-800/60' : 'bg-slate-50'}`}>
                   <div className={`w-2 rounded-full flex-shrink-0 mt-0.5 self-stretch ${
@@ -451,7 +449,7 @@ export default function ScannerSetupGuide() {
 
           {/* ── Security Principles ────────────────────── */}
           <div className="mt-8">
-            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>Security design — why it is safe</div>
+            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>{msg('UI_SCANNERSETUPGUIDE_SECURITY_DESIGN_WHY_IT_IS')}</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {SECURITY_PRINCIPLES.map(p => (
                 <div key={p.title} className={`rounded-xl border ${th.card} p-4 flex gap-3`}>
@@ -467,7 +465,7 @@ export default function ScannerSetupGuide() {
 
           {/* ── Installer fields reference ─────────────── */}
           <div className="mt-6">
-            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>Quick reference — what the installer shows</div>
+            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>{msg('UI_SCANNERSETUPGUIDE_QUICK_REFERENCE_WHAT_THE_INSTALLER')}</div>
             <div className={`rounded-xl border ${th.card} overflow-hidden`}>
               <div className={`px-5 py-3 border-b ${th.divider} flex items-center gap-2`}>
                 <div className="flex gap-1.5">
@@ -475,40 +473,40 @@ export default function ScannerSetupGuide() {
                   <div className="w-3 h-3 rounded-full bg-amber-500/70" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
                 </div>
-                <span className={`text-xs ${th.muted}`}>ASTRA Scanner Setup — Step 2 of 4</span>
+                <span className={`text-xs ${th.muted}`}>{msg('UI_SCANNERSETUPGUIDE_ASTRA_SCANNER_SETUP_STEP_2')}</span>
               </div>
               <div className="p-5">
-                <div className={`font-semibold ${th.heading} mb-4`}>Connect to ASTRA Server</div>
+                <div className={`font-semibold ${th.heading} mb-4`}>{msg('UI_SCANNERSETUPGUIDE_CONNECT_TO_ASTRA_SERVER')}</div>
                 <div className="space-y-4">
                   <div>
                     <label className={`block text-xs font-semibold uppercase tracking-wide ${th.muted} mb-1`}>
-                      ASTRA Server URL
+                     {msg('UI_SCANNERSETUPGUIDE_ASTRA_SERVER_URL')}
                     </label>
                     <div className={`rounded-lg border px-3 py-2 text-sm font-mono ${
                       isDark ? 'bg-navy-800 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-300 text-slate-700'
                     }`}>
-                      https://astra.yourbank.in
+                     {msg('UI_SCANNERSETUPGUIDE_HTTPS_ASTRA_YOURBANK_IN')}
                     </div>
-                    <div className={`text-xs ${th.muted} mt-1`}>Provided by bank IT — same URL for all branches</div>
+                    <div className={`text-xs ${th.muted} mt-1`}>{msg('UI_SCANNERSETUPGUIDE_PROVIDED_BY_BANK_IT_SAME')}</div>
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase tracking-wide ${th.muted} mb-1`}>
-                      Registration Code
+                     {msg('UI_SCANNERSETUPGUIDE_REGISTRATION_CODE')}
                     </label>
                     <div className={`rounded-lg border px-3 py-2 text-xl font-mono tracking-[0.25em] font-bold ${
                       isDark ? 'bg-navy-800 border-white/10 text-violet-300' : 'bg-slate-50 border-slate-300 text-violet-700'
                     }`}>
-                      SARAS3X7
+                     {msg('UI_SCANNERSETUPGUIDE_SARAS3X7')}
                     </div>
-                    <div className={`text-xs ${th.muted} mt-1`}>8 characters · case-insensitive · expires in 24 hours</div>
+                    <div className={`text-xs ${th.muted} mt-1`}>{msg('UI_SCANNERSETUPGUIDE_8_CHARACTERS_CASE_INSENSITIVE_EXPIRE')}</div>
                   </div>
                   <div className={`flex justify-between items-center pt-2 border-t ${th.divider}`}>
-                    <span className={`text-sm ${th.muted}`}>← Back</span>
+                    <span className={`text-sm ${th.muted}`}>{msg('UI_SCANNERSETUPGUIDE_BACK')}</span>
                     <div className="flex items-center gap-2">
                       <div className={`text-xs px-3 py-2 rounded-lg ${
                         isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
                       } font-semibold`}>
-                        Verify →
+                       {msg('UI_SCANNERSETUPGUIDE_VERIFY')}
                       </div>
                     </div>
                   </div>
@@ -516,13 +514,13 @@ export default function ScannerSetupGuide() {
               </div>
             </div>
             <div className={`mt-2 text-xs ${th.muted} text-center`}>
-              After "Verify" succeeds, the installer completes automatically — no more input needed.
+             {msg('UI_SCANNERSETUPGUIDE_AFTER_VERIFY_SUCCEEDS_THE_INSTALLER')}
             </div>
           </div>
 
           {/* ── Troubleshooting ────────────────────────── */}
           <div className="mt-6">
-            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>Common issues</div>
+            <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted} mb-3`}>{msg('UI_SCANNERSETUPGUIDE_COMMON_ISSUES')}</div>
             <div className={`rounded-xl border ${th.card} divide-y ${th.divider}`}>
               {[
                 {
@@ -555,8 +553,8 @@ export default function ScannerSetupGuide() {
 
           {/* ── Footer ────────────────────────────────── */}
           <div className={`mt-8 pt-4 border-t ${th.divider} flex justify-between items-center text-xs ${th.muted}`}>
-            <span>ASTRA CTS · Scanner Registration Guide · CTS-SCANNER-SETUP-001</span>
-            <span>Rev 2026-09-01</span>
+            <span>{msg('UI_SCANNERSETUPGUIDE_ASTRA_CTS_SCANNER_REGISTRATION_GUIDE')}</span>
+            <span>{msg('UI_SCANNERSETUPGUIDE_REV_2026_09_01')}</span>
           </div>
 
         </div>

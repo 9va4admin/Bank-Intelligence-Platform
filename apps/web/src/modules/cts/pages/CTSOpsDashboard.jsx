@@ -339,7 +339,7 @@ export default function CTSOpsDashboard() {
         `/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error('Download URL request failed')
+      if (!res.ok) throw new Error(msg('UI_OPSDASHBOARD_DOWNLOAD_URL_REQUEST_FAILED'))
       return res.json()
     },
     onSuccess: (data, { sessionId, path }) => {
@@ -437,12 +437,11 @@ export default function CTSOpsDashboard() {
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_OPSDASHBOARD_CLEARING_OPERATIONS_DASHBOARD')}</h1>
               <p className={`text-[11px] ${th.muted}`}>
-                {dashTab === 'mybank'
+                {msg('UI_OPSDASHBOARD_SESSIONS_SETTLED', { value: dashTab === 'mybank'
                   ? (bankMode !== 'SB_ONLY' && includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
-                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs')}
-                {' · '}{active.TODAY.clearing_date} · {totalSessions} sessions · {settledSessions} settled
+                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs'), clearing_date: active.TODAY.clearing_date, totalSessions, settledSessions })}
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -456,20 +455,20 @@ export default function CTSOpsDashboard() {
                   <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includeSMB ? 'bg-[#f5c842]' : (isDark ? 'bg-white/15' : 'bg-slate-300')}`}>
                     <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includeSMB ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                   </span>
-                  + SMB
+                 {msg('UI_OPSDASHBOARD_SMB')}
                 </button>
               )}
               <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} bankMode={bankMode} />
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                Live
+               {msg('UI_COMMON_LIVE')}
               </span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
                 className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors
                   ${isDark ? 'border-white/15 text-slate-300 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
               >
-                ↓ Today's MIS
+               {msg('UI_OPSDASHBOARD_TODAY_S_MIS')}
               </button>
             </div>
           </div>
@@ -484,8 +483,8 @@ export default function CTSOpsDashboard() {
             <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
               <span className="text-lg">📂</span>
               <div>
-                <div className="text-xs font-semibold">No clearing data yet — POC mode</div>
-                <div className="text-[11px] opacity-70 mt-0.5">Drop TIF/JPG files into the inward folder to trigger the pipeline. Stats will update as instruments are processed.</div>
+                <div className="text-xs font-semibold">{msg('UI_OPSDASHBOARD_NO_CLEARING_DATA_YET_POC')}</div>
+                <div className="text-[11px] opacity-70 mt-0.5">{msg('UI_OPSDASHBOARD_DROP_TIF_JPG_FILES_INTO')}</div>
               </div>
             </div>
           )}

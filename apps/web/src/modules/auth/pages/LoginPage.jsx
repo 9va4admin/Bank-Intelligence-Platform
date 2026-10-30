@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { useAuth } from '../../../shared/context/AuthContext'
 import './LoginPage.css'
+import { msg } from '../../../shared/messages'
 
 /* ── API helper ──────────────────────────────────────────── */
 
@@ -40,10 +41,10 @@ function groupSecret(secret) {
 /* ── Stat cycling data ───────────────────────────────────── */
 
 const STATS = [
-  { num: '<600ms',  desc: 'AI agent decision — per cheque, every cheque' },
-  { num: '0.000%',  desc: 'IET breach rate — RBI mandate, zero always' },
-  { num: '500',     desc: 'Parallel AI agents per inward batch' },
-  { num: '₹71L Cr', desc: 'CTS clearing market · FY25 · 609M cheques/year' },
+  { num: '<600ms',  desc: msg('UI_LOGINPAGE_AI_AGENT_DECISION_PER_CHEQUE') },
+  { num: '0.000%',  desc: msg('UI_LOGINPAGE_IET_BREACH_RATE_RBI_MANDATE') },
+  { num: '500',     desc: msg('UI_LOGINPAGE_PARALLEL_AI_AGENTS_PER_INWARD') },
+  { num: '₹71L Cr', desc: msg('UI_LOGINPAGE_CTS_CLEARING_MARKET_FY25_609M') },
 ]
 
 /* ── Inline style objects (complex CSS that Tailwind can't express) ── */
@@ -198,9 +199,9 @@ export default function LoginPage() {
       return
     }
     if (status === 423)
-      setError('Account locked after repeated failures. Contact your administrator.')
+      setError(msg('UI_LOGINPAGE_ACCOUNT_LOCKED_AFTER_REPEATED_FAILUR'))
     else
-      setError('Invalid username or password.')
+      setError(msg('UI_LOGINPAGE_INVALID_USERNAME_OR_PASSWORD'))
   }
 
   async function beginEnrol() {
@@ -208,7 +209,7 @@ export default function LoginPage() {
     const { ok, data } = await postJSON('/v1/auth/mfa/enrol/begin')
     setBusy(false)
     if (ok && data) { setEnrol(data); setCode(''); setStep('enrol') }
-    else setError('Could not start MFA setup. Please try again.')
+    else setError(msg('UI_LOGINPAGE_COULD_NOT_START_MFA_SETUP'))
   }
 
   async function submitVerify(e) {
@@ -217,7 +218,7 @@ export default function LoginPage() {
     const { ok, data } = await postJSON('/v1/auth/mfa/verify', { code })
     setBusy(false)
     if (ok) finish(data)
-    else setError('Invalid code. Try the current 6-digit code from your app.')
+    else setError(msg('UI_LOGINPAGE_INVALID_CODE_TRY_THE_CURRENT'))
   }
 
   async function submitEnrolConfirm(e) {
@@ -226,7 +227,7 @@ export default function LoginPage() {
     const { ok, data } = await postJSON('/v1/auth/mfa/enrol/confirm', { code })
     setBusy(false)
     if (ok) finish(data)
-    else setError('That code did not match. Scan the key again and enter the current code.')
+    else setError(msg('UI_LOGINPAGE_THAT_CODE_DID_NOT_MATCH'))
   }
 
   async function finish(data) {
@@ -322,10 +323,10 @@ export default function LoginPage() {
             </div>
             <div>
               <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, color:'#fff', letterSpacing:'-0.02em' }}>
-                ASTRA
+               {msg('UI_COMMON_ASTRA')}
               </div>
               <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9.5, color:'rgba(255,255,255,0.28)', letterSpacing:'0.05em', marginTop:2 }}>
-                Precision Banking. Zero Compromise.
+               {msg('UI_LOGINPAGE_PRECISION_BANKING_ZERO_COMPROMISE')}
               </div>
             </div>
           </div>
@@ -337,7 +338,7 @@ export default function LoginPage() {
               fontFamily:"'JetBrains Mono',monospace", fontSize:10,
               letterSpacing:'0.14em', textTransform:'uppercase', color:'#f5c842', marginBottom:18,
             }}>
-              AI-Native Cheque Clearing
+             {msg('UI_LOGINPAGE_AI_NATIVE_CHEQUE_CLEARING')}
             </div>
 
             {/* Cycling stat number */}
@@ -353,9 +354,9 @@ export default function LoginPage() {
             {/* Pillars */}
             <div className="lp-anim-pillars lp-pillars-block" style={{ marginTop:40, display:'flex', flexDirection:'column', gap:16 }}>
               {[
-                { title:'500 parallel agents per batch',   body:'One AI agent per inward cheque · OCR · Signature · Fraud · SHAP' },
-                { title:'Zero cloud. 100% on-premises.',   body:'Data localisation enforced · No vendor access · Air-gapped DC3 backup' },
-                { title:'Cryptographic audit trail',       body:'Immudb Merkle tree · HSM-signed · WORM · 10-year legal hold' },
+                { title:msg('UI_LOGINPAGE_500_PARALLEL_AGENTS_PER_BATCH'),   body:msg('UI_LOGINPAGE_ONE_AI_AGENT_PER_INWARD') },
+                { title:msg('UI_LOGINPAGE_ZERO_CLOUD_100_ON_PREMISES'),   body:msg('UI_LOGINPAGE_DATA_LOCALISATION_ENFORCED_NO_VENDOR') },
+                { title:msg('UI_LOGINPAGE_CRYPTOGRAPHIC_AUDIT_TRAIL'),       body:msg('UI_LOGINPAGE_IMMUDB_MERKLE_TREE_HSM_SIGNED') },
               ].map(p => (
                 <div key={p.title} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
                   <div style={{
@@ -375,7 +376,7 @@ export default function LoginPage() {
             <div className="lp-anim-mandate" style={{ marginTop:32, display:'inline-flex', alignItems:'center', gap:9 }}>
               <div className="lp-anim-pulse" style={{ width:7, height:7, borderRadius:'50%', background:'#f5c842', flexShrink:0 }}/>
               <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'rgba(245,200,66,0.5)', letterSpacing:'0.05em' }}>
-                RBI T+3 IET Mandate · Jan 2026 · Enforced by architecture
+               {msg('UI_LOGINPAGE_RBI_T_3_IET_MANDATE')}
               </div>
             </div>
 
@@ -418,7 +419,7 @@ export default function LoginPage() {
                 <form onSubmit={submitPassword} style={{ display:'flex', flexDirection:'column', gap:0 }}>
                   <div style={{ marginBottom:16 }}>
                     <label style={{ display:'block', fontSize:11.5, fontWeight:500, color:'rgba(255,255,255,0.38)', marginBottom:7, letterSpacing:'0.01em' }}>
-                      Username
+                     {msg('UI_LOGINPAGE_USERNAME')}
                     </label>
                     <input
                       className="lp-input"
@@ -433,7 +434,7 @@ export default function LoginPage() {
                   </div>
                   <div style={{ marginBottom:20 }}>
                     <label style={{ display:'block', fontSize:11.5, fontWeight:500, color:'rgba(255,255,255,0.38)', marginBottom:7, letterSpacing:'0.01em' }}>
-                      Password
+                     {msg('UI_LOGINPAGE_PASSWORD')}
                     </label>
                     <input
                       className="lp-input"
@@ -478,7 +479,7 @@ export default function LoginPage() {
                     className="lp-btn-ghost"
                     onClick={() => { setStep('password'); setError('') }}
                   >
-                    ← Back to sign in
+                   {msg('UI_LOGINPAGE_BACK_TO_SIGN_IN')}
                   </button>
                 </form>
               )}
@@ -495,19 +496,19 @@ export default function LoginPage() {
                         <QRCodeSVG value={enrol.otpauth_uri} size={120} />
                       </div>
                       <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:'rgba(255,255,255,0.22)', textAlign:'center' }}>
-                        Authenticator · Authy
+                       {msg('UI_LOGINPAGE_AUTHENTICATOR_AUTHY')}
                       </div>
                     </div>
                     {/* Manual key side */}
                     <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', justifyContent:'center', gap:7 }}>
                       <div style={{ fontSize:11, fontWeight:500, color:'rgba(255,255,255,0.35)' }}>
-                        Can't scan? Enter manually
+                       {msg('UI_LOGINPAGE_CAN_T_SCAN_ENTER_MANUALLY')}
                       </div>
                       <div style={{ ...S.secretBox, fontSize:11, marginBottom:0 }}>
                         {groupSecret(enrol.secret)}
                       </div>
                       <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:'rgba(255,255,255,0.2)' }}>
-                        Issuer: ASTRA · TOTP · 6 digits · 30s
+                       {msg('UI_LOGINPAGE_ISSUER_ASTRA_TOTP_6_DIGITS')}
                       </div>
                     </div>
                   </div>
@@ -515,7 +516,7 @@ export default function LoginPage() {
                   {/* Confirm code */}
                   <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:14, marginBottom:12 }}>
                     <label style={{ display:'block', fontSize:11.5, fontWeight:500, color:'rgba(255,255,255,0.38)', marginBottom:7 }}>
-                      Confirm the current 6-digit code
+                     {msg('UI_LOGINPAGE_CONFIRM_THE_CURRENT_6_DIGIT')}
                     </label>
                     <input
                       className="lp-input lp-totp"
@@ -541,8 +542,8 @@ export default function LoginPage() {
 
               {/* Footer */}
               <div style={{ ...S.panelFoot, ...(step === 'enrol' ? { marginTop:12, paddingTop:10 } : {}) }}>
-                Authorised access only · All activity is audited<br/>
-                mTLS enforced · httpOnly session cookie
+               {msg('UI_LOGINPAGE_AUTHORISED_ACCESS_ONLY_ALL_ACTIVITY')}<br/>
+               {msg('UI_LOGINPAGE_MTLS_ENFORCED_HTTPONLY_SESSION_COOKI')}
               </div>
 
             </div>{/* /glass */}
@@ -552,7 +553,7 @@ export default function LoginPage() {
             <span className="lp-brk lp-brk-br" />
             <span className="lp-chf" style={S.chfA} />
             <span className="lp-chf" style={S.chfB} />
-            <span className="lp-chf-lbl">Auth.Node</span>
+            <span className="lp-chf-lbl">{msg('UI_LOGINPAGE_AUTH_NODE')}</span>
 
           </div>{/* /frame */}
         </div>{/* /outer */}

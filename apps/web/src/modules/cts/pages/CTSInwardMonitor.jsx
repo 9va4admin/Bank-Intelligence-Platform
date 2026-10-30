@@ -14,6 +14,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import IETTimer from '../components/IETTimer'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -59,12 +60,12 @@ const CHQ_GAP  = 10
 // ── Stage config (exported for tests) ────────────────────────────────────────
 
 export const STAGES = [
-  { id: 'RECEIVED',  label: 'Received',     icon: '📥', x: 0            },
+  { id: 'RECEIVED',  label: msg('UI_COMMON_RECEIVED'),     icon: '📥', x: 0            },
   { id: 'OCR',       label: 'OCR',          icon: '🔢', x: LANE_W       },
-  { id: 'SIGNATURE', label: 'Signature',    icon: '✍',  x: LANE_W * 2   },
-  { id: 'FRAUD',     label: 'Fraud Score',  icon: '🛡',  x: LANE_W * 3   },
-  { id: 'REVIEW',    label: 'Decision',     icon: '⚖',  x: LANE_W * 4   },
-  { id: 'NGCH',      label: 'NGCH Filing',  icon: '📤', x: LANE_W * 5   },
+  { id: 'SIGNATURE', label: msg('UI_COMMON_SIGNATURE'),    icon: '✍',  x: LANE_W * 2   },
+  { id: 'FRAUD',     label: msg('UI_COMMON_FRAUD_SCORE'),  icon: '🛡',  x: LANE_W * 3   },
+  { id: 'REVIEW',    label: msg('UI_COMMON_DECISION'),     icon: '⚖',  x: LANE_W * 4   },
+  { id: 'NGCH',      label: msg('UI_DECISIONSLOG_NGCH_FILING'),  icon: '📤', x: LANE_W * 5   },
 ]
 
 // ── Urgency classifier (exported for tests) ───────────────────────────────────
@@ -157,7 +158,7 @@ function StageHeaderNode({ data }) {
       {data.count > 0 && (
         <span className={`text-[9px] font-mono mt-0.5
           ${data.hasCrit ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          {data.count} in-flight
+          {msg('UI_INWARDMONITOR_IN_FLIGHT', { count: data.count })}
         </span>
       )}
     </div>
@@ -278,22 +279,22 @@ function DetailPanel({ instr, onClose, isDark }) {
   }
 
   const rows = [
-    { label: 'Instrument',  value: `****${instr.id.slice(-4)}` },
-    { label: 'Stage',       value: instr.stage },
-    { label: 'Status',      value: instr.status },
-    { label: 'Bank',        value: instr.bank },
-    { label: 'Amount',      value: instr.amount },
-    { label: 'Script',      value: instr.script?.toUpperCase() ?? '—' },
+    { label: msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'),  value: `****${instr.id.slice(-4)}` },
+    { label: msg('UI_INWARDMONITOR_STAGE'),       value: instr.stage },
+    { label: msg('UI_COMMON_STATUS'),      value: instr.status },
+    { label: msg('UI_COMMON_BANK'),        value: instr.bank },
+    { label: msg('CTS_OUT_CUSTODY_COL_AMOUNT'),      value: instr.amount },
+    { label: msg('UI_INWARDMONITOR_SCRIPT'),      value: instr.script?.toUpperCase() ?? '—' },
   ]
 
   return (
     <div className={`w-72 border-l flex flex-col gap-4 p-5 overflow-y-auto ${th.surface}`}>
       <div className="flex items-center justify-between">
-        <span className={`text-sm font-semibold ${th.heading}`}>Cheque Detail</span>
+        <span className={`text-sm font-semibold ${th.heading}`}>{msg('UI_INWARDMONITOR_CHEQUE_DETAIL')}</span>
         <button
           onClick={onClose}
           className={`text-lg leading-none ${th.muted} hover:opacity-70`}
-          aria-label="Close detail panel"
+          aria-label={msg('UI_INWARDMONITOR_CLOSE_DETAIL_PANEL')}
         >
           ×
         </button>
@@ -313,7 +314,7 @@ function DetailPanel({ instr, onClose, isDark }) {
       </div>
 
       <div className={`text-xs px-3 py-2.5 rounded-lg border leading-relaxed ${th.stat} ${th.muted}`}>
-        IET Watchdog armed — fires emergency NGCH filing at T−30s regardless of processing state.
+       {msg('UI_INWARDMONITOR_IET_WATCHDOG_ARMED_FIRES_EMERGENCY')}
       </div>
     </div>
   )
@@ -380,23 +381,23 @@ export default function CTSInwardMonitor() {
         {/* ── Page header ── */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${th.divider} ${th.surface}`}>
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Inward IET Monitor</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_INWARDMONITOR_INWARD_IET_MONITOR')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              Live pipeline — {total} cheques in-flight this clearing session
+             {msg('UI_INWARDMONITOR_LIVE_PIPELINE_CHEQUES_IN_FLIGHT', { total })}
             </p>
           </div>
           <div className={`text-[10px] font-mono px-3 py-1.5 rounded-full border ${th.stat} ${th.muted}`}>
-            LIVE · updates every 1s
+           {msg('UI_INWARDMONITOR_LIVE_UPDATES_EVERY_1S')}
           </div>
         </div>
 
         {/* ── Stats bar ── */}
         <div className={`flex items-center gap-3 px-6 py-3 border-b ${th.divider}`}>
           {[
-            { label: 'In-Flight',    value: total,    color: th.heading },
-            { label: 'IET Critical', value: critical, color: critical > 0 ? 'text-red-400'     : th.muted },
-            { label: 'Human Review', value: inReview, color: inReview  > 0 ? 'text-amber-400'  : th.muted },
-            { label: 'NGCH Filing',  value: inNgch,   color: 'text-emerald-400' },
+            { label: msg('UI_COMMON_IN_FLIGHT'),    value: total,    color: th.heading },
+            { label: msg('UI_INWARDMONITOR_IET_CRITICAL'), value: critical, color: critical > 0 ? 'text-red-400'     : th.muted },
+            { label: msg('UI_COMMON_HUMAN_REVIEW'), value: inReview, color: inReview  > 0 ? 'text-amber-400'  : th.muted },
+            { label: msg('UI_DECISIONSLOG_NGCH_FILING'),  value: inNgch,   color: 'text-emerald-400' },
           ].map(s => (
             <div key={s.label}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${th.stat}`}>
@@ -459,13 +460,13 @@ export default function CTSInwardMonitor() {
               {/* Stage dividers + urgency legend */}
               <Panel position="bottom-left">
                 <div className={`flex items-center gap-3 text-[10px] font-mono px-3 py-2 rounded-lg border ${th.stat} ${th.muted}`}>
-                  <span>IET:</span>
+                  <span>{msg('UI_INWARDMONITOR_IET')}</span>
                   {[
-                    { label: '>60m', color: 'bg-emerald-500' },
-                    { label: '30–60m', color: 'bg-yellow-400' },
-                    { label: '15–30m', color: 'bg-amber-400' },
-                    { label: '<15m', color: 'bg-red-400' },
-                    { label: '<5m', color: 'bg-red-500 animate-pulse' },
+                    { label: msg('UI_INWARDMONITOR_60M'), color: 'bg-emerald-500' },
+                    { label: msg('UI_INWARDMONITOR_30_60M'), color: 'bg-yellow-400' },
+                    { label: msg('UI_INWARDMONITOR_15_30M'), color: 'bg-amber-400' },
+                    { label: msg('UI_INWARDMONITOR_15M'), color: 'bg-red-400' },
+                    { label: msg('UI_INWARDMONITOR_5M'), color: 'bg-red-500 animate-pulse' },
                   ].map(l => (
                     <span key={l.label} className="flex items-center gap-1">
                       <span className={`inline-block w-2 h-2 rounded-full ${l.color}`} />

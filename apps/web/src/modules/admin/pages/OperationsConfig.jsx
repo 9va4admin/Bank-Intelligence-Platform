@@ -14,105 +14,106 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import InfoTooltip from '../../../shared/components/InfoTooltip'
+import { msg } from '../../../shared/messages'
 
 // ─── UI metadata schema (labels, types, options — not from API) ───────────────
 
 const CONFIG_META = {
   stp_mode: {
-    label: 'STP Mode', unit: '', type: 'enum',
+    label: msg('UI_OPERATIONSCONFIG_STP_MODE'), unit: '', type: 'enum',
     options: ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP'],
     defaultVal: 'SUPERVISED', category: 'STP Pipeline',
-    desc: 'Controls when AI STP_CONFIRM decisions auto-file to NGCH. FULL_MANUAL = every cheque goes to human review. SUPERVISED = AI recommends, human confirms. SELECTIVE = AI auto-files low-risk, human reviews the rest. FULL_STP = all STP_CONFIRM decisions auto-file without review.',
+    desc: msg('UI_OPERATIONSCONFIG_CONTROLS_WHEN_AI_STP_CONFIRM'),
     warn: true, editable: true,
   },
   stp_auto_confirm_threshold: {
-    label: 'STP Auto-Confirm Score', unit: 'score (0–1)', type: 'float',
+    label: msg('UI_OPERATIONSCONFIG_STP_AUTO_CONFIRM_SCORE'), unit: 'score (0–1)', type: 'float',
     min: 0.85, max: 0.99, defaultVal: '0.92', category: 'STP Pipeline',
-    desc: 'Fraud probability below this score qualifies a cheque for STP_CONFIRM. Only applies when stp_mode is SELECTIVE or FULL_STP.',
+    desc: msg('UI_OPERATIONSCONFIG_FRAUD_PROBABILITY_BELOW_THIS_SCORE'),
     warn: false, editable: true,
   },
   human_review_fraud_threshold: {
-    label: 'Human Review Trigger Score', unit: 'score (0–1)', type: 'float',
+    label: msg('UI_OPERATIONSCONFIG_HUMAN_REVIEW_TRIGGER_SCORE'), unit: 'score (0–1)', type: 'float',
     min: 0.50, max: 0.90, defaultVal: '0.72', category: 'STP Pipeline',
-    desc: 'Fraud probability above this score routes the cheque to the ops reviewer queue instead of auto-confirm. Must be lower than STP threshold.',
+    desc: msg('UI_OPERATIONSCONFIG_FRAUD_PROBABILITY_ABOVE_THIS_SCORE'),
     warn: false, editable: true,
   },
   queue_tier_high_value_threshold: {
-    label: 'High-Value Queue Threshold', unit: '₹', type: 'integer',
+    label: msg('UI_OPERATIONSCONFIG_HIGH_VALUE_QUEUE_THRESHOLD'), unit: '₹', type: 'integer',
     min: 50000, max: 500000, defaultVal: '100000', category: 'Queue Segmentation',
-    desc: 'Cheques above this amount are routed to the High Value Kafka topic (cts.inward.{bank_id}.high_value) and a dedicated Temporal task queue.',
+    desc: msg('UI_OPERATIONSCONFIG_CHEQUES_ABOVE_THIS_AMOUNT_ARE', { bank_id: '{bank_id}' }),
     warn: false, editable: true,
   },
   queue_tier_very_high_threshold: {
-    label: 'Very High-Value Queue Threshold', unit: '₹', type: 'integer',
+    label: msg('UI_OPERATIONSCONFIG_VERY_HIGH_VALUE_QUEUE_THRESHOLD'), unit: '₹', type: 'integer',
     min: 500000, max: 50000000, defaultVal: '1000000', category: 'Queue Segmentation',
-    desc: 'Cheques above this amount are routed to the Very High Value Kafka topic (cts.inward.{bank_id}.very_high) with highest-priority worker pods.',
+    desc: msg('UI_OPERATIONSCONFIG_CHEQUES_ABOVE_THIS_AMOUNT_ARE_2', { bank_id: '{bank_id}' }),
     warn: false, editable: true,
   },
   allocation_mode: {
-    label: 'Reviewer Allocation Mode', unit: '', type: 'enum',
+    label: msg('UI_OPERATIONSCONFIG_REVIEWER_ALLOCATION_MODE'), unit: '', type: 'enum',
     options: ['SELF', 'HYBRID', 'AUTO'], defaultVal: 'HYBRID', category: 'Allocation',
-    desc: 'Controls how inward cheques are assigned to ops_reviewers. SELF = reviewers manually claim from queue. HYBRID = reviewers can claim manually or system auto-assigns unclaimed items. AUTO = system auto-assigns all using round-robin.',
+    desc: msg('UI_OPERATIONSCONFIG_CONTROLS_HOW_INWARD_CHEQUES_ARE'),
     warn: false, editable: true,
   },
   allocation_lock_ttl_minutes: {
-    label: 'Review Lock TTL', unit: 'minutes', type: 'integer',
+    label: msg('UI_OPERATIONSCONFIG_REVIEW_LOCK_TTL'), unit: 'minutes', type: 'integer',
     min: 5, max: 60, defaultVal: '10', category: 'Allocation',
-    desc: 'Redis lock duration for reviewer-claimed instruments. If a reviewer claims an instrument and does not submit a decision within this window, the lock expires and the instrument becomes claimable again.',
+    desc: msg('UI_OPERATIONSCONFIG_REDIS_LOCK_DURATION_FOR_REVIEWER'),
     warn: false, editable: true,
   },
   iet_minutes: {
-    label: 'IET Window', unit: 'minutes', type: 'integer',
+    label: msg('UI_COMMON_IET_WINDOW'), unit: 'minutes', type: 'integer',
     min: 60, max: 240, defaultVal: '180', category: 'IET & Timing',
-    desc: 'RBI-mandated Item Expiry Time window. Cheques not decided within this window are deemed approved and must be paid. Default: 180 min (3 hours). Do not lower without verifying operational capacity.',
+    desc: msg('UI_OPERATIONSCONFIG_RBI_MANDATED_ITEM_EXPIRY_TIME'),
     warn: true, editable: true,
   },
   ocr_min_confidence: {
-    label: 'OCR Minimum Confidence', unit: 'score (0–1)', type: 'float',
+    label: msg('UI_OPERATIONSCONFIG_OCR_MINIMUM_CONFIDENCE'), unit: 'score (0–1)', type: 'float',
     min: 0.80, max: 0.99, defaultVal: '0.90', category: 'AI Confidence',
-    desc: 'GOT-OCR2.0 confidence below this threshold routes the cheque to human review for manual MICR / field verification.',
+    desc: msg('UI_OPERATIONSCONFIG_GOT_OCR2_0_CONFIDENCE_BELOW'),
     warn: false, editable: true,
   },
   signature_min_match_score: {
-    label: 'Signature Match Minimum', unit: 'score (0–1)', type: 'float',
+    label: msg('UI_OPERATIONSCONFIG_SIGNATURE_MATCH_MINIMUM'), unit: 'score (0–1)', type: 'float',
     min: 0.75, max: 0.99, defaultVal: '0.87', category: 'AI Confidence',
-    desc: 'Siamese network match score below this routes to human review for manual signature comparison. Lower = more human review load; higher = more STP risk.',
+    desc: msg('UI_OPERATIONSCONFIG_SIAMESE_NETWORK_MATCH_SCORE_BELOW'),
     warn: false, editable: true,
   },
   high_value_amount_threshold: {
-    label: 'High-Value Dual-Approval Limit', unit: '₹', type: 'integer',
+    label: msg('UI_OPERATIONSCONFIG_HIGH_VALUE_DUAL_APPROVAL_LIMIT'), unit: '₹', type: 'integer',
     min: 100000, max: 10000000, defaultVal: '500000', category: 'Amount Controls',
-    desc: 'Cheques above this amount require dual ops_reviewer approval before NGCH filing, regardless of AI confidence score.',
+    desc: msg('UI_OPERATIONSCONFIG_CHEQUES_ABOVE_THIS_AMOUNT_REQUIRE'),
     warn: false, editable: true,
   },
   vault_miss_action: {
-    label: 'Vault Miss Action', unit: '', type: 'enum',
+    label: msg('UI_COMMON_VAULT_MISS_ACTION'), unit: '', type: 'enum',
     options: [], defaultVal: 'HUMAN_REVIEW', category: 'Security',
-    desc: 'Action when signature or PPS vault has no record for an account. LOCKED to HUMAN_REVIEW by platform constraint (Layer 1) — cannot be changed by any role.',
+    desc: msg('UI_OPERATIONSCONFIG_ACTION_WHEN_SIGNATURE_OR_PPS'),
     warn: true, editable: false,
   },
   outward_frozen_payee_action: {
-    label: 'Outward — Frozen Payee', unit: '', type: 'enum',
+    label: msg('UI_OPERATIONSCONFIG_OUTWARD_FROZEN_PAYEE'), unit: '', type: 'enum',
     options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
-    desc: 'When a depositor\'s payee account is FROZEN at deposit intake: HUMAN_REVIEW routes the instrument to the mismatch queue for an ops reviewer to decide. AUTO_RETURN rejects it at the teller window. FROZEN may be temporary (court order, regulatory hold) — HUMAN_REVIEW is recommended.',
+    desc: msg('UI_OPERATIONSCONFIG_WHEN_A_DEPOSITOR_S_PAYEE'),
     warn: false, editable: true,
   },
   outward_dormant_payee_action: {
-    label: 'Outward — Dormant Payee', unit: '', type: 'enum',
+    label: msg('UI_OPERATIONSCONFIG_OUTWARD_DORMANT_PAYEE'), unit: '', type: 'enum',
     options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
-    desc: 'When the payee account is DORMANT (no transactions for >2 years) at deposit intake. HUMAN_REVIEW gives an ops reviewer a chance to verify reactivation status before returning the cheque. AUTO_RETURN rejects immediately.',
+    desc: msg('UI_OPERATIONSCONFIG_WHEN_THE_PAYEE_ACCOUNT_IS'),
     warn: false, editable: true,
   },
   outward_npa_payee_action: {
-    label: 'Outward — NPA Payee', unit: '', type: 'enum',
+    label: msg('UI_OPERATIONSCONFIG_OUTWARD_NPA_PAYEE'), unit: '', type: 'enum',
     options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
-    desc: 'When the payee account is classified NPA at deposit intake. NPA is a credit classification — a deposit to that account may still be valid and creditable. HUMAN_REVIEW is strongly recommended; AUTO_RETURN should only be set after explicit compliance officer sign-off.',
+    desc: msg('UI_OPERATIONSCONFIG_WHEN_THE_PAYEE_ACCOUNT_IS_2'),
     warn: true, editable: true,
   },
   rear_image_required: {
-    label: 'Require Rear Cheque Image', unit: '', type: 'enum',
+    label: msg('UI_OPERATIONSCONFIG_REQUIRE_REAR_CHEQUE_IMAGE'), unit: '', type: 'enum',
     options: ['false', 'true'], defaultVal: 'false', category: 'Outward Processing',
-    desc: 'Enforce CTS-2010 DPI and IQA quality checks on the back (rear) side of the cheque. Default: false — a blank reverse is standard practice and should not cause a compliance failure. Set to true only if your bank stamps or endorses the reverse and wants rear quality enforced.',
+    desc: msg('UI_OPERATIONSCONFIG_ENFORCE_CTS_2010_DPI_AND'),
     warn: false, editable: true,
   },
 }
@@ -153,7 +154,7 @@ const CATEGORIES = ['All', 'STP Pipeline', 'Queue Segmentation', 'Allocation', '
 
 async function fetchThresholds() {
   const res = await fetch('/v1/admin/config/thresholds', { credentials: 'include' })
-  if (!res.ok) throw new Error('Failed to load thresholds')
+  if (!res.ok) throw new Error(msg('UI_OPERATIONSCONFIG_FAILED_TO_LOAD_THRESHOLDS'))
   return res.json()
 }
 
@@ -278,14 +279,13 @@ export default function OperationsConfig() {
         {/* Header */}
         <div className="mb-5">
           <div className="flex items-center gap-3 mb-1">
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Operations Config</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_OPERATIONSCONFIG_OPERATIONS_CONFIG')}</h1>
             <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'border-violet-700/40 bg-violet-900/30 text-violet-300' : 'border-violet-200 bg-violet-50 text-violet-700'}`}>
-              Layer 3
+             {msg('UI_OPERATIONSCONFIG_LAYER_3')}
             </span>
           </div>
           <p className={`text-xs ${th.muted}`}>
-            Business rules and operational modes — hot-reloaded within 30 seconds of bank_it_admin approval.
-            All changes require maker-checker: ops_manager submits → bank_it_admin approves.
+           {msg('UI_OPERATIONSCONFIG_BUSINESS_RULES_AND_OPERATIONAL_MODES')}
           </p>
         </div>
 
@@ -306,12 +306,12 @@ export default function OperationsConfig() {
           <>
             {submitted && (
               <div className={`mb-4 rounded-lg border px-4 py-3 text-xs ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-                Change submitted for bank_it_admin approval. It will go live within 30 seconds of approval via Kafka hot-reload.
+               {msg('UI_OPERATIONSCONFIG_CHANGE_SUBMITTED_FOR_BANK_IT')}
               </div>
             )}
 
             {isLoading && (
-              <div className={`mb-4 text-xs ${th.muted}`}>Loading live config values…</div>
+              <div className={`mb-4 text-xs ${th.muted}`}>{msg('UI_OPERATIONSCONFIG_LOADING_LIVE_CONFIG_VALUES')}</div>
             )}
 
             {/* Category filter */}
@@ -341,19 +341,19 @@ export default function OperationsConfig() {
                         <span className={`font-medium text-sm ${th.heading}`}>{cfg.label}</span>
                         <InfoTooltip text={cfg.desc} isDark={isDark} />
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                          Layer {cfg.layer}
+                         {msg('UI_OPERATIONSCONFIG_LAYER', { layer: cfg.layer })}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
                           {cfg.category}
                         </span>
                         {cfg.warn && (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
-                            HIGH IMPACT
+                           {msg('UI_OPERATIONSCONFIG_HIGH_IMPACT')}
                           </span>
                         )}
                         {!cfg.editable && (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-600'}`}>
-                            LOCKED
+                           {msg('UI_OPERATIONSCONFIG_LOCKED')}
                           </span>
                         )}
                       </div>
@@ -375,7 +375,7 @@ export default function OperationsConfig() {
                           onClick={() => openEdit(cfg)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
                         >
-                          Edit
+                         {msg('UI_COMMON_EDIT')}
                         </button>
                       )}
                     </div>
@@ -423,15 +423,15 @@ export default function OperationsConfig() {
         {tab === 'change-log' && (
           <div className={`rounded-xl border overflow-hidden ${th.card}`}>
             {changesLoading ? (
-              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>Loading change history…</div>
+              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>{msg('UI_OPERATIONSCONFIG_LOADING_CHANGE_HISTORY')}</div>
             ) : changes.length === 0 ? (
-              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>No config changes on record.</div>
+              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>{msg('UI_OPERATIONSCONFIG_NO_CONFIG_CHANGES_ON_RECORD')}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className={`border-b ${th.divider}`}>
-                      {['Config Key', 'New Value', 'Reason', 'Submitted By', 'Approved By', 'Submitted At', 'Status'].map(h => (
+                      {[msg('UI_COMMON_CONFIG_KEY'), msg('UI_COMMON_NEW_VALUE'), msg('UI_COMMON_REASON'), msg('UI_COMMON_SUBMITTED_BY'), msg('UI_COMMON_APPROVED_BY'), msg('UI_OPERATIONSCONFIG_SUBMITTED_AT'), msg('UI_COMMON_STATUS')].map(h => (
                         <th key={h} className={`px-4 py-3 text-left font-medium whitespace-nowrap ${th.muted}`}>{h}</th>
                       ))}
                     </tr>
@@ -443,7 +443,7 @@ export default function OperationsConfig() {
                         <td className={`px-4 py-3 font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{c.new_value}</td>
                         <td className={`px-4 py-3 max-w-xs truncate ${th.muted}`} title={c.reason}>{c.reason}</td>
                         <td className={`px-4 py-3 ${th.body}`}>{c.submitted_by}</td>
-                        <td className={`px-4 py-3 ${th.body}`}>{c.actioned_by ?? <span className={th.muted}>Pending…</span>}</td>
+                        <td className={`px-4 py-3 ${th.body}`}>{c.actioned_by ?? <span className={th.muted}>{msg('UI_OPERATIONSCONFIG_PENDING')}</span>}</td>
                         <td className={`px-4 py-3 font-mono text-[11px] whitespace-nowrap ${th.muted}`}>
                           {c.submitted_at ? new Date(c.submitted_at).toLocaleString('en-IN') : '—'}
                         </td>
@@ -473,7 +473,7 @@ export default function OperationsConfig() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.65)' }}>
           <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${isDark ? 'bg-[#0e1428] border-white/10' : 'bg-white border-slate-200'}`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`font-semibold ${th.heading}`}>Edit — {editing.label}</h3>
+              <h3 className={`font-semibold ${th.heading}`}>{msg('UI_OPERATIONSCONFIG_EDIT', { label: editing.label })}</h3>
               <button onClick={() => setEditing(null)} className={`${th.muted} hover:${th.body} text-lg leading-none`}>✕</button>
             </div>
 
@@ -481,7 +481,7 @@ export default function OperationsConfig() {
 
             {editing.type === 'enum' ? (
               <div className="space-y-2 mb-4">
-                <label className={`text-xs font-medium ${th.muted}`}>Select value</label>
+                <label className={`text-xs font-medium ${th.muted}`}>{msg('UI_OPERATIONSCONFIG_SELECT_VALUE')}</label>
                 <select
                   value={editVal}
                   onChange={e => setEditVal(e.target.value)}
@@ -499,7 +499,7 @@ export default function OperationsConfig() {
               </div>
             ) : (
               <div className="mb-4">
-                <label className={`text-xs font-medium ${th.muted}`}>New value ({editing.unit})</label>
+                <label className={`text-xs font-medium ${th.muted}`}>{msg('UI_OPERATIONSCONFIG_NEW_VALUE', { unit: editing.unit })}</label>
                 <input
                   type="number"
                   value={editVal}
@@ -511,7 +511,7 @@ export default function OperationsConfig() {
                 />
                 {editing.min !== undefined && (
                   <p className={`text-[10px] mt-1 ${th.muted}`}>
-                    Range: {editing.type === 'float' ? editing.min.toFixed(2) : editing.min.toLocaleString('en-IN')} – {editing.type === 'float' ? editing.max.toFixed(2) : editing.max.toLocaleString('en-IN')}
+                   {msg('UI_OPERATIONSCONFIG_RANGE', { value: editing.type === 'float' ? editing.min.toFixed(2) : editing.min.toLocaleString('en-IN'), value2: editing.type === 'float' ? editing.max.toFixed(2) : editing.max.toLocaleString('en-IN') })}
                   </p>
                 )}
               </div>
@@ -519,12 +519,12 @@ export default function OperationsConfig() {
 
             {/* Reason — required by maker-checker API */}
             <div className="mb-4">
-              <label className={`text-xs font-medium ${th.muted}`}>Reason for change <span className="text-red-400">*</span></label>
+              <label className={`text-xs font-medium ${th.muted}`}>{msg('UI_OPERATIONSCONFIG_REASON_FOR_CHANGE')} <span className="text-red-400">*</span></label>
               <textarea
                 value={reason}
                 onChange={e => { setReason(e.target.value); setReasonErr('') }}
                 rows={2}
-                placeholder="Why is this change needed? (min 10 characters)"
+                placeholder={msg('UI_OPERATIONSCONFIG_WHY_IS_THIS_CHANGE_NEEDED')}
                 className={`w-full mt-1 px-3 py-2 rounded-lg border text-sm outline-none transition-colors resize-none ${th.input}`}
               />
               {reasonErr && <p className="text-[11px] mt-1 text-red-400">{reasonErr}</p>}
@@ -537,8 +537,7 @@ export default function OperationsConfig() {
             )}
 
             <div className={`mb-4 p-3 rounded-lg text-xs leading-relaxed ${isDark ? 'bg-amber-900/20 border border-amber-700/40 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-              ⚠ This change will be submitted to bank_it_admin for approval (maker-checker).
-              It goes live via Kafka hot-reload within 30 seconds of approval.
+             {msg('UI_OPERATIONSCONFIG_THIS_CHANGE_WILL_BE_SUBMITTED')}
             </div>
 
             <div className="flex gap-2">
@@ -546,7 +545,7 @@ export default function OperationsConfig() {
                 onClick={() => setEditing(null)}
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
               >
-                Cancel
+               {msg('UI_COMMON_CANCEL')}
               </button>
               <button
                 onClick={submitChange}

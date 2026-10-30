@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
+import { msg } from '../../shared/messages'
 
 const STATS = [
-  { value: '₹71.1L Cr', label: 'Cleared via CTS', sub: 'FY2024–25' },
-  { value: '609M', label: 'Cheques processed', sub: 'India, per year' },
-  { value: '<600ms', label: 'AI decision wall-clock', sub: 'Any batch size, p99' },
-  { value: '18 mo', label: 'First-mover window', sub: 'Before incumbents catch up' },
+  { value: '₹71.1L Cr', label: msg('UI_HERO_CLEARED_VIA_CTS'), sub: 'FY2024–25' },
+  { value: '609M', label: msg('UI_HERO_CHEQUES_PROCESSED'), sub: 'India, per year' },
+  { value: '<600ms', label: msg('UI_HERO_AI_DECISION_WALL_CLOCK'), sub: 'Any batch size, p99' },
+  { value: '18 mo', label: msg('UI_HERO_FIRST_MOVER_WINDOW'), sub: 'Before incumbents catch up' },
 ]
 
 export default function Hero() {
@@ -45,8 +46,8 @@ export default function Hero() {
             style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.5s ease' }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-            RBI IET Mandate · T+3 Hour Regime · Jan 2026
-            <span className="text-teal-400 font-semibold">· 18-Month First-Mover Window</span>
+           {msg('UI_HERO_RBI_IET_MANDATE_T_3')}
+            <span className="text-teal-400 font-semibold">{msg('UI_HERO_18_MONTH_FIRST_MOVER_WINDOW')}</span>
           </div>
 
           {/* Headline */}
@@ -54,10 +55,10 @@ export default function Hero() {
             className="anim text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.07] tracking-tight mb-6"
             style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.5s ease' }}
           >
-            <span className="text-white">The Missing Intelligence</span>
+            <span className="text-white">{msg('UI_HERO_THE_MISSING_INTELLIGENCE')}</span>
             <br />
             <span style={{ background: 'linear-gradient(135deg, #1D9E75, #378ADD)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Layer for Indian Banks.
+             {msg('UI_HERO_LAYER_FOR_INDIAN_BANKS')}
             </span>
           </h1>
 
@@ -66,17 +67,15 @@ export default function Hero() {
             className="anim text-lg sm:text-xl text-slate-300 leading-relaxed max-w-2xl mx-auto mb-4"
             style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.5s ease' }}
           >
-            ASTRA brings agentic AI to India's most critical unresolved banking operation —
-            cheque truncation compliance under the RBI IET mandate.
-            <span className="text-slate-200"> 100% on-premises. No cloud. No vendor data access.</span>
+           {msg('UI_HERO_ASTRA_BRINGS_AGENTIC_AI_TO')}
+            <span className="text-slate-200"> {msg('UI_HERO_100_ON_PREMISES_NO_CLOUD')}</span>
           </p>
 
           <p
             className="anim text-sm text-slate-400 max-w-xl mx-auto mb-10"
             style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.5s ease' }}
           >
-            Built for Urban Co-operative Banks, RRBs, and mid-tier private banks. Certified once for RBI compliance.
-            Deployed inside your data center — ASTRA never touches your data.
+           {msg('UI_HERO_BUILT_FOR_URBAN_CO_OPERATIVE')}
           </p>
 
           {/* CTAs */}
@@ -88,7 +87,7 @@ export default function Hero() {
               href="#contact"
               className="group inline-flex items-center gap-2 bg-teal-400 hover:bg-teal-500 text-forest-900 font-semibold px-8 py-3.5 rounded-xl text-sm transition-all hover:shadow-xl hover:shadow-teal-400/20 hover:-translate-y-0.5"
             >
-              Schedule a Demo
+             {msg('UI_CONTACTSECTION_SCHEDULE_A_DEMO')}
               <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
@@ -97,7 +96,7 @@ export default function Hero() {
               href="#platform"
               className="inline-flex items-center gap-2 border border-white/20 text-slate-300 hover:text-white hover:border-white/40 font-medium px-8 py-3.5 rounded-xl text-sm transition-all"
             >
-              See How It Works
+             {msg('UI_HERO_SEE_HOW_IT_WORKS')}
             </a>
           </div>
 

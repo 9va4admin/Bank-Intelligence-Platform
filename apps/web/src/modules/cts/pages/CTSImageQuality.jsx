@@ -4,6 +4,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const _IQA_PAGE_LIMIT = Number(import.meta.env.VITE_IQA_PAGE_LIMIT ?? 200)
@@ -146,7 +147,7 @@ export default function CTSImageQuality() {
   const [scannerFilter, setScannerFilter] = useState('ALL')
   const [rescanQueue, setRescanQueue] = useState([])
 
-  usePageHeader({ subtitle: 'IQA Gate · Scanner Fleet · Lot Pass Rates' })
+  usePageHeader({ subtitle: msg('UI_IMAGEQUALITY_IQA_GATE_SCANNER_FLEET_LOT') })
 
   const stats = buildStats(instruments)
 
@@ -161,7 +162,7 @@ export default function CTSImageQuality() {
         method: 'POST',
         credentials: 'include',
       })
-      if (!res.ok) throw new Error('Re-scan trigger failed')
+      if (!res.ok) throw new Error(msg('UI_IMAGEQUALITY_RE_SCAN_TRIGGER_FAILED'))
       return res.json()
     },
     onSuccess: (_, id) => {
@@ -207,11 +208,11 @@ export default function CTSImageQuality() {
         {/* KPI strip */}
         <div className="grid grid-cols-5 gap-3 mb-5">
           {[
-            { label: 'Total Scanned',  value: stats.total,                          color: th.heading },
-            { label: 'IQA Pass',       value: stats.passes,                         color: 'text-emerald-500' },
-            { label: 'IQA Fail',       value: stats.fails,                          color: stats.fails > 0 ? 'text-red-400' : 'text-emerald-500' },
-            { label: 'Rescan Pass',    value: stats.rescans,                        color: 'text-sky-400' },
-            { label: 'Net Pass Rate',  value: `${passRate}%`,                       color: parseFloat(passRate) >= 95 ? 'text-emerald-500' : 'text-amber-400' },
+            { label: msg('UI_IMAGEQUALITY_TOTAL_SCANNED'),  value: stats.total,                          color: th.heading },
+            { label: msg('UI_IMAGEQUALITY_IQA_PASS'),       value: stats.passes,                         color: 'text-emerald-500' },
+            { label: msg('UI_COMMON_IQA_FAIL'),       value: stats.fails,                          color: stats.fails > 0 ? 'text-red-400' : 'text-emerald-500' },
+            { label: msg('UI_IMAGEQUALITY_RESCAN_PASS'),    value: stats.rescans,                        color: 'text-sky-400' },
+            { label: msg('UI_IMAGEQUALITY_NET_PASS_RATE'),  value: `${passRate}%`,                       color: parseFloat(passRate) >= 95 ? 'text-emerald-500' : 'text-amber-400' },
           ].map(kpi => (
             <div key={kpi.label} className={`border rounded-xl p-4 ${th.card}`}>
               <div className={`text-[10px] ${th.muted} mb-1`}>{kpi.label}</div>
@@ -228,17 +229,17 @@ export default function CTSImageQuality() {
             {/* Lot pass-rate table */}
             <div className={`border rounded-xl ${th.card}`}>
               <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-                <span className={`text-sm font-medium ${th.heading}`}>Lot Pass Rates</span>
-                <span className={`text-[10px] ${th.faint}`}>{stats.byLot.length} lots · LOT size 15</span>
+                <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_IMAGEQUALITY_LOT_PASS_RATES')}</span>
+                <span className={`text-[10px] ${th.faint}`}>{msg('UI_IMAGEQUALITY_LOTS_LOT_SIZE_15', { count: stats.byLot.length })}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className={`${th.thCell} border-b ${th.divSm}`}>
-                      <th className="text-left px-4 py-2 font-normal">Lot</th>
-                      <th className="text-right px-4 py-2 font-normal">Instruments</th>
-                      <th className="text-right px-4 py-2 font-normal">IQA Fail</th>
-                      <th className="text-right px-4 py-2 font-normal">Pass Rate</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('UI_COMMON_LOT')}</th>
+                      <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_INSTRUMENTS')}</th>
+                      <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_IQA_FAIL')}</th>
+                      <th className="text-right px-4 py-2 font-normal">{msg('UI_COMPLIANCE_PASS_RATE')}</th>
                       <th className="px-4 py-2"></th>
                     </tr>
                   </thead>
@@ -259,7 +260,7 @@ export default function CTSImageQuality() {
                               className="text-[10px] px-2 py-0.5 rounded border text-amber-500 border-amber-500/30 hover:bg-amber-500/10 transition-colors"
                               onClick={() => setFilter('IQA_FAIL')}
                             >
-                              View fails
+                             {msg('UI_IMAGEQUALITY_VIEW_FAILS')}
                             </button>
                           )}
                         </td>
@@ -273,7 +274,7 @@ export default function CTSImageQuality() {
             {/* Instrument list */}
             <div className={`border rounded-xl ${th.card}`}>
               <div className={`px-4 py-3 border-b ${th.divider} flex items-center gap-3 flex-wrap`}>
-                <span className={`text-sm font-medium ${th.heading} mr-auto`}>Instruments</span>
+                <span className={`text-sm font-medium ${th.heading} mr-auto`}>{msg('UI_COMMON_INSTRUMENTS')}</span>
 
                 {/* Status filter */}
                 <div className="flex items-center gap-1">
@@ -298,7 +299,7 @@ export default function CTSImageQuality() {
                   value={scannerFilter}
                   onChange={e => setScannerFilter(e.target.value)}
                 >
-                  <option value="ALL">All Scanners</option>
+                  <option value="ALL">{msg('UI_IMAGEQUALITY_ALL_SCANNERS')}</option>
                   {SCANNERS.map(s => <option key={s.id} value={s.id}>{s.id}</option>)}
                 </select>
               </div>
@@ -307,13 +308,13 @@ export default function CTSImageQuality() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className={`${th.thCell} ${th.thead} border-b ${th.divSm}`}>
-                      <th className="text-left px-4 py-2 font-normal">Instrument</th>
-                      <th className="text-left px-4 py-2 font-normal">Payee</th>
-                      <th className="text-left px-4 py-2 font-normal">Amount</th>
-                      <th className="text-left px-4 py-2 font-normal">Scanner</th>
-                      <th className="text-left px-4 py-2 font-normal">Lot</th>
-                      <th className="text-left px-4 py-2 font-normal">Status</th>
-                      <th className="text-left px-4 py-2 font-normal">Fail Reason</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('CTS_OUT_CUSTODY_COL_INSTRUMENT')}</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('CTS_OUT_CUSTODY_COL_PAYEE')}</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('CTS_OUT_CUSTODY_COL_AMOUNT')}</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('UI_COMMON_SCANNER')}</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('UI_COMMON_LOT')}</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('UI_COMMON_STATUS')}</th>
+                      <th className="text-left px-4 py-2 font-normal">{msg('UI_IMAGEQUALITY_FAIL_REASON')}</th>
                       <th className="px-4 py-2"></th>
                     </tr>
                   </thead>
@@ -352,7 +353,7 @@ export default function CTSImageQuality() {
                 </table>
                 {filtered.length > 30 && (
                   <div className={`px-4 py-2 text-[10px] ${th.faint} border-t ${th.divSm}`}>
-                    Showing 30 of {filtered.length} — apply filter to narrow
+                   {msg('UI_IMAGEQUALITY_SHOWING_30_OF_APPLY_FILTER', { count: filtered.length })}
                   </div>
                 )}
               </div>
@@ -371,7 +372,7 @@ export default function CTSImageQuality() {
                 </div>
                 <div className="px-4 py-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs ${th.muted}`}>Status</span>
+                    <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_STATUS')}</span>
                     <StatusBadge status={selected.status} />
                   </div>
                   {selected.fail_label && (
@@ -395,7 +396,7 @@ export default function CTSImageQuality() {
                   ))}
                   {selected.ocr_conf && (
                     <div className={`flex justify-between text-xs`}>
-                      <span className={th.muted}>OCR Confidence</span>
+                      <span className={th.muted}>{msg('UI_COMMON_OCR_CONFIDENCE')}</span>
                       <span className={`font-mono font-semibold ${parseFloat(selected.ocr_conf) >= 0.90 ? 'text-emerald-500' : 'text-amber-400'}`}>
                         {(parseFloat(selected.ocr_conf) * 100).toFixed(0)}%
                       </span>
@@ -415,14 +416,14 @@ export default function CTSImageQuality() {
             ) : (
               <div className={`border rounded-xl ${th.card} px-4 py-8 text-center`}>
                 <div className="text-2xl mb-2">🔍</div>
-                <div className={`text-xs ${th.faint}`}>Select an instrument to inspect</div>
+                <div className={`text-xs ${th.faint}`}>{msg('UI_IMAGEQUALITY_SELECT_AN_INSTRUMENT_TO_INSPECT')}</div>
               </div>
             )}
 
             {/* Failure reason breakdown */}
             <div className={`border rounded-xl ${th.card}`}>
               <div className={`px-4 py-3 border-b ${th.divider}`}>
-                <span className={`text-sm font-medium ${th.heading}`}>Failure Breakdown</span>
+                <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_IMAGEQUALITY_FAILURE_BREAKDOWN')}</span>
               </div>
               <div className="px-4 py-3 space-y-2">
                 {Object.entries(stats.byReason).filter(([,v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([key, count]) => (
@@ -440,7 +441,7 @@ export default function CTSImageQuality() {
                   </div>
                 ))}
                 {Object.values(stats.byReason).every(v => v === 0) && (
-                  <div className={`text-center text-xs ${th.faint} py-4`}>No failures in current batch</div>
+                  <div className={`text-center text-xs ${th.faint} py-4`}>{msg('UI_IMAGEQUALITY_NO_FAILURES_IN_CURRENT_BATCH')}</div>
                 )}
               </div>
             </div>
@@ -448,7 +449,7 @@ export default function CTSImageQuality() {
             {/* Scanner fleet health */}
             <div className={`border rounded-xl ${th.card}`}>
               <div className={`px-4 py-3 border-b ${th.divider}`}>
-                <span className={`text-sm font-medium ${th.heading}`}>Scanner Fleet</span>
+                <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_IMAGEQUALITY_SCANNER_FLEET')}</span>
               </div>
               <div className={`divide-y ${th.divSm}`}>
                 {SCANNERS.map(scn => {
@@ -462,7 +463,7 @@ export default function CTSImageQuality() {
                           <span className={`text-xs font-mono font-semibold ${th.heading}`}>{scn.id}</span>
                         </div>
                         <span className={`text-[10px] font-semibold ${failRate > 10 ? 'text-red-400' : failRate > 5 ? 'text-amber-400' : 'text-emerald-500'}`}>
-                          {s.rate}% fail
+                          {msg('UI_IMAGEQUALITY_FAIL', { rate: s.rate })}
                         </span>
                       </div>
                       <div className={`text-[10px] ${th.faint} mb-2`}>{scn.model} · {scn.location}</div>
@@ -473,8 +474,8 @@ export default function CTSImageQuality() {
                         />
                       </div>
                       <div className={`flex justify-between text-[10px] ${th.faint} mt-1`}>
-                        <span>{s.total} scanned</span>
-                        <span>{s.fails} fail{s.fails !== 1 ? 's' : ''}</span>
+                        <span>{msg('UI_IMAGEQUALITY_SCANNED', { total: s.total })}</span>
+                        <span>{msg('UI_IMAGEQUALITY_FAIL_2', { fails: s.fails, value: s.fails !== 1 ? 's' : '' })}</span>
                       </div>
                     </div>
                   )
@@ -490,9 +491,9 @@ export default function CTSImageQuality() {
 
 function StatusBadge({ status }) {
   const cfg = {
-    IQA_PASS:    { label: 'IQA Pass',    cls: 'text-sky-400 bg-sky-400/10 border-sky-400/20'         },
-    IQA_FAIL:    { label: 'IQA Fail',    cls: 'text-red-400 bg-red-400/10 border-red-400/20'         },
-    RESCAN_PASS: { label: 'Rescan ✓',   cls: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
+    IQA_PASS:    { label: msg('UI_IMAGEQUALITY_IQA_PASS'),    cls: 'text-sky-400 bg-sky-400/10 border-sky-400/20'         },
+    IQA_FAIL:    { label: msg('UI_COMMON_IQA_FAIL'),    cls: 'text-red-400 bg-red-400/10 border-red-400/20'         },
+    RESCAN_PASS: { label: msg('UI_IMAGEQUALITY_RESCAN'),   cls: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
   }
   const { label, cls } = cfg[status] ?? { label: status, cls: 'text-slate-400 bg-white/5 border-white/10' }
   return (

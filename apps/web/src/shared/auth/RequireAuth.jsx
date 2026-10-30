@@ -7,6 +7,7 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../theme/ThemeContext'
+import { msg } from '../messages'
 
 export default function RequireAuth() {
   const { status } = useAuth()
@@ -17,7 +18,7 @@ export default function RequireAuth() {
       <div className={`min-h-screen w-full grid place-items-center ${isDark ? 'bg-[#020817] text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
         <div className="flex items-center gap-3 text-sm">
           <span className="inline-block w-4 h-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-          Checking your session…
+         {msg('UI_REQUIREAUTH_CHECKING_YOUR_SESSION')}
         </div>
       </div>
     )

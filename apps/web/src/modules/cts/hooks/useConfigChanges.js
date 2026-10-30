@@ -6,6 +6,7 @@
  *   changes: ConfigChangeEntry[] | null   (null until first fetch completes)
  */
 import { useState, useEffect, useCallback } from 'react'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -20,7 +21,7 @@ export default function useConfigChanges({ limit = 50 } = {}) {
         `${API_BASE}/v1/admin/config/thresholds/changes?limit=${limit}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setChanges(json.changes ?? [])
       setError(null)

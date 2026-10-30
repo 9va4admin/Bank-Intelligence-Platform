@@ -17,6 +17,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -162,10 +163,9 @@ export default function CTSDraweeView() {
         <div className={`flex-1 flex items-center justify-center ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
           <div className="text-center max-w-sm px-6">
             <div className="text-4xl mb-4">📤</div>
-            <h2 className={`text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>SB-Only Feature</h2>
+            <h2 className={`text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>{msg('UI_COMMON_SB_ONLY_FEATURE')}</h2>
             <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Outward &amp; Combined Position is managed by your Sponsor Bank.
-              Your outward instruments are submitted through their NGCH lot and reflected in the SMB Forwarding Log.
+             {msg('UI_DRAWEEVIEW_OUTWARD_COMBINED_POSITION_IS_MANAGED')}
             </p>
           </div>
         </div>
@@ -204,8 +204,8 @@ export default function CTSDraweeView() {
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>Outward & Combined Position</h1>
-              <p className={`text-[11px] ${th.muted}`}>Presenting + Drawee · {selectedSession}</p>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_DRAWEEVIEW_OUTWARD_COMBINED_POSITION')}</h1>
+              <p className={`text-[11px] ${th.muted}`}>{msg('UI_DRAWEEVIEW_PRESENTING_DRAWEE', { selectedSession })}</p>
             </div>
             <div className="flex gap-2">
               {activeSessions.map(s => (
@@ -223,10 +223,10 @@ export default function CTSDraweeView() {
           {/* Summary row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total Outward',   value: totalOutward.toLocaleString(),           color: th.heading, sub: `₹${totalValueCr.toFixed(1)}Cr` },
-              { label: 'NGCH Returned',   value: totalReturned.toLocaleString(),           color: 'text-red-400',     sub: `${((totalReturned / totalOutward) * 100).toFixed(1)}% rate` },
-              { label: 'NGCH Accepted',   value: (totalOutward - totalReturned).toLocaleString(), color: 'text-emerald-400', sub: 'cleared' },
-              { label: 'Net Position',    value: '₹43.2Cr',                               color: 'text-emerald-400', sub: 'RECEIVE today' },
+              { label: msg('UI_OPSDASHBOARDBODY_TOTAL_OUTWARD'),   value: totalOutward.toLocaleString(),           color: th.heading, sub: `₹${totalValueCr.toFixed(1)}Cr` },
+              { label: msg('UI_DRAWEEVIEW_NGCH_RETURNED'),   value: totalReturned.toLocaleString(),           color: 'text-red-400',     sub: `${((totalReturned / totalOutward) * 100).toFixed(1)}% rate` },
+              { label: msg('UI_DRAWEEVIEW_NGCH_ACCEPTED'),   value: (totalOutward - totalReturned).toLocaleString(), color: 'text-emerald-400', sub: 'cleared' },
+              { label: msg('UI_DRAWEEVIEW_NET_POSITION'),    value: '₹43.2Cr',                               color: 'text-emerald-400', sub: 'RECEIVE today' },
             ].map(k => (
               <div key={k.label} className={`border rounded-xl p-4 ${th.card}`}>
                 <div className={`text-[10px] uppercase tracking-wide ${th.muted} mb-1`}>{k.label}</div>
@@ -242,22 +242,22 @@ export default function CTSDraweeView() {
             {/* Branch table */}
             <div className={`lg:col-span-2 border rounded-xl ${th.card}`}>
               <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-                <span className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted}`}>Branch-wise Outward</span>
+                <span className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_DRAWEEVIEW_BRANCH_WISE_OUTWARD')}</span>
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value)}
                   className={`text-[10px] border rounded px-2 py-1 ${isDark ? 'bg-navy-900 border-white/10 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}
                 >
-                  <option value="returned_desc">Sort: Most Returns</option>
-                  <option value="rate_desc">Sort: Highest Return Rate</option>
-                  <option value="volume_desc">Sort: Highest Volume</option>
+                  <option value="returned_desc">{msg('UI_DRAWEEVIEW_SORT_MOST_RETURNS')}</option>
+                  <option value="rate_desc">{msg('UI_DRAWEEVIEW_SORT_HIGHEST_RETURN_RATE')}</option>
+                  <option value="volume_desc">{msg('UI_DRAWEEVIEW_SORT_HIGHEST_VOLUME')}</option>
                 </select>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className={`border-b ${th.divider}`}>
-                      {['Branch', 'Outward', 'Value', 'Returned', 'Return Rate'].map(h => (
+                      {[msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('UI_DRAWEEVIEW_OUTWARD'), msg('UI_OPSDASHBOARDBODY_VALUE'), msg('UI_COMMON_RETURNED'), msg('UI_COMMON_RETURN_RATE')].map(h => (
                         <th key={h} className={`px-4 py-2 text-left text-[10px] uppercase tracking-wide ${th.muted}`}>{h}</th>
                       ))}
                     </tr>
@@ -269,7 +269,7 @@ export default function CTSDraweeView() {
                         <tr key={b.code} className={`border-b ${th.row} transition-colors`}>
                           <td className={`px-4 py-2.5 font-medium ${th.body}`}>{b.name}</td>
                           <td className={`px-4 py-2.5 font-mono ${th.body}`}>{b.outward}</td>
-                          <td className={`px-4 py-2.5 font-mono text-gold-400`}>₹{b.value_cr}Cr</td>
+                          <td className={`px-4 py-2.5 font-mono text-gold-400`}>{msg('UI_DRAWEEVIEW_CR', { value_cr: b.value_cr })}</td>
                           <td className={`px-4 py-2.5 font-mono ${b.returned > 25 ? 'text-red-400' : th.body}`}>{b.returned}</td>
                           <td className="px-4 py-2.5">
                             <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${
@@ -284,9 +284,9 @@ export default function CTSDraweeView() {
                   </tbody>
                   <tfoot>
                     <tr className={`border-t ${th.divider} font-semibold`}>
-                      <td className={`px-4 py-2.5 ${th.heading}`}>Total</td>
+                      <td className={`px-4 py-2.5 ${th.heading}`}>{msg('UI_COMMON_TOTAL')}</td>
                       <td className={`px-4 py-2.5 font-mono ${th.heading}`}>{totalOutward}</td>
-                      <td className={`px-4 py-2.5 font-mono text-gold-400`}>₹{totalValueCr.toFixed(1)}Cr</td>
+                      <td className={`px-4 py-2.5 font-mono text-gold-400`}>{msg('UI_DRAWEEVIEW_CR_2', { totalValueCr: totalValueCr.toFixed(1) })}</td>
                       <td className={`px-4 py-2.5 font-mono text-red-400`}>{totalReturned}</td>
                       <td className={`px-4 py-2.5 font-mono ${th.heading}`}>{((totalReturned / totalOutward) * 100).toFixed(1)}%</td>
                     </tr>
@@ -297,10 +297,10 @@ export default function CTSDraweeView() {
 
             {/* Return reasons */}
             <div className={`border rounded-xl p-4 ${th.card}`}>
-              <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-4`}>Return Reasons</div>
+              <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-4`}>{msg('UI_COMMON_RETURN_REASONS')}</div>
               <ReturnReasonBar reasons={returnReasons} total={totalReturned} isDark={isDark} />
               <div className={`mt-4 pt-4 border-t ${th.divider}`}>
-                <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>By Presenting Bank</div>
+                <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>{msg('UI_DRAWEEVIEW_BY_PRESENTING_BANK')}</div>
                 {presentingBanks.map(b => (
                   <div key={b.ifsc} className={`flex items-center justify-between py-1.5 border-b ${th.divider}`}>
                     <span className={`text-[11px] ${th.body}`}>{b.name}</span>

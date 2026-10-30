@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { msg } from '../../shared/messages'
 
 export default function ContactSection() {
   const [form, setForm] = useState({ name: '', bank: '', role: '', email: '', message: '' })
@@ -15,19 +16,19 @@ export default function ContactSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           {/* Left */}
           <div>
-            <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Get Started</span>
+            <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">{msg('UI_CONTACTSECTION_GET_STARTED')}</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-5">
-              Schedule a Demo<br />with the ASTRA Team.
+             {msg('UI_CONTACTSECTION_SCHEDULE_A_DEMO')}<br />{msg('UI_CONTACTSECTION_WITH_THE_ASTRA_TEAM')}
             </h2>
             <p className="text-slate-500 mb-8 leading-relaxed">
-              We run structured 90-minute demos tailored to your bank's current CTS and ATM estate. We cover the live pipeline, the What If configuration scenarios, and RBI compliance mapping for your environment.
+             {msg('UI_CONTACTSECTION_WE_RUN_STRUCTURED_90_MINUTE')}
             </p>
 
             <div className="space-y-5">
               {[
-                { icon: '👤', label: 'Expert-led demo', detail: 'With Nilesh Shah — Ex-NPCI, Piramal, Fullerton/SMFG' },
-                { icon: '🏦', label: 'Bank-specific walkthrough', detail: 'We map ASTRA to your CBS, ATM estate, and clearing zone' },
-                { icon: '📋', label: 'RBI compliance mapping', detail: 'We show the exact control-to-mandate mapping for your bank type' },
+                { icon: '👤', label: msg('UI_CONTACTSECTION_EXPERT_LED_DEMO'), detail: msg('UI_CONTACTSECTION_WITH_NILESH_SHAH_EX_NPCI') },
+                { icon: '🏦', label: msg('UI_CONTACTSECTION_BANK_SPECIFIC_WALKTHROUGH'), detail: msg('UI_CONTACTSECTION_WE_MAP_ASTRA_TO_YOUR') },
+                { icon: '📋', label: msg('UI_CONTACTSECTION_RBI_COMPLIANCE_MAPPING'), detail: msg('UI_CONTACTSECTION_WE_SHOW_THE_EXACT_CONTROL') },
               ].map(({ icon, label, detail }) => (
                 <div key={label} className="flex items-start gap-3">
                   <span className="text-xl">{icon}</span>
@@ -40,8 +41,8 @@ export default function ContactSection() {
             </div>
 
             <div className="mt-8 pt-8 border-t border-slate-200">
-              <div className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">18-Month First-Mover Window</div>
-              <p className="text-sm text-slate-500">The T+3 regime begins January 2026. Banks that deploy ASTRA in H1 FY26 establish operational muscle before the mandate tightens further. The window to move first is open now.</p>
+              <div className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">{msg('UI_CONTACTSECTION_18_MONTH_FIRST_MOVER_WINDOW')}</div>
+              <p className="text-sm text-slate-500">{msg('UI_CONTACTSECTION_THE_T_3_REGIME_BEGINS')}</p>
             </div>
           </div>
 
@@ -50,17 +51,17 @@ export default function ContactSection() {
             {submitted ? (
               <div className="text-center py-8">
                 <div className="text-4xl mb-4">✅</div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Request Received</h3>
-                <p className="text-slate-500 text-sm">The ASTRA team will reach out within one business day to schedule your demo.</p>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{msg('UI_CONTACTSECTION_REQUEST_RECEIVED')}</h3>
+                <p className="text-slate-500 text-sm">{msg('UI_CONTACTSECTION_THE_ASTRA_TEAM_WILL_REACH')}</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="font-semibold text-slate-900 mb-5">Request a Demo</h3>
+                <h3 className="font-semibold text-slate-900 mb-5">{msg('UI_CONTACTSECTION_REQUEST_A_DEMO')}</h3>
                 {[
-                  { id: 'name', label: 'Your Name', type: 'text', placeholder: 'Full name' },
-                  { id: 'bank', label: 'Bank / Institution', type: 'text', placeholder: 'Bank name' },
-                  { id: 'role', label: 'Your Role', type: 'text', placeholder: 'e.g. Head - IT, CTO, GM Operations' },
-                  { id: 'email', label: 'Official Email', type: 'email', placeholder: 'you@yourbank.com' },
+                  { id: 'name', label: msg('UI_CONTACTSECTION_YOUR_NAME'), type: 'text', placeholder: msg('UI_CONTACTSECTION_FULL_NAME') },
+                  { id: 'bank', label: msg('UI_CONTACTSECTION_BANK_INSTITUTION'), type: 'text', placeholder: msg('UI_CONTACTSECTION_BANK_NAME') },
+                  { id: 'role', label: msg('UI_CONTACTSECTION_YOUR_ROLE'), type: 'text', placeholder: msg('UI_CONTACTSECTION_E_G_HEAD_IT_CTO') },
+                  { id: 'email', label: msg('UI_CONTACTSECTION_OFFICIAL_EMAIL'), type: 'email', placeholder: 'you@yourbank.com' },
                 ].map(({ id, label, type, placeholder }) => (
                   <div key={id}>
                     <label className="block text-xs font-medium text-slate-600 mb-1.5">{label}</label>
@@ -75,12 +76,12 @@ export default function ContactSection() {
                   </div>
                 ))}
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">What would you like to see? (optional)</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">{msg('UI_CONTACTSECTION_WHAT_WOULD_YOU_LIKE_TO')}</label>
                   <textarea
                     rows={3}
                     value={form.message}
                     onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                    placeholder="CTS pipeline demo, EJ dispute demo, RBI compliance mapping..."
+                    placeholder={msg('UI_CONTACTSECTION_CTS_PIPELINE_DEMO_EJ_DISPUTE')}
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-teal-400 bg-slate-50 resize-none"
                   />
                 </div>
@@ -88,9 +89,9 @@ export default function ContactSection() {
                   type="submit"
                   className="w-full bg-teal-400 hover:bg-teal-500 text-forest-900 font-semibold py-3 rounded-xl text-sm transition-colors"
                 >
-                  Schedule Demo →
+                 {msg('UI_CONTACTSECTION_SCHEDULE_DEMO')}
                 </button>
-                <p className="text-xs text-slate-400 text-center">No vendor data access. No cold calls. Just the demo.</p>
+                <p className="text-xs text-slate-400 text-center">{msg('UI_CONTACTSECTION_NO_VENDOR_DATA_ACCESS_NO')}</p>
               </form>
             )}
           </div>

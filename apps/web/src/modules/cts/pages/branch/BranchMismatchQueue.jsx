@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
+import { msg } from '../../../../shared/messages'
 
 const MOCK_MISMATCHES = [
   {
@@ -56,10 +57,10 @@ function MismatchCard({ item, isDark, onResolve, isResolving }) {
           <span className="mx-2 text-amber-400">·</span>
           <span className={`text-xs font-mono ${th.muted}`}>{item.instrument_id}</span>
           <span className="mx-2 text-amber-400">·</span>
-          <span className={`text-xs ${th.muted}`}>Held {item.held_at}</span>
+          <span className={`text-xs ${th.muted}`}>{msg('UI_BRANCHMISMATCHQUEUE_HELD', { held_at: item.held_at })}</span>
         </div>
         <span className="inline-flex items-center text-xs px-2 py-0.5 rounded border bg-amber-500/15 text-amber-400 border-amber-500/30">
-          HELD
+         {msg('UI_BRANCHMISMATCHQUEUE_HELD_2')}
         </span>
       </div>
 
@@ -67,26 +68,26 @@ function MismatchCard({ item, isDark, onResolve, isResolving }) {
       <div className="grid grid-cols-2 gap-4 mb-3">
         <div>
           <p className={`text-xs font-medium uppercase tracking-wider mb-1 ${th.muted}`}>
-            Scanner Read
+           {msg('UI_BRANCHMISMATCHQUEUE_SCANNER_READ')}
           </p>
           <p className={`text-lg font-bold tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
             {item.scanner_amount}
           </p>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
-            Fields: {(item.mismatch_fields ?? []).join(', ')}
+           {msg('UI_BRANCHMISMATCHQUEUE_FIELDS', { value: (item.mismatch_fields ?? []).join(', ') })}
           </p>
         </div>
         <div>
           <p className={`text-xs font-medium uppercase tracking-wider mb-1 ${th.muted}`}>
-            Vision LLM Read
+           {msg('UI_BRANCHMISMATCHQUEUE_VISION_LLM_READ')}
           </p>
           <p className="text-lg font-bold tabular-nums text-red-400">{item.vision_amount}</p>
-          <p className={`text-xs mt-0.5 ${th.muted}`}>Mismatch detected</p>
+          <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_BRANCHMISMATCHQUEUE_MISMATCH_DETECTED')}</p>
         </div>
       </div>
 
       <div className="mb-3 text-xs">
-        <span className={th.muted}>Payee: </span>
+        <span className={th.muted}>{msg('UI_BRANCHMISMATCHQUEUE_PAYEE')} </span>
         <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           {item.payee_display}
         </span>
@@ -95,7 +96,7 @@ function MismatchCard({ item, isDark, onResolve, isResolving }) {
       {/* Supervisor note */}
       <input
         type="text"
-        placeholder="Supervisor note (optional)"
+        placeholder={msg('UI_BRANCHMISMATCHQUEUE_SUPERVISOR_NOTE_OPTIONAL')}
         value={note}
         onChange={e => setNote(e.target.value)}
         className={`w-full text-xs px-3 py-2 rounded border mb-3 outline-none focus:ring-1 focus:ring-blue-500/40 ${th.input}`}
@@ -141,7 +142,7 @@ export default function BranchMismatchQueue() {
     queryKey: ['branch-mismatches', bankId],
     queryFn: async () => {
       const res = await fetch(`/v1/cts/mismatches?bank_id=${bankId}`, { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load mismatches')
+      if (!res.ok) throw new Error(msg('UI_BRANCHMISMATCHQUEUE_FAILED_TO_LOAD_MISMATCHES'))
       return res.json()
     },
     enabled: !isDemo,
@@ -160,7 +161,7 @@ export default function BranchMismatchQueue() {
         credentials: 'include',
         body: JSON.stringify({ action, note }),
       })
-      if (!res.ok) throw new Error('Failed to resolve mismatch')
+      if (!res.ok) throw new Error(msg('UI_BRANCHMISMATCHQUEUE_FAILED_TO_RESOLVE_MISMATCH'))
       return res.json()
     },
     onSuccess: (data, { mismatchId, action }) => {
@@ -178,27 +179,27 @@ export default function BranchMismatchQueue() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         <div className="flex items-center gap-4 mb-5">
           <Link to="/branch" className={`text-sm ${th.muted} hover:text-blue-400 transition-colors`}>
-            ← Dashboard
+           {msg('UI_COMMON_DASHBOARD')}
           </Link>
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Mismatch Queue</h1>
+          <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_MISMATCH_QUEUE')}</h1>
           {!isLoading && mismatches.length > 0 && (
             <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-2 py-0.5">
-              {mismatches.length} pending
+              {msg('UI_COMMON_PENDING_2', { count: mismatches.length })}
             </span>
           )}
         </div>
 
         {isLoading && (
-          <div className={`text-center py-12 ${th.muted} text-sm`}>Loading…</div>
+          <div className={`text-center py-12 ${th.muted} text-sm`}>{msg('CTS_WF_BUCKETCFG_LOADING')}</div>
         )}
 
         {isError && (
-          <div className="text-center py-12 text-amber-400/70 text-sm">Backend not reachable — retrying every 15s.</div>
+          <div className="text-center py-12 text-amber-400/70 text-sm">{msg('UI_COMMON_BACKEND_NOT_REACHABLE_RETRYING_EVERY')}</div>
         )}
 
         {!isLoading && !isError && mismatches.length === 0 && resolved.length === 0 && (
           <div className={`text-center py-12 ${th.muted} text-sm`}>
-            No held items. All mismatches resolved.
+           {msg('UI_BRANCHMISMATCHQUEUE_NO_HELD_ITEMS_ALL_MISMATCHES')}
           </div>
         )}
 
@@ -216,7 +217,7 @@ export default function BranchMismatchQueue() {
 
         {resolved.length > 0 && (
           <div className="mt-4">
-            <h2 className={`text-sm font-medium mb-2 ${th.muted}`}>Resolved this session</h2>
+            <h2 className={`text-sm font-medium mb-2 ${th.muted}`}>{msg('UI_BRANCHMISMATCHQUEUE_RESOLVED_THIS_SESSION')}</h2>
             {resolved.map(r => (
               <div key={r.mismatch_id} className={`rounded-lg border p-3 mb-2 ${th.card}`}>
                 <div className="flex items-center justify-between text-xs">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 2 * 60_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -21,7 +22,7 @@ export default function useMismatches({ branchId = null, pollEnabled = true } = 
       const res = await fetch(`${API_BASE}/v1/cts/mismatches?${params}`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       const raw = json.items ?? []
       // Map API MismatchItem → CTSDiscrepancy display shape

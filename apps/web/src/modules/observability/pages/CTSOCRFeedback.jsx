@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -30,7 +31,7 @@ function useOCRFeedback(bankId) {
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/v1/ops/ocr-feedback`, { credentials: 'include' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       setData(await res.json())
     } catch (e) {
       setError(e.message)
@@ -46,12 +47,12 @@ function useOCRFeedback(bankId) {
 // ── Failure mode labels + colours ─────────────────────────────────────────────
 
 const MODE_META = {
-  OCR_CHAR_ERROR:   { label: 'OCR Character Error',    color: 'bg-red-400'    },
-  XLIT_GAP:         { label: 'Transliteration Gap',    color: 'bg-amber-400'  },
-  LEXICON_GAP:      { label: 'Lexicon Gap',            color: 'bg-violet-400' },
-  THRESHOLD_ISSUE:  { label: 'Threshold Too Tight',    color: 'bg-sky-400'    },
-  INDETERMINATE:    { label: 'Indeterminate',          color: 'bg-slate-400'  },
-  CLEAN:            { label: 'Clean (no action)',      color: 'bg-emerald-400' },
+  OCR_CHAR_ERROR:   { label: msg('UI_OCRFEEDBACK_OCR_CHARACTER_ERROR'),    color: 'bg-red-400'    },
+  XLIT_GAP:         { label: msg('UI_OCRFEEDBACK_TRANSLITERATION_GAP'),    color: 'bg-amber-400'  },
+  LEXICON_GAP:      { label: msg('UI_OCRFEEDBACK_LEXICON_GAP'),            color: 'bg-violet-400' },
+  THRESHOLD_ISSUE:  { label: msg('UI_OCRFEEDBACK_THRESHOLD_TOO_TIGHT'),    color: 'bg-sky-400'    },
+  INDETERMINATE:    { label: msg('UI_OCRFEEDBACK_INDETERMINATE'),          color: 'bg-slate-400'  },
+  CLEAN:            { label: msg('UI_OCRFEEDBACK_CLEAN_NO_ACTION'),      color: 'bg-emerald-400' },
 }
 
 // ── Status badge for retrain runs ─────────────────────────────────────────────
@@ -92,8 +93,8 @@ function CorpusBar({ entry, isDark }) {
   if (entry.degraded) {
     return (
       <div className={`rounded-xl border p-5 ${th.card}`}>
-        <p className={`text-sm font-medium mb-1 capitalize ${th.heading}`}>{entry.corpus_type} Corpus</p>
-        <p className={`text-xs ${th.muted}`}>Data unavailable — Redis unreachable</p>
+        <p className={`text-sm font-medium mb-1 capitalize ${th.heading}`}>{msg('UI_OCRFEEDBACK_CORPUS', { corpus_type: entry.corpus_type })}</p>
+        <p className={`text-xs ${th.muted}`}>{msg('UI_OCRFEEDBACK_DATA_UNAVAILABLE_REDIS_UNREACHABLE')}</p>
       </div>
     )
   }
@@ -105,10 +106,10 @@ function CorpusBar({ entry, isDark }) {
     <div className={`rounded-xl border p-5 ${th.card}`}>
       <div className="flex items-center justify-between mb-3">
         <p className={`text-sm font-semibold capitalize ${th.heading}`}>
-          {entry.corpus_type === 'payee' ? 'Payee Name' : 'MICR Line'} Corpus
+          {msg('UI_OCRFEEDBACK_CORPUS_2', { value: entry.corpus_type === 'payee' ? 'Payee Name' : 'MICR Line' })}
         </p>
         <span className={`text-xs font-mono tabular-nums ${th.muted}`}>
-          {entry.count} / {entry.threshold} samples
+          {msg('UI_OCRFEEDBACK_SAMPLES', { count: entry.count, threshold: entry.threshold })}
         </span>
       </div>
 
@@ -146,11 +147,11 @@ function FailureModeChart({ modes, isDark }) {
 
   return (
     <div className={`rounded-xl border p-5 ${th.card}`}>
-      <p className={`text-sm font-semibold mb-4 ${th.heading}`}>Failure Mode Distribution (last 30 days)</p>
+      <p className={`text-sm font-semibold mb-4 ${th.heading}`}>{msg('UI_OCRFEEDBACK_FAILURE_MODE_DISTRIBUTION_LAST_30')}</p>
 
       {modes.length === 0 ? (
         <p className={`text-xs ${th.muted}`}>
-          No failure events recorded yet — corpus accumulation table not yet populated, or no mismatches in the last 30 days.
+         {msg('UI_OCRFEEDBACK_NO_FAILURE_EVENTS_RECORDED_YET')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -209,25 +210,25 @@ function RetrainHistory({ runs, isDark }) {
   return (
     <div className={`rounded-xl border overflow-hidden ${th.card}`}>
       <div className={`px-5 py-3 border-b ${th.hdr} text-[11px] uppercase tracking-widest font-semibold flex items-center justify-between`}>
-        <span>Retraining Run History</span>
-        <span className={`text-[10px] normal-case tracking-normal ${th.muted}`}>Last 10 runs</span>
+        <span>{msg('UI_OCRFEEDBACK_RETRAINING_RUN_HISTORY')}</span>
+        <span className={`text-[10px] normal-case tracking-normal ${th.muted}`}>{msg('UI_OCRFEEDBACK_LAST_10_RUNS')}</span>
       </div>
 
       {runs.length === 0 ? (
         <div className={`px-5 py-8 text-center text-sm ${th.muted}`}>
-          No retraining runs yet. The automated pipeline triggers when the corpus threshold is reached.
+         {msg('UI_OCRFEEDBACK_NO_RETRAINING_RUNS_YET_THE')}
         </div>
       ) : (
         <>
           <div className={`grid grid-cols-7 gap-3 px-5 py-2.5 border-b ${th.hdr} text-[10px] uppercase tracking-widest font-semibold`}
                style={{ gridTemplateColumns: '1fr 0.6fr 1.4fr 1.4fr 0.8fr 0.8fr 0.7fr' }}>
-            <span>Run ID</span>
-            <span>Corpus</span>
-            <span>Triggered</span>
-            <span>Completed</span>
-            <span className="text-right">Before</span>
-            <span className="text-right">After</span>
-            <span className="text-right">Status</span>
+            <span>{msg('UI_OCRFEEDBACK_RUN_ID')}</span>
+            <span>{msg('UI_OCRFEEDBACK_CORPUS_3')}</span>
+            <span>{msg('UI_OCRFEEDBACK_TRIGGERED')}</span>
+            <span>{msg('UI_SMBFORWARDINGLOG_COMPLETED_2')}</span>
+            <span className="text-right">{msg('UI_OCRFEEDBACK_BEFORE')}</span>
+            <span className="text-right">{msg('UI_OCRFEEDBACK_AFTER')}</span>
+            <span className="text-right">{msg('UI_COMMON_STATUS')}</span>
           </div>
           {runs.map(run => (
             <div
@@ -287,14 +288,14 @@ export default function CTSOCRFeedback() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <Link to="/ops/dashboard" className={`text-xs ${th.muted} hover:underline`}>
-                Ops Dashboard
+               {msg('UI_COMMON_OPS_DASHBOARD')}
               </Link>
               <span className={`text-xs ${th.muted}`}>/</span>
-              <span className={`text-xs ${th.muted}`}>OCR Feedback</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_OCRFEEDBACK_OCR_FEEDBACK')}</span>
             </div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>OCR Feedback & Retraining</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_OCRFEEDBACK_OCR_FEEDBACK_RETRAINING')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              Automated corpus accumulation · Zero human triggers · Auto-promotes on improvement ≥ 2%
+             {msg('UI_OCRFEEDBACK_AUTOMATED_CORPUS_ACCUMULATION_ZERO_H')}
             </p>
           </div>
           <button
@@ -317,19 +318,19 @@ export default function CTSOCRFeedback() {
         {degraded && (
           <div className={`text-sm px-4 py-3 rounded-xl mb-4 border
             ${isDark ? 'bg-amber-900/10 border-amber-700/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-            Partial data — one or more data sources degraded. Redis or YugabyteDB may be unreachable.
+           {msg('UI_OCRFEEDBACK_PARTIAL_DATA_ONE_OR_MORE')}
           </div>
         )}
 
         {/* How this loop works — compact explainer */}
         <div className={`rounded-xl border p-4 mb-5 ${th.card}`}>
-          <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>How the loop works</p>
+          <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>{msg('UI_OCRFEEDBACK_HOW_THE_LOOP_WORKS')}</p>
           <div className="flex items-start gap-4 flex-wrap">
             {[
-              { step: '1', text: 'Every cheque decision emits a feedback signal (payee match score + failure mode)' },
-              { step: '2', text: 'FeedbackAccumulatorWorkflow collects OCR_CHAR_ERROR cases into the training corpus' },
-              { step: '3', text: 'When corpus hits threshold (default 500), ModelRetrainWorkflow auto-triggers MLflow' },
-              { step: '4', text: 'Shadow evaluation runs — new model promoted only if accuracy improves by ≥ 2%' },
+              { step: '1', text: msg('UI_OCRFEEDBACK_EVERY_CHEQUE_DECISION_EMITS_A') },
+              { step: '2', text: msg('UI_OCRFEEDBACK_FEEDBACKACCUMULATORWORKFLOW_COLLECTS') },
+              { step: '3', text: msg('UI_OCRFEEDBACK_WHEN_CORPUS_HITS_THRESHOLD_DEFAULT') },
+              { step: '4', text: msg('UI_OCRFEEDBACK_SHADOW_EVALUATION_RUNS_NEW_MODEL') },
             ].map(({ step, text }) => (
               <div key={step} className="flex items-start gap-2 min-w-[200px] flex-1">
                 <span className={`text-xs font-bold mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center
@@ -348,7 +349,7 @@ export default function CTSOCRFeedback() {
             <CorpusBar key={entry.corpus_type} entry={entry} isDark={isDark} />
           ))}
           {corpus.length === 0 && !loading && (
-            <p className={`text-sm col-span-2 ${th.muted}`}>No corpus data available.</p>
+            <p className={`text-sm col-span-2 ${th.muted}`}>{msg('UI_OCRFEEDBACK_NO_CORPUS_DATA_AVAILABLE')}</p>
           )}
         </div>
 
@@ -363,8 +364,7 @@ export default function CTSOCRFeedback() {
         </div>
 
         <p className={`text-xs mt-4 ${th.muted}`}>
-          Corpus counts from Redis · Failure modes and run history from YugabyteDB (cts.ocr_corpus_events, cts.model_retrain_runs).
-          Retrain history appears once ModelRetrainWorkflow has completed at least one run.
+         {msg('UI_OCRFEEDBACK_CORPUS_COUNTS_FROM_REDIS_FAILURE')}
         </p>
       </div>
     </AppShell>

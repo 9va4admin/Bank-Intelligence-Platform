@@ -1,5 +1,6 @@
 import { demoChequeUrl } from '../demoImages'
 import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
+import { msg } from '../../../shared/messages'
 
 const now = Date.now()
 const mins = (m) => now + m * 60 * 1000
@@ -22,7 +23,7 @@ export const MOCK_QUEUE = [
     ocr_confidence: 0.97,
     sig_match_score: 0.58,
     reason: 'SIGNATURE_LOW_CONFIDENCE',
-    reason_label: 'Signature mismatch',
+    reason_label: msg('UI_MOCKQUEUE_SIGNATURE_MISMATCH'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Signature match score', value: -0.34, direction: 'risk' },
@@ -77,7 +78,7 @@ export const MOCK_QUEUE = [
     ocr_confidence: 0.99,
     sig_match_score: 0.87,
     reason: 'FRAUD_SCORE_HIGH',
-    reason_label: 'Fraud score above threshold',
+    reason_label: msg('UI_MOCKQUEUE_FRAUD_SCORE_ABOVE_THRESHOLD'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Amount vs avg (30d)',    value: -0.23, direction: 'risk' },
@@ -129,7 +130,7 @@ export const MOCK_QUEUE = [
     ocr_confidence: 0.83,
     sig_match_score: 0.81,
     reason: 'OCR_LOW_CONFIDENCE',
-    reason_label: 'Possible alteration detected',
+    reason_label: msg('UI_MOCKQUEUE_POSSIBLE_ALTERATION_DETECTED'),
     status: 'PENDING',
     shap_values: [
       { feature: 'OCR confidence low',     value: -0.27, direction: 'risk' },
@@ -191,7 +192,7 @@ export const MOCK_QUEUE = [
     ocr_confidence: 0.96,
     sig_match_score: null,
     reason: 'VAULT_MISS',
-    reason_label: 'No signature specimen on file',
+    reason_label: msg('UI_MOCKQUEUE_NO_SIGNATURE_SPECIMEN_ON_FILE'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Vault miss — no specimen',  value: -0.42, direction: 'risk' },
@@ -246,7 +247,7 @@ export const MOCK_QUEUE = [
     ocr_confidence: 0.98,
     sig_match_score: 0.73,
     reason: 'HIGH_VALUE_DUAL_APPROVAL',
-    reason_label: 'Cheque >₹1Cr — dual approval required (OPA)',
+    reason_label: msg('UI_MOCKQUEUE_CHEQUE_1CR_DUAL_APPROVAL_REQUIRED'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Amount >₹1Cr (OPA rule)', value: -0.36, direction: 'risk' },
@@ -299,7 +300,7 @@ export const MOCK_QUEUE = [
     ocr_confidence: 0.95,
     sig_match_score: 0.92,
     reason: 'FRAUD_SCORE_HIGH',
-    reason_label: 'Fraud score above threshold',
+    reason_label: msg('UI_MOCKQUEUE_FRAUD_SCORE_ABOVE_THRESHOLD'),
     status: 'PENDING',
     shap_values: [
       { feature: 'New payee (first time)',   value: -0.25, direction: 'risk' },

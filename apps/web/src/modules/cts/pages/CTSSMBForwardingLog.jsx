@@ -5,6 +5,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useSMBForwardingLog from '../hooks/useSMBForwardingLog'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
     <div className={`mt-5 rounded-xl border p-5 ${th.card}`}>
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className={`font-semibold ${th.heading}`}>Forwarding Hop Detail</h2>
+          <h2 className={`font-semibold ${th.heading}`}>{msg('UI_SMBFORWARDINGLOG_FORWARDING_HOP_DETAIL')}</h2>
           <span className={`${th.mono}`}>{item.forwarding_id}</span>
         </div>
         <button onClick={onClose} className={`text-xs ${th.muted}`}>✕</button>
@@ -152,20 +153,20 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
         {/* Left */}
         <div className={`rounded-lg p-4 space-y-3 ${th.kv}`}>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>Instrument ID</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_COMMON_INSTRUMENT_ID')}</div>
             <div className={th.mono}>{item.instrument_id}</div>
           </div>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>Sub-Member Bank</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_INWARDPIPELINE_SUB_MEMBER_BANK')}</div>
             <div className={`text-xs font-medium ${th.heading}`}>{item.bank_name}</div>
             <div className={`${th.mono}`}>{item.sub_member_id}</div>
           </div>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>MICR Prefix Matched</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_MICR_PREFIX_MATCHED')}</div>
             <div className={`font-mono font-semibold text-sm ${th.heading}`}>{item.micr_prefix_matched}</div>
           </div>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>Terminal Decision</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_TERMINAL_DECISION')}</div>
             <div className={`text-sm font-bold ${item.terminal_decision ? DECISION[item.terminal_decision] : th.muted}`}>
               {item.terminal_decision ?? '—'}
             </div>
@@ -175,23 +176,23 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
         {/* Right */}
         <div className={`rounded-lg p-4 space-y-3 ${th.kv}`}>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>Forwarding Status</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_FORWARDING_STATUS')}</div>
             <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${STATUS[item.forwarding_status]}`}>
               {item.forwarding_status}
             </span>
           </div>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>IET Headroom at Arrival</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_IET_HEADROOM_AT_ARRIVAL')}</div>
             <div className={`text-sm font-bold ${item.iet_seconds_remaining < 300 ? (isDark ? 'text-red-300' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}`}>
-              {item.iet_seconds_remaining}s
+              {msg('UI_SMBFORWARDINGLOG_S', { iet_seconds_remaining: item.iet_seconds_remaining })}
             </div>
           </div>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>IET Deadline</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_IET_DEADLINE')}</div>
             <div className={`${th.mono}`}>{item.iet_deadline_utc.replace('T', ' ').replace('Z', ' UTC')}</div>
           </div>
           <div>
-            <div className={`text-[11px] ${th.muted}`}>Forwarding Latency</div>
+            <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_FORWARDING_LATENCY')}</div>
             <div className={`text-sm font-bold ${th.heading}`}>{latency(item.received_at, item.completed_at)}</div>
           </div>
         </div>
@@ -199,12 +200,12 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
 
       {/* Timeline */}
       <div className={`rounded-lg p-4 ${th.kv} mb-4`}>
-        <div className={`text-[11px] font-medium mb-3 ${th.muted}`}>Forwarding Timeline</div>
+        <div className={`text-[11px] font-medium mb-3 ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_FORWARDING_TIMELINE')}</div>
         <div className="space-y-2 text-[11px]">
           {[
-            { label: 'Received at Sponsor', ts: item.received_at },
-            { label: 'Forwarded to SMB Queue', ts: item.forwarded_at },
-            { label: 'SMB Processing Complete', ts: item.completed_at },
+            { label: msg('UI_SMBFORWARDINGLOG_RECEIVED_AT_SPONSOR'), ts: item.received_at },
+            { label: msg('UI_SMBFORWARDINGLOG_FORWARDED_TO_SMB_QUEUE'), ts: item.forwarded_at },
+            { label: msg('UI_SMBFORWARDINGLOG_SMB_PROCESSING_COMPLETE'), ts: item.completed_at },
           ].map(({ label, ts }) => (
             <div key={label} className="flex items-center gap-3">
               <div className={`w-1.5 h-1.5 rounded-full ${ts ? (isDark ? 'bg-cyan-400' : 'bg-cyan-600') : (isDark ? 'bg-white/20' : 'bg-slate-300')}`} />
@@ -218,7 +219,7 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
       {/* Failure reason */}
       {item.failure_reason && (
         <div className={`rounded-lg p-3 mb-4 ${isDark ? 'bg-red-900/20 border border-red-700/40' : 'bg-red-50 border border-red-200'}`}>
-          <div className={`text-[11px] font-medium mb-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>Failure Reason</div>
+          <div className={`text-[11px] font-medium mb-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{msg('UI_SMBFORWARDINGLOG_FAILURE_REASON')}</div>
           <div className={`font-mono text-[11px] ${isDark ? 'text-red-200' : 'text-red-800'}`}>{item.failure_reason}</div>
         </div>
       )}
@@ -226,7 +227,7 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
       {/* SMB Workflow ID */}
       {item.smb_workflow_id && (
         <div className={`rounded-lg p-3 ${th.kv}`}>
-          <div className={`text-[11px] ${th.muted}`}>SMB Temporal Workflow ID</div>
+          <div className={`text-[11px] ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_SMB_TEMPORAL_WORKFLOW_ID')}</div>
           <div className={`${th.mono} mt-0.5`}>{item.smb_workflow_id}</div>
         </div>
       )}
@@ -282,8 +283,8 @@ export default function CTSSMBForwardingLog() {
         <div className={`flex-1 flex items-center justify-center ${th.page}`}>
           <div className="text-center">
             <div className="text-4xl mb-4">🏦</div>
-            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
-            <div className={`text-sm ${th.muted}`}>The SMB Forwarding Log is managed by your Sponsor Bank. It shows the audit trail of instruments forwarded on your behalf.</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>{msg('UI_COMMON_SB_ONLY_FEATURE')}</div>
+            <div className={`text-sm ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_THE_SMB_FORWARDING_LOG_IS')}</div>
           </div>
         </div>
       </AppShell>
@@ -296,15 +297,15 @@ export default function CTSSMBForwardingLog() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>SMB Forwarding Log</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Per-instrument audit trail for Sponsor Bank → Sub-Member Bank forwarding hops</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_SMBFORWARDINGLOG_SMB_FORWARDING_LOG')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_PER_INSTRUMENT_AUDIT_TRAIL_FOR')}</p>
           </div>
           <div className="flex gap-2">
             <select className={th.select} value={filterSmb} onChange={e => setFilterSmb(e.target.value)}>
               {ALL_SMBS.map(s => <option key={s}>{s}</option>)}
             </select>
             <select className={th.select} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              {['All', 'COMPLETED', 'FORWARDING', 'FAILED', 'RECEIVED'].map(s => <option key={s}>{s}</option>)}
+              {[msg('UI_SMBFORWARDINGLOG_ALL'), msg('UI_SMBFORWARDINGLOG_COMPLETED'), msg('UI_SMBFORWARDINGLOG_FORWARDING'), msg('UI_SMBFORWARDINGLOG_FAILED'), msg('UI_SMBFORWARDINGLOG_RECEIVED')].map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
         </div>
@@ -312,10 +313,10 @@ export default function CTSSMBForwardingLog() {
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Hops Today', value: LOG_SOURCE.length },
-            { label: 'Completed', value: completedCount },
-            { label: 'In-Flight', value: inFlightCount },
-            { label: 'IET Failures', value: failedCount, warn: failedCount > 0 },
+            { label: msg('UI_SMBFORWARDINGLOG_TOTAL_HOPS_TODAY'), value: LOG_SOURCE.length },
+            { label: msg('UI_SMBFORWARDINGLOG_COMPLETED_2'), value: completedCount },
+            { label: msg('UI_COMMON_IN_FLIGHT'), value: inFlightCount },
+            { label: msg('UI_SMBFORWARDINGLOG_IET_FAILURES'), value: failedCount, warn: failedCount > 0 },
           ].map(({ label, value, warn }) => (
             <div key={label} className={`rounded-xl border px-4 py-3 ${th.card}`}>
               <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -329,7 +330,7 @@ export default function CTSSMBForwardingLog() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Instrument', 'Sub-Member', 'MICR', 'Status', 'Decision', 'IET Headroom', 'Latency', 'Forwarded At', ''].map(h => (
+                {[msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'), msg('UI_SMBFORWARDINGLOG_SUB_MEMBER'), msg('UI_COMMON_MICR'), msg('UI_COMMON_STATUS'), msg('UI_COMMON_DECISION'), msg('UI_SMBFORWARDINGLOG_IET_HEADROOM'), msg('UI_SMBFORWARDINGLOG_LATENCY'), msg('UI_SMBFORWARDINGLOG_FORWARDED_AT'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -362,21 +363,21 @@ export default function CTSSMBForwardingLog() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`font-semibold ${item.iet_seconds_remaining < 300 ? (isDark ? 'text-red-300' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}`}>
-                      {item.iet_seconds_remaining}s
+                      {msg('UI_SMBFORWARDINGLOG_S', { iet_seconds_remaining: item.iet_seconds_remaining })}
                     </span>
                   </td>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{latency(item.received_at, item.completed_at)}</td>
                   <td className={`px-4 py-3 ${th.muted}`}>{item.forwarded_at ? item.forwarded_at.substring(11, 19) + ' UTC' : '—'}</td>
                   <td className="px-4 py-3">
                     <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>
-                      Detail →
+                     {msg('UI_COMMON_DETAIL')}
                     </button>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className={`px-4 py-8 text-center text-xs ${th.muted}`}>No forwarding events match the selected filters.</td>
+                  <td colSpan={9} className={`px-4 py-8 text-center text-xs ${th.muted}`}>{msg('UI_SMBFORWARDINGLOG_NO_FORWARDING_EVENTS_MATCH_THE')}</td>
                 </tr>
               )}
             </tbody>

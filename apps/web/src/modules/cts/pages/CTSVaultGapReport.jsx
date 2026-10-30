@@ -11,6 +11,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useVaultGaps from '../hooks/useVaultGaps'
+import { msg } from '../../../shared/messages'
 
 function nextClearingCountdown() {
   const now = new Date()
@@ -21,7 +22,7 @@ function nextClearingCountdown() {
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
   const urgent = h < 2
-  return { h, m, urgent, label: `${h}h ${m}m` }
+  return { h, m, urgent, label: msg('UI_VAULTGAPREPORT_H_M', { h, m }) }
 }
 
 function fmt(epoch) {
@@ -76,9 +77,9 @@ export default function CTSVaultGapReport() {
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Signature Vault Gap Report</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_VAULTGAPREPORT_SIGNATURE_VAULT_GAP_REPORT')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              Accounts that presented cheques with no vault specimen — enroll overnight before next session
+             {msg('UI_VAULTGAPREPORT_ACCOUNTS_THAT_PRESENTED_CHEQUES_WITH')}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -92,7 +93,7 @@ export default function CTSVaultGapReport() {
               onClick={refetch}
               className={`text-sm px-3 py-1.5 rounded font-medium ${th.btn}`}
             >
-              Refresh
+             {msg('UI_VAULTGAPREPORT_REFRESH')}
             </button>
           </div>
         </div>
@@ -108,10 +109,10 @@ export default function CTSVaultGapReport() {
           </div>
           <div>
             <div className={`text-xs font-semibold ${clearing.urgent ? '' : (isDark ? 'text-white' : 'text-slate-900')}`}>
-              {clearing.urgent ? 'Urgent — ' : ''}Until next clearing session (09:00 AM)
+              {msg('UI_VAULTGAPREPORT_UNTIL_NEXT_CLEARING_SESSION_09', { value: clearing.urgent ? 'Urgent — ' : '' })}
             </div>
             <div className={`text-xs mt-0.5 opacity-75`}>
-              Enroll accounts below before session start — gaps resolved tonight will have vault coverage tomorrow
+             {msg('UI_VAULTGAPREPORT_ENROLL_ACCOUNTS_BELOW_BEFORE_SESSION')}
             </div>
           </div>
         </div>
@@ -119,9 +120,9 @@ export default function CTSVaultGapReport() {
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4 mb-5">
           {[
-            { label: 'Accounts with vault gap',  value: affected, color: affected > 0 ? 'text-amber-400' : 'text-emerald-400' },
-            { label: 'Instruments routed to HRQ', value: total,   color: total > 0    ? 'text-amber-400' : 'text-emerald-400' },
-            { label: 'Clearing date',             value: selectedDate, color: th.heading },
+            { label: msg('UI_VAULTGAPREPORT_ACCOUNTS_WITH_VAULT_GAP'),  value: affected, color: affected > 0 ? 'text-amber-400' : 'text-emerald-400' },
+            { label: msg('UI_VAULTGAPREPORT_INSTRUMENTS_ROUTED_TO_HRQ'), value: total,   color: total > 0    ? 'text-amber-400' : 'text-emerald-400' },
+            { label: msg('UI_VAULTGAPREPORT_CLEARING_DATE'),             value: selectedDate, color: th.heading },
           ].map(({ label, value, color }) => (
             <div key={label} className={`rounded-lg border p-4 ${th.card}`}>
               <div className={`text-xs font-medium uppercase tracking-wide ${th.muted} mb-1`}>{label}</div>
@@ -132,28 +133,25 @@ export default function CTSVaultGapReport() {
 
         {/* Info banner */}
         <div className={`rounded-lg border px-4 py-3 mb-5 text-sm ${isDark ? 'bg-blue-950/40 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-          <span className="font-medium">What to do:</span>{' '}
-          For each account below, open Vault Enrollment → search by last 4 digits → upload specimen signature.
-          Enrollments made tonight will be available at the start of the{' '}
-          <span className="font-mono">{new Date(new Date(selectedDate).getTime() + 86400000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>{' '}
-          clearing session.
+          <span className="font-medium">{msg('UI_VAULTGAPREPORT_WHAT_TO_DO')}</span>{msg('UI_VAULTGAPREPORT_FOR_EACH_ACCOUNT_BELOW_OPEN')}
+          <span className="font-mono">{new Date(new Date(selectedDate).getTime() + 86400000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>{msg('UI_VAULTGAPREPORT_CLEARING_SESSION')}
         </div>
 
         {/* Loading / error */}
         {loading && (
-          <div className={`text-center py-16 ${th.muted}`}>Loading vault gap report…</div>
+          <div className={`text-center py-16 ${th.muted}`}>{msg('UI_VAULTGAPREPORT_LOADING_VAULT_GAP_REPORT')}</div>
         )}
         {error && !loading && (
-          <div className={`text-center py-16 text-red-400`}>Error: {error}</div>
+          <div className={`text-center py-16 text-red-400`}>{msg('UI_VAULTGAPREPORT_ERROR', { error })}</div>
         )}
 
         {/* No gaps */}
         {!loading && !error && gaps.length === 0 && (
           <div className={`rounded-lg border p-10 text-center ${th.card}`}>
             <div className={`text-3xl mb-2`}>✓</div>
-            <div className={`font-medium ${th.heading}`}>No vault gaps for {selectedDate}</div>
+            <div className={`font-medium ${th.heading}`}>{msg('UI_VAULTGAPREPORT_NO_VAULT_GAPS_FOR', { selectedDate })}</div>
             <div className={`text-sm mt-1 ${th.muted}`}>
-              All accounts that presented cheques had a specimen in vault — 100% vault coverage.
+             {msg('UI_VAULTGAPREPORT_ALL_ACCOUNTS_THAT_PRESENTED_CHEQUES')}
             </div>
           </div>
         )}
@@ -164,7 +162,7 @@ export default function CTSVaultGapReport() {
             <table className="w-full text-sm">
               <thead>
                 <tr className={`border-b ${th.divider}`}>
-                  {['Account', 'Cheques Affected', 'First Presented', 'Last Presented', 'Action'].map(h => (
+                  {[msg('CTS_WF_BUCKETCFG_COL_ACCOUNT'), msg('UI_VAULTGAPREPORT_CHEQUES_AFFECTED'), msg('UI_VAULTGAPREPORT_FIRST_PRESENTED'), msg('UI_VAULTGAPREPORT_LAST_PRESENTED'), msg('UI_COMMON_ACTION')].map(h => (
                     <th key={h} className={`text-left text-xs font-medium uppercase tracking-wide px-4 py-3 ${th.muted}`}>
                       {h}
                     </th>
@@ -184,7 +182,7 @@ export default function CTSVaultGapReport() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded border ${th.badge}`}>
-                          {gap.instrument_count} cheque{gap.instrument_count > 1 ? 's' : ''} → HRQ
+                          {msg('UI_VAULTGAPREPORT_CHEQUE_HRQ', { instrument_count: gap.instrument_count, value: gap.instrument_count > 1 ? 's' : '' })}
                         </span>
                       </td>
                       <td className={`px-4 py-3 font-mono text-xs ${th.body}`}>
@@ -201,7 +199,7 @@ export default function CTSVaultGapReport() {
                             navigate(`/cts/vault/upload?account=${encodeURIComponent(gap.account_display)}`)
                           }}
                         >
-                          Enroll Signature
+                         {msg('UI_VAULTGAPREPORT_ENROLL_SIGNATURE')}
                         </button>
                       </td>
                     </tr>
@@ -211,7 +209,7 @@ export default function CTSVaultGapReport() {
                         <td colSpan={5} className={`px-4 py-3 border-b ${th.divider}`}>
                           <div className={`rounded border p-3 ${th.sub}`}>
                             <div className={`text-xs font-medium uppercase tracking-wide ${th.muted} mb-2`}>
-                              Instrument IDs for {gap.account_display}
+                             {msg('UI_VAULTGAPREPORT_INSTRUMENT_IDS_FOR', { account_display: gap.account_display })}
                             </div>
                             <div className="flex flex-wrap gap-2">
                               {gap.instrument_ids.map((id, i) => (
@@ -219,15 +217,14 @@ export default function CTSVaultGapReport() {
                                   {id}
                                   {gap.micr_codes[i] && (
                                     <span className={`ml-1.5 ${th.faint}`}>
-                                      · MICR {gap.micr_codes[i]}
+                                     {msg('UI_VAULTGAPREPORT_MICR', { micr_codes: gap.micr_codes[i] })}
                                     </span>
                                   )}
                                 </span>
                               ))}
                             </div>
                             <div className={`mt-2 text-xs ${th.muted}`}>
-                              Each instrument will remain in HRQ until a human reviewer manually verifies
-                              or rejects. Vault enrollment prevents future recurrence.
+                             {msg('UI_VAULTGAPREPORT_EACH_INSTRUMENT_WILL_REMAIN_IN')}
                             </div>
                           </div>
                         </td>
@@ -239,8 +236,7 @@ export default function CTSVaultGapReport() {
             </table>
 
             <div className={`px-4 py-3 text-xs ${th.muted} border-t ${th.divider}`}>
-              {affected} account{affected !== 1 ? 's' : ''} · {total} instrument{total !== 1 ? 's' : ''} in HRQ today ·
-              Report generated {new Date().toLocaleTimeString('en-IN')}
+              {msg('UI_VAULTGAPREPORT_ACCOUNT_INSTRUMENT_IN_HRQ_TODAY', { affected, value: affected !== 1 ? 's' : '', total, value2: total !== 1 ? 's' : '', value3: new Date().toLocaleTimeString('en-IN') })}
             </div>
           </div>
         )}

@@ -8,6 +8,7 @@
  *   { items, total, loading, error, refetch }
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 15_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -65,7 +66,7 @@ export default function useDecisions({ limit = 50, pollEnabled = true } = {}) {
         { credentials: 'include' },   // session cookie — no Bearer token on frontend
       )
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
 
       const data = await res.json()
       const normalised = (data.items ?? []).map(normaliseDecision)

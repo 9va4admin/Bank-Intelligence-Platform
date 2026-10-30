@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { msg } from '../../shared/messages'
 
 export default function Footer() {
   return (
@@ -15,29 +16,29 @@ export default function Footer() {
                 </div>
               </div>
               <div className="flex flex-col leading-none">
-                <span className="font-bold text-white text-sm">ASTRA</span>
-                <span className="text-[10px] text-teal-300/60 tracking-widest">BANKING INTELLIGENCE</span>
+                <span className="font-bold text-white text-sm">{msg('UI_COMMON_ASTRA')}</span>
+                <span className="text-[10px] text-teal-300/60 tracking-widest">{msg('UI_FOOTER_BANKING_INTELLIGENCE')}</span>
               </div>
             </div>
             <p className="text-slate-400 text-xs leading-relaxed mb-3">
-              Automated Settlement and Transaction Recognition Architecture. Built for Indian banks. Deployed on-premises. RBI-compliant from day one.
+             {msg('UI_FOOTER_AUTOMATED_SETTLEMENT_AND_TRANSACTION')}
             </p>
             <p className="text-slate-500 text-xs">
-              Domain expertise: Nilesh Shah<br />
-              Ex-NPCI · Piramal · Fullerton/SMFG
+             {msg('UI_FOOTER_DOMAIN_EXPERTISE_NILESH_SHAH')}<br />
+             {msg('UI_FOOTER_EX_NPCI_PIRAMAL_FULLERTON_SMFG')}
             </p>
           </div>
 
           {/* Platform */}
           <div>
-            <div className="text-xs font-semibold text-slate-400 tracking-widest uppercase mb-4">Platform</div>
+            <div className="text-xs font-semibold text-slate-400 tracking-widest uppercase mb-4">{msg('UI_FOOTER_PLATFORM')}</div>
             <div className="space-y-2">
               {[
-                { label: 'CTS Module', href: '#cts' },
-                { label: 'Security & Compliance', href: '#security' },
-                { label: 'Architecture', href: '#architecture' },
-                { label: 'Commercial Model', href: '#commercial' },
-                { label: 'CTS FAQ', href: 'CTS_FAQ.html', external: true },
+                { label: msg('UI_FOOTER_CTS_MODULE'), href: '#cts' },
+                { label: msg('UI_FOOTER_SECURITY_COMPLIANCE'), href: '#security' },
+                { label: msg('UI_ARCHITECTURE_ARCHITECTURE'), href: '#architecture' },
+                { label: msg('UI_FOOTER_COMMERCIAL_MODEL'), href: '#commercial' },
+                { label: msg('UI_FOOTER_CTS_FAQ'), href: 'CTS_FAQ.html', external: true },
               ].map(({ label, href, external }) => (
                 <a
                   key={href}
@@ -54,14 +55,14 @@ export default function Footer() {
 
           {/* Demos */}
           <div>
-            <div className="text-xs font-semibold text-slate-400 tracking-widest uppercase mb-4">Live Demos</div>
+            <div className="text-xs font-semibold text-slate-400 tracking-widest uppercase mb-4">{msg('UI_FOOTER_LIVE_DEMOS')}</div>
             <div className="space-y-3">
               <Link
                 to="/cts"
                 className="flex items-center gap-2 text-sm text-slate-400 hover:text-teal-300 transition-colors"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                CTS Operations Workstation
+               {msg('UI_FOOTER_CTS_OPERATIONS_WORKSTATION')}
               </Link>
             </div>
 
@@ -70,7 +71,7 @@ export default function Footer() {
                 href="#contact"
                 className="inline-flex items-center gap-2 text-sm font-medium bg-teal-400 hover:bg-teal-500 text-forest-900 px-5 py-2.5 rounded-xl transition-colors"
               >
-                Request Demo →
+               {msg('UI_FOOTER_REQUEST_DEMO')}
               </a>
             </div>
           </div>
@@ -79,13 +80,13 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-slate-500">
-            © 2026 ASTRA Bank Intelligence Platform. Confidential — Banking Grade.
+           {msg('UI_FOOTER_2026_ASTRA_BANK_INTELLIGENCE_PLATFOR')}
           </p>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-slate-500">Classification: Confidential</span>
+            <span className="text-xs text-slate-500">{msg('UI_FOOTER_CLASSIFICATION_CONFIDENTIAL')}</span>
             <span className="text-xs text-teal-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-              RBI IET Mandate Ready
+             {msg('UI_FOOTER_RBI_IET_MANDATE_READY')}
             </span>
           </div>
         </div>

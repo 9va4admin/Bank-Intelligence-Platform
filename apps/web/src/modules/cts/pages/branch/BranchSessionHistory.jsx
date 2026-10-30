@@ -10,13 +10,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
+import { msg } from '../../../../shared/messages'
 
 async function fetchReportUrl(session_id, format) {
   const res = await fetch(
     `/v1/cts/outward/sessions/${session_id}/report?format=${format}`,
     { credentials: 'include' },
   )
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
   const data = await res.json()
   return format === 'html' ? data.html_url : data.pdf_url
 }
@@ -89,10 +90,10 @@ function ReportDownloadButton({ sessionId, format, isDark }) {
       if (url) {
         window.open(url, '_blank', 'noopener,noreferrer')
       } else {
-        alert('Report not ready yet — please try again in a moment.')
+        alert(msg('UI_BRANCHSESSIONHISTORY_REPORT_NOT_READY_YET_PLEASE'))
       }
     } catch {
-      alert('Could not fetch report URL. Check network or permissions.')
+      alert(msg('UI_BRANCHSESSIONHISTORY_COULD_NOT_FETCH_REPORT_URL'))
     } finally {
       setLoading(false)
     }
@@ -148,7 +149,7 @@ function SessionRow({ sess, isDark, onDownload }) {
                 onClick={() => onDownload(sess.session_id, 'cxf')}
                 className="text-xs px-2 py-0.5 border rounded text-blue-400 border-blue-400/30 hover:bg-blue-400/10 transition-colors"
               >
-                CXF
+               {msg('UI_BRANCHSESSIONHISTORY_CXF')}
               </button>
               <button
                 onClick={() => onDownload(sess.session_id, 'summary')}
@@ -156,7 +157,7 @@ function SessionRow({ sess, isDark, onDownload }) {
                   isDark ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'
                 }`}
               >
-                Summary
+               {msg('UI_BRANCHSESSIONHISTORY_SUMMARY')}
               </button>
             </>
           )}
@@ -205,7 +206,7 @@ export default function BranchSessionHistory() {
 
   function handleDownload(session_id, type) {
     // In production: GET /v1/branch/sessions/{session_id}/download?type={cxf|summary}
-    alert(`Download ${type.toUpperCase()} for session ${session_id.slice(-8)} (Phase 3)`)
+    alert(msg('UI_BRANCHSESSIONHISTORY_DOWNLOAD_FOR_SESSION_PHASE_3', { type: type.toUpperCase(), session_id: session_id.slice(-8) }))
   }
 
   return (
@@ -213,9 +214,9 @@ export default function BranchSessionHistory() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         <div className="flex items-center gap-4 mb-5">
           <Link to="/branch" className={`text-sm ${th.muted} hover:text-blue-400 transition-colors`}>
-            ← Dashboard
+           {msg('UI_COMMON_DASHBOARD')}
           </Link>
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Session History</h1>
+          <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_SESSION_HISTORY')}</h1>
         </div>
 
         <div className={`rounded-lg border overflow-hidden ${th.card}`}>
@@ -223,7 +224,7 @@ export default function BranchSessionHistory() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {['Date', 'Session', 'Status', 'Lots', 'Uploaded', 'Accepted / Rejected', 'Time', 'Operator', 'Downloads / Report'].map(h => (
+                  {[msg('UI_COMMON_DATE'), msg('UI_COMMON_SESSION'), msg('UI_COMMON_STATUS'), msg('UI_SCANNER_LOTS'), msg('UI_BRANCHDASHBOARD_UPLOADED'), msg('UI_BRANCHSESSIONHISTORY_ACCEPTED_REJECTED'), msg('UI_COMMON_TIME'), msg('UI_BRANCHSESSIONHISTORY_OPERATOR'), msg('UI_BRANCHSESSIONHISTORY_DOWNLOADS_REPORT')].map(h => (
                     <th key={h} className={`px-3 py-2 text-left border-b ${th.divider} ${th.thCell}`}>
                       {h}
                     </th>

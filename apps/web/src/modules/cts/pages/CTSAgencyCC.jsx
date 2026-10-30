@@ -15,6 +15,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const AGENCY_POLL_MS = 60_000
@@ -268,11 +269,11 @@ function SBConnectionCard({ conn, isDark }) {
         </div>
       </div>
       <div className={`flex gap-4 text-xs ${th.meta}`}>
-        <span>{conn.smb_count} SMB{conn.smb_count !== 1 ? 's' : ''}</span>
+        <span>{msg('UI_AGENCYCC_SMB', { smb_count: conn.smb_count, value: conn.smb_count !== 1 ? 's' : '' })}</span>
         {conn.last_test_latency_ms != null && (
-          <span>{conn.last_test_latency_ms} ms</span>
+          <span>{msg('UI_AGENCYCC_MS', { last_test_latency_ms: conn.last_test_latency_ms })}</span>
         )}
-        <span>tested {fmtTime(conn.last_tested_at)}</span>
+        <span>{msg('UI_AGENCYCC_TESTED', { fmtTime: fmtTime(conn.last_tested_at) })}</span>
       </div>
       {conn.error_message && (
         <div className={`mt-2 text-xs ${th.err}`}>{conn.error_message}</div>
@@ -401,42 +402,42 @@ export default function CTSAgencyCC() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className={`text-lg font-bold ${th.heading}`}>Agency Command Center</h1>
+            <h1 className={`text-lg font-bold ${th.heading}`}>{msg('UI_AGENCYCC_AGENCY_COMMAND_CENTER')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {bankName} · AGENCY_SB_RELAY mode · {SB_CONNECTIONS.length} Sponsor Banks configured
+              {msg('UI_AGENCYCC_AGENCY_SB_RELAY_MODE_SPONSOR', { bankName, count: SB_CONNECTIONS.length })}
             </p>
           </div>
           <div className={`text-xs px-3 py-1.5 rounded border ${
             isDark ? 'bg-violet-900/30 text-violet-300 border-violet-700/40' : 'bg-violet-50 text-violet-700 border-violet-300'
           } font-semibold`}>
-            AGENCY_SB_RELAY
+           {msg('UI_AGENCYCC_AGENCY_SB_RELAY')}
           </div>
         </div>
 
         {/* Stat strip */}
         <div className="grid grid-cols-4 gap-3">
           <StatCard
-            label="Active SBs"
+            label={msg('UI_AGENCYCC_ACTIVE_SBS')}
             value={activeSBs}
             sub={`of ${SB_CONNECTIONS.length} configured`}
             accent={activeSBs < SB_CONNECTIONS.length ? (isDark ? 'text-amber-400' : 'text-amber-600') : undefined}
             isDark={isDark}
           />
           <StatCard
-            label="Today's Instruments"
+            label={msg('UI_AGENCYCC_TODAY_S_INSTRUMENTS')}
             value={totalInstruments.toLocaleString('en-IN')}
             sub="across all SBs"
             isDark={isDark}
           />
           <StatCard
-            label="Sessions Submitted"
+            label={msg('UI_AGENCYCC_SESSIONS_SUBMITTED')}
             value={submittedSessions}
             sub={`of ${SESSIONS_DATA.length} sessions today`}
             accent={isDark ? 'text-emerald-400' : 'text-emerald-600'}
             isDark={isDark}
           />
           <StatCard
-            label="Exceptions"
+            label={msg('UI_COMMON_EXCEPTIONS')}
             value={exceptionSessions}
             sub="require manual action"
             accent={exceptionSessions > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : undefined}
@@ -452,10 +453,10 @@ export default function CTSAgencyCC() {
             <span className="text-base">⚠</span>
             <div>
               <span className={`text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-                {exceptionSessions} clearing session{exceptionSessions > 1 ? 's' : ''} failed SB submission
+                {msg('UI_AGENCYCC_CLEARING_SESSION_FAILED_SB_SUBMISSIO', { exceptionSessions, value: exceptionSessions > 1 ? 's' : '' })}
               </span>
               <span className={`text-xs ml-2 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-                Check SB connection health and retry manually
+               {msg('UI_AGENCYCC_CHECK_SB_CONNECTION_HEALTH_AND')}
               </span>
             </div>
           </div>
@@ -483,7 +484,7 @@ export default function CTSAgencyCC() {
               ))}
             </div>
             <div className={`text-xs ${th.faint} mt-2`}>
-              Connector types: SFTP_GENERIC — file-drop SFTP · BANCS_API — TCS BaNCS REST · NELITO_API — Nelito FinNext REST
+             {msg('UI_AGENCYCC_CONNECTOR_TYPES_SFTP_GENERIC_FILE')}
             </div>
           </div>
         )}
@@ -495,7 +496,7 @@ export default function CTSAgencyCC() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b ${th.th}`}>
-                    {['Sponsor Bank', 'Session', 'Status', 'Instruments', 'SB Reference', 'Time', 'Failure'].map(h => (
+                    {[msg('UI_AGENCYCC_SPONSOR_BANK'), msg('UI_COMMON_SESSION'), msg('UI_COMMON_STATUS'), msg('UI_COMMON_INSTRUMENTS'), msg('UI_AGENCYCC_SB_REFERENCE'), msg('UI_COMMON_TIME'), msg('UI_AGENCYCC_FAILURE')].map(h => (
                       <th key={h} className={`py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider ${th.th}`}>
                         {h}
                       </th>
@@ -510,7 +511,7 @@ export default function CTSAgencyCC() {
               </table>
             </div>
             {SESSIONS_DATA.length === 0 && (
-              <div className={`py-10 text-center text-sm ${th.muted}`}>No clearing sessions today yet</div>
+              <div className={`py-10 text-center text-sm ${th.muted}`}>{msg('UI_AGENCYCC_NO_CLEARING_SESSIONS_TODAY_YET')}</div>
             )}
           </div>
         )}
@@ -519,43 +520,43 @@ export default function CTSAgencyCC() {
         {activeTab === 2 && (
           <div className="grid grid-cols-2 gap-4">
             <div className={`rounded-lg p-5 ${th.card} space-y-4`}>
-              <div className={`text-xs font-bold uppercase tracking-wider ${th.muted}`}>Relay Summary — Today</div>
+              <div className={`text-xs font-bold uppercase tracking-wider ${th.muted}`}>{msg('UI_AGENCYCC_RELAY_SUMMARY_TODAY')}</div>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className={`text-sm ${th.body}`}>Total received from SBs</span>
+                  <span className={`text-sm ${th.body}`}>{msg('UI_AGENCYCC_TOTAL_RECEIVED_FROM_SBS')}</span>
                   <span className={`text-sm font-bold tabular-nums ${th.heading}`}>
                     {inwardStats.total_received.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={`text-sm ${th.body}`}>Routed to PUs</span>
+                  <span className={`text-sm ${th.body}`}>{msg('UI_AGENCYCC_ROUTED_TO_PUS')}</span>
                   <span className={`text-sm font-bold tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
                     {inwardStats.routed.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={`text-sm ${th.body}`}>CRL misses</span>
+                  <span className={`text-sm ${th.body}`}>{msg('UI_AGENCYCC_CRL_MISSES')}</span>
                   <span className={`text-sm font-bold tabular-nums ${inwardStats.crl_misses > 0 ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
                     {inwardStats.crl_misses}
                   </span>
                 </div>
                 <div className={`pt-2 border-t ${th.divider} flex justify-between`}>
-                  <span className={`text-xs ${th.muted}`}>Last relay</span>
+                  <span className={`text-xs ${th.muted}`}>{msg('UI_AGENCYCC_LAST_RELAY')}</span>
                   <span className={`text-xs font-mono ${th.muted}`}>{fmtTime(inwardStats.last_relay_at)}</span>
                 </div>
               </div>
             </div>
 
             <div className={`rounded-lg p-5 ${th.card}`}>
-              <div className={`text-xs font-bold uppercase tracking-wider ${th.muted} mb-4`}>IET Note</div>
+              <div className={`text-xs font-bold uppercase tracking-wider ${th.muted} mb-4`}>{msg('UI_AGENCYCC_IET_NOTE')}</div>
               <p className={`text-sm ${th.body} leading-relaxed`}>
-                Inward instruments forwarded by SBs carry their <strong className={th.heading}>original NGCH timestamp</strong> (the moment the SB's member bank filed with NGCH). ASTRA's IET countdown starts from that timestamp, not from relay receipt.
+               {msg('UI_AGENCYCC_INWARD_INSTRUMENTS_FORWARDED_BY_SBS')} <strong className={th.heading}>{msg('UI_AGENCYCC_ORIGINAL_NGCH_TIMESTAMP')}</strong> {msg('UI_AGENCYCC_THE_MOMENT_THE_SB_S')}
               </p>
               <p className={`text-sm ${th.body} leading-relaxed mt-3`}>
-                CRL misses are routed to <strong className={th.heading}>HUMAN_REVIEW</strong> immediately — never auto-returned.
+               {msg('UI_AGENCYCC_CRL_MISSES_ARE_ROUTED_TO')} <strong className={th.heading}>{msg('UI_AGENCYCC_HUMAN_REVIEW')}</strong> {msg('UI_AGENCYCC_IMMEDIATELY_NEVER_AUTO_RETURNED')}
               </p>
               <div className={`mt-4 px-3 py-2 rounded text-xs font-semibold ${isDark ? 'bg-red-950/40 text-red-300 border border-red-800/40' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                IET breach rate target: 0.000%
+               {msg('UI_AGENCYCC_IET_BREACH_RATE_TARGET_0')}
               </div>
             </div>
           </div>
@@ -565,15 +566,14 @@ export default function CTSAgencyCC() {
         {activeTab === 3 && (
           <div className="space-y-3">
             <p className={`text-xs ${th.muted}`}>
-              SMB CBS batch files (stop payments, PPS, signatures) received via SFTP every 15 min.
-              Each file is deduplicated by SHA-256 hash before vault update.
+             {msg('UI_AGENCYCC_SMB_CBS_BATCH_FILES_STOP')}
             </p>
             <div className={`rounded-lg border ${th.card}`}>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className={`border-b ${th.th}`}>
-                      {['SMB', 'File Type', 'Outcome', 'Records', 'Received', 'Failure'].map(h => (
+                      {['SMB', msg('UI_AGENCYCC_FILE_TYPE'), msg('UI_COMMON_OUTCOME'), msg('UI_AGENCYCC_RECORDS'), msg('UI_COMMON_RECEIVED'), msg('UI_AGENCYCC_FAILURE')].map(h => (
                         <th key={h} className={`py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider ${th.th}`}>
                           {h}
                         </th>
@@ -604,7 +604,7 @@ export default function CTSAgencyCC() {
               </div>
             </div>
             <div className={`text-xs ${th.faint}`}>
-              No software deployed at SMB premises — SMBs configure their CBS batch export to push CSV files to Agency SFTP. File format: Finacle CSV · BaNCS fixed-width · generic CSV (auto-detected).
+             {msg('UI_AGENCYCC_NO_SOFTWARE_DEPLOYED_AT_SMB')}
             </div>
           </div>
         )}

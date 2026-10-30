@@ -78,7 +78,7 @@ export default function CTSCustody() {
     const [p, t, d, m] = await Promise.allSettled([
       call('/pending'), call('/handovers?status=IN_TRANSIT'), call('/due-for-disposal'), call('/missing'),
     ])
-    if (p.status === 'fulfilled') setPending(p.value)
+    if (p.status === 'fulfilled') setPending({ items: p.value.items ?? [], hold_days: p.value.hold_days ?? 7 })
     if (t.status === 'fulfilled') setTransit(t.value.handovers ?? [])
     if (d.status === 'fulfilled') setDue(d.value.items ?? [])
     if (m.status === 'fulfilled') setMissingItems(m.value.items ?? [])

@@ -1,7 +1,8 @@
+import { msg } from '../../shared/messages'
 const TIERS = [
   {
     name: 'Starter SaaS',
-    tagline: 'For UCBs and RRBs with up to 50,000 cheques/month',
+    tagline: msg('UI_TECHSTACK_FOR_UCBS_AND_RRBS_WITH'),
     pricing: '₹0.12–0.18 / cheque',
     features: [
       'CTS module only',
@@ -16,7 +17,7 @@ const TIERS = [
   },
   {
     name: 'Growth Licence',
-    tagline: 'For mid-tier banks deploying both modules',
+    tagline: msg('UI_TECHSTACK_FOR_MID_TIER_BANKS_DEPLOYING'),
     pricing: '₹50L–1.2Cr + 18% AMC',
     features: [
       'CTS module — on-premises deployment',
@@ -32,7 +33,7 @@ const TIERS = [
   },
   {
     name: 'Enterprise Managed',
-    tagline: 'For large banks with active-active multi-DC requirements',
+    tagline: msg('UI_TECHSTACK_FOR_LARGE_BANKS_WITH_ACTIVE'),
     pricing: '₹12–25L / month',
     features: [
       'CTS + full observability stack',
@@ -49,10 +50,10 @@ const TIERS = [
 ]
 
 const NORTH_STAR = [
-  { label: 'North Star Vision', value: 'Every instrument, everywhere — cheques, UPI, NACH, IMPS — intelligently processed, always on-premises, never breaching mandate.' },
-  { label: 'Phase 1', value: 'CTS (now in production readiness)' },
-  { label: 'Phase 2', value: 'NACH return processing, UPI dispute intelligence' },
-  { label: 'Phase 3', value: 'Cross-bank fraud intelligence network (consent-gated, federated)' },
+  { label: msg('UI_TECHSTACK_NORTH_STAR_VISION'), value: 'Every instrument, everywhere — cheques, UPI, NACH, IMPS — intelligently processed, always on-premises, never breaching mandate.' },
+  { label: msg('UI_TECHSTACK_PHASE_1'), value: 'CTS (now in production readiness)' },
+  { label: msg('UI_TECHSTACK_PHASE_2'), value: 'NACH return processing, UPI dispute intelligence' },
+  { label: msg('UI_TECHSTACK_PHASE_3'), value: 'Cross-bank fraud intelligence network (consent-gated, federated)' },
 ]
 
 export default function TechStack() {
@@ -60,13 +61,13 @@ export default function TechStack() {
     <section id="commercial" className="bg-white py-20 px-6">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-14">
-          <span className="inline-block text-xs font-semibold text-slate-400 tracking-widest uppercase mb-3">Commercial Model</span>
+          <span className="inline-block text-xs font-semibold text-slate-400 tracking-widest uppercase mb-3">{msg('UI_FOOTER_COMMERCIAL_MODEL')}</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-            Priced for Indian Banks.<br />
-            <span className="text-teal-500">Not Silicon Valley SaaS.</span>
+           {msg('UI_TECHSTACK_PRICED_FOR_INDIAN_BANKS')}<br />
+            <span className="text-teal-500">{msg('UI_TECHSTACK_NOT_SILICON_VALLEY_SAAS')}</span>
           </h2>
           <p className="text-slate-500 max-w-xl mx-auto text-sm">
-            Three tiers — from first-time UCBs to large multi-DC banks. All tiers include RBI compliance certification and full on-premises deployment option.
+           {msg('UI_TECHSTACK_THREE_TIERS_FROM_FIRST_TIME')}
           </p>
         </div>
 
@@ -86,7 +87,7 @@ export default function TechStack() {
               </ul>
               {highlight && (
                 <a href="#contact" className="mt-6 block text-center text-sm font-medium bg-teal-400 hover:bg-teal-500 text-forest-900 px-5 py-2.5 rounded-xl transition-colors">
-                  Get Pricing
+                 {msg('UI_TECHSTACK_GET_PRICING')}
                 </a>
               )}
             </div>
@@ -96,8 +97,8 @@ export default function TechStack() {
         {/* North Star */}
         <div className="bg-forest-900 rounded-2xl p-8 text-white">
           <div className="mb-6">
-            <span className="text-xs font-semibold text-teal-400 tracking-widest uppercase">North Star</span>
-            <h3 className="text-xl font-bold mt-1">ASTRA's Long-Term Vision</h3>
+            <span className="text-xs font-semibold text-teal-400 tracking-widest uppercase">{msg('UI_TECHSTACK_NORTH_STAR')}</span>
+            <h3 className="text-xl font-bold mt-1">{msg('UI_TECHSTACK_ASTRA_S_LONG_TERM_VISION')}</h3>
           </div>
           <div className="space-y-3">
             {NORTH_STAR.map(({ label, value }) => (

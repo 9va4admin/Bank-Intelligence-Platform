@@ -18,6 +18,7 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import useAnalytics from '../hooks/useAnalytics'
 import useInwardAnalytics from '../hooks/useInwardAnalytics'
 import useModelHealth from '../hooks/useModelHealth'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -180,7 +181,7 @@ export default function CTSAnalytics() {
   const [activeTab, setActiveTab] = useState('overview')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
 
-  usePageHeader({ subtitle: 'Decision analytics · AI model performance · IET safety · 7-day rolling' })
+  usePageHeader({ subtitle: msg('UI_ANALYTICS_DECISION_ANALYTICS_AI_MODEL_PERFORMA') })
 
   // Live analytics — only fetched in POC/PROD; demo mode uses mock data below
   const { daily: liveDaily } = useAnalytics({
@@ -276,10 +277,10 @@ export default function CTSAnalytics() {
   }
 
   const TABS = [
-    { id: 'overview',  label: 'Overview' },
-    { id: 'ai',        label: 'AI Models' },
-    { id: 'branches',  label: 'Branches' },
-    { id: 'iet',       label: 'IET Safety' },
+    { id: 'overview',  label: msg('UI_ANALYTICS_OVERVIEW') },
+    { id: 'ai',        label: msg('UI_ANALYTICS_AI_MODELS') },
+    { id: 'branches',  label: msg('AUTH_USER_BRANCHES_LABEL') },
+    { id: 'iet',       label: msg('UI_ANALYTICS_IET_SAFETY') },
   ]
 
   return (
@@ -289,12 +290,12 @@ export default function CTSAnalytics() {
         {/* KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
           {[
-            { label: 'Total (7d)',       value: weekTotal.toLocaleString('en-IN'), color: isDark ? 'text-white' : 'text-slate-900' },
-            { label: 'STP Rate',         value: `${stpRate}%`,    color: 'text-emerald-500' },
-            { label: 'HRQ Rate',         value: `${humanRate}%`,  color: 'text-amber-400' },
-            { label: 'Return Rate',      value: `${returnRate}%`, color: 'text-red-400' },
-            { label: 'Avg Decision',     value: `${avgMs}ms`,     color: isDark ? 'text-slate-300' : 'text-slate-700' },
-            { label: 'IET Breaches',     value: '0',              color: 'text-emerald-500' },
+            { label: msg('UI_ANALYTICS_TOTAL_7D'),       value: weekTotal.toLocaleString('en-IN'), color: isDark ? 'text-white' : 'text-slate-900' },
+            { label: msg('UI_COMMON_STP_RATE'),         value: `${stpRate}%`,    color: 'text-emerald-500' },
+            { label: msg('UI_ANALYTICS_HRQ_RATE'),         value: `${humanRate}%`,  color: 'text-amber-400' },
+            { label: msg('UI_COMMON_RETURN_RATE'),      value: `${returnRate}%`, color: 'text-red-400' },
+            { label: msg('UI_ANALYTICS_AVG_DECISION'),     value: `${avgMs}ms`,     color: isDark ? 'text-slate-300' : 'text-slate-700' },
+            { label: msg('UI_ANALYTICS_IET_BREACHES'),     value: '0',              color: 'text-emerald-500' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] uppercase tracking-wide mb-1.5 ${th.faint}`}>{k.label}</div>
@@ -317,8 +318,8 @@ export default function CTSAnalytics() {
             risk flags, return reasons, branches and IET trend (live mode). Model
             health is model-level, not instrument-level, so it is unaffected. */}
         <div className="flex items-center gap-2 mb-5 flex-wrap">
-          <span className={`text-[11px] ${th.muted}`}>Instrument type:</span>
-          {['ALL', 'CHEQUE', 'DEMAND_DRAFT'].map(c => (
+          <span className={`text-[11px] ${th.muted}`}>{msg('UI_ANALYTICS_INSTRUMENT_TYPE')}</span>
+          {['ALL', msg('UI_ANALYTICS_CHEQUE'), 'DEMAND_DRAFT'].map(c => (
             <button key={c} onClick={() => setCategoryFilter(c)}
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${categoryFilter === c
                 ? 'bg-violet-600 text-white border-violet-600'
@@ -336,7 +337,7 @@ export default function CTSAnalytics() {
 
             {/* Stacked area — daily throughput */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
-              <SecHead title="Daily Throughput — 7 Sessions" sub="STP confirms, returns, and human review volumes" isDark={isDark} />
+              <SecHead title={msg('UI_ANALYTICS_DAILY_THROUGHPUT_7_SESSIONS')} sub="STP confirms, returns, and human review volumes" isDark={isDark} />
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={DAILY} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                   <defs>
@@ -369,7 +370,7 @@ export default function CTSAnalytics() {
 
               {/* Fraud score distribution */}
               <div className={`border rounded-xl p-5 ${th.card}`}>
-                <SecHead title="Fraud Score Distribution" sub="Today's batch — score buckets (%)" isDark={isDark} />
+                <SecHead title={msg('UI_ANALYTICS_FRAUD_SCORE_DISTRIBUTION')} sub="Today's batch — score buckets (%)" isDark={isDark} />
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={FRAUD_DIST} margin={{ top: 0, right: 0, bottom: 0, left: -10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} vertical={false} />
@@ -382,15 +383,15 @@ export default function CTSAnalytics() {
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-sm inline-block bg-emerald-500" />Low (&lt;30%)</span>
-                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-sm inline-block bg-amber-400" />Medium</span>
-                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-sm inline-block bg-red-500" />High (&gt;70%)</span>
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-sm inline-block bg-emerald-500" />{msg('UI_ANALYTICS_LOW_30')}</span>
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-sm inline-block bg-amber-400" />{msg('UI_ANALYTICS_MEDIUM')}</span>
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-sm inline-block bg-red-500" />{msg('UI_ANALYTICS_HIGH_70')}</span>
                 </div>
               </div>
 
               {/* Return reasons */}
               <div className={`border rounded-xl p-5 ${th.card}`}>
-                <SecHead title="Return Reasons" sub="7-day breakdown of STP returns" isDark={isDark} />
+                <SecHead title={msg('UI_COMMON_RETURN_REASONS')} sub="7-day breakdown of STP returns" isDark={isDark} />
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={RETURN_REASONS} layout="vertical" margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} horizontal={false} />
@@ -405,7 +406,7 @@ export default function CTSAnalytics() {
 
             {/* Risk flag frequency */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
-              <SecHead title="Risk Flag Frequency" sub="Which flags fired most across all instruments this week" isDark={isDark} />
+              <SecHead title={msg('UI_ANALYTICS_RISK_FLAG_FREQUENCY')} sub="Which flags fired most across all instruments this week" isDark={isDark} />
               <div className="space-y-2.5">
                 {RISK_FLAGS.map(d => {
                   const pct = (d.count / maxRisk) * 100
@@ -433,7 +434,7 @@ export default function CTSAnalytics() {
 
             {/* OCR + Sig confidence trend */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
-              <SecHead title="OCR & Signature Confidence Trend" sub="Daily mean confidence — alert threshold shown as dashed line" isDark={isDark} />
+              <SecHead title={msg('UI_ANALYTICS_OCR_SIGNATURE_CONFIDENCE_TREND')} sub="Daily mean confidence — alert threshold shown as dashed line" isDark={isDark} />
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={DAILY} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} />
@@ -445,21 +446,21 @@ export default function CTSAnalytics() {
                 </LineChart>
               </ResponsiveContainer>
               <div className={`flex items-center gap-2 mt-3 text-[10px] ${th.faint}`}>
-                <span className="flex items-center gap-1"><span className="w-6 h-0.5 inline-block bg-blue-400" />OCR ≥ 99.0% threshold</span>
-                <span className="flex items-center gap-1 ml-3"><span className="w-6 h-0.5 inline-block bg-violet-400" />Sig ≥ 97.0% threshold</span>
+                <span className="flex items-center gap-1"><span className="w-6 h-0.5 inline-block bg-blue-400" />{msg('UI_ANALYTICS_OCR_99_0_THRESHOLD')}</span>
+                <span className="flex items-center gap-1 ml-3"><span className="w-6 h-0.5 inline-block bg-violet-400" />{msg('UI_ANALYTICS_SIG_97_0_THRESHOLD')}</span>
               </div>
             </div>
 
             {/* Model performance table */}
             <div className={`border rounded-xl overflow-hidden ${th.card}`}>
               <div className={`px-5 py-4 border-b ${th.divider}`}>
-                <h2 className={`text-sm font-semibold ${th.heading}`}>AI Model Performance</h2>
-                <p className={`text-[11px] mt-0.5 ${th.muted}`}>Live vs. minimum NFR thresholds — drift alert at 2% drop over 7 days</p>
+                <h2 className={`text-sm font-semibold ${th.heading}`}>{msg('UI_ANALYTICS_AI_MODEL_PERFORMANCE')}</h2>
+                <p className={`text-[11px] mt-0.5 ${th.muted}`}>{msg('UI_ANALYTICS_LIVE_VS_MINIMUM_NFR_THRESHOLDS')}</p>
               </div>
               <table className="w-full text-xs">
                 <thead>
                   <tr className={`border-b ${th.divider} ${th.faint}`}>
-                    {['Model', 'Metric', 'Current', 'Threshold', 'Margin', 'Status', 'Drift (7d)'].map(h => (
+                    {[msg('UI_ANALYTICS_MODEL'), msg('UI_ANALYTICS_METRIC'), msg('UI_PLATFORMCONFIG_CURRENT'), msg('UI_ANALYTICS_THRESHOLD'), msg('UI_ANALYTICS_MARGIN'), msg('UI_COMMON_STATUS'), msg('UI_ANALYTICS_DRIFT_7D')].map(h => (
                       <th key={h} className="text-left px-5 py-3 font-medium text-[10px] uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -491,7 +492,7 @@ export default function CTSAnalytics() {
                 </tbody>
               </table>
               <div className={`px-5 py-3 text-[10px] ${th.faint} border-t ${th.divider}`}>
-                Alert threshold: 2% drop over 7 days · Auto-tighten at 5% · Model pull at 8% — all via PlatformHealthCheckWorkflow
+               {msg('UI_ANALYTICS_ALERT_THRESHOLD_2_DROP_OVER')}
               </div>
             </div>
           </div>
@@ -502,14 +503,14 @@ export default function CTSAnalytics() {
           <div className="space-y-5">
             <div className={`border rounded-xl overflow-hidden ${th.card}`}>
               <div className={`px-5 py-4 border-b ${th.divider}`}>
-                <h2 className={`text-sm font-semibold ${th.heading}`}>Branch-level Performance</h2>
-                <p className={`text-[11px] mt-0.5 ${th.muted}`}>HRQ routing rate, vault misses, and avg decision time per branch — 7-day view</p>
+                <h2 className={`text-sm font-semibold ${th.heading}`}>{msg('UI_ANALYTICS_BRANCH_LEVEL_PERFORMANCE')}</h2>
+                <p className={`text-[11px] mt-0.5 ${th.muted}`}>{msg('UI_ANALYTICS_HRQ_ROUTING_RATE_VAULT_MISSES')}</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs whitespace-nowrap">
                   <thead>
                     <tr className={`border-b ${th.divider} ${th.faint}`}>
-                      {['Branch', 'Processed', 'HRQ Rate', 'Vault Misses', 'Avg Time', 'Returns'].map(h => (
+                      {[msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('UI_ANALYTICS_PROCESSED'), msg('UI_ANALYTICS_HRQ_RATE'), msg('UI_ANALYTICS_VAULT_MISSES'), msg('UI_ANALYTICS_AVG_TIME'), msg('UI_ANALYTICS_RETURNS')].map(h => (
                         <th key={h} className="text-left px-5 py-3 font-medium text-[10px] uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
@@ -528,7 +529,7 @@ export default function CTSAnalytics() {
                           </div>
                         </td>
                         <td className={`px-5 py-3 tabular-nums ${b.vault_miss > 20 ? 'text-amber-400' : th.muted}`}>{b.vault_miss}</td>
-                        <td className={`px-5 py-3 font-mono tabular-nums ${b.avg_ms > 400 ? 'text-amber-400' : 'text-emerald-500'}`}>{b.avg_ms}ms</td>
+                        <td className={`px-5 py-3 font-mono tabular-nums ${b.avg_ms > 400 ? 'text-amber-400' : 'text-emerald-500'}`}>{msg('UI_ANALYTICS_MS', { avg_ms: b.avg_ms })}</td>
                         <td className={`px-5 py-3 tabular-nums ${th.muted}`}>{b.returns}</td>
                       </tr>
                     ))}
@@ -536,13 +537,13 @@ export default function CTSAnalytics() {
                 </table>
               </div>
               <div className={`px-5 py-3 text-[10px] ${th.faint} border-t ${th.divider}`}>
-                Branches with HRQ Rate &gt; 5% or Avg Time &gt; 400ms highlighted in amber — review vault enrollment coverage
+               {msg('UI_ANALYTICS_BRANCHES_WITH_HRQ_RATE_5')}
               </div>
             </div>
 
             {/* HRQ % bar chart across branches */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
-              <SecHead title="HRQ Routing Rate by Branch" sub="Higher rate = more vault misses or high-risk instruments" isDark={isDark} />
+              <SecHead title={msg('UI_ANALYTICS_HRQ_ROUTING_RATE_BY_BRANCH')} sub="Higher rate = more vault misses or high-risk instruments" isDark={isDark} />
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={BRANCHES} margin={{ top: 4, right: 8, bottom: 40, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} vertical={false} />
@@ -566,16 +567,16 @@ export default function CTSAnalytics() {
             <div className={`border rounded-xl p-5 flex items-center gap-5 ${isDark ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-emerald-50 border-emerald-200'}`}>
               <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>✓</div>
               <div>
-                <div className={`text-lg font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>IET Breach Rate: 0.000%</div>
+                <div className={`text-lg font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{msg('UI_ANALYTICS_IET_BREACH_RATE_0_000')}</div>
                 <div className={`text-sm mt-0.5 ${isDark ? 'text-emerald-300/70' : 'text-emerald-600'}`}>
-                  7 consecutive clearing sessions — zero breaches. Target: 0.000%. IETWatchdogWorkflow active on every instrument.
+                 {msg('UI_ANALYTICS_7_CONSECUTIVE_CLEARING_SESSIONS_ZERO')}
                 </div>
               </div>
             </div>
 
             {/* Near-breach trend */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
-              <SecHead title="Near-Breach Events (≤ 30s to IET)" sub="Any non-zero day warrants investigation — IETWatchdog fired emergency protocol" isDark={isDark} />
+              <SecHead title={msg('UI_ANALYTICS_NEAR_BREACH_EVENTS_30S_TO')} sub="Any non-zero day warrants investigation — IETWatchdog fired emergency protocol" isDark={isDark} />
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={IET_TREND} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} vertical={false} />
@@ -591,13 +592,13 @@ export default function CTSAnalytics() {
 
             {/* Architecture note */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
-              <h2 className={`text-sm font-semibold mb-3 ${th.heading}`}>IET Architecture — Why Zero Breaches Is Guaranteed</h2>
+              <h2 className={`text-sm font-semibold mb-3 ${th.heading}`}>{msg('UI_ANALYTICS_IET_ARCHITECTURE_WHY_ZERO_BREACHES')}</h2>
               <div className="space-y-3">
                 {[
-                  { step: '1', title: 'IETWatchdogWorkflow spawned first', desc: 'Before OCR, before fraud scoring — the watchdog is the very first child workflow spawned for every instrument. Parent close policy: ABANDON — it survives even if the main workflow crashes.' },
-                  { step: '2', title: 'T-30s emergency filer', desc: 'At T-30 seconds, if no human decision has been recorded, the watchdog automatically files an emergency NGCH return. Zero dependence on human action.' },
-                  { step: '3', title: 'Temporal exactly-once guarantee', desc: 'Workflow ID is deterministic: cts-{bank_id}-{instrument_id}. No duplicate NGCH filings are possible — idempotency enforced at workflow level.' },
-                  { step: '4', title: 'Layer 1 non-overridable', desc: 'iet_watchdog_enabled: true is a Layer 1 Helm chart default — no bank admin, no config change, no code can disable the watchdog.' },
+                  { step: '1', title: msg('UI_ANALYTICS_IETWATCHDOGWORKFLOW_SPAWNED_FIRST'), desc: msg('UI_ANALYTICS_BEFORE_OCR_BEFORE_FRAUD_SCORING') },
+                  { step: '2', title: msg('UI_ANALYTICS_T_30S_EMERGENCY_FILER'), desc: msg('UI_ANALYTICS_AT_T_30_SECONDS_IF') },
+                  { step: '3', title: msg('UI_ANALYTICS_TEMPORAL_EXACTLY_ONCE_GUARANTEE'), desc: msg('UI_ANALYTICS_WORKFLOW_ID_IS_DETERMINISTIC_CTS', { bank_id: '{bank_id}', instrument_id: '{instrument_id}' }) },
+                  { step: '4', title: msg('UI_ANALYTICS_LAYER_1_NON_OVERRIDABLE'), desc: msg('UI_ANALYTICS_IET_WATCHDOG_ENABLED_TRUE_IS') },
                 ].map(s => (
                   <div key={s.step} className="flex gap-4">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isDark ? 'bg-white/8 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{s.step}</div>
