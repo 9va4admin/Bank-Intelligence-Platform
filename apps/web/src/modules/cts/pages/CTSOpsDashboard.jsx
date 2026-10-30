@@ -440,8 +440,8 @@ export default function CTSOpsDashboard() {
               <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_OPSDASHBOARD_CLEARING_OPERATIONS_DASHBOARD')}</h1>
               <p className={`text-[11px] ${th.muted}`}>
                 {msg('UI_OPSDASHBOARD_SESSIONS_SETTLED', { value: dashTab === 'mybank'
-                  ? (bankMode !== 'SB_ONLY' && includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
-                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs'), clearing_date: active.TODAY.clearing_date, totalSessions, settledSessions })}
+                  ? (bankMode !== 'SB_ONLY' && includeSMB ? msg('UI_OPSDASHBOARD_SPONSORED_SMBS_COMBINED', { bankName, count: smbs.length }) : bankName)
+                  : (selectedSmbId ? selectedSmb?.name : msg('UI_OPSDASHBOARD_ALL_SPONSORED_SMBS')), clearing_date: active.TODAY.clearing_date, totalSessions, settledSessions })}
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">

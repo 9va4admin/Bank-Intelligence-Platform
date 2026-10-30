@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MOCK_QUEUE } from '../data/mockQueue'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 10_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -31,7 +32,7 @@ function normaliseItem(raw) {
     reason_label: raw.reason_label ?? _reasonLabel(raw.reason),
     cbs_type: raw.cbs_type ?? 'Finacle',
     sig_specimen_available: raw.sig_match_score != null,
-    sig_specimen_label: raw.sig_specimen_label ?? 'Specimen on file',
+    sig_specimen_label: raw.sig_specimen_label ?? msg('UI_USEREVIEWQUEUE_SPECIMEN_ON_FILE_2'),
     principal_tag: raw.principal_tag ?? 'DIRECT',
     sub_member_name: raw.sub_member_name ?? null,
     sub_member_id: raw.sub_member_id ?? null,
@@ -58,7 +59,7 @@ function _reasonLabel(reason) {
     CBS_UNAVAILABLE: 'CBS unreachable',
     PPS_MISS: 'PPS not registered',
   }
-  return MAP[reason] ?? reason ?? 'Flagged for review'
+  return MAP[reason] ?? reason ?? msg('UI_USEREVIEWQUEUE_FLAGGED_FOR_REVIEW_2')
 }
 
 export default function useReviewQueue({ token, pollEnabled = true } = {}) {
@@ -86,7 +87,7 @@ export default function useReviewQueue({ token, pollEnabled = true } = {}) {
       })
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
+        throw new Error(msg('UI_COMMON_HTTP_2', { status: res.status }))
       }
 
       const data = await res.json()

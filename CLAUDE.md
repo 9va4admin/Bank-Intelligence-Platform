@@ -264,10 +264,15 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   import time; `screens.smoke.test.jsx` renders every page and fails on a crash or a raw key. Placeholders may not be named `key` or `locale`.
   **Extended 2026-10-30:** the detector also finds wording in ternaries inside JSX, template strings shown as content, returned labels, `*_label` /
   `*_notes` style properties and error setters (web), and in returned strings, list/tuple items, dict values and keyword arguments (Python).
-  Exempt by decision: the landing page (`components/landing`); sample *records* (people, branches, payees, addresses, cities, bank names), CSS values and
-  API-documentation tags are data, not wording; LLM prompts, SQL, protocol lines and `dev_auth_server.py` are machine text. Not covered: `apps/web-sb-only`
-  (a separate copy of the app), `bank.config.js`, and the Hindi texts (stubs until translated). Temporal workflow files import `get_message` through
-  `workflow.unsafe.imports_passed_through()`.
+  Exempt by decision: the landing page (`components/landing`) and `bank.config.js` (bank identity configuration, already configurable); sample *records* (people,
+  branches, payees, addresses, cities, bank names), CSS values and API-documentation tags are data, not wording; LLM prompts, SQL, protocol lines and
+  `dev_auth_server.py` are machine text. Temporal workflow files import `get_message` through `workflow.unsafe.imports_passed_through()`.
+  **Both web apps** (`apps/web` and `apps/web-sb-only`) are covered; each gets its own browser bundle (only the keys its source uses, text only, compact).
+  **Standalone service:** `apps/sig_detector` is built with only its own files, so it carries a generated `messages.json` + `service_messages.py` (same
+  `get_message(key, locale, **vars)` call, standard library only), written by `python -m shared.messages.build`; its Dockerfile copies both. Never import
+  `shared.messages` there. (EEH loads `shared.config` at startup, so it uses `shared.messages` like the rest.)
+  **Languages:** `msg()` (web) and `get_message()` (Python) both fall back to the English text for any message a language has not translated; an empty
+  `hi:` is therefore never blank. `setLocale('hi')` remembers the choice and reloads. Hindi translations are still to be written.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

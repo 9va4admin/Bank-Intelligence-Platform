@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react'
 import { BANK_CONFIG } from '../config/bank.config'
+import { msg } from '../messages'
 
 export const ROLE_PERMISSIONS = {
   ops_manager: ['cts:view_queue','cts:submit_decision','cts:view_analytics',
@@ -43,6 +44,6 @@ export function BankProvider({ children }) {
 
 export function useBankContext() {
   const ctx = useContext(BankContext)
-  if (!ctx) throw new Error('useBankContext must be used inside <BankProvider>')
+  if (!ctx) throw new Error(msg('UI_BANKCONTEXT_USEBANKCONTEXT_MUST_BE_USED_INSIDE_2'))
   return ctx
 }

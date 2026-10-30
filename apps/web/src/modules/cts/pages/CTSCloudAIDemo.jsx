@@ -287,7 +287,7 @@ export default function CTSCloudAIDemo() {
                             )}
                           </p>
                           <p className="text-[11px] leading-snug">
-                           {msg('UI_CLOUDAIDEMO_PAYEE_AMOUNT_IN_WORDS_DATE', { value: { paddle: 'PaddleOCR Hindi model (default)', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR Hindi pack' }[result.indic_backend] ?? 'local IndicOCR' })}
+                           {msg('UI_CLOUDAIDEMO_PAYEE_AMOUNT_IN_WORDS_DATE', { value: { paddle: 'PaddleOCR Hindi model (default)', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR Hindi pack' }[result.indic_backend] ?? msg('UI_CLOUDAIDEMO_LOCAL_INDICOCR') })}
                           </p>
                         </div>
                       )}

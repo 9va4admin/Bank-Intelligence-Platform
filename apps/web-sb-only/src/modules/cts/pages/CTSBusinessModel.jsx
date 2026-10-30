@@ -5,6 +5,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell,
 } from 'recharts'
+import { msg } from '../../../shared/messages'
 
 // ─── Formatting helpers ────────────────────────────────────────────────────
 
@@ -166,11 +167,11 @@ const CHART_COLORS = {
 
 // Cost slices reflect ASTRA vendor costs (not bank infra — bank bears all infra)
 const COST_SLICES = [
-  { label: 'Engineering Team', pct: 48, color: '#f59e0b', key: 'engineering' },
-  { label: 'Sales & Marketing', pct: 32, color: '#f87171', key: 'salesMarketing' },
-  { label: 'Cloud & Tooling',   pct: 8,  color: '#60a5fa', key: 'cloud' },
-  { label: 'Office & Ops',      pct: 7,  color: '#a78bfa', key: 'office' },
-  { label: 'Compliance & Legal',pct: 5,  color: '#34d399', key: 'compliance' },
+  { label: msg('UI_BUSINESSMODEL_ENGINEERING_TEAM_2'), pct: 48, color: '#f59e0b', key: 'engineering' },
+  { label: msg('UI_BUSINESSMODEL_SALES_MARKETING_2'), pct: 32, color: '#f87171', key: 'salesMarketing' },
+  { label: msg('UI_BUSINESSMODEL_CLOUD_TOOLING_2'),   pct: 8,  color: '#60a5fa', key: 'cloud' },
+  { label: msg('UI_BUSINESSMODEL_OFFICE_OPS_2'),      pct: 7,  color: '#a78bfa', key: 'office' },
+  { label: msg('UI_BUSINESSMODEL_COMPLIANCE_LEGAL_2'),pct: 5,  color: '#34d399', key: 'compliance' },
 ]
 
 // ─── Sub-components ────────────────────────────────────────────────────────
@@ -310,14 +311,14 @@ export default function CTSBusinessModel() {
               <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
             </div>
           </div>
-          <span className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>ASTRA</span>
+          <span className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{msg('UI_LOGINPAGE_ASTRA')}</span>
           <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>›</span>
-          <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Business Model — Cost & Revenue</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-900/40 text-amber-400 border border-amber-700/40' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>Internal Reference</span>
+          <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{msg('UI_BUSINESSMODEL_BUSINESS_MODEL_COST_REVENUE_2')}</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-900/40 text-amber-400 border border-amber-700/40' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>{msg('UI_BUSINESSMODEL_INTERNAL_REFERENCE_2')}</span>
         </div>
         <button
           onClick={toggle}
-          title={isDark ? 'Switch to light' : 'Switch to dark'}
+          title={isDark ? msg('UI_BUSINESSMODEL_SWITCH_TO_LIGHT_2') : msg('UI_BUSINESSMODEL_SWITCH_TO_DARK_2')}
           className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
         >
           {isDark ? '☀' : '🌙'}
@@ -328,22 +329,22 @@ export default function CTSBusinessModel() {
         {/* ── Configurator Strip ── */}
         <div className={`${th.strip} border rounded-xl px-5 py-4 flex flex-wrap items-center gap-6`}>
           <div className="flex flex-col gap-1.5">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Bank Tier</span>
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_BUSINESSMODEL_BANK_TIER_2')}</span>
             <PillTabs
               value={tier}
               onChange={handleTierChange}
               isDark={isDark}
               options={[
-                { label: 'Small (<5M)', value: 'small' },
-                { label: 'Medium (5–20M)', value: 'medium' },
-                { label: 'Large (>20M)', value: 'large' },
-                { label: 'Enterprise (>50M)', value: 'enterprise' },
+                { label: msg('UI_BUSINESSMODEL_SMALL_5M_2'), value: 'small' },
+                { label: msg('UI_BUSINESSMODEL_MEDIUM_5_20M_2'), value: 'medium' },
+                { label: msg('UI_BUSINESSMODEL_LARGE_20M_2'), value: 'large' },
+                { label: msg('UI_BUSINESSMODEL_ENTERPRISE_50M_2'), value: 'enterprise' },
               ]}
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Volume (Lakhs/yr)</span>
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_BUSINESSMODEL_VOLUME_LAKHS_YR_2')}</span>
             <input
               type="number"
               value={volumeLakhs}
@@ -355,61 +356,61 @@ export default function CTSBusinessModel() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Pricing Model</span>
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_BUSINESSMODEL_PRICING_MODEL_2')}</span>
             <PillTabs
               value={pricingModel}
               onChange={setPricingModel}
               isDark={isDark}
               options={[
-                { label: 'Per-Cheque SaaS', value: 'saas' },
-                { label: 'Platform Licence', value: 'licence' },
-                { label: 'Hybrid', value: 'hybrid' },
+                { label: msg('UI_BUSINESSMODEL_PER_CHEQUE_SAAS_2'), value: 'saas' },
+                { label: msg('UI_BUSINESSMODEL_PLATFORM_LICENCE_2'), value: 'licence' },
+                { label: msg('UI_BUSINESSMODEL_HYBRID_2'), value: 'hybrid' },
               ]}
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Projection Year</span>
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_BUSINESSMODEL_PROJECTION_YEAR_2')}</span>
             <div className="flex items-center gap-3">
               <input
                 type="range" min={1} max={3} step={1} value={year}
                 onChange={e => setYear(Number(e.target.value))}
                 className="w-24 accent-amber-500"
               />
-              <span className={`text-sm font-bold ${th.heading}`}>Year {year}</span>
+              <span className={`text-sm font-bold ${th.heading}`}>{msg('UI_BUSINESSMODEL_YEAR_3', { year })}</span>
             </div>
           </div>
 
           <div className={`ml-auto text-xs ${th.faint} hidden xl:block`}>
-            Volume: <span className="text-amber-400 font-semibold">{fmtVol(volumeLakhs)}</span> cheques/yr
-            {year > 1 && <span className="ml-2">(YoY +20% → <span className="text-emerald-400 font-semibold">{fmtVol(parseFloat((volumeLakhs * Math.pow(1.2, year - 1)).toFixed(0)))}</span> by Yr{year})</span>}
+           {msg('UI_BUSINESSMODEL_VOLUME_3')} <span className="text-amber-400 font-semibold">{fmtVol(volumeLakhs)}</span> {msg('UI_BUSINESSMODEL_CHEQUES_YR_2')}
+            {year > 1 && <span className="ml-2">{msg('UI_BUSINESSMODEL_YOY_20_2')} <span className="text-emerald-400 font-semibold">{fmtVol(parseFloat((volumeLakhs * Math.pow(1.2, year - 1)).toFixed(0)))}</span> {msg('UI_BUSINESSMODEL_BY_YR_2', { year })}</span>}
           </div>
         </div>
 
         {/* ── KPI Row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
-            label="ARR / Bank" isDark={isDark}
+            label={msg('UI_BUSINESSMODEL_ARR_BANK_2')} isDark={isDark}
             value={fmtRs(model.arr)} color="text-emerald-400"
             sub="Annual recurring revenue per bank"
           />
           <KpiCard
-            label="Impl. Fee (1-time)" isDark={isDark}
+            label={msg('UI_BUSINESSMODEL_IMPL_FEE_1_TIME_2')} isDark={isDark}
             value={fmtRs(IMPL_FEE)} color="text-blue-400"
             sub={`÷3 = ${fmtRs(IMPL_FEE / 3)}/yr amortised`}
           />
           <KpiCard
-            label="Vendor Fixed Cost" isDark={isDark}
+            label={msg('UI_BUSINESSMODEL_VENDOR_FIXED_COST_2')} isDark={isDark}
             value={fmtRs(model.cost.total)} color="text-amber-400"
             sub={`${fmtRs(VENDOR_FIXED_ANNUAL)}L/yr total (team+S&M+cloud+office)`}
           />
           <KpiCard
-            label="Gross Margin" isDark={isDark}
+            label={msg('UI_BUSINESSMODEL_GROSS_MARGIN_2')} isDark={isDark}
             value={`${model.grossMarginPct.toFixed(1)}%`} color={marginColor}
             sub={`No infra COGS — banks own all hardware`}
           />
           <KpiCard
-            label="Banks to Break Even" isDark={isDark}
+            label={msg('UI_BUSINESSMODEL_BANKS_TO_BREAK_EVEN_2')} isDark={isDark}
             value={isFinite(model.banksToBreakeven) ? `${model.banksToBreakeven} banks` : '—'}
             color="text-violet-400"
             sub={`@ ${fmtRs(model.arr)} ARR/bank`}
@@ -424,11 +425,11 @@ export default function CTSBusinessModel() {
 
             {/* 3a. Revenue Breakdown Table */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title={`Revenue Streams — Year ${year}`} isDark={isDark} />
+              <SectionHeader title={msg('UI_BUSINESSMODEL_REVENUE_STREAMS_YEAR_2', { year })} isDark={isDark} />
               <table className="w-full text-xs">
                 <thead>
                   <tr className={`${th.thead} text-left`}>
-                    {['Stream', 'Unit', 'Rate', 'Volume', '₹ Lakhs', '% Mix'].map(h => (
+                    {[msg('UI_BUSINESSMODEL_STREAM_2'), msg('UI_BUSINESSMODEL_UNIT_2'), msg('UI_BUSINESSMODEL_RATE_2'), msg('UI_BUSINESSMODEL_VOLUME_4'), msg('UI_BUSINESSMODEL_LAKHS_2'), msg('UI_BUSINESSMODEL_MIX_2')].map(h => (
                       <th key={h} className="pb-2 pr-3 font-semibold uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -491,7 +492,7 @@ export default function CTSBusinessModel() {
                     </tr>
                   ))}
                   <tr className={`border-t-2 ${isDark ? 'border-white/20' : 'border-slate-300'} font-bold`}>
-                    <td colSpan={4} className={`py-2 pr-3 ${th.heading}`}>Total Revenue</td>
+                    <td colSpan={4} className={`py-2 pr-3 ${th.heading}`}>{msg('UI_BUSINESSMODEL_TOTAL_REVENUE_2')}</td>
                     <td className="py-2 pr-3 text-emerald-400 font-mono">{fmtRs(model.rev.total)}</td>
                     <td className={`py-2 ${th.muted}`}>100%</td>
                   </tr>
@@ -501,7 +502,7 @@ export default function CTSBusinessModel() {
 
             {/* 3b. 3-Year Vendor P&L Projection */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="3-Year Vendor P&L — Bank Portfolio Growth (Y1: 3 banks → Y2: 8 → Y3: 15)" isDark={isDark} />
+              <SectionHeader title={msg('UI_BUSINESSMODEL_3_YEAR_VENDOR_P_L_2')} isDark={isDark} />
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={projData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'} />
@@ -518,7 +519,7 @@ export default function CTSBusinessModel() {
 
             {/* 3c. Unit Economics */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="Unit Economics — Per Bank Revenue vs Vendor Cost Allocation (₹L)" isDark={isDark} />
+              <SectionHeader title={msg('UI_BUSINESSMODEL_UNIT_ECONOMICS_PER_BANK_REVENUE_2')} isDark={isDark} />
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={unitData} layout="vertical" margin={{ top: 0, right: 30, left: 90, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'} />
@@ -538,8 +539,8 @@ export default function CTSBusinessModel() {
 
             {/* 3d. Cost Structure */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title={`ASTRA Vendor Costs — ${fmtRs(model.cost.total)}/yr (Year ${year})`} isDark={isDark} />
-              <div className={`text-xs ${th.muted} mb-3`}>Banks own all infra. Zero COGS per deployment. ~88% gross margin.</div>
+              <SectionHeader title={msg('UI_BUSINESSMODEL_ASTRA_VENDOR_COSTS_YR_YEAR_2', { fmtRs: fmtRs(model.cost.total), year })} isDark={isDark} />
+              <div className={`text-xs ${th.muted} mb-3`}>{msg('UI_BUSINESSMODEL_BANKS_OWN_ALL_INFRA_ZERO_2')}</div>
               <div className="space-y-2.5 mb-4">
                 {COST_SLICES.map(s => {
                   const lakhs = model.cost[s.key] ?? 0
@@ -561,18 +562,18 @@ export default function CTSBusinessModel() {
                 })}
               </div>
               <div className={`pt-3 border-t ${th.divider} flex items-center justify-between`}>
-                <span className={`text-xs ${th.muted}`}>Per-bank onboarding (variable, one-time)</span>
-                <span className="text-xs font-semibold text-orange-400 font-mono">{fmtRs(PER_BANK_ONBOARDING)} / bank</span>
+                <span className={`text-xs ${th.muted}`}>{msg('UI_BUSINESSMODEL_PER_BANK_ONBOARDING_VARIABLE_ONE_2')}</span>
+                <span className="text-xs font-semibold text-orange-400 font-mono">{msg('UI_BUSINESSMODEL_BANK_2', { fmtRs: fmtRs(PER_BANK_ONBOARDING) })}</span>
               </div>
             </div>
 
             {/* 3d2. Bank Portfolio Scale */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="Bank Portfolio — Revenue &amp; Break-Even at Scale" isDark={isDark} />
+              <SectionHeader title={msg('UI_BUSINESSMODEL_BANK_PORTFOLIO_REVENUE_BREAK_EVEN_2')} isDark={isDark} />
               <table className="w-full text-xs">
                 <thead>
                   <tr className={`${th.thead} text-left`}>
-                    {['Banks', 'Portfolio Rev/yr', 'Vendor Cost/yr', 'Net Profit', 'Margin'].map(h => (
+                    {[msg('UI_BUSINESSMODEL_BANKS_2'), msg('UI_BUSINESSMODEL_PORTFOLIO_REV_YR_2'), msg('UI_BUSINESSMODEL_VENDOR_COST_YR_2'), msg('UI_BUSINESSMODEL_NET_PROFIT_2'), msg('UI_ANALYTICS_MARGIN_2')].map(h => (
                       <th key={h} className="pb-2 pr-2 font-semibold uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -600,40 +601,40 @@ export default function CTSBusinessModel() {
 
             {/* 3e. Bank ROI Panel */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="Bank ROI — What the Bank Saves" isDark={isDark} />
+              <SectionHeader title={msg('UI_BUSINESSMODEL_BANK_ROI_WHAT_THE_BANK_2')} isDark={isDark} />
               <div className="space-y-2 mb-4">
                 {[
                   {
-                    label: 'IET Compliance Savings',
-                    sub: '0.05% breach rate × avg ₹45k × deemed-approval loss',
+                    label: msg('UI_BUSINESSMODEL_IET_COMPLIANCE_SAVINGS_2'),
+                    sub: msg('UI_BUSINESSMODEL_0_05_BREACH_RATE_AVG_2'),
                     val: model.ietSavingsLakhs,
                     icon: '🛡',
                     color: 'text-emerald-400',
                   },
                   {
-                    label: 'FTE Reduction',
-                    sub: '85% STP → manual review drops ~85% · ₹8/cheque saved',
+                    label: msg('UI_BUSINESSMODEL_FTE_REDUCTION_2'),
+                    sub: msg('UI_BUSINESSMODEL_85_STP_MANUAL_REVIEW_DROPS_2'),
                     val: model.fteSavingsLakhs,
                     icon: '👥',
                     color: 'text-blue-400',
                   },
                   {
-                    label: 'Fraud Prevention',
-                    sub: '+2.3% catch rate on high-fraud cheques · ₹45k avg value',
+                    label: msg('UI_BUSINESSMODEL_FRAUD_PREVENTION_2'),
+                    sub: msg('UI_BUSINESSMODEL_2_3_CATCH_RATE_ON_2'),
                     val: model.fraudSavingsLakhs,
                     icon: '🔍',
                     color: 'text-violet-400',
                   },
                   {
-                    label: 'Float Cost Savings',
+                    label: msg('UI_BUSINESSMODEL_FLOAT_COST_SAVINGS_2'),
                     sub: '<600ms vs hours → faster clearing = lower float exposure',
                     val: model.floatSavingsLakhs,
                     icon: '⚡',
                     color: 'text-amber-400',
                   },
                   {
-                    label: 'Audit Cost Reduction',
-                    sub: 'Automated immutable audit vs manual reconciliation',
+                    label: msg('UI_BUSINESSMODEL_AUDIT_COST_REDUCTION_2'),
+                    sub: msg('UI_BUSINESSMODEL_AUTOMATED_IMMUTABLE_AUDIT_VS_MANUAL_2'),
                     val: model.auditSavingsLakhs,
                     icon: '📋',
                     color: 'text-sky-400',
@@ -650,24 +651,24 @@ export default function CTSBusinessModel() {
               </div>
               <div className={`${isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'} border rounded-lg px-4 py-3 flex items-center justify-between`}>
                 <div>
-                  <div className={`text-xs font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Total Bank Saves</div>
-                  <div className="text-xl font-bold text-emerald-400">{fmtRs(model.totalBankSaves)}<span className="text-sm font-normal ml-1">/year</span></div>
+                  <div className={`text-xs font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{msg('UI_BUSINESSMODEL_TOTAL_BANK_SAVES_2')}</div>
+                  <div className="text-xl font-bold text-emerald-400">{fmtRs(model.totalBankSaves)}<span className="text-sm font-normal ml-1">{msg('UI_BUSINESSMODEL_YEAR_4')}</span></div>
                 </div>
                 <div className={`${isDark ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-amber-100 border-amber-300 text-amber-700'} border rounded-lg px-3 py-2 text-center`}>
-                  <div className="text-xs font-medium">Payback</div>
-                  <div className="text-lg font-bold">{model.paybackMonths}mo</div>
+                  <div className="text-xs font-medium">{msg('UI_BUSINESSMODEL_PAYBACK_2')}</div>
+                  <div className="text-lg font-bold">{msg('UI_BUSINESSMODEL_MO_2', { paybackMonths: model.paybackMonths })}</div>
                 </div>
               </div>
             </div>
 
             {/* 3f. Pricing Sensitivity Table */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="Pricing Sensitivity — Gross Profit (₹ Lakhs)" isDark={isDark} />
+              <SectionHeader title={msg('UI_BUSINESSMODEL_PRICING_SENSITIVITY_GROSS_PROFIT_LAK_2')} isDark={isDark} />
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className={th.thead}>
-                      <th className="py-2 pr-3 text-left font-semibold uppercase">₹/cheque</th>
+                      <th className="py-2 pr-3 text-left font-semibold uppercase">{msg('UI_BUSINESSMODEL_CHEQUE_2')}</th>
                       {SENS_VOLUMES.map(v => (
                         <th key={v} className="py-2 px-2 text-right font-semibold uppercase">{fmtVol(v)}</th>
                       ))}
@@ -697,9 +698,9 @@ export default function CTSBusinessModel() {
                 </table>
               </div>
               <div className={`mt-3 flex items-center gap-4 text-xs ${th.faint}`}>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500/60 inline-block" /> Loss</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500/60 inline-block" /> &lt;20% margin</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500/60 inline-block" /> &gt;30% margin</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500/60 inline-block" /> {msg('UI_BUSINESSMODEL_LOSS_2')}</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500/60 inline-block" /> {msg('UI_BUSINESSMODEL_20_MARGIN_2')}</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500/60 inline-block" /> {msg('UI_BUSINESSMODEL_30_MARGIN_2')}</span>
               </div>
             </div>
 

@@ -9,6 +9,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import { MockChequeFront, MockChequeBack, MockPayinSlip } from '../components/MockCheque'
 import { demoChequeUrl } from '../demoImages'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ function FieldRow({ label, value, isDark, isManual }) {
     <div className={`flex items-start gap-2 py-1.5 border-b text-xs ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
       <span className={`w-32 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</span>
       <span className={`flex-1 font-mono ${isManual ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-slate-200' : 'text-slate-800')}`}>{value}</span>
-      {isManual && <span className={`text-[9px] font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>MANUAL</span>}
+      {isManual && <span className={`text-[9px] font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{msg('UI_COMMON_MANUAL_2')}</span>}
     </div>
   )
 }
@@ -123,7 +124,7 @@ function IETMini({ deadline, isDark }) {
   const urgent = mins < 30
   return (
     <span className={`font-mono text-[11px] font-semibold ${urgent ? 'text-red-400 animate-pulse' : isDark ? 'text-sky-400' : 'text-sky-600'}`}>
-      IET {mins}m {urgent ? '⚠' : ''}
+     {msg('UI_SUBMISSIONQUEUE_IET_M_3', { mins, value: urgent ? '⚠' : '' })}
     </span>
   )
 }
@@ -134,7 +135,7 @@ function ReturnPicker({ isDark, onReturn, onClose }) {
   return (
     <div className={`absolute bottom-14 left-0 z-50 w-72 rounded-xl border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
       <div className={`px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search return reasons…"
+        <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={msg('UI_SUBMISSIONQUEUE_SEARCH_RETURN_REASONS_2')}
           className={`w-full text-xs bg-transparent outline-none ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
           onKeyDown={e => e.key === 'Escape' && onClose()}
         />
@@ -180,13 +181,13 @@ function ConfirmCountdown({ onConfirm, onCancel, isDark }) {
 
   return (
     <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-400'}`}>
-      <div className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>Confirming in {count}s…</div>
+      <div className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{msg('UI_SUBMISSIONQUEUE_CONFIRMING_IN_S_2', { count })}</div>
       <div className={`flex-1 h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-emerald-200'}`}>
         <div className={`h-full rounded-full ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'} transition-all`} style={{ width: `${(count / 2) * 100}%` }} />
       </div>
       <button type="button" onClick={() => { clearInterval(timerRef.current); onCancel() }}
         className={`text-xs font-semibold ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}
-      >Cancel</button>
+      >{msg('UI_COMMON_CANCEL_2')}</button>
     </div>
   )
 }
@@ -194,9 +195,9 @@ function ConfirmCountdown({ onConfirm, onCancel, isDark }) {
 // ── Deposit channel config (outward only) ────────────────────────────────────
 
 const DEPOSIT_CHANNEL_CFG = {
-  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', colorL: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
-  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️',  color: 'text-sky-400 bg-sky-500/10 border-sky-500/30',             colorL: 'text-sky-700 bg-sky-50 border-sky-400'             },
-  KIOSK:           { label: 'Kiosk/CDM',   icon: '🏧',  color: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    colorL: 'text-violet-700 bg-violet-50 border-violet-400'    },
+  PAY_IN_SLIP:     { label: msg('UI_COMMON_PAY_IN_SLIP_2'), icon: '🧾', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', colorL: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
+  BACK_ANNOTATION: { label: msg('UI_COMMON_BACK_NOTE_2'),   icon: '✍️',  color: 'text-sky-400 bg-sky-500/10 border-sky-500/30',             colorL: 'text-sky-700 bg-sky-50 border-sky-400'             },
+  KIOSK:           { label: msg('UI_OUTWARDQUEUE_KIOSK_CDM_2'),   icon: '🏧',  color: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    colorL: 'text-violet-700 bg-violet-50 border-violet-400'    },
 }
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
@@ -215,14 +216,14 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
   }
 
   const imgTabs = [
-    { id: 'front',       label: '▣ Front'       },
-    { id: 'back',        label: '▣ Back'         },
+    { id: 'front',       label: msg('UI_SUBMISSIONQUEUE_FRONT')       },
+    { id: 'back',        label: msg('UI_SUBMISSIONQUEUE_BACK')         },
     ...(!isInward && item.deposit_channel === 'PAY_IN_SLIP'
-      ? [{ id: 'payinslip', label: '🧾 Slip' }]
+      ? [{ id: 'payinslip', label: msg('UI_SUBMISSIONQUEUE_SLIP') }]
       : []),
-    { id: 'fields',      label: '📋 Fields'      },
-    { id: 'ai_analysis', label: '🤖 AI Analysis' },
-    { id: 'passport',    label: '🪪 Passport'    },
+    { id: 'fields',      label: msg('UI_SUBMISSIONQUEUE_FIELDS_2')      },
+    { id: 'ai_analysis', label: msg('UI_SUBMISSIONQUEUE_AI_ANALYSIS_2') },
+    { id: 'passport',    label: msg('UI_SUBMISSIONQUEUE_PASSPORT_2')    },
   ]
 
   function handleConfirm() { setSubmitted(true); onConfirm(item.instrument_id) }
@@ -231,7 +232,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3">
         <div className="text-4xl">✓</div>
-        <div className={`text-lg font-semibold ${th.heading}`}>{isInward ? 'Confirmed' : 'Filed to NGCH'}</div>
+        <div className={`text-lg font-semibold ${th.heading}`}>{isInward ? msg('UI_COMMON_CONFIRMED_3') : msg('UI_SUBMISSIONQUEUE_FILED_TO_NGCH_2')}</div>
         <div className={`text-sm ${th.muted}`}>{item.instrument_id}</div>
       </div>
     )
@@ -245,7 +246,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
           <div>
             <div className={`font-mono text-sm font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{item.instrument_id}</div>
             {isInward
-              ? <div className={`text-xs mt-0.5 ${th.muted}`}>Account {item.account_display} · {item.drawee_bank}</div>
+              ? <div className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_SUBMISSIONQUEUE_ACCOUNT_2', { account_display: item.account_display, drawee_bank: item.drawee_bank })}</div>
               : <div className={`text-xs mt-0.5 ${th.muted}`}>{item.drawee_bank} · {item.drawee_branch}</div>
             }
           </div>
@@ -277,41 +278,41 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
         {imgTab === 'front' && (
           <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
             <MockChequeFront item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>CTS-2010 · Front of cheque — colour scan</div>
+            <div className={`text-[9px] ${th.lbl}`}>{msg('UI_SUBMISSIONQUEUE_CTS_2010_FRONT_OF_CHEQUE')}</div>
           </div>
         )}
         {imgTab === 'back' && (
           <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
             <MockChequeBack depositChannel={isInward ? undefined : item.deposit_channel} item={item} />
             <div className={`text-[9px] ${th.lbl}`}>
-              {item.deposit_channel === 'BACK_ANNOTATION' ? 'Customer handwrote A/c + mobile on back' :
-               item.deposit_channel === 'KIOSK'           ? 'CDM kiosk label affixed — details system-captured' :
-               'CTS-2010 · Back of cheque — endorsement area'}
+              {item.deposit_channel === 'BACK_ANNOTATION' ? msg('UI_SUBMISSIONQUEUE_CUSTOMER_HANDWROTE_A_C_MOBILE') :
+               item.deposit_channel === 'KIOSK'           ? msg('UI_SUBMISSIONQUEUE_CDM_KIOSK_LABEL_AFFIXED_DETAILS') :
+               msg('UI_SUBMISSIONQUEUE_CTS_2010_BACK_OF_CHEQUE')}
             </div>
           </div>
         )}
         {imgTab === 'payinslip' && (
           <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
             <MockPayinSlip item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>Pay-in / deposit slip captured at branch</div>
+            <div className={`text-[9px] ${th.lbl}`}>{msg('UI_SUBMISSIONQUEUE_PAY_IN_DEPOSIT_SLIP_CAPTURED')}</div>
           </div>
         )}
         {imgTab === 'fields' && (
           <div className="px-5 py-3">
             <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>
-              Validated Fields
+             {msg('UI_SUBMISSIONQUEUE_VALIDATED_FIELDS_2')}
               {item.manual_fields?.length > 0 && (
                 <span className={`ml-2 font-normal lowercase ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                  ({item.manual_fields.length} manually corrected)
+                 {msg('UI_SUBMISSIONQUEUE_MANUALLY_CORRECTED_3', { count: item.manual_fields.length })}
                 </span>
               )}
             </div>
-            <FieldRow label="Date"           value={item.date}            isDark={isDark} />
-            <FieldRow label="Payee"          value={item.payee}           isDark={isDark} isManual={item.manual_fields?.includes('payee')} />
-            <FieldRow label="Amount"         value={item.amount_figures}  isDark={isDark} isManual={item.manual_fields?.includes('amount_figures')} />
-            <FieldRow label="Amount (words)" value={item.amount_words}    isDark={isDark} isManual={item.manual_fields?.includes('amount_words')} />
+            <FieldRow label={msg('UI_COMMON_DATE_2')}           value={item.date}            isDark={isDark} />
+            <FieldRow label={msg('UI_VALIDATIONQUEUE_PAYEE')}          value={item.payee}           isDark={isDark} isManual={item.manual_fields?.includes('payee')} />
+            <FieldRow label={msg('UI_COMMON_AMOUNT')}         value={item.amount_figures}  isDark={isDark} isManual={item.manual_fields?.includes('amount_figures')} />
+            <FieldRow label={msg('UI_COMMON_AMOUNT_WORDS_2')} value={item.amount_words}    isDark={isDark} isManual={item.manual_fields?.includes('amount_words')} />
             <FieldRow label="MICR"           value={item.micr}            isDark={isDark} />
-            <FieldRow label="Alterations"    value={item.alterations ? '⚠ Detected' : '✓ None'} isDark={isDark} />
+            <FieldRow label={msg('UI_SUBMISSIONQUEUE_ALTERATIONS_2')}    value={item.alterations ? '⚠ Detected' : '✓ None'} isDark={isDark} />
           </div>
         )}
 
@@ -319,27 +320,27 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
           <div className="px-5 py-4 space-y-5">
             {/* Score pills — inward: OCR/Sig/Fraud/IQA; outward: OCR/Vision/MICR/IQA */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>{msg('UI_COMMON_AI_CONFIDENCE_2')}</div>
               <div className="grid grid-cols-2 gap-2">
-                <ScorePill label="OCR Accuracy" value={item.ocr_score} isDark={isDark} />
+                <ScorePill label={msg('UI_COMMON_OCR_ACCURACY_2')} value={item.ocr_score} isDark={isDark} />
                 {isInward ? (
                   <>
-                    <ScorePill label="Signature Match" value={item.sig_score}             isDark={isDark} />
-                    <ScorePill label="Fraud Clean"      value={1 - item.fraud_score}       isDark={isDark} />
+                    <ScorePill label={msg('UI_COMMON_SIGNATURE_MATCH_2')} value={item.sig_score}             isDark={isDark} />
+                    <ScorePill label={msg('UI_SUBMISSIONQUEUE_FRAUD_CLEAN_2')}      value={1 - item.fraud_score}       isDark={isDark} />
                   </>
                 ) : (
                   <>
-                    <ScorePill label="Vision / CTS-10"  value={item.vision_compliance}    isDark={isDark} />
-                    <ScorePill label="MICR Confidence"  value={item.micr_confidence}       isDark={isDark} />
+                    <ScorePill label={msg('UI_OUTWARDREVIEWPANEL_VISION_CTS_10_2')}  value={item.vision_compliance}    isDark={isDark} />
+                    <ScorePill label={msg('UI_OUTWARDREVIEWPANEL_MICR_CONFIDENCE_2')}  value={item.micr_confidence}       isDark={isDark} />
                   </>
                 )}
-                <ScorePill label="Image IQA" value={item.iqa_score} isDark={isDark} />
+                <ScorePill label={msg('UI_SUBMISSIONQUEUE_IMAGE_IQA_2')} value={item.iqa_score} isDark={isDark} />
               </div>
             </div>
 
             {/* Risk signals — different for inward vs outward */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_RISK_SIGNALS_2')}</div>
               {isInward ? (
                 <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
                   item.fraud_score > 0.12
@@ -347,11 +348,11 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
                     : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
                 }`}>
                   {[
-                    { label: 'Fraud score',         val: `${(item.fraud_score * 100).toFixed(1)}%`,    warn: item.fraud_score > 0.12 },
-                    { label: 'Alteration detected', val: item.alterations ? '⚠ Yes' : '✓ None',        warn: item.alterations        },
-                    { label: 'Signature match',     val: `${(item.sig_score * 100).toFixed(0)}%`,       warn: item.sig_score < 0.88   },
-                    { label: 'Image quality',       val: `${(item.iqa_score * 100).toFixed(0)}%`,       warn: item.iqa_score < 0.90   },
-                    { label: 'Manually corrected',  val: `${item.manual_fields?.length ?? 0} field(s)`, warn: (item.manual_fields?.length ?? 0) > 0 },
+                    { label: msg('UI_SUBMISSIONQUEUE_FRAUD_SCORE_2'),         val: `${(item.fraud_score * 100).toFixed(1)}%`,    warn: item.fraud_score > 0.12 },
+                    { label: msg('UI_COMMON_ALTERATION_DETECTED_2'), val: item.alterations ? '⚠ Yes' : '✓ None',        warn: item.alterations        },
+                    { label: msg('UI_SUBMISSIONQUEUE_SIGNATURE_MATCH_2'),     val: `${(item.sig_score * 100).toFixed(0)}%`,       warn: item.sig_score < 0.88   },
+                    { label: msg('UI_COMMON_IMAGE_QUALITY'),       val: `${(item.iqa_score * 100).toFixed(0)}%`,       warn: item.iqa_score < 0.90   },
+                    { label: msg('UI_SUBMISSIONQUEUE_MANUALLY_CORRECTED_4'),  val: `${item.manual_fields?.length ?? 0} field(s)`, warn: (item.manual_fields?.length ?? 0) > 0 },
                   ].map(({ label, val, warn }) => (
                     <div key={label} className="flex items-center justify-between">
                       <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
@@ -366,12 +367,12 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
                     : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
                 }`}>
                   {[
-                    { label: 'Signature present',   val: item.checks?.signature_present   ? '✓ Detected' : '⚠ Missing', warn: !item.checks?.signature_present   },
-                    { label: 'Amount words match',   val: item.checks?.amount_words_match  ? '✓ Match'    : '⚠ Mismatch', warn: !item.checks?.amount_words_match  },
-                    { label: 'Date valid',            val: item.checks?.date_valid          ? '✓ Valid'    : '⚠ Invalid',  warn: !item.checks?.date_valid           },
-                    { label: 'CTS-2010 compliant',    val: item.checks?.cts_valid           ? '✓ Pass'     : '⚠ Fail',     warn: !item.checks?.cts_valid            },
-                    { label: 'Alteration detected',   val: item.alterations ? '⚠ Yes' : '✓ None',                         warn: !!item.alterations                 },
-                    { label: 'Manually corrected',    val: `${item.manual_fields?.length ?? 0} field(s)`,                  warn: (item.manual_fields?.length ?? 0) > 0 },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_SIGNATURE_PRESENT_2'),   val: item.checks?.signature_present   ? '✓ Detected' : '⚠ Missing', warn: !item.checks?.signature_present   },
+                    { label: msg('UI_COMMON_AMOUNT_WORDS_MATCH_2'),   val: item.checks?.amount_words_match  ? '✓ Match'    : '⚠ Mismatch', warn: !item.checks?.amount_words_match  },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_DATE_VALID_2'),            val: item.checks?.date_valid          ? '✓ Valid'    : '⚠ Invalid',  warn: !item.checks?.date_valid           },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_CTS_2010_COMPLIANT_2'),    val: item.checks?.cts_valid           ? '✓ Pass'     : '⚠ Fail',     warn: !item.checks?.cts_valid            },
+                    { label: msg('UI_COMMON_ALTERATION_DETECTED_2'),   val: item.alterations ? '⚠ Yes' : '✓ None',                         warn: !!item.alterations                 },
+                    { label: msg('UI_SUBMISSIONQUEUE_MANUALLY_CORRECTED_4'),    val: `${item.manual_fields?.length ?? 0} field(s)`,                  warn: (item.manual_fields?.length ?? 0) > 0 },
                   ].map(({ label, val, warn }) => (
                     <div key={label} className="flex items-center justify-between">
                       <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
@@ -384,18 +385,18 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
 
             {/* Model attribution — different for inward vs outward */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_MODEL_ATTRIBUTION_2')}</div>
               <div className="space-y-1.5 text-[11px]">
                 {(isInward ? [
-                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'     },
-                  { task: 'Signature',       model: 'Siamese Net v2'  },
-                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'  },
-                  { task: 'Risk narrative',  model: 'Llama 3.3 70B'   },
-                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'   },
+                  { task: msg('UI_COMMON_OCR_MICR_2'),     model: 'GOT-OCR2.0'     },
+                  { task: msg('UI_COMMON_SIGNATURE_2'),       model: 'Siamese Net v2'  },
+                  { task: msg('UI_SUBMISSIONQUEUE_FRAUD_SCORING_2'),   model: 'XGBoost + SHAP'  },
+                  { task: msg('UI_SUBMISSIONQUEUE_RISK_NARRATIVE_2'),  model: 'Llama 3.3 70B'   },
+                  { task: msg('UI_SUBMISSIONQUEUE_VISION_LAYOUT_2'), model: 'Qwen2-VL 72B'   },
                 ] : [
-                  { task: 'OCR / MICR',       model: 'GOT-OCR2.0'            },
-                  { task: 'Vision / CTS-2010', model: 'Qwen2-VL 72B'          },
-                  { task: 'Compliance check',  model: 'CTS-2010 Validator v3' },
+                  { task: msg('UI_COMMON_OCR_MICR_2'),       model: 'GOT-OCR2.0'            },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_VISION_CTS_2010_2'), model: 'Qwen2-VL 72B'          },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK_2'),  model: 'CTS-2010 Validator v3' },
                 ]).map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
@@ -409,7 +410,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
 
         {imgTab === 'passport' && (
           <div className="px-5 py-4">
-            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>Cheque Passport</div>
+            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>{msg('UI_COMMON_CHEQUE_PASSPORT_2')}</div>
             <div className={`rounded-xl border divide-y text-xs ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
               {/* Header row */}
               <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
@@ -422,15 +423,15 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
               </div>
               {/* Field rows */}
               {[
-                { label: 'Payee',          value: item.payee          },
-                { label: 'Drawer',         value: item.drawer_name    },
-                { label: 'Amount',         value: item.amount_figures },
-                { label: 'Amount (words)', value: item.amount_words   },
-                { label: 'Date',           value: item.date           },
+                { label: msg('UI_VALIDATIONQUEUE_PAYEE'),          value: item.payee          },
+                { label: msg('UI_SUBMISSIONQUEUE_DRAWER_2'),         value: item.drawer_name    },
+                { label: msg('UI_COMMON_AMOUNT'),         value: item.amount_figures },
+                { label: msg('UI_COMMON_AMOUNT_WORDS_2'), value: item.amount_words   },
+                { label: msg('UI_COMMON_DATE_2'),           value: item.date           },
                 { label: 'MICR',           value: item.micr           },
-                { label: 'Account',        value: item.account_display },
-                { label: 'Drawee Bank',    value: item.drawee_bank    },
-                { label: 'Branch',         value: item.drawee_branch  },
+                { label: msg('UI_COMMON_ACCOUNT'),        value: item.account_display },
+                { label: msg('UI_COMMON_DRAWEE_BANK_2'),    value: item.drawee_bank    },
+                { label: msg('UI_COMMON_BRANCH'),         value: item.drawee_branch  },
               ].filter(r => r.value).map(({ label, value }) => (
                 <div key={label} className="flex items-start gap-3 px-4 py-2">
                   <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
@@ -440,26 +441,26 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
               {/* Deposit channel section (outward only) */}
               {!isInward && item.deposit_channel && (() => {
                 const DCFG = {
-                  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾' },
-                  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️' },
-                  KIOSK:           { label: 'Kiosk / CDM', icon: '🏧' },
+                  PAY_IN_SLIP:     { label: msg('UI_COMMON_PAY_IN_SLIP_2'), icon: '🧾' },
+                  BACK_ANNOTATION: { label: msg('UI_COMMON_BACK_NOTE_2'),   icon: '✍️' },
+                  KIOSK:           { label: msg('UI_COMMON_KIOSK_CDM_2'), icon: '🏧' },
                 }
                 const dd = item.deposit_data ?? {}
                 const depositRows =
                   item.deposit_channel === 'PAY_IN_SLIP' ? [
-                    { label: 'Depositor',    value: dd.depositor_name    },
-                    { label: 'Dep. Account', value: dd.depositor_account },
-                    { label: 'Deposit Amt',  value: dd.deposit_amount    },
-                    { label: 'Token',        value: dd.counter_token     },
-                    { label: 'Dep. Branch',  value: dd.branch            },
+                    { label: msg('UI_COMMON_DEPOSITOR_2'),    value: dd.depositor_name    },
+                    { label: msg('UI_COMMON_DEP_ACCOUNT_2'), value: dd.depositor_account },
+                    { label: msg('UI_COMMON_DEPOSIT_AMT_2'),  value: dd.deposit_amount    },
+                    { label: msg('UI_COMMON_TOKEN_2'),        value: dd.counter_token     },
+                    { label: msg('UI_COMMON_DEP_BRANCH_2'),  value: dd.branch            },
                   ] : item.deposit_channel === 'BACK_ANNOTATION' ? [
-                    { label: 'Ext. Account', value: dd.extracted_account },
-                    { label: 'Ext. Mobile',  value: dd.extracted_mobile  },
+                    { label: msg('UI_COMMON_EXT_ACCOUNT_2'), value: dd.extracted_account },
+                    { label: msg('UI_COMMON_EXT_MOBILE_2'),  value: dd.extracted_mobile  },
                   ] : item.deposit_channel === 'KIOSK' ? [
-                    { label: 'Depositor',    value: dd.name      },
-                    { label: 'CDM Account',  value: dd.account   },
-                    { label: 'Txn ID',       value: dd.txn_id    },
-                    { label: 'Timestamp',    value: dd.timestamp },
+                    { label: msg('UI_COMMON_DEPOSITOR_2'),    value: dd.name      },
+                    { label: msg('UI_COMMON_CDM_ACCOUNT_2'),  value: dd.account   },
+                    { label: msg('UI_COMMON_TXN_ID_2'),       value: dd.txn_id    },
+                    { label: msg('UI_COMMON_TIMESTAMP_2'),    value: dd.timestamp },
                   ] : []
                 return (
                   <>
@@ -478,7 +479,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
               {/* IET footer (inward only) */}
               {isInward && item.iet_deadline && (
                 <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
-                  <span className={th.lbl}>IET Deadline</span>
+                  <span className={th.lbl}>{msg('UI_SMBFORWARDINGLOG_IET_DEADLINE_2')}</span>
                   <IETMini deadline={item.iet_deadline} isDark={isDark} />
                 </div>
               )}
@@ -500,12 +501,12 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
           : (
             <button type="button" onClick={() => isInward ? setConfirming(true) : handleConfirm()}
               className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${isDark ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}
-            >{isInward ? '✓ Confirm — File to NGCH' : '↑ Submit to NGCH'}</button>
+            >{isInward ? msg('UI_SUBMISSIONQUEUE_CONFIRM_FILE_TO_NGCH_2') : msg('UI_SUBMISSIONQUEUE_SUBMIT_TO_NGCH_2')}</button>
           )
         }
         <button type="button" onClick={() => setShowReturnPicker(v => !v)}
           className={`w-full py-2 rounded-xl text-sm font-semibold transition-all border ${isDark ? 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'}`}
-        >✕ Return to Verification</button>
+        >{msg('UI_SUBMISSIONQUEUE_RETURN_TO_VERIFICATION_2')}</button>
       </div>
     </div>
   )
@@ -561,9 +562,9 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'CONFIRM', reason: 'Ops reviewer confirmed — all checks passed' }),
+        body: JSON.stringify({ action: 'CONFIRM', reason: msg('UI_SUBMISSIONQUEUE_OPS_REVIEWER_CONFIRMED_ALL_CHECKS_2') }),
       })
-      if (!res.ok) throw new Error('Confirm failed')
+      if (!res.ok) throw new Error(msg('UI_SUBMISSIONQUEUE_CONFIRM_FAILED_2'))
       return res.json()
     },
     onSuccess: (_, instrumentId) => {
@@ -581,9 +582,9 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'RETURN', reason: reason || 'Return requested by ops reviewer' }),
+        body: JSON.stringify({ action: 'RETURN', reason: reason || msg('UI_SUBMISSIONQUEUE_RETURN_REQUESTED_BY_OPS_REVIEWER_2') }),
       })
-      if (!res.ok) throw new Error('Return failed')
+      if (!res.ok) throw new Error(msg('UI_SUBMISSIONQUEUE_RETURN_FAILED_2'))
       return res.json()
     },
     onSuccess: (_, { instrumentId }) => {
@@ -609,13 +610,13 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
         {/* Page header */}
         <div className={`px-6 py-3 border-b ${th.divider} shrink-0 flex items-center gap-4`}>
           <div>
-            <h1 className={`text-base font-semibold ${th.heading}`}>{isInward ? 'Submission IQ' : 'Submission OQ'}</h1>
+            <h1 className={`text-base font-semibold ${th.heading}`}>{isInward ? msg('UI_COMMON_SUBMISSION_IQ') : msg('UI_COMMON_SUBMISSION_OQ')}</h1>
             <p className={`text-[11px] ${th.muted}`}>
-              {isInward ? 'Cheque image · 2s cancellable confirm before NGCH filing' : 'Cheque image · Submit to NGCH · Confirmed → Outward File'}
+              {isInward ? msg('UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_2S_CANCELLABLE_CONFIRM_2') : msg('UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_SUBMIT_TO_NGCH_2')}
             </p>
           </div>
           <div className={`ml-auto text-[10px] px-3 py-1 rounded-lg border font-medium ${isDark ? 'bg-violet-400/5 border-violet-400/20 text-violet-400' : 'bg-violet-50 border-violet-300 text-violet-700'}`}>
-            Stage 3 of 3 — Submission
+           {msg('UI_SUBMISSIONQUEUE_STAGE_3_OF_3_SUBMISSION_2')}
           </div>
           {/* Filter buttons */}
           <div className="flex items-center gap-1">
@@ -637,7 +638,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
               >{lbl}{val === 'HIGH_VALUE' && hvCount > 0 ? ` (${hvCount})` : ''}</button>
             ))}
           </div>
-          <div className={`text-[11px] font-semibold ${th.heading}`}>{filtered.length} pending</div>
+          <div className={`text-[11px] font-semibold ${th.heading}`}>{msg('UI_COMMON_PENDING_4', { count: filtered.length })}</div>
         </div>
 
         {/* Split layout */}
@@ -648,8 +649,8 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
               {instruments.length === 0 ? (
                 <div className={`flex flex-col items-center justify-center h-full gap-2 ${th.lbl}`}>
                   <div className="text-3xl">✓</div>
-                  <div className="text-sm">Queue empty</div>
-                  <div className="text-[11px]">All instruments filed</div>
+                  <div className="text-sm">{msg('UI_PIPELINEVISUALIZER_QUEUE_EMPTY_2')}</div>
+                  <div className="text-[11px]">{msg('UI_SUBMISSIONQUEUE_ALL_INSTRUMENTS_FILED_2')}</div>
                 </div>
               ) : filtered.map(inst => {
                 const isSel = inst.instrument_id === selected
@@ -676,22 +677,22 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
                       ) : null
                     })()}
                     <div className={`text-[11px] ${th.muted} mt-0.5 truncate`}>
-                      {isInward ? `Acct ${inst.account_display}` : inst.drawee_bank}
+                      {isInward ? msg('UI_SUBMISSIONQUEUE_ACCT_2', { account_display: inst.account_display }) : inst.drawee_bank}
                     </div>
                     {isInward && minsLeft != null && (
                       <div className={`text-[10px] font-mono font-semibold mt-0.5 ${urgent ? 'text-red-400' : isDark ? 'text-sky-400' : 'text-sky-600'}`}>
-                        IET {minsLeft}m {urgent ? '⚠' : ''}
+                       {msg('UI_SUBMISSIONQUEUE_IET_M_4', { minsLeft, value: urgent ? '⚠' : '' })}
                       </div>
                     )}
                     <div className={`text-[11px] mt-0.5 flex items-center gap-1.5`}>
                       <span className={th.muted}>{inst.amount_figures}</span>
                       {isHV(inst) && (
-                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded border ${isDark ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-300 text-red-600'}`}>HV</span>
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded border ${isDark ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-300 text-red-600'}`}>{msg('UI_SUBMISSIONQUEUE_HV_2')}</span>
                       )}
                     </div>
                     {inst.manual_fields?.length > 0 && (
                       <div className={`text-[9px] mt-0.5 ${isDark ? 'text-amber-400/60' : 'text-amber-600/60'}`}>
-                        {inst.manual_fields.length} MANUAL field{inst.manual_fields.length > 1 ? 's' : ''}
+                        {msg('UI_SUBMISSIONQUEUE_MANUAL_FIELD_2', { count: inst.manual_fields.length, value: inst.manual_fields.length > 1 ? 's' : '' })}
                       </div>
                     )}
                   </button>
@@ -707,8 +708,8 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
               : (
                 <div className={`h-full flex flex-col items-center justify-center gap-2 ${th.lbl}`}>
                   <div className="text-4xl">✓</div>
-                  <div className="text-sm font-medium">Submission queue empty</div>
-                  <div className="text-[11px]">All instruments processed</div>
+                  <div className="text-sm font-medium">{msg('UI_SUBMISSIONQUEUE_SUBMISSION_QUEUE_EMPTY_2')}</div>
+                  <div className="text-[11px]">{msg('UI_SUBMISSIONQUEUE_ALL_INSTRUMENTS_PROCESSED_2')}</div>
                 </div>
               )
             }

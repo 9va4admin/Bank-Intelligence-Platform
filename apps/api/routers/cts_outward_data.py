@@ -1079,7 +1079,7 @@ async def _file_overdue_maker_decisions(request: Request, ctx: UserContext, db, 
         if not str(claimed).endswith(" 1"):
             continue                                          # a checker got there first
         await _file_outward_decision(request, system, r["instrument_id"], r["maker_decision"],
-                                     "Filed on the maker's decision: no checker acted before the timeout or the session cut-off")
+                                     get_message("API_FILED_ON_THE_MAKER_S"))
         await _release_claim(request, system, r["instrument_id"])
         log.info("cts.outward_review.maker_auto_filed", instrument_id=r["instrument_id"], maker_id=r["maker_id"],
                  action=r["maker_decision"], bank_id=ctx.bank_id)

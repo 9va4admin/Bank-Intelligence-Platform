@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const SUB_MEMBERS = [
   {
@@ -126,16 +127,16 @@ function ReturnRateBar({ value, threshold, softThreshold, isDark }) {
 
 function ShieldBadge({ status, isDark }) {
   const map_D = {
-    SAFE:      { cls: 'bg-emerald-900/40 text-emerald-300', label: '✓ SAFE' },
-    WARN:      { cls: 'bg-amber-900/40 text-amber-300',     label: '⚠ WARN' },
-    SOFT_HOLD: { cls: 'bg-red-900/50 text-red-300',         label: '⏸ SOFT-HOLD' },
-    HARD_STOP: { cls: 'bg-rose-900/70 text-rose-200',       label: '⛔ HARD-STOP' },
+    SAFE:      { cls: 'bg-emerald-900/40 text-emerald-300', label: msg('UI_RECONCILIATION_SAFE_2') },
+    WARN:      { cls: 'bg-amber-900/40 text-amber-300',     label: msg('UI_SUBMEMBER_WARN_2') },
+    SOFT_HOLD: { cls: 'bg-red-900/50 text-red-300',         label: msg('UI_SUBMEMBER_SOFT_HOLD_2') },
+    HARD_STOP: { cls: 'bg-rose-900/70 text-rose-200',       label: msg('UI_SUBMEMBER_HARD_STOP_2') },
   }
   const map_L = {
-    SAFE:      { cls: 'bg-emerald-50 text-emerald-700', label: '✓ SAFE' },
-    WARN:      { cls: 'bg-amber-50 text-amber-700',     label: '⚠ WARN' },
-    SOFT_HOLD: { cls: 'bg-red-100 text-red-700',        label: '⏸ SOFT-HOLD' },
-    HARD_STOP: { cls: 'bg-rose-200 text-rose-800',      label: '⛔ HARD-STOP' },
+    SAFE:      { cls: 'bg-emerald-50 text-emerald-700', label: msg('UI_RECONCILIATION_SAFE_2') },
+    WARN:      { cls: 'bg-amber-50 text-amber-700',     label: msg('UI_SUBMEMBER_WARN_2') },
+    SOFT_HOLD: { cls: 'bg-red-100 text-red-700',        label: msg('UI_SUBMEMBER_SOFT_HOLD_2') },
+    HARD_STOP: { cls: 'bg-rose-200 text-rose-800',      label: msg('UI_SUBMEMBER_HARD_STOP_2') },
   }
   const map = isDark ? map_D : map_L
   const m = map[status] || map.SAFE
@@ -165,28 +166,28 @@ function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
     <div className={`border rounded-lg p-4 mb-4 ${th.panel}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
-          <div className={`text-sm font-semibold ${th.heading}`}>{smb.bank_name} — Detail</div>
-          <div className={`text-xs ${th.label}`}>{smb.ifsc_prefix} · MICR {smb.micr_prefix} · Sponsor: {smb.sponsor}</div>
+          <div className={`text-sm font-semibold ${th.heading}`}>{msg('UI_SUBMEMBER_DETAIL_2', { bank_name: smb.bank_name })}</div>
+          <div className={`text-xs ${th.label}`}>{msg('UI_SUBMEMBER_MICR_SPONSOR_2', { ifsc_prefix: smb.ifsc_prefix, micr_prefix: smb.micr_prefix, sponsor: smb.sponsor })}</div>
         </div>
         <button onClick={onClose} className={`text-sm px-2 py-1 rounded ${isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>✕</button>
       </div>
 
       {/* Notification config */}
       <div className={`flex items-center gap-2 mb-3 py-2 border-t border-b ${th.divider}`}>
-        <span className={`text-[10px] ${th.label}`}>BM Email:</span>
+        <span className={`text-[10px] ${th.label}`}>{msg('UI_SUBMEMBER_BM_EMAIL_2')}</span>
         <span className={`text-[11px] font-mono ${th.value}`}>{smb.bm_email}</span>
-        <span className={`text-[10px] ${th.label} ml-4`}>Thresholds:</span>
-        <span className={`text-[11px] ${th.value}`}>Warn {(smb.return_threshold * 100).toFixed(0)}% / Hold {(smb.soft_hold_threshold * 100).toFixed(0)}%</span>
+        <span className={`text-[10px] ${th.label} ml-4`}>{msg('UI_SUBMEMBER_THRESHOLDS_2')}</span>
+        <span className={`text-[11px] ${th.value}`}>{msg('UI_SUBMEMBER_WARN_HOLD_2', { value: (smb.return_threshold * 100).toFixed(0), value2: (smb.soft_hold_threshold * 100).toFixed(0) })}</span>
       </div>
 
       {/* Bucket grid */}
       <div className="grid grid-cols-5 gap-2 mb-3">
         {[
-          { label: 'STP Pass',    count: smb.stp_pass,      bucket: 'STP_PASS'      },
-          { label: 'STP Return',  count: smb.stp_return,    bucket: 'STP_RETURN'    },
-          { label: 'Eyeball',     count: smb.eyeball,       bucket: 'EYEBALL'       },
-          { label: 'Fraud Hold',  count: smb.fraud_hold,    bucket: 'FRAUD_HOLD'    },
-          { label: 'IET Emerg.',  count: smb.iet_emergency, bucket: 'IET_EMERGENCY' },
+          { label: msg('UI_RECONCILIATION_STP_PASS_2'),    count: smb.stp_pass,      bucket: 'STP_PASS'      },
+          { label: msg('UI_COMMON_STP_RETURN_2'),  count: smb.stp_return,    bucket: 'STP_RETURN'    },
+          { label: msg('UI_RECONCILIATION_EYEBALL_2'),     count: smb.eyeball,       bucket: 'EYEBALL'       },
+          { label: msg('UI_SUBMEMBER_FRAUD_HOLD_2'),  count: smb.fraud_hold,    bucket: 'FRAUD_HOLD'    },
+          { label: msg('UI_SUBMEMBER_IET_EMERG_2'),  count: smb.iet_emergency, bucket: 'IET_EMERGENCY' },
         ].map(({ label, count, bucket }) => {
           const bc = BUCKET_COLORS[bucket]
           return (
@@ -201,27 +202,27 @@ function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
       {/* Return rate bar */}
       <div className="mb-3">
         <div className="flex justify-between mb-1">
-          <span className={`text-[11px] ${th.label}`}>Return Rate</span>
+          <span className={`text-[11px] ${th.label}`}>{msg('UI_COMMON_RETURN_RATE_2')}</span>
           <span className={`text-[11px] font-semibold ${rate >= smb.soft_hold_threshold ? 'text-red-400' : rate >= smb.return_threshold ? 'text-amber-400' : 'text-emerald-400'}`}>
             {(rate * 100).toFixed(1)}%
           </span>
         </div>
         <ReturnRateBar value={rate} threshold={smb.return_threshold} softThreshold={smb.soft_hold_threshold} isDark={isDark} />
         <div className={`flex gap-4 mt-1 text-[9px] ${th.label}`}>
-          <span>● Warn at {(smb.return_threshold * 100).toFixed(0)}%</span>
-          <span>● Soft-Hold at {(smb.soft_hold_threshold * 100).toFixed(0)}%</span>
-          <span>● Hard-Stop at {(smb.soft_hold_threshold * 200).toFixed(0)}%</span>
+          <span>{msg('UI_SUBMEMBER_WARN_AT_2', { value: (smb.return_threshold * 100).toFixed(0) })}</span>
+          <span>{msg('UI_SUBMEMBER_SOFT_HOLD_AT_2', { value: (smb.soft_hold_threshold * 100).toFixed(0) })}</span>
+          <span>{msg('UI_SUBMEMBER_HARD_STOP_AT_2', { value: (smb.soft_hold_threshold * 200).toFixed(0) })}</span>
         </div>
       </div>
 
       {/* Return event log */}
       {returnItems.length > 0 && (
         <div>
-          <div className={`text-[11px] font-medium mb-1 ${th.label}`}>Return Events (This Session)</div>
+          <div className={`text-[11px] font-medium mb-1 ${th.label}`}>{msg('UI_SUBMEMBER_RETURN_EVENTS_THIS_SESSION_2')}</div>
           <table className="w-full text-[11px]">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Time', 'Ref (last 4)', 'Reason', 'Bucket', 'Amount'].map(h => (
+                {[msg('UI_COMMON_TIME_2'), msg('UI_SUBMEMBER_REF_LAST_4_2'), msg('UI_COMMON_REASON_2'), msg('UI_SUBMEMBER_BUCKET_2'), msg('UI_COMMON_AMOUNT')].map(h => (
                   <th key={h} className={`py-1 text-left font-medium ${th.label}`}>{h}</th>
                 ))}
               </tr>
@@ -284,17 +285,17 @@ export default function CTSSubMember() {
   const softHoldCount = subMembers.filter(m => shieldStatus(m) === 'SOFT_HOLD' || shieldStatus(m) === 'HARD_STOP').length
 
   const KPIs = [
-    { label: 'Sub-Member Banks', value: subMembers.length, color: 'text-sky-400' },
-    { label: 'Total Inward',     value: totalInward,         color: isDark ? 'text-slate-200' : 'text-slate-900' },
-    { label: 'Total Returns',    value: totalReturns,        color: 'text-red-400' },
-    { label: 'Avg Return Rate',  value: `${avgReturnRate}%`, color: totalReturns / totalInward > 0.15 ? 'text-red-400' : 'text-emerald-400' },
-    { label: 'Eyeball Queue',    value: totalEyeball,        color: 'text-amber-400' },
-    { label: 'Fraud Hold',       value: totalFraud,          color: 'text-violet-400' },
-    { label: 'Shield Active',    value: softHoldCount,       color: softHoldCount > 0 ? 'text-red-400' : 'text-emerald-400' },
+    { label: msg('UI_APPSHELL_SUB_MEMBER_BANKS'), value: subMembers.length, color: 'text-sky-400' },
+    { label: msg('UI_COMMON_TOTAL_INWARD_2'),     value: totalInward,         color: isDark ? 'text-slate-200' : 'text-slate-900' },
+    { label: msg('UI_SUBMEMBER_TOTAL_RETURNS_2'),    value: totalReturns,        color: 'text-red-400' },
+    { label: msg('UI_SUBMEMBER_AVG_RETURN_RATE_2'),  value: `${avgReturnRate}%`, color: totalReturns / totalInward > 0.15 ? 'text-red-400' : 'text-emerald-400' },
+    { label: msg('UI_SUBMEMBER_EYEBALL_QUEUE_2'),    value: totalEyeball,        color: 'text-amber-400' },
+    { label: msg('UI_SUBMEMBER_FRAUD_HOLD_2'),       value: totalFraud,          color: 'text-violet-400' },
+    { label: msg('UI_SUBMEMBER_SHIELD_ACTIVE_2'),    value: softHoldCount,       color: softHoldCount > 0 ? 'text-red-400' : 'text-emerald-400' },
   ]
 
   usePageHeader({
-    subtitle: 'Sponsor routing · Bucket classification · Return rate shield · Tier 1/2/3 notifications',
+    subtitle: msg('UI_SUBMEMBER_SPONSOR_ROUTING_BUCKET_CLASSIFICATIO_2'),
   })
 
   if (isSMB) {
@@ -303,8 +304,8 @@ export default function CTSSubMember() {
         <div className={`flex-1 flex items-center justify-center ${th.page}`}>
           <div className="text-center">
             <div className="text-4xl mb-4">🏦</div>
-            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
-            <div className={`text-sm ${th.muted}`}>Sub-member routing is managed by the Sponsor Bank. This page is not available for SMB users.</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>{msg('UI_COMMON_SB_ONLY_FEATURE_2')}</div>
+            <div className={`text-sm ${th.muted}`}>{msg('UI_SUBMEMBER_SUB_MEMBER_ROUTING_IS_MANAGED_2')}</div>
           </div>
         </div>
       </AppShell>
@@ -352,9 +353,9 @@ export default function CTSSubMember() {
                   <div>
                     <div className={`text-sm font-semibold ${th.heading}`}>{smb.bank_name}</div>
                     <div className={`text-[11px] ${th.muted}`}>
-                      {smb.ifsc_prefix} · MICR {smb.micr_prefix} · {smb.id}
+                      {msg('UI_SUBMEMBER_MICR_2', { ifsc_prefix: smb.ifsc_prefix, micr_prefix: smb.micr_prefix, id: smb.id })}
                     </div>
-                    <div className={`text-[10px] ${th.label} mt-0.5`}>Sponsor: {smb.sponsor}</div>
+                    <div className={`text-[10px] ${th.label} mt-0.5`}>{msg('UI_SUBMEMBER_SPONSOR_2', { sponsor: smb.sponsor })}</div>
                   </div>
                   <ShieldBadge status={status} isDark={isDark} />
                 </div>
@@ -387,18 +388,18 @@ export default function CTSSubMember() {
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4">
                     <div>
-                      <span className={`text-xs ${th.label}`}>Total: </span>
+                      <span className={`text-xs ${th.label}`}>{msg('UI_SUBMEMBER_TOTAL_2')} </span>
                       <span className={`text-xs font-semibold ${th.body}`}>{smb.total}</span>
                     </div>
                     <div>
-                      <span className={`text-xs ${th.label}`}>Return: </span>
+                      <span className={`text-xs ${th.label}`}>{msg('UI_SUBMEMBER_RETURN_2')} </span>
                       <span className={`text-xs font-semibold ${rate >= smb.soft_hold_threshold ? 'text-red-400' : rate >= smb.return_threshold ? 'text-amber-400' : 'text-emerald-400'}`}>
                         {(rate * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
                   {smb.soft_hold && (
-                    <span className="text-[10px] text-red-400 font-medium animate-pulse">⏸ Soft Hold Active</span>
+                    <span className="text-[10px] text-red-400 font-medium animate-pulse">{msg('UI_SUBMEMBER_SOFT_HOLD_ACTIVE_2')}</span>
                   )}
                 </div>
 
@@ -419,13 +420,13 @@ export default function CTSSubMember() {
         {/* Notification log */}
         <div className={`border rounded-lg ${th.card}`}>
           <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-            <div className={`text-sm font-semibold ${th.heading}`}>Notification Log — Today</div>
-            <div className={`text-[10px] ${th.muted}`}>Tier 1 = immediate · Tier 2 = batch · Tier 3 = GM escalation</div>
+            <div className={`text-sm font-semibold ${th.heading}`}>{msg('UI_SUBMEMBER_NOTIFICATION_LOG_TODAY_2')}</div>
+            <div className={`text-[10px] ${th.muted}`}>{msg('UI_SUBMEMBER_TIER_1_IMMEDIATE_TIER_2_2')}</div>
           </div>
           <table className="w-full text-[12px]">
             <thead className={`border-b ${th.divider}`}>
               <tr>
-                {['Time', 'Bank', 'Ref (…last4)', 'Reason', 'Bucket', 'Amount', 'Tier', 'Recipient'].map(h => (
+                {[msg('UI_COMMON_TIME_2'), msg('UI_COMMON_BANK_2'), msg('UI_SUBMEMBER_REF_LAST4_2'), msg('UI_COMMON_REASON_2'), msg('UI_SUBMEMBER_BUCKET_2'), msg('UI_COMMON_AMOUNT'), msg('UI_ALLOCATIONADMIN_TIER_2'), msg('UI_SUBMEMBER_RECIPIENT_2')].map(h => (
                   <th key={h} className={`px-4 py-2 text-left font-medium ${th.label}`}>{h}</th>
                 ))}
               </tr>
@@ -453,7 +454,7 @@ export default function CTSSubMember() {
                     <td className={`px-4 py-2 ${th.body}`}>{e.amount}</td>
                     <td className="px-4 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] border ${tierColor}`}>
-                        Tier {e.tier}
+                       {msg('UI_SUBMEMBER_TIER_2', { tier: e.tier })}
                       </span>
                     </td>
                     <td className={`px-4 py-2 font-mono text-[11px] ${th.muted}`}>{smb?.bm_email}</td>

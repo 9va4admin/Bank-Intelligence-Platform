@@ -44,6 +44,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
 from pydantic import BaseModel, ConfigDict
+from service_messages import get_message
 
 log = structlog.get_logger()
 
@@ -345,15 +346,15 @@ def _detect_pixel_detailed(img: Image.Image) -> tuple[list[dict], PixelAnalysis]
 
     guard_results = [
         GuardResult(guard="A", rows_rejected=reject_a,
-                    description=f"span < {MIN_SPAN}px — isolated dots/specks"),
+                    description=get_message("SIG_DETECTOR_SPAN_PX_ISOLATED_DOTS_SPECKS", MIN_SPAN=MIN_SPAN)),
         GuardResult(guard="B", rows_rejected=reject_b,
-                    description="density > 40% — solid horizontal rule lines"),
+                    description=get_message("SIG_DETECTOR_DENSITY_40_SOLID_HORIZONTAL_RULE")),
         GuardResult(guard="C", rows_rejected=reject_c,
-                    description="runs > 15 — security-print diagonal patterns"),
+                    description=get_message("SIG_DETECTOR_RUNS_15_SECURITY_PRINT_DIAGONAL")),
         GuardResult(guard="D", rows_rejected=reject_d,
                     description=f"span-density < {MIN_SPAN_DENSITY:.0%} — sparse rubber-stamp rows"),
         GuardResult(guard="E", rows_rejected=reject_e,
-                    description="right-fringe only — barcode stripe rows"),
+                    description=get_message("SIG_DETECTOR_RIGHT_FRINGE_ONLY_BARCODE_STRIPE")),
     ]
 
     def _make_analysis(sig_det: bool, bbox: Optional[list[float]],
@@ -423,7 +424,7 @@ def _detect_pixel_detailed(img: Image.Image) -> tuple[list[dict], PixelAnalysis]
                     best = [r for s in sub_clusters[1:] for r in s]
                     head_trim_applied = True
                     head_trim_reason = (
-                        f"large-gap orphan fragment dropped: head={len(head)} rows, gap={gap}px"
+                        get_message("SIG_DETECTOR_LARGE_GAP_ORPHAN_FRAGMENT_DROPPED", len=len(head), gap=gap)
                     )
 
     left   = _trim_left(best, zw)
@@ -778,7 +779,7 @@ def _inspect_qwen2vl(img: Image.Image) -> Optional[VisionAnalysis]:
         name="signature_presence",
         status=CheckStatus.DETECTED if count > 0 else CheckStatus.NOT_DETECTED,
         confidence=round(float(sp.get("confidence", 0.0)), 3),
-        detail=f"count={count}, quality={sp.get('quality', 'unknown')}",
+        detail=get_message("SIG_DETECTOR_COUNT_QUALITY", count=count, sp=sp.get('quality', 'unknown')),
     ))
 
     log.info("sig_detector.inspect.vision_done",
@@ -813,7 +814,7 @@ async def detect_signatures(file: UploadFile = File(...)) -> DetectResponse:
     try:
         img = Image.open(io.BytesIO(data)).convert("RGB")
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
+        raise HTTPException(status_code=400, detail=get_message("SIG_DETECTOR_INVALID_IMAGE", exc=exc)) from exc
 
     iw, ih = img.size
     if _mode == "qwen2vl":
@@ -846,7 +847,7 @@ async def inspect_instrument(
     try:
         img = Image.open(io.BytesIO(raw_data)).convert("RGB")
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
+        raise HTTPException(status_code=400, detail=get_message("SIG_DETECTOR_INVALID_IMAGE", exc=exc)) from exc
 
     passport_id = str(uuid.uuid4())
     if not instrument_id:
@@ -870,7 +871,7 @@ async def inspect_instrument(
             check=f"pixel_guard_{g.guard}",
             status=CheckStatus.PASS if g.rows_rejected == 0 else CheckStatus.FAIL,
             confidence=1.0,
-            detail=f"{g.rows_rejected} rows rejected — {g.description}",
+            detail=get_message("SIG_DETECTOR_ROWS_REJECTED", rows_rejected=g.rows_rejected, description=g.description),
         ))
 
     summary.append(SummaryCheck(
@@ -886,7 +887,7 @@ async def inspect_instrument(
         check="pixel_signature_detected",
         status=CheckStatus.DETECTED if pixel_analysis.signature_detected else CheckStatus.NOT_DETECTED,
         confidence=pixel_analysis.confidence,
-        detail=str(pixel_analysis.bbox) if pixel_analysis.bbox else "no qualifying cluster",
+        detail=str(pixel_analysis.bbox) if pixel_analysis.bbox else get_message("SIG_DETECTOR_NO_QUALIFYING_CLUSTER"),
     ))
 
     if pixel_analysis.head_trim_applied:
@@ -920,7 +921,7 @@ async def inspect_instrument(
             summary.append(SummaryCheck(
                 check=f"vision_{name}",
                 status=CheckStatus.INCONCLUSIVE,
-                detail="vLLM returned error — result inconclusive",
+                detail=get_message("SIG_DETECTOR_VLLM_RETURNED_ERROR_RESULT_INCONCLUS"),
             ))
     else:
         for name in ("white_ink_cancellation", "signature_cancellation",
@@ -928,7 +929,7 @@ async def inspect_instrument(
             summary.append(SummaryCheck(
                 check=f"vision_{name}",
                 status=CheckStatus.SKIPPED,
-                detail="SIG_DETECTOR_VISION_URL not configured",
+                detail=get_message("SIG_DETECTOR_SIG_DETECTOR_VISION_URL_NOT"),
             ))
 
     # ── 4. Overall status ─────────────────────────────────────────────────

@@ -126,9 +126,10 @@ def test_locales_returns_all_loaded(registry):
     assert set(registry.locales()) == {"en", "hi"}
 
 
-def test_get_hi_stub_returns_empty_string(registry):
-    result = registry.get("TEST_WORKFLOW_RECEIVED", locale="hi", instrument_id="X", bank="Y")
-    assert result == ""
+def test_get_hi_stub_falls_back_to_the_english_text(registry):
+    """A message nobody has translated yet shows its English text, never a blank (the web helper does the same)."""
+    result = registry.get("TEST_WORKFLOW_RECEIVED", locale="hi", instrument_id="CHQ-1", bank="Test Bank")
+    assert result == "Cheque CHQ-1 received from Test Bank."
 
 
 # ── Fallback ──────────────────────────────────────────────────────────────────

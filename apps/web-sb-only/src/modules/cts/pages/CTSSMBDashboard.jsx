@@ -12,15 +12,13 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import AppShell from '../../../shared/layout/AppShell'
 import SMBDashboardContent from '../components/SMBDashboardContent'
+import { msg } from '../../../shared/messages'
 
 export default function CTSSMBDashboard() {
   const { bankName } = useBankContext()
   const { isDark } = useTheme()
-  const { setHeader } = usePageHeader()
-
-  useEffect(() => {
-    setHeader({ title: 'SMB Dashboard', subtitle: bankName })
-  }, [setHeader, bankName])
+  // usePageHeader takes { subtitle, actions } and returns nothing; the page title comes from the route label in AppShell.
+  usePageHeader({ subtitle: bankName })
 
   return (
     <AppShell>

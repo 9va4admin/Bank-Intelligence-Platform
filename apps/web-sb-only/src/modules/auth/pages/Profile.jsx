@@ -6,6 +6,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { useAuth } from '../../../shared/context/AuthContext'
+import { msg } from '../../../shared/messages'
 
 export default function Profile() {
   const { isDark } = useTheme()
@@ -32,7 +33,7 @@ export default function Profile() {
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-6`}>
-        <h1 className={`text-lg font-semibold mb-4 ${th.heading}`}>My Profile</h1>
+        <h1 className={`text-lg font-semibold mb-4 ${th.heading}`}>{msg('UI_PROFILE_MY_PROFILE_2')}</h1>
         <div className={`max-w-lg rounded-xl border ${th.card}`}>
           {rows.map(([k, v], i) => (
             <div

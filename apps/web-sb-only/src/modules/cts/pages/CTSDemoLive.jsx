@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { msg } from '../../../shared/messages'
 
 // ── Bank configuration ────────────────────────────────────────────────────────
 
@@ -31,19 +32,19 @@ const BANKS = [
 // ── Category metadata ─────────────────────────────────────────────────────────
 
 const CAT_META = {
-  A: { label: 'Clean STP',          color: 'emerald', outcome: 'STP_CONFIRM',                    icon: '✓' },
-  B: { label: 'Amount Mismatch',    color: 'amber',   outcome: 'STP_RETURN (OCR)',                icon: '≠' },
-  C: { label: 'Overwrite Fraud',    color: 'red',     outcome: 'STP_RETURN (Vision LLM)',         icon: '!' },
-  D: { label: 'Date Tamper',        color: 'red',     outcome: 'STP_RETURN (Vision LLM)',         icon: '!' },
-  E: { label: 'CANCELLED Stamp',    color: 'red',     outcome: 'STP_RETURN (Vision LLM)',         icon: '!' },
-  F: { label: 'Stale Cheque',       color: 'orange',  outcome: 'STP_RETURN (Rule)',               icon: '⌛' },
-  G: { label: 'Duplicate',          color: 'orange',  outcome: 'STP_RETURN (Registry)',           icon: '⊕' },
-  H: { label: 'Image Quality',      color: 'yellow',  outcome: 'STP_RETURN (CTS)',                icon: '⚠' },
-  I: { label: 'Sig Mismatch',       color: 'amber',   outcome: 'HUMAN_REVIEW',                    icon: '✍' },
-  J: { label: 'Stop Payment',       color: 'red',     outcome: 'STP_RETURN (CBS)',                icon: '⊘' },
-  K: { label: 'Insuff Funds',       color: 'orange',  outcome: 'STP_RETURN (CBS)',                icon: '$' },
-  L: { label: 'PPS Mismatch',       color: 'amber',   outcome: 'STP_RETURN (PPS)',                icon: '≠' },
-  M: { label: 'Acct Frozen',        color: 'red',     outcome: 'STP_RETURN (CBS)',                icon: '🔒' },
+  A: { label: msg('UI_DEMOLIVE_CLEAN_STP_2'),          color: 'emerald', outcome: 'STP_CONFIRM',                    icon: '✓' },
+  B: { label: msg('UI_DEMOLIVE_AMOUNT_MISMATCH_2'),    color: 'amber',   outcome: 'STP_RETURN (OCR)',                icon: '≠' },
+  C: { label: msg('UI_DEMOLIVE_OVERWRITE_FRAUD_2'),    color: 'red',     outcome: 'STP_RETURN (Vision LLM)',         icon: '!' },
+  D: { label: msg('UI_DEMOLIVE_DATE_TAMPER_2'),        color: 'red',     outcome: 'STP_RETURN (Vision LLM)',         icon: '!' },
+  E: { label: msg('UI_DEMOLIVE_CANCELLED_STAMP_2'),    color: 'red',     outcome: 'STP_RETURN (Vision LLM)',         icon: '!' },
+  F: { label: msg('UI_DEMOLIVE_STALE_CHEQUE_2'),       color: 'orange',  outcome: 'STP_RETURN (Rule)',               icon: '⌛' },
+  G: { label: msg('UI_DEMOLIVE_DUPLICATE_2'),          color: 'orange',  outcome: 'STP_RETURN (Registry)',           icon: '⊕' },
+  H: { label: msg('UI_DEMOLIVE_IMAGE_QUALITY_2'),      color: 'yellow',  outcome: 'STP_RETURN (CTS)',                icon: '⚠' },
+  I: { label: msg('UI_DEMOLIVE_SIG_MISMATCH_2'),       color: 'amber',   outcome: 'HUMAN_REVIEW',                    icon: '✍' },
+  J: { label: msg('UI_COMMON_STOP_PAYMENT_2'),       color: 'red',     outcome: 'STP_RETURN (CBS)',                icon: '⊘' },
+  K: { label: msg('UI_DEMOLIVE_INSUFF_FUNDS_2'),       color: 'orange',  outcome: 'STP_RETURN (CBS)',                icon: '$' },
+  L: { label: msg('UI_DEMOLIVE_PPS_MISMATCH_2'),       color: 'amber',   outcome: 'STP_RETURN (PPS)',                icon: '≠' },
+  M: { label: msg('UI_DEMOLIVE_ACCT_FROZEN_2'),        color: 'red',     outcome: 'STP_RETURN (CBS)',                icon: '🔒' },
 }
 
 // ── Vision LLM demo value labels ─────────────────────────────────────────────
@@ -122,7 +123,7 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 3000) {
   try {
     const r = await fetch(url, { ...opts, signal: ctrl.signal })
     clearTimeout(tid)
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    if (!r.ok) throw new Error(msg('UI_COMMON_HTTP_2', { status: r.status }))
     return await r.json()
   } catch (e) {
     clearTimeout(tid)
@@ -157,7 +158,7 @@ function StageChip({ stage, isDark }) {
     <div className={`flex items-center gap-1.5 rounded px-2 py-1 border text-xs ${cls}`}>
       <span className="font-mono">{stage.status === 'OK' ? '✓' : stage.status === 'FAIL' ? '✗' : '⟳'}</span>
       <span className="font-medium">{stage.stage?.replace(/_/g, ' ')}</span>
-      {stage.ms ? <span className="opacity-60">{stage.ms}ms</span> : null}
+      {stage.ms ? <span className="opacity-60">{msg('UI_COMMON_MS_3', { ms: stage.ms })}</span> : null}
     </div>
   )
 }
@@ -187,7 +188,7 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
           <div className="flex items-center gap-3 mb-2">
             <span className="text-2xl">🧠</span>
             <span className="text-red-300 font-bold text-base">
-              Vision LLM Prevented Fraud — OCR Missed It
+             {msg('UI_DEMOLIVE_VISION_LLM_PREVENTED_FRAUD_OCR_2')}
             </span>
           </div>
           <p className="text-red-200 text-sm leading-relaxed">
@@ -200,12 +201,12 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
           </p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="bg-emerald-900/40 border border-emerald-700/50 rounded p-2 text-center">
-              <div className="text-emerald-300 font-bold text-sm">OCR Result</div>
-              <div className="text-emerald-200 text-xs mt-1">PASS — no issues found</div>
+              <div className="text-emerald-300 font-bold text-sm">{msg('UI_DEMOLIVE_OCR_RESULT_2')}</div>
+              <div className="text-emerald-200 text-xs mt-1">{msg('UI_DEMOLIVE_PASS_NO_ISSUES_FOUND_2')}</div>
             </div>
             <div className="bg-red-900/40 border border-red-700/50 rounded p-2 text-center">
-              <div className="text-red-300 font-bold text-sm">Vision LLM Result</div>
-              <div className="text-red-200 text-xs mt-1">FAIL — fraud detected</div>
+              <div className="text-red-300 font-bold text-sm">{msg('UI_DEMOLIVE_VISION_LLM_RESULT_2')}</div>
+              <div className="text-red-200 text-xs mt-1">{msg('UI_DEMOLIVE_FAIL_FRAUD_DETECTED_2')}</div>
             </div>
           </div>
         </div>
@@ -217,42 +218,42 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
         <div className={`rounded-lg border ${card} p-4`}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-lg">🔤</span>
-            <span className={`font-semibold text-sm ${heading}`}>GOT-OCR2.0</span>
+            <span className={`font-semibold text-sm ${heading}`}>{msg('UI_COMMON_GOT_OCR2_0')}</span>
             {isVisionCatch
-              ? <span className="ml-auto text-xs bg-emerald-900/60 text-emerald-300 border border-emerald-700 rounded px-2 py-0.5">PASSED</span>
+              ? <span className="ml-auto text-xs bg-emerald-900/60 text-emerald-300 border border-emerald-700 rounded px-2 py-0.5">{msg('UI_DEMOLIVE_PASSED_2')}</span>
               : null}
           </div>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
-              <span className={muted}>Confidence</span>
+              <span className={muted}>{msg('UI_COMMON_CONFIDENCE_2')}</span>
               <span className={body}>{((ocr.confidence || 0.96) * 100).toFixed(0)}%</span>
             </div>
             <div className="flex justify-between">
-              <span className={muted}>Amount</span>
+              <span className={muted}>{msg('UI_COMMON_AMOUNT')}</span>
               <span className={`font-mono ${isVisionCatch && cat === 'C' ? 'text-red-400 line-through' : body}`}>
-                Rs. {(ocr.amount_figures || cheque?.amount_figures || 0).toLocaleString('en-IN')}
+               {msg('UI_DEMOLIVE_RS_2', { value: (ocr.amount_figures || cheque?.amount_figures || 0).toLocaleString('en-IN') })}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className={muted}>Date</span>
+              <span className={muted}>{msg('UI_COMMON_DATE_2')}</span>
               <span className={`font-mono ${isVisionCatch && cat === 'D' ? 'text-red-400' : body}`}>
                 {ocr.cheque_date || cheque?.cheque_date}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className={muted}>Payee</span>
+              <span className={muted}>{msg('UI_VALIDATIONQUEUE_PAYEE')}</span>
               <span className={body}>{ocr.payee_name || cheque?.payee_name}</span>
             </div>
             <div className="flex justify-between">
-              <span className={muted}>Flags</span>
-              <span className={body}>{(ocr.flags || []).join(', ') || 'None'}</span>
+              <span className={muted}>{msg('UI_DEMOLIVE_FLAGS_2')}</span>
+              <span className={body}>{(ocr.flags || []).join(', ') || msg('UI_DEMOLIVE_NONE_2')}</span>
             </div>
             <div className={`mt-2 rounded p-2 text-xs font-medium ${
               isVisionCatch
                 ? 'bg-emerald-900/40 text-emerald-300'
                 : 'bg-white/5 text-slate-300'
             }`}>
-              Verdict: {ocr.ocr_verdict || 'PASS'}
+             {msg('UI_DEMOLIVE_VERDICT_2', { value: ocr.ocr_verdict || msg('UI_DEMOLIVE_PASS') })}
             </div>
           </div>
         </div>
@@ -261,18 +262,18 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
         <div className={`rounded-lg border ${card} p-4`}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-lg">🧠</span>
-            <span className={`font-semibold text-sm ${heading}`}>Qwen2-VL-72B</span>
+            <span className={`font-semibold text-sm ${heading}`}>{msg('UI_DEMOLIVE_QWEN2_VL_72B_2')}</span>
             {isVisionCatch
-              ? <span className="ml-auto text-xs bg-red-900/60 text-red-300 border border-red-700 rounded px-2 py-0.5">CAUGHT</span>
+              ? <span className="ml-auto text-xs bg-red-900/60 text-red-300 border border-red-700 rounded px-2 py-0.5">{msg('UI_DEMOLIVE_CAUGHT_2')}</span>
               : null}
           </div>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
-              <span className={muted}>Inference</span>
-              <span className={body}>{vision.inference_ms || 450}ms (L2 queue)</span>
+              <span className={muted}>{msg('UI_DEMOLIVE_INFERENCE_2')}</span>
+              <span className={body}>{msg('UI_DEMOLIVE_MS_L2_QUEUE_2', { value: vision.inference_ms || 450 })}</span>
             </div>
             <div className="flex justify-between">
-              <span className={muted}>Tamper Risk</span>
+              <span className={muted}>{msg('UI_DEMOLIVE_TAMPER_RISK')}</span>
               <span className={`font-mono font-bold ${
                 (vision.overall_tamper_risk || 0) > 0.7
                   ? 'text-red-400'
@@ -301,7 +302,7 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
                 ))}
               </div>
             ) : (
-              <div className="mt-1 text-xs text-slate-500">No anomalies detected</div>
+              <div className="mt-1 text-xs text-slate-500">{msg('UI_DEMOLIVE_NO_ANOMALIES_DETECTED_2')}</div>
             )}
 
             <div className={`mt-2 rounded p-2 text-xs font-medium ${
@@ -309,7 +310,7 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
                 ? 'bg-red-900/40 text-red-300'
                 : 'bg-white/5 text-slate-300'
             }`}>
-              Verdict: {vision.vision_verdict || vision.verdict || 'PASS'}
+             {msg('UI_DEMOLIVE_VERDICT_2', { value: vision.vision_verdict || vision.verdict || msg('UI_DEMOLIVE_PASS') })}
             </div>
           </div>
         </div>
@@ -318,30 +319,27 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
       {/* Cheque image */}
       {result.images?.cheque_front && (
         <div className={`rounded-lg border ${card} p-3`}>
-          <div className={`text-xs font-semibold mb-2 ${muted}`}>Cheque Scan</div>
+          <div className={`text-xs font-semibold mb-2 ${muted}`}>{msg('UI_DEMOLIVE_CHEQUE_SCAN_3')}</div>
           <img
             src={result.images.cheque_front}
-            alt="Cheque scan"
+            alt={msg('UI_DEMOLIVE_CHEQUE_SCAN_4')}
             className="w-full rounded border border-white/10"
             style={{ imageRendering: 'crisp-edges' }}
             onError={(e) => { e.target.style.display = 'none' }}
           />
           {cat === 'E' && (
             <p className="text-xs text-red-400 mt-2">
-              The CANCELLED stamp is visible to the human eye and to Vision LLM.
-              OCR reads through the stamp and extracts all fields as valid.
+             {msg('UI_DEMOLIVE_THE_CANCELLED_STAMP_IS_VISIBLE_2')}
             </p>
           )}
           {cat === 'C' && (
             <p className="text-xs text-red-400 mt-2">
-              Look at the Rs. field: faint original amount under Tipp-Ex, overwritten with fraud amount.
-              OCR reads only the top ink layer. Vision LLM detects both layers.
+             {msg('UI_DEMOLIVE_LOOK_AT_THE_RS_FIELD_2')}
             </p>
           )}
           {cat === 'D' && (
             <p className="text-xs text-red-400 mt-2">
-              Year digits show correction fluid residue. OCR reads "2026" as valid.
-              Vision LLM detects the Tipp-Ex + re-inking and recovers the original year.
+             {msg('UI_DEMOLIVE_YEAR_DIGITS_SHOW_CORRECTION_FLUID_2')}
             </p>
           )}
         </div>
@@ -397,7 +395,7 @@ function ChequeRow({ cheque, result, isSelected, onSelect, isDark }) {
       {/* Vision LLM tag */}
       {isVisionCatch && (
         <span className="text-xs bg-purple-900/50 text-purple-300 border border-purple-700/50 rounded px-1.5 py-0.5">
-          Vision
+         {msg('UI_DEMOLIVE_VISION_2')}
         </span>
       )}
 
@@ -408,13 +406,13 @@ function ChequeRow({ cheque, result, isSelected, onSelect, isDark }) {
 
       {/* Amount */}
       <span className={`text-xs font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        {(cheque.amount_figures / 100000).toFixed(1)}L
+        {msg('UI_DEMOLIVE_L_2', { value: (cheque.amount_figures / 100000).toFixed(1) })}
       </span>
 
       {/* Outcome */}
       {result && (
         <span className={`text-xs font-medium ${outcomeColor}`}>
-          {outcome === 'STP_CONFIRM' ? '✓ STP' : outcome === 'STP_RETURN' ? '✗ RTN' : outcome === 'HUMAN_REVIEW' ? '👁 HRV' : '...'}
+          {outcome === 'STP_CONFIRM' ? msg('UI_DEMOLIVE_STP_2') : outcome === 'STP_RETURN' ? msg('UI_DEMOLIVE_RTN_2') : outcome === 'HUMAN_REVIEW' ? msg('UI_DEMOLIVE_HRV_2') : '...'}
         </span>
       )}
     </div>
@@ -425,7 +423,7 @@ function ChequeRow({ cheque, result, isSelected, onSelect, isDark }) {
 
 export default function CTSDemoLive() {
   const { isDark } = useTheme()
-  usePageHeader({ subtitle: 'Live 5-Bank Docker Demo — Vision LLM vs OCR' })
+  usePageHeader({ subtitle: msg('UI_DEMOLIVE_LIVE_5_BANK_DOCKER_DEMO_2') })
 
   const [activeBankIdx, setActiveBankIdx] = useState(0)
   const [cheques, setCheques] = useState(FALLBACK_CHEQUES)
@@ -603,7 +601,7 @@ export default function CTSDemoLive() {
       vision_verdict: `FAIL - amount overwrite detected. Original: ${ov.original_amount_display || 'Rs. 1,20,000'} | Fraud: ${ov.fraud_amount_display || 'Rs. 5,04,000'}`,
       findings: [{
         field: 'amount_figures', finding: 'INK_LAYER_ANOMALY', severity: 'CRITICAL',
-        detail: 'Two distinct ink layers detected. Correction fluid (Tipp-Ex) residue band present. Secondary overwrite layer detected with 93% confidence. OCR reads only the top ink layer.',
+        detail: msg('UI_DEMOLIVE_TWO_DISTINCT_INK_LAYERS_DETECTED_2'),
       }],
     }
     if (cat === 'D') return {
@@ -613,7 +611,7 @@ export default function CTSDemoLive() {
       vision_verdict: `FAIL - date tamper. Year ${ov.original_year||'2024'} changed to ${ov.new_year||'2026'}. True date: ${ov.orig_date||'12-01-2024'} (STALE)`,
       findings: [{
         field: 'cheque_date', finding: 'DATE_YEAR_TAMPER', severity: 'CRITICAL',
-        detail: `Correction fluid residue detected beneath year digits. UV-fluorescence anomaly. Original year ${ov.original_year||'2024'} overwritten with ${ov.new_year||'2026'}. Instrument would be stale at original date.`,
+        detail: msg('UI_DEMOLIVE_CORRECTION_FLUID_RESIDUE_DETECTED_BE_2', { value: ov.original_year||'2024', value2: ov.new_year||'2026' }),
       }],
     }
     if (cat === 'E') return {
@@ -623,7 +621,7 @@ export default function CTSDemoLive() {
       vision_verdict: 'FAIL - CANCELLED stamp detected across instrument face. Void instrument.',
       findings: [{
         field: 'instrument_face', finding: 'CANCELLED_STAMP', severity: 'CRITICAL',
-        detail: 'Diagonal red rubber-stamp overlay detected spanning full instrument face. Text: CANCELLED. Stamp ink is a separate layer above cheque text. Instrument is void.',
+        detail: msg('UI_DEMOLIVE_DIAGONAL_RED_RUBBER_STAMP_OVERLAY_2'),
       }],
     }
     return {
@@ -653,7 +651,7 @@ export default function CTSDemoLive() {
           {/* Bank tabs */}
           <div className={`border-b ${th.divider} p-2`}>
             <div className="text-xs font-semibold mb-2 px-1 text-purple-400">
-              SELECT BANK VIEW
+             {msg('UI_DEMOLIVE_SELECT_BANK_VIEW_2')}
             </div>
             <div className="space-y-1">
               {BANKS.map((b, i) => (
@@ -671,7 +669,7 @@ export default function CTSDemoLive() {
                   <span className={`ml-auto w-2 h-2 rounded-full ${
                     dockerOnline[b.id] === true ? 'bg-emerald-400' :
                     dockerOnline[b.id] === false ? 'bg-red-500' : 'bg-slate-500'
-                  }`} title={dockerOnline[b.id] ? 'Docker online' : 'Using simulation'} />
+                  }`} title={dockerOnline[b.id] ? msg('UI_DEMOLIVE_DOCKER_ONLINE_2') : msg('UI_DEMOLIVE_USING_SIMULATION_2')} />
                 </button>
               ))}
             </div>
@@ -687,16 +685,16 @@ export default function CTSDemoLive() {
                   : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
               }`}
             >
-              {mode === 'vision' ? '🧠 Vision Only' : '🧠 Vision Focus'}
+              {mode === 'vision' ? msg('UI_DEMOLIVE_VISION_ONLY_2') : msg('UI_DEMOLIVE_VISION_FOCUS_2')}
             </button>
             <select
               value={filterCat}
               onChange={e => setFilterCat(e.target.value)}
               className={`text-xs rounded px-2 py-1.5 border ${th.card}`}
             >
-              <option value="ALL">All Cats</option>
+              <option value="ALL">{msg('UI_DEMOLIVE_ALL_CATS_2')}</option>
               {Object.keys(CAT_META).map(c => (
-                <option key={c} value={c}>Cat {c} — {CAT_META[c].label}</option>
+                <option key={c} value={c}>{msg('UI_DEMOLIVE_CAT_4', { c, label: CAT_META[c].label })}</option>
               ))}
             </select>
           </div>
@@ -712,15 +710,15 @@ export default function CTSDemoLive() {
               }`}
             >
               {running
-                ? `⏹ Stop (${totalProcessed}/${filteredCheques.length})`
-                : `▶ Process ${filteredCheques.length} Cheque${filteredCheques.length !== 1 ? 's' : ''}`}
+                ? msg('UI_DEMOLIVE_STOP_2', { totalProcessed, count: filteredCheques.length })
+                : msg('UI_DEMOLIVE_PROCESS_CHEQUE_2', { count: filteredCheques.length, value: filteredCheques.length !== 1 ? 's' : '' })}
             </button>
           </div>
 
           {/* Cheque list */}
           <div className="flex-1 overflow-y-auto">
             {filteredCheques.length === 0 ? (
-              <div className={`p-4 text-center text-xs ${th.muted}`}>No cheques match filter</div>
+              <div className={`p-4 text-center text-xs ${th.muted}`}>{msg('UI_DEMOLIVE_NO_CHEQUES_MATCH_FILTER_2')}</div>
             ) : filteredCheques.map(chq => (
               <ChequeRow
                 key={chq.cheque_id}
@@ -740,29 +738,29 @@ export default function CTSDemoLive() {
           {/* Stats bar */}
           <div className={`border-b ${th.divider} px-4 py-2 flex items-center gap-6`}>
             <div className="flex items-center gap-2">
-              <span className={`text-xs ${th.muted}`}>Processed</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_DEMOLIVE_PROCESSED')}</span>
               <span className={`text-sm font-bold ${th.heading}`}>{totalProcessed}/{filteredCheques.length}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className={`text-xs ${th.muted}`}>STP</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_STP_2')}</span>
               <span className={`text-sm font-bold text-emerald-400`}>{totalSTPConfirm}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-red-400" />
-              <span className={`text-xs ${th.muted}`}>Return</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_RETURN_4')}</span>
               <span className={`text-sm font-bold text-red-400`}>{totalReturn}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span className={`text-xs ${th.muted}`}>Human</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_DEMOLIVE_HUMAN_2')}</span>
               <span className={`text-sm font-bold text-amber-400`}>{totalHR}</span>
             </div>
             {visionCaught > 0 && (
               <div className="flex items-center gap-2 ml-2 bg-purple-900/40 border border-purple-700/50 rounded px-3 py-1">
                 <span className="text-sm">🧠</span>
                 <span className={`text-xs font-bold text-purple-300`}>
-                  Vision LLM caught {visionCaught} fraud{visionCaught !== 1 ? 's' : ''} OCR missed
+                 {msg('UI_DEMOLIVE_VISION_LLM_CAUGHT_FRAUD_OCR_2', { visionCaught, value: visionCaught !== 1 ? 's' : '' })}
                 </span>
               </div>
             )}
@@ -775,7 +773,7 @@ export default function CTSDemoLive() {
                 </span>
               ))}
               <span className={`text-xs ${th.muted}`}>
-                {Object.values(dockerOnline).some(Boolean) ? 'Docker' : 'Simulation'}
+                {Object.values(dockerOnline).some(Boolean) ? msg('UI_DEMOLIVE_DOCKER_2') : msg('UI_DEMOLIVE_SIMULATION_2')}
               </span>
             </div>
           </div>
@@ -786,12 +784,10 @@ export default function CTSDemoLive() {
               <div className="h-full flex flex-col items-center justify-center">
                 <div className="text-5xl mb-4">🏦</div>
                 <div className={`text-lg font-semibold mb-2 ${th.heading}`}>
-                  ASTRA — Vision LLM Demo
+                 {msg('UI_DEMOLIVE_ASTRA_VISION_LLM_DEMO_2')}
                 </div>
                 <div className={`text-sm text-center max-w-md ${th.muted}`}>
-                  Click "Process Cheques" to run the pipeline.
-                  Select any cheque on the left to see OCR vs Vision LLM comparison.
-                  Cat C, D, E cheques show the key differentiator.
+                 {msg('UI_DEMOLIVE_CLICK_PROCESS_CHEQUES_TO_RUN_2')}
                 </div>
                 <div className="mt-6 grid grid-cols-3 gap-4 w-full max-w-lg">
                   {['C','D','E'].map(cat => (
@@ -801,9 +797,9 @@ export default function CTSDemoLive() {
                         const c = filteredCheques.find(x => x.category === cat)
                         if (c) setSelected(c)
                       }}>
-                      <div className="text-xl mb-1 font-bold text-red-300">Cat {cat}</div>
+                      <div className="text-xl mb-1 font-bold text-red-300">{msg('UI_DEMOLIVE_CAT_5', { cat })}</div>
                       <div className="text-xs text-red-200">{CAT_META[cat].label}</div>
-                      <div className="text-xs text-slate-500 mt-1">OCR misses → Vision catches</div>
+                      <div className="text-xs text-slate-500 mt-1">{msg('UI_DEMOLIVE_OCR_MISSES_VISION_CATCHES_2')}</div>
                     </div>
                   ))}
                 </div>
@@ -823,19 +819,16 @@ export default function CTSDemoLive() {
                             ? 'bg-red-900/40 text-red-300 border-red-700/50'
                             : 'bg-white/5 text-slate-300 border-white/10'
                         }`}>
-                          Cat {selected.category} — {CAT_META[selected.category]?.label}
+                         {msg('UI_DEMOLIVE_CAT_6', { category: selected.category, label: CAT_META[selected.category]?.label })}
                         </span>
                         {VISION_CATCHES.has(selected.category) && (
                           <span className="text-xs bg-purple-900/50 text-purple-300 border border-purple-700/50 rounded px-2 py-0.5">
-                            🧠 Vision LLM Required
+                           {msg('UI_DEMOLIVE_VISION_LLM_REQUIRED_2')}
                           </span>
                         )}
                       </div>
                       <div className={`text-xs ${th.muted}`}>
-                        {selected.cheque_id} &nbsp;·&nbsp;
-                        Rs. {(selected.amount_figures || 0).toLocaleString('en-IN')} &nbsp;·&nbsp;
-                        Payee: {selected.payee_name} &nbsp;·&nbsp;
-                        Date: {selected.cheque_date}
+                        {msg('UI_DEMOLIVE_RS_PAYEE_DATE_2', { cheque_id: selected.cheque_id, value: (selected.amount_figures || 0).toLocaleString('en-IN'), payee_name: selected.payee_name, cheque_date: selected.cheque_date })}
                       </div>
                     </div>
                     {currentResult && (
@@ -857,7 +850,7 @@ export default function CTSDemoLive() {
                 {currentResult?.stages && (
                   <div className={`rounded-lg border ${th.card} p-4`}>
                     <div className={`text-xs font-semibold mb-3 ${th.muted}`}>
-                      PIPELINE STAGES &nbsp;·&nbsp; {currentResult.decision_ms}ms total
+                     {msg('UI_DEMOLIVE_PIPELINE_STAGES_MS_TOTAL_2', { decision_ms: currentResult.decision_ms })}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {currentResult.stages.map((s, i) => (
@@ -878,7 +871,7 @@ export default function CTSDemoLive() {
                 {!currentResult && (
                   <div className={`rounded-lg border ${th.card} p-8 text-center`}>
                     <div className={`text-sm ${th.muted}`}>
-                      Click "Process Cheques" above to run the pipeline for this cheque.
+                     {msg('UI_DEMOLIVE_CLICK_PROCESS_CHEQUES_ABOVE_TO_2')}
                     </div>
                   </div>
                 )}

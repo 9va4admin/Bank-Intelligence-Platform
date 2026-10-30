@@ -260,7 +260,7 @@ export default function SMBDashboardContent() {
         <div className="flex-1 min-w-0">
           <div className={`text-base font-semibold ${th.bannerHd}`}>{bankName || msg('UI_SMBDASHBOARDCONTENT_SUB_MEMBER_BANK')}</div>
           <div className={`text-xs ${th.bannerMt}`}>
-           {msg('UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR_ZONE_MUMBAI', { value: bankIfsc || bankId?.toUpperCase(), value2: sponsorBankName || 'Sponsor Bank' })}
+           {msg('UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR_ZONE_MUMBAI', { value: bankIfsc || bankId?.toUpperCase(), value2: sponsorBankName || msg('UI_SMBDASHBOARDCONTENT_SPONSOR_BANK') })}
           </div>
         </div>
         <div className={`text-xs px-2.5 py-1 rounded-full border font-medium ${th.bannerHd} ${isDark ? 'border-violet-700/40 bg-violet-900/30' : 'border-violet-300 bg-violet-100'}`}>

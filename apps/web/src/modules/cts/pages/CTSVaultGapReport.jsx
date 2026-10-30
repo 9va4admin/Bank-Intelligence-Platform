@@ -109,7 +109,7 @@ export default function CTSVaultGapReport() {
           </div>
           <div>
             <div className={`text-xs font-semibold ${clearing.urgent ? '' : (isDark ? 'text-white' : 'text-slate-900')}`}>
-              {msg('UI_VAULTGAPREPORT_UNTIL_NEXT_CLEARING_SESSION_09', { value: clearing.urgent ? 'Urgent — ' : '' })}
+              {msg('UI_VAULTGAPREPORT_UNTIL_NEXT_CLEARING_SESSION_09', { value: clearing.urgent ? msg('UI_VAULTGAPREPORT_URGENT') : '' })}
             </div>
             <div className={`text-xs mt-0.5 opacity-75`}>
              {msg('UI_VAULTGAPREPORT_ENROLL_ACCOUNTS_BELOW_BEFORE_SESSION')}

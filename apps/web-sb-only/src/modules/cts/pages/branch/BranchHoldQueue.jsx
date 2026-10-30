@@ -16,6 +16,7 @@ import AppShell from '../../../../shared/layout/AppShell'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import { usePageHeader } from '../../../../shared/layout/PageHeaderContext'
+import { msg } from '../../../../shared/messages'
 
 const _now = () => Date.now() / 1000
 
@@ -69,7 +70,7 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
               ? (isDark ? 'border-emerald-700/40 bg-emerald-900/30 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700')
               : (isDark ? 'border-red-700/40 bg-red-900/30 text-red-300' : 'border-red-200 bg-red-50 text-red-700')
           }`}>
-            Your Recommendation: {hold.branch_recommendation}
+           {msg('UI_BRANCHHOLDQUEUE_YOUR_RECOMMENDATION_2', { branch_recommendation: hold.branch_recommendation })}
           </span>
           {hold.branch_note && (
             <span className={`text-xs ${th.muted}`}>"{hold.branch_note}"</span>
@@ -79,7 +80,7 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
           onClick={() => { setLocalNote(hold.branch_note ?? ''); setLocalRec(hold.branch_recommendation); setEditing(true) }}
           className={`text-xs ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'} underline`}
         >
-          Edit
+         {msg('UI_COMMON_EDIT_2')}
         </button>
       </div>
     )
@@ -88,11 +89,11 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
   if (editing || !hold.branch_recommendation) {
     return (
       <div className="space-y-2">
-        <p className={`text-xs font-medium ${th.body}`}>Your recommendation to the clearing bank</p>
+        <p className={`text-xs font-medium ${th.body}`}>{msg('UI_BRANCHHOLDQUEUE_YOUR_RECOMMENDATION_TO_THE_CLEARING_2')}</p>
         <textarea
           value={localNote}
           onChange={e => setLocalNote(e.target.value)}
-          placeholder="Add notes for the reviewing officer (optional)…"
+          placeholder={msg('UI_BRANCHHOLDQUEUE_ADD_NOTES_FOR_THE_REVIEWING_2')}
           rows={2}
           className={`w-full text-xs rounded-lg border px-3 py-2 resize-none focus:outline-none ${th.input}`}
         />
@@ -102,21 +103,21 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
             disabled={isSubmitting}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
           >
-            {isSubmitting ? 'Saving…' : 'Recommend CONFIRM'}
+            {isSubmitting ? msg('UI_COMMON_SAVING_2') : msg('UI_BRANCHHOLDQUEUE_RECOMMEND_CONFIRM_2')}
           </button>
           <button
             onClick={() => handleSubmit('RETURN')}
             disabled={isSubmitting}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-red-700 hover:bg-red-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
           >
-            {isSubmitting ? 'Saving…' : 'Recommend RETURN'}
+            {isSubmitting ? msg('UI_COMMON_SAVING_2') : msg('UI_BRANCHHOLDQUEUE_RECOMMEND_RETURN_2')}
           </button>
           {editing && (
             <button
               onClick={() => setEditing(false)}
               className={`text-xs px-3 py-1.5 rounded-lg ${isDark ? 'text-slate-400 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              Cancel
+             {msg('UI_COMMON_CANCEL_2')}
             </button>
           )}
         </div>
@@ -126,12 +127,12 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
 
   return (
     <div className="flex items-center justify-between">
-      <span className={`text-xs ${th.muted}`}>No recommendation sent yet</span>
+      <span className={`text-xs ${th.muted}`}>{msg('UI_BRANCHHOLDQUEUE_NO_RECOMMENDATION_SENT_YET_2')}</span>
       <button
         onClick={() => { setLocalNote(''); setLocalRec(null); setEditing(true) }}
         className={`text-xs px-3 py-1.5 rounded-lg font-medium ${isDark ? 'bg-violet-700 hover:bg-violet-600 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white'}`}
       >
-        Add Recommendation
+       {msg('UI_BRANCHHOLDQUEUE_ADD_RECOMMENDATION_2')}
       </button>
     </div>
   )
@@ -146,7 +147,7 @@ export default function BranchHoldQueue() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    setHeader?.({ title: 'Inward Hold Queue', subtitle: 'Instruments awaiting your branch confirmation' })
+    setHeader?.({ title: msg('UI_COMMON_INWARD_HOLD_QUEUE_2'), subtitle: msg('UI_BRANCHHOLDQUEUE_INSTRUMENTS_AWAITING_YOUR_BRANCH_CON_2') })
   }, [])
 
   const th = {
@@ -164,7 +165,7 @@ export default function BranchHoldQueue() {
     queryKey: ['branch-holds', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/cts/holds', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load holds')
+      if (!res.ok) throw new Error(msg('UI_HOLDQUEUE_FAILED_TO_LOAD_HOLDS_2'))
       return res.json()
     },
     refetchInterval: 20_000,
@@ -180,7 +181,7 @@ export default function BranchHoldQueue() {
         credentials: 'include',
         body: JSON.stringify({ branch_note: note, branch_recommendation: rec }),
       })
-      if (!res.ok) throw new Error('Failed to save recommendation')
+      if (!res.ok) throw new Error(msg('UI_BRANCHHOLDQUEUE_FAILED_TO_SAVE_RECOMMENDATION_2'))
       return res.json()
     },
     onSuccess: () => {
@@ -196,31 +197,29 @@ export default function BranchHoldQueue() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         {/* Header */}
         <div className="mb-5">
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Inward Hold Queue</h1>
+          <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_INWARD_HOLD_QUEUE_2')}</h1>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
-            {isLoading ? 'Loading…' : `${holds.length} instrument${holds.length !== 1 ? 's' : ''} awaiting your confirmation`}
+            {isLoading ? msg('UI_OPSDASHBOARD_LOADING') : msg('UI_BRANCHHOLDQUEUE_INSTRUMENT_AWAITING_YOUR_CONFIRMATIO_2', { count: holds.length, value: holds.length !== 1 ? 's' : '' })}
             {branchCode && <span className="ml-2 font-mono">· {branchCode}</span>}
           </p>
         </div>
 
         {/* Info callout */}
         <div className={`mb-4 rounded-lg border px-4 py-3 text-xs ${isDark ? 'border-amber-700/40 bg-amber-900/20 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-          The clearing bank is waiting for your confirmation. Please respond before the IET deadline —
-          the bank cannot extend the timer. Your recommendation will help the reviewing officer make
-          the right decision. <strong>The final pay/return decision rests with the clearing bank.</strong>
+         {msg('UI_BRANCHHOLDQUEUE_THE_CLEARING_BANK_IS_WAITING_2')} <strong>{msg('UI_BRANCHHOLDQUEUE_THE_FINAL_PAY_RETURN_DECISION_2')}</strong>
         </div>
 
         {isLoading && (
-          <div className={`text-center py-16 ${th.muted}`}>Loading hold queue…</div>
+          <div className={`text-center py-16 ${th.muted}`}>{msg('UI_HOLDQUEUE_LOADING_HOLD_QUEUE_2')}</div>
         )}
 
         {isError && (
-          <div className={`text-center py-16 text-red-400`}>Failed to load hold queue. Retry in 20s.</div>
+          <div className={`text-center py-16 text-red-400`}>{msg('UI_BRANCHHOLDQUEUE_FAILED_TO_LOAD_HOLD_QUEUE')}</div>
         )}
 
         {!isLoading && !isError && holds.length === 0 && (
           <div className={`text-center py-16 ${th.muted}`}>
-            No instruments currently awaiting your branch confirmation.
+           {msg('UI_BRANCHHOLDQUEUE_NO_INSTRUMENTS_CURRENTLY_AWAITING_YO_2')}
           </div>
         )}
 
@@ -238,7 +237,7 @@ export default function BranchHoldQueue() {
                       {hold.instrument_id}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs ${th.muted}`}>IET deadline</span>
+                      <span className={`text-xs ${th.muted}`}>{msg('UI_BRANCHHOLDQUEUE_IET_DEADLINE_2')}</span>
                       <span className={`font-mono text-sm tabular-nums ${countdownColor(secs, isDark)}`}>
                         {fmtCountdown(secs)}
                       </span>
@@ -248,22 +247,22 @@ export default function BranchHoldQueue() {
                   {/* Instrument details */}
                   <div className={`mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs ${th.muted}`}>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Account</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_COMMON_ACCOUNT')}</div>
                       <div className={`font-mono ${th.body}`}>{hold.account_display}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Amount</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_COMMON_AMOUNT')}</div>
                       <div className={th.body}>{hold.amount_display}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Payee</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_VALIDATIONQUEUE_PAYEE')}</div>
                       <div className={th.body}>{hold.payee_display}</div>
                     </div>
                   </div>
 
                   {/* Hold reason */}
                   <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${isDark ? 'bg-white/3 text-slate-400' : 'bg-slate-50 text-slate-600'}`}>
-                    <span className={`font-medium ${th.body}`}>Clearing bank asks: </span>
+                    <span className={`font-medium ${th.body}`}>{msg('UI_BRANCHHOLDQUEUE_CLEARING_BANK_ASKS_2')} </span>
                     {hold.hold_reason}
                   </div>
 

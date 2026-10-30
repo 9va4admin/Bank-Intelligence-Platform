@@ -57,6 +57,7 @@ import UserManagement     from './modules/admin/pages/UserManagement'
 import OperationsConfig   from './modules/admin/pages/OperationsConfig'
 import PlatformConfig     from './modules/admin/pages/PlatformConfig'
 import CTSBranchMaster    from './modules/cts/pages/CTSBranchMaster'
+import { msg } from './shared/messages'
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -130,10 +131,10 @@ export default function App() {
                   <Route path="/branch/hold-queue" element={<BranchHoldQueue />} />
 
                   {/* ── Ops — no pages yet, keep stubs ── */}
-                  <Route path="/ops/dashboard"    element={<Stub label="Ops Overview" />} />
-                  <Route path="/ops/model-health" element={<Stub label="Model Health" />} />
-                  <Route path="/ops/alerts"       element={<Stub label="Alert Log" />} />
-                  <Route path="/ops/system"       element={<Stub label="System Health" />} />
+                  <Route path="/ops/dashboard"    element={<Stub label={msg('UI_APP_OPS_OVERVIEW')} />} />
+                  <Route path="/ops/model-health" element={<Stub label={msg('UI_APP_MODEL_HEALTH')} />} />
+                  <Route path="/ops/alerts"       element={<Stub label={msg('UI_APP_ALERT_LOG')} />} />
+                  <Route path="/ops/system"       element={<Stub label={msg('UI_APP_SYSTEM_HEALTH')} />} />
 
                   {/* ── Admin ── */}
                   <Route path="/admin/users"              element={<UserManagement />} />

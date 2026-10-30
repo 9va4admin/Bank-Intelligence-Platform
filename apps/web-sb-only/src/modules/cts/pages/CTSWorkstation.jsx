@@ -8,6 +8,7 @@ import useReviewQueue from '../hooks/useReviewQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const STP_DELAY_MS = 3200
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
@@ -97,11 +98,11 @@ export default function CTSWorkstation() {
   const sessionElapsedStr = `${String(Math.floor(sessionElapsedSec / 3600)).padStart(2,'0')}:${String(Math.floor((sessionElapsedSec % 3600) / 60)).padStart(2,'0')}:${String(sessionElapsedSec % 60).padStart(2,'0')}`
 
   usePageHeader({
-    subtitle: `AM Clearing · SES-${bankIfsc || 'BANK'}-20260619-001 · IET Window: ${IET_WINDOW_MINS}min`,
+    subtitle: msg('UI_WORKSTATION_AM_CLEARING_SES_20260619_001', { value: bankIfsc || msg('UI_WORKSTATION_BANK'), IET_WINDOW_MINS }),
     actions: (
       <div className="flex items-center gap-3">
         <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'}`}>
-          Session {sessionElapsedStr}
+         {msg('UI_WORKSTATION_SESSION_2', { sessionElapsedStr })}
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border ${
           pending.length > 0
@@ -109,7 +110,7 @@ export default function CTSWorkstation() {
             : isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
         }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${pending.length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-          {pending.length > 0 ? `${pending.length} awaiting review` : 'Queue clear'}
+          {pending.length > 0 ? msg('UI_SMBREVIEWQUEUE_AWAITING_REVIEW_2', { count: pending.length }) : msg('UI_SMBREVIEWQUEUE_QUEUE_CLEAR_3')}
         </div>
       </div>
     ),
@@ -139,13 +140,13 @@ export default function CTSWorkstation() {
           {/* Queue column */}
           <div className={`w-72 shrink-0 border-r ${th.divider} flex flex-col`}>
             <div className={`px-4 py-3 border-b ${th.dividerSm} flex items-center justify-between`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>Human Review Queue</div>
+              <div className={`text-xs font-semibold ${th.heading}`}>{msg('UI_WORKSTATION_HUMAN_REVIEW_QUEUE')}</div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                 pending.length > 0
                   ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
                   : 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10'
               }`}>
-                {pending.length} pending
+                {msg('UI_COMMON_PENDING_4', { count: pending.length })}
               </span>
             </div>
 
@@ -171,7 +172,7 @@ export default function CTSWorkstation() {
               {pending.length === 0 && (
                 <div className={`text-center ${th.empty} text-sm py-12`}>
                   <div className="text-3xl mb-2">✓</div>
-                  <div>Queue clear</div>
+                  <div>{msg('UI_SMBREVIEWQUEUE_QUEUE_CLEAR_3')}</div>
                 </div>
               )}
               {pending.map((item) => (
@@ -187,14 +188,14 @@ export default function CTSWorkstation() {
               {decided.length > 0 && (
                 <>
                   <div className={`text-[10px] ${th.faint} uppercase tracking-widest pt-3 pb-1 px-1`}>
-                    Decided this session
+                   {msg('UI_COMMON_DECIDED_THIS_SESSION_2')}
                   </div>
                   {decided.map((item) => (
                     <div key={item.instrument_id} className={`rounded-xl border ${th.decided} px-4 py-3 opacity-50`}>
                       <div className="flex items-center justify-between">
                         <div className={`text-[11px] font-mono ${th.muted}`}>{item.instrument_id}</div>
                         <span className={`text-[10px] font-semibold ${item.status === 'CONFIRMED' ? 'text-emerald-500' : 'text-red-500'}`}>
-                          {item.status === 'CONFIRMED' ? '✓ Confirmed' : '✕ Returned'}
+                          {item.status === 'CONFIRMED' ? msg('UI_COMMON_CONFIRMED_4') : msg('UI_SMBREVIEWQUEUE_RETURNED_2')}
                         </span>
                       </div>
                     </div>
@@ -210,10 +211,10 @@ export default function CTSWorkstation() {
           {/* Live STP stream */}
           <div className={`w-64 shrink-0 border-l ${th.divider} flex flex-col`}>
             <div className={`px-4 py-3 border-b ${th.dividerSm} flex items-center justify-between`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>STP Live Stream</div>
+              <div className={`text-xs font-semibold ${th.heading}`}>{msg('UI_WORKSTATION_STP_LIVE_STREAM_2')}</div>
               <span className="flex items-center gap-1.5 text-[10px] text-emerald-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                AI Processing
+               {msg('UI_WORKSTATION_AI_PROCESSING_2')}
               </span>
             </div>
 
@@ -221,7 +222,7 @@ export default function CTSWorkstation() {
               {stpStream.length === 0 && (
                 <div className={`text-[11px] ${th.empty} text-center pt-8 leading-relaxed`}>
                   <div className="text-2xl mb-2">⚡</div>
-                  STP agents processing<br />inward cheques…
+                 {msg('UI_WORKSTATION_STP_AGENTS_PROCESSING_2')}<br />{msg('UI_WORKSTATION_INWARD_CHEQUES_2')}
                 </div>
               )}
               {stpStream.map((item, i) => (
@@ -235,9 +236,9 @@ export default function CTSWorkstation() {
                 >
                   <div className="flex items-center justify-between mb-0.5">
                     <span className={`text-[10px] font-semibold ${item.outcome === 'CONFIRM' ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {item.outcome === 'CONFIRM' ? '✓ STP Confirmed' : '✕ STP Returned'}
+                      {item.outcome === 'CONFIRM' ? msg('UI_WORKSTATION_STP_CONFIRMED_2') : msg('UI_WORKSTATION_STP_RETURNED_2')}
                     </span>
-                    <span className={`text-[9px] font-mono ${th.faint}`}>{item.ms}ms</span>
+                    <span className={`text-[9px] font-mono ${th.faint}`}>{msg('UI_COMMON_MS_3', { ms: item.ms })}</span>
                   </div>
                   <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.id}</div>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -252,33 +253,33 @@ export default function CTSWorkstation() {
             {/* Session summary footer */}
             <div className={`px-4 pt-4 pb-4 border-t ${th.footer}`}>
               <div className={`text-[11px] font-extrabold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                This Session
+               {msg('UI_SMBREVIEWQUEUE_THIS_SESSION_2')}
               </div>
 
               <div className="flex flex-col gap-3.5">
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Confirmed</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_STP_CONFIRMED_2')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                     {stpStream.filter(s => s.outcome === 'CONFIRM').length}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Returned</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_STP_RETURNED_2')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                     {stpStream.filter(s => s.outcome === 'RETURN').length}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Human decisions</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_WORKSTATION_HUMAN_DECISIONS_2')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                     {decisions.length}
                   </span>
                 </div>
 
                 <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Immudb writes</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_SMBREVIEWQUEUE_IMMUDB_WRITES_2')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     {stpStream.length + decisions.length}
                   </span>

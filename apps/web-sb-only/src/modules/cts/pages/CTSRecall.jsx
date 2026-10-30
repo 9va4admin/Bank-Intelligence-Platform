@@ -1,6 +1,7 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 export default function CTSRecall() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
@@ -19,17 +20,14 @@ export default function CTSRecall() {
         <div className="max-w-2xl mx-auto">
           <div className={`rounded-xl border p-8 text-center ${th.card}`}>
             <div className="text-4xl mb-4">↩️</div>
-            <h1 className={`text-xl font-semibold mb-2 ${th.heading}`}>Recall</h1>
+            <h1 className={`text-xl font-semibold mb-2 ${th.heading}`}>{msg('UI_APPSHELL_RECALL')}</h1>
             <p className={`text-sm mb-6 ${th.body}`}>
-              Instrument recall enables the Drawee Bank to withdraw a return decision
-              or request re-presentation of a cheque within permissible NGCH windows.
-              This will surface in-progress recall requests, their status in NGCH,
-              and allow operators to initiate or track recall actions.
+             {msg('UI_RECALL_INSTRUMENT_RECALL_ENABLES_THE_DRAWEE_2')}
             </p>
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium
               ${isDark ? 'border-amber-500/30 bg-amber-900/15 text-amber-400' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
               <span className="w-2 h-2 rounded-full bg-amber-400" />
-              Coming soon
+             {msg('UI_RECALL_COMING_SOON_2')}
             </div>
           </div>
         </div>

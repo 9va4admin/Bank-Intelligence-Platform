@@ -829,7 +829,7 @@ export default function CTSBranchMaster() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_BRANCHMASTER_BRANCH_MASTER')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              {uiMsg('UI_BRANCHMASTER_BRANCH_REGISTERED', { total, value: total !== 1 ? 'es' : '' })}
+              {uiMsg('UI_BRANCHMASTER_BRANCH_REGISTERED', { total, value: total !== 1 ? uiMsg('UI_BRANCHMASTER_ES') : '' })}
             </p>
           </div>
           <div className="flex gap-2">

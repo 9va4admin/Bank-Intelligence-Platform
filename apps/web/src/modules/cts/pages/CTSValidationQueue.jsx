@@ -585,7 +585,7 @@ function NameMatchCard({ inst, isInward, isDark }) {
     }`}>
       <div className="flex items-center gap-2 mb-2.5">
         <span className={`text-[9px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-         {msg('UI_VALIDATIONQUEUE_CBS_NAME_VERIFICATION_2', { value: isInward ? 'Payer' : 'Payee' })}
+         {msg('UI_VALIDATIONQUEUE_CBS_NAME_VERIFICATION_2', { value: isInward ? msg('UI_VALIDATIONQUEUE_PAYER') : msg('UI_VALIDATIONQUEUE_PAYEE') })}
         </span>
         <NameMatchBadge verdict={inst.name_match} isDark={isDark} short={false} />
       </div>
@@ -609,7 +609,7 @@ function NameMatchCard({ inst, isInward, isDark }) {
       </div>
       {inst.name_match === 'PARTIAL_MATCH' && (
         <div className={`mt-2 text-[9px] px-2 py-1.5 rounded ${isDark ? 'bg-amber-400/10 text-amber-300' : 'bg-amber-100 text-amber-800'}`}>
-          {msg('UI_VALIDATIONQUEUE_NAME_IS_SIMILAR_BUT_NOT', { notePrefix, value: isInward ? 'passing' : 'approval' })}
+          {msg('UI_VALIDATIONQUEUE_NAME_IS_SIMILAR_BUT_NOT', { notePrefix, value: isInward ? msg('UI_VALIDATIONQUEUE_PASSING') : msg('UI_VALIDATIONQUEUE_APPROVAL') })}
         </div>
       )}
       {inst.name_match === 'NO_MATCH' && (

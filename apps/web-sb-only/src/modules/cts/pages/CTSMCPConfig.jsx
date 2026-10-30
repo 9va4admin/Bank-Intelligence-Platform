@@ -3,36 +3,37 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg as uiMsg } from '../../../shared/messages'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const CONNECTION_TYPES = [
   {
     type: 'SB_CBS',
-    label: 'Sponsor Bank CBS',
+    label: uiMsg('UI_MCPCONFIG_SPONSOR_BANK_CBS_2'),
     icon: '🏦',
-    desc: 'Core Banking System for this bank (Finacle / BaNCS / FlexCube). Feeds Signature Vault and PPS Vault via VaultSyncWorkflow.',
+    desc: uiMsg('UI_MCPCONFIG_CORE_BANKING_SYSTEM_FOR_THIS'),
     requiresVendor: true,
   },
   {
     type: 'SIGNATURE_VAULT',
-    label: 'Signature Vault',
+    label: uiMsg('UI_COMMON_SIGNATURE_VAULT_2'),
     icon: '✍️',
-    desc: 'Redis Cluster endpoint for the Signature Vault (CTS Redis). Warmed by CBS sync every 15 minutes.',
+    desc: uiMsg('UI_MCPCONFIG_REDIS_CLUSTER_ENDPOINT_FOR_THE_3'),
     requiresVendor: false,
   },
   {
     type: 'PPS_VAULT',
-    label: 'Positive Pay Vault',
+    label: uiMsg('UI_MCPCONFIG_POSITIVE_PAY_VAULT_2'),
     icon: '🔒',
-    desc: 'Redis Cluster endpoint for the PPS Vault. Required for Positive Pay cheque validation before NGCH filing.',
+    desc: uiMsg('UI_MCPCONFIG_REDIS_CLUSTER_ENDPOINT_FOR_THE_4'),
     requiresVendor: false,
   },
   {
     type: 'CANCELLED_LEAF',
-    label: 'Cancelled Leaf Filter',
+    label: uiMsg('UI_MCPCONFIG_CANCELLED_LEAF_FILTER_2'),
     icon: '🚫',
-    desc: 'Redis Bloom Filter fed by DeltaVaultSyncWorkflow every 15 minutes. Catches cancelled cheque serials before GPU inference.',
+    desc: uiMsg('UI_MCPCONFIG_REDIS_BLOOM_FILTER_FED_BY_2'),
     requiresVendor: false,
   },
 ]
@@ -189,7 +190,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
       >
         <div className="flex items-center justify-between mb-5">
           <h3 className={`text-base font-semibold ${th.heading}`}>
-            {editRow ? 'Edit MCP Connection' : 'Add MCP Connection'}
+            {editRow ? uiMsg('UI_MCPCONFIG_EDIT_MCP_CONNECTION_2') : uiMsg('UI_MCPCONFIG_ADD_MCP_CONNECTION_2')}
           </h3>
           <button onClick={onClose} className={`${th.muted} hover:text-white text-xl leading-none`}>×</button>
         </div>
@@ -198,7 +199,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
           {/* Connection Type */}
           {!editRow && (
             <div>
-              <label className={`block text-xs font-medium mb-1 ${th.label}`}>Connection Type</label>
+              <label className={`block text-xs font-medium mb-1 ${th.label}`}>{uiMsg('UI_MCPCONFIG_CONNECTION_TYPE_2')}</label>
               <select
                 value={form.connection_type}
                 onChange={e => set('connection_type', e.target.value)}
@@ -215,13 +216,13 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
           {/* CBS Vendor — only for SB_CBS */}
           {form.connection_type === 'SB_CBS' && (
             <div>
-              <label className={`block text-xs font-medium mb-1 ${th.label}`}>CBS Vendor</label>
+              <label className={`block text-xs font-medium mb-1 ${th.label}`}>{uiMsg('UI_MCPCONFIG_CBS_VENDOR_2')}</label>
               <select
                 value={form.cbs_vendor}
                 onChange={e => set('cbs_vendor', e.target.value)}
                 className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${th.input}`}
               >
-                <option value="">— select vendor —</option>
+                <option value="">{uiMsg('UI_MCPCONFIG_SELECT_VENDOR_2')}</option>
                 {CBS_VENDORS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
               </select>
             </div>
@@ -229,7 +230,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
 
           {/* Endpoint URL */}
           <div>
-            <label className={`block text-xs font-medium mb-1 ${th.label}`}>Endpoint URL</label>
+            <label className={`block text-xs font-medium mb-1 ${th.label}`}>{uiMsg('UI_MCPCONFIG_ENDPOINT_URL_2')}</label>
             <input
               type="text"
               value={form.endpoint_url}
@@ -241,12 +242,12 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
               }
               className={`w-full rounded-lg border px-3 py-2 text-sm outline-none font-mono ${th.input}`}
             />
-            <p className={`mt-1 text-xs ${th.muted}`}>Stored encrypted (AES-256). Never returned in API responses.</p>
+            <p className={`mt-1 text-xs ${th.muted}`}>{uiMsg('UI_MCPCONFIG_STORED_ENCRYPTED_AES_256_NEVER_2')}</p>
           </div>
 
           {/* Vault Secret Ref */}
           <div>
-            <label className={`block text-xs font-medium mb-1 ${th.label}`}>Vault Secret Path</label>
+            <label className={`block text-xs font-medium mb-1 ${th.label}`}>{uiMsg('UI_MCPCONFIG_VAULT_SECRET_PATH_2')}</label>
             <input
               type="text"
               value={form.vault_secret_ref}
@@ -254,7 +255,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
               placeholder="secret/astra/bank-id/cbs/finacle"
               className={`w-full rounded-lg border px-3 py-2 text-sm outline-none font-mono ${th.input}`}
             />
-            <p className={`mt-1 text-xs ${th.muted}`}>HashiCorp Vault path to credentials. Rotated every 24h.</p>
+            <p className={`mt-1 text-xs ${th.muted}`}>{uiMsg('UI_MCPCONFIG_HASHICORP_VAULT_PATH_TO_CREDENTIALS_2')}</p>
           </div>
         </div>
 
@@ -263,14 +264,14 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
             onClick={onClose}
             className={`flex-1 py-2 rounded-lg text-sm font-medium border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
           >
-            Cancel
+           {uiMsg('UI_COMMON_CANCEL_2')}
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className="flex-1 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"
           >
-            {saving ? 'Saving…' : editRow ? 'Update' : 'Add Connection'}
+            {saving ? uiMsg('UI_COMMON_SAVING_2') : editRow ? uiMsg('UI_MCPCONFIG_UPDATE_2') : uiMsg('UI_MCPCONFIG_ADD_CONNECTION_3')}
           </button>
         </div>
       </div>
@@ -305,7 +306,7 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
               {typeInfo.label}
             </div>
             {conn.cbs_vendor && (
-              <div className={`text-xs mt-0.5 ${th.muted}`}>{conn.cbs_vendor.charAt(0).toUpperCase() + conn.cbs_vendor.slice(1)} connector</div>
+              <div className={`text-xs mt-0.5 ${th.muted}`}>{uiMsg('UI_MCPCONFIG_CONNECTOR_2', { value: conn.cbs_vendor.charAt(0).toUpperCase() + conn.cbs_vendor.slice(1) })}</div>
             )}
           </div>
         </div>
@@ -315,25 +316,25 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
       {/* Error banner */}
       {conn.error_message && (
         <div className={`mt-3 rounded-lg px-3 py-2 text-xs border ${isDark ? 'bg-red-900/20 border-red-700/30 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}>
-          <span className="font-medium">Error: </span>{conn.error_message}
+          <span className="font-medium">{uiMsg('UI_MCPCONFIG_ERROR_2')} </span>{conn.error_message}
         </div>
       )}
 
       {/* Metrics row */}
       <div className={`mt-3 grid grid-cols-3 gap-3 text-xs ${th.muted}`}>
         <div>
-          <div className="font-medium mb-0.5">Last Tested</div>
+          <div className="font-medium mb-0.5">{uiMsg('UI_MCPCONFIG_LAST_TESTED_2')}</div>
           <div>{fmtDate(conn.last_tested_at)}</div>
           {conn.last_test_latency_ms != null && (
             <div className="mt-0.5 text-emerald-400">{fmtLatency(conn.last_test_latency_ms)}</div>
           )}
         </div>
         <div>
-          <div className="font-medium mb-0.5">Last Sync</div>
+          <div className="font-medium mb-0.5">{uiMsg('UI_COMMON_LAST_SYNC_2')}</div>
           <div>{fmtDate(conn.last_sync_at)}</div>
         </div>
         <div>
-          <div className="font-medium mb-0.5">Records</div>
+          <div className="font-medium mb-0.5">{uiMsg('UI_AGENCYCC_RECORDS_2')}</div>
           <div>{fmtCount(conn.vault_record_count)}</div>
         </div>
       </div>
@@ -342,16 +343,16 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
       {showDetails && (
         <div className={`mt-3 rounded-lg border p-3 text-xs space-y-1.5 ${th.detail}`}>
           <div className="flex gap-2">
-            <span className={th.muted + ' w-28 flex-shrink-0'}>Endpoint</span>
+            <span className={th.muted + ' w-28 flex-shrink-0'}>{uiMsg('UI_MCPCONFIG_ENDPOINT_2')}</span>
             <code className={`px-1 rounded text-xs break-all ${th.mono}`}>{conn.endpoint_url_masked || '—'}</code>
           </div>
           <div className="flex gap-2">
-            <span className={th.muted + ' w-28 flex-shrink-0'}>Vault Path</span>
+            <span className={th.muted + ' w-28 flex-shrink-0'}>{uiMsg('UI_MCPCONFIG_VAULT_PATH_2')}</span>
             <code className={`px-1 rounded text-xs break-all ${th.mono}`}>{conn.vault_secret_ref || '—'}</code>
           </div>
           <div className="flex gap-2">
-            <span className={th.muted + ' w-28 flex-shrink-0'}>Created</span>
-            <span className={th.body}>{fmtDate(conn.created_at)} by {conn.created_by}</span>
+            <span className={th.muted + ' w-28 flex-shrink-0'}>{uiMsg('UI_MCPCONFIG_CREATED_2')}</span>
+            <span className={th.body}>{uiMsg('UI_MCPCONFIG_BY_2', { fmtDate: fmtDate(conn.created_at), created_by: conn.created_by })}</span>
           </div>
         </div>
       )}
@@ -363,7 +364,7 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
           disabled={testing}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5 disabled:opacity-40' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40'}`}
         >
-          {testing ? 'Testing…' : '⚡ Test'}
+          {testing ? uiMsg('UI_MCPCONFIG_TESTING_2') : uiMsg('UI_MCPCONFIG_TEST_2')}
         </button>
         {canSync && (
           <button
@@ -371,20 +372,20 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
             disabled={syncing}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5 disabled:opacity-40' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40'}`}
           >
-            {syncing ? 'Syncing…' : '↻ Sync Vault'}
+            {syncing ? uiMsg('UI_MCPCONFIG_SYNCING_2') : uiMsg('UI_MCPCONFIG_SYNC_VAULT_2')}
           </button>
         )}
         <button
           onClick={() => onEdit(conn)}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
         >
-          ✏️ Edit
+         {uiMsg('UI_MCPCONFIG_EDIT_2')}
         </button>
         <button
           onClick={() => setShowDetails(s => !s)}
           className={`ml-auto text-xs ${th.muted} hover:underline`}
         >
-          {showDetails ? 'Hide details' : 'Details'}
+          {showDetails ? uiMsg('UI_MCPCONFIG_HIDE_DETAILS_2') : uiMsg('UI_MCPCONFIG_DETAILS_2')}
         </button>
         <button
           onClick={() => onDelete(conn.id)}
@@ -419,8 +420,8 @@ function PreflightBanner({ connections, isDark }) {
           : isDark ? 'text-amber-300' : 'text-amber-700'
         }`}>
           {allActive
-            ? 'Pre-flight check passed — clearing sessions can open'
-            : `Pre-flight check blocked — ${nonActive.length} connection${nonActive.length > 1 ? 's' : ''} not ACTIVE`
+            ? uiMsg('UI_MCPCONFIG_PRE_FLIGHT_CHECK_PASSED_CLEARING_2')
+            : uiMsg('UI_MCPCONFIG_PRE_FLIGHT_CHECK_BLOCKED_CONNECTION_2', { count: nonActive.length, value: nonActive.length > 1 ? 's' : '' })
           }
         </div>
         {!allActive && (
@@ -464,7 +465,7 @@ export default function CTSMCPConfig() {
     queryKey: ['mcp-connections', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/admin/mcp-connections/', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load connections')
+      if (!res.ok) throw new Error(uiMsg('UI_MCPCONFIG_FAILED_TO_LOAD_CONNECTIONS_2'))
       return res.json()
     },
     staleTime: 30_000,
@@ -483,7 +484,7 @@ export default function CTSMCPConfig() {
         credentials: 'include',
         body: JSON.stringify(form),
       })
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Save failed') }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || uiMsg('UI_MCPCONFIG_SAVE_FAILED_2')) }
       return res.json()
     },
     onSuccess: () => {
@@ -492,7 +493,7 @@ export default function CTSMCPConfig() {
       setShowForm(false)
       setEditRow(null)
     },
-    onError: (err) => showToast(err.message || 'Save failed', 'error'),
+    onError: (err) => showToast(err.message || uiMsg('UI_MCPCONFIG_SAVE_FAILED_2'), 'error'),
   })
 
   function handleSave(form) { return saveMutation.mutateAsync(form) }
@@ -502,7 +503,7 @@ export default function CTSMCPConfig() {
       const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}/test`, {
         method: 'POST', credentials: 'include',
       })
-      if (!res.ok) throw new Error('Test request failed')
+      if (!res.ok) throw new Error(uiMsg('UI_MCPCONFIG_TEST_REQUEST_FAILED_2'))
       return res.json()
     },
     onSuccess: (data) => {
@@ -511,13 +512,13 @@ export default function CTSMCPConfig() {
       showToast(
         data.success
           ? `Connection tested successfully (${data.latency_ms} ms)`
-          : `Connection test failed — ${data.error || 'check endpoint and credentials'}`,
+          : `Connection test failed — ${data.error || uiMsg('UI_MCPCONFIG_CHECK_ENDPOINT_AND_CREDENTIALS_2')}`,
         data.success ? 'success' : 'error',
       )
     },
     onError: (_, id) => {
       setTesting(t => ({ ...t, [id]: false }))
-      showToast('Connection test request failed', 'error')
+      showToast(uiMsg('UI_MCPCONFIG_CONNECTION_TEST_REQUEST_FAILED_2'), 'error')
     },
   })
 
@@ -531,17 +532,17 @@ export default function CTSMCPConfig() {
       const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}/sync`, {
         method: 'POST', credentials: 'include',
       })
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Sync trigger failed') }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || uiMsg('UI_MCPCONFIG_SYNC_TRIGGER_FAILED_2')) }
       return res.json()
     },
     onSuccess: (data) => {
       invalidate()
       setSyncing(s => ({ ...s, [data.connection_id]: false }))
-      showToast(`Vault sync triggered — workflow ${data.workflow_id}`, 'success')
+      showToast(uiMsg('UI_MCPCONFIG_VAULT_SYNC_TRIGGERED_WORKFLOW_2', { workflow_id: data.workflow_id }), 'success')
     },
     onError: (err, id) => {
       setSyncing(s => ({ ...s, [id]: false }))
-      showToast(err.message || 'Sync trigger failed', 'error')
+      showToast(err.message || uiMsg('UI_MCPCONFIG_SYNC_TRIGGER_FAILED_2'), 'error')
     },
   })
 
@@ -555,10 +556,10 @@ export default function CTSMCPConfig() {
       const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}`, {
         method: 'DELETE', credentials: 'include',
       })
-      if (!res.ok) throw new Error('Delete failed')
+      if (!res.ok) throw new Error(uiMsg('UI_MCPCONFIG_DELETE_FAILED_2'))
     },
-    onSuccess: () => { invalidate(); showToast('Connection removed', 'info') },
-    onError: () => showToast('Failed to remove connection', 'error'),
+    onSuccess: () => { invalidate(); showToast(uiMsg('UI_MCPCONFIG_CONNECTION_REMOVED_2'), 'info') },
+    onError: () => showToast(uiMsg('UI_MCPCONFIG_FAILED_TO_REMOVE_CONNECTION_2'), 'error'),
   })
 
   function handleEdit(conn) { setEditRow(conn); setShowForm(true) }
@@ -573,16 +574,16 @@ export default function CTSMCPConfig() {
         {/* Page header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>MCP Connection Setup</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_APPSHELL_MCP_CONNECTION_SETUP')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              Configure CBS and vault MCP connections for {bankName || bankId}. All connections must be ACTIVE before clearing sessions can open.
+             {uiMsg('UI_MCPCONFIG_CONFIGURE_CBS_AND_VAULT_MCP_2', { value: bankName || bankId })}
             </p>
           </div>
           <button
             onClick={() => { setEditRow(null); setShowForm(true) }}
             className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white"
           >
-            + Add Connection
+           {uiMsg('UI_MCPCONFIG_ADD_CONNECTION_4')}
           </button>
         </div>
 
@@ -595,7 +596,7 @@ export default function CTSMCPConfig() {
         {cbsConns.length > 0 && (
           <div className="mb-6">
             <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>
-              CBS Connection — Core Banking System
+             {uiMsg('UI_MCPCONFIG_CBS_CONNECTION_CORE_BANKING_SYSTEM')}
             </h2>
             <div className="space-y-3">
               {cbsConns.map(conn => (
@@ -619,7 +620,7 @@ export default function CTSMCPConfig() {
         {vaultConns.length > 0 && (
           <div className="mb-6">
             <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>
-              Vault &amp; Micro-DB Connections — Redis / Bloom Filter
+             {uiMsg('UI_MCPCONFIG_VAULT_MICRO_DB_CONNECTIONS_REDIS_2')}
             </h2>
             <div className="space-y-3">
               {vaultConns.map(conn => (
@@ -643,22 +644,22 @@ export default function CTSMCPConfig() {
         {connections.length === 0 && (
           <div className={`rounded-xl border p-10 text-center ${th.card}`}>
             <div className="text-4xl mb-3">🔗</div>
-            <div className={`text-sm font-medium mb-1 ${th.heading}`}>No MCP connections configured</div>
+            <div className={`text-sm font-medium mb-1 ${th.heading}`}>{uiMsg('UI_MCPCONFIG_NO_MCP_CONNECTIONS_CONFIGURED_2')}</div>
             <div className={`text-xs mb-4 ${th.muted}`}>
-              Add CBS and vault connections to enable clearing session operations.
+             {uiMsg('UI_MCPCONFIG_ADD_CBS_AND_VAULT_CONNECTIONS_2')}
             </div>
             <button
               onClick={() => { setEditRow(null); setShowForm(true) }}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white"
             >
-              + Add First Connection
+             {uiMsg('UI_MCPCONFIG_ADD_FIRST_CONNECTION_2')}
             </button>
           </div>
         )}
 
         {/* Quick-reference guide */}
         <div className={`mt-6 rounded-xl border p-4 ${th.card}`}>
-          <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>Setup Guide</h3>
+          <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>{uiMsg('UI_MCPCONFIG_SETUP_GUIDE_2')}</h3>
           <div className="grid grid-cols-1 gap-2">
             {CONNECTION_TYPES.map((ct, i) => (
               <div key={ct.type} className="flex items-start gap-2">

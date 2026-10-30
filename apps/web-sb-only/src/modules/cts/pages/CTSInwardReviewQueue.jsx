@@ -19,6 +19,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { msg as uiMsg } from '../../../shared/messages'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -26,14 +27,14 @@ const TIERS = ['all', 'standard', 'high_value', 'very_high']
 const TIER_LABEL = { all: 'All', standard: 'Standard', high_value: 'High Value', very_high: 'Very High' }
 
 const RETURN_REASONS = [
-  { code: 'FUNDS_INSUFFICIENT', label: 'Insufficient Funds' },
-  { code: 'ACCOUNT_CLOSED',    label: 'Account Closed' },
-  { code: 'STOP_PAYMENT',      label: 'Stop Payment Issued' },
-  { code: 'SIGNATURE_DIFFER',  label: 'Signature Mismatch' },
-  { code: 'ALTERATION',        label: 'Alteration Detected' },
-  { code: 'ACCOUNT_FROZEN',    label: 'Account Frozen' },
-  { code: 'STALE_CHEQUE',      label: 'Stale Cheque (> 3 months)' },
-  { code: 'AMOUNT_MISMATCH',   label: 'Amount in Words / Figures Mismatch' },
+  { code: 'FUNDS_INSUFFICIENT', label: uiMsg('UI_INWARDREVIEWQUEUE_INSUFFICIENT_FUNDS_2') },
+  { code: 'ACCOUNT_CLOSED',    label: uiMsg('UI_INWARDREVIEWQUEUE_ACCOUNT_CLOSED_2') },
+  { code: 'STOP_PAYMENT',      label: uiMsg('UI_INWARDREVIEWQUEUE_STOP_PAYMENT_ISSUED_2') },
+  { code: 'SIGNATURE_DIFFER',  label: uiMsg('UI_INWARDREVIEWQUEUE_SIGNATURE_MISMATCH_2') },
+  { code: 'ALTERATION',        label: uiMsg('UI_INWARDREVIEWQUEUE_ALTERATION_DETECTED_2') },
+  { code: 'ACCOUNT_FROZEN',    label: uiMsg('UI_INWARDREVIEWQUEUE_ACCOUNT_FROZEN_2') },
+  { code: 'STALE_CHEQUE',      label: uiMsg('UI_INWARDREVIEWQUEUE_STALE_CHEQUE_3_MONTHS_2') },
+  { code: 'AMOUNT_MISMATCH',   label: uiMsg('UI_INWARDREVIEWQUEUE_AMOUNT_IN_WORDS_FIGURES_MISMATCH_2') },
 ]
 
 // ─── IET Countdown helpers ────────────────────────────────────────────────────
@@ -97,20 +98,20 @@ function StatusBadge({ status, claimedBy, isDark }) {
   if (status === 'CLAIMED') {
     return (
       <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-violet-900/40 text-violet-300 border-violet-700/40' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>
-        Claimed · {(claimedBy ?? '').split('@')[0]}
+       {uiMsg('UI_INWARDREVIEWQUEUE_CLAIMED_3', { value: (claimedBy ?? '').split('@')[0] })}
       </span>
     )
   }
   if (status === 'ON_HOLD') {
     return (
       <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-        On Hold
+       {uiMsg('UI_COMMON_ON_HOLD_2')}
       </span>
     )
   }
   return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-blue-900/40 text-blue-300 border-blue-700/40' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
-      Pending
+     {uiMsg('UI_COMMON_PENDING_3')}
     </span>
   )
 }
@@ -136,25 +137,25 @@ function HoldModal({ instrument, onConfirm, onCancel, isDark }) {
   return (
     <div className={th.overlay}>
       <div className={th.modal}>
-        <h2 className={th.heading}>Place Hold</h2>
+        <h2 className={th.heading}>{uiMsg('UI_INWARDREVIEWQUEUE_PLACE_HOLD_2')}</h2>
         <p className={`${th.sub} mt-1 mb-4`}>
-          Instrument <span className="font-mono">{instrument.instrument_id}</span> will pause in queue.
-          <span className="text-amber-400 ml-1">IET clock continues running.</span>
+         {uiMsg('UI_COMMON_INSTRUMENT')} <span className="font-mono">{instrument.instrument_id}</span> {uiMsg('UI_INWARDREVIEWQUEUE_WILL_PAUSE_IN_QUEUE')}
+          <span className="text-amber-400 ml-1">{uiMsg('UI_INWARDREVIEWQUEUE_IET_CLOCK_CONTINUES_RUNNING_2')}</span>
         </p>
 
         <div className="space-y-3">
           <div>
-            <label className={th.label}>Hold Reason *</label>
+            <label className={th.label}>{uiMsg('UI_INWARDREVIEWQUEUE_HOLD_REASON_2')}</label>
             <textarea
               rows={3}
               value={reason}
               onChange={e => setReason(e.target.value)}
-              placeholder="Describe why branch consultation is needed…"
+              placeholder={uiMsg('UI_INWARDREVIEWQUEUE_DESCRIBE_WHY_BRANCH_CONSULTATION_IS_2')}
               className={th.input}
             />
           </div>
           <div>
-            <label className={th.label}>Branch Email *</label>
+            <label className={th.label}>{uiMsg('UI_INWARDREVIEWQUEUE_BRANCH_EMAIL_2')}</label>
             <input
               type="email"
               value={email}
@@ -164,7 +165,7 @@ function HoldModal({ instrument, onConfirm, onCancel, isDark }) {
             />
           </div>
           <div>
-            <label className={th.label}>Branch WhatsApp (optional)</label>
+            <label className={th.label}>{uiMsg('UI_INWARDREVIEWQUEUE_BRANCH_WHATSAPP_OPTIONAL_2')}</label>
             <input
               type="tel"
               value={phone}
@@ -180,14 +181,14 @@ function HoldModal({ instrument, onConfirm, onCancel, isDark }) {
             onClick={onCancel}
             className={`text-sm px-4 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
           >
-            Cancel
+           {uiMsg('UI_COMMON_CANCEL_2')}
           </button>
           <button
             disabled={!reason.trim() || !email.trim()}
             onClick={() => onConfirm({ reason, email, phone })}
             className="text-sm px-4 py-1.5 rounded-lg font-medium bg-amber-500 hover:bg-amber-400 text-white transition-colors disabled:opacity-40"
           >
-            Place Hold
+           {uiMsg('UI_INWARDREVIEWQUEUE_PLACE_HOLD_2')}
           </button>
         </div>
       </div>
@@ -213,14 +214,14 @@ function ReturnModal({ instrument, onConfirm, onCancel, isDark }) {
   return (
     <div className={th.overlay}>
       <div className={th.modal}>
-        <h2 className={th.heading}>Return Instrument</h2>
+        <h2 className={th.heading}>{uiMsg('UI_INWARDREVIEWQUEUE_RETURN_INSTRUMENT_2')}</h2>
         <p className={`text-xs mt-1 mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Instrument <span className="font-mono">{instrument.instrument_id}</span> will be returned to drawer.
+         {uiMsg('UI_COMMON_INSTRUMENT')} <span className="font-mono">{instrument.instrument_id}</span> {uiMsg('UI_INWARDREVIEWQUEUE_WILL_BE_RETURNED_TO_DRAWER_2')}
         </p>
         <div>
-          <label className={th.label}>Return Reason *</label>
+          <label className={th.label}>{uiMsg('UI_INWARDREVIEWQUEUE_RETURN_REASON_2')}</label>
           <select value={reason} onChange={e => setReason(e.target.value)} className={th.select}>
-            <option value="">— Select reason —</option>
+            <option value="">{uiMsg('UI_INWARDREVIEWQUEUE_SELECT_REASON_2')}</option>
             {RETURN_REASONS.map(r => (
               <option key={r.code} value={r.code}>{r.label}</option>
             ))}
@@ -231,14 +232,14 @@ function ReturnModal({ instrument, onConfirm, onCancel, isDark }) {
             onClick={onCancel}
             className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
           >
-            Cancel
+           {uiMsg('UI_COMMON_CANCEL_2')}
           </button>
           <button
             disabled={!reason}
             onClick={() => onConfirm(reason)}
             className="text-sm px-4 py-1.5 rounded-lg font-medium bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-40"
           >
-            Confirm Return
+           {uiMsg('UI_INWARDREVIEWQUEUE_CONFIRM_RETURN_2')}
           </button>
         </div>
       </div>
@@ -277,7 +278,7 @@ function ActionRow({ item, onClaim, onHold, onConfirm, onReturn, isDark, loading
   if (isClaimed && !claimedByMe) {
     return (
       <div className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-        Locked by another reviewer
+       {uiMsg('UI_INWARDREVIEWQUEUE_LOCKED_BY_ANOTHER_REVIEWER_2')}
       </div>
     )
   }
@@ -286,7 +287,7 @@ function ActionRow({ item, onClaim, onHold, onConfirm, onReturn, isDark, loading
   if (isOnHold) {
     return (
       <div className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-        On hold — release from Hold Queue to resume
+       {uiMsg('UI_INWARDREVIEWQUEUE_ON_HOLD_RELEASE_FROM_HOLD_2')}
       </div>
     )
   }
@@ -322,8 +323,8 @@ export default function CTSInwardReviewQueue() {
 
   useEffect(() => {
     setHeader?.({
-      title: 'Inward Human Review Queue',
-      subtitle: 'Claim, Hold, Confirm or Return — IET countdown active on all instruments',
+      title: uiMsg('UI_INWARDREVIEWQUEUE_INWARD_HUMAN_REVIEW_QUEUE_3'),
+      subtitle: uiMsg('UI_INWARDREVIEWQUEUE_CLAIM_HOLD_CONFIRM_OR_RETURN'),
     })
   }, [])
 
@@ -355,7 +356,7 @@ export default function CTSInwardReviewQueue() {
         ? `/api/v1/cts/review/queue?bank_id=${bankId}`
         : `/api/v1/cts/review/queue?bank_id=${bankId}&tier=${tierFilter}`
       const res = await fetch(url, { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load review queue')
+      if (!res.ok) throw new Error(uiMsg('UI_INWARDREVIEWQUEUE_FAILED_TO_LOAD_REVIEW_QUEUE_2'))
       return res.json()
     },
     refetchInterval: 12_000,
@@ -390,7 +391,7 @@ export default function CTSInwardReviewQueue() {
     try {
       await apiPost(`/api/v1/cts/review/${item.instrument_id}/claim`)
       invalidate()
-      showToast(`Claimed ${item.instrument_id}`)
+      showToast(uiMsg('UI_INWARDREVIEWQUEUE_CLAIMED_4', { instrument_id: item.instrument_id }))
     } catch (e) {
       showToast(e.message, 'error')
     } finally {
@@ -411,7 +412,7 @@ export default function CTSInwardReviewQueue() {
       })
       invalidate()
       queryClient.invalidateQueries({ queryKey: ['cts-holds', bankId] })
-      showToast(`Hold placed on ${item.instrument_id}`)
+      showToast(uiMsg('UI_INWARDREVIEWQUEUE_HOLD_PLACED_ON_2', { instrument_id: item.instrument_id }))
     } catch (e) {
       showToast(e.message, 'error')
     } finally {
@@ -424,7 +425,7 @@ export default function CTSInwardReviewQueue() {
     try {
       await apiPost(`/api/v1/cts/review/${item.instrument_id}/confirm`)
       invalidate()
-      showToast(`Confirmed (PAY) ${item.instrument_id}`)
+      showToast(uiMsg('UI_INWARDREVIEWQUEUE_CONFIRMED_PAY_3', { instrument_id: item.instrument_id }))
     } catch (e) {
       showToast(e.message, 'error')
     } finally {
@@ -439,7 +440,7 @@ export default function CTSInwardReviewQueue() {
     try {
       await apiPost(`/api/v1/cts/review/${item.instrument_id}/return`, { return_reason: returnReason })
       invalidate()
-      showToast(`Returned ${item.instrument_id} — ${returnReason}`)
+      showToast(uiMsg('UI_INWARDREVIEWQUEUE_RETURNED_2', { instrument_id: item.instrument_id, returnReason }))
     } catch (e) {
       showToast(e.message, 'error')
     } finally {
@@ -485,13 +486,13 @@ export default function CTSInwardReviewQueue() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Inward Human Review Queue</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_INWARDREVIEWQUEUE_INWARD_HUMAN_REVIEW_QUEUE_3')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {isLoading ? 'Loading…' : `${items.length} instrument${items.length !== 1 ? 's' : ''} awaiting review`}
+              {isLoading ? uiMsg('UI_OPSDASHBOARD_LOADING') : uiMsg('UI_INWARDREVIEWQUEUE_INSTRUMENT_AWAITING_REVIEW', { count: items.length, value: items.length !== 1 ? 's' : '' })}
             </p>
           </div>
           <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-            IET countdown active — STP threshold from config_service
+           {uiMsg('UI_INWARDREVIEWQUEUE_IET_COUNTDOWN_ACTIVE_STP_THRESHOLD')}
           </div>
         </div>
 
@@ -509,10 +510,10 @@ export default function CTSInwardReviewQueue() {
         </div>
 
         {/* States */}
-        {isLoading && <div className={`text-center py-16 ${th.muted}`}>Loading queue…</div>}
-        {isError && <div className="text-center py-16 text-red-400">Failed to load queue. Refreshing in 12s.</div>}
+        {isLoading && <div className={`text-center py-16 ${th.muted}`}>{uiMsg('UI_INWARDREVIEWQUEUE_LOADING_QUEUE_2')}</div>}
+        {isError && <div className="text-center py-16 text-red-400">{uiMsg('UI_INWARDREVIEWQUEUE_FAILED_TO_LOAD_QUEUE_REFRESHING')}</div>}
         {!isLoading && !isError && items.length === 0 && (
-          <div className={`text-center py-16 ${th.muted}`}>No instruments in review queue for this tier.</div>
+          <div className={`text-center py-16 ${th.muted}`}>{uiMsg('UI_INWARDREVIEWQUEUE_NO_INSTRUMENTS_IN_REVIEW_QUEUE')}</div>
         )}
 
         {/* Instrument rows */}
@@ -535,7 +536,7 @@ export default function CTSInwardReviewQueue() {
                       <StatusBadge status={item.status} claimedBy={item.claimed_by} isDark={isDark} />
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-xs ${th.muted}`}>IET</span>
+                      <span className={`text-xs ${th.muted}`}>{uiMsg('UI_COMMON_IET_2')}</span>
                       <span className={`font-mono text-sm tabular-nums ${ietColor(secs, isDark)}`}>
                         {fmtCountdown(secs)}
                       </span>
@@ -545,27 +546,27 @@ export default function CTSInwardReviewQueue() {
                   {/* Details */}
                   <div className={`mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs ${th.muted}`}>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Account</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{uiMsg('UI_COMMON_ACCOUNT')}</div>
                       <div className={`font-mono ${th.body}`}>{item.account_display ?? '****????'}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Amount</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{uiMsg('UI_COMMON_AMOUNT')}</div>
                       <div className={th.body}>{item.amount_display ?? '—'}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Payee</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{uiMsg('UI_VALIDATIONQUEUE_PAYEE')}</div>
                       <div className={th.body}>{item.payee_display ?? '—'}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Risk Flags</div>
-                      <div className={`${th.body} truncate`}>{(item.risk_flags ?? []).join(', ') || 'None'}</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{uiMsg('UI_INWARDREVIEWQUEUE_RISK_FLAGS')}</div>
+                      <div className={`${th.body} truncate`}>{(item.risk_flags ?? []).join(', ') || uiMsg('UI_DEMOLIVE_NONE_2')}</div>
                     </div>
                   </div>
 
                   {/* AI summary if present */}
                   {item.ai_summary && (
                     <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${isDark ? 'bg-white/3 text-slate-400' : 'bg-slate-50 text-slate-600'}`}>
-                      <span className={`font-medium ${th.body}`}>AI: </span>
+                      <span className={`font-medium ${th.body}`}>{uiMsg('UI_INWARDREVIEWQUEUE_AI')} </span>
                       {item.ai_summary}
                     </div>
                   )}

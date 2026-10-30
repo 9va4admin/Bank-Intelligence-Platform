@@ -797,7 +797,7 @@ export default function CTSSmokeTest() {
                 </span>
               </div>
               <p className={`text-xs ${th.muted}`}>
-               {uiMsg('UI_SMOKETEST_INFRASTRUCTURE_STATUS_MASTER_DATA_CO', { value: isDemo ? ' Running in DEMO mode — simulated results.' : ` Running in ${deploymentMode} mode — real connectivity checks.` })}
+               {uiMsg('UI_SMOKETEST_INFRASTRUCTURE_STATUS_MASTER_DATA_CO', { value: isDemo ? uiMsg('UI_SMOKETEST_RUNNING_IN_DEMO_MODE_SIMULATED') : uiMsg('UI_SMOKETEST_RUNNING_IN_MODE_REAL_CONNECTIVITY', { deploymentMode }) })}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

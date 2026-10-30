@@ -12,6 +12,7 @@ import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ function Pipeline({ status, isDark }) {
     if (i === current) return isDark ? 'text-gold-400' : 'text-amber-600'
     return isDark ? 'text-slate-600' : 'text-slate-400'
   }
-  if (status === 'UPCOMING') return <div className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Not yet opened</div>
+  if (status === 'UPCOMING') return <div className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_SETTLEMENT_NOT_YET_OPENED_2')}</div>
   return (
     <div className="w-full overflow-hidden">
       <div className="grid grid-cols-5 w-full relative">
@@ -152,15 +153,15 @@ export default function CTSSettlement() {
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>Settlement Position</h1>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_SETTLEMENT_SETTLEMENT_POSITION_2')}</h1>
               <p className={`text-[11px] ${th.muted}`}>
-                {bankName} · Clearing session lifecycle &amp; net payable/receivable
-                {isSMB && <span className="ml-2 text-amber-400">· settled via Sponsor Bank</span>}
+                {msg('UI_SETTLEMENT_CLEARING_SESSION_LIFECYCLE_NET_PAYAB_2', { bankName })}
+                {isSMB && <span className="ml-2 text-amber-400">{msg('UI_SETTLEMENT_SETTLED_VIA_SPONSOR_BANK_2')}</span>}
               </p>
             </div>
             <button className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors
               ${isDark ? 'border-white/15 text-slate-300 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}>
-              ↓ Settlement Statement
+             {msg('UI_SETTLEMENT_SETTLEMENT_STATEMENT_2')}
             </button>
           </div>
         </div>
@@ -192,13 +193,13 @@ export default function CTSSettlement() {
                 {s.inward > 0 && (
                   <div className={`mt-3 pt-2 border-t ${th.divider} grid grid-cols-2 gap-2`}>
                     <div>
-                      <div className={`text-[9px] ${th.muted}`}>Inward</div>
-                      <div className={`text-sm font-mono font-bold ${th.heading}`}>₹{s.inward_val_cr}Cr</div>
+                      <div className={`text-[9px] ${th.muted}`}>{msg('UI_COMMON_INWARD_2')}</div>
+                      <div className={`text-sm font-mono font-bold ${th.heading}`}>{msg('UI_SETTLEMENT_CR_5', { inward_val_cr: s.inward_val_cr })}</div>
                     </div>
                     <div>
-                      <div className={`text-[9px] ${th.muted}`}>Net</div>
+                      <div className={`text-[9px] ${th.muted}`}>{msg('UI_SETTLEMENT_NET_2')}</div>
                       <div className={`text-sm font-mono font-bold ${s.net_dir === 'RECEIVE' ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {s.net_dir === 'RECEIVE' ? '+' : '-'}₹{s.net_cr}Cr
+                        {msg('UI_SETTLEMENT_CR_6', { value: s.net_dir === 'RECEIVE' ? '+' : '-', net_cr: s.net_cr })}
                       </div>
                     </div>
                   </div>
@@ -213,33 +214,33 @@ export default function CTSSettlement() {
             {/* Net summary */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
               <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-4`}>
-                Session {sel.slot} — Net Position
+               {msg('UI_SETTLEMENT_SESSION_NET_POSITION_2', { slot: sel.slot })}
               </div>
               <div className="space-y-4">
                 <div>
-                  <div className={`text-[10px] ${th.muted}`}>Inward (we pay)</div>
-                  <div className={`text-2xl font-bold font-mono ${th.heading}`}>₹{sel.inward_val_cr}Cr</div>
-                  <div className={`text-[10px] ${th.muted}`}>{sel.inward.toLocaleString()} cheques</div>
+                  <div className={`text-[10px] ${th.muted}`}>{msg('UI_SETTLEMENT_INWARD_WE_PAY_2')}</div>
+                  <div className={`text-2xl font-bold font-mono ${th.heading}`}>{msg('UI_SETTLEMENT_CR_5', { inward_val_cr: sel.inward_val_cr })}</div>
+                  <div className={`text-[10px] ${th.muted}`}>{msg('UI_SETTLEMENT_CHEQUES_3', { inward: sel.inward.toLocaleString() })}</div>
                 </div>
                 <div>
-                  <div className={`text-[10px] ${th.muted}`}>Outward (we collect)</div>
-                  <div className={`text-2xl font-bold font-mono ${th.heading}`}>₹{sel.outward_val_cr}Cr</div>
-                  <div className={`text-[10px] ${th.muted}`}>{sel.outward.toLocaleString()} cheques</div>
+                  <div className={`text-[10px] ${th.muted}`}>{msg('UI_SETTLEMENT_OUTWARD_WE_COLLECT_2')}</div>
+                  <div className={`text-2xl font-bold font-mono ${th.heading}`}>{msg('UI_SETTLEMENT_CR_7', { outward_val_cr: sel.outward_val_cr })}</div>
+                  <div className={`text-[10px] ${th.muted}`}>{msg('UI_SETTLEMENT_CHEQUES_4', { outward: sel.outward.toLocaleString() })}</div>
                 </div>
                 <div className={`pt-3 border-t ${th.divider}`}>
-                  <div className={`text-[10px] ${th.muted}`}>Net Settlement</div>
+                  <div className={`text-[10px] ${th.muted}`}>{msg('UI_SETTLEMENT_NET_SETTLEMENT_2')}</div>
                   <div className={`text-3xl font-bold font-mono ${sel.net_dir === 'RECEIVE' ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {sel.net_dir === 'RECEIVE' ? '+' : '-'}₹{sel.net_cr}Cr
+                    {msg('UI_SETTLEMENT_CR_6', { value: sel.net_dir === 'RECEIVE' ? '+' : '-', net_cr: sel.net_cr })}
                   </div>
                   <div className={`text-[11px] font-semibold mt-1 ${sel.net_dir === 'RECEIVE' ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {sel.net_dir === 'RECEIVE' ? 'WE RECEIVE' : 'WE PAY'} from NGCH
+                    {msg('UI_SETTLEMENT_FROM_NGCH_2', { value: sel.net_dir === 'RECEIVE' ? msg('UI_SETTLEMENT_WE_RECEIVE') : msg('UI_SETTLEMENT_WE_PAY') })}
                   </div>
                 </div>
                 {sel.ngch_ack && (
-                  <div className={`text-[10px] ${th.muted}`}>NGCH Ack: {sel.ngch_ack}</div>
+                  <div className={`text-[10px] ${th.muted}`}>{msg('UI_SETTLEMENT_NGCH_ACK_2', { ngch_ack: sel.ngch_ack })}</div>
                 )}
                 {sel.settled_at && (
-                  <div className={`text-[10px] text-emerald-400`}>Settled: {sel.settled_at}</div>
+                  <div className={`text-[10px] text-emerald-400`}>{msg('UI_SETTLEMENT_SETTLED_2', { settled_at: sel.settled_at })}</div>
                 )}
               </div>
             </div>
@@ -247,16 +248,16 @@ export default function CTSSettlement() {
             {/* Counterparty table */}
             <div className={`lg:col-span-2 border rounded-xl ${th.card}`}>
               <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-                <span className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted}`}>Per-Bank Settlement</span>
+                <span className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_SETTLEMENT_PER_BANK_SETTLEMENT_2')}</span>
                 <div className="flex gap-4">
-                  <span className="text-[11px] text-emerald-400">Receive: ₹{totalReceive.toFixed(1)}Cr</span>
-                  <span className="text-[11px] text-red-400">Pay: ₹{totalPay.toFixed(1)}Cr</span>
+                  <span className="text-[11px] text-emerald-400">{msg('UI_SETTLEMENT_RECEIVE_CR_2', { totalReceive: totalReceive.toFixed(1) })}</span>
+                  <span className="text-[11px] text-red-400">{msg('UI_SETTLEMENT_PAY_CR_2', { totalPay: totalPay.toFixed(1) })}</span>
                 </div>
               </div>
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className={`border-b ${th.divider}`}>
-                    {['Bank', 'IFSC', 'We Receive (Cr)', 'We Pay (Cr)', 'Net', 'Direction'].map(h => (
+                    {[msg('UI_COMMON_BANK_2'), 'IFSC', msg('UI_SETTLEMENT_WE_RECEIVE_CR_2'), msg('UI_SETTLEMENT_WE_PAY_CR_2'), msg('UI_SETTLEMENT_NET_2'), msg('UI_SETTLEMENT_DIRECTION_2')].map(h => (
                       <th key={h} className={`px-4 py-2 text-left text-[10px] uppercase tracking-wide ${th.muted}`}>{h}</th>
                     ))}
                   </tr>
@@ -283,11 +284,11 @@ export default function CTSSettlement() {
                 </tbody>
                 <tfoot>
                   <tr className={`border-t ${th.divider} font-semibold`}>
-                    <td colSpan={4} className={`px-4 py-2.5 ${th.muted}`}>Net Position (Day)</td>
+                    <td colSpan={4} className={`px-4 py-2.5 ${th.muted}`}>{msg('UI_SETTLEMENT_NET_POSITION_DAY_2')}</td>
                     <td className="px-4 py-2.5 font-mono font-bold text-emerald-400">
-                      +₹{(totalReceive - totalPay).toFixed(1)}Cr
+                     {msg('UI_SETTLEMENT_CR_8', { value: (totalReceive - totalPay).toFixed(1) })}
                     </td>
-                    <td className="px-4 py-2.5 text-[10px] text-emerald-400 font-bold">RECEIVE</td>
+                    <td className="px-4 py-2.5 text-[10px] text-emerald-400 font-bold">{msg('UI_SETTLEMENT_RECEIVE_2')}</td>
                   </tr>
                 </tfoot>
               </table>

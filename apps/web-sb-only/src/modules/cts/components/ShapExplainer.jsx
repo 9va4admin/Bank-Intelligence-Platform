@@ -1,3 +1,4 @@
+import { msg } from '../../../shared/messages'
 export default function ShapExplainer({ shapValues, isDark }) {
   const maxAbs  = Math.max(...shapValues.map((s) => Math.abs(s.value)))
   const label   = isDark ? 'text-slate-400' : 'text-slate-500'
@@ -6,7 +7,7 @@ export default function ShapExplainer({ shapValues, isDark }) {
   return (
     <div className="space-y-2">
       <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">
-        AI Decision Factors (SHAP)
+       {msg('UI_SHAPEXPLAINER_AI_DECISION_FACTORS_SHAP_2')}
       </div>
       {shapValues.map((item) => {
         const width = Math.abs(item.value) / maxAbs
@@ -33,8 +34,8 @@ export default function ShapExplainer({ shapValues, isDark }) {
         )
       })}
       <div className={`flex justify-between text-[10px] text-slate-500 pt-1 border-t ${divider} mt-2`}>
-        <span className="text-red-400/60">← increases risk</span>
-        <span className="text-emerald-400/60">reduces risk →</span>
+        <span className="text-red-400/60">{msg('UI_SHAPEXPLAINER_INCREASES_RISK_2')}</span>
+        <span className="text-emerald-400/60">{msg('UI_SHAPEXPLAINER_REDUCES_RISK_2')}</span>
       </div>
     </div>
   )

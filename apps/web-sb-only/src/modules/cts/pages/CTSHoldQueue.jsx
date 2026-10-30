@@ -16,6 +16,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { msg } from '../../../shared/messages'
 
 // ─── IET Countdown ────────────────────────────────────────────────────────────
 
@@ -63,13 +64,13 @@ const TIER_BADGE_L = {
 const TIER_LABEL = { standard: 'Standard', high_value: 'High Value', very_high: 'Very High' }
 
 function RecBadge({ rec, isDark }) {
-  if (!rec) return <span className={isDark ? 'text-slate-500 text-xs' : 'text-slate-400 text-xs'}>Awaiting…</span>
+  if (!rec) return <span className={isDark ? 'text-slate-500 text-xs' : 'text-slate-400 text-xs'}>{msg('UI_HOLDQUEUE_AWAITING_2')}</span>
   const cls = rec === 'CONFIRM'
     ? (isDark ? 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
     : (isDark ? 'bg-red-900/50 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200')
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded border ${cls}`}>
-      Branch: {rec}
+     {msg('UI_HOLDQUEUE_BRANCH_2', { rec })}
     </span>
   )
 }
@@ -83,7 +84,7 @@ export default function CTSHoldQueue() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    setHeader?.({ title: 'Inward Hold Queue', subtitle: 'Instruments awaiting branch confirmation — IET clock running' })
+    setHeader?.({ title: msg('UI_COMMON_INWARD_HOLD_QUEUE_2'), subtitle: msg('UI_HOLDQUEUE_INSTRUMENTS_AWAITING_BRANCH_CONFIRMA_2') })
   }, [])
 
   const th = {
@@ -100,7 +101,7 @@ export default function CTSHoldQueue() {
     queryKey: ['cts-holds', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/cts/holds', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load holds')
+      if (!res.ok) throw new Error(msg('UI_HOLDQUEUE_FAILED_TO_LOAD_HOLDS_2'))
       return res.json()
     },
     refetchInterval: 15_000,
@@ -116,7 +117,7 @@ export default function CTSHoldQueue() {
         credentials: 'include',
         body: JSON.stringify({}),
       })
-      if (!res.ok) throw new Error('Failed to release hold')
+      if (!res.ok) throw new Error(msg('UI_HOLDQUEUE_FAILED_TO_RELEASE_HOLD_2'))
       return res.json()
     },
     onSuccess: () => {
@@ -137,27 +138,27 @@ export default function CTSHoldQueue() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Inward Hold Queue</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_INWARD_HOLD_QUEUE_2')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {isLoading ? 'Loading…' : `${holds.length} instrument${holds.length !== 1 ? 's' : ''} on hold — IET countdown active on all`}
+              {isLoading ? msg('UI_OPSDASHBOARD_LOADING') : msg('UI_HOLDQUEUE_INSTRUMENT_ON_HOLD_IET_COUNTDOWN_2', { count: holds.length, value: holds.length !== 1 ? 's' : '' })}
             </p>
           </div>
           <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-            IET clock never pauses during hold
+           {msg('UI_HOLDQUEUE_IET_CLOCK_NEVER_PAUSES_DURING_2')}
           </div>
         </div>
 
         {isLoading && (
-          <div className={`text-center py-16 ${th.muted}`}>Loading hold queue…</div>
+          <div className={`text-center py-16 ${th.muted}`}>{msg('UI_HOLDQUEUE_LOADING_HOLD_QUEUE_2')}</div>
         )}
 
         {isError && (
-          <div className={`text-center py-16 text-red-400`}>Failed to load hold queue. Retry in 15s.</div>
+          <div className={`text-center py-16 text-red-400`}>{msg('UI_HOLDQUEUE_FAILED_TO_LOAD_HOLD_QUEUE')}</div>
         )}
 
         {!isLoading && !isError && holds.length === 0 && (
           <div className={`text-center py-16 ${th.muted}`}>
-            No instruments currently on hold.
+           {msg('UI_HOLDQUEUE_NO_INSTRUMENTS_CURRENTLY_ON_HOLD_2')}
           </div>
         )}
 
@@ -184,7 +185,7 @@ export default function CTSHoldQueue() {
                       <RecBadge rec={hold.branch_recommendation} isDark={isDark} />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs ${th.muted}`}>IET</span>
+                      <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_IET_2')}</span>
                       <span className={`font-mono text-sm tabular-nums ${countdownColor(secs, isDark)}`}>
                         {fmtCountdown(secs)}
                       </span>
@@ -194,26 +195,26 @@ export default function CTSHoldQueue() {
                   {/* Details row */}
                   <div className={`mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs ${th.muted}`}>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Account</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_COMMON_ACCOUNT')}</div>
                       <div className={`font-mono ${th.body}`}>{hold.account_display}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Amount</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_COMMON_AMOUNT')}</div>
                       <div className={th.body}>{hold.amount_display}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Held By</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_HOLDQUEUE_HELD_BY_2')}</div>
                       <div className={th.body}>{hold.held_by.split('@')[0]}</div>
                     </div>
                     <div>
-                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Hold Duration</div>
-                      <div className={th.body}>{Math.round((_now() - hold.held_at) / 60)} min ago</div>
+                      <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_HOLDQUEUE_HOLD_DURATION_2')}</div>
+                      <div className={th.body}>{msg('UI_HOLDQUEUE_MIN_AGO_2', { value: Math.round((_now() - hold.held_at) / 60) })}</div>
                     </div>
                   </div>
 
                   {/* Hold reason */}
                   <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${isDark ? 'bg-white/3 text-slate-400' : 'bg-slate-50 text-slate-600'}`}>
-                    <span className={`font-medium ${th.body}`}>Reason: </span>
+                    <span className={`font-medium ${th.body}`}>{msg('UI_HOLDQUEUE_REASON_2')} </span>
                     {hold.hold_reason}
                   </div>
 
@@ -228,16 +229,16 @@ export default function CTSHoldQueue() {
                           : (isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white')
                         }`}
                     >
-                      {isReleasing ? 'Releasing…' : 'Release Hold'}
+                      {isReleasing ? msg('UI_ALLOCATIONADMIN_RELEASING_2') : msg('UI_HOLDQUEUE_RELEASE_HOLD_2')}
                     </button>
                     {hold.branch_recommendation === 'RETURN' && (
                       <span className={`text-xs px-3 py-1.5 rounded-lg border font-medium ${isDark ? 'border-red-700/40 text-red-400 bg-red-900/20' : 'border-red-200 text-red-600 bg-red-50'}`}>
-                        Branch recommends RETURN
+                       {msg('UI_HOLDQUEUE_BRANCH_RECOMMENDS_RETURN_2')}
                       </span>
                     )}
                     {hold.branch_recommendation === 'CONFIRM' && (
                       <span className={`text-xs px-3 py-1.5 rounded-lg border font-medium ${isDark ? 'border-emerald-700/40 text-emerald-400 bg-emerald-900/20' : 'border-emerald-200 text-emerald-600 bg-emerald-50'}`}>
-                        Branch recommends CONFIRM
+                       {msg('UI_HOLDQUEUE_BRANCH_RECOMMENDS_CONFIRM_2')}
                       </span>
                     )}
                   </div>

@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
+import { msg } from '../../../../shared/messages'
 
 // ─── Mock SSE feed (simulates ChequeAck events arriving over time) ───────────
 
@@ -29,11 +30,11 @@ const MOCK_INSTRUMENTS = [
 ]
 
 const STATUS_CFG = {
-  ACCEPTED: { label: 'Accepted', bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-  REJECTED: { label: 'Rejected', bg: 'bg-red-500/15 text-red-400 border-red-500/30' },
-  HELD:     { label: 'On Hold',  bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
-  DUPLICATE:{ label: 'Duplicate',bg: 'bg-slate-500/15 text-slate-400 border-slate-500/30' },
-  PENDING:  { label: 'Sending…', bg: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
+  ACCEPTED: { label: msg('UI_COMMON_ACCEPTED_2'), bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  REJECTED: { label: msg('UI_COMMON_REJECTED_2'), bg: 'bg-red-500/15 text-red-400 border-red-500/30' },
+  HELD:     { label: msg('UI_COMMON_ON_HOLD_2'),  bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+  DUPLICATE:{ label: msg('UI_DEMOLIVE_DUPLICATE_2'),bg: 'bg-slate-500/15 text-slate-400 border-slate-500/30' },
+  PENDING:  { label: msg('UI_BRANCHSCANMONITOR_SENDING_2'), bg: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
 }
 
 function StatusPill({ status }) {
@@ -86,7 +87,7 @@ export default function BranchScanMonitor() {
     queryKey: ['scan-monitor', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/cts/scan-monitor/recent?limit=50', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load scan events')
+      if (!res.ok) throw new Error(msg('UI_BRANCHSCANMONITOR_FAILED_TO_LOAD_SCAN_EVENTS_2'))
       return res.json()
     },
     refetchInterval: 3_000,
@@ -150,9 +151,9 @@ export default function BranchScanMonitor() {
         <div className={`flex items-center justify-between px-6 py-3 border-b ${th.divider}`}>
           <div className="flex items-center gap-4">
             <Link to="/branch" className={`text-sm ${th.muted} hover:text-blue-400 transition-colors`}>
-              ← Dashboard
+             {msg('UI_COMMON_DASHBOARD_2')}
             </Link>
-            <h1 className={`text-base font-semibold ${th.heading}`}>Scanner Monitor</h1>
+            <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_APPSHELL_SCANNER_MONITOR')}</h1>
           </div>
           <div className="flex items-center gap-4 text-xs">
             <span className={`flex items-center gap-1.5 ${th.muted}`}>
@@ -163,7 +164,7 @@ export default function BranchScanMonitor() {
               }`} />
               {sseStatus}
             </span>
-            <span className={th.muted}>{rateCps} c/s</span>
+            <span className={th.muted}>{msg('UI_BRANCHSCANMONITOR_C_S_2', { rateCps })}</span>
             <label className={`flex items-center gap-1.5 ${th.muted} cursor-pointer`}>
               <input
                 type="checkbox"
@@ -171,7 +172,7 @@ export default function BranchScanMonitor() {
                 onChange={e => setAutoScroll(e.target.checked)}
                 className="accent-blue-500"
               />
-              Auto-scroll
+             {msg('UI_BRANCHSCANMONITOR_AUTO_SCROLL_2')}
             </label>
           </div>
         </div>
@@ -179,18 +180,18 @@ export default function BranchScanMonitor() {
         {/* Summary strip */}
         <div className={`flex items-center gap-6 px-6 py-2 border-b ${th.divider} text-xs`}>
           <span className={th.muted}>
-            <span className="text-white font-medium">{instruments.length}</span> total
+            <span className="text-white font-medium">{instruments.length}</span> {msg('UI_BRANCHSCANMONITOR_TOTAL_2')}
           </span>
-          <span className="text-emerald-400 font-medium">{accepted} accepted</span>
+          <span className="text-emerald-400 font-medium">{msg('UI_BRANCHSCANMONITOR_ACCEPTED_2', { accepted })}</span>
           <span className={rejected > 0 ? 'text-red-400 font-medium' : th.muted}>
-            {rejected} rejected
+            {msg('UI_BRANCHSCANMONITOR_REJECTED_2', { rejected })}
           </span>
           <span className={held > 0 ? 'text-amber-400 font-medium' : th.muted}>
-            {held} held
+            {msg('UI_BRANCHSCANMONITOR_HELD_2', { held })}
           </span>
           {held > 0 && (
             <Link to="/branch/mismatch" className="text-amber-400 hover:underline">
-              Review held items →
+             {msg('UI_BRANCHSCANMONITOR_REVIEW_HELD_ITEMS_2')}
             </Link>
           )}
         </div>
@@ -200,7 +201,7 @@ export default function BranchScanMonitor() {
           <table className="w-full border-collapse">
             <thead className="sticky top-0 z-10">
               <tr>
-                {['Time', 'Scan ID', 'MICR (last 4)', 'Payee', 'Amount', 'Status', 'Lot', 'Notes'].map(h => (
+                {[msg('UI_COMMON_TIME_2'), msg('UI_SCANNER_SCAN_ID_2'), msg('UI_BRANCHSCANMONITOR_MICR_LAST_4_2'), msg('UI_VALIDATIONQUEUE_PAYEE'), msg('UI_COMMON_AMOUNT'), msg('UI_COMMON_STATUS_2'), msg('UI_COMMON_LOT_2'), msg('UI_BRANCHSCANMONITOR_NOTES_2')].map(h => (
                   <th key={h} className={`px-3 py-2 text-left border-b ${th.divider} ${th.th}`}>{h}</th>
                 ))}
               </tr>

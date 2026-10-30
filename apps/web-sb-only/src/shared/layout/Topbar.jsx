@@ -1,5 +1,6 @@
 import { useTheme } from '../theme/ThemeContext'
 import { BANK_CONFIG } from '../config/bank.config'
+import { msg } from '../messages'
 
 function SunIcon() {
   return (
@@ -50,7 +51,7 @@ export default function Topbar({ title }) {
 
         <button
           onClick={toggle}
-          aria-label="Toggle theme"
+          aria-label={msg('UI_LOGINPAGE_TOGGLE_THEME')}
           className={[
             'p-1.5 rounded-md transition-colors',
             isDark

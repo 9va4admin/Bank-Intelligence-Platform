@@ -14,6 +14,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { useEffect } from 'react'
+import { msg } from '../../../shared/messages'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function downloadCSV(csv, filename) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const TABS = ['Daily Summary', 'Return Reason File', 'Settlement']
+const TABS = [msg('UI_SMBREPORTS_DAILY_SUMMARY_2'), msg('UI_SMBREPORTS_RETURN_REASON_FILE_2'), msg('UI_APPSHELL_SETTLEMENT')]
 
 function SummaryTab({ sessions, bankId, isDark }) {
   const th = {
@@ -118,21 +119,21 @@ function SummaryTab({ sessions, bankId, isDark }) {
             isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Download CSV
+         {msg('UI_RECONCILIATION_DOWNLOAD_CSV_2')}
         </button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className={`text-xs uppercase tracking-wide border-b ${th.header}`}>
-              <th className="text-left py-2 pr-3 font-medium">Session</th>
-              <th className="text-left py-2 pr-3 font-medium">Slot</th>
-              <th className="text-left py-2 pr-3 font-medium">Status</th>
-              <th className="text-right py-2 pr-3 font-medium">Total</th>
-              <th className="text-right py-2 pr-3 font-medium">STP ✓</th>
-              <th className="text-right py-2 pr-3 font-medium">Returns</th>
-              <th className="text-right py-2 pr-3 font-medium">Value (₹L)</th>
-              <th className="text-right py-2 font-medium">Return %</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_SESSION_2')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_SLOT_2')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_STATUS_2')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_COMMON_TOTAL_2')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_SMBDASHBOARDCONTENT_STP_3')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_RETURNS')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_VALUE_L_2')}</th>
+              <th className="text-right py-2 font-medium">{msg('UI_COMMON_RETURN_3')}</th>
             </tr>
           </thead>
           <tbody>
@@ -156,7 +157,7 @@ function SummaryTab({ sessions, bankId, isDark }) {
             ))}
             {/* Totals row */}
             <tr className={`border-t-2 ${isDark ? 'border-white/20' : 'border-slate-300'}`}>
-              <td colSpan={3} className={`py-2.5 pr-3 text-xs font-semibold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Day Total</td>
+              <td colSpan={3} className={`py-2.5 pr-3 text-xs font-semibold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_SMBREPORTS_DAY_TOTAL_2')}</td>
               <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${th.cell}`}>{totals.total}</td>
               <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${th.good}`}>{totals.stp_confirmed}</td>
               <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${isDark ? 'text-red-400' : 'text-red-600'}`}>
@@ -207,7 +208,7 @@ function RRFTab({ items, bankId, isDark }) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {items.length} returned instruments · today
+          {msg('UI_SMBREPORTS_RETURNED_INSTRUMENTS_TODAY_2', { count: items.length })}
         </p>
         <button
           onClick={handleDownload}
@@ -215,19 +216,19 @@ function RRFTab({ items, bankId, isDark }) {
             isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Download RRF CSV
+         {msg('UI_SMBREPORTS_DOWNLOAD_RRF_CSV_2')}
         </button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className={`text-xs uppercase tracking-wide border-b ${th.header}`}>
-              <th className="text-left py-2 pr-3 font-medium">Instrument</th>
-              <th className="text-left py-2 pr-3 font-medium">Account</th>
-              <th className="text-left py-2 pr-3 font-medium">Amount</th>
-              <th className="text-left py-2 pr-3 font-medium">Code</th>
-              <th className="text-left py-2 pr-3 font-medium">Reason</th>
-              <th className="text-left py-2 font-medium">Filed</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_INSTRUMENT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_ACCOUNT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_AMOUNT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_CODE_2')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_REASON_2')}</th>
+              <th className="text-left py-2 font-medium">{msg('UI_COMMON_FILED_2')}</th>
             </tr>
           </thead>
           <tbody>
@@ -279,7 +280,7 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
       <div className={`rounded-xl border p-5 ${th.card}`}>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <div className={`text-xs uppercase tracking-wide font-semibold ${th.label}`}>Settlement Statement</div>
+            <div className={`text-xs uppercase tracking-wide font-semibold ${th.label}`}>{msg('UI_SMBREPORTS_SETTLEMENT_STATEMENT_2')}</div>
             <div className={`text-sm font-semibold mt-0.5 ${th.value}`}>{data.date}</div>
           </div>
           <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
@@ -289,29 +290,29 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
           }`}>{data.status}</span>
         </div>
 
-        <div className={`text-xs ${th.label} mb-1`}>Sponsor Bank</div>
+        <div className={`text-xs ${th.label} mb-1`}>{msg('UI_SMBDASHBOARDCONTENT_SPONSOR_BANK')}</div>
         <div className={`text-sm font-medium mb-4 ${th.value}`}>{data.sponsor_bank}</div>
 
         <div className={`border-t ${th.divider} pt-4 grid grid-cols-2 gap-4`}>
           <div>
-            <div className={`text-xs ${th.label}`}>Inward instruments</div>
+            <div className={`text-xs ${th.label}`}>{msg('UI_SMBREPORTS_INWARD_INSTRUMENTS_2')}</div>
             <div className={`text-2xl font-bold tabular-nums ${th.value}`}>{data.inward_count}</div>
-            <div className={`text-xs ${th.muted}`}>₹{data.inward_value_L}L total value</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_SMBREPORTS_L_TOTAL_VALUE_2', { inward_value_L: data.inward_value_L })}</div>
           </div>
           <div>
-            <div className={`text-xs ${th.label}`}>Returns</div>
+            <div className={`text-xs ${th.label}`}>{msg('UI_SMBREPORTS_RETURNS')}</div>
             <div className={`text-2xl font-bold tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>{data.return_count}</div>
-            <div className={`text-xs ${th.muted}`}>₹{data.return_value_L}L returned value</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_SMBREPORTS_L_RETURNED_VALUE_2', { return_value_L: data.return_value_L })}</div>
           </div>
         </div>
 
         <div className={`border-t ${th.divider} mt-4 pt-4 flex items-center justify-between`}>
           <div>
-            <div className={`text-xs ${th.label}`}>Net position</div>
+            <div className={`text-xs ${th.label}`}>{msg('UI_SMBREPORTS_NET_POSITION_2')}</div>
             <div className={`text-3xl font-bold tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-              ₹{data.net_receivable_L}L
+             {msg('UI_SMBREPORTS_L_2', { net_receivable_L: data.net_receivable_L })}
             </div>
-            <div className={`text-xs ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>{data.net_direction} from sponsor</div>
+            <div className={`text-xs ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>{msg('UI_SMBREPORTS_FROM_SPONSOR_2', { net_direction: data.net_direction })}</div>
           </div>
         </div>
       </div>
@@ -322,7 +323,7 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
           isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
         }`}
       >
-        Download Settlement Statement
+       {msg('UI_SMBREPORTS_DOWNLOAD_SETTLEMENT_STATEMENT_2')}
       </button>
     </div>
   )
@@ -333,12 +334,9 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
 export default function CTSSMBReports() {
   const { bankName, bankId } = useBankContext()
   const { isDark } = useTheme()
-  const { setHeader } = usePageHeader()
+  // usePageHeader takes { subtitle, actions } and returns nothing; the page title comes from the route label in AppShell.
+  usePageHeader({ subtitle: bankName })
   const [activeTab, setActiveTab] = useState(0)
-
-  useEffect(() => {
-    setHeader({ title: 'SMB Reports', subtitle: bankName })
-  }, [setHeader, bankName])
 
   const th = {
     page:    isDark ? 'bg-navy-950'             : 'bg-slate-50',

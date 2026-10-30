@@ -1,4 +1,5 @@
 import { BANK_CONFIG } from '../config/bank.config'
+import { msg } from '../messages'
 
 async function request(path, options = {}) {
   const res = await fetch(`${BANK_CONFIG.api_base}${path}`, {
@@ -11,7 +12,7 @@ async function request(path, options = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw Object.assign(new Error(err.message ?? 'API error'), { status: res.status, body: err })
+    throw Object.assign(new Error(err.message ?? msg('UI_CLIENT_API_ERROR')), { status: res.status, body: err })
   }
   return res.json()
 }

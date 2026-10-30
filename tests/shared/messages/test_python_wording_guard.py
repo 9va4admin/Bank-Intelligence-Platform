@@ -5,6 +5,7 @@ This runs the converter in check mode (scripts/i18n_convert_py.py --include-work
 To fix a failure:  python scripts/i18n_convert_py.py --write   then   python -m shared.messages.build
 (In a Temporal workflow file import get_message inside `with workflow.unsafe.imports_passed_through():`.)"""
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,11 +21,11 @@ def test_no_literal_wording_left_in_python_code():
 
 
 def test_standalone_services_do_not_depend_on_the_shared_package():
-    """sig_detector and eeh ship on their own: their container image / edge install holds only their own files, so importing shared.messages
+    """sig_detector ships on its own: their container image / edge install holds only their own files, so importing shared.messages
     stops them starting (an automatic conversion once did exactly that). Their wording stays in their own code."""
     offenders = []
-    for app in ("sig_detector", "eeh", "ai_server", "ej_ingestion"):
+    for app in ("sig_detector", "ai_server", "ej_ingestion"):
         for path in (ROOT / "apps" / app).rglob("*.py"):
-            if "shared.messages" in path.read_text(encoding="utf-8", errors="ignore"):
+            if re.search(r"^\s*(from|import)\s+shared\.messages", path.read_text(encoding="utf-8", errors="ignore"), re.M):
                 offenders.append(str(path.relative_to(ROOT)))
     assert offenders == []

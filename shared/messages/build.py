@@ -99,9 +99,19 @@ def main() -> int:
     from shared.messages.browser_keys import web_message_keys
 
     all_keys = {k for entries in registry._cache.values() for k in entries}
-    web_src = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
+    repo = Path(__file__).resolve().parents[2]
+    web_src = repo / "apps" / "web" / "src"
     browser_keys = web_message_keys(web_src, all_keys) if web_src.is_dir() else None
     registry.build(output_dir=output_dir, redis_client=redis_client, browser_keys=browser_keys)
+
+    # The SB-only web app is a separate build with its own screens: it gets its own bundle, holding only the messages it uses.
+    sb_src = repo / "apps" / "web-sb-only" / "src"
+    if sb_src.is_dir():
+        registry.build(output_dir=sb_src / "shared" / "locales", browser_keys=web_message_keys(sb_src, all_keys))
+
+    # Services that ship without the shared package carry their own small bundle (generated here, never edited by hand).
+    from shared.messages.service_bundle import write_service_bundles
+    write_service_bundles(Path(__file__).resolve().parents[2], registry)
 
     redis_status = "pushed to Redis + " if redis_client else ""
     # ASCII-only: Windows consoles default to cp1252, which cannot encode

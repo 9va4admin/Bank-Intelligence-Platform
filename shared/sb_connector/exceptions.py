@@ -1,4 +1,5 @@
 """Exceptions for the shared/sb_connector adapter layer."""
+from shared.messages import get_message
 
 
 class SBConnectorUnavailableError(RuntimeError):
@@ -9,8 +10,7 @@ class SBConnectorUnavailableError(RuntimeError):
         self.connector_type = connector_type
         self.reason = reason
         super().__init__(
-            f"SB connector unavailable — sb_bank_id={sb_bank_id} "
-            f"connector={connector_type}: {reason}"
+            get_message("PLATFORM_SB_CONNECTOR_UNAVAILABLE_SB_BANK", sb_bank_id=sb_bank_id, connector_type=connector_type, reason=reason)
         )
 
 
@@ -26,4 +26,4 @@ class SBSubmissionRejectedError(RuntimeError):
 
     def __init__(self, error_code: str, message: str) -> None:
         self.error_code = error_code
-        super().__init__(f"SB rejected submission [{error_code}]: {message}")
+        super().__init__(get_message("PLATFORM_SB_REJECTED_SUBMISSION", error_code=error_code, message=message))

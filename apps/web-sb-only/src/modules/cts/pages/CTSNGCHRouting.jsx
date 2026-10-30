@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const ROUTING_RULES = [
   {
@@ -130,15 +131,15 @@ export default function CTSNGCHRouting() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>NGCH Routing</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Routing rules that determine how filed decisions are dispatched to NPCI's clearing grids</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_APPSHELL_NGCH_ROUTING')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_NGCHROUTING_ROUTING_RULES_THAT_DETERMINE_HOW_2')}</p>
           </div>
         </div>
 
         {/* NGCH Connection Status */}
         <div className={`rounded-xl border p-4 mb-5 ${th.card}`}>
           <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-semibold ${th.muted}`}>NGCH CONNECTIVITY</span>
+            <span className={`text-xs font-semibold ${th.muted}`}>{msg('UI_NGCHROUTING_NGCH_CONNECTIVITY_2')}</span>
             <span className={`flex items-center gap-1.5 text-xs font-medium ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               {NGCH_STATUS.connectivity}
@@ -159,19 +160,19 @@ export default function CTSNGCHRouting() {
             ))}
           </div>
           <div className={`mt-3 pt-3 border-t text-xs ${th.divider} ${th.muted}`}>
-            Last batch filed: <span className={`font-mono ${th.body}`}>{NGCH_STATUS.last_batch_filed}</span>
+           {msg('UI_NGCHROUTING_LAST_BATCH_FILED_2')} <span className={`font-mono ${th.body}`}>{NGCH_STATUS.last_batch_filed}</span>
           </div>
         </div>
 
         {/* Routing rules */}
         <div className={`rounded-xl border overflow-hidden ${th.card}`}>
           <div className={`px-4 py-3 border-b flex items-center justify-between ${th.divider}`}>
-            <span className={`text-xs font-semibold ${th.muted}`}>ROUTING RULES — evaluated in priority order (lower = higher priority)</span>
+            <span className={`text-xs font-semibold ${th.muted}`}>{msg('UI_NGCHROUTING_ROUTING_RULES_EVALUATED_IN_PRIORITY_2')}</span>
           </div>
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Priority', 'Rule Name', 'Condition', 'Destination Grid', 'Type', 'Filed Today', 'Status', ''].map(h => (
+                {[msg('UI_NGCHROUTING_PRIORITY_2'), msg('UI_NGCHROUTING_RULE_NAME_2'), msg('UI_NGCHROUTING_CONDITION_2'), msg('UI_NGCHROUTING_DESTINATION_GRID'), msg('UI_DISCREPANCY_TYPE_2'), msg('UI_NGCHROUTING_FILED_TODAY_2'), msg('UI_COMMON_STATUS_2'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -180,7 +181,7 @@ export default function CTSNGCHRouting() {
               {ROUTING_RULES.sort((a, b) => a.priority - b.priority).map(r => (
                 <tr key={r.id} className={`border-b transition-colors ${th.row}`} onClick={() => setSelected(r)}>
                   <td className={`px-4 py-3 font-mono font-bold ${r.priority <= 3 ? (isDark ? 'text-red-300' : 'text-red-600') : th.heading}`}>
-                    P{r.priority}
+                   {msg('UI_NGCHROUTING_P_2', { priority: r.priority })}
                   </td>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{r.name}</td>
                   <td className={`px-4 py-3 font-mono text-[11px] max-w-[200px] truncate ${th.muted}`} title={r.condition}>{r.condition}</td>
@@ -195,7 +196,7 @@ export default function CTSNGCHRouting() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>Detail →</button>
+                    <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>{msg('UI_COMMON_DETAIL_2')}</button>
                   </td>
                 </tr>
               ))}
@@ -211,29 +212,29 @@ export default function CTSNGCHRouting() {
                 <h2 className={`font-semibold ${th.heading}`}>{selected.name}</h2>
                 <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${TYPE[selected.type]}`}>{selected.type}</span>
               </div>
-              <button onClick={() => setSelected(null)} className={th.muted}>✕ Close</button>
+              <button onClick={() => setSelected(null)} className={th.muted}>{msg('UI_COMMON_CLOSE_2')}</button>
             </div>
             <div className="grid grid-cols-2 gap-4 text-xs mb-4">
               <div>
-                <div className={th.muted}>Condition</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_CONDITION_2')}</div>
                 <div className={`font-mono mt-0.5 ${th.body}`}>{selected.condition}</div>
               </div>
               <div>
-                <div className={th.muted}>Destination</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_DESTINATION_2')}</div>
                 <div className={`font-medium mt-0.5 ${th.heading}`}>{selected.destination}</div>
               </div>
               <div>
-                <div className={th.muted}>Priority</div>
-                <div className={`font-bold text-lg mt-0.5 ${th.heading}`}>P{selected.priority}</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_PRIORITY_2')}</div>
+                <div className={`font-bold text-lg mt-0.5 ${th.heading}`}>{msg('UI_NGCHROUTING_P_2', { priority: selected.priority })}</div>
               </div>
               <div>
-                <div className={th.muted}>Filings Today</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_FILINGS_TODAY_2')}</div>
                 <div className={`font-bold text-lg mt-0.5 ${th.heading}`}>{selected.filings_today.toLocaleString()}</div>
               </div>
             </div>
             {selected.type === 'EMERGENCY' && (
               <div className={`p-3 rounded-lg text-xs ${isDark ? 'bg-red-900/20 border border-red-700/40 text-red-300' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-                🔒 Emergency routing rule — cannot be edited. Managed by IETWatchdogWorkflow. Fires automatically at T-30s before IET deadline.
+               {msg('UI_NGCHROUTING_EMERGENCY_ROUTING_RULE_CANNOT_BE_2')}
               </div>
             )}
           </div>

@@ -1,3 +1,4 @@
+import { msg } from '../../../shared/messages'
 export default function FraudGauge({ score }) {
   const pct = Math.round(score * 100)
 
@@ -7,9 +8,9 @@ export default function FraudGauge({ score }) {
     : '#22c55e'
 
   const label =
-    score >= 0.80 ? 'HIGH RISK'
-    : score >= 0.72 ? 'REVIEW'
-    : 'LOW RISK'
+    score >= 0.80 ? msg('UI_FRAUDGAUGE_HIGH_RISK')
+    : score >= 0.72 ? msg('UI_FRAUDGAUGE_REVIEW_2')
+    : msg('UI_FRAUDGAUGE_LOW_RISK')
 
   // SVG arc gauge
   const r = 52
@@ -39,7 +40,7 @@ export default function FraudGauge({ score }) {
           {label}
         </text>
       </svg>
-      <div className="text-[10px] text-slate-500 uppercase tracking-widest -mt-1">Fraud Score</div>
+      <div className="text-[10px] text-slate-500 uppercase tracking-widest -mt-1">{msg('UI_COMMON_FRAUD_SCORE_2')}</div>
     </div>
   )
 }

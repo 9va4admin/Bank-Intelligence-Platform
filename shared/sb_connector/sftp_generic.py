@@ -12,6 +12,7 @@ from __future__ import annotations
 import structlog
 
 from shared.sb_connector.base import SBConnectorBase, SBSubmissionResult
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -99,12 +100,12 @@ class SFTPGenericConnector(SBConnectorBase):
 
     async def _sftp_connect(self) -> bool:
         """Open SFTP connection to the SB. Raises on failure."""
-        raise NotImplementedError("Requires asyncssh — inject via config_service in production")
+        raise NotImplementedError(get_message("PLATFORM_REQUIRES_ASYNCSSH_INJECT_VIA_CONFIG"))
 
     async def _sftp_upload(self, lot_file_path: str, session_id: str) -> str:
         """Upload lot file to SB SFTP drop folder. Returns SB reference string."""
-        raise NotImplementedError("Requires asyncssh — inject via config_service in production")
+        raise NotImplementedError(get_message("PLATFORM_REQUIRES_ASYNCSSH_INJECT_VIA_CONFIG"))
 
     async def _sftp_list_inward(self, session_id: str) -> list[dict]:
         """List inward instruments from SB inward folder. Returns list of dicts."""
-        raise NotImplementedError("Requires asyncssh — inject via config_service in production")
+        raise NotImplementedError(get_message("PLATFORM_REQUIRES_ASYNCSSH_INJECT_VIA_CONFIG"))

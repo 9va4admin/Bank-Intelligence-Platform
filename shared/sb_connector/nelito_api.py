@@ -12,6 +12,7 @@ from __future__ import annotations
 import structlog
 
 from shared.sb_connector.base import SBConnectorBase, SBSubmissionResult
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -109,12 +110,12 @@ class NelitApiConnector(SBConnectorBase):
     # ------------------------------------------------------------------ #
 
     async def _nelito_ping(self) -> bool:
-        raise NotImplementedError("Requires httpx client — inject via config_service in production")
+        raise NotImplementedError(get_message("PLATFORM_REQUIRES_HTTPX_CLIENT_INJECT_VIA"))
 
     async def _nelito_submit(
         self, lot_file_path: str, instrument_count: int, session_id: str
     ) -> dict:
-        raise NotImplementedError("Requires httpx client — inject via config_service in production")
+        raise NotImplementedError(get_message("PLATFORM_REQUIRES_HTTPX_CLIENT_INJECT_VIA"))
 
     async def _nelito_fetch_inward(self, session_id: str) -> list[dict]:
-        raise NotImplementedError("Requires httpx client — inject via config_service in production")
+        raise NotImplementedError(get_message("PLATFORM_REQUIRES_HTTPX_CLIENT_INJECT_VIA"))

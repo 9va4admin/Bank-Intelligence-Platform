@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { msg } from '../../../shared/messages'
 
 // Mock login events — SB user sees all (SB + SMB tenants), SMB user sees only own
 const MOCK_EVENTS = [
@@ -132,12 +133,12 @@ const VIEWER_BANK_TYPE = 'SB'
 const VIEWER_BANK_ID = 'hdfc-bank'
 
 const EVENT_TYPE_META = {
-  LOGIN_SUCCESS:  { label: 'Login',          darkCls: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50', lightCls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-  LOGIN_FAILED:   { label: 'Login Failed',   darkCls: 'bg-red-900/40 text-red-300 border-red-700/50',           lightCls: 'bg-red-100 text-red-700 border-red-300' },
-  LOGOUT:         { label: 'Logout',         darkCls: 'bg-slate-800 text-slate-300 border-slate-700',           lightCls: 'bg-slate-100 text-slate-600 border-slate-300' },
-  SESSION_EXPIRED:{ label: 'Session Expired',darkCls: 'bg-amber-900/40 text-amber-300 border-amber-700/50',     lightCls: 'bg-amber-100 text-amber-700 border-amber-300' },
-  TOTP_FAILED:    { label: 'TOTP Failed',    darkCls: 'bg-red-900/40 text-red-300 border-red-700/50',           lightCls: 'bg-red-100 text-red-700 border-red-300' },
-  FORCE_LOGOUT:   { label: 'Force Logout',   darkCls: 'bg-violet-900/40 text-violet-300 border-violet-700/50', lightCls: 'bg-violet-100 text-violet-700 border-violet-300' },
+  LOGIN_SUCCESS:  { label: msg('UI_LOGINLOG_LOGIN_2'),          darkCls: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50', lightCls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+  LOGIN_FAILED:   { label: msg('UI_LOGINLOG_LOGIN_FAILED_2'),   darkCls: 'bg-red-900/40 text-red-300 border-red-700/50',           lightCls: 'bg-red-100 text-red-700 border-red-300' },
+  LOGOUT:         { label: msg('UI_LOGINLOG_LOGOUT_3'),         darkCls: 'bg-slate-800 text-slate-300 border-slate-700',           lightCls: 'bg-slate-100 text-slate-600 border-slate-300' },
+  SESSION_EXPIRED:{ label: msg('UI_LOGINLOG_SESSION_EXPIRED_2'),darkCls: 'bg-amber-900/40 text-amber-300 border-amber-700/50',     lightCls: 'bg-amber-100 text-amber-700 border-amber-300' },
+  TOTP_FAILED:    { label: msg('UI_LOGINLOG_TOTP_FAILED_2'),    darkCls: 'bg-red-900/40 text-red-300 border-red-700/50',           lightCls: 'bg-red-100 text-red-700 border-red-300' },
+  FORCE_LOGOUT:   { label: msg('UI_LOGINLOG_FORCE_LOGOUT_2'),   darkCls: 'bg-violet-900/40 text-violet-300 border-violet-700/50', lightCls: 'bg-violet-100 text-violet-700 border-violet-300' },
 }
 
 function fmt(iso) {
@@ -199,27 +200,27 @@ export default function LoginLog() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         {/* Header */}
         <div className="mb-5">
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Login Log</h1>
+          <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_LOGINLOG_LOGIN_LOG_2')}</h1>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
             {isSB
-              ? 'Immutable audit trail of all login events across SB and sub-member banks'
-              : 'Immutable audit trail of login events for your institution'}
+              ? msg('UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_ALL_2')
+              : msg('UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_LOGIN_2')}
           </p>
         </div>
 
         {/* Read-only notice */}
         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border mb-5 text-[11px] ${isDark ? 'bg-amber-900/20 border-amber-700/40 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
           <span>🔒</span>
-          <span>This log is immutable — stored in Immudb with cryptographic verification. No entries can be edited or deleted.</span>
+          <span>{msg('UI_LOGINLOG_THIS_LOG_IS_IMMUTABLE_STORED_2')}</span>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Events', value: stats.total },
-            { label: 'Successful Logins', value: stats.success },
-            { label: 'Failed Attempts', value: stats.failed },
-            { label: 'Pending Immudb Verify', value: stats.unverified },
+            { label: msg('UI_LOGINLOG_TOTAL_EVENTS_2'), value: stats.total },
+            { label: msg('UI_LOGINLOG_SUCCESSFUL_LOGINS_2'), value: stats.success },
+            { label: msg('UI_LOGINLOG_FAILED_ATTEMPTS_2'), value: stats.failed },
+            { label: msg('UI_LOGINLOG_PENDING_IMMUDB_VERIFY_2'), value: stats.unverified },
           ].map(({ label, value }) => (
             <div key={label} className={`rounded-xl border px-4 py-3 ${th.card}`}>
               <div className={`text-[11px] ${th.muted}`}>{label}</div>
@@ -232,7 +233,7 @@ export default function LoginLog() {
         <div className="flex items-center gap-3 mb-4">
           <input
             type="text"
-            placeholder="Search user, email, bank…"
+            placeholder={msg('UI_LOGINLOG_SEARCH_USER_EMAIL_BANK_2')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className={`rounded-lg border px-3 py-2 text-xs w-56 ${th.input}`}
@@ -243,7 +244,7 @@ export default function LoginLog() {
             {['ALL', 'LOGIN_SUCCESS', 'LOGIN_FAILED', 'TOTP_FAILED', 'LOGOUT', 'SESSION_EXPIRED', 'FORCE_LOGOUT'].map(t => (
               <button key={t} onClick={() => setEventTypeFilter(t)}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${th.tab(eventTypeFilter === t)}`}>
-                {t === 'ALL' ? 'All Types' : EVENT_TYPE_META[t]?.label ?? t}
+                {t === 'ALL' ? msg('UI_LOGINLOG_ALL_TYPES_2') : EVENT_TYPE_META[t]?.label ?? t}
               </button>
             ))}
           </div>
@@ -254,13 +255,13 @@ export default function LoginLog() {
               {['ALL', 'SB', 'SMB'].map(t => (
                 <button key={t} onClick={() => setBankTypeFilter(t)}
                   className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${th.tab(bankTypeFilter === t)}`}>
-                  {t === 'ALL' ? 'All Banks' : t}
+                  {t === 'ALL' ? msg('UI_LOGINLOG_ALL_BANKS_2') : t}
                 </button>
               ))}
             </div>
           )}
 
-          <span className={`ml-auto text-[11px] ${th.muted}`}>{filtered.length} event{filtered.length !== 1 ? 's' : ''}</span>
+          <span className={`ml-auto text-[11px] ${th.muted}`}>{msg('UI_LOGINLOG_EVENT_3', { count: filtered.length, value: filtered.length !== 1 ? 's' : '' })}</span>
         </div>
 
         {/* Table */}
@@ -268,7 +269,7 @@ export default function LoginLog() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Time', 'User', isSB && 'Bank', 'Event', 'IP (hash)', 'Device', 'Immudb', ''].filter(Boolean).map(h => (
+                {[msg('UI_COMMON_TIME_2'), msg('UI_COMMON_USER'), isSB && msg('UI_COMMON_BANK_2'), msg('UI_LOGINLOG_EVENT_4'), msg('UI_LOGINLOG_IP_HASH_2'), msg('UI_LOGINLOG_DEVICE_2'), msg('UI_LOGINLOG_IMMUDB_2'), ''].filter(Boolean).map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -276,7 +277,7 @@ export default function LoginLog() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isSB ? 8 : 7} className={`px-4 py-8 text-center ${th.muted}`}>No events match the current filters</td>
+                  <td colSpan={isSB ? 8 : 7} className={`px-4 py-8 text-center ${th.muted}`}>{msg('UI_LOGINLOG_NO_EVENTS_MATCH_THE_CURRENT_2')}</td>
                 </tr>
               ) : filtered.map(ev => {
                 const meta = EVENT_TYPE_META[ev.event_type] ?? { label: ev.event_type, darkCls: th.pill, lightCls: th.pill }
@@ -306,8 +307,8 @@ export default function LoginLog() {
                     <td className={`px-4 py-3 max-w-[140px] truncate ${th.muted}`}>{ev.user_agent}</td>
                     <td className="px-4 py-3">
                       {ev.immudb_verified
-                        ? <span className={`text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ Verified</span>
-                        : <span className={`text-[10px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>⏳ Pending</span>}
+                        ? <span className={`text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{msg('UI_LOGINLOG_VERIFIED_2')}</span>
+                        : <span className={`text-[10px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{msg('UI_LOGINLOG_PENDING_2')}</span>}
                     </td>
                     <td className="px-4 py-3">
                       {ev.session_id && (
@@ -322,7 +323,7 @@ export default function LoginLog() {
         </div>
 
         <p className={`mt-3 text-[10px] ${th.muted}`}>
-          Records are cryptographically sealed in Immudb. Verified entries have been confirmed against the Merkle root.
+         {msg('UI_LOGINLOG_RECORDS_ARE_CRYPTOGRAPHICALLY_SEALED_2')}
         </p>
       </div>
     </AppShell>

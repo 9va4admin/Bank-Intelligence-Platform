@@ -227,6 +227,15 @@ export function findWording(source, filename = 'file.jsx') {
       const headerish = (attrName && /^(head|headers|columns|cols|headings|labels|titles)$/i.test(attrName)) ||
                         (varName && /(HEAD|HEADER|COLUMN|HEADING|TITLES|LABELS)S?$/i.test(varName))
       if (headerish) { n.elements.forEach(e => { if (HAS_WORD.test(e.value)) addLiteralSite(path, e, 'list') }); return }
+      // label tables: const ROUTE_LABELS = { '/cts': ['Inward Clearing', 'Validation IQ'] } and the like
+      {
+        let up = path.parentPath, decl = null
+        while (up && !decl) { if (up.node.type === 'VariableDeclarator') decl = up.node; else if (/^(ObjectProperty|ObjectExpression|ArrayExpression)$/.test(up.node.type)) up = up.parentPath; else break }
+        if (decl && decl.id.type === 'Identifier' && /LABEL|TITLE|COPY|TEXT|NAV|MENU|BREADCRUMB|HEADING|CAPTION|MESSAGE|DESC/i.test(decl.id.name) && n.elements.length >= 1) {
+          n.elements.forEach(e => { if (HAS_WORD.test(e.value)) addLiteralSite(path, e, 'list') })
+          return
+        }
+      }
       // any other const array of labels: convert when every use is `X.map(item => ...item as visible text only)`
       if (varName && n.elements.length >= 2 && n.elements.every(e => HAS_WORD.test(e.value))) {
         const binding = path.scope.getBinding(varName)
@@ -288,7 +297,8 @@ export function findWording(source, filename = 'file.jsx') {
       if (isChild || (attr && WORDING_ATTRS.has(attr))) {
         const text = node.type === 'StringLiteral' ? node.value : node.quasis.map(q => q.value.cooked ?? '').join('')
         if (/^(style|script|code|pre)$/.test(cur.parentPath.parentPath?.node?.openingElement?.name?.name ?? '')) return
-        if (node.type === 'StringLiteral' && !HAS_WORD.test(text) && !/^[A-Za-z]$/.test(text.trim() || '0')) return
+        if (node.type === 'StringLiteral' && !HAS_WORD.test(text)) return                       // a lone plural 's' is not a message
+        if (node.type === 'StringLiteral' && !/\s/.test(text.trim()) && /^[a-z0-9]+(-[a-z0-9]+)+$/.test(text.trim())) return   // demo-bank: an id
         if (isChild || plausible(text)) addLiteralSite(path, node, 'expr', { wrap: 'expr', force: isChild })
       }
       return
@@ -301,7 +311,10 @@ export function findWording(source, filename = 'file.jsx') {
     }
     if (chain > 0 && parent.type === 'ObjectProperty' && !parent.computed) {
       const k = parent.key.type === 'Identifier' ? parent.key.name : parent.key.value
-      if (k && isWordingKey(k)) addLiteralSite(path, node, 'expr')
+      const objCall = cur.parentPath.parentPath?.parentPath?.node
+      const inMsgCall = objCall && objCall.type === 'CallExpression' && objCall.callee.type === 'Identifier' && /^(msg|uiMsg)$/.test(objCall.callee.name)
+      const lonePlural = node.type === 'StringLiteral' && !HAS_WORD.test(node.value)       // 's' / '' after a count is not a message
+      if (k && !lonePlural && (isWordingKey(k) || inMsgCall)) addLiteralSite(path, node, 'expr', { force: inMsgCall })
       return
     }
     if (chain === 0 && parent.type !== 'ReturnStatement' && !(parent.type === 'ArrowFunctionExpression' && parent.body === cur.node)) return

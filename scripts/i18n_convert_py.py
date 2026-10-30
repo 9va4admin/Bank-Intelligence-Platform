@@ -35,11 +35,20 @@ SKIP_CALLS = {"Field", "Query", "Path", "Body", "Header", "Depends", "APIRouter"
 # keywords that carry machine text (queries, prompts, protocol fields), never wording
 TECH_KWARGS = {"sql", "query", "prompt", "system", "system_prompt", "content", "url", "path", "host", "key", "event", "event_type", "topic",
                "queue", "task_queue", "id", "workflow_id", "model", "regex", "pattern", "mode", "method", "media_type", "encoding", "name_prefix"}
-SQLISH = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|FROM|WHERE|AND|OR|ORDER)\b|\b(FROM|WHERE|JOIN|ILIKE)\b.*\$\d|WorkflowType\s*=|^You are |^Return only|^\s*\{|\n\n|^event:|^data:|^:\s|^(Bearer|Basic|attachment|inline)\b|^(application|text|multipart)/|^\s*<|^\s*[\[\(\d]")
+# calls whose string arguments are commands, paths, patterns or configuration, never wording
+NON_WORDING_CALLS = {"getenv", "environ", "Path", "urljoin", "run", "Popen", "system", "exec", "eval", "strptime", "strftime", "add_argument",
+                     "add_option", "ArgumentParser", "setdefault", "get", "pop", "hasattr", "getattr", "setattr", "isinstance", "issubclass",
+                     "literal_eval", "loads", "dumps", "safe_load", "load", "fromisoformat", "to_char", "make_interval", "set_attribute",
+                     "start_as_current_span", "labels", "inc", "observe", "Counter", "Gauge", "Histogram", "create_task", "wait_for", "sleep",
+                     "mkdir", "exists", "read_text", "write_text", "read_bytes", "write_bytes", "unlink", "rglob", "glob", "scan_iter", "hget",
+                     "hset", "set", "delete", "expire", "xadd", "xreadgroup", "xack", "publish", "subscribe", "register", "include_router",
+                     "add_middleware", "add_exception_handler", "mount", "TemplateResponse", "FileResponse", "StreamingResponse", "Response"}
+SQLISH = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|FROM|WHERE|AND|OR|ORDER)\b|\b(FROM|WHERE|JOIN|ILIKE)\b.*\$\d|WorkflowType\s*=|^You are |^Return only|^\s*\{|\n\n|^event:|^data:|^:\s|=\s*\$|\$\{|\$\d|\b(ILIKE|LIKE)\s+\$|^(Bearer|Basic|attachment|inline)\b|^(application|text|multipart)/|^\s*<|^\s*[\[\(\d]")
 # Services that ship on their own, without the repo's `shared` package (their image or edge install holds only their own files). They cannot
 # import shared.messages, so their text stays in their own code.
-STANDALONE_APPS = ("apps/sig_detector/", "apps/eeh/", "apps/ai_server/", "apps/ej_ingestion/", "apps/indic_ocr/")
-SKIP_FILES = ("apps/api/dev_auth_server.py", "apps/api/routers/demo_cloud_extract.py", "modules/cts/demo/pipeline.py")
+from shared.messages.service_bundle import SERVICES as SERVICE_LOADERS     # services that carry their own small bundle and loader
+STANDALONE_APPS = ("apps/ai_server/", "apps/ej_ingestion/", "apps/indic_ocr/")     # nothing to convert, or a separate toolchain
+SKIP_FILES = ("apps/api/dev_auth_server.py", "apps/api/routers/demo_cloud_extract.py")
 HAS_WORD = re.compile(r"[A-Za-z]{2,}")
 
 
@@ -73,7 +82,7 @@ RESERVED = {"key", "locale", "self"}          # get_message(key, locale=..., **v
 
 def unique(base: str, used: set) -> str:
     base = base if re.fullmatch(r"[A-Za-z_]\w*", base) else "value"
-    base = base.lstrip("_") or "value"                   # {_bank_id} is legal but reads as private; use the plain name
+    base = base.strip("_") or "value"                   # {_bank_id} is legal but reads as private; use the plain name
     if base in RESERVED:
         base = f"{base}_value"
     name, i = base, 2
@@ -170,6 +179,14 @@ class Finder(ast.NodeVisitor):
                     self.add(kw.value, "kwarg")
                 elif kw.arg and kw.arg not in TECH_KWARGS and isinstance(kw.value, (ast.Constant, ast.JoinedStr)) and self.phrase(kw.value):
                     self.add(kw.value, "kwarg")
+            if fname not in NON_WORDING_CALLS:
+                for arg in node.args:
+                    # a positional string is wording when it reads as a label or sentence (starts with a capital); lowercase ones are
+                    # internal classification keys
+                    if isinstance(arg, (ast.Constant, ast.JoinedStr)) and self.phrase(arg):
+                        t = self.text_of(arg)
+                        if t and re.match(r"[A-Z(À-ɏ]", t[0].strip()):
+                            self.add(arg, "arg")
         if is_log:
             return                                                     # log events are for developers
         self.generic_visit(node)
@@ -198,6 +215,26 @@ class Finder(ast.NodeVisitor):
             return False
         text = t[0]
         return " " in text.strip() and not SQLISH.search(text) and len(text) < 400
+
+    MESSAGE_NAME = re.compile(r"(msg|message|detail|reason|text|label|title|note|hint|warning|error|description|summary|status_text|caption|banner)", re.I)
+
+    def _assign(self, targets, value):
+        if self.in_decorator or not isinstance(value, (ast.Constant, ast.JoinedStr)) or not self.phrase(value):
+            return
+        for t in targets:
+            name = t.id if isinstance(t, ast.Name) else t.attr if isinstance(t, ast.Attribute) else ""
+            if name and self.MESSAGE_NAME.search(name) and not name.isupper():
+                self.add(value, "assign")
+                return
+
+    def visit_Assign(self, node):
+        self._assign(node.targets, node.value)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        if node.value is not None:
+            self._assign([node.target], node.value)
+        self.generic_visit(node)
 
     def visit_Return(self, node):
         if node.value is not None and not self.in_decorator:
@@ -303,7 +340,7 @@ for f in tracked_files():
     for st, en, rep in sorted(edits, reverse=True):
         out[st:en] = rep.encode()
     new_src = out.decode("utf-8")
-    if "from shared.messages import get_message" not in new_src and not re.search(r"^\s*from shared\.messages import [^\n]*get_message", new_src, re.M):
+    if not re.search(r"^\s*from [\w.]+ import [^\n]*\bget_message\b", new_src, re.M):
         body = tree.body
         last_imp = [n for n in body if isinstance(n, (ast.Import, ast.ImportFrom))]
         if last_imp:
@@ -312,7 +349,10 @@ for f in tracked_files():
             line_no = body[0].end_lineno if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant) else 0
         lines = new_src.split("\n")
         # edits can change line counts only on the edited lines, never above the last import
-        if "@workflow.defn" in src:            # the Temporal sandbox restricts imports: pass the read-only message registry through
+        service = next((d for d in SERVICE_LOADERS if f.startswith(d + "/")), None)
+        if service:                              # a standalone service: its own generated loader, never the shared package
+            lines.insert(line_no, f"from {SERVICE_LOADERS[service]} import get_message")
+        elif "@workflow.defn" in src:            # the Temporal sandbox restricts imports: pass the read-only message registry through
             lines[line_no:line_no] = ["with workflow.unsafe.imports_passed_through():", "    from shared.messages import get_message"]
         else:
             lines.insert(line_no, "from shared.messages import get_message")

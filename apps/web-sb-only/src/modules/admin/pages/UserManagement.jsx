@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -140,24 +141,24 @@ function CreateEditModal({ user, isDark, onClose, onSave }) {
     : 'px-4 py-1.5 rounded-lg text-[12px] border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors'
 
   return (
-    <Modal title={isEdit ? 'Edit User' : 'Create User'} onClose={onClose} isDark={isDark}>
+    <Modal title={isEdit ? msg('UI_USERMANAGEMENT_EDIT_USER_2') : msg('UI_USERMANAGEMENT_CREATE_USER_2')} onClose={onClose} isDark={isDark}>
       <div className="px-6 py-5 space-y-4">
 
-        <Field label="Display Name" isDark={isDark}>
+        <Field label={msg('UI_USERMANAGEMENT_DISPLAY_NAME_2')} isDark={isDark}>
           <input className={inputCls(isDark)} value={form.display_name} onChange={e => set('display_name', e.target.value)} />
         </Field>
 
-        <Field label="Email" isDark={isDark} hint={isEdit ? 'Email cannot be changed after creation.' : undefined}>
+        <Field label={msg('UI_USERMANAGEMENT_EMAIL_2')} isDark={isDark} hint={isEdit ? msg('UI_USERMANAGEMENT_EMAIL_CANNOT_BE_CHANGED_AFTER_2') : undefined}>
           <input className={inputCls(isDark)} type="email" value={form.email} onChange={e => set('email', e.target.value)} disabled={isEdit} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Role" isDark={isDark}>
+          <Field label={msg('UI_USERMANAGEMENT_ROLE_2')} isDark={isDark}>
             <select className={inputCls(isDark)} value={form.role} onChange={e => set('role', e.target.value)}>
               {SB_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
           </Field>
-          <Field label="Permission Level" isDark={isDark} hint="ADMIN includes all EDIT rights">
+          <Field label={msg('UI_USERMANAGEMENT_PERMISSION_LEVEL_2')} isDark={isDark} hint={msg('UI_USERMANAGEMENT_ADMIN_INCLUDES_ALL_EDIT_RIGHTS_2')}>
             <select className={inputCls(isDark)} value={form.permission_level} onChange={e => set('permission_level', e.target.value)}>
               {PERMISSION_LEVELS.map(p => <option key={p} value={p}>{PERM_LABELS[p]}</option>)}
             </select>
@@ -165,27 +166,27 @@ function CreateEditModal({ user, isDark, onClose, onSave }) {
         </div>
 
         {showZone && (
-          <Field label="Clearing Zone" isDark={isDark} hint="Required for ops_reviewer role">
+          <Field label={msg('UI_USERMANAGEMENT_CLEARING_ZONE')} isDark={isDark} hint={msg('UI_USERMANAGEMENT_REQUIRED_FOR_OPS_REVIEWER_ROLE')}>
             <select className={inputCls(isDark)} value={form.clearing_zone} onChange={e => set('clearing_zone', e.target.value)}>
-              <option value="">— select zone —</option>
+              <option value="">{msg('UI_USERMANAGEMENT_SELECT_ZONE')}</option>
               {VALID_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
             </select>
           </Field>
         )}
 
         {isEdit && (
-          <Field label="Status" isDark={isDark}>
+          <Field label={msg('UI_COMMON_STATUS_2')} isDark={isDark}>
             <label className={`flex items-center gap-2 text-sm ${body} cursor-pointer`}>
               <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="w-4 h-4 rounded" />
-              Active
+             {msg('UI_COMMON_ACTIVE_2')}
             </label>
           </Field>
         )}
       </div>
 
       <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        <button onClick={onClose} className={btnSec}>Cancel</button>
-        <button onClick={() => onSave(form)} className={btnPri}>{isEdit ? 'Save Changes' : 'Create User'}</button>
+        <button onClick={onClose} className={btnSec}>{msg('UI_COMMON_CANCEL_2')}</button>
+        <button onClick={() => onSave(form)} className={btnPri}>{isEdit ? msg('UI_USERMANAGEMENT_SAVE_CHANGES') : msg('UI_USERMANAGEMENT_CREATE_USER_2')}</button>
       </div>
     </Modal>
   )
@@ -208,45 +209,45 @@ function TOTPSetupModal({ user, isDark, onClose }) {
   const codeBg = isDark ? 'bg-navy-950 border border-white/10 text-emerald-400' : 'bg-slate-100 border border-slate-200 text-emerald-700'
 
   return (
-    <Modal title="Set Up TOTP Authenticator" onClose={onClose} isDark={isDark}>
+    <Modal title={msg('UI_USERMANAGEMENT_SET_UP_TOTP_AUTHENTICATOR_2')} onClose={onClose} isDark={isDark}>
       <div className="px-6 py-5">
         {step === 'setup' && (
           <div className="space-y-4">
-            <p className={`text-[12px] ${muted}`}>Scan this URI in Google Authenticator, Authy, or any TOTP app.</p>
+            <p className={`text-[12px] ${muted}`}>{msg('UI_USERMANAGEMENT_SCAN_THIS_URI_IN_GOOGLE_2')}</p>
             <div className={`rounded-xl p-4 font-mono text-[11px] break-all ${codeBg}`}>{otpauthUri}</div>
             <div className="space-y-1">
-              <p className={`text-[10px] ${muted}`}>Manual entry — Secret key (Base32):</p>
+              <p className={`text-[10px] ${muted}`}>{msg('UI_USERMANAGEMENT_MANUAL_ENTRY_SECRET_KEY_BASE32_2')}</p>
               <div className={`rounded-lg px-3 py-2 font-mono text-sm tracking-widest ${isDark ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-900'}`}>{demoBase32}</div>
             </div>
-            <p className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>⚠ Store this backup code securely. It cannot be shown again.</p>
+            <p className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{msg('UI_USERMANAGEMENT_STORE_THIS_BACKUP_CODE_SECURELY_2')}</p>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={onClose} className={btnSec}>Cancel</button>
-              <button onClick={() => setStep('confirm')} className={btnPri}>I've scanned it →</button>
+              <button onClick={onClose} className={btnSec}>{msg('UI_COMMON_CANCEL_2')}</button>
+              <button onClick={() => setStep('confirm')} className={btnPri}>{msg('UI_USERMANAGEMENT_I_VE_SCANNED_IT_2')}</button>
             </div>
           </div>
         )}
         {step === 'confirm' && (
           <div className="space-y-4">
-            <p className={`text-[12px] ${muted}`}>Enter the 6-digit code from your authenticator app to confirm setup.</p>
+            <p className={`text-[12px] ${muted}`}>{msg('UI_USERMANAGEMENT_ENTER_THE_6_DIGIT_CODE_2')}</p>
             <input
               className={`${inputCls(isDark)} text-center tracking-[0.5em] font-mono text-xl`}
               maxLength={6} value={code}
               onChange={e => { setCode(e.target.value.replace(/\D/g, '')); setVerified(null) }}
               placeholder="000000"
             />
-            {verified === false && <p className="text-[11px] text-red-400">Incorrect code. Try again.</p>}
+            {verified === false && <p className="text-[11px] text-red-400">{msg('UI_USERMANAGEMENT_INCORRECT_CODE_TRY_AGAIN_2')}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setStep('setup')} className={btnSec}>← Back</button>
-              <button onClick={() => { if (code.length === 6) { setVerified(true); setStep('done') } else setVerified(false) }} className={btnPri} disabled={code.length !== 6}>Verify & Activate</button>
+              <button onClick={() => setStep('setup')} className={btnSec}>{msg('UI_USERMANAGEMENT_BACK')}</button>
+              <button onClick={() => { if (code.length === 6) { setVerified(true); setStep('done') } else setVerified(false) }} className={btnPri} disabled={code.length !== 6}>{msg('UI_USERMANAGEMENT_VERIFY_ACTIVATE_2')}</button>
             </div>
           </div>
         )}
         {step === 'done' && (
           <div className="space-y-4 text-center py-4">
             <div className="text-4xl">✅</div>
-            <p className={`text-sm font-medium ${body}`}>TOTP Activated</p>
-            <p className={`text-[12px] ${muted}`}>{user.display_name} will now be prompted for a TOTP code on every login.</p>
-            <button onClick={onClose} className={btnPri + ' mx-auto block mt-4'}>Done</button>
+            <p className={`text-sm font-medium ${body}`}>{msg('UI_USERMANAGEMENT_TOTP_ACTIVATED_2')}</p>
+            <p className={`text-[12px] ${muted}`}>{msg('UI_USERMANAGEMENT_WILL_NOW_BE_PROMPTED_FOR_2', { display_name: user.display_name })}</p>
+            <button onClick={onClose} className={btnPri + ' mx-auto block mt-4'}>{msg('UI_USERMANAGEMENT_DONE_2')}</button>
           </div>
         )}
       </div>
@@ -263,7 +264,7 @@ function ConfirmModal({ title, message, confirmLabel, danger, isDark, onClose, o
     <Modal title={title} onClose={onClose} isDark={isDark}>
       <div className="px-6 py-5"><p className={`text-[13px] ${body}`}>{message}</p></div>
       <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        <button onClick={onClose} className={btnSec}>Cancel</button>
+        <button onClick={onClose} className={btnSec}>{msg('UI_COMMON_CANCEL_2')}</button>
         <button onClick={onConfirm} className={danger ? btnDanger : btnPri}>{confirmLabel}</button>
       </div>
     </Modal>
@@ -333,13 +334,13 @@ export default function UserManagement() {
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>User Management</h1>
-              <p className={`text-[11px] ${th.muted}`}>{activeCount} active · {totpCount} with TOTP · {users.length} users</p>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_APPSHELL_USER_MANAGEMENT')}</h1>
+              <p className={`text-[11px] ${th.muted}`}>{msg('UI_USERMANAGEMENT_ACTIVE_WITH_TOTP_USERS', { activeCount, totpCount, count: users.length })}</p>
             </div>
             <button
               onClick={() => setModal({ type: 'create' })}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-gold-400 hover:bg-gold-500 text-navy-950 transition-colors"
-            >+ New User</button>
+            >{msg('UI_USERMANAGEMENT_NEW_USER_2')}</button>
           </div>
         </div>
 
@@ -348,16 +349,16 @@ export default function UserManagement() {
           {/* Search + inline stats */}
           <div className="flex gap-3 items-center">
             <input
-              type="text" placeholder="Search name or email…"
+              type="text" placeholder={msg('UI_USERMANAGEMENT_SEARCH_NAME_OR_EMAIL_2')}
               value={search} onChange={e => setSearch(e.target.value)}
               className={`text-[12px] border rounded-lg px-3 py-1.5 flex-1 max-w-xs focus:outline-none focus:border-gold-400/40 transition-colors ${th.input}`}
             />
-            <span className={`text-[11px] ${th.muted}`}>{filtered.length} shown</span>
+            <span className={`text-[11px] ${th.muted}`}>{msg('UI_USERMANAGEMENT_SHOWN_2', { count: filtered.length })}</span>
             <div className={`h-4 w-px ${th.divider}`} />
             <span className={`text-[11px] ${th.muted}`}>
-              <span className={th.heading}>{activeCount}</span> active
+              <span className={th.heading}>{activeCount}</span> {msg('UI_USERMANAGEMENT_ACTIVE_3')}
               <span className="mx-1.5 opacity-40">·</span>
-              <span className={th.heading}>{totpCount}</span> with TOTP
+              <span className={th.heading}>{totpCount}</span> {msg('UI_USERMANAGEMENT_WITH_TOTP_2')}
               {users.length > 0 && <span className="opacity-60"> ({Math.round(totpCount / users.length * 100)}%)</span>}
             </span>
           </div>
@@ -368,7 +369,7 @@ export default function UserManagement() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className={`border-b ${th.divider}`}>
-                    {['User', 'Role', 'Permission', 'Zone', 'TOTP', 'Status', 'Last Login', 'Actions'].map(h => (
+                    {[msg('UI_COMMON_USER'), msg('UI_USERMANAGEMENT_ROLE_2'), msg('UI_USERMANAGEMENT_PERMISSION'), msg('UI_COMMON_ZONE'), 'TOTP', msg('UI_COMMON_STATUS_2'), msg('UI_USERMANAGEMENT_LAST_LOGIN'), msg('UI_COMMON_ACTIONS_2')].map(h => (
                       <th key={h} className={`px-4 py-2.5 text-left text-[10px] uppercase tracking-wide ${th.muted}`}>{h}</th>
                     ))}
                   </tr>
@@ -395,28 +396,28 @@ export default function UserManagement() {
                       </td>
                       <td className="px-4 py-3">
                         {u.totp_enabled
-                          ? <span className="text-[10px] text-emerald-400 font-medium">● On</span>
-                          : <span className={`text-[10px] ${th.muted}`}>○ Off</span>}
+                          ? <span className="text-[10px] text-emerald-400 font-medium">{msg('UI_USERMANAGEMENT_ON_2')}</span>
+                          : <span className={`text-[10px] ${th.muted}`}>{msg('UI_USERMANAGEMENT_OFF_2')}</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
                           u.is_active
                             ? (isDark ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/30' : 'bg-emerald-100 text-emerald-700 border-emerald-300')
                             : (isDark ? 'bg-slate-800 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-400 border-slate-200')
-                        }`}>{u.is_active ? 'Active' : 'Inactive'}</span>
+                        }`}>{u.is_active ? msg('UI_COMMON_ACTIVE_2') : msg('UI_USERMANAGEMENT_INACTIVE_2')}</span>
                       </td>
                       <td className={`px-4 py-3 text-[11px] ${th.muted} font-mono`}>{fmt(u.last_login)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2 justify-end">
-                          <button onClick={() => setModal({ type: 'edit', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>Edit</button>
+                          <button onClick={() => setModal({ type: 'edit', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>{msg('UI_COMMON_EDIT_2')}</button>
                           {!u.totp_enabled && u.is_active && (
-                            <button onClick={() => setModal({ type: 'totp_setup', user: u })} className="text-[10px] px-2.5 py-1 rounded border border-blue-700/40 text-blue-400 hover:text-blue-300 transition-colors">Setup TOTP</button>
+                            <button onClick={() => setModal({ type: 'totp_setup', user: u })} className="text-[10px] px-2.5 py-1 rounded border border-blue-700/40 text-blue-400 hover:text-blue-300 transition-colors">{msg('UI_USERMANAGEMENT_SETUP_TOTP_2')}</button>
                           )}
                           {u.totp_enabled && (
-                            <button onClick={() => setModal({ type: 'totp_reset', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-amber-700/40 text-amber-400 hover:text-amber-300' : 'border-amber-300 text-amber-600 hover:text-amber-700'}`}>Reset TOTP</button>
+                            <button onClick={() => setModal({ type: 'totp_reset', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-amber-700/40 text-amber-400 hover:text-amber-300' : 'border-amber-300 text-amber-600 hover:text-amber-700'}`}>{msg('UI_USERMANAGEMENT_RESET_TOTP_2')}</button>
                           )}
                           {u.is_active && (
-                            <button onClick={() => setModal({ type: 'deactivate', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-red-700/40 text-red-400 hover:text-red-300' : 'border-red-300 text-red-600 hover:text-red-700'}`}>Deactivate</button>
+                            <button onClick={() => setModal({ type: 'deactivate', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-red-700/40 text-red-400 hover:text-red-300' : 'border-red-300 text-red-600 hover:text-red-700'}`}>{msg('UI_USERMANAGEMENT_DEACTIVATE')}</button>
                           )}
                         </div>
                       </td>
@@ -427,10 +428,10 @@ export default function UserManagement() {
                       <td colSpan={8} className={`px-4 py-12 text-center ${th.muted}`}>
                         <div className="text-2xl mb-2 opacity-30">👤</div>
                         <div className={`text-[12px] font-medium ${th.body} mb-1`}>
-                          {search ? `No users match "${search}"` : 'No users yet'}
+                          {search ? msg('UI_USERMANAGEMENT_NO_USERS_MATCH_2', { search }) : msg('UI_USERMANAGEMENT_NO_USERS_YET_2')}
                         </div>
                         <div className={`text-[11px] ${th.muted}`}>
-                          {search ? 'Try a different name or email.' : 'Create the first user with the button above.'}
+                          {search ? msg('UI_USERMANAGEMENT_TRY_A_DIFFERENT_NAME_OR_2') : msg('UI_USERMANAGEMENT_CREATE_THE_FIRST_USER_WITH_2')}
                         </div>
                       </td>
                     </tr>
@@ -454,10 +455,10 @@ export default function UserManagement() {
       )}
       {modal?.type === 'totp_setup' && <TOTPSetupModal user={modal.user} isDark={isDark} onClose={closeModal} />}
       {modal?.type === 'totp_reset' && (
-        <ConfirmModal title="Reset TOTP" message={`This will disable TOTP for ${modal.user.display_name}. They will be able to log in without a second factor until TOTP is set up again. Proceed?`} confirmLabel="Reset TOTP" danger isDark={isDark} onClose={closeModal} onConfirm={() => handleResetTOTP(modal.user)} />
+        <ConfirmModal title={msg('UI_USERMANAGEMENT_RESET_TOTP_2')} message={msg('UI_USERMANAGEMENT_THIS_WILL_DISABLE_TOTP_FOR_2', { display_name: modal.user.display_name })} confirmLabel={msg('UI_USERMANAGEMENT_RESET_TOTP_2')} danger isDark={isDark} onClose={closeModal} onConfirm={() => handleResetTOTP(modal.user)} />
       )}
       {modal?.type === 'deactivate' && (
-        <ConfirmModal title="Deactivate User" message={`${modal.user.display_name} (${modal.user.email}) will no longer be able to log in. This action is reversible via Edit.`} confirmLabel="Deactivate" danger isDark={isDark} onClose={closeModal} onConfirm={() => handleDeactivate(modal.user)} />
+        <ConfirmModal title={msg('UI_USERMANAGEMENT_DEACTIVATE_USER_2')} message={msg('UI_USERMANAGEMENT_WILL_NO_LONGER_BE_ABLE_2', { display_name: modal.user.display_name, email: modal.user.email })} confirmLabel={msg('UI_USERMANAGEMENT_DEACTIVATE')} danger isDark={isDark} onClose={closeModal} onConfirm={() => handleDeactivate(modal.user)} />
       )}
     </AppShell>
   )

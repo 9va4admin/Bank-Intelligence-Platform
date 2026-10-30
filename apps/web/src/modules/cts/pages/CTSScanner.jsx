@@ -574,7 +574,7 @@ export default function CTSScanner() {
         <div className={`border rounded-xl overflow-hidden ${th.card}`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
             <span className={`text-sm font-medium ${th.heading}`}>{uiMsg('UI_SCANNER_KAFKA_TOPICS_OUTWARD_CLEARING')}</span>
-            <span className={`text-[10px] ${th.faint}`}>{uiMsg('UI_SCANNER_BANK_ID_REDIS_CTS_CLUSTER', { value: bankId ?? 'demo-bank' })}</span>
+            <span className={`text-[10px] ${th.faint}`}>{uiMsg('UI_SCANNER_BANK_ID_REDIS_CTS_CLUSTER', { value: bankId ?? uiMsg('UI_SCANNER_DEMO_BANK') })}</span>
           </div>
           <div className="grid grid-cols-3 divide-x" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }}>
             {KAFKA_TOPICS(bankId ?? 'demo-bank').map(t => {
@@ -746,7 +746,7 @@ export default function CTSScanner() {
                     )
                   })}
                   <div className={`px-3 py-2 text-[9px] ${th.faint}`}>
-                   {uiMsg('UI_SCANNER_REDIS_KEY_LOT_LOT_MAX', { value: bankId ?? 'demo-bank' })}
+                   {uiMsg('UI_SCANNER_REDIS_KEY_LOT_LOT_MAX', { value: bankId ?? uiMsg('UI_SCANNER_DEMO_BANK') })}
                   </div>
                 </div>
               )}
@@ -797,11 +797,11 @@ export default function CTSScanner() {
             ))}
           </div>
           <div className={`pt-3 border-t ${th.divider} text-[10px] ${th.faint}`}>
-            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_SCANNED', { value: bankId ?? '{bank_id}' })}</span>
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_SCANNED', { value: bankId ?? uiMsg('UI_SCANNER_TEXT', { bank_id: '{bank_id}' }) })}</span>
             {' → '}
-            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_LOT_SEALED', { value: bankId ?? '{bank_id}' })}</span>
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_LOT_SEALED', { value: bankId ?? uiMsg('UI_SCANNER_TEXT', { bank_id: '{bank_id}' }) })}</span>
             {' → '}
-            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_SUBMITTED', { value: bankId ?? '{bank_id}' })}</span>
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_SUBMITTED', { value: bankId ?? uiMsg('UI_SCANNER_TEXT', { bank_id: '{bank_id}' }) })}</span>
             {uiMsg('UI_SCANNER_REDIS')}
             <span className="font-mono">{uiMsg('UI_SCANNER_REDIS_CTS')}</span>
             {uiMsg('UI_SCANNER_BLAST_ISOLATED_CTS_CLUSTER_AUDIT')}

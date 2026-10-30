@@ -12,6 +12,7 @@ import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
 import ChequeImageViewer from './ChequeImageViewer'
 import { getReturnReasons, getReasonByLabel } from '../data/returnReasons'
+import { msg } from '../../../shared/messages'
 
 const RECENT_KEY = 'astra-recent-return-reasons'
 const getRecentReasons = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] } }
@@ -41,18 +42,18 @@ function ExtractionPopover({ meta, isDark, onClose }) {
   const confColor = confPct >= 92 ? 'text-emerald-400' : confPct >= 80 ? 'text-amber-400' : 'text-red-400'
   return (
     <div ref={ref} className={`absolute z-50 bottom-full mb-1 left-0 w-64 rounded-xl border shadow-2xl p-3 text-[11px] ${isDark ? 'bg-navy-900 border-white/15' : 'bg-white border-slate-200'}`}>
-      <div className={`text-[9px] uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>AI Extraction Detail</div>
+      <div className={`text-[9px] uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_AI_EXTRACTION_DETAIL_3')}</div>
       <div className="space-y-1.5">
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Extracted by</span>
-          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? 'GOT-OCR2.0'}</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_EXTRACTED_BY_2')}</span>
+          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? msg('UI_COMMON_GOT_OCR2_0')}</span>
         </div>
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Raw value</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_RAW_VALUE_2')}</span>
           <span className={`font-mono font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{String(meta?.extracted_value ?? '—')}</span>
         </div>
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Confidence</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_COMMON_CONFIDENCE_2')}</span>
           <span className={`font-mono font-semibold ${confColor}`}>{confPct}%</span>
         </div>
       </div>
@@ -64,10 +65,10 @@ function ExtractionPopover({ meta, isDark, onClose }) {
 
 function SourceBadge({ source, isDark }) {
   if (source === 'STP') return (
-    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>STP</span>
+    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>{msg('UI_COMMON_STP_2')}</span>
   )
   return (
-    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>MANUAL</span>
+    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>{msg('UI_COMMON_MANUAL_2')}</span>
   )
 }
 
@@ -76,7 +77,7 @@ function SourceBadge({ source, isDark }) {
 function VerifyFieldRow({ label, fieldKey, meta, isDark }) {
   const [open, setOpen] = useState(false)
   const isBoolean = typeof meta?.extracted_value === 'boolean'
-  const val = isBoolean ? (meta.actual_value ? '⚠ DETECTED' : '✓ None') : String(meta?.actual_value ?? meta?.extracted_value ?? '—')
+  const val = isBoolean ? (meta.actual_value ? msg('UI_OUTWARDREVIEWPANEL_DETECTED_2') : msg('UI_COMMON_NONE')) : String(meta?.actual_value ?? meta?.extracted_value ?? '—')
   return (
     <div className="flex flex-col relative">
       <div className="flex items-center gap-1">
@@ -112,16 +113,16 @@ function SigPanel({ item, isDark }) {
   if (!item.sig_specimen_available) {
     return (
       <div className="rounded-xl border border-purple-400/30 bg-purple-400/5 p-4">
-        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Signature Verification</div>
+        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">{msg('UI_REVIEWPANEL_SIGNATURE_VERIFICATION_2')}</div>
         <div className="flex items-center gap-3 mb-3">
           <span className="text-2xl">🔍</span>
           <div>
-            <div className="text-sm font-semibold text-purple-300">No Specimen On File</div>
+            <div className="text-sm font-semibold text-purple-300">{msg('UI_REVIEWPANEL_NO_SPECIMEN_ON_FILE_2')}</div>
             <div className={`text-xs mt-0.5 ${muted}`}>{item.sig_specimen_label}</div>
           </div>
         </div>
         <div className={`text-xs ${isDark ? 'bg-white/5' : 'bg-slate-50'} rounded-lg p-3 ${muted}`}>
-          Vault miss — no specimen for {item.account_display}. Auto-return is <span className="text-purple-300 font-medium">never</span> permitted.
+         {msg('UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_FOR_2', { account_display: item.account_display })} <span className="text-purple-300 font-medium">{msg('UI_REVIEWPANEL_NEVER_2')}</span> {msg('UI_REVIEWPANEL_PERMITTED_2')}
         </div>
       </div>
     )
@@ -135,18 +136,18 @@ function SigPanel({ item, isDark }) {
       <div className="flex items-center gap-4">
         <div className="shrink-0 flex items-baseline gap-1">
           <span className={`text-2xl font-bold font-mono ${color}`}>{matchPct}%</span>
-          <span className="text-[10px] text-slate-500">match</span>
+          <span className="text-[10px] text-slate-500">{msg('UI_REVIEWPANEL_MATCH_2')}</span>
         </div>
         <div className="flex-1 space-y-1">
           <div className={`h-1.5 ${isDark ? 'bg-white/5' : 'bg-slate-100'} rounded-full overflow-hidden`}>
             <div className={`h-full rounded-full ${barColor}`} style={{ width: `${matchPct}%` }} />
           </div>
           <div className={`flex justify-between text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-            <span>0%</span><span>threshold 85%</span><span>100%</span>
+            <span>0%</span><span>{msg('UI_REVIEWPANEL_THRESHOLD_85_2')}</span><span>100%</span>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest">Siamese SNN</div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest">{msg('UI_REVIEWPANEL_SIAMESE_SNN_2')}</div>
           <div className="text-[10px] text-slate-500">{item.sig_specimen_label}</div>
         </div>
       </div>
@@ -175,7 +176,7 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
         className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none ${sel}`}
       >
         <span className={`truncate flex items-center gap-2 min-w-0 ${returnReason ? '' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-          <span className="truncate">{returnReason || 'Select Return Reason…'}</span>
+          <span className="truncate">{returnReason || msg('UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON_2')}</span>
           {selectedEntry && (
             <span className={`shrink-0 text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border ${selectedEntry.customerFault ? (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700') : (isDark ? 'bg-sky-900/40 border-sky-700/50 text-sky-300' : 'bg-sky-100 border-sky-300 text-sky-700')}`}>{selectedEntry.code}</span>
           )}
@@ -185,14 +186,14 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
       {open && (
         <div className={`absolute bottom-full mb-1 left-0 right-0 z-50 rounded-lg border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
           <div className={`px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reasons…"
+            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={msg('UI_OUTWARDREVIEWPANEL_SEARCH_REASONS_2')}
               className={`w-full text-xs bg-transparent outline-none ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
             />
           </div>
           <div className="max-h-52 overflow-y-auto">
             {!search && getRecentReasons().length > 0 && (
               <div>
-                <div className={`px-3 pt-2 pb-1 text-[9px] uppercase font-semibold tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Recent</div>
+                <div className={`px-3 pt-2 pb-1 text-[9px] uppercase font-semibold tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_RECENT_2')}</div>
                 {getRecentReasons().map(r => (
                   <button key={r} type="button" onMouseDown={() => { setReturnReason(r); setOpen(false) }}
                     className={`w-full text-left px-3 py-2 text-xs transition-colors ${isDark ? 'hover:bg-white/5 text-amber-400' : 'hover:bg-amber-50 text-amber-600'}`}
@@ -258,7 +259,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   if (!item) {
     return (
       <div className={`flex-1 flex items-center justify-center text-sm ${th.lbl}`}>
-        <div className="text-center"><div className="text-4xl mb-3">📋</div><div>Select a cheque to verify</div></div>
+        <div className="text-center"><div className="text-4xl mb-3">📋</div><div>{msg('UI_OUTWARDREVIEWPANEL_SELECT_A_CHEQUE_TO_VERIFY_2')}</div></div>
       </div>
     )
   }
@@ -271,9 +272,9 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const minsLeft    = Math.max(0, Math.round(remainingMs / 60000))
 
   const cheqViews = [
-    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
-    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
-    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+    { key: 'BFB', label: msg('UI_COMMON_FRONT_B_W_2'),  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+    { key: 'BBB', label: msg('UI_COMMON_BACK_B_W_2'),   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+    { key: 'BFG', label: msg('UI_COMMON_FRONT_GRAY_2'), url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
   ]
 
   const ocrFieldDefs = [
@@ -299,7 +300,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {item.principal_tag === 'SUB_MEMBER' && (
         <div className={`px-6 py-1.5 flex items-center gap-2 border-b text-[11px] font-medium ${isDark ? 'bg-amber-400/5 border-amber-400/20 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
-          <span className="font-semibold">SUB-MEMBER</span>
+          <span className="font-semibold">{msg('UI_QUEUECARD_SUB_MEMBER_2')}</span>
           <span className="opacity-60">·</span>
           <span>{item.sub_member_name}</span>
         </div>
@@ -334,9 +335,9 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         <div className="flex items-center gap-3 py-1.5">
           {[
             { label: 'OCR',   pct: item.ocr_confidence,                      bar: item.ocr_confidence >= 0.92 ? 'bg-emerald-500' : item.ocr_confidence >= 0.80 ? 'bg-amber-400' : 'bg-red-400' },
-            { label: 'Sig',   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
-            { label: 'Fraud', pct: item.fraud_score,                          bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500' },
-            { label: 'IET',   pct: ietPct, display: `${minsLeft}m`,           bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400' },
+            { label: msg('UI_COMMON_SIG'),   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
+            { label: msg('UI_COMMON_FRAUD_2'), pct: item.fraud_score,                          bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500' },
+            { label: 'IET',   pct: ietPct, display: msg('UI_REVIEWPANEL_M_2', { minsLeft }),           bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400' },
           ].map(({ label, pct, bar, display }) => (
             <div key={label} className="flex items-center gap-1.5">
               <span className={`text-[9px] font-semibold uppercase tracking-wider ${th.lbl} w-6`}>{label}</span>
@@ -364,17 +365,17 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${reasonColor}`}>
               <span className="text-base mt-0.5">⚠</span>
               <div>
-                <div className="text-xs font-semibold">Flagged: {item.reason_label}</div>
+                <div className="text-xs font-semibold">{msg('UI_REVIEWPANEL_FLAGGED_2', { reason_label: item.reason_label })}</div>
                 <div className="text-[11px] opacity-70 mt-0.5">
-                  {item.reason === 'VAULT_MISS' ? 'Vault miss — no specimen on file. Auto-return is never permitted.' : 'AI confidence below threshold — manual verification required before IET.'}
+                  {item.reason === 'VAULT_MISS' ? msg('UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_ON_2') : msg('UI_REVIEWPANEL_AI_CONFIDENCE_BELOW_THRESHOLD_MANUAL_2')}
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'OCR',       val: `${Math.round(item.ocr_confidence * 100)}%`,       sub: 'confidence', color: th.heading },
-                { label: 'Signature', val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : 'vault miss', color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
-                { label: 'Fraud',     val: `${Math.round(item.fraud_score * 100)}%`,           sub: 'risk score',  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
+                { label: msg('UI_COMMON_SIGNATURE_2'), val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : msg('UI_REVIEWPANEL_VAULT_MISS_2'), color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
+                { label: msg('UI_COMMON_FRAUD_2'),     val: `${Math.round(item.fraud_score * 100)}%`,           sub: msg('UI_REVIEWPANEL_RISK_SCORE_2'),  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
               ].map(({ label, val, sub, color }) => (
                 <div key={label} className={`rounded-xl p-3 text-center ${th.glass}`}>
                   <div className={`text-[10px] ${th.lbl} uppercase tracking-wide mb-0.5`}>{label}</div>
@@ -384,7 +385,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               ))}
             </div>
             <div className={`rounded-xl p-4 ${th.glass}`}>
-              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>OCR Fields · click ⓘ for AI detail</div>
+              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>{msg('UI_REVIEWPANEL_OCR_FIELDS_CLICK_FOR_AI_2')}</div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {ocrFieldDefs.map(([label, key]) => (
                   <VerifyFieldRow key={key} label={label} fieldKey={key}
@@ -407,7 +408,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             <div className="flex items-center gap-4">
               <FraudGauge score={item.fraud_score} />
               <div className={`flex-1 rounded-xl p-4 space-y-2 ${th.glass}`}>
-                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>Model Stack</div>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>{msg('UI_REVIEWPANEL_MODEL_STACK_2')}</div>
                 {[['OCR','GOT-OCR2.0',item.ocr_confidence],['Vision','Qwen2-VL 72B',0.94],['Signature','Siamese SNN',item.sig_match_score??0],['Fraud','XGBoost',item.fraud_score]].map(([lbl,model,score]) => (
                   <div key={lbl} className="flex items-center gap-3">
                     <span className={`text-[10px] ${th.lbl} w-16`}>{lbl}</span>
@@ -425,20 +426,20 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             </div>
             {item.security_features && (
               <div className={`rounded-xl p-4 ${th.glass}`}>
-                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Security Print Features</div>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>{msg('UI_OUTWARDREVIEWPANEL_SECURITY_PRINT_FEATURES_2')}</div>
                 <div className="space-y-2">
                   {[
-                    { label: 'Void Pantograph',       key: 'void_pantograph'      },
-                    { label: '₹ Symbol',              key: 'rupee_symbol'         },
-                    { label: 'Micro-lettering',       key: 'micro_lettering'      },
-                    { label: 'Printer CTS-2010',      key: 'printer_name_cts2010' },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_VOID_PANTOGRAPH_2'),       key: 'void_pantograph'      },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_SYMBOL_2'),              key: 'rupee_symbol'         },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_MICRO_LETTERING_2'),       key: 'micro_lettering'      },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_PRINTER_CTS_2010_2'),      key: 'printer_name_cts2010' },
                   ].map(({ label, key }) => {
                     const ok = item.security_features[key] === true
                     return (
                       <div key={key} className="flex items-center justify-between text-[11px]">
                         <span className={th.lbl}>{label}</span>
                         <span className={`font-mono font-semibold ${ok ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
-                          {ok ? '✓ Present' : '⚠ Missing'}
+                          {ok ? msg('UI_OUTWARDREVIEWPANEL_PRESENT_2') : msg('UI_OUTWARDREVIEWPANEL_MISSING_2')}
                         </span>
                       </div>
                     )
@@ -451,7 +452,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
 
         {tab === 'passport' && (
           <div className={`rounded-xl p-4 ${th.glass}`}>
-            <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Instrument Metadata</div>
+            <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>{msg('UI_REVIEWPANEL_INSTRUMENT_METADATA_2')}</div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
               {[
                 ['Instrument ID', item.instrument_id], ['Clearing Zone', item.clearing_zone],
@@ -475,10 +476,10 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
         <button onClick={handleReturn} disabled={!returnReason || submitting}
           className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-        >{submitting ? 'Filing…' : '✕ Return'}</button>
+        >{submitting ? msg('UI_OUTWARDREVIEWPANEL_FILING_2') : msg('UI_OUTWARDREVIEWPANEL_RETURN_2')}</button>
         <button onClick={handleApprove} disabled={submitting}
           className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
-        >Approve → Validation IQ</button>
+        >{msg('UI_REVIEWPANEL_APPROVE_VALIDATION_IQ_2')}</button>
       </div>
     </div>
   )
