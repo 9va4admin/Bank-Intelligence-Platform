@@ -703,25 +703,17 @@ TEMPLATES: dict[str, str] = {
         "INSERT_ONLY,00112233445566,000001,000050,2026-08-01,MUM001,FIN-2026-00441\n"
     ),
     "LEAF_STATUS": (
-        "action,account_number,cheque_number,new_status,"
-        "reason,reported_by,effective_date\n"
-        "INSERT_ONLY,00112233445566,000023,LOST,"
-        "Purse stolen at railway station,Ramesh Kumar,2026-08-15\n"
+        get_message("CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER")
     ),
     "ACCOUNT_DETAIL": (
-        "action,account_number,holder_seq,holder_name,role,pan_last4\n"
-        "UPSERT,00112233445566,1,Ramesh Balkrishna Kumar,PRIMARY,8765\n"
-        "UPSERT,00112233445566,2,Sunita Ramesh Kumar,JOINT,2341\n"
+        get_message("CTS_ACTION_ACCOUNT_NUMBER_HOLDER_SEQ")
     ),
     "SIGNATURE": (
         "action,account_number,signatory_id,mandate_rule,quorum_n\n"
         "UPSERT,00112233445566,SIG001,ANY_ONE,\n"
     ),
     "PPS": (
-        "action,account_number,cheque_number,cheque_date,amount,payee_name,"
-        "registration_channel,cbs_pps_ref,npci_flag\n"
-        "INSERT_ONLY,00112233445566,000101,2026-08-20,50000.00,"
-        "Mahindra Finance Ltd,NET_BANKING,,\n"
+        get_message("CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER_2")
     ),
 }
 

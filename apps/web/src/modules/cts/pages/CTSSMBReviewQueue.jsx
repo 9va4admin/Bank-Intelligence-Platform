@@ -69,7 +69,7 @@ const SMB_MOCK_ITEMS = [
 ]
 
 function formatSponsorLabel(sponsorBankId) {
-  if (!sponsorBankId) return 'Sponsor Bank'
+  if (!sponsorBankId) return msg('UI_SMBREVIEWQUEUE_SPONSOR_BANK')
   return sponsorBankId
     .replace(/-/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase())
@@ -154,7 +154,7 @@ export default function CTSSMBReviewQueue() {
             : isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
         }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${pending.length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-          {pending.length > 0 ? `${pending.length} awaiting review` : 'Queue clear'}
+          {pending.length > 0 ? msg('UI_SMBREVIEWQUEUE_AWAITING_REVIEW', { count: pending.length }) : msg('UI_SMBREVIEWQUEUE_QUEUE_CLEAR_2')}
         </div>
       </div>
     ),
@@ -246,7 +246,7 @@ export default function CTSSMBReviewQueue() {
                         <span className={`text-[10px] font-semibold ${
                           item.status === 'CONFIRMED' ? 'text-emerald-500' : 'text-red-500'
                         }`}>
-                          {item.status === 'CONFIRMED' ? '✓ Confirmed' : '✕ Returned'}
+                          {item.status === 'CONFIRMED' ? msg('UI_COMMON_CONFIRMED_2') : msg('UI_SMBREVIEWQUEUE_RETURNED')}
                         </span>
                       </div>
                     </div>
@@ -311,7 +311,7 @@ export default function CTSSMBReviewQueue() {
                       >
                         <div className="flex items-center justify-between">
                           <span className={`text-[10px] font-semibold ${d.action === 'CONFIRM' ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {d.action === 'CONFIRM' ? '✓ Confirmed' : '✕ Returned'}
+                            {d.action === 'CONFIRM' ? msg('UI_COMMON_CONFIRMED_2') : msg('UI_SMBREVIEWQUEUE_RETURNED')}
                           </span>
                           <span className={`text-[9px] font-mono ${th.faint}`}>{d.ts}</span>
                         </div>

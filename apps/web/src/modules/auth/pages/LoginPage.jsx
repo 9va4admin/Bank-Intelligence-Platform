@@ -447,7 +447,7 @@ export default function LoginPage() {
                     />
                   </div>
                   <button type="submit" className="lp-btn" disabled={busy}>
-                    {busy ? 'Signing in…' : 'Sign in →'}
+                    {busy ? msg('UI_LOGINPAGE_SIGNING_IN') : msg('UI_LOGINPAGE_SIGN_IN')}
                   </button>
                 </form>
               )}
@@ -472,7 +472,7 @@ export default function LoginPage() {
                     className="lp-btn"
                     disabled={busy || code.length !== 6}
                   >
-                    {busy ? 'Verifying…' : 'Verify →'}
+                    {busy ? msg('UI_LOGINPAGE_VERIFYING') : msg('UI_LOGINPAGE_VERIFY')}
                   </button>
                   <button
                     type="button"
@@ -535,7 +535,7 @@ export default function LoginPage() {
                     className="lp-btn"
                     disabled={busy || code.length !== 6}
                   >
-                    {busy ? 'Confirming…' : 'Confirm & finish →'}
+                    {busy ? msg('UI_LOGINPAGE_CONFIRMING') : msg('UI_LOGINPAGE_CONFIRM_FINISH')}
                   </button>
                 </form>
               )}

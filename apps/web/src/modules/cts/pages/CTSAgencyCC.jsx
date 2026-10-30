@@ -83,7 +83,7 @@ const MOCK_SB_CONNECTIONS = [
     last_tested_at: '2026-07-04T18:30:00Z',
     last_test_latency_ms: null,
     smb_count: 1,
-    error_message: 'SFTP timeout — host unreachable',
+    error_message: msg('UI_AGENCYCC_SFTP_TIMEOUT_HOST_UNREACHABLE'),
   },
 ]
 
@@ -264,7 +264,7 @@ function SBConnectionCard({ conn, isDark }) {
               ? (isDark ? 'text-emerald-400 border-emerald-700/50 bg-emerald-900/30' : 'text-emerald-700 border-emerald-300 bg-emerald-50')
               : (isDark ? 'text-red-400 border-red-700/50 bg-red-900/30' : 'text-red-700 border-red-300 bg-red-50')
           }`}>
-            {conn.is_active ? 'ACTIVE' : 'DOWN'}
+            {conn.is_active ? msg('UI_AGENCYCC_ACTIVE') : msg('UI_AGENCYCC_DOWN')}
           </span>
         </div>
       </div>
@@ -379,7 +379,7 @@ export default function CTSAgencyCC() {
   const exceptionSessions = SESSIONS_DATA.filter(s => s.status === 'EXCEPTION').length
   const activeSBs = SB_CONNECTIONS.filter(c => c.is_active).length
 
-  const TABS = ['SB Connections', 'Clearing Sessions', 'Inward Relay', 'SMB Push Sessions']
+  const TABS = [msg('UI_AGENCYCC_SB_CONNECTIONS'), msg('UI_AGENCYCC_CLEARING_SESSIONS'), msg('UI_AGENCYCC_INWARD_RELAY'), msg('UI_AGENCYCC_SMB_PUSH_SESSIONS')]
 
   const PUSH_OUTCOME_D = {
     VAULT_UPDATED:     'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',

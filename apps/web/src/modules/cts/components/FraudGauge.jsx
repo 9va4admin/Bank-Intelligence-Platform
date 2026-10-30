@@ -8,9 +8,9 @@ export default function FraudGauge({ score }) {
     : '#22c55e'
 
   const label =
-    score >= 0.80 ? 'HIGH RISK'
-    : score >= 0.72 ? 'REVIEW'
-    : 'LOW RISK'
+    score >= 0.80 ? msg('UI_DECISIONSLOG_HIGH_RISK')
+    : score >= 0.72 ? msg('UI_FRAUDGAUGE_REVIEW')
+    : msg('UI_DECISIONSLOG_LOW_RISK')
 
   // SVG arc gauge
   const r = 52

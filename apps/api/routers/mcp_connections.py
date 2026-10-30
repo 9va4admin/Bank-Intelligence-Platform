@@ -79,7 +79,7 @@ def _validate_ssrf_url(url: str) -> Optional[str]:
     try:
         parsed = urlparse(url)
     except Exception:
-        return "Malformed URL"
+        return get_message("API_MALFORMED_URL")
 
     if parsed.scheme not in ("http", "https"):
         return None  # non-HTTP schemes — not reachable via httpx, no SSRF vector
@@ -87,26 +87,26 @@ def _validate_ssrf_url(url: str) -> Optional[str]:
     host = (parsed.hostname or "").lower().strip("[]")  # strip IPv6 brackets
 
     if not host:
-        return "Missing host in URL"
+        return get_message("API_MISSING_HOST_IN_URL")
 
     # Loopback
     if host in ("localhost", "127.0.0.1", "::1"):
-        return f"Loopback host not allowed: {host}"
+        return get_message("API_LOOPBACK_HOST_NOT_ALLOWED", host=host)
 
     # Known ASTRA Kubernetes service names
     if host in _BLOCKED_K8S_NAMES:
-        return f"ASTRA-internal service hostname not allowed: {host}"
+        return get_message("API_ASTRA_INTERNAL_SERVICE_HOSTNAME_NOT", host=host)
 
     # Kubernetes cluster-internal DNS suffixes
     if any(host.endswith(suffix) for suffix in _BLOCKED_CLUSTER_SUFFIXES):
-        return f"Kubernetes cluster-internal hostname not allowed: {host}"
+        return get_message("API_KUBERNETES_CLUSTER_INTERNAL_HOSTNAME", host=host)
 
     # Private/link-local IP ranges
     try:
         ip = ipaddress.ip_address(host)
         for net in _BLOCKED_IP_NETWORKS:
             if ip in net:
-                return f"Private or link-local IP range not allowed: {host}"
+                return get_message("API_PRIVATE_OR_LINK_LOCAL_IP", host=host)
     except ValueError:
         pass  # not an IP address — hostname checks above are sufficient
 
@@ -383,10 +383,10 @@ async def _default_tester(row: dict):
         async with httpx.AsyncClient(timeout=10.0) as client:
             url = row.get("endpoint_url", "")
             if not url:
-                return False, None, "No endpoint_url configured"
+                return False, None, get_message("API_NO_ENDPOINT_URL_CONFIGURED")
             ssrf_err = _validate_ssrf_url(url)
             if ssrf_err:
-                return False, None, f"SSRF policy blocked probe: {ssrf_err}"
+                return False, None, get_message("API_SSRF_POLICY_BLOCKED_PROBE", ssrf_err=ssrf_err)
             resp = await client.get(url + "/health", timeout=10.0)
             latency_ms = int((time.monotonic() - t0) * 1000)
             return resp.status_code < 500, latency_ms, None

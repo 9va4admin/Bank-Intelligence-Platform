@@ -169,7 +169,7 @@ async def list_audit_events(
         try:
             cursor_data = _decode_cursor(cursor) if cursor else None
             params: list[Any] = [bank_id]
-            where_clauses = ["bank_id = $1"]
+            where_clauses = [get_message("API_BANK_ID_1")]
             if event_type:
                 params.append(event_type)
                 where_clauses.append(f"event_type = ${len(params)}")

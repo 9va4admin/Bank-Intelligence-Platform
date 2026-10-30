@@ -79,7 +79,7 @@ function _compact(daysAgo = 0) {
 }
 function _label(daysAgo = 0) {
   const d = new Date(); d.setDate(d.getDate() - daysAgo)
-  return `${d.toLocaleString('default', { month: 'short' })} ${d.getDate()} — Session 1`
+  return msg('UI_RECONCILIATION_SESSION_1', { d: d.toLocaleString('default', { month: 'short' }), d2: d.getDate() })
 }
 function makeSessions(bankIfsc, isSMB) {
   const ifsc = bankIfsc || 'BANK'
@@ -371,7 +371,7 @@ export default function CTSReconciliation() {
   }
 
   usePageHeader({
-    subtitle: session?.label ?? 'No sessions available',
+    subtitle: session?.label ?? msg('UI_RECONCILIATION_NO_SESSIONS_AVAILABLE'),
     actions: (
       <div className="flex items-center gap-3">
         <select
@@ -460,7 +460,7 @@ export default function CTSReconciliation() {
                   : th.filterInactive
               }`}
             >
-              {s === 'ALL' ? 'All' : (STATUS_META[s]?.label || s)}
+              {s === 'ALL' ? msg('UI_COMMON_ALL') : (STATUS_META[s]?.label || s)}
             </button>
           ))}
         </div>
@@ -478,7 +478,7 @@ export default function CTSReconciliation() {
                   : th.filterInactive
               }`}
             >
-              {c === 'ALL' ? 'All' : c === 'CHEQUE' ? 'Cheques' : 'Demand Drafts'}
+              {c === 'ALL' ? msg('UI_COMMON_ALL') : c === 'CHEQUE' ? msg('UI_ANALYTICS_CHEQUES') : msg('UI_ANALYTICS_DEMAND_DRAFTS')}
             </button>
           ))}
         </div>
@@ -611,7 +611,7 @@ export default function CTSReconciliation() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${shieldCls}`}>
-                        {smb.shield_status === 'SAFE' ? '✓ SAFE' : smb.shield_status === 'SOFT_HOLD' ? '⚠ SOFT HOLD' : '✕ HARD STOP'}
+                        {smb.shield_status === 'SAFE' ? msg('UI_RECONCILIATION_SAFE') : smb.shield_status === 'SOFT_HOLD' ? msg('UI_RECONCILIATION_SOFT_HOLD') : msg('UI_RECONCILIATION_HARD_STOP')}
                       </span>
                       <button
                         onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${(session?.date ?? '').replace(/-/g, '')}.csv`)}
@@ -663,7 +663,7 @@ export default function CTSReconciliation() {
                       <div className={`text-[10px] ${th.faint}`}>
                        {msg('UI_RECONCILIATION_TIER_2_BATCH')}
                         <span className={`ml-1 font-semibold ${smb.tier2_sent ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : th.faint}`}>
-                          {smb.tier2_sent ? 'sent' : 'pending (session active)'}
+                          {smb.tier2_sent ? msg('UI_RECONCILIATION_SENT_2') : msg('UI_RECONCILIATION_PENDING_SESSION_ACTIVE')}
                         </span>
                       </div>
                     </div>

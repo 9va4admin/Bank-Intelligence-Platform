@@ -104,7 +104,7 @@ const MOCK_CONNECTIONS = [
     last_test_latency_ms: null,
     last_sync_at: null,
     vault_record_count: null,
-    error_message: 'Connection refused: CBS unreachable at endpoint',
+    error_message: uiMsg('UI_MCPCONFIG_CONNECTION_REFUSED_CBS_UNREACHABLE_A'),
     created_at: '2026-06-17T09:00:00Z',
     created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
@@ -263,7 +263,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB, bankMode 
       >
         <div className="flex items-center justify-between mb-5">
           <h3 className={`text-base font-semibold ${th.heading}`}>
-            {editRow ? 'Edit MCP Connection' : 'Add MCP Connection'}
+            {editRow ? uiMsg('UI_MCPCONFIG_EDIT_MCP_CONNECTION') : uiMsg('UI_MCPCONFIG_ADD_MCP_CONNECTION')}
           </h3>
           <button onClick={onClose} className={`${th.muted} hover:text-white text-xl leading-none`}>×</button>
         </div>
@@ -371,7 +371,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB, bankMode 
             disabled={saving}
             className="flex-1 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"
           >
-            {saving ? 'Saving…' : editRow ? 'Update' : 'Add Connection'}
+            {saving ? uiMsg('UI_COMMON_SAVING') : editRow ? uiMsg('UI_MCPCONFIG_UPDATE') : uiMsg('UI_MCPCONFIG_ADD_CONNECTION_2')}
           </button>
         </div>
       </div>
@@ -476,7 +476,7 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
           disabled={testing}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5 disabled:opacity-40' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40'}`}
         >
-          {testing ? 'Testing…' : '⚡ Test'}
+          {testing ? uiMsg('UI_MCPCONFIG_TESTING') : uiMsg('UI_MCPCONFIG_TEST')}
         </button>
         {canSync && (
           <button
@@ -484,7 +484,7 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
             disabled={syncing}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5 disabled:opacity-40' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40'}`}
           >
-            {syncing ? 'Syncing…' : '↻ Sync Vault'}
+            {syncing ? uiMsg('UI_MCPCONFIG_SYNCING') : uiMsg('UI_MCPCONFIG_SYNC_VAULT')}
           </button>
         )}
         <button
@@ -497,7 +497,7 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
           onClick={() => setShowDetails(s => !s)}
           className={`ml-auto text-xs ${th.muted} hover:underline`}
         >
-          {showDetails ? 'Hide details' : 'Details'}
+          {showDetails ? uiMsg('UI_MCPCONFIG_HIDE_DETAILS') : uiMsg('UI_MCPCONFIG_DETAILS')}
         </button>
         <button
           onClick={() => onDelete(conn.id)}
@@ -532,8 +532,8 @@ function PreflightBanner({ connections, isDark }) {
           : isDark ? 'text-amber-300' : 'text-amber-700'
         }`}>
           {allActive
-            ? 'Pre-flight check passed — clearing sessions can open'
-            : `Pre-flight check blocked — ${nonActive.length} connection${nonActive.length > 1 ? 's' : ''} not ACTIVE`
+            ? uiMsg('UI_MCPCONFIG_PRE_FLIGHT_CHECK_PASSED_CLEARING')
+            : uiMsg('UI_MCPCONFIG_PRE_FLIGHT_CHECK_BLOCKED_CONNECTION', { count: nonActive.length, value: nonActive.length > 1 ? 's' : '' })
           }
         </div>
         {!allActive && (

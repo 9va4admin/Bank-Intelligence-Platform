@@ -116,7 +116,7 @@ export default function ModelHealth() {
             className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-opacity disabled:opacity-50
               ${isDark ? 'border-white/12 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
           >
-            {loading ? 'Loading…' : 'Refresh'}
+            {loading ? msg('UI_COMMON_LOADING') : msg('UI_COMMON_REFRESH')}
           </button>
         </div>
 

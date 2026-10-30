@@ -351,7 +351,7 @@ function ShapPanel({ decision, onClose, isDark }) {
                   : (isDark ? 'text-emerald-400' : 'text-emerald-600')
                 }`}>{fraudPct}%</span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${th.badge(fraudColor)}`}>
-                  {fraudPct > 70 ? 'HIGH RISK' : fraudPct > 40 ? 'MEDIUM RISK' : 'LOW RISK'}
+                  {fraudPct > 70 ? msg('UI_DECISIONSLOG_HIGH_RISK') : fraudPct > 40 ? msg('UI_DECISIONSLOG_MEDIUM_RISK') : msg('UI_DECISIONSLOG_LOW_RISK')}
                 </span>
               </div>
             </div>

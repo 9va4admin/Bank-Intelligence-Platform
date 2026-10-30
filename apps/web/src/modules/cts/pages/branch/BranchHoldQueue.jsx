@@ -43,7 +43,7 @@ const MOCK_HOLDS = [
     payee_display: 'M*** E***',
     hold_reason: 'HIGH_VALUE_CONFIRM',
     branch_recommendation: 'CONFIRM',
-    branch_note: 'Verified with account manager — authorized.',
+    branch_note: msg('UI_BRANCHHOLDQUEUE_VERIFIED_WITH_ACCOUNT_MANAGER_AUTHOR'),
     iet_deadline: _now() + 2100,
     received_at: new Date(Date.now() - 1_800_000).toISOString(),
   },
@@ -138,14 +138,14 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
             disabled={isSubmitting}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
           >
-            {isSubmitting ? 'Saving…' : 'Recommend CONFIRM'}
+            {isSubmitting ? msg('UI_COMMON_SAVING') : msg('UI_BRANCHHOLDQUEUE_RECOMMEND_CONFIRM')}
           </button>
           <button
             onClick={() => handleSubmit('RETURN')}
             disabled={isSubmitting}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-red-700 hover:bg-red-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
           >
-            {isSubmitting ? 'Saving…' : 'Recommend RETURN'}
+            {isSubmitting ? msg('UI_COMMON_SAVING') : msg('UI_BRANCHHOLDQUEUE_RECOMMEND_RETURN')}
           </button>
           {editing && (
             <button
@@ -232,7 +232,7 @@ export default function BranchHoldQueue() {
         <div className="mb-5">
           <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_INWARD_HOLD_QUEUE')}</h1>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
-            {isLoading ? 'Loading…' : `${holds.length} instrument${holds.length !== 1 ? 's' : ''} awaiting your confirmation`}
+            {isLoading ? msg('UI_COMMON_LOADING') : msg('UI_BRANCHHOLDQUEUE_INSTRUMENT_AWAITING_YOUR_CONFIRMATIO', { count: holds.length, value: holds.length !== 1 ? 's' : '' })}
             {branchCode && <span className="ml-2 font-mono">· {branchCode}</span>}
           </p>
         </div>

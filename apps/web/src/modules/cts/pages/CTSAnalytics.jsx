@@ -81,22 +81,22 @@ const SMB_RISK_FLAGS = [
 ]
 
 const SB_RETURN_REASONS = [
-  { reason: 'Fraud Risk',       count: 440 },
-  { reason: 'Sig Mismatch',     count: 310 },
-  { reason: 'Alteration',       count: 180 },
-  { reason: 'Insufficient Funds',count: 90 },
-  { reason: 'Stop Payment',     count: 78  },
-  { reason: 'Dormant Account',  count: 62  },
-  { reason: 'Other',            count: 40  },
+  { reason: msg('UI_ANALYTICS_FRAUD_RISK'),       count: 440 },
+  { reason: msg('UI_ANALYTICS_SIG_MISMATCH'),     count: 310 },
+  { reason: msg('UI_ANALYTICS_ALTERATION'),       count: 180 },
+  { reason: msg('UI_ANALYTICS_INSUFFICIENT_FUNDS'),count: 90 },
+  { reason: msg('UI_ANALYTICS_STOP_PAYMENT'),     count: 78  },
+  { reason: msg('UI_ANALYTICS_DORMANT_ACCOUNT'),  count: 62  },
+  { reason: msg('UI_ANALYTICS_OTHER'),            count: 40  },
 ]
 const SMB_RETURN_REASONS = [
-  { reason: 'Fraud Risk',       count: 27 },
-  { reason: 'Sig Mismatch',     count: 18 },
-  { reason: 'Alteration',       count: 11 },
-  { reason: 'Insufficient Funds',count: 5 },
-  { reason: 'Stop Payment',     count:  4 },
-  { reason: 'Dormant Account',  count:  3 },
-  { reason: 'Other',            count:  2 },
+  { reason: msg('UI_ANALYTICS_FRAUD_RISK'),       count: 27 },
+  { reason: msg('UI_ANALYTICS_SIG_MISMATCH'),     count: 18 },
+  { reason: msg('UI_ANALYTICS_ALTERATION'),       count: 11 },
+  { reason: msg('UI_ANALYTICS_INSUFFICIENT_FUNDS'),count: 5 },
+  { reason: msg('UI_ANALYTICS_STOP_PAYMENT'),     count:  4 },
+  { reason: msg('UI_ANALYTICS_DORMANT_ACCOUNT'),  count:  3 },
+  { reason: msg('UI_ANALYTICS_OTHER'),            count:  2 },
 ]
 
 const SB_BRANCHES = [
@@ -326,7 +326,7 @@ export default function CTSAnalytics() {
                 : (isDark ? 'border-white/10 text-violet-400/70 hover:bg-white/5' : 'border-slate-200 text-violet-600 hover:bg-violet-50')
               }`}
             >
-              {c === 'ALL' ? 'All' : c === 'CHEQUE' ? 'Cheques' : 'Demand Drafts'}
+              {c === 'ALL' ? msg('UI_COMMON_ALL') : c === 'CHEQUE' ? msg('UI_ANALYTICS_CHEQUES') : msg('UI_ANALYTICS_DEMAND_DRAFTS')}
             </button>
           ))}
         </div>
@@ -481,7 +481,7 @@ export default function CTSAnalytics() {
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${ok
                             ? (isDark ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
                             : (isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200')
-                          }`}>{m.alertStatus ?? (ok ? 'OK' : 'WARN')}</span>
+                          }`}>{m.alertStatus ?? (ok ? msg('UI_ANALYTICS_OK') : msg('UI_ANALYTICS_WARN'))}</span>
                         </td>
                         <td className={`px-5 py-3 font-mono text-xs ${parseFloat(drift) < 0 ? 'text-red-400' : 'text-emerald-500'}`}>
                           {parseFloat(drift) >= 0 ? '+' : ''}{drift}%

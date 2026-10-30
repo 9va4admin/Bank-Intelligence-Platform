@@ -319,10 +319,10 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
   const effectiveHealth = isDemo ? DEMO_SYSTEM_HEALTH : health
 
   function _healthDetail(svc, panel) {
-    if (svc.id === 'yugabyte')  return `${panel.active_connections ?? 0} active conn`
+    if (svc.id === 'yugabyte')  return uiMsg('UI_SMOKETEST_ACTIVE_CONN', { value: panel.active_connections ?? 0 })
     if (svc.id === 'kafka')     return `lag: ${panel.total_lag ?? 0}`
-    if (svc.id === 'redis-cts') return `${panel.hit_rate_pct ?? 0}% hit rate`
-    if (svc.id === 'temporal')  return 'namespace reachable'
+    if (svc.id === 'redis-cts') return uiMsg('UI_SMOKETEST_HIT_RATE', { value: panel.hit_rate_pct ?? 0 })
+    if (svc.id === 'temporal')  return uiMsg('UI_SMOKETEST_NAMESPACE_REACHABLE')
     if (svc.id === 'vault')     return panel.seal_status ?? 'unsealed'
     return ''
   }
@@ -376,7 +376,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
         <div className="flex items-center gap-3">
           {!isDemo && (
             <span className={`text-[10px] ${th.faint}`}>
-              {isLoading ? 'checking…' : `refreshed ${lastRefreshed} · auto 15s`}
+              {isLoading ? uiMsg('UI_SMOKETEST_CHECKING_3') : uiMsg('UI_SMOKETEST_REFRESHED_AUTO_15S', { lastRefreshed })}
             </span>
           )}
           {isDemo && (
@@ -396,7 +396,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                   : (isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100')
               }`}
             >
-              {seqState?.running ? `◌ Starting… (${seqState.elapsed ?? 0}s)` : '⬤ Start All Services'}
+              {seqState?.running ? uiMsg('UI_SMOKETEST_STARTING_S', { value: seqState.elapsed ?? 0 }) : uiMsg('UI_SMOKETEST_START_ALL_SERVICES')}
             </button>
           )}
         </div>
@@ -426,7 +426,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                   <button
                     onClick={() => startMut.mutate(svc.id)}
                     disabled={starting || seqState?.running}
-                    title={starting ? 'Starting…' : `docker compose up -d ${svc.id}`}
+                    title={starting ? uiMsg('UI_SMOKETEST_STARTING_2') : `docker compose up -d ${svc.id}`}
                     className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded font-semibold border transition-all ${
                       starting
                         ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
@@ -435,7 +435,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                           : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 disabled:opacity-30')
                     }`}
                   >
-                    {starting ? '◌' : 'Start'}
+                    {starting ? '◌' : uiMsg('UI_SMOKETEST_START')}
                   </button>
                 )}
               </div>
@@ -452,7 +452,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
               )}
               {startMut.isError && startMut.variables === svc.id && (
                 <div className="text-[9px] mt-0.5 truncate text-red-400">
-                  {startMut.error?.message?.slice(0, 55) || 'Backend unreachable'}
+                  {startMut.error?.message?.slice(0, 55) || uiMsg('UI_SMOKETEST_BACKEND_UNREACHABLE_2')}
                 </div>
               )}
             </div>
@@ -616,7 +616,7 @@ function ReadinessPanel({ isDark, isDemo, bankId, deploymentMode }) {
 
       {items.length === 0 && !isDemo && (
         <div className={`text-xs ${th.detail} py-3 text-center`}>
-          {isLoading ? 'Fetching readiness checklist…' : 'No items returned — backend may be unreachable'}
+          {isLoading ? uiMsg('UI_SMOKETEST_FETCHING_READINESS_CHECKLIST') : uiMsg('UI_SMOKETEST_NO_ITEMS_RETURNED_BACKEND_MAY')}
         </div>
       )}
 
@@ -817,7 +817,7 @@ export default function CTSSmokeTest() {
                 className={`text-xs px-4 py-1.5 rounded-md font-semibold transition-all
                   ${running ? 'bg-violet-600/40 text-violet-300 cursor-default' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
               >
-                {running ? '◌ Running…' : ran ? '↺ Run Again' : '▶ Run Smoke Tests'}
+                {running ? uiMsg('UI_SMOKETEST_RUNNING') : ran ? uiMsg('UI_SMOKETEST_RUN_AGAIN') : uiMsg('UI_SMOKETEST_RUN_SMOKE_TESTS')}
               </button>
             </div>
           </div>

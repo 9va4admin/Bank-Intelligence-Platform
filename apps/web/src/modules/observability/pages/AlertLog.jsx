@@ -127,7 +127,7 @@ export default function AlertLog() {
               className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-opacity disabled:opacity-50
                 ${isDark ? 'border-white/12 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
             >
-              {loading ? 'Loading…' : 'Refresh'}
+              {loading ? msg('UI_COMMON_LOADING') : msg('UI_COMMON_REFRESH')}
             </button>
           </div>
         </div>
@@ -158,7 +158,7 @@ export default function AlertLog() {
 
           {alerts.length === 0 && !loading && (
             <div className={`px-5 py-10 text-center ${th.muted} text-sm`}>
-              {degraded ? 'Audit DB unavailable.' : 'No CRITICAL/ERROR events in the last 24 hours.'}
+              {degraded ? msg('UI_ALERTLOG_AUDIT_DB_UNAVAILABLE') : msg('UI_ALERTLOG_NO_CRITICAL_ERROR_EVENTS_IN')}
             </div>
           )}
 
@@ -182,7 +182,7 @@ export default function AlertLog() {
                   ? (isDark ? 'text-emerald-400' : 'text-emerald-600')
                   : (isDark ? 'text-slate-500' : 'text-slate-400')
                 }`}>
-                  {a.acknowledged ? 'Yes' : 'No'}
+                  {a.acknowledged ? msg('UI_COMMON_YES') : msg('UI_COMMON_NO')}
                 </span>
               </div>
             </div>

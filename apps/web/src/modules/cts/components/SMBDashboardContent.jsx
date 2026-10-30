@@ -258,7 +258,7 @@ export default function SMBDashboardContent() {
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className={`text-base font-semibold ${th.bannerHd}`}>{bankName || 'Sub-Member Bank'}</div>
+          <div className={`text-base font-semibold ${th.bannerHd}`}>{bankName || msg('UI_SMBDASHBOARDCONTENT_SUB_MEMBER_BANK')}</div>
           <div className={`text-xs ${th.bannerMt}`}>
            {msg('UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR_ZONE_MUMBAI', { value: bankIfsc || bankId?.toUpperCase(), value2: sponsorBankName || 'Sponsor Bank' })}
           </div>

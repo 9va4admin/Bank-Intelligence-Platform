@@ -625,8 +625,8 @@ export default function CTSDemoPipeline() {
           <div className={`shrink-0 px-6 py-2.5 border-b ${th.divider} flex items-center gap-8`}>
             {[
               { label: uiMsg('UI_COMMON_PROCESSING'), val: processing, color: 'text-amber-400' },
-              { label: phase === 'drawee' ? 'Confirmed' : 'Accepted', val: success, color: 'text-emerald-400' },
-              { label: phase === 'drawee' ? 'Returned'  : 'Rejected',  val: failed,  color: 'text-red-400'     },
+              { label: phase === 'drawee' ? uiMsg('UI_SUBMISSIONQUEUE_CONFIRMED') : uiMsg('UI_DEMOPIPELINE_ACCEPTED'), val: success, color: 'text-emerald-400' },
+              { label: phase === 'drawee' ? uiMsg('UI_DEMOPIPELINE_RETURNED')  : uiMsg('UI_BRANCHMISMATCHQUEUE_REJECTED'),  val: failed,  color: 'text-red-400'     },
               { label: uiMsg('UI_COMMON_TOTAL'), val: displayItems.length, color: isDark ? 'text-slate-300' : 'text-slate-700' },
             ].map(k => (
               <div key={k.label} className="flex items-baseline gap-2">
@@ -676,7 +676,7 @@ export default function CTSDemoPipeline() {
             {(phase === 'presentment' || phase === 'drawee') && (
               <div className={`shrink-0 px-4 pt-4 pb-3 border-b ${th.divider}`}>
                 <div className={`text-[9px] font-semibold uppercase tracking-widest mb-3 ${th.faint}`}>
-                  {phase === 'presentment' ? 'Presentment Pipeline (8 stages)' : 'Drawee Pipeline (10 stages) — RBI CTS checklist · Sig Vault · CBS · Fraud · NGCH'}
+                  {phase === 'presentment' ? uiMsg('UI_DEMOPIPELINE_PRESENTMENT_PIPELINE_8_STAGES') : uiMsg('UI_DEMOPIPELINE_DRAWEE_PIPELINE_10_STAGES_RBI')}
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {currentStages.map(stage => (
@@ -719,7 +719,7 @@ export default function CTSDemoPipeline() {
                             <td className="px-3 py-2"><span className={statusBadge(it.status, isDark)}>{it.status}</span></td>
                             <td className={`px-3 py-2 font-mono ${th.faint}`}>{it.currentStep || '—'}</td>
                             <td className={`px-3 py-2 font-semibold ${it.decision === 'ACCEPTED' || it.decision === 'CONFIRMED' ? 'text-emerald-400' : it.decision === 'REJECTED' || it.decision === 'RETURNED' ? 'text-red-400' : th.faint}`}>{it.decision || '—'}</td>
-                            <td className={`px-3 py-2 font-mono ${th.faint}`}>{it.totalMs ? `${it.totalMs}ms` : '—'}</td>
+                            <td className={`px-3 py-2 font-mono ${th.faint}`}>{it.totalMs ? uiMsg('UI_DEMOPIPELINE_MS_2', { totalMs: it.totalMs }) : '—'}</td>
                           </tr>
                         ))}
                       </tbody>

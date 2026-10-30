@@ -36,6 +36,7 @@ from modules.msv.mandates.models import MSVOutcome, MSVOutput
 from modules.msv.workflows.activities.write_audit import WriteAuditInput, WriteAuditResult
 from modules.msv.workflows.activities.cbs_sync import CBSSyncInput, CBSSyncResult
 from modules.msv.workflows.msv_workflow import MSVWorkflowInput
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -71,8 +72,7 @@ class BoundMSVActivities:
                 confidence=0.0,
                 reason_code="ORCHESTRATOR_UNAVAILABLE",
                 reason_message=(
-                    "SignatureOrchestrator not available at worker startup — "
-                    "routing to human review."
+                    get_message("MSV_SIGNATUREORCHESTRATOR_NOT_AVAILABLE")
                 ),
                 matched_signatories=[],
                 detected_sig_count=0,

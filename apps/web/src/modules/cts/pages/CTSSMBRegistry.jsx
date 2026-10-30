@@ -164,7 +164,7 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
         <button
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${smb.is_active ? (isDark ? 'bg-red-900/30 text-red-300 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100') : (isDark ? 'bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100')}`}
         >
-          {smb.is_active ? 'Suspend' : 'Reactivate'}
+          {smb.is_active ? msg('UI_SMBREGISTRY_SUSPEND') : msg('UI_SMBREGISTRY_REACTIVATE')}
         </button>
       </div>
     </div>
@@ -340,7 +340,7 @@ export default function CTSSMBRegistry() {
                       onClick={e => { e.stopPropagation(); handleVaultSync(smb.sub_member_id) }}
                       className={`text-[11px] transition-colors ${syncingId === smb.sub_member_id ? (isDark ? 'text-violet-300' : 'text-violet-600') : (isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700')}`}
                     >
-                      {syncingId === smb.sub_member_id ? '↻ syncing…' : '↻ Sync'}
+                      {syncingId === smb.sub_member_id ? msg('UI_SMBREGISTRY_SYNCING') : msg('UI_SMBREGISTRY_SYNC')}
                     </button>
                   </td>
                 </tr>

@@ -31,9 +31,9 @@ _MICRDS_SIG_LENGTH = 344
 _IQA_USER_FIELD_LENGTH = 21
 
 _IQA_VIEW_SPECS = [
-    ("Front BW", "BFB:"),
-    ("Back BW",  "BBB:"),
-    ("Front Gray", "BFG:"),
+    (get_message("CTS_FRONT_BW"), "BFB:"),
+    (get_message("CTS_BACK_BW"),  "BBB:"),
+    (get_message("UI_COMMON_FRONT_GRAY"), "BFG:"),
 ]
 
 
@@ -204,11 +204,11 @@ class CXFBuilder:
 
         # Three <ImageViewDetail> blocks — one per image view
         views = [
-            ("Front BW",   item.iqa_user_field_front_bw,
+            (get_message("CTS_FRONT_BW"),   item.iqa_user_field_front_bw,
              item.front_bw_ds_offset, item.front_bw_image_offset, item.front_bw_image_length),
-            ("Back BW",    item.iqa_user_field_back_bw,
+            (get_message("CTS_BACK_BW"),    item.iqa_user_field_back_bw,
              item.back_bw_ds_offset, item.back_bw_image_offset, item.back_bw_image_length),
-            ("Front Gray", item.iqa_user_field_front_gray,
+            (get_message("UI_COMMON_FRONT_GRAY"), item.iqa_user_field_front_gray,
              item.front_gray_ds_offset, item.front_gray_image_offset, item.front_gray_image_length),
         ]
         for view_side, user_field, ds_offset, img_offset, img_length in views:

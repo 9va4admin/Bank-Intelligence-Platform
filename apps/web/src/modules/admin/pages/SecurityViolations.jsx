@@ -72,9 +72,9 @@ function sev(violationType, isDark) {
 function relTime(isoStr) {
   if (!isoStr) return '—'
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000)
-  if (diff < 60) return `${diff}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 60) return msg('UI_SECURITYVIOLATIONS_S_AGO', { diff })
+  if (diff < 3600) return msg('UI_SECURITYVIOLATIONS_M_AGO', { value: Math.floor(diff / 60) })
+  if (diff < 86400) return msg('UI_SECURITYVIOLATIONS_H_AGO', { value: Math.floor(diff / 3600) })
   return new Date(isoStr).toLocaleDateString('en-IN')
 }
 
@@ -196,7 +196,7 @@ export default function SecurityViolations() {
             disabled={loading}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-white/10 text-slate-300 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-600 hover:bg-slate-100'} disabled:opacity-40`}
           >
-            {loading ? 'Loading…' : '↻ Refresh'}
+            {loading ? msg('UI_COMMON_LOADING') : msg('UI_SECURITYVIOLATIONS_REFRESH')}
           </button>
         </div>
 
@@ -275,7 +275,7 @@ export default function SecurityViolations() {
                         disabled={reinstating === v.user_id}
                         className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700'} disabled:opacity-40`}
                       >
-                        {reinstating === v.user_id ? 'Reinstating…' : 'Reinstate'}
+                        {reinstating === v.user_id ? msg('UI_SECURITYVIOLATIONS_REINSTATING') : msg('UI_SECURITYVIOLATIONS_REINSTATE')}
                       </button>
                     )}
                   </div>

@@ -24,6 +24,7 @@ from modules.msv.mandates.models import (
     MSVOutcome,
     SignatoryRecord,
 )
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -123,7 +124,7 @@ class BREEngine:
         if mandate.rule_type == MandateRuleType.ROLE_BASED:
             return self._eval_role_based(mandate, matched)
 
-        return MSVOutcome.AMBER, "UNKNOWN_RULE_TYPE", f"Unknown mandate rule type: {mandate.rule_type}"
+        return MSVOutcome.AMBER, "UNKNOWN_RULE_TYPE", get_message("MSV_UNKNOWN_MANDATE_RULE_TYPE", rule_type=mandate.rule_type)
 
     # ------------------------------------------------------------------
     # Rule-specific evaluators
@@ -144,7 +145,7 @@ class BREEngine:
             return (
                 MSVOutcome.RED,
                 "MISSING_SIGNATORY",
-                f"Required signatories absent: {sorted(missing)}.",
+                get_message("MSV_REQUIRED_SIGNATORIES_ABSENT", sorted=sorted(missing)),
             )
 
         # Check scores
@@ -154,14 +155,13 @@ class BREEngine:
             return (
                 MSVOutcome.RED,
                 "SCORE_BELOW_THRESHOLD",
-                f"Signatory(ies) {[m.signatory_id for m in below_min]} "
-                f"scored below minimum threshold {mandate.min_score}.",
+                get_message("MSV_SIGNATORY_IES_SCORED_BELOW_MINIMUM", value=[m.signatory_id for m in below_min], min_score=mandate.min_score),
             )
 
         outcome = _determine_outcome_from_scores(matched_expected, mandate)
         if outcome == MSVOutcome.GREEN:
-            return MSVOutcome.GREEN, "ALL_MATCHED", "All signatories matched above high-confidence threshold."
-        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", "All signatories present but some below high-confidence threshold."
+            return MSVOutcome.GREEN, "ALL_MATCHED", get_message("MSV_ALL_SIGNATORIES_MATCHED_ABOVE_HIGH")
+        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", get_message("MSV_ALL_SIGNATORIES_PRESENT_BUT_SOME")
 
     def _eval_any_n_of(
         self,
@@ -176,8 +176,7 @@ class BREEngine:
             return (
                 MSVOutcome.RED,
                 "INSUFFICIENT_MATCHES",
-                f"Only {len(qualifying)} signatory(ies) matched above threshold {mandate.min_score}; "
-                f"{n} required.",
+                get_message("MSV_ONLY_SIGNATORY_IES_MATCHED_ABOVE", len=len(qualifying), min_score=mandate.min_score, n=n),
             )
 
         # Enough qualify — determine GREEN vs AMBER from scores of the n best
@@ -185,7 +184,7 @@ class BREEngine:
         outcome = _determine_outcome_from_scores(best_n, mandate)
         if outcome == MSVOutcome.GREEN:
             return MSVOutcome.GREEN, "QUORUM_MET", f"{n} of {n} required signatories matched."
-        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", f"Quorum met but confidence below high-confidence threshold."
+        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", get_message("MSV_QUORUM_MET_BUT_CONFIDENCE_BELOW")
 
     def _eval_mandatory_plus_quorum(
         self,
@@ -201,7 +200,7 @@ class BREEngine:
                 return (
                     MSVOutcome.RED,
                     "MANDATORY_SIGNATORY_MISSING",
-                    f"Mandatory signatory '{sig_id}' did not sign.",
+                    get_message("MSV_MANDATORY_SIGNATORY_DID_NOT_SIGN", sig_id=sig_id),
                 )
             m = matched_map[sig_id]
             if m.best_score < mandate.min_score:
@@ -222,16 +221,15 @@ class BREEngine:
             return (
                 MSVOutcome.RED,
                 "QUORUM_NOT_MET",
-                f"Only {len(non_mandatory_matched)} of {mandate.required_count} "
-                f"required quorum signatories matched.",
+                get_message("MSV_ONLY_OF_REQUIRED_QUORUM_SIGNATORIES", len=len(non_mandatory_matched), required_count=mandate.required_count),
             )
 
         # All conditions met — determine GREEN vs AMBER
         all_qualifying = [matched_map[sid] for sid in mandate.mandatory_ids] + non_mandatory_matched[:mandate.required_count]
         outcome = _determine_outcome_from_scores(all_qualifying, mandate)
         if outcome == MSVOutcome.GREEN:
-            return MSVOutcome.GREEN, "ALL_MATCHED", "Mandatory signer(s) and quorum met above high-confidence threshold."
-        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", "Mandatory signer(s) and quorum met, but some scores below high-confidence threshold."
+            return MSVOutcome.GREEN, "ALL_MATCHED", get_message("MSV_MANDATORY_SIGNER_S_AND_QUORUM")
+        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", get_message("MSV_MANDATORY_SIGNER_S_AND_QUORUM_2")
 
     def _eval_threshold_split(
         self,
@@ -248,7 +246,7 @@ class BREEngine:
             return (
                 MSVOutcome.RED,
                 "MISSING_SIGNATORY",
-                f"Required signatories absent: {sorted(missing)}.",
+                get_message("MSV_REQUIRED_SIGNATORIES_ABSENT", sorted=sorted(missing)),
             )
 
         all_qualifying: list[MatchedSignatory] = []
@@ -267,7 +265,7 @@ class BREEngine:
 
         # For THRESHOLD_SPLIT, meeting the role-specific threshold IS the high-confidence
         # bar — if all qualified, outcome is GREEN (role threshold already provides the bar).
-        return MSVOutcome.GREEN, "ALL_MATCHED", "All signatories met their role-specific thresholds."
+        return MSVOutcome.GREEN, "ALL_MATCHED", get_message("MSV_ALL_SIGNATORIES_MET_THEIR_ROLE")
 
     def _eval_role_based(
         self,
@@ -287,12 +285,11 @@ class BREEngine:
             return (
                 MSVOutcome.RED,
                 "INSUFFICIENT_ROLE_MATCHES",
-                f"Only {len(qualifying)} signatories with required role(s) {required_roles} "
-                f"matched; {mandate.required_count} required.",
+                get_message("MSV_ONLY_SIGNATORIES_WITH_REQUIRED_ROLE", len=len(qualifying), required_roles=required_roles, required_count=mandate.required_count),
             )
 
         best_n = sorted(qualifying, key=lambda m: m.best_score, reverse=True)[:mandate.required_count]
         outcome = _determine_outcome_from_scores(best_n, mandate)
         if outcome == MSVOutcome.GREEN:
-            return MSVOutcome.GREEN, "ROLE_QUORUM_MET", f"Required role(s) {required_roles} matched with {mandate.required_count} signatories."
-        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", "Role quorum met but confidence below high-confidence threshold."
+            return MSVOutcome.GREEN, "ROLE_QUORUM_MET", get_message("MSV_REQUIRED_ROLE_S_MATCHED_WITH", required_roles=required_roles, required_count=mandate.required_count)
+        return MSVOutcome.AMBER, "LOW_CONFIDENCE_MATCH", get_message("MSV_ROLE_QUORUM_MET_BUT_CONFIDENCE")

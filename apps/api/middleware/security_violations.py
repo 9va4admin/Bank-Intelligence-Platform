@@ -228,10 +228,9 @@ class SecurityViolationMiddleware(BaseHTTPMiddleware):
 
         error_code = "SECURITY_VIOLATION" if is_suspension_event else "ACCESS_DENIED"
         message = (
-            "Cross-bank data access detected. Your account has been suspended immediately. "
-            "This incident has been reported to your bank administrator."
+            get_message("API_CROSS_BANK_DATA_ACCESS_DETECTED")
             if is_suspension_event else
-            "Access denied. You do not have permission to perform this operation."
+            get_message("API_ACCESS_DENIED_YOU_DO_NOT")
         )
 
         return JSONResponse(

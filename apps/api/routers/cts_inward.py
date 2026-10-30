@@ -551,7 +551,7 @@ async def get_decision(
                     instrument_id=instrument_id,
                     workflow_id=workflow_id,
                     workflow_status="FAILED",
-                    rationale=f"Workflow ended with status: {wf_status.name}",
+                    rationale=get_message("API_WORKFLOW_ENDED_WITH_STATUS", name=wf_status.name),
                 )
             else:
                 return ChequeDecisionResponse(

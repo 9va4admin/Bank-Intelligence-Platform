@@ -53,10 +53,10 @@ function ScannerDot({ state }) {
 }
 
 function scannerLabel(state, secondsAgo) {
-  if (state === 'ACTIVE')  return 'Scanning'
+  if (state === 'ACTIVE')  return msg('UI_BRANCHDASHBOARD_SCANNING')
   if (state === 'OFFLINE') return 'OFFLINE'
-  if (state === 'IDLE' && secondsAgo != null) return `Idle · ${secondsAgo}s ago`
-  return 'Idle'
+  if (state === 'IDLE' && secondsAgo != null) return msg('UI_BRANCHDASHBOARD_IDLE_S_AGO', { secondsAgo })
+  return msg('UI_BRANCHDASHBOARD_IDLE')
 }
 
 function StatCard({ label, value, sub, accent, isDark }) {
@@ -155,7 +155,7 @@ export default function BranchDashboard() {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
-  const branchLabel = hasSession ? `${session.branch_name} · ${session.clearing_date}` : 'Branch Portal'
+  const branchLabel = hasSession ? `${session.branch_name} · ${session.clearing_date}` : msg('UI_BRANCHDASHBOARD_BRANCH_PORTAL_2')
 
   return (
     <AppShell>

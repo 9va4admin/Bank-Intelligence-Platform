@@ -164,7 +164,7 @@ function OnboardModal({ isDark, onClose, bankId }) {
               <button type="button" onClick={onClose} className={`px-4 py-2 rounded-lg text-xs font-medium ${th.cancel}`}>{msg('UI_COMMON_CANCEL')}</button>
               <button type="submit" disabled={registerMutation.isPending}
                 className={`px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-40 ${th.btn}`}>
-                {registerMutation.isPending ? 'Submitting…' : 'Submit for Compliance Review'}
+                {registerMutation.isPending ? msg('UI_COMMON_SUBMITTING') : msg('UI_SUBMEMBERBANKS_SUBMIT_FOR_COMPLIANCE_REVIEW')}
               </button>
             </div>
           </form>
@@ -305,7 +305,7 @@ export default function CTSSubMemberBanks() {
             </div>
             <div className={`mt-4 pt-4 border-t ${th.divider} flex gap-3`}>
               <button className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selected.status === 'ACTIVE' ? (isDark ? 'bg-red-900/40 text-red-300 hover:bg-red-900/60' : 'bg-red-100 text-red-700 hover:bg-red-200') : th.btn}`}>
-                {selected.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
+                {selected.status === 'ACTIVE' ? msg('UI_SMBREGISTRY_SUSPEND') : msg('UI_SMBREGISTRY_REACTIVATE')}
               </button>
               <button className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                {msg('UI_SUBMEMBERBANKS_EDIT_LIMITS')}

@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Optional
+from shared.messages import get_message
 
 _AN_CHARS = re.compile(r"^[A-Za-z0-9_ '\,\.]+$")        # a-z A-Z 0-9 _ blank apostrophe comma full stop
 _MAX_AGE_DAYS = 90
@@ -54,11 +55,11 @@ class CIIFError:
 
 def _an(value: str, lo: int, hi: int) -> Optional[str]:
     if not (lo <= len(value) <= hi):
-        return f"length must be {lo}-{hi} characters"
+        return get_message("CTS_LENGTH_MUST_BE_CHARACTERS", lo=lo, hi=hi)
     if not _AN_CHARS.match(value):
-        return "contains a character the specification does not allow"
+        return get_message("CTS_CONTAINS_A_CHARACTER_THE_SPECIFICATI")
     if value != value.strip():
-        return "must not start or end with a space"
+        return get_message("CTS_MUST_NOT_START_OR_END")
     return None
 
 

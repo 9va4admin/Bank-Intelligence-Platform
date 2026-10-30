@@ -29,8 +29,8 @@ class LoadTestBoundActivities(BoundCTSActivities):
     async def ocr_extract(self, inp, *a, **k):
         return OCRActivityResult(
             outcome="PROCEED", micr_line="000000 000000000 000000 00",
-            amount_figures="10000.00", amount_words="Rupees Ten Thousand Only",
-            date=date.today().strftime("%d/%m/%Y"), payee="LOAD TEST PAYEE",
+            amount_figures="10000.00", amount_words=get_message("CTS_RUPEES_TEN_THOUSAND_ONLY"),
+            date=date.today().strftime("%d/%m/%Y"), payee=get_message("CTS_LOAD_TEST_PAYEE"),
             overall_confidence=0.99, cascade_level=0, ocr_engines_used=[STUB_LABEL],
         )
 
@@ -54,7 +54,7 @@ class LoadTestBoundActivities(BoundCTSActivities):
     @activity.defn(name="score_fraud")
     async def score_fraud(self, inp):
         return FraudActivityResult(fraud_score=0.05, shap_values={STUB_LABEL: 0.0},
-                                   rationale="load-test stub — not a model output")
+                                   rationale=get_message("CTS_LOAD_TEST_STUB_NOT_A"))
 
 
 def apply_load_test_stubs(bound: BoundCTSActivities) -> LoadTestBoundActivities:

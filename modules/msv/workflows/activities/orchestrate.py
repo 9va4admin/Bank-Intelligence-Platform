@@ -24,6 +24,7 @@ from modules.msv.mandates.models import (
     MSVOutput,
 )
 from modules.msv.workflows.msv_workflow import MSVWorkflowInput
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -55,8 +56,7 @@ async def orchestrate_msv_validation(
             confidence=0.0,
             reason_code="ORCHESTRATOR_UNAVAILABLE",
             reason_message=(
-                "SignatureOrchestrator not available at worker startup — "
-                "routing to human review."
+                get_message("MSV_SIGNATUREORCHESTRATOR_NOT_AVAILABLE")
             ),
             matched_signatories=[],
             detected_sig_count=0,

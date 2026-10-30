@@ -123,8 +123,8 @@ function CorpusBar({ entry, isDark }) {
       <div className="flex items-center justify-between mt-2">
         <p className={`text-xs ${th.muted}`}>
           {pct >= 100
-            ? 'Threshold reached — retraining triggered'
-            : `${entry.threshold - entry.count} more to trigger next retrain`}
+            ? msg('UI_OCRFEEDBACK_THRESHOLD_REACHED_RETRAINING_TRIGGER')
+            : msg('UI_OCRFEEDBACK_MORE_TO_TRIGGER_NEXT_RETRAIN', { value: entry.threshold - entry.count })}
         </p>
         <p className={`text-xs font-semibold tabular-nums ${pct >= 90 ? 'text-amber-400' : th.muted}`}>
           {pct.toFixed(1)}%
@@ -304,7 +304,7 @@ export default function CTSOCRFeedback() {
             className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-opacity disabled:opacity-50
               ${isDark ? 'border-white/12 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
           >
-            {loading ? 'Loading…' : 'Refresh'}
+            {loading ? msg('UI_COMMON_LOADING') : msg('UI_COMMON_REFRESH')}
           </button>
         </div>
 

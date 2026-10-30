@@ -4,7 +4,8 @@ import { join, relative, sep } from 'node:path'
 import { findWording } from './wording.mjs'
 
 export const SKIP = [/\.test\./, /[\\/]locales[\\/]/, /[\\/]shared[\\/]messages\.js$/, /[\\/]test-setup\.js$/, /[\\/]main\.jsx$/,
-  /[\\/]config[\\/]/, /[\\/]demoImages/]
+  /[\\/]config[\\/]/, /[\\/]demoImages/,
+  /[\\/]components[\\/]landing[\\/]/]                       // the landing page is static marketing copy and is exempt
 
 export function sourceFiles(root) {
   const out = []

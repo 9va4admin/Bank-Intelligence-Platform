@@ -311,7 +311,7 @@ export default function CTSExceptions() {
               {
                 label: msg('UI_EXCEPTIONS_IET_RISK_60_MIN'),
                 value: predictive.ietRisk.length,
-                sub: predictive.ietRisk.length > 0 ? predictive.ietRisk.map(i => i.instrument_id).join(', ') : 'All clear',
+                sub: predictive.ietRisk.length > 0 ? predictive.ietRisk.map(i => i.instrument_id).join(', ') : msg('UI_EXCEPTIONS_ALL_CLEAR'),
                 color: predictive.ietRisk.length > 0 ? 'text-red-400' : 'text-emerald-400',
                 bg: predictive.ietRisk.length > 0 ? 'border-red-400/20 bg-red-400/3' : 'border-emerald-400/10',
                 icon: '⏱',
@@ -319,7 +319,7 @@ export default function CTSExceptions() {
               {
                 label: msg('UI_ANALYTICS_VAULT_MISSES'),
                 value: predictive.vaultMisses.length,
-                sub: predictive.vaultMisses.length > 0 ? 'Auto-return blocked — human required' : 'No vault misses',
+                sub: predictive.vaultMisses.length > 0 ? msg('UI_EXCEPTIONS_AUTO_RETURN_BLOCKED_HUMAN_REQUIRED') : msg('UI_EXCEPTIONS_NO_VAULT_MISSES'),
                 color: predictive.vaultMisses.length > 0 ? 'text-purple-400' : 'text-emerald-400',
                 bg: predictive.vaultMisses.length > 0 ? 'border-purple-400/20 bg-purple-400/3' : 'border-emerald-400/10',
                 icon: '🔐',
@@ -327,7 +327,7 @@ export default function CTSExceptions() {
               {
                 label: msg('UI_EXCEPTIONS_FRAUD_CLUSTER_78'),
                 value: predictive.fraudCluster.length,
-                sub: predictive.fraudCluster.length > 0 ? `Avg queue fraud: ${Math.round(predictive.avgFraud * 100)}%` : 'Within threshold',
+                sub: predictive.fraudCluster.length > 0 ? msg('UI_EXCEPTIONS_AVG_QUEUE_FRAUD', { value: Math.round(predictive.avgFraud * 100) }) : msg('UI_EXCEPTIONS_WITHIN_THRESHOLD'),
                 color: predictive.fraudCluster.length >= 3 ? 'text-red-400' : predictive.fraudCluster.length > 0 ? 'text-amber-400' : 'text-emerald-400',
                 bg: predictive.fraudCluster.length >= 3 ? 'border-red-400/20 bg-red-400/3' : 'border-amber-400/10',
                 icon: '🛡',
@@ -335,7 +335,7 @@ export default function CTSExceptions() {
               {
                 label: msg('UI_EXCEPTIONS_SUB_MEMBER_ITEMS'),
                 value: predictive.subMemberItems.length,
-                sub: predictive.subMemberItems.length > 0 ? 'Sponsor bank notification on return' : 'None in queue',
+                sub: predictive.subMemberItems.length > 0 ? msg('UI_EXCEPTIONS_SPONSOR_BANK_NOTIFICATION_ON_RETURN') : msg('UI_EXCEPTIONS_NONE_IN_QUEUE'),
                 color: predictive.subMemberItems.length > 0 ? 'text-amber-400' : 'text-slate-400',
                 bg: predictive.subMemberItems.length > 0 ? 'border-amber-400/20 bg-amber-400/3' : isDark ? 'border-white/10' : 'border-slate-200',
                 icon: '🏦',

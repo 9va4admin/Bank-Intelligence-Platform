@@ -73,15 +73,15 @@ function seed(n, branches, sessions, bankIfsc) {
       words_amount:  `₹${words_amt.toLocaleString('en-IN')}`,
       physical_count: type === 'LOT_COUNT_DIFF' ? 15 + (i % 3) : null,
       electronic_count: type === 'LOT_COUNT_DIFF' ? 15 : null,
-      detail: type === 'AMOUNT_MISMATCH'  ? `MICR reads ₹${amt1.toLocaleString('en-IN')}, OCR reads ₹${amt2.toLocaleString('en-IN')}` :
-              type === 'MICR_ERROR'       ? `MICR band unreadable at position ${3 + i % 5}` :
-              type === 'LOT_COUNT_DIFF'   ? `Physical: ${15 + i % 3}, Electronic: 15` :
-              type === 'STALE_DATE'       ? `Cheque dated ${4 + i % 180} months ago` :
-              type === 'POST_DATE'        ? `Cheque dated ${1 + i % 30} days in future` :
-              type === 'WORDS_FIGURES'    ? `Figures: ₹${amt1.toLocaleString('en-IN')}, Words differ by ₹${Math.abs(words_amt - amt1).toLocaleString('en-IN')}` :
-              type === 'DUPLICATE'        ? `Instrument already presented on ${new Date(now - 86400000 * (1 + i % 5)).toLocaleDateString('en-IN')}` :
-              type === 'UNPROCESSED'      ? `Received at ${new Date(now - 3600000 * (1 + i % 4)).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}, awaiting assignment` :
-              `Filed for manual processing — extension item ref ${i + 1}`,
+      detail: type === 'AMOUNT_MISMATCH'  ? msg('UI_DISCREPANCY_MICR_READS_OCR_READS', { amt1: amt1.toLocaleString('en-IN'), amt2: amt2.toLocaleString('en-IN') }) :
+              type === 'MICR_ERROR'       ? msg('UI_DISCREPANCY_MICR_BAND_UNREADABLE_AT_POSITION', { value: 3 + i % 5 }) :
+              type === 'LOT_COUNT_DIFF'   ? msg('UI_DISCREPANCY_PHYSICAL_ELECTRONIC_15', { value: 15 + i % 3 }) :
+              type === 'STALE_DATE'       ? msg('UI_DISCREPANCY_CHEQUE_DATED_MONTHS_AGO', { value: 4 + i % 180 }) :
+              type === 'POST_DATE'        ? msg('UI_DISCREPANCY_CHEQUE_DATED_DAYS_IN_FUTURE', { value: 1 + i % 30 }) :
+              type === 'WORDS_FIGURES'    ? msg('UI_DISCREPANCY_FIGURES_WORDS_DIFFER_BY', { amt1: amt1.toLocaleString('en-IN'), value: Math.abs(words_amt - amt1).toLocaleString('en-IN') }) :
+              type === 'DUPLICATE'        ? msg('UI_DISCREPANCY_INSTRUMENT_ALREADY_PRESENTED_ON', { value: new Date(now - 86400000 * (1 + i % 5)).toLocaleDateString('en-IN') }) :
+              type === 'UNPROCESSED'      ? msg('UI_DISCREPANCY_RECEIVED_AT_AWAITING_ASSIGNMENT', { value: new Date(now - 3600000 * (1 + i % 4)).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) }) :
+              msg('UI_DISCREPANCY_FILED_FOR_MANUAL_PROCESSING_EXTENSIO', { value: i + 1 }),
       raised_at: new Date(now - 3600000 * (0.5 + i * 0.3)).toISOString(),
       assigned_to: status === 'OPEN' ? null : ['Priya Sharma', 'Amit Verma', 'Sunita Rao'][i % 3],
     }

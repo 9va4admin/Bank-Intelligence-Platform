@@ -96,7 +96,12 @@ def main() -> int:
             print("WARNING: Redis URL set but connection failed — skipping Redis push.", file=sys.stderr)
 
     output_dir = Path(args.output_dir)
-    registry.build(output_dir=output_dir, redis_client=redis_client)
+    from shared.messages.browser_keys import web_message_keys
+
+    all_keys = {k for entries in registry._cache.values() for k in entries}
+    web_src = Path(__file__).resolve().parents[2] / "apps" / "web" / "src"
+    browser_keys = web_message_keys(web_src, all_keys) if web_src.is_dir() else None
+    registry.build(output_dir=output_dir, redis_client=redis_client, browser_keys=browser_keys)
 
     redis_status = "pushed to Redis + " if redis_client else ""
     # ASCII-only: Windows consoles default to cp1252, which cannot encode

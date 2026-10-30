@@ -482,12 +482,12 @@ async def session_bankwise(
     _role: str = Depends(require_ops_role),
 ) -> BankwiseResponse:
     banks = [
-        ("HDFC0000001", "HDFC Bank",   "PRESENTING", 312, 8_20_00_000, 278, 34),
-        ("ICIC0000001", "ICICI Bank",  "PRESENTING", 289, 7_10_00_000, 261, 28),
-        ("SBIN0000001", "State Bank",  "PRESENTING", 445, 12_30_00_000, 401, 44),
-        ("UTIB0000001", "Axis Bank",   "PRESENTING", 198, 5_40_00_000, 179, 19),
-        ("KKBK0000001", "Kotak Bank",  "DRAWEE",     267, 9_80_00_000, 246, 21),
-        ("YESB0000001", "Yes Bank",    "DRAWEE",     143, 3_90_00_000, 131, 12),
+        ("HDFC0000001", get_message("API_HDFC_BANK"),   "PRESENTING", 312, 8_20_00_000, 278, 34),
+        ("ICIC0000001", get_message("API_ICICI_BANK"),  "PRESENTING", 289, 7_10_00_000, 261, 28),
+        ("SBIN0000001", get_message("API_STATE_BANK"),  "PRESENTING", 445, 12_30_00_000, 401, 44),
+        ("UTIB0000001", get_message("API_AXIS_BANK"),   "PRESENTING", 198, 5_40_00_000, 179, 19),
+        ("KKBK0000001", get_message("API_KOTAK_BANK"),  "DRAWEE",     267, 9_80_00_000, 246, 21),
+        ("YESB0000001", get_message("API_YES_BANK"),    "DRAWEE",     143, 3_90_00_000, 131, 12),
         ("INDB0000001", "IndusInd",    "DRAWEE",     189, 6_20_00_000, 174, 15),
     ]
     rows = []
@@ -556,24 +556,24 @@ async def download_mis_report(
     """
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ASTRA MIS Report", f"Session: {session_id}", f"Bank: {bank_id}"])
+    writer.writerow([get_message("API_ASTRA_MIS_REPORT"), get_message("API_SESSION", session_id=session_id), get_message("API_BANK", bank_id=bank_id)])
     writer.writerow([])
-    writer.writerow(["SECTION 1 — INWARD SUMMARY (Presenting Bank)"])
-    writer.writerow(["Metric", "Count", "Value (INR)"])
-    writer.writerow(["Total Inward",      2105, "₹53,70,00,000"])
-    writer.writerow(["STP Confirmed",     1494, "₹38,13,00,000"])
-    writer.writerow(["STP Returned",       295, "₹7,51,00,000"])
-    writer.writerow(["Manual Confirmed",   190, "₹4,83,00,000"])
-    writer.writerow(["Manual Returned",    106, "₹2,70,00,000"])
-    writer.writerow(["Pending Review",      20, "₹51,00,000"])
+    writer.writerow([get_message("API_SECTION_1_INWARD_SUMMARY_PRESENTING")])
+    writer.writerow(["Metric", "Count", get_message("API_VALUE_INR")])
+    writer.writerow([get_message("UI_COMMON_TOTAL_INWARD"),      2105, "₹53,70,00,000"])
+    writer.writerow([get_message("UI_COMMON_STP_CONFIRMED"),     1494, "₹38,13,00,000"])
+    writer.writerow([get_message("UI_COMMON_STP_RETURNED"),       295, "₹7,51,00,000"])
+    writer.writerow([get_message("UI_COMMON_MANUAL_CONFIRMED"),   190, "₹4,83,00,000"])
+    writer.writerow([get_message("UI_OPSDASHBOARDBODY_MANUAL_RETURNED"),    106, "₹2,70,00,000"])
+    writer.writerow([get_message("UI_OPSDASHBOARDBODY_PENDING_REVIEW"),      20, "₹51,00,000"])
     writer.writerow([])
-    writer.writerow(["SECTION 2 — OUTWARD SUMMARY (Drawee Bank)"])
-    writer.writerow(["Metric", "Count", "Value (INR)"])
-    writer.writerow(["Total Outward",     1380, "₹31,40,00,000"])
-    writer.writerow(["NGCH Accepted",     1270, "₹28,89,00,000"])
-    writer.writerow(["NGCH Returned",      110, "₹2,51,00,000"])
+    writer.writerow([get_message("API_SECTION_2_OUTWARD_SUMMARY_DRAWEE")])
+    writer.writerow(["Metric", "Count", get_message("API_VALUE_INR")])
+    writer.writerow([get_message("UI_OPSDASHBOARDBODY_TOTAL_OUTWARD"),     1380, "₹31,40,00,000"])
+    writer.writerow([get_message("UI_DRAWEEVIEW_NGCH_ACCEPTED"),     1270, "₹28,89,00,000"])
+    writer.writerow([get_message("UI_DRAWEEVIEW_NGCH_RETURNED"),      110, "₹2,51,00,000"])
     writer.writerow([])
-    writer.writerow(["SECTION 3 — RETURN REASONS"])
+    writer.writerow([get_message("API_SECTION_3_RETURN_REASONS")])
     writer.writerow(["Reason", "Count"])
     writer.writerow(["FUNDS_INSUFFICIENT", 185])
     writer.writerow(["SIGNATURE_MISMATCH",  92])
@@ -581,14 +581,14 @@ async def download_mis_report(
     writer.writerow(["ALTERATION_DETECTED", 41])
     writer.writerow(["OTHER",               15])
     writer.writerow([])
-    writer.writerow(["SECTION 4 — PERFORMANCE"])
+    writer.writerow([get_message("API_SECTION_4_PERFORMANCE")])
     writer.writerow(["Metric", "Value"])
-    writer.writerow(["STP Rate",              "84.9%"])
-    writer.writerow(["Overall Return Rate",   "19.1%"])
-    writer.writerow(["Avg Decision Time",     "312ms"])
-    writer.writerow(["P99 Decision Time",     "587ms"])
-    writer.writerow(["IET Near-Breach Count", "2"])
-    writer.writerow(["IET Breach Count",      "0"])
+    writer.writerow([get_message("UI_COMMON_STP_RATE"),              "84.9%"])
+    writer.writerow([get_message("API_OVERALL_RETURN_RATE"),   "19.1%"])
+    writer.writerow([get_message("API_AVG_DECISION_TIME"),     "312ms"])
+    writer.writerow([get_message("API_P99_DECISION_TIME"),     "587ms"])
+    writer.writerow([get_message("API_IET_NEAR_BREACH_COUNT"), "2"])
+    writer.writerow([get_message("API_IET_BREACH_COUNT"),      "0"])
     output.seek(0)
     filename = f"MIS_{bank_id.upper()}_{session_id}_{date.today()}.csv"
     return StreamingResponse(
@@ -610,12 +610,12 @@ async def download_settlement_statement(
     """
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Settlement Position Statement", f"Session: {session_id}"])
-    writer.writerow(["Bank IFSC", "Bank Name", "Inward Confirmed (INR)", "Outward Returned (INR)", "Net Position (INR)", "Direction"])
-    writer.writerow(["HDFC0000001", "HDFC Bank",  "8,20,00,000", "32,00,000",  "+7,88,00,000", "RECEIVE"])
-    writer.writerow(["ICIC0000001", "ICICI Bank", "7,10,00,000", "28,00,000",  "+6,82,00,000", "RECEIVE"])
-    writer.writerow(["SBIN0000001", "State Bank", "12,30,00,000","44,00,000",  "+11,86,00,000","RECEIVE"])
-    writer.writerow(["KKBK0000001", "Kotak Bank", "9,80,00,000", "1,24,00,000","-8,56,00,000", "PAY"])
+    writer.writerow([get_message("API_SETTLEMENT_POSITION_STATEMENT"), get_message("API_SESSION", session_id=session_id)])
+    writer.writerow([get_message("UI_SCANNER_BANK_IFSC"), get_message("UI_SUBMEMBERBANKS_BANK_NAME_2"), get_message("API_INWARD_CONFIRMED_INR"), get_message("API_OUTWARD_RETURNED_INR"), get_message("API_NET_POSITION_INR"), "Direction"])
+    writer.writerow(["HDFC0000001", get_message("API_HDFC_BANK"),  "8,20,00,000", "32,00,000",  "+7,88,00,000", "RECEIVE"])
+    writer.writerow(["ICIC0000001", get_message("API_ICICI_BANK"), "7,10,00,000", "28,00,000",  "+6,82,00,000", "RECEIVE"])
+    writer.writerow(["SBIN0000001", get_message("API_STATE_BANK"), "12,30,00,000","44,00,000",  "+11,86,00,000","RECEIVE"])
+    writer.writerow(["KKBK0000001", get_message("API_KOTAK_BANK"), "9,80,00,000", "1,24,00,000","-8,56,00,000", "PAY"])
     output.seek(0)
     filename = f"SETTLEMENT_{bank_id.upper()}_{session_id}.csv"
     return StreamingResponse(

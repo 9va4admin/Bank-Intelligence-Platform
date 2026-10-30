@@ -17,6 +17,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import get_current_user_context
 from shared.auth.rbac import UserContext
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -82,20 +83,20 @@ class ExceptionsResponse(BaseModel):
 
 
 _EXCEPTION_LABEL_MAP = {
-    "IET_NEAR_BREACH":        "IET Near-Breach (< 30s margin)",
-    "IET_BREACH":             "IET Breached",
-    "NGCH_REJECT":            "NGCH Filing Rejected / Retried",
-    "IQA_FAIL":               "Image Quality Failure",
-    "VAULT_MISS":             "Signature Vault Miss",
-    "VAULT_STALE":            "Vault Stale",
-    "OCR_LOW_CONFIDENCE":     "OCR Low Confidence",
-    "SIG_LOW_CONFIDENCE":     "Signature Low Confidence",
-    "FRAUD_HIGH_SCORE":       "Fraud Score Above Threshold",
-    "ALTERATION_DETECTED":    "Cheque Alteration Detected",
-    "WORDS_FIGURES_MISMATCH": "Words / Figures Mismatch",
-    "CBS_UNREACHABLE":        "CBS Unreachable — Image-Only Mode",
-    "STOP_PAYMENT":           "Stop Payment Triggered",
-    "DUPLICATE":              "Duplicate Instrument Detected",
+    "IET_NEAR_BREACH":        get_message("UI_EXCEPTIONS_IET_NEAR_BREACH_30S_MARGIN"),
+    "IET_BREACH":             get_message("API_IET_BREACHED"),
+    "NGCH_REJECT":            get_message("UI_EXCEPTIONS_NGCH_FILING_REJECTED_RETRIED"),
+    "IQA_FAIL":               get_message("UI_EXCEPTIONS_IMAGE_QUALITY_FAILURE"),
+    "VAULT_MISS":             get_message("API_SIGNATURE_VAULT_MISS"),
+    "VAULT_STALE":            get_message("API_VAULT_STALE"),
+    "OCR_LOW_CONFIDENCE":     get_message("API_OCR_LOW_CONFIDENCE"),
+    "SIG_LOW_CONFIDENCE":     get_message("API_SIGNATURE_LOW_CONFIDENCE"),
+    "FRAUD_HIGH_SCORE":       get_message("UI_EXCEPTIONS_FRAUD_SCORE_ABOVE_THRESHOLD"),
+    "ALTERATION_DETECTED":    get_message("API_CHEQUE_ALTERATION_DETECTED"),
+    "WORDS_FIGURES_MISMATCH": get_message("API_WORDS_FIGURES_MISMATCH"),
+    "CBS_UNREACHABLE":        get_message("API_CBS_UNREACHABLE_IMAGE_ONLY_MODE"),
+    "STOP_PAYMENT":           get_message("API_STOP_PAYMENT_TRIGGERED"),
+    "DUPLICATE":              get_message("API_DUPLICATE_INSTRUMENT_DETECTED"),
 }
 
 _EXCEPTION_SEVERITY_MAP = {

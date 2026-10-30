@@ -202,7 +202,7 @@ async def list_notifications(
         try:
             cursor_data = _decode_notif_cursor(cursor) if cursor else None
             params: list[Any] = [bank_id]
-            where = ["bank_id = $1"]
+            where = [get_message("API_BANK_ID_1")]
             if channel:
                 params.append(channel)
                 where.append(f"channel = ${len(params)}")

@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import Role, RBACPolicy, UserContext
 from shared.utils.masking import mask_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -149,7 +150,7 @@ async def validate_signatures(
             return MSVValidateResponse(
                 instrument_id=body.instrument_id, outcome="AMBER", confidence=0.0,
                 reason_code="MANDATE_NOT_FOUND",
-                reason_message="No mandate on record for this account — routed to human review.",
+                reason_message=get_message("API_NO_MANDATE_ON_RECORD_FOR"),
                 matched_signatories=[], detected_sig_count=0, mandate_rule_type="UNKNOWN",
                 audit_tx_id=None, request_id=request_id,
             )
@@ -199,8 +200,7 @@ async def validate_signatures(
                 confidence=0.0,
                 reason_code="WORKFLOW_STARTED",
                 reason_message=(
-                    f"MSV workflow {workflow_id} started. "
-                    "Poll /v1/msv/status/{instrument_id} for result."
+                    get_message("API_MSV_WORKFLOW_STARTED_POLL_V1", workflow_id=workflow_id, instrument_id="{instrument_id}")
                 ),
                 matched_signatories=[],
                 detected_sig_count=0,

@@ -232,7 +232,7 @@ export default function CTSCompliance() {
           className={`text-xs border rounded-lg px-3 py-1.5 max-w-xs truncate ${th.select}`}
         >
           {LOTS.map(l => (
-            <option key={l} value={l}>{l.split('_').slice(-1)[0] === '01' ? 'Lot 01' : `Lot ${l.split('_').slice(-1)[0]}`} — {l}</option>
+            <option key={l} value={l}>{l.split('_').slice(-1)[0] === '01' ? msg('UI_COMPLIANCE_LOT_01') : msg('UI_COMPLIANCE_LOT', { l: l.split('_').slice(-1)[0] })} — {l}</option>
           ))}
         </select>
         <button
@@ -302,7 +302,7 @@ export default function CTSCompliance() {
                     : 'border-slate-200 text-slate-500 hover:text-slate-900'
               }`}
             >
-              {f === 'ALL' ? 'All' : f}
+              {f === 'ALL' ? msg('UI_COMMON_ALL') : f}
             </button>
           ))}
           <span className={`ml-auto text-[10px] ${th.faint}`}>{msg('UI_COMPLIANCE_OF_INSTRUMENTS', { count: visible.length, count2: lotItems.length })}</span>

@@ -171,7 +171,7 @@ function VaultCoverageWidget({ panel, isDark }) {
                     ? 'bg-amber-600/20 border border-amber-700/40 text-amber-300 hover:bg-amber-600/30'
                     : 'bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100'}`}
               >
-                {warming ? 'Triggering…' : 'Warm Redis'}
+                {warming ? msg('UI_OPSDASHBOARD_TRIGGERING') : msg('UI_OPSDASHBOARD_WARM_REDIS')}
               </button>
               {warmMsg && (
                 <span className={`text-xs ${warmMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -246,7 +246,7 @@ export default function OpsDashboard() {
               className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-opacity disabled:opacity-50
                 ${isDark ? 'border-white/12 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
             >
-              {loading ? 'Refreshing…' : 'Refresh'}
+              {loading ? msg('UI_OPSDASHBOARD_REFRESHING') : msg('UI_COMMON_REFRESH')}
             </button>
           </div>
         </div>

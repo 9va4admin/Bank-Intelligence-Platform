@@ -117,7 +117,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description=get_message("MSV_ASTRA_MSV_TEMPORAL_WORKER"))
-    parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
+    parser.add_argument("--bank-id", required=True, help=get_message("CTS_BANK_IDENTIFIER_E_G_SARASWAT"))
     args = parser.parse_args()
     asyncio.run(run_worker(bank_id=args.bank_id))
 

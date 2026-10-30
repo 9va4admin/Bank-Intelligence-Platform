@@ -339,7 +339,7 @@ async def list_branches(
             # Production path — query YugabyteDB
             try:
                 async with db_pool.acquire() as conn:
-                    conditions = ["bank_id = $1", "1=1"]
+                    conditions = [get_message("API_BANK_ID_1"), "1=1"]
                     params: list[Any] = [bank_id]
                     idx = 2
 

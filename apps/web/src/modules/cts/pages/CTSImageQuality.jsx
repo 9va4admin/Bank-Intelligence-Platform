@@ -343,7 +343,7 @@ export default function CTSImageQuality() {
                               onClick={e => { e.stopPropagation(); triggerRescan(item.id) }}
                               className="text-[10px] px-2 py-0.5 rounded border transition-colors text-sky-400 border-sky-400/30 hover:bg-sky-400/10 disabled:opacity-40"
                             >
-                              {rescanQueue.includes(item.id) ? '⟳ Scanning…' : 'Rescan'}
+                              {rescanQueue.includes(item.id) ? msg('UI_IMAGEQUALITY_SCANNING') : msg('UI_IMAGEQUALITY_RESCAN_2')}
                             </button>
                           )}
                         </td>
@@ -408,7 +408,7 @@ export default function CTSImageQuality() {
                       onClick={() => triggerRescan(selected.id)}
                       className="w-full mt-2 py-2 rounded-lg text-xs font-medium border transition-colors text-sky-400 border-sky-400/30 hover:bg-sky-400/10 disabled:opacity-40"
                     >
-                      {rescanQueue.includes(selected.id) ? '⟳ Rescanning…' : 'Trigger Rescan'}
+                      {rescanQueue.includes(selected.id) ? msg('UI_IMAGEQUALITY_RESCANNING') : msg('UI_IMAGEQUALITY_TRIGGER_RESCAN')}
                     </button>
                   )}
                 </div>

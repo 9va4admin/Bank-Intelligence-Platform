@@ -92,7 +92,7 @@ function ConnRow({ label, ok, value, isDark }) {
         : <span className={`text-sm font-medium ${ok
             ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
             : (isDark ? 'text-red-300'     : 'text-red-700')
-          }`}>{ok ? 'Yes' : 'No'}</span>
+          }`}>{ok ? msg('UI_COMMON_YES') : msg('UI_COMMON_NO')}</span>
       }
     </div>
   )
@@ -190,7 +190,7 @@ export default function SystemHealth() {
             className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-opacity disabled:opacity-50
               ${isDark ? 'border-white/12 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
           >
-            {loading ? 'Refreshing…' : 'Refresh'}
+            {loading ? msg('UI_OPSDASHBOARD_REFRESHING') : msg('UI_COMMON_REFRESH')}
           </button>
         </div>
 
@@ -212,7 +212,7 @@ export default function SystemHealth() {
                 ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
                 : (isDark ? 'text-red-300'     : 'text-red-700')
               }`}>
-                {redisCts.degraded ? 'Unavailable' : redisCts.connected ? 'Connected' : 'Disconnected'}
+                {redisCts.degraded ? msg('UI_SYSTEMHEALTH_UNAVAILABLE') : redisCts.connected ? msg('UI_SYSTEMHEALTH_CONNECTED') : msg('UI_HUBDASHBOARD_DISCONNECTED')}
               </span>
             </div>
             {redisCts.degraded ? <DegradedNote isDark={isDark} /> : (
@@ -231,7 +231,7 @@ export default function SystemHealth() {
                 ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
                 : (isDark ? 'text-red-300'     : 'text-red-700')
               }`}>
-                {yb.degraded ? 'Unavailable' : yb.connected ? 'Connected' : 'Disconnected'}
+                {yb.degraded ? msg('UI_SYSTEMHEALTH_UNAVAILABLE') : yb.connected ? msg('UI_SYSTEMHEALTH_CONNECTED') : msg('UI_HUBDASHBOARD_DISCONNECTED')}
               </span>
             </div>
             {yb.degraded ? <DegradedNote isDark={isDark} /> : (
@@ -253,10 +253,10 @@ export default function SystemHealth() {
                 : (isDark ? 'text-emerald-300' : 'text-emerald-700')
               }`}>
                 {vault.degraded
-                  ? 'Unavailable'
-                  : vault.seal_status === 'unsealed' ? 'Unsealed'
-                  : vault.seal_status === 'sealed'   ? 'SEALED — action required'
-                  : 'Unknown state'
+                  ? msg('UI_SYSTEMHEALTH_UNAVAILABLE')
+                  : vault.seal_status === 'unsealed' ? msg('UI_SYSTEMHEALTH_UNSEALED')
+                  : vault.seal_status === 'sealed'   ? msg('UI_SYSTEMHEALTH_SEALED_ACTION_REQUIRED')
+                  : msg('UI_SYSTEMHEALTH_UNKNOWN_STATE')
                 }
               </span>
             </div>
@@ -283,10 +283,10 @@ export default function SystemHealth() {
                 : (isDark ? 'text-red-300' : 'text-red-700')
               }`}>
                 {kafka.degraded
-                  ? 'Unavailable'
+                  ? msg('UI_SYSTEMHEALTH_UNAVAILABLE')
                   : kafka.connected
-                  ? `Connected · total lag ${kafka.total_lag.toLocaleString('en-IN')}`
-                  : 'Disconnected'
+                  ? msg('UI_SYSTEMHEALTH_CONNECTED_TOTAL_LAG', { total_lag: kafka.total_lag.toLocaleString('en-IN') })
+                  : msg('UI_HUBDASHBOARD_DISCONNECTED')
                 }
               </span>
             </div>
@@ -311,7 +311,7 @@ export default function SystemHealth() {
                 ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
                 : (isDark ? 'text-red-300'     : 'text-red-700')
               }`}>
-                {temporal.degraded ? 'Unavailable' : temporal.connected ? 'Connected' : 'Disconnected'}
+                {temporal.degraded ? msg('UI_SYSTEMHEALTH_UNAVAILABLE') : temporal.connected ? msg('UI_SYSTEMHEALTH_CONNECTED') : msg('UI_HUBDASHBOARD_DISCONNECTED')}
               </span>
             </div>
             {temporal.degraded ? <DegradedNote isDark={isDark} /> : (

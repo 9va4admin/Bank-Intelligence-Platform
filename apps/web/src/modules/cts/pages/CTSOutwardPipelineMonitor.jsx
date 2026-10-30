@@ -247,7 +247,7 @@ function OutwardChequeNode({ data, selected }) {
       )}
       {data.ngch_status && (
         <div className={`text-[10px] font-bold mb-1 ${data.ngch_status === 'ACCEPTED' ? 'text-emerald-400' : (isDark ? 'text-sky-400' : 'text-sky-600')}`}>
-          {data.ngch_status === 'ACCEPTED' ? '✓ Accepted' : '⟳ Ack Pending'}
+          {data.ngch_status === 'ACCEPTED' ? uiMsg('UI_OUTWARDPIPELINEMONITOR_ACCEPTED') : uiMsg('UI_OUTWARDPIPELINEMONITOR_ACK_PENDING')}
         </div>
       )}
 
@@ -313,7 +313,7 @@ function DetailPanel({ instr, onClose, isDark }) {
         <div className={`text-[10px] uppercase tracking-wide font-semibold ${th.lbl}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_SESSION_WINDOW')}</div>
         <div className={`text-2xl font-mono font-bold mt-1 ${urgentColor}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_M', { minsLeft })}</div>
         <div className={`text-[11px] mt-0.5 ${th.muted}`}>
-          {minsLeft < 20 ? 'URGENT — submit before NGCH closes' : 'Until next NGCH submission close'}
+          {minsLeft < 20 ? uiMsg('UI_OUTWARDPIPELINEMONITOR_URGENT_SUBMIT_BEFORE_NGCH_CLOSES') : uiMsg('UI_OUTWARDPIPELINEMONITOR_UNTIL_NEXT_NGCH_SUBMISSION_CLOSE')}
         </div>
       </div>
 

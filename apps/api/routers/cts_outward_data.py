@@ -483,13 +483,13 @@ _OUTCOME_TO_STAGE: dict[str, str] = {
 }
 
 _IQA_LABELS = {
-    "DARK": "Image too dark — rescan required",
-    "MICR": "MICR band not readable",
-    "SKEW": "Image skew > 2°",
-    "TORN": "Torn corner — rescan",
-    "DUPLICATE": "Duplicate instrument detected",
-    "BLUR": "Focus blur — rescan required",
-    "FOLD": "Fold crease over amount field",
+    "DARK": get_message("API_IMAGE_TOO_DARK_RESCAN_REQUIRED"),
+    "MICR": get_message("API_MICR_BAND_NOT_READABLE"),
+    "SKEW": get_message("API_IMAGE_SKEW_2"),
+    "TORN": get_message("API_TORN_CORNER_RESCAN"),
+    "DUPLICATE": get_message("API_DUPLICATE_INSTRUMENT_DETECTED_2"),
+    "BLUR": get_message("API_FOCUS_BLUR_RESCAN_REQUIRED"),
+    "FOLD": get_message("API_FOLD_CREASE_OVER_AMOUNT_FIELD"),
 }
 
 
@@ -1540,7 +1540,7 @@ async def get_clearing_sessions(
             "MORNING":   "10:00–12:00",
             "AFTERNOON": "12:00–14:00",
             "EVENING":   "14:00–16:00",
-            "SPECIAL":   "Special Session",
+            "SPECIAL":   get_message("API_SPECIAL_SESSION"),
         }
         sessions.append(ClearingSessionItem(
             session_id=r["session_id"],

@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -133,7 +134,7 @@ async def match_submitted_vs_settled(
             exceptions = [r for r in rows if r.get("status") != "SETTLED" or r.get("instrument_id") not in submitted]
             exceptions += [
                 {"instrument_id": iid, "status": "MISSING_FROM_SETTLEMENT",
-                 "reason": "Submitted but not in the NGCH settlement report"}
+                 "reason": get_message("CTS_SUBMITTED_BUT_NOT_IN_THE")}
                 for iid in inp.submitted_instrument_ids if iid not in in_report
             ]
             exception_count = len(exceptions)

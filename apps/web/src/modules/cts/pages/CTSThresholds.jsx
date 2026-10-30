@@ -35,7 +35,7 @@ const THRESHOLD_SCHEMA = [
     min: 60, max: 240,
     warn: true,
     editable: true,
-    category: 'IET & Timing',
+    category: msg('UI_OPERATIONSCONFIG_IET_TIMING'),
     desc: msg('UI_THRESHOLDS_RBI_MANDATED_ITEM_EXPIRY_TIME'),
   },
   {
@@ -47,7 +47,7 @@ const THRESHOLD_SCHEMA = [
     min: 0.85, max: 0.99,
     warn: false,
     editable: true,
-    category: 'Fraud Scoring',
+    category: msg('UI_THRESHOLDS_FRAUD_SCORING'),
     desc: msg('UI_THRESHOLDS_FRAUD_PROBABILITY_BELOW_THIS_SCORE'),
   },
   {
@@ -59,7 +59,7 @@ const THRESHOLD_SCHEMA = [
     min: 0.50, max: 0.90,
     warn: false,
     editable: true,
-    category: 'Fraud Scoring',
+    category: msg('UI_THRESHOLDS_FRAUD_SCORING'),
     desc: msg('UI_THRESHOLDS_FRAUD_PROBABILITY_ABOVE_THIS_SCORE'),
   },
   {
@@ -71,7 +71,7 @@ const THRESHOLD_SCHEMA = [
     min: 100000, max: 10000000,
     warn: false,
     editable: true,
-    category: 'Amount Controls',
+    category: msg('UI_OPERATIONSCONFIG_AMOUNT_CONTROLS'),
     desc: msg('UI_THRESHOLDS_CHEQUES_ABOVE_THIS_AMOUNT_TRIGGER'),
   },
   {
@@ -83,7 +83,7 @@ const THRESHOLD_SCHEMA = [
     min: 0.80, max: 0.99,
     warn: false,
     editable: true,
-    category: 'AI Confidence',
+    category: msg('UI_OPERATIONSCONFIG_AI_CONFIDENCE'),
     desc: msg('UI_THRESHOLDS_GOT_OCR2_0_CONFIDENCE_BELOW'),
   },
   {
@@ -95,7 +95,7 @@ const THRESHOLD_SCHEMA = [
     min: 0.75, max: 0.99,
     warn: false,
     editable: true,
-    category: 'AI Confidence',
+    category: msg('UI_OPERATIONSCONFIG_AI_CONFIDENCE'),
     desc: msg('UI_THRESHOLDS_SIAMESE_NETWORK_MATCH_SCORE_BELOW'),
   },
   {
@@ -107,7 +107,7 @@ const THRESHOLD_SCHEMA = [
     layer: 1,
     warn: true,
     editable: false,
-    category: 'Security',
+    category: msg('UI_OPERATIONSCONFIG_SECURITY'),
     desc: msg('UI_THRESHOLDS_ACTION_WHEN_SIGNATURE_OR_PPS'),
   },
   {
@@ -120,16 +120,16 @@ const THRESHOLD_SCHEMA = [
     layer: 1,
     warn: true,
     editable: false,
-    category: 'IET & Timing',
+    category: msg('UI_OPERATIONSCONFIG_IET_TIMING'),
     desc: msg('UI_THRESHOLDS_IETWATCHDOGWORKFLOW_FIRES_EMERGENCY'),
   },
 ]
 
 const MOCK_CHANGES = [
-  { change_id: 'chg-1', config_key: 'stp_auto_confirm_threshold',   new_value: '0.92', reason: 'Align with Q2 risk review', status: 'APPROVED',          submitted_by: 'ops_manager@svcb', actioned_by: 'itadmin@svcb', submitted_at: '2026-06-18T14:32:00Z', actioned_at: '2026-06-18T16:00:00Z' },
-  { change_id: 'chg-2', config_key: 'human_review_fraud_threshold', new_value: '0.72', reason: 'Reduce false positives after model retrain', status: 'APPROVED', submitted_by: 'ops_manager@svcb', actioned_by: 'itadmin@svcb', submitted_at: '2026-06-15T09:11:00Z', actioned_at: '2026-06-15T10:30:00Z' },
-  { change_id: 'chg-3', config_key: 'high_value_amount_threshold',  new_value: '500000', reason: 'Board resolution to raise threshold', status: 'APPROVED', submitted_by: 'ops_manager@svcb', actioned_by: 'itadmin@svcb', submitted_at: '2026-06-10T11:45:00Z', actioned_at: '2026-06-10T14:00:00Z' },
-  { change_id: 'chg-4', config_key: 'ocr_min_confidence',           new_value: '0.90', reason: 'Match updated GOT-OCR2.0 confidence calibration', status: 'PENDING_APPROVAL', submitted_by: 'ops_manager@svcb', actioned_by: null, submitted_at: '2026-06-24T16:20:00Z', actioned_at: null },
+  { change_id: 'chg-1', config_key: 'stp_auto_confirm_threshold',   new_value: '0.92', reason: msg('UI_THRESHOLDS_ALIGN_WITH_Q2_RISK_REVIEW'), status: 'APPROVED',          submitted_by: 'ops_manager@svcb', actioned_by: 'itadmin@svcb', submitted_at: '2026-06-18T14:32:00Z', actioned_at: '2026-06-18T16:00:00Z' },
+  { change_id: 'chg-2', config_key: 'human_review_fraud_threshold', new_value: '0.72', reason: msg('UI_THRESHOLDS_REDUCE_FALSE_POSITIVES_AFTER_MODEL'), status: 'APPROVED', submitted_by: 'ops_manager@svcb', actioned_by: 'itadmin@svcb', submitted_at: '2026-06-15T09:11:00Z', actioned_at: '2026-06-15T10:30:00Z' },
+  { change_id: 'chg-3', config_key: 'high_value_amount_threshold',  new_value: '500000', reason: msg('UI_THRESHOLDS_BOARD_RESOLUTION_TO_RAISE_THRESHOLD'), status: 'APPROVED', submitted_by: 'ops_manager@svcb', actioned_by: 'itadmin@svcb', submitted_at: '2026-06-10T11:45:00Z', actioned_at: '2026-06-10T14:00:00Z' },
+  { change_id: 'chg-4', config_key: 'ocr_min_confidence',           new_value: '0.90', reason: msg('UI_THRESHOLDS_MATCH_UPDATED_GOT_OCR2_0'), status: 'PENDING_APPROVAL', submitted_by: 'ops_manager@svcb', actioned_by: null, submitted_at: '2026-06-24T16:20:00Z', actioned_at: null },
 ]
 
 const CATEGORIES = ['All', 'IET & Timing', 'Fraud Scoring', 'Amount Controls', 'AI Confidence', 'Security']
@@ -253,7 +253,7 @@ export default function CTSThresholds() {
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-xs font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? 'border-cyan-500 text-cyan-400' : `border-transparent ${th.muted} hover:${th.body}`}`}
             >
-              {t === 'change-log' ? 'Change Log' : 'Thresholds'}
+              {t === 'change-log' ? msg('UI_THRESHOLDS_CHANGE_LOG') : msg('UI_THRESHOLDS_THRESHOLDS')}
             </button>
           ))}
         </div>
@@ -358,7 +358,7 @@ export default function CTSThresholds() {
                               ? (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
                               : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
                         }`}>
-                          {c.status === 'PENDING_APPROVAL' ? 'PENDING' : c.status}
+                          {c.status === 'PENDING_APPROVAL' ? msg('UI_OPERATIONSCONFIG_PENDING_2') : c.status}
                         </span>
                       </td>
                     </tr>
@@ -427,7 +427,7 @@ export default function CTSThresholds() {
                   disabled={submitMut.isPending}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-50"
                 >
-                  {submitMut.isPending ? 'Submitting…' : 'Submit for Approval'}
+                  {submitMut.isPending ? msg('UI_COMMON_SUBMITTING') : msg('UI_OPERATIONSCONFIG_SUBMIT_FOR_APPROVAL')}
                 </button>
               </div>
             </div>

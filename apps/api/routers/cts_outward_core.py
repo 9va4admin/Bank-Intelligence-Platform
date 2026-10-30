@@ -515,7 +515,7 @@ async def get_scan_image_url(
         img.save(buf_out, format="JPEG", quality=85)
         buf_out.seek(0)
         return StreamingResponse(buf_out, media_type="image/jpeg",
-                                 headers={"Cache-Control": "private, max-age=300"})
+                                 headers={"Cache-Control": get_message("API_PRIVATE_MAX_AGE_300")})
     except Exception as exc:
         log.warning("cts.scan_image_convert_error", scan_id=scan_id, error=str(exc))
         return StreamingResponse(io.BytesIO(raw_bytes), media_type="image/tiff")

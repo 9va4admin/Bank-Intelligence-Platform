@@ -318,7 +318,7 @@ export default function CTSBusinessModel() {
         </div>
         <button
           onClick={toggle}
-          title={isDark ? 'Switch to light' : 'Switch to dark'}
+          title={isDark ? msg('UI_BUSINESSMODEL_SWITCH_TO_LIGHT') : msg('UI_BUSINESSMODEL_SWITCH_TO_DARK')}
           className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
         >
           {isDark ? '☀' : '🌙'}
@@ -606,21 +606,21 @@ export default function CTSBusinessModel() {
                 {[
                   {
                     label: msg('UI_BUSINESSMODEL_IET_COMPLIANCE_SAVINGS'),
-                    sub: '0.05% breach rate × avg ₹45k × deemed-approval loss',
+                    sub: msg('UI_BUSINESSMODEL_0_05_BREACH_RATE_AVG'),
                     val: model.ietSavingsLakhs,
                     icon: '🛡',
                     color: 'text-emerald-400',
                   },
                   {
                     label: msg('UI_BUSINESSMODEL_FTE_REDUCTION'),
-                    sub: '85% STP → manual review drops ~85% · ₹8/cheque saved',
+                    sub: msg('UI_BUSINESSMODEL_85_STP_MANUAL_REVIEW_DROPS'),
                     val: model.fteSavingsLakhs,
                     icon: '👥',
                     color: 'text-blue-400',
                   },
                   {
                     label: msg('UI_BUSINESSMODEL_FRAUD_PREVENTION'),
-                    sub: '+2.3% catch rate on high-fraud cheques · ₹45k avg value',
+                    sub: msg('UI_BUSINESSMODEL_2_3_CATCH_RATE_ON'),
                     val: model.fraudSavingsLakhs,
                     icon: '🔍',
                     color: 'text-violet-400',
@@ -634,7 +634,7 @@ export default function CTSBusinessModel() {
                   },
                   {
                     label: msg('UI_BUSINESSMODEL_AUDIT_COST_REDUCTION'),
-                    sub: 'Automated immutable audit vs manual reconciliation',
+                    sub: msg('UI_BUSINESSMODEL_AUTOMATED_IMMUTABLE_AUDIT_VS_MANUAL'),
                     val: model.auditSavingsLakhs,
                     icon: '📋',
                     color: 'text-sky-400',

@@ -73,10 +73,10 @@ const LEAF_LIFECYCLE = [
   { s: 'PAID',      who: 'ASTRA', note: msg('UI_VAULTUPLOAD_NGCH_FILER_CONFIRM'),            color: 'text-emerald-400' },
   { s: 'RETURNED',  who: 'ASTRA', note: msg('UI_VAULTUPLOAD_NGCH_FILER_RETURN'),             color: 'text-amber-400' },
   { s: 'EXPIRED',   who: 'ASTRA', note: msg('UI_VAULTUPLOAD_DAILY_SWEEP_3_MONTHS'),          color: 'text-slate-400' },
-  { s: 'STOPPED',   who: 'Bank',  note: msg('UI_VAULTUPLOAD_STOP_PAYMENT_INSTRUCTION'),        color: 'text-amber-400' },
-  { s: 'LOST',      who: 'Bank',  note: msg('UI_VAULTUPLOAD_CUSTOMER_REPORTS_LOSS'),           color: 'text-red-400' },
-  { s: 'STOLEN',    who: 'Bank',  note: msg('UI_VAULTUPLOAD_CUSTOMER_POLICE_REPORT'),          color: 'text-red-400' },
-  { s: 'CANCELLED', who: 'Bank',  note: msg('UI_VAULTUPLOAD_CUSTOMER_CANCELS_UNUSED_LEAF'),    color: 'text-red-400' },
+  { s: 'STOPPED',   who: msg('UI_VAULTUPLOAD_BANK'),  note: msg('UI_VAULTUPLOAD_STOP_PAYMENT_INSTRUCTION'),        color: 'text-amber-400' },
+  { s: 'LOST',      who: msg('UI_VAULTUPLOAD_BANK'),  note: msg('UI_VAULTUPLOAD_CUSTOMER_REPORTS_LOSS'),           color: 'text-red-400' },
+  { s: 'STOLEN',    who: msg('UI_VAULTUPLOAD_BANK'),  note: msg('UI_VAULTUPLOAD_CUSTOMER_POLICE_REPORT'),          color: 'text-red-400' },
+  { s: 'CANCELLED', who: msg('UI_VAULTUPLOAD_BANK'),  note: msg('UI_VAULTUPLOAD_CUSTOMER_CANCELS_UNUSED_LEAF'),    color: 'text-red-400' },
 ]
 
 // ── API helpers ────────────────────────────────────────────────────────────
@@ -343,7 +343,7 @@ export default function CTSVaultUpload() {
                   : isDark ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
               }`}
             >
-              {uploadMut.isPending ? 'Uploading…' : 'Upload & Process'}
+              {uploadMut.isPending ? msg('UI_VAULTUPLOAD_UPLOADING') : msg('UI_VAULTUPLOAD_UPLOAD_PROCESS')}
             </button>
 
             {/* Result panel */}
@@ -393,7 +393,7 @@ export default function CTSVaultUpload() {
                   <div key={b.batch_id} className={`px-4 py-3 transition-colors ${th.row}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className={`text-sm truncate font-medium ${th.body}`}>{b.filename || '(no filename)'}</div>
+                        <div className={`text-sm truncate font-medium ${th.body}`}>{b.filename || msg('UI_VAULTUPLOAD_NO_FILENAME')}</div>
                         <div className={`text-xs mt-0.5 ${th.faint}`}>{b.uploaded_by} · {b.upload_channel}</div>
                       </div>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded border shrink-0 ${th.badge[b.status] || th.badge.PENDING}`}>
@@ -418,7 +418,7 @@ export default function CTSVaultUpload() {
                             downloadingBatch === b.batch_id ? 'opacity-50 cursor-wait' : 'hover:text-red-300 cursor-pointer'
                           }`}
                         >
-                          {downloadingBatch === b.batch_id ? 'downloading…' : '↓ errors.csv'}
+                          {downloadingBatch === b.batch_id ? msg('UI_VAULTUPLOAD_DOWNLOADING') : msg('UI_VAULTUPLOAD_ERRORS_CSV')}
                         </button>
                       )}
                       <span>{new Date(b.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })}</span>

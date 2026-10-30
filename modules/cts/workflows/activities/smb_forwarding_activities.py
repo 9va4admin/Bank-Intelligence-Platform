@@ -25,6 +25,7 @@ from temporalio import activity
 import structlog
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -88,7 +89,7 @@ async def validate_smb_forwarding_window(
                 "safe_to_forward": False,
                 "iet_seconds_remaining": 0.0,
                 "smb_active": False,
-                "reason": f"INVALID_IET_DEADLINE: {iet_deadline_utc}",
+                "reason": get_message("CTS_INVALID_IET_DEADLINE", iet_deadline_utc=iet_deadline_utc),
             }
 
         # Check minimum headroom — config_service.get() raises ConfigKeyNotFoundError
@@ -134,7 +135,7 @@ async def validate_smb_forwarding_window(
                 "safe_to_forward": False,
                 "iet_seconds_remaining": iet_seconds_remaining,
                 "smb_active": False,
-                "reason": f"SMB_SUSPENDED: {sub_member_id}",
+                "reason": get_message("CTS_SMB_SUSPENDED", sub_member_id=sub_member_id),
             }
 
         return {

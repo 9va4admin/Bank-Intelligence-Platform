@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from modules.cts.evaluation.stats import verdict, wilson_interval
+from shared.messages import get_message
 
 NFR_TARGETS = {
     "ocr_field_accuracy": 0.99,
@@ -91,14 +92,14 @@ def score(rows: list[Row]) -> EvalResult:
     exact = sum(1 for r in ps if r.read_payee and not r.payee_withheld and _norm(r.read_payee) == _norm(r.truth_payee))
     shown_wrong = sum(1 for r in ps if r.read_payee and not r.payee_withheld and _norm(r.read_payee) != _norm(r.truth_payee))
     withheld = sum(1 for r in ps if r.payee_withheld or not r.read_payee)
-    add("payee: exact", exact, len(ps), ocr, note="Latin-script payees with reliable truth")
+    add("payee: exact", exact, len(ps), ocr, note=get_message("CTS_LATIN_SCRIPT_PAYEES_WITH_RELIABLE"))
     add("payee: wrong value SHOWN", shown_wrong, len(ps), err, higher_is_better=False, critical=True)
-    add("payee: withheld for review", withheld, len(ps), note="the cost side: handled by a human, not wrong")
+    add("payee: withheld for review", withheld, len(ps), note=get_message("CTS_THE_COST_SIDE_HANDLED_BY"))
 
     add("9-digit sort code correct", sum(r.read_micr9 == r.truth_micr9 for r in rows), len(rows), ocr)
     add("9-digit sort code: wrong value READ", sum(1 for r in rows if r.read_micr9 and r.read_micr9 != r.truth_micr9),
         len(rows), err, higher_is_better=False, critical=True,
-        note="read wrongly; the presented-number and branch-master cross-checks may still catch it")
+        note=get_message("CTS_READ_WRONGLY_THE_PRESENTED_NUMBER"))
     add("cheque/DD number correct", sum(r.read_num == r.truth_num for r in rows), len(rows), ocr)
     add("cheque/DD number: wrong value READ", sum(1 for r in rows if r.read_num and r.read_num != r.truth_num),
         len(rows), err, higher_is_better=False, critical=True)
@@ -107,10 +108,10 @@ def score(rows: list[Row]) -> EvalResult:
     add("amount figures: wrong value READ",
         sum(1 for r in am if r.read_amount and _digits(r.read_amount) != _digits(r.truth_amount)),
         len(am), err, higher_is_better=False, critical=True,
-        note="read wrongly; figures-vs-words, amount-vs-presented and reviewer checks may still catch it")
+        note=get_message("CTS_READ_WRONGLY_FIGURES_VS_WORDS"))
 
     returns = [r for r in rows if r.decision == "STP_RETURN" and r.truth_should_return is not None]
     add("automatic returns that were WRONG", sum(1 for r in returns if r.truth_should_return is False), len(returns),
         err, higher_is_better=False, critical=True,
-        note="only returns whose correctness is verifiable from ground truth are counted")
+        note=get_message("CTS_ONLY_RETURNS_WHOSE_CORRECTNESS_IS"))
     return res

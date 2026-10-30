@@ -458,7 +458,7 @@ async def generate_scanner_registration_code(
         "branch_id":        branch_id,
         "branch_name":      branch_name,
         "bank_ifsc":        bank_ifsc,
-        "endorsement_text": f"PRESENTED BY {bank_id.upper().replace('-', ' ')}",
+        "endorsement_text": get_message("API_PRESENTED_BY", bank_id=bank_id.upper().replace('-', ' ')),
         "enable_imprinter": True,
         "enable_uv_scan":   False,
         "mocr_weight":      50,

@@ -22,97 +22,97 @@ const CONFIG_META = {
   stp_mode: {
     label: msg('UI_OPERATIONSCONFIG_STP_MODE'), unit: '', type: 'enum',
     options: ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP'],
-    defaultVal: 'SUPERVISED', category: 'STP Pipeline',
+    defaultVal: 'SUPERVISED', category: msg('UI_OPERATIONSCONFIG_STP_PIPELINE'),
     desc: msg('UI_OPERATIONSCONFIG_CONTROLS_WHEN_AI_STP_CONFIRM'),
     warn: true, editable: true,
   },
   stp_auto_confirm_threshold: {
     label: msg('UI_OPERATIONSCONFIG_STP_AUTO_CONFIRM_SCORE'), unit: 'score (0–1)', type: 'float',
-    min: 0.85, max: 0.99, defaultVal: '0.92', category: 'STP Pipeline',
+    min: 0.85, max: 0.99, defaultVal: '0.92', category: msg('UI_OPERATIONSCONFIG_STP_PIPELINE'),
     desc: msg('UI_OPERATIONSCONFIG_FRAUD_PROBABILITY_BELOW_THIS_SCORE'),
     warn: false, editable: true,
   },
   human_review_fraud_threshold: {
     label: msg('UI_OPERATIONSCONFIG_HUMAN_REVIEW_TRIGGER_SCORE'), unit: 'score (0–1)', type: 'float',
-    min: 0.50, max: 0.90, defaultVal: '0.72', category: 'STP Pipeline',
+    min: 0.50, max: 0.90, defaultVal: '0.72', category: msg('UI_OPERATIONSCONFIG_STP_PIPELINE'),
     desc: msg('UI_OPERATIONSCONFIG_FRAUD_PROBABILITY_ABOVE_THIS_SCORE'),
     warn: false, editable: true,
   },
   queue_tier_high_value_threshold: {
     label: msg('UI_OPERATIONSCONFIG_HIGH_VALUE_QUEUE_THRESHOLD'), unit: '₹', type: 'integer',
-    min: 50000, max: 500000, defaultVal: '100000', category: 'Queue Segmentation',
+    min: 50000, max: 500000, defaultVal: '100000', category: msg('UI_OPERATIONSCONFIG_QUEUE_SEGMENTATION'),
     desc: msg('UI_OPERATIONSCONFIG_CHEQUES_ABOVE_THIS_AMOUNT_ARE', { bank_id: '{bank_id}' }),
     warn: false, editable: true,
   },
   queue_tier_very_high_threshold: {
     label: msg('UI_OPERATIONSCONFIG_VERY_HIGH_VALUE_QUEUE_THRESHOLD'), unit: '₹', type: 'integer',
-    min: 500000, max: 50000000, defaultVal: '1000000', category: 'Queue Segmentation',
+    min: 500000, max: 50000000, defaultVal: '1000000', category: msg('UI_OPERATIONSCONFIG_QUEUE_SEGMENTATION'),
     desc: msg('UI_OPERATIONSCONFIG_CHEQUES_ABOVE_THIS_AMOUNT_ARE_2', { bank_id: '{bank_id}' }),
     warn: false, editable: true,
   },
   allocation_mode: {
     label: msg('UI_OPERATIONSCONFIG_REVIEWER_ALLOCATION_MODE'), unit: '', type: 'enum',
-    options: ['SELF', 'HYBRID', 'AUTO'], defaultVal: 'HYBRID', category: 'Allocation',
+    options: ['SELF', 'HYBRID', 'AUTO'], defaultVal: 'HYBRID', category: msg('UI_OPERATIONSCONFIG_ALLOCATION'),
     desc: msg('UI_OPERATIONSCONFIG_CONTROLS_HOW_INWARD_CHEQUES_ARE'),
     warn: false, editable: true,
   },
   allocation_lock_ttl_minutes: {
     label: msg('UI_OPERATIONSCONFIG_REVIEW_LOCK_TTL'), unit: 'minutes', type: 'integer',
-    min: 5, max: 60, defaultVal: '10', category: 'Allocation',
+    min: 5, max: 60, defaultVal: '10', category: msg('UI_OPERATIONSCONFIG_ALLOCATION'),
     desc: msg('UI_OPERATIONSCONFIG_REDIS_LOCK_DURATION_FOR_REVIEWER'),
     warn: false, editable: true,
   },
   iet_minutes: {
     label: msg('UI_COMMON_IET_WINDOW'), unit: 'minutes', type: 'integer',
-    min: 60, max: 240, defaultVal: '180', category: 'IET & Timing',
+    min: 60, max: 240, defaultVal: '180', category: msg('UI_OPERATIONSCONFIG_IET_TIMING'),
     desc: msg('UI_OPERATIONSCONFIG_RBI_MANDATED_ITEM_EXPIRY_TIME'),
     warn: true, editable: true,
   },
   ocr_min_confidence: {
     label: msg('UI_OPERATIONSCONFIG_OCR_MINIMUM_CONFIDENCE'), unit: 'score (0–1)', type: 'float',
-    min: 0.80, max: 0.99, defaultVal: '0.90', category: 'AI Confidence',
+    min: 0.80, max: 0.99, defaultVal: '0.90', category: msg('UI_OPERATIONSCONFIG_AI_CONFIDENCE'),
     desc: msg('UI_OPERATIONSCONFIG_GOT_OCR2_0_CONFIDENCE_BELOW'),
     warn: false, editable: true,
   },
   signature_min_match_score: {
     label: msg('UI_OPERATIONSCONFIG_SIGNATURE_MATCH_MINIMUM'), unit: 'score (0–1)', type: 'float',
-    min: 0.75, max: 0.99, defaultVal: '0.87', category: 'AI Confidence',
+    min: 0.75, max: 0.99, defaultVal: '0.87', category: msg('UI_OPERATIONSCONFIG_AI_CONFIDENCE'),
     desc: msg('UI_OPERATIONSCONFIG_SIAMESE_NETWORK_MATCH_SCORE_BELOW'),
     warn: false, editable: true,
   },
   high_value_amount_threshold: {
     label: msg('UI_OPERATIONSCONFIG_HIGH_VALUE_DUAL_APPROVAL_LIMIT'), unit: '₹', type: 'integer',
-    min: 100000, max: 10000000, defaultVal: '500000', category: 'Amount Controls',
+    min: 100000, max: 10000000, defaultVal: '500000', category: msg('UI_OPERATIONSCONFIG_AMOUNT_CONTROLS'),
     desc: msg('UI_OPERATIONSCONFIG_CHEQUES_ABOVE_THIS_AMOUNT_REQUIRE'),
     warn: false, editable: true,
   },
   vault_miss_action: {
     label: msg('UI_COMMON_VAULT_MISS_ACTION'), unit: '', type: 'enum',
-    options: [], defaultVal: 'HUMAN_REVIEW', category: 'Security',
+    options: [], defaultVal: 'HUMAN_REVIEW', category: msg('UI_OPERATIONSCONFIG_SECURITY'),
     desc: msg('UI_OPERATIONSCONFIG_ACTION_WHEN_SIGNATURE_OR_PPS'),
     warn: true, editable: false,
   },
   outward_frozen_payee_action: {
     label: msg('UI_OPERATIONSCONFIG_OUTWARD_FROZEN_PAYEE'), unit: '', type: 'enum',
-    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
+    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: msg('UI_OPERATIONSCONFIG_OUTWARD_PROCESSING'),
     desc: msg('UI_OPERATIONSCONFIG_WHEN_A_DEPOSITOR_S_PAYEE'),
     warn: false, editable: true,
   },
   outward_dormant_payee_action: {
     label: msg('UI_OPERATIONSCONFIG_OUTWARD_DORMANT_PAYEE'), unit: '', type: 'enum',
-    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
+    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: msg('UI_OPERATIONSCONFIG_OUTWARD_PROCESSING'),
     desc: msg('UI_OPERATIONSCONFIG_WHEN_THE_PAYEE_ACCOUNT_IS'),
     warn: false, editable: true,
   },
   outward_npa_payee_action: {
     label: msg('UI_OPERATIONSCONFIG_OUTWARD_NPA_PAYEE'), unit: '', type: 'enum',
-    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
+    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: msg('UI_OPERATIONSCONFIG_OUTWARD_PROCESSING'),
     desc: msg('UI_OPERATIONSCONFIG_WHEN_THE_PAYEE_ACCOUNT_IS_2'),
     warn: true, editable: true,
   },
   rear_image_required: {
     label: msg('UI_OPERATIONSCONFIG_REQUIRE_REAR_CHEQUE_IMAGE'), unit: '', type: 'enum',
-    options: ['false', 'true'], defaultVal: 'false', category: 'Outward Processing',
+    options: ['false', 'true'], defaultVal: 'false', category: msg('UI_OPERATIONSCONFIG_OUTWARD_PROCESSING'),
     desc: msg('UI_OPERATIONSCONFIG_ENFORCE_CTS_2010_DPI_AND'),
     warn: false, editable: true,
   },
@@ -261,7 +261,7 @@ export default function OperationsConfig() {
 
   function submitChange() {
     if (!reason.trim() || reason.trim().length < 10) {
-      setReasonErr('Reason must be at least 10 characters')
+      setReasonErr(msg('UI_OPERATIONSCONFIG_REASON_MUST_BE_AT_LEAST'))
       return
     }
     setReasonErr('')
@@ -455,7 +455,7 @@ export default function OperationsConfig() {
                                 ? (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
                                 : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
                           }`}>
-                            {c.status === 'PENDING_APPROVAL' ? 'PENDING' : c.status}
+                            {c.status === 'PENDING_APPROVAL' ? msg('UI_OPERATIONSCONFIG_PENDING_2') : c.status}
                           </span>
                         </td>
                       </tr>
@@ -552,7 +552,7 @@ export default function OperationsConfig() {
                 disabled={submitMutation.isPending}
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${submitMutation.isPending ? 'opacity-60 cursor-not-allowed bg-violet-700 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
               >
-                {submitMutation.isPending ? 'Submitting…' : 'Submit for Approval'}
+                {submitMutation.isPending ? msg('UI_COMMON_SUBMITTING') : msg('UI_OPERATIONSCONFIG_SUBMIT_FOR_APPROVAL')}
               </button>
             </div>
           </div>

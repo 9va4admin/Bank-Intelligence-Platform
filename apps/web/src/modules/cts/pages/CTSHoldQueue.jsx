@@ -155,7 +155,7 @@ export default function CTSHoldQueue() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_INWARD_HOLD_QUEUE')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {isLoading ? 'Loading…' : `${holds.length} instrument${holds.length !== 1 ? 's' : ''} on hold — IET countdown active on all`}
+              {isLoading ? msg('UI_COMMON_LOADING') : msg('UI_HOLDQUEUE_INSTRUMENT_ON_HOLD_IET_COUNTDOWN', { count: holds.length, value: holds.length !== 1 ? 's' : '' })}
             </p>
           </div>
           <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
@@ -244,7 +244,7 @@ export default function CTSHoldQueue() {
                           : (isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white')
                         }`}
                     >
-                      {isReleasing ? 'Releasing…' : 'Release Hold'}
+                      {isReleasing ? msg('UI_ALLOCATIONADMIN_RELEASING') : msg('UI_HOLDQUEUE_RELEASE_HOLD')}
                     </button>
                     {hold.branch_recommendation === 'RETURN' && (
                       <span className={`text-xs px-3 py-1.5 rounded-lg border font-medium ${isDark ? 'border-red-700/40 text-red-400 bg-red-900/20' : 'border-red-200 text-red-600 bg-red-50'}`}>

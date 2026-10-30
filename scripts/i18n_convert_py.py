@@ -20,7 +20,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 YAML = ROOT / "shared/messages/locales/messages.yaml"
 WRITE = "--write" in sys.argv
-INCLUDE_WORKFLOWS = "--include-workflows" in sys.argv     # workflow files need the sandbox pass-through import; check mode covers them anyway
+INCLUDE_WORKFLOWS = "--include-workflows" in sys.argv
+LIST = "--list" in sys.argv                                        # print every piece of wording found     # workflow files need the sandbox pass-through import; check mode covers them anyway
 FILTERS = [a for a in sys.argv[1:] if not a.startswith("--")]
 
 CALL_KWARGS = {"detail", "message", "description", "title", "subject", "message_body"}
@@ -28,7 +29,17 @@ DICT_KEYS = {"message", "detail", "error", "description", "title", "text", "labe
              "subject", "message_body"}
 LOG_NAMES = {"debug", "info", "warning", "warn", "error", "exception", "critical", "log", "fatal"}
 LOG_RECEIVERS = {"log", "logger", "logging", "structlog", "LOG", "_log"}
-SKIP_CALLS = {"Field", "Query", "Path", "Body", "Header", "Depends", "APIRouter", "FastAPI", "Column", "field"}
+SKIP_CALLS = {"Field", "Query", "Path", "Body", "Header", "Depends", "APIRouter", "FastAPI", "Column", "field", "execute", "fetch", "fetchrow",
+              "fetchval", "executemany", "text", "compile", "match", "search", "sub", "split", "startswith", "endswith", "join", "replace",
+              "encode", "decode", "open", "getLogger", "get_logger", "print", "format", "start_workflow", "list_workflows", "count_workflows"}
+# keywords that carry machine text (queries, prompts, protocol fields), never wording
+TECH_KWARGS = {"sql", "query", "prompt", "system", "system_prompt", "content", "url", "path", "host", "key", "event", "event_type", "topic",
+               "queue", "task_queue", "id", "workflow_id", "model", "regex", "pattern", "mode", "method", "media_type", "encoding", "name_prefix"}
+SQLISH = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|FROM|WHERE|AND|OR|ORDER)\b|\b(FROM|WHERE|JOIN|ILIKE)\b.*\$\d|WorkflowType\s*=|^You are |^Return only|^\s*\{|\n\n|^event:|^data:|^:\s|^(Bearer|Basic|attachment|inline)\b|^(application|text|multipart)/|^\s*<|^\s*[\[\(\d]")
+# Services that ship on their own, without the repo's `shared` package (their image or edge install holds only their own files). They cannot
+# import shared.messages, so their text stays in their own code.
+STANDALONE_APPS = ("apps/sig_detector/", "apps/eeh/", "apps/ai_server/", "apps/ej_ingestion/", "apps/indic_ocr/")
+SKIP_FILES = ("apps/api/dev_auth_server.py", "apps/api/routers/demo_cloud_extract.py", "modules/cts/demo/pipeline.py")
 HAS_WORD = re.compile(r"[A-Za-z]{2,}")
 
 
@@ -80,6 +91,8 @@ def tracked_files():
             continue
         if re.search(r"(^|/)(tests?|\.venv[^/]*|site-packages|indic_ocr|migrations)(/|$)", f) or f.startswith("shared/messages/"):
             continue
+        if f.startswith(STANDALONE_APPS):
+            continue
         if FILTERS and not any(x in f for x in FILTERS):
             continue
         keep.append(f)
@@ -106,6 +119,8 @@ class Finder(ast.NodeVisitor):
             for v in node.values:
                 if isinstance(v, ast.Constant):
                     parts += str(v.value)
+                    for m in re.finditer(r"\{(\w+)\}", str(v.value)):          # f"...{{name}}..." is a literal {name} in the output
+                        vars_.append((unique(m.group(1), used), repr("{" + m.group(1) + "}")))
                 elif isinstance(v, ast.FormattedValue):
                     if v.format_spec is not None or v.conversion not in (-1,):
                         return None                                     # formatting we cannot express as a placeholder
@@ -143,9 +158,17 @@ class Finder(ast.NodeVisitor):
         fname = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
         recv = func.value.id if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) else ""
         is_log = (fname in LOG_NAMES and (recv in LOG_RECEIVERS or recv.endswith("log") or recv.endswith("logger"))) or fname == "get_message"
+        if any(kw.arg == "tags" for kw in node.keywords):             # tags=["Admin v1"] is API documentation metadata
+            self.in_decorator += 1
+            for child in ast.iter_child_nodes(node):
+                self.visit(child)
+            self.in_decorator -= 1
+            return
         if not is_log and fname not in SKIP_CALLS and not self.in_decorator:
             for kw in node.keywords:
                 if kw.arg in CALL_KWARGS:
+                    self.add(kw.value, "kwarg")
+                elif kw.arg and kw.arg not in TECH_KWARGS and isinstance(kw.value, (ast.Constant, ast.JoinedStr)) and self.phrase(kw.value):
                     self.add(kw.value, "kwarg")
         if is_log:
             return                                                     # log events are for developers
@@ -164,7 +187,39 @@ class Finder(ast.NodeVisitor):
             for k, v in zip(node.keys, node.values):
                 if isinstance(k, ast.Constant) and k.value in DICT_KEYS:
                     self.add(v, "dict")
+                elif isinstance(v, (ast.Constant, ast.JoinedStr)) and self.phrase(v):
+                    self.add(v, "dict")
         self.generic_visit(node)
+
+    def phrase(self, node):
+        """A multi-word sentence (not SQL, a prompt or a protocol line)."""
+        t = self.text_of(node)
+        if not t:
+            return False
+        text = t[0]
+        return " " in text.strip() and not SQLISH.search(text) and len(text) < 400
+
+    def visit_Return(self, node):
+        if node.value is not None and not self.in_decorator:
+            if isinstance(node.value, (ast.Constant, ast.JoinedStr)) and self.phrase(node.value):
+                self.add(node.value, "return")
+        self.generic_visit(node)
+
+    def visit_IfExp(self, node):
+        if not self.in_decorator:
+            for b in (node.body, node.orelse):
+                if isinstance(b, (ast.Constant, ast.JoinedStr)) and self.phrase(b):
+                    self.add(b, "ifexp")
+        self.generic_visit(node)
+
+    def _seq(self, node):
+        if not self.in_decorator:
+            for e in node.elts:
+                if isinstance(e, (ast.Constant, ast.JoinedStr)) and self.phrase(e):
+                    self.add(e, "seq")
+        self.generic_visit(node)
+
+    visit_Tuple = visit_List = _seq
 
 
 yaml_text = YAML.read_text(encoding="utf-8")
@@ -208,6 +263,8 @@ for f in tracked_files():
     path = ROOT / f
     raw = path.read_bytes()
     src = raw.decode("utf-8", errors="replace")
+    if f in SKIP_FILES:
+        continue
     if "@workflow.defn" in src and not INCLUDE_WORKFLOWS:
         skipped_workflow.append(f)
         continue
@@ -219,6 +276,9 @@ for f in tracked_files():
     finder.visit(tree)
     if not finder.sites:
         continue
+    if LIST:
+        for x in sorted(finder.sites, key=lambda y: y["line"]):
+            print(f"{f}:{x['line']} [{x['kind']}] {x['text'][:90]!r}")
     taken, used, edits = set(), {}, []
     for s in sorted({(x["start"], x["end"]): x for x in finder.sites}.values(), key=lambda x: x["start"]):
         sig = f"{s['text']}|{','.join(n for n, _ in s['vars'])}"
@@ -252,7 +312,10 @@ for f in tracked_files():
             line_no = body[0].end_lineno if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant) else 0
         lines = new_src.split("\n")
         # edits can change line counts only on the edited lines, never above the last import
-        lines.insert(line_no, "from shared.messages import get_message")
+        if "@workflow.defn" in src:            # the Temporal sandbox restricts imports: pass the read-only message registry through
+            lines[line_no:line_no] = ["with workflow.unsafe.imports_passed_through():", "    from shared.messages import get_message"]
+        else:
+            lines.insert(line_no, "from shared.messages import get_message")
         new_src = "\n".join(lines)
     try:
         compile(new_src, f, "exec")

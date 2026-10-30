@@ -795,7 +795,7 @@ def main() -> None:
     import argparse
     import sys
     parser = argparse.ArgumentParser(description=get_message("CTS_ASTRA_CTS_TEMPORAL_WORKER"))
-    parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
+    parser.add_argument("--bank-id", required=True, help=get_message("CTS_BANK_IDENTIFIER_E_G_SARASWAT"))
     args = parser.parse_args()
 
     # Temporal's Rust core (temporalio.bridge) requires SelectorEventLoop on Windows.

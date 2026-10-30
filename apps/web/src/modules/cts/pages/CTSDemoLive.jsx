@@ -246,7 +246,7 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
             </div>
             <div className="flex justify-between">
               <span className={muted}>{msg('UI_DEMOLIVE_FLAGS')}</span>
-              <span className={body}>{(ocr.flags || []).join(', ') || 'None'}</span>
+              <span className={body}>{(ocr.flags || []).join(', ') || msg('UI_DEMOLIVE_NONE')}</span>
             </div>
             <div className={`mt-2 rounded p-2 text-xs font-medium ${
               isVisionCatch
@@ -412,7 +412,7 @@ function ChequeRow({ cheque, result, isSelected, onSelect, isDark }) {
       {/* Outcome */}
       {result && (
         <span className={`text-xs font-medium ${outcomeColor}`}>
-          {outcome === 'STP_CONFIRM' ? '✓ STP' : outcome === 'STP_RETURN' ? '✗ RTN' : outcome === 'HUMAN_REVIEW' ? '👁 HRV' : '...'}
+          {outcome === 'STP_CONFIRM' ? msg('UI_DEMOLIVE_STP') : outcome === 'STP_RETURN' ? msg('UI_DEMOLIVE_RTN') : outcome === 'HUMAN_REVIEW' ? msg('UI_DEMOLIVE_HRV') : '...'}
         </span>
       )}
     </div>
@@ -669,7 +669,7 @@ export default function CTSDemoLive() {
                   <span className={`ml-auto w-2 h-2 rounded-full ${
                     dockerOnline[b.id] === true ? 'bg-emerald-400' :
                     dockerOnline[b.id] === false ? 'bg-red-500' : 'bg-slate-500'
-                  }`} title={dockerOnline[b.id] ? 'Docker online' : 'Using simulation'} />
+                  }`} title={dockerOnline[b.id] ? msg('UI_DEMOLIVE_DOCKER_ONLINE') : msg('UI_DEMOLIVE_USING_SIMULATION')} />
                 </button>
               ))}
             </div>
@@ -685,7 +685,7 @@ export default function CTSDemoLive() {
                   : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
               }`}
             >
-              {mode === 'vision' ? '🧠 Vision Only' : '🧠 Vision Focus'}
+              {mode === 'vision' ? msg('UI_DEMOLIVE_VISION_ONLY') : msg('UI_DEMOLIVE_VISION_FOCUS')}
             </button>
             <select
               value={filterCat}
@@ -710,8 +710,8 @@ export default function CTSDemoLive() {
               }`}
             >
               {running
-                ? `⏹ Stop (${totalProcessed}/${filteredCheques.length})`
-                : `▶ Process ${filteredCheques.length} Cheque${filteredCheques.length !== 1 ? 's' : ''}`}
+                ? msg('UI_DEMOLIVE_STOP', { totalProcessed, count: filteredCheques.length })
+                : msg('UI_DEMOLIVE_PROCESS_CHEQUE', { count: filteredCheques.length, value: filteredCheques.length !== 1 ? 's' : '' })}
             </button>
           </div>
 
@@ -773,7 +773,7 @@ export default function CTSDemoLive() {
                 </span>
               ))}
               <span className={`text-xs ${th.muted}`}>
-                {Object.values(dockerOnline).some(Boolean) ? 'Docker' : 'Simulation'}
+                {Object.values(dockerOnline).some(Boolean) ? msg('UI_DEMOLIVE_DOCKER') : msg('UI_DEMOLIVE_SIMULATION')}
               </span>
             </div>
           </div>

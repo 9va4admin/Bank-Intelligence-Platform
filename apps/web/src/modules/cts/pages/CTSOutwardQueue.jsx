@@ -564,7 +564,7 @@ export default function CTSOutwardQueue() {
             {activeList.length === 0 && (
               <div className={`text-center ${th.empty} text-sm py-12`}>
                 <div className="text-3xl mb-2">✓</div>
-                <div>{tab === 'review' ? 'No items awaiting review' : 'No STP rejections pending'}</div>
+                <div>{tab === 'review' ? msg('UI_OUTWARDQUEUE_NO_ITEMS_AWAITING_REVIEW') : msg('UI_OUTWARDQUEUE_NO_STP_REJECTIONS_PENDING')}</div>
               </div>
             )}
             {activeList.map(item => (
@@ -583,7 +583,7 @@ export default function CTSOutwardQueue() {
                     <div className="flex items-center justify-between">
                       <span className={`text-[11px] font-mono ${th.muted}`}>{d.instrument_id}</span>
                       <span className={`text-[10px] font-semibold ${d.action === 'CONFIRMED' ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {d.action === 'CONFIRMED' ? '✓ Confirmed' : '✕ Rejected'}
+                        {d.action === 'CONFIRMED' ? msg('UI_COMMON_CONFIRMED_2') : msg('UI_OUTWARDQUEUE_REJECTED')}
                       </span>
                     </div>
                   </div>

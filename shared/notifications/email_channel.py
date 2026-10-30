@@ -24,19 +24,19 @@ _TEMPLATES: dict[str, tuple[str, str]] = {
         "Queue position: {queue_position}\nBank: {bank_id}",
     ),
     "cts.cheque_returned": (
-        "ASTRA CTS — Cheque return notice",
+        get_message("PLATFORM_ASTRA_CTS_CHEQUE_RETURN_NOTICE"),
         "A cheque has been returned.\nReason: {reason}\nBank: {bank_id}",
     ),
     "cts.fraud_alert": (
-        "ASTRA CTS — Fraud alert",
+        get_message("PLATFORM_ASTRA_CTS_FRAUD_ALERT"),
         "Fraud signal detected.\nBank: {bank_id}",
     ),
     "cts.iet_warning": (
-        "ASTRA CTS — IET expiry warning",
+        get_message("PLATFORM_ASTRA_CTS_IET_EXPIRY_WARNING"),
         "Cheque IET window closing.\nMinutes remaining: {minutes_remaining}\nBank: {bank_id}",
     ),
     "cts.shift_start": (
-        "ASTRA CTS — Shift summary",
+        get_message("PLATFORM_ASTRA_CTS_SHIFT_SUMMARY"),
         "Your shift has started. Bank: {bank_id}",
     ),
 }

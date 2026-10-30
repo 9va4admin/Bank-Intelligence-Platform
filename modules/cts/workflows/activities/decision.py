@@ -44,6 +44,7 @@ from shared.utils.masking import mask_amount
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.opa_client import OPAClient, OPAInput
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -195,7 +196,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="HUMAN_REVIEW",
-                rationale=f"kill_switch active: mode={effective_ks_mode} scope={effective_ks_scope}",
+                rationale=get_message("CTS_KILL_SWITCH_ACTIVE_MODE_SCOPE", effective_ks_mode=effective_ks_mode, effective_ks_scope=effective_ks_scope),
                 shap_values=inp.shap_values,
                 kill_switch_mode=effective_ks_mode,
                 kill_switch_scope=effective_ks_scope,
@@ -229,7 +230,7 @@ async def synthesise_decision(
                 return DecisionResult(
                     instrument_id=inp.instrument_id,
                     decision="HUMAN_REVIEW",
-                    rationale=f"OPA policy: {opa_result.reason}",
+                    rationale=get_message("CTS_OPA_POLICY", reason=opa_result.reason),
                     shap_values=inp.shap_values,
                 )
             if opa_result.decision == "AUTO_RETURN":
@@ -242,7 +243,7 @@ async def synthesise_decision(
                 return DecisionResult(
                     instrument_id=inp.instrument_id,
                     decision="STP_RETURN",
-                    rationale=f"OPA policy: {opa_result.reason}",
+                    rationale=get_message("CTS_OPA_POLICY", reason=opa_result.reason),
                     shap_values=inp.shap_values,
                 )
         elif config.get("opa_required", True):
@@ -254,7 +255,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="HUMAN_REVIEW",
-                rationale="OPA_UNAVAILABLE: business policy engine unreachable — routed for manual review",
+                rationale=get_message("CTS_OPA_UNAVAILABLE_BUSINESS_POLICY_ENGI"),
                 shap_values=inp.shap_values,
             )
         # ── End OPA evaluation ────────────────────────────────────────────────────
@@ -279,7 +280,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="HUMAN_REVIEW",
-                rationale="Payee name blank or missing — open-bearer instrument requires review",
+                rationale=get_message("CTS_PAYEE_NAME_BLANK_OR_MISSING"),
                 shap_values=inp.shap_values,
             )
 
@@ -303,8 +304,7 @@ async def synthesise_decision(
                     instrument_id=inp.instrument_id,
                     decision="HUMAN_REVIEW",
                     rationale=(
-                        f"IFSC mismatch: NGCH presentment={inp.ngch_ifsc.strip().upper()} "
-                        f"vs cheque face={inp.ocr_ifsc.strip().upper()}"
+                        get_message("CTS_IFSC_MISMATCH_NGCH_PRESENTMENT_VS", ngch_ifsc=inp.ngch_ifsc.strip().upper(), ocr_ifsc=inp.ocr_ifsc.strip().upper())
                     ),
                     shap_values=inp.shap_values,
                 )
@@ -318,7 +318,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="STP_RETURN",
-                rationale="Undated cheque",
+                rationale=get_message("UI_RETURNREASONS_UNDATED_CHEQUE"),
                 shap_values=inp.shap_values,
                 return_reason_code="32",
                 is_customer_fault=is_customer_fault("32"),
@@ -331,15 +331,14 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="HUMAN_REVIEW",
-                rationale=(f"date_implausible: cheque date {cheque_date} is {abs((today - cheque_date).days)} days "
-                           f"from today - probable OCR misread, not auto-returned"),
+                rationale=(get_message("CTS_DATE_IMPLAUSIBLE_CHEQUE_DATE_IS", cheque_date=cheque_date, abs=abs((today - cheque_date).days))),
                 shap_values=inp.shap_values,
             )
         if cheque_date > today:
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="STP_RETURN",
-                rationale=f"Post-dated cheque — cheque date {cheque_date} is in the future",
+                rationale=get_message("CTS_POST_DATED_CHEQUE_CHEQUE_DATE", cheque_date=cheque_date),
                 shap_values=inp.shap_values,
                 return_reason_code="30",
                 is_customer_fault=is_customer_fault("30"),
@@ -348,7 +347,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="STP_RETURN",
-                rationale=f"Stale cheque — {(today - cheque_date).days} days old (limit {validity_days})",
+                rationale=get_message("CTS_STALE_CHEQUE_DAYS_OLD_LIMIT", days=(today - cheque_date).days, validity_days=validity_days),
                 shap_values=inp.shap_values,
                 return_reason_code="31",
                 is_customer_fault=is_customer_fault("31"),
@@ -365,9 +364,7 @@ async def synthesise_decision(
                         instrument_id=inp.instrument_id,
                         decision="STP_RETURN",
                         rationale=(
-                            f"Amount in words/figures differ: "
-                            f"words={mask_amount(parsed_words_amount)} "
-                            f"figures={mask_amount(inp.amount_figures)}"
+                            get_message("CTS_AMOUNT_IN_WORDS_FIGURES_DIFFER", mask_amount=mask_amount(parsed_words_amount), mask_amount2=mask_amount(inp.amount_figures))
                         ),
                         shap_values=inp.shap_values,
                         return_reason_code="34",
@@ -380,7 +377,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="STP_RETURN",
-                rationale=f"CBS account status requires return: {inp.cbs_return_reason or 'unspecified'}",
+                rationale=get_message("CTS_CBS_ACCOUNT_STATUS_REQUIRES_RETURN", value=inp.cbs_return_reason or 'unspecified'),
                 shap_values=inp.shap_values,
                 return_reason_code=rrc,
                 is_customer_fault=is_customer_fault(rrc),
@@ -394,7 +391,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="STP_RETURN",
-                rationale=f"CTS alteration in non-date fields: {non_date_altered}",
+                rationale=get_message("CTS_CTS_ALTERATION_IN_NON_DATE", non_date_altered=non_date_altered),
                 shap_values=inp.shap_values,
                 return_reason_code="85",
                 is_customer_fault=is_customer_fault("85"),
@@ -437,8 +434,7 @@ async def synthesise_decision(
             return DecisionResult(
                 instrument_id=inp.instrument_id,
                 decision="HUMAN_REVIEW",
-                rationale=("signature_verifier_untrained: the signature match score comes from a generic model, "
-                           "not a trained signature verifier, so it cannot support an automatic confirm"),
+                rationale=(get_message("CTS_SIGNATURE_VERIFIER_UNTRAINED_THE_SIG")),
                 shap_values=inp.shap_values,
             )
 

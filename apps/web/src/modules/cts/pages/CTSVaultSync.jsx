@@ -39,10 +39,10 @@ const MOCK_PPS = [
 ]
 
 const MOCK_STOP = [
-  { account_display: '****2233', cheque_number: '000045', reason: 'Lost / Stolen',       requested_at: '2026-06-24T11:30:00Z', status: 'ACTIVE' },
-  { account_display: '****8877', cheque_number: '000178', reason: 'Disputed Amount',      requested_at: '2026-06-23T09:15:00Z', status: 'ACTIVE' },
-  { account_display: '****4499', cheque_number: '000222', reason: 'Countermand by Drawer',requested_at: '2026-06-20T16:45:00Z', status: 'REVOKED' },
-  { account_display: '****6611', cheque_number: '000033', reason: 'Lost / Stolen',        requested_at: '2026-06-18T08:00:00Z', status: 'ACTIVE' },
+  { account_display: '****2233', cheque_number: '000045', reason: msg('UI_VAULTSYNC_LOST_STOLEN'),       requested_at: '2026-06-24T11:30:00Z', status: 'ACTIVE' },
+  { account_display: '****8877', cheque_number: '000178', reason: msg('UI_VAULTSYNC_DISPUTED_AMOUNT'),      requested_at: '2026-06-23T09:15:00Z', status: 'ACTIVE' },
+  { account_display: '****4499', cheque_number: '000222', reason: msg('UI_VAULTSYNC_COUNTERMAND_BY_DRAWER'),requested_at: '2026-06-20T16:45:00Z', status: 'REVOKED' },
+  { account_display: '****6611', cheque_number: '000033', reason: msg('UI_VAULTSYNC_LOST_STOLEN'),        requested_at: '2026-06-18T08:00:00Z', status: 'ACTIVE' },
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -229,9 +229,9 @@ export default function CTSVaultSync() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {[
             { label: msg('UI_COMMON_LAST_SYNC'), value: fmtDate(syncStatus.last_run_at), sub: syncStatus.triggered_by },
-            { label: msg('UI_VAULTSYNC_PPS_RECORDS'), value: syncStatus.pps_records_loaded.toLocaleString('en-IN'), sub: 'Active entries' },
-            { label: msg('UI_VAULTSYNC_STOP_CHEQUES'), value: syncStatus.stop_cheque_records_loaded.toLocaleString('en-IN'), sub: 'Active holds' },
-            { label: msg('UI_VAULTSYNC_NEXT_SCHEDULED'), value: fmtDate(syncStatus.next_scheduled), sub: 'Daily at 07:00 AM' },
+            { label: msg('UI_VAULTSYNC_PPS_RECORDS'), value: syncStatus.pps_records_loaded.toLocaleString('en-IN'), sub: msg('UI_VAULTSYNC_ACTIVE_ENTRIES') },
+            { label: msg('UI_VAULTSYNC_STOP_CHEQUES'), value: syncStatus.stop_cheque_records_loaded.toLocaleString('en-IN'), sub: msg('UI_VAULTSYNC_ACTIVE_HOLDS') },
+            { label: msg('UI_VAULTSYNC_NEXT_SCHEDULED'), value: fmtDate(syncStatus.next_scheduled), sub: msg('UI_VAULTSYNC_DAILY_AT_07_00_AM') },
           ].map(({ label, value, sub }) => (
             <div key={label} className={`rounded-xl border p-4 ${th.card}`}>
               <div className={`text-[10px] font-semibold uppercase tracking-widest mb-1 ${th.muted}`}>{label}</div>
