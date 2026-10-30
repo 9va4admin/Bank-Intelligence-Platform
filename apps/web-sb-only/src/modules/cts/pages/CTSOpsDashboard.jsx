@@ -12,7 +12,6 @@
  */
 import { useState, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
@@ -20,51 +19,48 @@ import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
 import { msg } from '../../../shared/messages'
 
-// RPC zones — each is a live, independent connection to NGCH for its clearing
-// zone (CLAUDE.md §2.2).
-// Shown first on My Bank: an RPC going DEGRADED is an NPCI-connectivity risk,
-// not a routine stat — it belongs above the fold, not three clicks deep.
-const ZONE_STATUS = [
-  { zone: 'MUMBAI',    status: 'ACTIVE',   pending: 14, iet_risk: 2 },
-  { zone: 'DELHI',     status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
-  { zone: 'CHENNAI',   status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
-  { zone: 'KOLKATA',   status: 'ACTIVE',   pending: 3,  iet_risk: 0 },
-  { zone: 'HYDERABAD', status: 'DEGRADED', pending: 21, iet_risk: 5 },
+// The bank files to one NGCH grid through one gateway, and its work is organised in processing units (PUs). The gateway going
+// DEGRADED is an NPCI-connectivity risk, not a routine stat, so it is shown first on My Bank; the PUs show where work is queued.
+const PU_STATUS = [
+  { pu: 'PU-1', status: 'ACTIVE',   pending: 14, iet_risk: 2 },
+  { pu: 'PU-2', status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
+  { pu: 'PU-3', status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
+  { pu: 'PU-4', status: 'DEGRADED', pending: 21, iet_risk: 5 },
 ]
 
-function ZoneGatewayStrip({ isDark }) {
+function GatewayStrip({ isDark }) {
   const th = {
     card: isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
     label: isDark ? 'text-slate-400' : 'text-slate-500',
   }
-  const degraded = ZONE_STATUS.filter(z => z.status !== 'ACTIVE')
+  const degraded = PU_STATUS.filter(z => z.status !== 'ACTIVE')
   return (
-    <Link to="/cts/rpc" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
+    <div className={`block border rounded-xl px-4 py-3 mb-4 ${th.card}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>{msg('UI_OPSDASHBOARD_RPC_NGCH_GATEWAY_STATUS')}</span>
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>{msg('CTS_OUT_GATEWAY_TITLE')}</span>
         {degraded.length > 0 && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
-            {msg('UI_OPSDASHBOARD_ZONE_DEGRADED', { count: degraded.length, value: degraded.length > 1 ? 's' : '' })}
+            {degraded.length === 1 ? msg('CTS_OUT_GATEWAY_DEGRADED_ONE') : msg('CTS_OUT_GATEWAY_DEGRADED_MANY', { count: degraded.length })}
           </span>
         )}
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        {ZONE_STATUS.map(z => {
+        {PU_STATUS.map(z => {
           const ok = z.status === 'ACTIVE'
           return (
-            <div key={z.zone} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
+            <div key={z.pu} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
               ok
                 ? (isDark ? 'border-emerald-700/30 bg-emerald-900/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700')
                 : (isDark ? 'border-red-700/40 bg-red-900/20 text-red-300' : 'border-red-200 bg-red-50 text-red-700')
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
-              <span className="font-medium">{z.zone}</span>
-              {!ok && <span className="font-mono opacity-80">{msg('UI_OPSDASHBOARD_IET_RISK', { iet_risk: z.iet_risk })}</span>}
+              <span className="font-medium">{z.pu}</span>
+              {!ok && <span className="font-mono opacity-80">{msg('CTS_OUT_GATEWAY_IET_RISK', { count: z.iet_risk })}</span>}
             </div>
           )
         })}
       </div>
-    </Link>
+    </div>
   )
 }
 
@@ -389,7 +385,7 @@ export default function CTSOpsDashboard() {
         </div>
 
         <div className="px-6 py-5 max-w-7xl">
-          {dashTab === 'mybank' && <ZoneGatewayStrip isDark={isDark} />}
+          {dashTab === 'mybank' && <GatewayStrip isDark={isDark} />}
           {dashTab === 'smb' && (
             <SMBFilterBar smbs={smbs} selectedSmbId={selectedSmbId} onSelect={setSelectedSmbId} isDark={isDark} />
           )}

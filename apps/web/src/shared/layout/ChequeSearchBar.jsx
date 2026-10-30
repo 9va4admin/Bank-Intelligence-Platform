@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { msg } from '../messages'
 
 const MOCK_RESULTS = [
-  { instrument_id: 'INS-2024-001234', cheque_number: '000234', account_display: '****4521', payee_display: 'R***', amount_range: '₹[1L-5L]', status: 'STP_CONFIRM', pu_id: 'MUMBAI', received_at: '2026-06-25T09:14:23Z', fraud_score: 0.12, ocr_confidence: 0.97 },
-  { instrument_id: 'INS-2024-001235', cheque_number: '000235', account_display: '****7890', payee_display: 'S***', amount_range: '₹[5L-10L]', status: 'HUMAN_REVIEW', pu_id: 'DELHI',  received_at: '2026-06-25T09:18:05Z', fraud_score: 0.74, ocr_confidence: 0.91 },
-  { instrument_id: 'INS-2024-001236', cheque_number: '000236', account_display: '****1122', payee_display: 'M***', amount_range: '₹[<1L]',    status: 'STP_RETURN',  pu_id: 'MUMBAI', received_at: '2026-06-25T08:52:11Z', fraud_score: 0.88, ocr_confidence: 0.95 },
+  { instrument_id: 'INS-2024-001234', cheque_number: '000234', account_display: '****4521', payee_display: 'R***', amount_range: '₹[1L-5L]', status: 'STP_CONFIRM', pu_id: 'PU-MUM-01', received_at: '2026-06-25T09:14:23Z', fraud_score: 0.12, ocr_confidence: 0.97 },
+  { instrument_id: 'INS-2024-001235', cheque_number: '000235', account_display: '****7890', payee_display: 'S***', amount_range: '₹[5L-10L]', status: 'HUMAN_REVIEW', pu_id: 'PU-PUN-01',  received_at: '2026-06-25T09:18:05Z', fraud_score: 0.74, ocr_confidence: 0.91 },
+  { instrument_id: 'INS-2024-001236', cheque_number: '000236', account_display: '****1122', payee_display: 'M***', amount_range: '₹[<1L]',    status: 'STP_RETURN',  pu_id: 'PU-MUM-01', received_at: '2026-06-25T08:52:11Z', fraud_score: 0.88, ocr_confidence: 0.95 },
 ]
 
 const STATUS_STYLE = {

@@ -356,7 +356,7 @@ function TopbarRight({ isDark, toggle }) {
           >
             <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
               <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{BANK_CONFIG.bank_name}</div>
-              <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{BANK_CONFIG.clearing_zone} · {BANK_CONFIG.ifsc_prefix}</div>
+              <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{BANK_CONFIG.ifsc_prefix}</div>
             </div>
             {[
               { label: msg('UI_PROFILE_MY_PROFILE_2'),  icon: '👤', to: '/profile'  },

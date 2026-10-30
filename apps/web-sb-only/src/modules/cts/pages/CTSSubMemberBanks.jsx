@@ -5,8 +5,6 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { msg } from '../../../shared/messages'
 
-const CLEARING_ZONES = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
-
 function OnboardModal({ isDark, onClose, bankId }) {
   const th = {
     overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
@@ -22,17 +20,10 @@ function OnboardModal({ isDark, onClose, bankId }) {
 
   const [form, setForm] = useState({
     name: '', ifsc_prefix: '', sponsor_account: '', contact: '',
-    clearing_zones: [], daily_limit: '', risk_level: 'LOW',
+    daily_limit: '', risk_level: 'LOW',
   })
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState(null)
-
-  const toggle_zone = (z) => setForm(f => ({
-    ...f,
-    clearing_zones: f.clearing_zones.includes(z)
-      ? f.clearing_zones.filter(x => x !== z)
-      : [...f.clearing_zones, z],
-  }))
 
   const registerMutation = useMutation({
     mutationFn: async () => {
@@ -46,7 +37,6 @@ function OnboardModal({ isDark, onClose, bankId }) {
           micr_prefix: form.ifsc_prefix,
           sponsor_account_number: form.sponsor_account,
           contact_email: form.contact,
-          clearing_zones: form.clearing_zones,
           daily_presentment_limit: parseInt(form.daily_limit) || 1000,
           risk_level: form.risk_level,
           return_rate_threshold: 0.15,
@@ -128,22 +118,6 @@ function OnboardModal({ isDark, onClose, bankId }) {
                 value={form.contact} onChange={e => setForm(f => ({...f, contact: e.target.value}))} />
             </div>
             <div>
-              <label className={`block mb-2 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_CLEARING_ZONES')}</label>
-              <div className="flex flex-wrap gap-2">
-                {CLEARING_ZONES.map(z => {
-                  const active = form.clearing_zones.includes(z)
-                  return (
-                    <button type="button" key={z} onClick={() => toggle_zone(z)}
-                      className={`px-2.5 py-1 rounded-full border text-[10px] font-medium transition-all ${
-                        active
-                          ? (isDark ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-cyan-600 border-cyan-600 text-white')
-                          : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20' : 'bg-slate-100 border-slate-300 text-slate-500 hover:border-slate-400')
-                      }`}>{z}</button>
-                  )
-                })}
-              </div>
-            </div>
-            <div>
               <label className={`block mb-1 ${th.label}`}>{msg('UI_SUBMEMBERBANKS_INITIAL_RISK_ASSESSMENT_2')}</label>
               <div className="flex gap-2">
                 {['LOW', 'MEDIUM', 'HIGH'].map(r => (
@@ -163,7 +137,7 @@ function OnboardModal({ isDark, onClose, bankId }) {
             )}
             <div className={`pt-4 border-t ${th.divider} flex justify-end gap-2`}>
               <button type="button" onClick={onClose} className={`px-4 py-2 rounded-lg text-xs font-medium ${th.cancel}`}>{msg('UI_COMMON_CANCEL_2')}</button>
-              <button type="submit" disabled={form.clearing_zones.length === 0 || registerMutation.isPending}
+              <button type="submit" disabled={registerMutation.isPending}
                 className={`px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-40 ${th.btn}`}>
                 {registerMutation.isPending ? msg('UI_OPERATIONSCONFIG_SUBMITTING') : msg('UI_SUBMEMBERBANKS_SUBMIT_FOR_COMPLIANCE_REVIEW_2')}
               </button>
@@ -181,7 +155,6 @@ const MOCK_SUB_MEMBERS = [
     name: 'Vasavi Co-operative Bank',
     ifsc_prefix: 'VASB',
     sponsor_account: 'SVCB00000001',
-    clearing_zones: ['MUMBAI'],
     status: 'ACTIVE',
     daily_limit: 5000,
     cheques_today: 312,
@@ -194,7 +167,6 @@ const MOCK_SUB_MEMBERS = [
     name: 'Cosmos Co-operative Bank',
     ifsc_prefix: 'COSB',
     sponsor_account: 'SVCB00000002',
-    clearing_zones: ['MUMBAI', 'PUNE'],
     risk_level: 'LOW',
     status: 'ACTIVE',
     daily_limit: 3000,
@@ -207,7 +179,6 @@ const MOCK_SUB_MEMBERS = [
     name: 'Janata Sahakari Bank',
     ifsc_prefix: 'JSBP',
     sponsor_account: 'SVCB00000003',
-    clearing_zones: ['PUNE'],
     status: 'SUSPENDED',
     daily_limit: 2000,
     cheques_today: 0,
@@ -292,7 +263,7 @@ export default function CTSSubMemberBanks() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {[msg('UI_SMBREGISTRY_BANK_NAME'), msg('UI_RPCCONSOLIDATION_IFSC_PREFIX'), msg('UI_CONFIG_CLEARING_ZONES'), msg('UI_SUBMEMBERBANKS_DAILY_LIMIT_2'), msg('UI_SMBREGISTRY_TODAY_2'), msg('UI_SUBMEMBERBANKS_RISK_2'), msg('UI_COMMON_STATUS_2'), ''].map(h => (
+                {[msg('UI_SMBREGISTRY_BANK_NAME'), msg('UI_SUBMEMBERBANKS_IFSC_PREFIX_2'), msg('UI_SUBMEMBERBANKS_DAILY_LIMIT_2'), msg('UI_SMBREGISTRY_TODAY_2'), msg('UI_SUBMEMBERBANKS_RISK_2'), msg('UI_COMMON_STATUS_2'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -302,13 +273,6 @@ export default function CTSSubMemberBanks() {
                 <tr key={sm.id} className={`border-b cursor-pointer transition-colors ${th.row}`} onClick={() => setSelected(sm)}>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{sm.name}</td>
                   <td className={`px-4 py-3 font-mono ${th.body}`}>{sm.ifsc_prefix}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap">
-                      {sm.clearing_zones.map(z => (
-                        <span key={z} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${th.badge}`}>{z}</span>
-                      ))}
-                    </div>
-                  </td>
                   <td className={`px-4 py-3 ${th.body}`}>{msg('UI_SUBMEMBERBANKS_DAY_2', { daily_limit: sm.daily_limit.toLocaleString() })}</td>
                   <td className={`px-4 py-3 ${th.body}`}>{sm.cheques_today}</td>
                   <td className="px-4 py-3">

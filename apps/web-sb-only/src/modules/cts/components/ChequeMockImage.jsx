@@ -29,7 +29,6 @@ export default function ChequeMockImage({ fields, alterations, isDark }) {
         </div>
         <div className="text-right">
           <div className={`${sub} text-[10px]`}>{msg('UI_CHEQUEMOCKIMAGE_CTS_2010_COMPLIANT_2')}</div>
-          <div className={`${sub} text-[10px]`}>{msg('UI_CHEQUEMOCKIMAGE_MUMBAI_CLEARING_ZONE')}</div>
         </div>
       </div>
 

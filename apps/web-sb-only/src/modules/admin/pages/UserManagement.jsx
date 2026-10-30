@@ -7,11 +7,19 @@ import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { msg } from '../../../shared/messages'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SB_ROLES = ['ops_reviewer', 'fraud_analyst', 'ops_manager', 'bank_it_admin', 'compliance_officer', 'rbi_examiner', 'ml_engineer']
-const VALID_ZONES = ['MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
+// A reviewer is scoped to a processing unit (or all). The real list comes from the PU master; these are only the choices when it cannot be read.
+const PUS_BY_BANK = {
+  'federal-bank':   ['SOUTH-MAIN', 'WEST-MAIN', 'NORTH-MAIN', 'EAST-MAIN'],
+  'saraswat-coop':  ['PU-MUM-01', 'PU-MUM-02', 'PU-PUN-01'],
+  'karnataka-bank': ['PU-SOUTH', 'PU-NORTH'],
+  'union-bank':     ['UBIN-PU-WEST', 'UBIN-PU-SOUTH'],
+}
+const PU_CHOICES = PUS_BY_BANK[BANK_CONFIG.bank_id] ?? []
 const PERMISSION_LEVELS = ['ADMIN', 'EDIT', 'READ_ONLY']
 
 const ROLE_LABELS = {
@@ -59,11 +67,11 @@ const ROLE_COLORS_L = {
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_USERS = [
-  { user_id: 'usr-001', email: 'ops1@hdfc.com',        display_name: 'Priya Mehta',   role: 'ops_reviewer',       permission_level: 'EDIT',      clearing_zone: 'MUMBAI', is_active: true,  totp_enabled: true,  last_login: '2026-06-25T09:14:00Z' },
-  { user_id: 'usr-002', email: 'fraud1@hdfc.com',      display_name: 'Rahul Singh',   role: 'fraud_analyst',      permission_level: 'EDIT',      clearing_zone: 'DELHI',  is_active: true,  totp_enabled: false, last_login: '2026-06-25T08:52:00Z' },
-  { user_id: 'usr-003', email: 'mgr1@hdfc.com',        display_name: 'Sunita Iyer',   role: 'ops_manager',        permission_level: 'EDIT',      clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-24T17:30:00Z' },
-  { user_id: 'usr-004', email: 'admin1@hdfc.com',      display_name: 'Vikram Kapoor', role: 'bank_it_admin',      permission_level: 'ADMIN',     clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T07:00:00Z' },
-  { user_id: 'usr-005', email: 'compliance@hdfc.com',  display_name: 'Meena Nair',    role: 'compliance_officer', permission_level: 'READ_ONLY', clearing_zone: null,     is_active: false, totp_enabled: false, last_login: '2026-06-20T11:00:00Z' },
+  { user_id: 'usr-001', email: 'ops1@hdfc.com',        display_name: 'Priya Mehta',   role: 'ops_reviewer',       permission_level: 'EDIT',      pu_id: 'SOUTH-MAIN', is_active: true,  totp_enabled: true,  last_login: '2026-06-25T09:14:00Z' },
+  { user_id: 'usr-002', email: 'fraud1@hdfc.com',      display_name: 'Rahul Singh',   role: 'fraud_analyst',      permission_level: 'EDIT',      pu_id: 'WEST-MAIN',  is_active: true,  totp_enabled: false, last_login: '2026-06-25T08:52:00Z' },
+  { user_id: 'usr-003', email: 'mgr1@hdfc.com',        display_name: 'Sunita Iyer',   role: 'ops_manager',        permission_level: 'EDIT',      pu_id: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-24T17:30:00Z' },
+  { user_id: 'usr-004', email: 'admin1@hdfc.com',      display_name: 'Vikram Kapoor', role: 'bank_it_admin',      permission_level: 'ADMIN',     pu_id: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T07:00:00Z' },
+  { user_id: 'usr-005', email: 'compliance@hdfc.com',  display_name: 'Meena Nair',    role: 'compliance_officer', permission_level: 'READ_ONLY', pu_id: null,     is_active: false, totp_enabled: false, last_login: '2026-06-20T11:00:00Z' },
 ]
 
 function fmt(iso) {
@@ -120,18 +128,18 @@ function CreateEditModal({ user, isDark, onClose, onSave }) {
     email:            user.email,
     role:             user.role,
     permission_level: user.permission_level,
-    clearing_zone:    user.clearing_zone || '',
+    pu_id:            user.pu_id || '',
     is_active:        user.is_active,
   } : {
     display_name: '', email: '',
     role:             'ops_reviewer',
     permission_level: 'EDIT',
-    clearing_zone: '', is_active: true,
+    pu_id: '', is_active: true,
   })
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const showZone = form.role === 'ops_reviewer'
+  const showPU = form.role === 'ops_reviewer'
 
   const body = isDark ? 'text-slate-300' : 'text-slate-700'
   const muted = isDark ? 'text-slate-400' : 'text-slate-500'
@@ -165,11 +173,11 @@ function CreateEditModal({ user, isDark, onClose, onSave }) {
           </Field>
         </div>
 
-        {showZone && (
-          <Field label={msg('UI_USERMANAGEMENT_CLEARING_ZONE')} isDark={isDark} hint={msg('UI_USERMANAGEMENT_REQUIRED_FOR_OPS_REVIEWER_ROLE')}>
-            <select className={inputCls(isDark)} value={form.clearing_zone} onChange={e => set('clearing_zone', e.target.value)}>
-              <option value="">{msg('UI_USERMANAGEMENT_SELECT_ZONE')}</option>
-              {VALID_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+        {showPU && (
+          <Field label={msg('AUTH_USER_PU_LABEL')} isDark={isDark} hint={msg('AUTH_USER_PU_HINT')}>
+            <select className={inputCls(isDark)} value={form.pu_id} onChange={e => set('pu_id', e.target.value)}>
+              <option value="">{msg('UI_USERMANAGEMENT_SELECT_PU')}</option>
+              {PU_CHOICES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </Field>
         )}
@@ -369,7 +377,7 @@ export default function UserManagement() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className={`border-b ${th.divider}`}>
-                    {[msg('UI_COMMON_USER'), msg('UI_USERMANAGEMENT_ROLE_2'), msg('UI_USERMANAGEMENT_PERMISSION'), msg('UI_COMMON_ZONE'), 'TOTP', msg('UI_COMMON_STATUS_2'), msg('UI_USERMANAGEMENT_LAST_LOGIN'), msg('UI_COMMON_ACTIONS_2')].map(h => (
+                    {[msg('UI_COMMON_USER'), msg('UI_USERMANAGEMENT_ROLE_2'), msg('UI_USERMANAGEMENT_PERMISSION'), msg('AUTH_USER_PU_LABEL'), 'TOTP', msg('UI_COMMON_STATUS_2'), msg('UI_USERMANAGEMENT_LAST_LOGIN'), msg('UI_COMMON_ACTIONS_2')].map(h => (
                       <th key={h} className={`px-4 py-2.5 text-left text-[10px] uppercase tracking-wide ${th.muted}`}>{h}</th>
                     ))}
                   </tr>
@@ -392,7 +400,7 @@ export default function UserManagement() {
                         </span>
                       </td>
                       <td className={`px-4 py-3 ${th.muted} font-mono text-[11px]`}>
-                        {u.clearing_zone || '—'}
+                        {u.pu_id || '—'}
                       </td>
                       <td className="px-4 py-3">
                         {u.totp_enabled

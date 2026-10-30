@@ -23,7 +23,7 @@ export default function BatchStats({ stats, isDark }) {
       <div className="flex items-center gap-4 px-5 py-1.5">
         {/* Branding + live pill */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[11px] font-semibold ${heading}`}>{msg('UI_BATCHSTATS_MUMBAI_CLEARING', { date: stats.date })}</span>
+          <span className={`text-[11px] font-semibold ${heading}`}>{msg('UI_BATCHSTATS_CLEARING_DATE', { date: stats.date })}</span>
           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">{msg('UI_BATCHSTATS_LIVE')}</span>
         </div>
 

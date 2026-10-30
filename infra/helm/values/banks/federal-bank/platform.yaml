@@ -86,8 +86,8 @@ datacenters:
     zone: "dc2"
     active: false
 
-# ── NGCH Clearing Zone ───────────────────────────────────────────────────────
-# Federal Bank clears in all four NGCH zones
+# ── NGCH grid ───────────────────────────────────────────────────────
+# Federal Bank files to the single NGCH grid
 
 # ── Notifications ────────────────────────────────────────────────────────────
 notifications:

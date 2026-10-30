@@ -17,7 +17,7 @@ kafka:
     kafka-broker-2.kafka-broker-headless.astra-platform-union-bank.svc.cluster.local:9092
 
 # ── Clearing ─────────────────────────────────────────────────────────────────
-# Union Bank of India is pan-India — all four NGCH clearing zones
+# Union Bank of India is pan-India — one NGCH grid, four processing units
 
 # Union Bank own volumes: ~50,000 outward + ~50,000 inward cheques/day (PSB scale)
 # SMB (Navi Mumbai Co-op): ~200 outward + ~200 inward cheques/day
@@ -79,7 +79,7 @@ ngch:
 deployment_mode: SB_NGCH
 
 # ── Processing Units ─────────────────────────────────────────────────────────
-# Union Bank: 4 zone PUs — one per NGCH clearing zone
+# Union Bank: 4 processing units (branches map to exactly one)
 pu:
   ids: [WEST-MAIN, SOUTH-MAIN, NORTH-MAIN, EAST-MAIN]
 

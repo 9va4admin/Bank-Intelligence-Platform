@@ -85,8 +85,8 @@ datacenters:
     zone: "dc2"
     active: false
 
-# ── NGCH Clearing Zones ───────────────────────────────────────────────────────
-# Union Bank of India clears in all four NGCH zones (pan-India PSB)
+# ── NGCH grid ───────────────────────────────────────────────────────
+# Union Bank of India files to the single NGCH grid (pan-India PSB)
 
 # ── Branches (10 demo branches) ───────────────────────────────────────────────
 branches:
