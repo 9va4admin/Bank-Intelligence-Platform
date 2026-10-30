@@ -483,7 +483,7 @@ async def submit_inward_cheque(
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to start workflow",
+                detail=get_message("API_FAILED_TO_START_WORKFLOW"),
             ) from exc
 
     log.info(
@@ -1070,7 +1070,7 @@ async def search_instruments(
     if len(q.strip()) < 3:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Search query must be at least 3 characters",
+            detail=get_message("API_SEARCH_QUERY_MUST_BE_AT"),
         )
     if limit > 20:
         limit = 20

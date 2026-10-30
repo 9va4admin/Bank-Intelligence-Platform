@@ -19,6 +19,7 @@ from typing import Any, Optional
 import structlog
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.ai.cascade")
@@ -233,8 +234,7 @@ class CascadeOrchestrator:
 
         if l2_result is None:
             raise RuntimeError(
-                f"Both L1 and L2 vLLM unavailable for {call_type} cascade "
-                f"(bank_id={self._bank_id})"
+                get_message("PLATFORM_BOTH_L1_AND_L2_VLLM", call_type=call_type, bank_id=self._bank_id)
             )
 
         l2_content = l2_result.choices[0].message.content

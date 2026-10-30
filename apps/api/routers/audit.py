@@ -18,6 +18,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -42,7 +43,7 @@ def require_audit_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _PERMITTED_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot access audit routes",
+            detail=get_message("API_ROLE_CANNOT_ACCESS_AUDIT_ROUTES", user=user.get('role')),
         )
     return user
 
@@ -246,7 +247,7 @@ async def get_audit_event(
         except Exception:
             log.warning("audit.get_event.db_error", bank_id=bank_id, event_id=event_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_EVENT_NOT_FOUND"))
 
 
 @router_v1.get("/immudb/verify/{event_id}", response_model=ImmudbVerifyResponse)
@@ -281,7 +282,7 @@ async def verify_immudb_event(
         except Exception:
             log.warning("audit.immudb_verify.db_error", bank_id=bank_id, event_id=event_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found in Immudb")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_EVENT_NOT_FOUND_IN_IMMUDB"))
 
 
 @router_v1.get("/compliance/summary", response_model=ComplianceSummaryResponse)

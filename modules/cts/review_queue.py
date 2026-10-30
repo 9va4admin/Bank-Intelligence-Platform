@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from shared.utils.instrument_uuid import to_instrument_uuid
+from shared.messages import get_message
 
 DIRECTIONS = ("INWARD", "OUTWARD")
 STAGES = ("PENDING", "ASSIGNED", "IN_REVIEW", "DECIDED")
@@ -41,7 +42,7 @@ async def open_item(conn: Any, *, bank_id: str, direction: str, instrument_id: s
                     decision_id: Optional[uuid.UUID] = None, queue_tier: str = "standard",
                     review_level: int = 1) -> uuid.UUID:
     if direction not in DIRECTIONS:
-        raise ValueError(f"direction must be one of {DIRECTIONS}")
+        raise ValueError(get_message("CTS_DIRECTION_MUST_BE_ONE_OF", DIRECTIONS=DIRECTIONS))
     async with conn.transaction():
         review_id = await conn.fetchval(
             _UPSERT, bank_id, direction, to_instrument_uuid(bank_id, instrument_id), instrument_id, decision_id,
@@ -124,7 +125,7 @@ async def decide_by_instrument(conn: Any, *, bank_id: str, direction: str, instr
     """Decide the open item for an instrument (used by the API decide endpoints, which know the
     instrument id, not the review workflow id). True if an open item was decided."""
     if direction not in DIRECTIONS:
-        raise ValueError(f"direction must be one of {DIRECTIONS}")
+        raise ValueError(get_message("CTS_DIRECTION_MUST_BE_ONE_OF", DIRECTIONS=DIRECTIONS))
     async with conn.transaction():
         row = await conn.fetchrow(
             "UPDATE cts.human_review_items SET status='DECIDED', reviewer_decision=$4, reviewer_notes=$5, "

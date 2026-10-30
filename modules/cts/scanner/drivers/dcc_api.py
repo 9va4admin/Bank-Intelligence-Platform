@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Optional
 
 from modules.cts.scanner.drivers import ScannerDriverNotFoundError, ScannerUnavailableError
+from shared.messages import get_message
 
 
 _IMAGE_BUF_SIZE = 4 * 1024 * 1024   # 4 MB — well above any real scan image
@@ -81,15 +82,13 @@ class DCCAPIDriver:
         handle = self._dll.USD_OpenScanner()
         if handle <= 0:
             raise ScannerUnavailableError(
-                f"USD_OpenScanner() returned {handle}. "
-                "Check scanner power, USB connection, and usd.dll version."
+                get_message("CTS_USD_OPENSCANNER_RETURNED_CHECK_SCANN", handle=handle)
             )
         try:
             rc = self._dll.USD_ScanItem(ctypes.c_int(handle))
             if rc != 0:
                 raise ScannerUnavailableError(
-                    f"USD_ScanItem() returned error code {rc}. "
-                    "Ensure a cheque is placed in the feed tray."
+                    get_message("CTS_USD_SCANITEM_RETURNED_ERROR_CODE", rc=rc)
                 )
 
             front_image = self._get_image(handle, _IMG_FRONT_GREY)
@@ -116,7 +115,7 @@ class DCCAPIDriver:
         )
         if rc != 0:
             raise ScannerUnavailableError(
-                f"USD_GetImageData(image_type={image_type}) returned error {rc}"
+                get_message("CTS_USD_GETIMAGEDATA_IMAGE_TYPE_RETURNED", image_type=image_type, rc=rc)
             )
         return bytes(buf[: size_ptr[0]])
 
@@ -144,9 +143,5 @@ class DCCAPIDriver:
 
         searched = ", ".join(str(d / _DLL_NAME) for d in search_dirs)
         raise ScannerDriverNotFoundError(
-            f"Digital Check DCC API DLL not found. "
-            f"Place usd.dll in the bin/ folder. "
-            f"Searched: {searched}. "
-            f"usd.dll ships with the Digital Check DCC API SDK — obtain from "
-            f"Digital Check support (digitalcheck.com) and copy to bin/usd.dll."
+            get_message("CTS_DIGITAL_CHECK_DCC_API_DLL", searched=searched)
         )

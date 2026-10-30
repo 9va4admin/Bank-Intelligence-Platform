@@ -17,6 +17,7 @@ from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -108,8 +109,7 @@ def get_connector_for_type(
     cls = mapping.get(connector_type)
     if cls is None:
         raise ValueError(
-            f"Unknown connector_type '{connector_type}'. "
-            f"Valid types: {sorted(mapping.keys())}"
+            get_message("PLATFORM_UNKNOWN_CONNECTOR_TYPE_VALID_TYPES", connector_type=connector_type, sorted=sorted(mapping.keys()))
         )
 
     log.info(

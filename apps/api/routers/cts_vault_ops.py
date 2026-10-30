@@ -217,14 +217,14 @@ async def trigger_vault_sync(
             log.error("cts.vault_sync_trigger_error", bank_id=bank_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to trigger vault sync workflow",
+                detail=get_message("API_FAILED_TO_TRIGGER_VAULT_SYNC"),
             ) from exc
 
     log.info("cts.vault_sync_triggered", bank_id=bank_id, workflow_id=workflow_id)
     return VaultSyncTriggerResponse(
         workflow_id=workflow_id,
         status="TRIGGERED",
-        message=f"VaultSyncWorkflow started: {workflow_id}. PPS & Stop Cheque data will refresh within ~60 seconds.",
+        message=get_message("API_VAULTSYNCWORKFLOW_STARTED_PPS_STOP_C", workflow_id=workflow_id),
     )
 
 

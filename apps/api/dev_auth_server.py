@@ -58,6 +58,7 @@ from shared.auth.connectors.local import LocalCredentials
 from shared.auth.exceptions import AuthenticationError
 from shared.auth.mfa import TOTPMFAService
 from shared.auth.session_token import SessionTokenService
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -196,11 +197,11 @@ class _DevConnector:
     async def authenticate(self, credentials: LocalCredentials) -> ASTRAIdentity:
         acct = SEED_ACCOUNTS.get(credentials.username)
         if acct is None:
-            raise AuthenticationError("invalid credentials")
+            raise AuthenticationError(get_message("API_INVALID_CREDENTIALS"))
         try:
             _PH.verify(acct["password_hash"], credentials.password)
         except Exception:
-            raise AuthenticationError("invalid credentials")
+            raise AuthenticationError(get_message("API_INVALID_CREDENTIALS"))
         # Platform admin adopts whichever bank_id the login request specified,
         # so the same credentials work in every deployed bank without re-seeding.
         is_platform_admin = acct.get("entity_id") == "__astra-platform__"

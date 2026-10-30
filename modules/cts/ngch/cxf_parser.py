@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import List
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -78,7 +79,7 @@ def _attr(element: ET.Element, name: str, required: bool = True) -> str:
     """Read attribute from element, trying namespaced form first."""
     v = element.get(name)
     if v is None and required:
-        raise CXFParseError(f"Missing required attribute '{name}' on <{element.tag}>")
+        raise CXFParseError(get_message("CTS_MISSING_REQUIRED_ATTRIBUTE_ON", name=name, tag=element.tag))
     return (v or "").strip()
 
 
@@ -99,7 +100,7 @@ def _find_child(parent: ET.Element, local: str) -> ET.Element | None:
 def _require_child(parent: ET.Element, local: str) -> ET.Element:
     child = _find_child(parent, local)
     if child is None:
-        raise CXFParseError(f"Missing required child element <{local}> in <{parent.tag}>")
+        raise CXFParseError(get_message("CTS_MISSING_REQUIRED_CHILD_ELEMENT_IN", local=local, tag=parent.tag))
     return child
 
 
@@ -111,11 +112,11 @@ class CXFParser:
 
     def parse(self, xml_bytes: bytes) -> ParsedCXFFile:
         if not xml_bytes:
-            raise CXFParseError("CXF XML bytes are empty")
+            raise CXFParseError(get_message("CTS_CXF_XML_BYTES_ARE_EMPTY"))
         try:
             root = ET.fromstring(xml_bytes.strip())
         except ET.ParseError as exc:
-            raise CXFParseError(f"Invalid CXF XML: {exc}") from exc
+            raise CXFParseError(get_message("CTS_INVALID_CXF_XML", exc=exc)) from exc
 
         session_id           = _attr(root, "SessionID")
         presenting_bank_rout = _attr(root, "PresentingBankRoutNo")
@@ -123,14 +124,14 @@ class CXFParser:
 
         file_summary = _find_child(root, "FileSummary")
         if file_summary is None:
-            raise CXFParseError("CXF XML missing <FileSummary>")
+            raise CXFParseError(get_message("CTS_CXF_XML_MISSING_FILESUMMARY"))
         total_item_count   = int(_attr(file_summary, "TotalItemCount"))
         total_amount_paise = int(_attr(file_summary, "TotalAmountPaise"))
 
         # Locate Batch — one per CXF in ASTRA's implementation
         batch = _find_child(root, "Batch")
         if batch is None:
-            raise CXFParseError("CXF XML missing <Batch>")
+            raise CXFParseError(get_message("CTS_CXF_XML_MISSING_BATCH"))
 
         items = []
         for item_el in list(batch):
@@ -187,8 +188,7 @@ class CXFParser:
         def _off(view: str) -> tuple:
             if view not in ivd_offsets:
                 raise CXFParseError(
-                    f"Item {item_seq_no}: missing <ImageViewDetail "
-                    f"ViewSideIndicator='{view}'>"
+                    get_message("CTS_ITEM_MISSING_IMAGEVIEWDETAIL_VIEWSID", item_seq_no=item_seq_no, view=view)
                 )
             return ivd_offsets[view]
 

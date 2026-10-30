@@ -40,6 +40,7 @@ from shared.config.secret_backends import (
     SecretBackend,
     VaultSecretBackend,
 )
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.config")
@@ -220,7 +221,7 @@ class ConfigService:
         with tracer.start_as_current_span("config_service.initialise"):
             bank_id = os.environ.get("BANK_ID", "")
             if not bank_id:
-                raise RuntimeError("BANK_ID env var not set — check Helm values")
+                raise RuntimeError(get_message("PLATFORM_BANK_ID_ENV_VAR_NOT"))
             self._bank_id = bank_id
 
             # Resolve and initialise the secret backend.
@@ -235,8 +236,7 @@ class ConfigService:
             backend_cls = known_backends.get(backend_name)
             if backend_cls is None:
                 raise RuntimeError(
-                    f"Unknown ASTRA_SECRETS_BACKEND='{backend_name}'. "
-                    f"Valid values: {', '.join(known_backends)}."
+                    get_message("PLATFORM_UNKNOWN_ASTRA_SECRETS_BACKEND_VALID", backend_name=backend_name, value=', '.join(known_backends))
                 )
             self._secret_backend = backend_cls()
             await self._secret_backend.initialise(bank_id)
@@ -357,9 +357,7 @@ class ConfigService:
                 return _LAYER3_DEFAULTS[key]
 
             raise ConfigKeyNotFoundError(
-                f"Config key '{key}' not set. Layer 3 (Redis + DB) both unavailable "
-                f"and no built-in default exists. Add to _LAYER3_DEFAULTS or check "
-                f"infra/helm/values/_defaults.yaml."
+                get_message("PLATFORM_CONFIG_KEY_NOT_SET_LAYER", key_value=key)
             )
 
     async def _fetch_from_db(self, key: str) -> Any:
@@ -367,7 +365,7 @@ class ConfigService:
             if key in _LAYER3_DEFAULTS:
                 return _LAYER3_DEFAULTS[key]
             raise ConfigKeyNotFoundError(
-                f"Config key '{key}' not found — DB pool unavailable."
+                get_message("PLATFORM_CONFIG_KEY_NOT_FOUND_DB", key_value=key)
             )
         # Key namespace convention (see infra/migrations/platform/versions/
         # 20260618_002_platform_config_and_policies.py): "module.config_key",
@@ -387,8 +385,7 @@ class ConfigService:
                 log.debug("config.get.db_miss_using_default", key=key, bank_id=self._bank_id)
                 return _LAYER3_DEFAULTS[key]
             raise ConfigKeyNotFoundError(
-                f"Config key '{key}' not found for bank '{self._bank_id}'. "
-                f"Check Admin UI or infra/helm/values/_defaults.yaml."
+                get_message("PLATFORM_CONFIG_KEY_NOT_FOUND_FOR", key_value=key, bank_id=self._bank_id)
             )
         raw = row["config_value"]
         vtype = row["value_type"]
@@ -422,8 +419,7 @@ class ConfigService:
         value = os.environ.get(env_var)
         if value is None:
             raise ConfigKeyNotFoundError(
-                f"Platform config '{key}' (env var {env_var}) not set. "
-                f"Check infra/helm/values/banks/{self._bank_id}.yaml"
+                get_message("PLATFORM_PLATFORM_CONFIG_ENV_VAR_NOT", key_value=key, env_var=env_var, bank_id=self._bank_id)
             )
         return value
 
@@ -468,7 +464,7 @@ class ConfigService:
                 raise
             except Exception as exc:
                 log.error("config.opa.unavailable", policy=policy, error=str(exc))
-                raise OPAUnavailableError(f"OPA unreachable for policy '{policy}': {exc}") from exc
+                raise OPAUnavailableError(get_message("PLATFORM_OPA_UNREACHABLE_FOR_POLICY", policy=policy, exc=exc)) from exc
 
     # ------------------------------------------------------------------
     # Layer 5 — User preferences (per-request, no cache)
@@ -608,9 +604,7 @@ class ConfigService:
         self._assert_ready()
         if not isinstance(self._secret_backend, VaultSecretBackend):
             raise RuntimeError(
-                "get_vault_client() is only available when "
-                "ASTRA_SECRETS_BACKEND=vault is active. "
-                f"Current backend: {type(self._secret_backend).__name__}"
+                get_message("PLATFORM_GET_VAULT_CLIENT_IS_ONLY", name__=type(self._secret_backend).__name__)
             )
         return self._secret_backend._vault
 
@@ -635,8 +629,7 @@ class ConfigService:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "config_service.initialise() has not been awaited. "
-                "Call it in the FastAPI lifespan or Temporal worker startup."
+                get_message("PLATFORM_CONFIG_SERVICE_INITIALISE_HAS_NOT")
             )
 
     @property

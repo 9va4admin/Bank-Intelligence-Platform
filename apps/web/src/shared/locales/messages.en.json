@@ -31108,5 +31108,5016 @@
       "UI"
     ],
     "variables": []
+  },
+  "API_NOT_AUTHENTICATED": {
+    "text": "Not authenticated",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SESSION_CLAIMS": {
+    "text": "Invalid session claims",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CREDENTIALS": {
+    "text": "invalid credentials",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DB_POOL_CTS_NOT_AVAILABLE": {
+    "text": "db_pool_cts not available; cannot build AuthService",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REQUEST_VALIDATION_FAILED_CHECK_REQU": {
+    "text": "Request validation failed. Check required fields and data types.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MISSING_OR_INVALID_CSRF_TOKEN": {
+    "text": "Missing or invalid CSRF token",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SERVICE_TEMPORARILY_UNAVAILABLE_RATE": {
+    "text": "Service temporarily unavailable — rate limit infrastructure down",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOO_MANY_REQUESTS_LIMIT_MIN": {
+    "text": "Too many requests. Limit: {limit}/min for {slug}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "limit",
+      "slug"
+    ]
+  },
+  "API_YOUR_ACCOUNT_HAS_BEEN_SUSPENDED": {
+    "text": "Your account has been suspended due to a security violation. Contact your bank IT administrator.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_STP_MODE_FULL_MANUAL_SUPERVISED": {
+    "text": "STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FRAUD_SCORE_BELOW_THIS_AUTO": {
+    "text": "Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FRAUD_SCORE_ABOVE_THIS_ROUTES": {
+    "text": "Fraud score above this routes to human review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHEQUES_ABOVE_THIS_GO_TO": {
+    "text": "Cheques above this go to high_value Kafka topic and task queue",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHEQUES_ABOVE_THIS_GO_TO_2": {
+    "text": "Cheques above this go to very_high Kafka topic and task queue",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REVIEWER_ALLOCATION_SELF_HYBRID_AUTO": {
+    "text": "Reviewer allocation: SELF | HYBRID | AUTO",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REDIS_LOCK_TTL_FOR_REVIEWER": {
+    "text": "Redis lock TTL for reviewer-claimed instruments (minutes)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHO_AN_AUTO_ASSIGNED_ITEM": {
+    "text": "Who an auto-assigned item goes to: LEAST_LOADED | RANDOM",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUTO_ASSIGN_CAP_PER_REVIEWER": {
+    "text": "Auto-assign cap per reviewer (0 = no cap). Items near their IET ignore the cap",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ITEMS_THIS_CLOSE_TO_THEIR": {
+    "text": "Items this close to their IET jump the queue and ignore the cap (minutes)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SPREAD_UNOPENED_AUTO_ASSIGNED_WORK": {
+    "text": "Spread unopened auto-assigned work across reviewers as more log in",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AT_MOST_ONE_REBALANCE_PER": {
+    "text": "At most one rebalance per bank per interval (a new login bypasses it)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CAP_ON_ITEMS_MOVED_IN": {
+    "text": "Cap on items moved in one rebalance",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_RETRY_DELAY_WHEN_NO_ELIGIBLE": {
+    "text": "Retry delay when no eligible reviewer is available (seconds)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HYBRID_MODE_AUTO_ASSIGN_AN": {
+    "text": "HYBRID mode: auto-assign an unclaimed item after this many minutes",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ON_REVIEWERS_WORK_ONLY_THE": {
+    "text": "ON: reviewers work only the buckets an admin connected them to (plus Miscellaneous)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHICH_CLASS_BUCKET_WINS_WHEN": {
+    "text": "Which class bucket wins when a cheque fits several (JSON list of HVC, CA, IP, FCC, LVC)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HVC_PRESENTED_AMOUNT_AT_OR": {
+    "text": "HVC: presented amount at or above this (rupees)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LVC_PRESENTED_AMOUNT_BELOW_THIS": {
+    "text": "LVC: presented amount below this (rupees)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FCC_AT_LEAST_THIS_MANY": {
+    "text": "FCC: at least this many cheques on the account in the window below",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FCC_WINDOW_DAYS": {
+    "text": "FCC window (days)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CA_CBS_ACCOUNT_TYPES_THAT": {
+    "text": "CA: CBS account types that count as corporate (JSON list); the bank's CA account list also applies",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IP_CBS_ACCOUNT_TYPES_THAT": {
+    "text": "IP: CBS account types that count as institution (JSON list); the bank's IP account list also applies",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AN_ITEM_NOBODY_LOGGED_IN": {
+    "text": "An item nobody logged in can take moves to Miscellaneous after this many minutes",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIP_HOLD_BANK_WIDE_THE": {
+    "text": "SIP hold, bank-wide: the system decision is filed if no reviewer acts within this time",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NEVER_HOLD_A_SYSTEM_DECISION": {
+    "text": "Never hold a system decision within this many minutes of its IET",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OUTWARD_CLEARING_SESSION_CUT_OFF": {
+    "text": "Outward clearing session cut-off times, local HH:MM (JSON list). Drives urgency and filing of staged decisions",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OUTWARD_ITEMS_IN_THESE_MASKED": {
+    "text": "Outward items in these masked amount ranges go to the OUT_HV bucket (JSON list)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHICH_OUTWARD_BUCKET_WINS_WHEN": {
+    "text": "Which outward bucket wins when an item fits several (JSON list of OUT_HV, OUT_MISMATCH, OUT_COMPLIANCE, OUT_REVIEW)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHO_MAKES_OUTWARD_DECISIONS_CENTRAL": {
+    "text": "Who makes outward decisions: CENTRAL (central staff) | BRANCH (staff of the item branch) | BRANCH_FIRST (branch first, central after the wait below)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_FIRST_CENTRAL_STAFF_MAY": {
+    "text": "BRANCH_FIRST: central staff may take an outward item after it has waited this long",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHO_CHECKS_OUTWARD_DECISIONS_ANY": {
+    "text": "Who checks outward decisions: ANY reviewer other than the maker, or CENTRAL staff only",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TIME_ZONE_THE_CUT_OFF": {
+    "text": "Time zone the cut-off times are in (IANA name)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AN_ORIGINAL_KEPT_AT_ITS": {
+    "text": "An original kept at its branch longer than this many days is flagged overdue for handover to central storage",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_YEARS_CENTRAL_STORAGE_KEEPS_AN": {
+    "text": "Years central storage keeps an original before it may be disposed of (confirm the period with the bank)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_A_STAGED_OUTWARD_DECISION_NO": {
+    "text": "A staged outward decision no checker has taken is filed this many minutes before the cut-off",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ON_A_REVIEWER_S_DECISION": {
+    "text": "ON: a reviewer's decision goes to a second person (the checker) before it is filed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MAKER_CHECKER_IF_NO_CHECKER": {
+    "text": "Maker-checker: if no checker acts in this time the maker's decision is filed (never past the IET guard)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_WINDOW_IN_MINUTES_RBI": {
+    "text": "IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_GOT_OCR2_0_CONFIDENCE_BELOW": {
+    "text": "GOT-OCR2.0 confidence below this → human review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIAMESE_NETWORK_SCORE_BELOW_THIS": {
+    "text": "Siamese network score below this → human review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DUAL_APPROVAL_THRESHOLD_FOR_HIGH": {
+    "text": "Dual-approval threshold for high-value cheques (₹)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOCKED_VAULT_MISS_ALWAYS_ROUTES": {
+    "text": "LOCKED — vault miss always routes to human review (Layer 1 constraint)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PAYEE_ACCOUNT_FROZEN_ON_OUTWARD": {
+    "text": "Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold).",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PAYEE_ACCOUNT_DORMANT_NO_TXNS": {
+    "text": "Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PAYEE_ACCOUNT_NPA_ON_OUTWARD": {
+    "text": "Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REQUIRE_REAR_BACK_CHEQUE_IMAGE": {
+    "text": "Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false: blank reverse is standard practice.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_CANNOT_ACCESS_ADMIN_ROUTES": {
+    "text": "Role '{user}' cannot access admin routes",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_ROLE_CANNOT_PERFORM_CHECKER_ACTIONS": {
+    "text": "Role '{user}' cannot perform checker actions",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_ROLE_CANNOT_SUBMIT_THRESHOLD_CHANGES": {
+    "text": "Role '{user}' cannot submit threshold changes",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_UNKNOWN_CONFIG_KEY": {
+    "text": "Unknown config_key: {config_key}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "config_key"
+    ]
+  },
+  "API_IS_A_LAYER_1_PLATFORM": {
+    "text": "{config_key} is a Layer 1 platform constraint and cannot be changed",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "config_key"
+    ]
+  },
+  "API_USER_NOT_FOUND": {
+    "text": "User not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEST_IS_NOT_IN_SCOPE": {
+    "text": "test '{test_id}' is not in scope for entity_type='{entity_type}'. Allowed: {allowed}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "test_id",
+      "entity_type",
+      "allowed"
+    ]
+  },
+  "API_TEST_RUNNER_NOT_YET_IMPLEMENTED": {
+    "text": "Test runner not yet implemented for this environment.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_CANNOT_ACCESS_AUDIT_ROUTES": {
+    "text": "Role '{user}' cannot access audit routes",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_EVENT_NOT_FOUND": {
+    "text": "Event not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_EVENT_NOT_FOUND_IN_IMMUDB": {
+    "text": "Event not found in Immudb",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUTHENTICATION_NOT_CONFIGURED": {
+    "text": "Authentication not configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SESSION_EXPIRED": {
+    "text": "Session expired",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SESSION": {
+    "text": "Invalid session",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MFA_REQUIRED": {
+    "text": "MFA required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACCOUNT_LOCKED_DUE_TO_REPEATED": {
+    "text": "Account locked due to repeated failed attempts. Contact your administrator.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CODE": {
+    "text": "Invalid code",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SESSION_STATE": {
+    "text": "Invalid session state",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_MUST_BE_11_ALPHANUMERIC": {
+    "text": "IFSC must be 11 alphanumeric characters with no spaces",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_INPUT_MODE_MUST_BE": {
+    "text": "scanner_input_mode must be one of {sorted}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_BRANCH_IFSC_CANNOT_BE_UPDATED": {
+    "text": "branch_ifsc cannot be updated — it is the immutable identity key",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_CODE_IS_EMPTY": {
+    "text": "IFSC Code is empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_MUST_BE_11_CHARS": {
+    "text": "IFSC must be 11 chars, got {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "API_IFSC_MUST_BE_ALPHANUMERIC": {
+    "text": "IFSC must be alphanumeric",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CSV_FILE_MUST_BE_UTF": {
+    "text": "CSV file must be UTF-8 encoded",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CSV_FILE_APPEARS_TO_BE": {
+    "text": "CSV file appears to be empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CSV_MISSING_REQUIRED_COLUMNS": {
+    "text": "CSV missing required columns: {sorted}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_DATABASE_ERROR": {
+    "text": "Database error",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_IFSC_ALREADY_EXISTS": {
+    "text": "Branch IFSC {ifsc} already exists",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_BRANCH_NOT_FOUND": {
+    "text": "Branch {ifsc} not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_FILE_MUST_BE_A_CSV": {
+    "text": "File must be a CSV. Got content-type: {content_type}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "content_type"
+    ]
+  },
+  "API_INSTRUMENT_NOT_FOUND_OR_NOT": {
+    "text": "Instrument not found or not yet processed",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_NOT_FOUND": {
+    "text": "Schedule not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_UPDATE_TEMPORAL_SCHEDULE": {
+    "text": "Failed to update Temporal Schedule",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_UPDATED_TO_CRON": {
+    "text": "Schedule {schedule_id} updated to cron: {cron}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schedule_id",
+      "cron"
+    ]
+  },
+  "API_FAILED_TO_PAUSE_TEMPORAL_SCHEDULE": {
+    "text": "Failed to pause Temporal Schedule",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_PAUSED": {
+    "text": "Schedule {schedule_id} paused.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schedule_id"
+    ]
+  },
+  "API_FAILED_TO_RESUME_TEMPORAL_SCHEDULE": {
+    "text": "Failed to resume Temporal Schedule",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_RESUMED": {
+    "text": "Schedule {schedule_id} resumed.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schedule_id"
+    ]
+  },
+  "API_IFSC_REGISTRY_UNAVAILABLE": {
+    "text": "IFSC registry unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_ENTRY_NOT_FOUND": {
+    "text": "IFSC entry not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OPS_MANAGER_ROLE_REQUIRED": {
+    "text": "ops_manager role required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_IT_ADMIN_ROLE_REQUIRED": {
+    "text": "bank_it_admin role required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_FOR_TEMPORAL_QUERY_MUST": {
+    "text": "Invalid {field} for Temporal query: must be alphanumeric + hyphens/underscores, max 64 chars",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "field"
+    ]
+  },
+  "API_WORKFLOW_ENGINE_UNAVAILABLE": {
+    "text": "Workflow engine unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OPS_MANAGER_OR_OPS_REVIEWER": {
+    "text": "ops_manager or ops_reviewer role required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACTIVE_HOLD_NOT_FOUND_FOR": {
+    "text": "Active hold not found for this instrument",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MISMATCH_NOT_FOUND_OR_ALREADY": {
+    "text": "Mismatch not found or already resolved",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_THIS_CHEQUE_IS_IN_A": {
+    "text": "This cheque is in a bucket you are not connected to",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CLAIMED_SUCCESSFULLY": {
+    "text": "Claimed successfully",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ALREADY_CLAIMED_BY_ANOTHER_REVIEWER": {
+    "text": "Already claimed by another reviewer",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_RELEASED_SUCCESSFULLY": {
+    "text": "Released successfully",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FORCE_RELEASED_WAS_HELD_BY": {
+    "text": "Force-released (was held by {value})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "API_ALLOCATION_STORE_UNAVAILABLE": {
+    "text": "Allocation store unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REVIEWER_NOT_FOUND_FOR_THIS": {
+    "text": "Reviewer not found for this bank",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_THAT_REVIEWER_IS_NOT_CONNECTED": {
+    "text": "That reviewer is not connected to this cheque's bucket; connect them first",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ASSIGNED_TO_WAS_HELD_BY": {
+    "text": "Assigned to {target} (was held by {value})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "target",
+      "value"
+    ]
+  },
+  "API_FAILED_TO_START_WORKFLOW": {
+    "text": "Failed to start workflow",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SEARCH_QUERY_MUST_BE_AT": {
+    "text": "Search query must be at least 3 characters",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_COULD_NOT_PROVISION_UPLOAD_URLS": {
+    "text": "Could not provision upload URLs — MinIO unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_STORE_UNAVAILABLE": {
+    "text": "Image store unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_NOT_FOUND": {
+    "text": "Image not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_START_OUTWARDSCANWORKFLOW": {
+    "text": "Failed to start OutwardScanWorkflow",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOT_NOT_FOUND": {
+    "text": "Lot not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOT_IS_ALREADY": {
+    "text": "Lot is already {row}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_REPORT_NOT_FOUND": {
+    "text": "Report not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_TYPE_MUST_BE_ONE": {
+    "text": "vault_type must be one of {sorted}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_UPLOADED_FILE_IS_EMPTY": {
+    "text": "Uploaded file is empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DATABASE_POOL_NOT_READY": {
+    "text": "Database pool not ready",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACTIVE_SESSION_ALREADY_OPEN_FOR": {
+    "text": "Active session {existing} already open for this branch today",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "existing"
+    ]
+  },
+  "API_SESSION_NOT_FOUND": {
+    "text": "Session not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CROSS_BANK_SESSION_CLOSE_FORBIDDEN": {
+    "text": "Cross-bank session close forbidden",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SESSION_IS_ALREADY": {
+    "text": "Session is already {row}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_HUB_SUBMIT_REQUIRES_OPS_MANAGER": {
+    "text": "Hub submit requires ops_manager or bank_it_admin",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_UNAVAILABLE": {
+    "text": "Temporal unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CLEARINGSESSIONWORKFLOW_STARTED_NGCH": {
+    "text": "ClearingSessionWorkflow {workflow_id} started — NGCH filing in progress.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "workflow_id"
+    ]
+  },
+  "API_FAILED_TO_TRIGGER_ENDORSEMENT_WORKFL": {
+    "text": "Failed to trigger endorsement workflow",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FILE_NOT_FOUND_OR_NOT": {
+    "text": "File not found or not yet generated",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_TRIGGER_RE_SCAN": {
+    "text": "Failed to trigger re-scan workflow",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNKNOWN_REPORT_TYPE_VALID": {
+    "text": "Unknown report_type '{report_type}'. Valid: {list}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "report_type",
+      "list"
+    ]
+  },
+  "API_FAILED_TO_GENERATE_DOWNLOAD_URL": {
+    "text": "Failed to generate download URL",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DECISION_RECORDED_AND_SENT_TO": {
+    "text": "Decision {action} recorded and sent to a checker; it is not final until the checker confirms.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "action"
+    ]
+  },
+  "API_DECISION_RECORDED_WORKFLOW_SIGNAL": {
+    "text": "Decision {action} recorded. Workflow signal {value}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "action",
+      "value"
+    ]
+  },
+  "API_DECISION_FILED_BY_THE_CHECKER": {
+    "text": "Decision {action} filed by the checker.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "action"
+    ]
+  },
+  "API_LOT_BELONGS_TO_A_DIFFERENT": {
+    "text": "Lot belongs to a different bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REASON_CATEGORY_DOES_NOT_MATCH": {
+    "text": "reason_category '{reason_category}' does not match action '{action}' — expected '{expected_category}'",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reason_category",
+      "action",
+      "expected_category"
+    ]
+  },
+  "API_BANK_ID_IN_REQUEST_BODY": {
+    "text": "bank_id in request body must match authenticated bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_ID_IS_REQUIRED": {
+    "text": "branch_id is required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_NOT_FOUND_OR_NOT": {
+    "text": "Branch {branch_id} not found or not active for bank {bank_id}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id",
+      "bank_id"
+    ]
+  },
+  "API_BRANCH_IS_NOT_CONFIGURED_FOR": {
+    "text": "Branch {branch_id} is not configured for SDK_PUSH mode.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id"
+    ]
+  },
+  "API_REGISTRATION_CODE_MUST_BE_8": {
+    "text": "Registration code must be 8 alphanumeric characters.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REGISTRATION_CODE_NOT_FOUND_EXPIRED": {
+    "text": "Registration code not found, expired, or already used. Generate a new code in ASTRA Admin UI → Branches → Register Scanner.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INTERNAL_ERROR_ISSUING_TOKEN_PLEASE": {
+    "text": "Internal error issuing token. Please retry.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_MANAGEMENT_IS_AN_SB": {
+    "text": "SMB management is an SB-only operation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_REGISTRATION_IS_AN_SB": {
+    "text": "SMB registration is an SB-only operation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SOFT_HOLD_THRESHOLD_MUST_BE": {
+    "text": "soft_hold_threshold must be greater than return_rate_threshold",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SUB_MEMBER_BANK_REGISTERED_UNDER": {
+    "text": "Sub-Member Bank '{sub_member_id}' registered under sponsor '{bank_id}'. MICR prefix '{micr_prefix}' active from today. Vault sync required before first clearing session.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sub_member_id",
+      "bank_id",
+      "micr_prefix"
+    ]
+  },
+  "API_SMB_USERS_CAN_ONLY_VIEW": {
+    "text": "SMB users can only view their own ledger",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_USERS_CAN_ONLY_VIEW_2": {
+    "text": "SMB users can only view their own forwarding log",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SYNC_TRIGGER_IS_AN": {
+    "text": "Vault sync trigger is an SB-only operation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_TRIGGER_SMB_VAULT": {
+    "text": "Failed to trigger SMB vault sync workflow",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SYNC_STARTED_FOR_SUB": {
+    "text": "Vault sync started for Sub-Member '{sub_member_id}'. Signature specimens and PPS entries will be loaded into vault namespace sig:{sub_member_id2}:* within ~60 seconds.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sub_member_id2"
+    ]
+  },
+  "API_SB_ONLY_ENDPOINT": {
+    "text": "SB-only endpoint",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_TRIGGER_VAULT_SYNC": {
+    "text": "Failed to trigger vault sync workflow",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULTSYNCWORKFLOW_STARTED_PPS_STOP_C": {
+    "text": "VaultSyncWorkflow started: {workflow_id}. PPS & Stop Cheque data will refresh within ~60 seconds.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "workflow_id"
+    ]
+  },
+  "API_NO_CHEQUES_IN_SESSION_UPLOAD": {
+    "text": "No cheques in session. Upload files first.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_BANK_SPECIFIED_AND_NO": {
+    "text": "No bank specified and no NPCI output available. Run presentment first.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UPLOADED_FILE_ISN_T_A": {
+    "text": "Uploaded file isn't a readable image.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CLOUD_AI_DEMO_TOKEN_NOT": {
+    "text": "Cloud AI demo token not configured — set demo.hf_token in Vault or ASTRA_DEMO_HF_TOKEN in the environment for local dev.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FIELD_EXTRACTION_VIA_QWEN_32B": {
+    "text": "Field extraction via Qwen 32B failed: {fields_resp}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "fields_resp"
+    ]
+  },
+  "API_BOTH_LOCAL_SERVICES_ARE_UNREACHABLE": {
+    "text": "Both local services are unreachable. Start sig detector: cd apps/sig_detector; python main.py  (expected at {sig_url}). IndicOCR: {indic_error}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sig_url",
+      "indic_error"
+    ]
+  },
+  "API_HF_TOKEN_NOT_CONFIGURED": {
+    "text": "HF token not configured.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNKNOWN_MODEL_MUST_BE_ONE": {
+    "text": "Unknown model '{model}'. Must be one of {sorted}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "model",
+      "sorted"
+    ]
+  },
+  "API_CLOUD_AI_DEMO_TOKEN_NOT_2": {
+    "text": "Cloud AI demo token not configured — set demo.hf_token in Vault, or ASTRA_DEMO_HF_TOKEN in the environment for local dev without Vault.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HUGGING_FACE_REJECTED_THE_REQUEST": {
+    "text": "Hugging Face rejected the request for model '{model}': {message}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "model",
+      "message"
+    ]
+  },
+  "API_CLOUD_AI_EXTRACTION_FAILED_HUGGING": {
+    "text": "Cloud AI extraction failed — Hugging Face Inference Providers unreachable.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CONNECTION_TYPE_MUST_BE_ONE": {
+    "text": "connection_type must be one of {VALID_TYPES}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "VALID_TYPES"
+    ]
+  },
+  "API_CBS_VENDOR_MUST_BE_ONE": {
+    "text": "cbs_vendor must be one of {VALID_CBS_VENDORS}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "VALID_CBS_VENDORS"
+    ]
+  },
+  "API_ENDPOINT_URL_BLOCKED_BY_SSRF": {
+    "text": "endpoint_url blocked by SSRF policy: {err}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "err"
+    ]
+  },
+  "API_CONNECTION_NOT_FOUND": {
+    "text": "Connection not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_ID_REQUIRED_FOR_SMB": {
+    "text": "smb_id required for SMB_CBS connection",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_ADMIN_CAN_ONLY_CONFIGURE": {
+    "text": "SMB admin can only configure their own CBS connection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CONNECTION_ALREADY_EXISTS_FOR_THIS": {
+    "text": "Connection {connection_type} already exists for this bank/SMB",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "connection_type"
+    ]
+  },
+  "API_SYNC_ONLY_AVAILABLE_FOR_CBS": {
+    "text": "Sync only available for CBS connection types ({CBS_TYPES}), not {row}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "CBS_TYPES",
+      "row"
+    ]
+  },
+  "API_CANNOT_SYNC_A_CONNECTION_IN": {
+    "text": "Cannot sync a connection in status={row}. Must be ACTIVE.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_ROLE_CANNOT_ACCESS_NOTIFICATION_ROUT": {
+    "text": "Role '{user}' cannot access notification routes",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_ROLE_CANNOT_SEND_OR_RETRY": {
+    "text": "Role '{user}' cannot send or retry notifications",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_NOTIFICATION_NOT_FOUND": {
+    "text": "Notification not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CANNOT_RETRY_NOTIFICATION_IN_STATUS": {
+    "text": "Cannot retry notification in status '{row}'",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_DB_UNAVAILABLE_CONNECT_YUGABYTEDB_FI": {
+    "text": "DB unavailable — connect YugabyteDB first",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_BRANCHES_LOADED_IMPORT_CSV": {
+    "text": "No branches loaded — import CSV before go-live",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ONLY_BRANCH_LOADED_VERIFY_COMPLETENE": {
+    "text": "Only {count} branch{value} loaded — verify completeness",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "API_ACTIVE_BRANCHES_MS": {
+    "text": "{count} active branches ({ms}ms)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "ms"
+    ]
+  },
+  "API_QUERY_FAILED": {
+    "text": "Query failed: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_REDIS_CTS_OR_DB_UNAVAILABLE": {
+    "text": "Redis CTS or DB unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_SIGNATURES_IN_DB_RUN": {
+    "text": "No signatures in DB — run vault sync before go-live",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHECK_FAILED": {
+    "text": "Check failed: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_REDIS_CTS_UNAVAILABLE": {
+    "text": "Redis CTS unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_PPS_ENTRIES_SEED_IF": {
+    "text": "No PPS entries — seed if bank issues cheque books",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PPS_ENTRIES_IN_REDIS": {
+    "text": "{count} PPS entries in Redis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "API_NO_MICR_PREFIXES_CONFIGURE_BEFORE": {
+    "text": "No MICR prefixes — configure before processing cheques",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PREFIX_CONFIGURED": {
+    "text": "{count} prefix{value} configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "API_NO_OPS_REVIEWER_USERS_HUMAN": {
+    "text": "No ops_reviewer users — human review queue will be unmanned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REVIEWER_MANAGER": {
+    "text": "{reviewers} reviewer{value}, {managers} manager{value2}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reviewers",
+      "value",
+      "managers",
+      "value2"
+    ]
+  },
+  "API_CTS_INWARD_FOLDER_PATH_NOT": {
+    "text": "cts.inward.folder_path not configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DIRECTORY_NOT_FOUND": {
+    "text": "{folder} — directory not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_CTS_OUTWARD_FOLDER_PATH_NOT": {
+    "text": "cts.outward.folder_path not configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_KAFKA_PRODUCER_IN_APP": {
+    "text": "No Kafka producer in app.state — start Kafka first",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_PRODUCE_TIMED_OUT_10S": {
+    "text": "Kafka produce timed out (>10s) — check broker connectivity",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_ERROR": {
+    "text": "Kafka error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_IMMUDB_CLIENT_NOT_CONFIGURED_AUDIT": {
+    "text": "Immudb client not configured — audit trail unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUDITEVENT_WRITTEN_VERIFIED_IN_MS": {
+    "text": "AuditEvent written + verified in {ms}ms",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_IMMUDB_WRITE_TIMED_OUT_10S": {
+    "text": "Immudb write timed out (>10s)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMMUDB_ERROR": {
+    "text": "Immudb error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_REDIS_CTS_NOT_CONNECTED": {
+    "text": "Redis CTS not connected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REDIS_PING_OK_MS_BUT": {
+    "text": "Redis ping OK ({ms}ms) but no vault keys found — seed before go-live",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_REDIS_CTS_PING_MS_VAULT": {
+    "text": "Redis CTS ping {ms}ms · vault keys present",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_REDIS_PING_TIMED_OUT_5S": {
+    "text": "Redis ping timed out (>5s)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REDIS_ERROR": {
+    "text": "Redis error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_PPS_VAULT_PING_OK_MS": {
+    "text": "PPS vault ping OK ({ms}ms) · {detail}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms",
+      "detail"
+    ]
+  },
+  "API_CBS_PING_OK_IN_MS": {
+    "text": "CBS ping OK in {ms}ms",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_CBS_PING_RETURNED_FALSE_CHECK": {
+    "text": "CBS ping returned False — check CBS config in Vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_UNREACHABLE_10S_TIMEOUT_CHECK": {
+    "text": "CBS unreachable (>10s timeout) — check network / CBS config",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_CONNECTOR_NOT_INSTALLED_IN": {
+    "text": "CBS connector not installed in this environment",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_ERROR": {
+    "text": "CBS error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_TEMPORAL_CLIENT_NOT_CONNECTED_START": {
+    "text": "Temporal client not connected — start Temporal first",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_NAMESPACE_REACHABLE_IN_MS": {
+    "text": "Temporal namespace reachable in {ms}ms · IET workers assumed active",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_TEMPORAL_UNREACHABLE_10S_CHECK_TEMPO": {
+    "text": "Temporal unreachable (>10s) — check Temporal server",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_ERROR": {
+    "text": "Temporal error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_NO_SIGNATURE_KEYS_FOUND_FOR": {
+    "text": "No signature keys found for this bank — seed before go-live",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_KEYS_PRESENT_IN_REDIS": {
+    "text": "{count} signature keys present in Redis vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "API_CTS_INWARD_FOLDER_PATH_NOT_2": {
+    "text": "cts.inward.folder_path not configured — set in Helm values",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FOLDER_NOT_FOUND": {
+    "text": "Folder not found: {folder}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_EXISTS_BUT_NOT_WRITABLE_CHECK": {
+    "text": "{folder} exists but not writable — check ASTRA service user ACL",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_EXISTS_AND_WRITABLE": {
+    "text": "{folder} — exists and writable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_AUTH_CONNECTOR_NOT_INITIALISED_CHECK": {
+    "text": "Auth connector not initialised — check startup logs",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOCAL_AUTH_DB_REACHABLE_IN": {
+    "text": "Local auth DB reachable in {ms}ms · argon2 verify OK",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_AUTH_ERROR": {
+    "text": "Auth error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_TEST_NOT_IMPLEMENTED_FOR_THIS": {
+    "text": "Test not implemented for this environment — check manually",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEST_TIMED_OUT_30S": {
+    "text": "Test timed out (>30s)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNEXPECTED_ERROR": {
+    "text": "Unexpected error: {str}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_DOCKER_COMPOSE_UP_D_OK": {
+    "text": "docker compose up -d {container}: OK",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "container"
+    ]
+  },
+  "API_DOCKER_NOT_FOUND_ON_PATH": {
+    "text": "docker not found on PATH — run manually: docker compose up -d {container}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "container"
+    ]
+  },
+  "API_DOCKER_COMPOSE_START_TIMED_OUT": {
+    "text": "docker compose start timed out (>60s)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROUTED_TO_HUGGING_FACE_INFERENCE": {
+    "text": "Routed to Hugging Face Inference API in POC mode — no local container needed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNKNOWN_SERVICE": {
+    "text": "Unknown service: {service_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "service_id"
+    ]
+  },
+  "API_OPS_MANAGER_OR_BANK_IT": {
+    "text": "ops_manager or bank_it_admin required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_IT_ADMIN_REQUIRED": {
+    "text": "bank_it_admin required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_TYPE_MUST_BE_ONE": {
+    "text": "bank_type must be one of {list}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "list"
+    ]
+  },
+  "API_PLATFORM_ADMIN_ROLE_REQUIRED": {
+    "text": "platform_admin role required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_ALREADY_EXISTS": {
+    "text": "bank {bank_id} already exists",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "API_IS_IMMUTABLE_AND_CANNOT_BE": {
+    "text": "{field} is immutable and cannot be updated",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "field"
+    ]
+  },
+  "API_PROCESSING_UNIT_NOT_FOUND": {
+    "text": "Processing Unit {pu_id} not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pu_id"
+    ]
+  },
+  "API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST": {
+    "text": "An active registration already exists for branch {ifsc}. Deactivate it first.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST_2": {
+    "text": "An active registration already exists for branch {ifsc}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_TOKEN_SHOWN_ONCE_STORE_IT": {
+    "text": "Token shown once — store it securely. It cannot be retrieved again.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_MACHINE_TOKEN_REQUIRED_AUTHO": {
+    "text": "Scanner machine token required: Authorization: Bearer <token>",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_ACTIVE_SCANNER_TOKEN_FOR": {
+    "text": "No active scanner token for this branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SCANNER_TOKEN": {
+    "text": "Invalid scanner token",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_TOKEN_REQUIRED_AUTHORIZATION": {
+    "text": "Scanner token required: Authorization: Bearer <token>",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REGISTRATION_NOT_FOUND": {
+    "text": "Registration not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REGISTRATION_DEACTIVATED": {
+    "text": "Registration deactivated",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_ACTIVE_SCANNER_REGISTRATION_FOR": {
+    "text": "No active scanner registration for branch {ifsc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_AN_ACTIVE_CONFIG_ALREADY_EXISTS": {
+    "text": "An active config already exists for this branch.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_CONFIG_NOT_FOUND": {
+    "text": "Scanner config not found",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_BANK_TYPE_MUST_BE": {
+    "text": "Invalid bank_type. Must be SB or SMB.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_PERMISSION_LEVEL_MUST_BE": {
+    "text": "Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_ROLE_MUST_BE_ONE": {
+    "text": "Invalid role. Must be one of: {sorted}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR": {
+    "text": "Role '{role}' is only valid for SMB users (bank_type=SMB).",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR_2": {
+    "text": "Role '{role}' is only valid for SB users (bank_type=SB).",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_USER_WITH_THIS_EMAIL_ALREADY": {
+    "text": "User with this email already exists",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_ROLE": {
+    "text": "Invalid role",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR_3": {
+    "text": "Role '{role}' is only valid for SMB users.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR_4": {
+    "text": "Role '{role}' is only valid for SB users.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_CANNOT_DEACTIVATE_YOUR_OWN_ACCOUNT": {
+    "text": "Cannot deactivate your own account",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_SETUP_NOT_INITIATED_CALL": {
+    "text": "TOTP setup not initiated. Call /totp/setup first.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CODE_PLEASE_TRY_AGAIN": {
+    "text": "Invalid code. Please try again.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_ACTIVATED_MFA_IS_NOW": {
+    "text": "TOTP activated. MFA is now required at login.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_NOT_ENABLED_FOR_THIS": {
+    "text": "TOTP not enabled for this user",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_SECRET_NOT_FOUND_CONTACT": {
+    "text": "TOTP secret not found. Contact IT admin.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_CANNOT_UPLOAD_PPS": {
+    "text": "Role {role} cannot upload PPS.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_CTS_CIIF_AMOUNT_UNIT_RUPEES": {
+    "text": "cts.ciif_amount_unit (RUPEES or PAISE) is not configured for this deployment.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FILE_EXCEEDS_MB_LIMIT": {
+    "text": "File exceeds {value} MB limit.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "API_ROLE_CANNOT_UPLOAD": {
+    "text": "Role {role} cannot upload {vault_type}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role",
+      "vault_type"
+    ]
+  },
+  "API_UNKNOWN": {
+    "text": "Unknown: {vault_type}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type"
+    ]
+  },
+  "API_INSUFFICIENT_ROLE": {
+    "text": "Insufficient role.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_NOT_CONNECTED": {
+    "text": "Temporal not connected.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_SESSION_MANAGER_NOT_INITIALISED": {
+    "text": "Session manager not initialised",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_REDIS_NOT_AVAILABLE": {
+    "text": "Redis not available",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_INVALID_DATE_FORMAT_EXPECTED_YYYY": {
+    "text": "Invalid date format (expected YYYY-MM-DD)",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_CONNECTED_TO_EEH_STATUS_FEED": {
+    "text": "Connected to EEH status feed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_SPAN_PX_ISOLATED_DOTS_SPECKS": {
+    "text": "span < {MIN_SPAN}px — isolated dots/specks",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "MIN_SPAN"
+    ]
+  },
+  "SIG_DETECTOR_DENSITY_40_SOLID_HORIZONTAL_RULE": {
+    "text": "density > 40% — solid horizontal rule lines",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_RUNS_15_SECURITY_PRINT_DIAGONAL": {
+    "text": "runs > 15 — security-print diagonal patterns",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_RIGHT_FRINGE_ONLY_BARCODE_STRIPE": {
+    "text": "right-fringe only — barcode stripe rows",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_COUNT_QUALITY": {
+    "text": "count={count}, quality={sp}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "sp"
+    ]
+  },
+  "SIG_DETECTOR_INVALID_IMAGE": {
+    "text": "Invalid image: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "SIG_DETECTOR_ROWS_REJECTED": {
+    "text": "{rows_rejected} rows rejected — {description}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rows_rejected",
+      "description"
+    ]
+  },
+  "SIG_DETECTOR_VLLM_RETURNED_ERROR_RESULT_INCONCLUS": {
+    "text": "vLLM returned error — result inconclusive",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_SIG_DETECTOR_VISION_URL_NOT": {
+    "text": "SIG_DETECTOR_VISION_URL not configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NOT_A_SUBSCRIBABLE_BUCKET_VALID": {
+    "text": "not a subscribable bucket: {bad}. Valid: {list}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bad",
+      "list"
+    ]
+  },
+  "CTS_DATABASE_UNAVAILABLE": {
+    "text": "database unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CCH_REQTYPE_W_RESPONSE_MISSING": {
+    "text": "CCH Reqtype=W response missing 'Modulus' field",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CCH_REQTYPE_W_RESPONSE_MISSING_2": {
+    "text": "CCH Reqtype=W response missing 'Exponent' field",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FAILED_TO_FETCH_CCH_KEY": {
+    "text": "Failed to fetch CCH key (Reqtype=W): {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_DEM_END_MARKER_NOT_FOUND": {
+    "text": "DEM end marker '{end_marker}' not found in data",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "end_marker"
+    ]
+  },
+  "CTS_UNSUPPORTED_DEM_ENCRYPTION_ALGORITHM": {
+    "text": "Unsupported DEM encryption algorithm: {algo}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "algo"
+    ]
+  },
+  "CTS_FAILED_TO_PARSE_TRANS_ENCRYPT": {
+    "text": "Failed to parse Trans.Encrypt.Data header: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_TRANS_ENCRYPT_DATA_HEADER_MISSING": {
+    "text": "Trans.Encrypt.Data header missing 'Key' field",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FAILED_TO_DECRYPT_AES_KEY": {
+    "text": "Failed to decrypt AES key via HSM: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_AES_DECRYPTION_FAILED_TAMPERED_CIPHE": {
+    "text": "AES decryption failed (tampered ciphertext?): {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING": {
+    "text": "Trans.Signature.Data header missing or malformed after decryption",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FAILED_TO_PARSE_TRANS_SIGNATURE": {
+    "text": "Failed to parse Trans.Signature.Data header: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING_2": {
+    "text": "Trans.Signature.Data header missing 'Data' (signature) field",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CCH_SIGNATURE_VERIFICATION_FAILED_FI": {
+    "text": "CCH signature verification failed — file may be tampered",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATURE_VERIFICATION_ERROR": {
+    "text": "Signature verification error: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_BACKUP_NOT_FOUND_FOR_RESEND": {
+    "text": "Backup not found for resend: {backup_path}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "backup_path"
+    ]
+  },
+  "CTS_QWEN2_VL_REPORTS_OVERWRITING_IN": {
+    "text": "Qwen2-VL reports overwriting in amount field (tamper confidence 0.91). Instrument rejected per CTS-2010 §5.2.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_CONFIRMS_STOP_PAYMENT_INSTRUCTIO": {
+    "text": "CBS confirms stop-payment instruction active. Instruction filed: 2026-06-29 14:32. Instrument returned.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIAMESE_SNN_MATCH_SCORE_0": {
+    "text": "Siamese SNN match score 0.42 (threshold 0.85). 2 registered specimens on record. Human review required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_ACCOUNT_STATUS_FROZEN_COURT": {
+    "text": "CBS: account status FROZEN (court order ref CO-2026-MUM-4421). Instrument returned immediately.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOAD_TEST_AI_STUBS_MAY": {
+    "text": "load-test AI stubs may only run with ASTRA_ENV=development",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DUPLICATE_INSTRUMENT_ID_IN_ENDORSEME": {
+    "text": "Duplicate instrument_id '{instrument_id}' in endorsement batch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_ACCOUNT_SUFFIX_MUST_BE_4": {
+    "text": "account_suffix must be ≤ 4 characters (PII rule); got {len} chars",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_REAR_IMAGE_NOT_DECODABLE": {
+    "text": "rear image not decodable: {exc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_RAW_ACCOUNT_NUMBER_DETECTED_IN": {
+    "text": "Raw account number detected in micr_fields — mask to last-4 before calling",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_TRAINED_ON_RULE_LABELLED_SYNTHETIC": {
+    "text": "trained on rule-labelled synthetic data; plumbing proof only, not real fraud detection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISSING_REQUIRED_COLUMNS": {
+    "text": "missing required columns: {missing}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "missing"
+    ]
+  },
+  "CTS_COLUMNS_THAT_MAY_CARRY_CUSTOMER": {
+    "text": "columns that may carry customer-identifying data are not allowed: {bad}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bad"
+    ]
+  },
+  "CTS_LINE_TIMESTAMP_MUST_BE_A": {
+    "text": "line {n}: timestamp must be a number (epoch seconds)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "n"
+    ]
+  },
+  "CTS_ROWS_IS_BELOW_THE_MINIMUM": {
+    "text": "{len} rows is below the minimum of {min_rows}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "min_rows"
+    ]
+  },
+  "CTS_POSITIVE_FRAUD_EXAMPLES_IS_BELOW": {
+    "text": "{int} positive (fraud) examples is below the minimum of {min_positives}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "int",
+      "min_positives"
+    ]
+  },
+  "CTS_A_TRAIN_VALIDATION_TEST_SLICE": {
+    "text": "a train/validation/test slice contains no positive examples; more data or a longer window is needed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SMB_ID_IS_REQUIRED_WHEN": {
+    "text": "smb_id is required when bank_type is SMB",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SMB_ID_MUST_BE_NONE": {
+    "text": "smb_id must be None when bank_type is SB",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BANK_NOT_FOUND_IN_PLATFORM": {
+    "text": "bank {bank_id} not found in platform.banks",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "CTS_DEVSTUBNGCHADAPTER_MAY_ONLY_RUN_WITH": {
+    "text": "DevStubNGCHAdapter may only run with ASTRA_ENV=development",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_DECISION_MUST_BE_ONE": {
+    "text": "Invalid decision '{decision}'. Must be one of: {VALID_DECISIONS}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "decision",
+      "VALID_DECISIONS"
+    ]
+  },
+  "CTS_DUPLICATE_FILING_FOR_IDEMPOTENCY_KEY": {
+    "text": "duplicate filing for {instrument_id} (idempotency_key={workflow_id})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id",
+      "workflow_id"
+    ]
+  },
+  "CTS_NGCHADAPTER_CONNECT_HAS_NOT_BEEN": {
+    "text": "NGCHAdapter.connect() has not been called. Call it during service startup before filing to NGCH.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_DECISION_MUST_BE_ONE_2": {
+    "text": "Invalid decision '{decision}'. Must be one of: {VALID_DECISIONS}. Only CONFIRM or RETURN are valid NGCH filing decisions.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "decision",
+      "VALID_DECISIONS"
+    ]
+  },
+  "CTS_NGCH_REJECTED_DUPLICATE_FILING_FOR": {
+    "text": "NGCH rejected duplicate filing for instrument {instrument_id} (idempotency_key={workflow_id})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id",
+      "workflow_id"
+    ]
+  },
+  "CTS_NGCH_FILE_DECISION_FAILED": {
+    "text": "NGCH file_decision failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_NGCH_QUERY_STATUS_FAILED": {
+    "text": "NGCH query_status failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_FILE_A_CHEQUE_DECISION_CONFIRM": {
+    "text": "File a cheque decision (CONFIRM or RETURN) to NGCH. Exactly-once: idempotency_key prevents duplicate submissions.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNIQUE_CHEQUE_INSTRUMENT_ID": {
+    "text": "Unique cheque instrument ID",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_TEMPORAL_WORKFLOW_ID_IDEMPOTENCY_KEY": {
+    "text": "Temporal workflow ID (idempotency key)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_QUERY_THE_CURRENT_NGCH_FILING": {
+    "text": "Query the current NGCH filing status for an instrument.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MUST_BE_EXACTLY_BYTES_RSA": {
+    "text": "{ds_field} must be exactly {DS_SIZE} bytes (RSA-SHA256 raw signature); got {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ds_field",
+      "DS_SIZE",
+      "len"
+    ]
+  },
+  "CTS_INSTRUMENTS_LIST_MUST_NOT_BE": {
+    "text": "instruments list must not be empty — a CIBF must contain at least one instrument",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIBF_BINARY_IS_EMPTY": {
+    "text": "CIBF binary is empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ITEM_OFFSET_OUT_OF_RANGE": {
+    "text": "Item {item_seq_no} {label}: offset out of range (ds_offset={ds_offset}, img_offset={img_offset}, img_length={img_length}, cibf_size={len})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "label",
+      "ds_offset",
+      "img_offset",
+      "img_length",
+      "len"
+    ]
+  },
+  "CTS_ITEM_DS_END_EXCEEDS_CIBF": {
+    "text": "Item {item_seq_no} {label}: DS end {ds_end} exceeds CIBF size {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "label",
+      "ds_end",
+      "len"
+    ]
+  },
+  "CTS_MICRDS_SIGNATURE_MUST_BE_CHARS": {
+    "text": "micrds_signature must be {MICRDS_SIG_LENGTH} chars (Base64 RSA-SHA256), got {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "MICRDS_SIG_LENGTH",
+      "len"
+    ]
+  },
+  "CTS_CXF_ITEMS_LIST_MUST_NOT": {
+    "text": "CXF items list must not be empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISSING_REQUIRED_ATTRIBUTE_ON": {
+    "text": "Missing required attribute '{name}' on <{tag}>",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name",
+      "tag"
+    ]
+  },
+  "CTS_MISSING_REQUIRED_CHILD_ELEMENT_IN": {
+    "text": "Missing required child element <{local}> in <{tag}>",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "local",
+      "tag"
+    ]
+  },
+  "CTS_CXF_XML_BYTES_ARE_EMPTY": {
+    "text": "CXF XML bytes are empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_CXF_XML": {
+    "text": "Invalid CXF XML: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_CXF_XML_MISSING_FILESUMMARY": {
+    "text": "CXF XML missing <FileSummary>",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CXF_XML_MISSING_BATCH": {
+    "text": "CXF XML missing <Batch>",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ITEM_MISSING_IMAGEVIEWDETAIL_VIEWSID": {
+    "text": "Item {item_seq_no}: missing <ImageViewDetail ViewSideIndicator='{view}'>",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "view"
+    ]
+  },
+  "CTS_MISSING_REQUIRED_PXF_ELEMENT": {
+    "text": "Missing required PXF element: <{local_name}>",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "local_name"
+    ]
+  },
+  "CTS_PXF_XML_BYTES_ARE_EMPTY": {
+    "text": "PXF XML bytes are empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_PXF_XML": {
+    "text": "Invalid PXF XML: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_PXF_XML_MISSING_REQUIRED_BATCHGROUP": {
+    "text": "PXF XML missing required <BatchGroup> element",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PXF_XML_MISSING_BATCHHEADER": {
+    "text": "PXF XML missing <BatchHeader>",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PXF_XML_MISSING_FILEHEADER": {
+    "text": "PXF XML missing <FileHeader>",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNKNOWN_CLEARINGTYPE_IN_PXF_EXPECTED": {
+    "text": "Unknown ClearingType '{clearing_type_raw}' in PXF — expected '01' (normal) or '14' (On Realization)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "clearing_type_raw"
+    ]
+  },
+  "CTS_ITEM_INVALID_AMOUNTPAISE": {
+    "text": "Item {item_seq_no}: invalid AmountPaise '{amount_paise_str}'",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "amount_paise_str"
+    ]
+  },
+  "CTS_UNREACHABLE_TWO_DAYS_ALWAYS_CONTAIN": {
+    "text": "unreachable: two days always contain a cut-off",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNKNOWN_CTS_FIELD_VALID_FIELDS": {
+    "text": "Unknown CTS field '{field}'. Valid fields: {sorted}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "field",
+      "sorted"
+    ]
+  },
+  "CTS_ACCOUNT_SUFFIX_MUST_BE_AT": {
+    "text": "account_suffix must be at most 4 characters (got {len}). Store only the last 4 digits — never the full account number.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_XHTML2PDF_ERROR": {
+    "text": "xhtml2pdf error: {err}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "err"
+    ]
+  },
+  "CTS_DIRECTION_MUST_BE_ONE_OF": {
+    "text": "direction must be one of {DIRECTIONS}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "DIRECTIONS"
+    ]
+  },
+  "CTS_NO_RETURN_ITEMS_RRF_REQUIRES": {
+    "text": "No return items — RRF requires at least one return instrument",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RETURNREASONCOMMENT_IS_MANDATORY_WHE": {
+    "text": "ReturnReasonComment is mandatory when ReturnReasonCode is 88 (Other Reason). Provide a non-empty description of the return reason.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RETURNREASONCOMMENT_FOR_CODE_88_MUST": {
+    "text": "ReturnReasonComment for code 88 must not start with a digit or a space (CHI spec Rev 3.0).",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SECURELINK_UNREACHABLE_AT": {
+    "text": "SecureLink unreachable at {base_url}: {exc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "base_url",
+      "exc"
+    ]
+  },
+  "CTS_SECURELINK_RETURNED_HTTP": {
+    "text": "SecureLink returned HTTP {status_code}: {exc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "status_code",
+      "exc"
+    ]
+  },
+  "CTS_SECURELINK_STATUS_CHECK_FAILED_AT": {
+    "text": "SecureLink status check failed at {base_url}: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "base_url",
+      "exc"
+    ]
+  },
+  "CTS_CANON_RANGER_TRANSPORT_NOT_CONFIGURE": {
+    "text": "Canon Ranger Transport not configured for branch '{branch_id}'. Set ranger_host and ranger_port.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id"
+    ]
+  },
+  "CTS_AT_IS_UNREACHABLE": {
+    "text": "{scanner_model} at {securelink_url} is unreachable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "scanner_model",
+      "securelink_url"
+    ]
+  },
+  "CTS_NO_SCANNER_CONFIG_FOUND_FOR": {
+    "text": "No scanner config found for branch '{branch_id}' or bank '{bank_id}' default. Set cts.scanner.branch.{branch_id2} in Admin UI.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id",
+      "bank_id",
+      "branch_id2"
+    ]
+  },
+  "CTS_USD_OPENSCANNER_RETURNED_CHECK_SCANN": {
+    "text": "USD_OpenScanner() returned {handle}. Check scanner power, USB connection, and usd.dll version.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "handle"
+    ]
+  },
+  "CTS_USD_SCANITEM_RETURNED_ERROR_CODE": {
+    "text": "USD_ScanItem() returned error code {rc}. Ensure a cheque is placed in the feed tray.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rc"
+    ]
+  },
+  "CTS_USD_GETIMAGEDATA_IMAGE_TYPE_RETURNED": {
+    "text": "USD_GetImageData(image_type={image_type}) returned error {rc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "image_type",
+      "rc"
+    ]
+  },
+  "CTS_DIGITAL_CHECK_DCC_API_DLL": {
+    "text": "Digital Check DCC API DLL not found. Place usd.dll in the bin/ folder. Searched: {searched}. usd.dll ships with the Digital Check DCC API SDK — obtain from Digital Check support (digitalcheck.com) and copy to bin/usd.dll.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "searched"
+    ]
+  },
+  "CTS_PANINI_PANINI_CONNECT_RETURNED_CHECK": {
+    "text": "Panini panini_connect() returned {handle}. Check scanner power, USB cable, and DLL version.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "handle"
+    ]
+  },
+  "CTS_PANINI_PANINI_START_SCAN_RETURNED": {
+    "text": "Panini panini_start_scan() returned error code {rc}. Ensure a cheque is placed in the feeder.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rc"
+    ]
+  },
+  "CTS_PANINI_GET_IMAGE_SIDE_RETURNED": {
+    "text": "panini_get_image(side={side}) returned error {rc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "side",
+      "rc"
+    ]
+  },
+  "CTS_PANINI_SDK_DLL_NOT_FOUND": {
+    "text": "Panini SDK DLL not found. Place panini64.dll (64-bit) or panini.dll (32-bit) in the bin/ folder. Searched: {searched}. Download from Panini support portal and copy to bin/panini64.dll.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "searched"
+    ]
+  },
+  "CTS_CANNOT_CONNECT_TO_CANON_RANGER": {
+    "text": "Cannot connect to Canon Ranger daemon at {host}:{port}. Ensure the Ranger Transport service is running. Detail: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host",
+      "port",
+      "exc"
+    ]
+  },
+  "CTS_NOT_CONNECTED_CALL_CONNECT_FIRST": {
+    "text": "Not connected — call connect() first",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IMAGE_SIDE_MAPPING_MUST_INCLUDE": {
+    "text": "image_side_mapping must include both a front_bw (or color_front) and a front_gray (or grey_front) entry. Got: {list}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "list"
+    ]
+  },
+  "CTS_PIPE_SEPARATED_IMAGE_NAMING_PATTERN": {
+    "text": "Pipe-separated image_naming_pattern must have 3 or 4 parts, got {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_DUPLICATE_SCAN_ID_ALREADY_ADDED": {
+    "text": "duplicate scan_id '{scan_id}' — already added to session {session_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "scan_id",
+      "session_id"
+    ]
+  },
+  "CTS_EMPTY_FILE_CONTENT_IS_EMPTY": {
+    "text": "empty: file content is empty",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNKNOWN_FILE_TYPE": {
+    "text": "unknown file_type: {file_type}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "file_type"
+    ]
+  },
+  "CTS_COLUMN_MISSING_REQUIRED_COLUMNS": {
+    "text": "column: missing required columns: {value}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE": {
+    "text": "cheque_number_suffix must be ≤ 4 chars (PII rule): got {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_INVALID_BUCKET_MUST_BE_ONE": {
+    "text": "Invalid bucket '{bucket}'. Must be one of {set}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bucket",
+      "set"
+    ]
+  },
+  "CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE_2": {
+    "text": "cheque_number_suffix must be ≤ 4 characters (PII rule): got {len} chars",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_ACCOUNTVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "AccountVault.connect() has not been called. Call it during service startup before querying the vault.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUELEAFVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "ChequeLeafVault.connect() has not been called. Call it during service startup before querying the vault.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_IS_ALREADY_DUPLICATE_PRESENTM": {
+    "text": "Cheque {cheque_number} is already {prev_status} — duplicate presentment detected.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "cheque_number",
+      "prev_status"
+    ]
+  },
+  "CTS_PPSVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "PPSVault.connect() has not been called. Call it during service startup before querying the vault.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATUREVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "SignatureVault.connect() has not been called. Call it during service startup before querying the vault.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CSV_PARSE_ERROR": {
+    "text": "CSV parse error: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_CSV_MISSING_REQUIRED_COLUMNS_FOR": {
+    "text": "CSV missing required columns for {vault_type}: {missing}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type",
+      "missing"
+    ]
+  },
+  "CTS_ACCOUNT_NOT_FOUND_IN_CTS": {
+    "text": "Account ****{raw_acct} not found in cts.account_vault — upload ACCOUNT_DETAIL first",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "raw_acct"
+    ]
+  },
+  "CTS_CIIF_AMOUNT_UNIT_MUST_BE": {
+    "text": "CIIF amount unit must be set to RUPEES or PAISE (cts.ciif_amount_unit); it is not guessed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIIF_FILE_IS_NOT_VALID": {
+    "text": "CIIF file is not valid UTF-8",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIIF_TEST_FILE_TESTFILEINDICATOR_T": {
+    "text": "CIIF test file (Testfileindicator T): nothing was loaded",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIIF_FILE_REJECTED": {
+    "text": "CIIF file rejected: {message}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "message"
+    ]
+  },
+  "CTS_SERIALNUMBER_REQUIRED_TO_KEY_THE": {
+    "text": "SerialNumber: required to key the PPS vault by cheque number",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SERIES_START_MUST_BE_SERIES": {
+    "text": "series_start ({series_start}) must be ≤ series_end ({series_end})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "series_start",
+      "series_end"
+    ]
+  },
+  "CTS_CHEQUELEAFVAULT_NOT_CONFIGURED_IN_PR": {
+    "text": "ChequeLeafVault not configured in processor",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACCOUNTVAULT_NOT_CONFIGURED_IN_PROCE": {
+    "text": "AccountVault not configured in processor",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DB_POOL_NOT_CONFIGURED_IN": {
+    "text": "DB pool not configured in processor",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PPSVAULT_NOT_CONFIGURED_IN_PROCESSOR": {
+    "text": "PPSVault not configured in processor",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATUREVAULT_NOT_CONFIGURED_IN_PRO": {
+    "text": "SignatureVault not configured in processor",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_TEMPORALIO_PACKAGE_NOT_INSTALLED_RUN": {
+    "text": "temporalio package not installed. Run: pip install temporalio",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ASTRA_CTS_TEMPORAL_WORKER": {
+    "text": "ASTRA CTS Temporal Worker",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BUILD_NGCH_FILE_INSTRUMENTS_LIST": {
+    "text": "build_ngch_file: instruments list is empty — CXF requires at least one instrument per submission.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IET_BREACH_IN_5_MINUTES": {
+    "text": "IET breach in 5 minutes. Release hold and decide immediately.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NGCH_ADAPTER_NOT_CONFIGURED_FILING": {
+    "text": "NGCH adapter not configured — filing stays queued",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_DATE_MISSING_FOR": {
+    "text": "cheque_date missing for {instrument_id}",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_AMOUNT_MISSING_FOR": {
+    "text": "amount missing for {instrument_id}",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_DATE_AMOUNT_MISSING_FOR": {
+    "text": "date/amount missing for {instrument_id}",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_NO_CRL_ENTRY": {
+    "text": "NO_CRL_ENTRY:{ins}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ins"
+    ]
+  },
+  "CTS_SMB_PUSH_FILE_NOT_FOUND": {
+    "text": "SMB push file not found: {file_path}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "file_path"
+    ]
+  },
+  "MSV_EXPECTED_DIM_EMBEDDING_GOT": {
+    "text": "Expected {EMBEDDING_DIM}-dim embedding, got {len}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "EMBEDDING_DIM",
+      "len"
+    ]
+  },
+  "MSV_EMBEDDING_MODEL_UNAVAILABLE": {
+    "text": "Embedding model unavailable: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "MSV_SIGNATURE_DETECTOR_UNAVAILABLE": {
+    "text": "Signature detector unavailable: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "MSV_ASTRA_MSV_TEMPORAL_WORKER": {
+    "text": "ASTRA MSV Temporal Worker",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNDECODABLE_SIGNATURE_IMAGE": {
+    "text": "undecodable signature image: {exc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BOTH_L1_AND_L2_VLLM": {
+    "text": "Both L1 and L2 vLLM unavailable for {call_type} cascade (bank_id={bank_id})",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "call_type",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_AUDITEVENT_IS_ALREADY_SIGNED_CANNOT": {
+    "text": "AuditEvent is already signed — cannot sign twice",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_HSM_SIGNING_FAILED": {
+    "text": "HSM signing failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_IMMUDB_CONNECT_FAILED_AT": {
+    "text": "immudb connect failed at {host}:{port}: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host",
+      "port",
+      "exc"
+    ]
+  },
+  "PLATFORM_PAYLOAD_MUST_INCLUDE_BANK_ID": {
+    "text": "payload must include 'bank_id' for audit isolation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_IMMUDB_WRITE_FAILED": {
+    "text": "immudb write failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_IMMUDB_VERIFY_FAILED": {
+    "text": "immudb verify failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_IMMUDBCLIENT_CONNECT_HAS_NOT_BEEN": {
+    "text": "ImmudbClient.connect() has not been called. Call it in the service startup before writing events.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_EITHER_CONNECTOR_OR_CONNECTOR_FACTOR": {
+    "text": "either connector or connector_factory must be provided",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_INVALID_MFA_CODE": {
+    "text": "invalid MFA code",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_INVALID_ENROLMENT_CODE": {
+    "text": "invalid enrolment code",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CANNOT_REFRESH_A_PRE_MFA": {
+    "text": "cannot refresh a pre-MFA session",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SESSION_IS_ALREADY_MFA_AUTHENTICATED": {
+    "text": "session is already MFA-authenticated",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_ENTITY_TYPE_VALID": {
+    "text": "unknown entity_type '{entity_type}'. Valid: {sorted}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "entity_type",
+      "sorted"
+    ]
+  },
+  "PLATFORM_AUTH_CONFIG_MISSING_THE_AUTH": {
+    "text": "auth config missing the 'auth' block",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_INTEGRATION_TYPE_FOR_ENTITY": {
+    "text": "Unknown integration_type '{integration_type}' for entity_type='{entity_type}'.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "integration_type",
+      "entity_type"
+    ]
+  },
+  "PLATFORM_LDAPS_REQUIRED_USE_LDAPS_PORT": {
+    "text": "LDAPS required — use ldaps:// (port 636). Plain ldap:// rejected.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_USER_NOT_FOUND_IN_DIRECTORY": {
+    "text": "user '{username}' not found in directory",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "username"
+    ]
+  },
+  "PLATFORM_USER_AUTHENTICATED_BUT_HAS_NO": {
+    "text": "user '{username}' authenticated but has no ASTRA role mapping. Add their AD group to group_role_map.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "username"
+    ]
+  },
+  "PLATFORM_ACCOUNT_LOCKED_DUE_TO_REPEATED": {
+    "text": "account locked due to repeated failures",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ACCOUNT_INACTIVE": {
+    "text": "account inactive",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SAML_ASSERTION_MISSING_NAMEID": {
+    "text": "SAML assertion missing NameID",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_USER_AUTHENTICATED_VIA_SAML_BUT": {
+    "text": "user '{username}' authenticated via SAML but has no ASTRA role mapping. Add their IdP group to group_role_map.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "username"
+    ]
+  },
+  "PLATFORM_SAML_AUTHENTICATION_IS_NOT_YET": {
+    "text": "SAML authentication is not yet configured for this deployment. Contact bank IT admin to complete IdP integration.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_NO_PENDING_TOTP_SECRET_FOR": {
+    "text": "no pending TOTP secret for user '{user_id}'",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id"
+    ]
+  },
+  "PLATFORM_USER_HAS_NO_TOTP_ENROLLED": {
+    "text": "user '{user_id}' has no TOTP enrolled",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id"
+    ]
+  },
+  "PLATFORM_VAULTTOTPSECRETSTORE_REQUIRES_A_VAUL": {
+    "text": "VaultTOTPSecretStore requires a Vault client — pass vault_client=config_service.get_vault_client() at construction time. Only shared/config/config_service.py may read VAULT_ADDR / VAULT_TOKEN. For dev/CI, use InMemoryTOTPSecretStore instead.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ROLE_DOES_NOT_HAVE_PERMISSION": {
+    "text": "Role '{value}' does not have permission '{value2}' (user_id={user_id}, bank_id={bank_id}). Required: {name} [{value3}]",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "value2",
+      "user_id",
+      "bank_id",
+      "name",
+      "value3"
+    ]
+  },
+  "PLATFORM_USER_BANK_ATTEMPTED_TO_ACCESS": {
+    "text": "User '{user_id}' (bank={bank_id}) attempted to access bank '{requested_bank_id}' — cross-bank access is forbidden.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id",
+      "requested_bank_id"
+    ]
+  },
+  "PLATFORM_SB_USER_BANK_CANNOT_ACCESS": {
+    "text": "SB user '{user_id}' (bank={bank_id}) cannot access SB data for bank '{target_bank_id}'.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id",
+      "target_bank_id"
+    ]
+  },
+  "PLATFORM_SMB_USER_BANK_TYPE_SMB": {
+    "text": "SMB user '{user_id}' (bank={bank_id}, type=SMB) attempted to access SB-level data — tenant boundary violation.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_SMB_USER_BANK_ATTEMPTED_TO": {
+    "text": "SMB user '{user_id}' (bank={bank_id}) attempted to access SMB '{target_bank_id}' — cross-SMB access is forbidden.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id",
+      "target_bank_id"
+    ]
+  },
+  "PLATFORM_USER_HAS_PERMISSION_LEVEL_BUT": {
+    "text": "User '{user_id}' has permission level '{value}' but operation requires '{value2}'.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "value",
+      "value2"
+    ]
+  },
+  "PLATFORM_OPS_REVIEWER_IS_SCOPED_TO": {
+    "text": "ops_reviewer '{user_id}' is scoped to processing units {pu_ids} but requested processing unit '{requested_pu}'.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "pu_ids",
+      "requested_pu"
+    ]
+  },
+  "PLATFORM_RBI_EXAMINER_ENGAGEMENT_HAS_EXPIRED": {
+    "text": "RBI examiner '{user_id}' engagement has expired or was never provisioned. A new time-limited engagement token is required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id"
+    ]
+  },
+  "PLATFORM_BRANCH_MANAGER_IS_SCOPED_TO": {
+    "text": "branch_manager '{user_id}' is scoped to branch '{branch_code}' but requested branch '{branch_code2}'.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "branch_code",
+      "branch_code2"
+    ]
+  },
+  "PLATFORM_SESSIONTOKENSERVICE_HAS_NO_PRIVATE_K": {
+    "text": "SessionTokenService has no private key — cannot issue",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SESSION_TOKEN_EXPIRED": {
+    "text": "session token expired",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_INVALID_SESSION_TOKEN": {
+    "text": "invalid session token: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_SESSION_TOKEN_MISSING_CLAIM": {
+    "text": "session token missing claim: {exc}",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_CSRF_TOKEN_MISMATCH": {
+    "text": "CSRF token mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_BANCS_GET_ACCOUNT_INFO_FAILED": {
+    "text": "BaNCS get_account_info failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_SIGNATURE_SPECIMENS_FAILED": {
+    "text": "BaNCS get_signature_specimens failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_CHECK_STOP_PAYMENT_FAILED": {
+    "text": "BaNCS check_stop_payment failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_PPS_ENTRIES_FAILED": {
+    "text": "BaNCS get_pps_entries failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_CHEQUE_STATUS_FAILED": {
+    "text": "BaNCS get_cheque_status failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_SIGNATORY_DATA_FAILED": {
+    "text": "BaNCS get_signatory_data failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_BRANCH_CONTACTS_FAILED": {
+    "text": "BaNCS get_branch_contacts failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCSCBSCONNECTOR_CONNECT_HAS_NOT_BE": {
+    "text": "BaNCSCBSConnector.connect() has not been called. Call it in the service startup before querying CBS.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_DEVSTUBCBSCONNECTOR_MAY_ONLY_RUN_WIT": {
+    "text": "DevStubCBSConnector may only run with ASTRA_ENV=development",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_FINACLE_GET_ACCOUNT_INFO_FAILED": {
+    "text": "Finacle get_account_info failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_SIGNATURE_SPECIMENS_FAIL": {
+    "text": "Finacle get_signature_specimens failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_CHECK_STOP_PAYMENT_FAILED": {
+    "text": "Finacle check_stop_payment failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_PPS_ENTRIES_FAILED": {
+    "text": "Finacle get_pps_entries failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_CHEQUE_STATUS_FAILED": {
+    "text": "Finacle get_cheque_status failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_ACCOUNT_NOT_FOUND_IN_FINACLE": {
+    "text": "Account {account_number} not found in Finacle",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_number"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_SIGNATORY_DATA_FAILED": {
+    "text": "Finacle get_signatory_data failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_BRANCH_CONTACTS_FAILED": {
+    "text": "Finacle get_branch_contacts failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLECBSCONNECTOR_CONNECT_HAS_NOT": {
+    "text": "FinacleCBSConnector.connect() has not been called. Call it in the service startup before querying CBS.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_FLEXCUBE_SOAP_CALL_FAILED": {
+    "text": "FlexCube SOAP call failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FLEXCUBE_FAULT": {
+    "text": "FlexCube fault: {code}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "code"
+    ]
+  },
+  "PLATFORM_FLEXCUBE_GET_SIGNATORY_DATA_FAILED": {
+    "text": "FlexCube get_signatory_data failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FLEXCUBE_GET_BRANCH_CONTACTS_FAILED": {
+    "text": "FlexCube get_branch_contacts failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FLEXCUBECBSCONNECTOR_CONNECT_HAS_NOT": {
+    "text": "FlexCubeCBSConnector.connect() has not been called. Call it in the service startup before querying CBS.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_BANK_ID_ENV_VAR_NOT": {
+    "text": "BANK_ID env var not set — check Helm values",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_ASTRA_SECRETS_BACKEND_VALID": {
+    "text": "Unknown ASTRA_SECRETS_BACKEND='{backend_name}'. Valid values: {value}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "backend_name",
+      "value"
+    ]
+  },
+  "PLATFORM_CONFIG_KEY_NOT_SET_LAYER": {
+    "text": "Config key '{key_value}' not set. Layer 3 (Redis + DB) both unavailable and no built-in default exists. Add to _LAYER3_DEFAULTS or check infra/helm/values/_defaults.yaml.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value"
+    ]
+  },
+  "PLATFORM_CONFIG_KEY_NOT_FOUND_DB": {
+    "text": "Config key '{key_value}' not found — DB pool unavailable.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value"
+    ]
+  },
+  "PLATFORM_CONFIG_KEY_NOT_FOUND_FOR": {
+    "text": "Config key '{key_value}' not found for bank '{bank_id}'. Check Admin UI or infra/helm/values/_defaults.yaml.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_PLATFORM_CONFIG_ENV_VAR_NOT": {
+    "text": "Platform config '{key_value}' (env var {env_var}) not set. Check infra/helm/values/banks/{bank_id}.yaml",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "env_var",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_OPA_UNREACHABLE_FOR_POLICY": {
+    "text": "OPA unreachable for policy '{policy}': {exc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "policy",
+      "exc"
+    ]
+  },
+  "PLATFORM_GET_VAULT_CLIENT_IS_ONLY": {
+    "text": "get_vault_client() is only available when ASTRA_SECRETS_BACKEND=vault is active. Current backend: {name__}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name__"
+    ]
+  },
+  "PLATFORM_CONFIG_SERVICE_INITIALISE_HAS_NOT": {
+    "text": "config_service.initialise() has not been awaited. Call it in the FastAPI lifespan or Temporal worker startup.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_SECRETS_BACKEND_ENV_IS": {
+    "text": "ASTRA_SECRETS_BACKEND=env is not allowed in ASTRA_ENV=production. Set ASTRA_ALLOW_ENV_SECRETS=true to override (bank IT admin sign-off required). For production, use ASTRA_SECRETS_BACKEND=vault or ASTRA_SECRETS_BACKEND=k8s_secrets.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SECRET_NOT_FOUND_SET_ENV": {
+    "text": "Secret '{key_value}' not found. Set env var '{env_var}' in your .env file or docker-compose environment.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "env_var"
+    ]
+  },
+  "PLATFORM_K8S_SECRET_MOUNT_PATH_NOT": {
+    "text": "K8s secret mount path not found: {mount_path}. Ensure the Kubernetes Secret volume is mounted in the Pod spec at this path (volumeMounts.mountPath: {mount_path2}).",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mount_path",
+      "mount_path2"
+    ]
+  },
+  "PLATFORM_SECRET_NOT_FOUND_AT_ENSURE": {
+    "text": "Secret '{key_value}' not found at '{file_path}'. Ensure the Kubernetes Secret has key '{key_value2}' and is mounted at {mount_path}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "file_path",
+      "key_value2",
+      "mount_path"
+    ]
+  },
+  "PLATFORM_FAILED_TO_READ_SECRET_FROM": {
+    "text": "Failed to read secret '{key_value}' from '{file_path}': {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "file_path",
+      "exc"
+    ]
+  },
+  "PLATFORM_VAULT_ADDR_VAULT_TOKEN_NOT": {
+    "text": "VAULT_ADDR / VAULT_TOKEN not set — Vault agent sidecar not running. For local dev/CI use ASTRA_SECRETS_BACKEND=env; for K8s smallest-tier use ASTRA_SECRETS_BACKEND=k8s_secrets.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_VAULT_AUTH_FAILED_AT": {
+    "text": "Vault auth failed at {vault_addr}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_addr"
+    ]
+  },
+  "PLATFORM_VAULT_FETCH_FAILED_FOR_KEY": {
+    "text": "Vault fetch failed for key '{key_value}': {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "exc"
+    ]
+  },
+  "PLATFORM_CANNOT_ENCODE_AS_DATE": {
+    "text": "cannot encode {name__} as DATE",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name__"
+    ]
+  },
+  "PLATFORM_KAFKA_CONSUMER_CONNECT_FAILED": {
+    "text": "Kafka consumer connect failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_CORRUPT_KAFKA_MESSAGE_AT_OFFSET": {
+    "text": "corrupt Kafka message at offset {offset}: {exc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "offset",
+      "exc"
+    ]
+  },
+  "PLATFORM_UNKNOWN_SCHEMA_VERSION_FOR_EVENT": {
+    "text": "Unknown schema_version '{schema_version}' for event '{event_type}'. Supported: {supported_versions}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schema_version",
+      "event_type",
+      "supported_versions"
+    ]
+  },
+  "PLATFORM_EVENTCONSUMER_CONNECT_HAS_NOT_BEEN": {
+    "text": "EventConsumer.connect() has not been called. Call it in the service startup before running the consumer.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_KAFKA_PRODUCER_CONNECT_FAILED": {
+    "text": "Kafka producer connect failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_PUBLISH_FAILED_TO_TOPIC": {
+    "text": "publish failed to topic '{topic}': {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "topic",
+      "exc"
+    ]
+  },
+  "PLATFORM_MODULE_ISOLATION_VIOLATION_PRODUCER": {
+    "text": "Module isolation violation: '{module}' producer attempted to publish to '{topic}' which belongs to module '{other}'. Cross-module Kafka publishing is forbidden.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "module",
+      "topic",
+      "other"
+    ]
+  },
+  "PLATFORM_EVENTPRODUCER_CONNECT_HAS_NOT_BEEN": {
+    "text": "EventProducer.connect() has not been called. Call it in the service startup before publishing events.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_DEVSTUBHSMSIGNER_MAY_ONLY_RUN_WITH": {
+    "text": "DevStubHSMSigner may only run with ASTRA_ENV=development",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_VAULT_TRANSIT_SIGNING_FAILED": {
+    "text": "Vault Transit signing failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FAILED_TO_DECODE_VAULT_TRANSIT": {
+    "text": "Failed to decode Vault Transit signature: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_HVAC_IS_NOT_INSTALLED_PIP": {
+    "text": "hvac is not installed — pip install hvac",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CAUGHT_ERRORS_CLASSIFIED_FOR_INCIDEN": {
+    "text": "Caught errors classified for incident routing, by message key",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_LOCK_ALREADY_HELD_FOR_RESOURCE": {
+    "text": "Lock already held for resource '{resource_id}' — likely duplicate request in-flight",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "resource_id"
+    ]
+  },
+  "PLATFORM_NOTIFICATIONS_FIRED_WITHIN_THE_DEBOU": {
+    "text": "{count} {event_category} notifications fired within the debounce window. Please review the ops workstation for details.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "event_category"
+    ]
+  },
+  "PLATFORM_DELIVERY_FAILED_FOR_TEMPLATE": {
+    "text": "{channel} delivery failed for template '{template_id}': {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "channel",
+      "template_id",
+      "exc"
+    ]
+  },
+  "PLATFORM_UNSUPPORTED_CHANNEL": {
+    "text": "Unsupported channel: {channel}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "channel"
+    ]
+  },
+  "PLATFORM_POSTAL_SMTP_CONNECT_FAILED": {
+    "text": "Postal SMTP connect failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_EMAIL_SEND_FAILED": {
+    "text": "Email send failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_EMAILCHANNEL_CONNECT_HAS_NOT_BEEN": {
+    "text": "EmailChannel.connect() has not been called. Call it in the service startup before sending emails.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_WHATSAPP_SEND_FAILED": {
+    "text": "WhatsApp send failed: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_WHATSAPPCHANNEL_CONNECT_HAS_NOT_BEEN": {
+    "text": "WhatsAppChannel.connect() has not been called. Call it in the service startup before sending messages.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_CONNECTOR_TYPE_VALID_TYPES": {
+    "text": "Unknown connector_type '{connector_type}'. Valid types: {sorted}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "connector_type",
+      "sorted"
+    ]
+  },
+  "PLATFORM_INSTRUMENT_ID_IS_REQUIRED": {
+    "text": "instrument_id is required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_PEPPER_MUST_NOT_BE_EMPTY": {
+    "text": "pepper must not be empty — fetch it from Vault via config_service",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ENCRYPTION_KEY_MUST_NOT_BE": {
+    "text": "encryption key must not be empty — fetch from Vault via config_service",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IET_BREACH_RISK_CHEQUES_WITHIN": {
+    "text": "IET breach risk: {near_breach_count} cheques within 30s of deadline",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "near_breach_count"
+    ]
+  },
+  "CTS_BRANCH_SCANNER_S_OFFLINE_DURING": {
+    "text": "{offline_count} branch scanner(s) OFFLINE during clearing hours: {branch_list}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "offline_count",
+      "branch_list"
+    ]
+  },
+  "CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS": {
+    "text": "Auto-terminated {terminated}/{found} stuck CTS workflows (exceeded 4h limit)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "terminated",
+      "found"
+    ]
+  },
+  "CTS_IET_BREACH_RISK_CHEQUES_WITHIN_2": {
+    "text": "IET breach risk: {near_breach} cheques within 30s of deadline",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "near_breach"
+    ]
+  },
+  "CTS_HUMAN_REVIEW_QUEUE_DEPTH_REASON": {
+    "text": "Human review queue: depth={hr_data}, reason={hr_data2}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hr_data",
+      "hr_data2"
+    ]
+  },
+  "CTS_BRANCH_SCANNER_S_OFFLINE_DURING_2": {
+    "text": "{fleet_data} branch scanner(s) OFFLINE during clearing hours: {branch_list}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "fleet_data",
+      "branch_list"
+    ]
+  },
+  "CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS_2": {
+    "text": "Auto-terminated {sweep_data}/{sweep_data2} stuck CTS workflows (exceeded 4h limit)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sweep_data",
+      "sweep_data2"
+    ]
   }
 }

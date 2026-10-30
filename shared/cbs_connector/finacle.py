@@ -17,6 +17,7 @@ from shared.cbs_connector.base import (
     CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -63,7 +64,7 @@ class FinacleCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.finacle.get_account_info.failed",
                       account_last4=account_number[-4:], error=str(exc))
-            raise CBSUnavailableError(f"Finacle get_account_info failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_GET_ACCOUNT_INFO_FAILED", exc=exc)) from exc
 
         raw_status = data.get("status", "ACTIVE")
         status = _STATUS_MAP.get(raw_status, AccountStatus.ACTIVE)
@@ -90,7 +91,7 @@ class FinacleCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.finacle.get_signatures.failed",
                       account_last4=account_number[-4:], error=str(exc))
-            raise CBSUnavailableError(f"Finacle get_signature_specimens failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_GET_SIGNATURE_SPECIMENS_FAIL", exc=exc)) from exc
 
         specimens = []
         for item in data.get("specimens", []):
@@ -111,7 +112,7 @@ class FinacleCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.finacle.check_stop_payment.failed",
                       account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
-            raise CBSUnavailableError(f"Finacle check_stop_payment failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_CHECK_STOP_PAYMENT_FAILED", exc=exc)) from exc
 
         return StopPaymentResult(
             is_stopped=bool(data.get("stopPayment", False)),
@@ -129,7 +130,7 @@ class FinacleCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.finacle.get_pps_entries.failed",
                       account_last4=account_number[-4:], error=str(exc))
-            raise CBSUnavailableError(f"Finacle get_pps_entries failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_GET_PPS_ENTRIES_FAILED", exc=exc)) from exc
 
         entries = []
         for raw in data.get("ppsEntries", []):
@@ -153,7 +154,7 @@ class FinacleCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.finacle.get_cheque_status.failed",
                       account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
-            raise CBSUnavailableError(f"Finacle get_cheque_status failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_GET_CHEQUE_STATUS_FAILED", exc=exc)) from exc
 
         return str(data.get("status", "ACTIVE"))
 
@@ -233,7 +234,7 @@ class FinacleCBSConnector(CBSConnector):
         try:
             response = await self._http.get(url)
             if response.status_code == 404:
-                raise AccountNotFoundError(f"Account {account_number[-4:]} not found in Finacle")
+                raise AccountNotFoundError(get_message("PLATFORM_ACCOUNT_NOT_FOUND_IN_FINACLE", account_number=account_number[-4:]))
             response.raise_for_status()
             data = response.json()
         except AccountNotFoundError:
@@ -245,7 +246,7 @@ class FinacleCBSConnector(CBSConnector):
                 bank_id=bank_id,
                 error=str(exc),
             )
-            raise CBSUnavailableError(f"Finacle get_signatory_data failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_GET_SIGNATORY_DATA_FAILED", exc=exc)) from exc
 
         result: list[CBSSignatoryData] = []
         for sig in data.get("signatories", []):
@@ -277,7 +278,7 @@ class FinacleCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.finacle.get_branch_contacts.failed",
                       branch_code=branch_code, bank_id=bank_id, error=str(exc))
-            raise CBSUnavailableError(f"Finacle get_branch_contacts failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FINACLE_GET_BRANCH_CONTACTS_FAILED", exc=exc)) from exc
 
         return BranchContactProfile(
             branch_code=branch_code,
@@ -293,6 +294,5 @@ class FinacleCBSConnector(CBSConnector):
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "FinacleCBSConnector.connect() has not been called. "
-                "Call it in the service startup before querying CBS."
+                get_message("PLATFORM_FINACLECBSCONNECTOR_CONNECT_HAS_NOT")
             )

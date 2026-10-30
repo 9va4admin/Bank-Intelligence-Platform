@@ -16,6 +16,7 @@ from temporalio import activity
 from modules.cts.mcp.ngch_adapter import DuplicateFilingError, NGCHUnavailableError
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -62,7 +63,7 @@ async def file_to_ngch(
         if ngch_adapter is None:
             log.error("ngch_filer.adapter_not_bound",
                       instrument_id=inp.instrument_id, workflow_id=inp.workflow_id)
-            raise NGCHUnavailableError("NGCH adapter not configured — filing stays queued")
+            raise NGCHUnavailableError(get_message("CTS_NGCH_ADAPTER_NOT_CONFIGURED_FILING"))
         try:
             response = await ngch_adapter.file_decision(
                 instrument_id=inp.instrument_id,

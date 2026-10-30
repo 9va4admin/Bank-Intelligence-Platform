@@ -11,6 +11,7 @@ end to end in dev. Refuses to run unless ASTRA_ENV=development, so it can never 
 import hashlib
 import hmac
 import os
+from shared.messages import get_message
 
 _DEV_KEY = b"astra-dev-hsm-stub-key-not-for-production-use"
 
@@ -18,7 +19,7 @@ _DEV_KEY = b"astra-dev-hsm-stub-key-not-for-production-use"
 class DevStubHSMSigner:
     def __init__(self) -> None:
         if os.environ.get("ASTRA_ENV", "").lower() != "development":
-            raise RuntimeError("DevStubHSMSigner may only run with ASTRA_ENV=development")
+            raise RuntimeError(get_message("PLATFORM_DEVSTUBHSMSIGNER_MAY_ONLY_RUN_WITH"))
 
     def sign(self, data: bytes) -> bytes:
         """Deterministic 256-byte stand-in signature — never a real HSM signature."""

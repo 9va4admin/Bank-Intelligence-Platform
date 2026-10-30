@@ -18,6 +18,7 @@ import structlog
 
 from shared.config.exceptions import VaultUnavailableError
 from shared.config.secret_backends.base import SecretBackend
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -31,9 +32,7 @@ class K8sSecretBackend(SecretBackend):
     async def initialise(self, bank_id: str) -> None:
         if not self._mount_path.is_dir():
             raise RuntimeError(
-                f"K8s secret mount path not found: {self._mount_path}. "
-                f"Ensure the Kubernetes Secret volume is mounted in the Pod spec at this path "
-                f"(volumeMounts.mountPath: {self._mount_path})."
+                get_message("PLATFORM_K8S_SECRET_MOUNT_PATH_NOT", mount_path=self._mount_path, mount_path2=self._mount_path)
             )
         log.info(
             "config.secrets.k8s_backend_active",
@@ -48,10 +47,9 @@ class K8sSecretBackend(SecretBackend):
             return file_path.read_text(encoding="utf-8").strip()
         except FileNotFoundError:
             raise VaultUnavailableError(
-                f"Secret '{key}' not found at '{file_path}'. "
-                f"Ensure the Kubernetes Secret has key '{key}' and is mounted at {self._mount_path}."
+                get_message("PLATFORM_SECRET_NOT_FOUND_AT_ENSURE", key_value=key, file_path=file_path, key_value2=key, mount_path=self._mount_path)
             ) from None
         except OSError as exc:
             raise VaultUnavailableError(
-                f"Failed to read secret '{key}' from '{file_path}': {exc}"
+                get_message("PLATFORM_FAILED_TO_READ_SECRET_FROM", key_value=key, file_path=file_path, exc=exc)
             ) from exc

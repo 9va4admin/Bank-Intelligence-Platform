@@ -28,6 +28,7 @@ from modules.cts.smb_ingest.models import (
     SignatureRecord,
 )
 from shared.utils.pii_crypto import hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -91,7 +92,7 @@ class SMBPushParser:
 
     def parse(self, content: str) -> list[ParsedRecord]:
         if not content or not content.strip():
-            raise SMBPushParseError("empty: file content is empty")
+            raise SMBPushParseError(get_message("CTS_EMPTY_FILE_CONTENT_IS_EMPTY"))
 
         if self.file_type == SMBPushFileType.STOP_PAYMENTS:
             return self._parse_stop_payments(content)
@@ -100,7 +101,7 @@ class SMBPushParser:
         elif self.file_type == SMBPushFileType.SIGNATURES:
             return self._parse_signatures(content)
         else:
-            raise SMBPushParseError(f"unknown file_type: {self.file_type}")
+            raise SMBPushParseError(get_message("CTS_UNKNOWN_FILE_TYPE", file_type=self.file_type))
 
     def _parse_stop_payments(self, content: str) -> list[StopPaymentRecord]:
         reader = csv.DictReader(io.StringIO(content))
@@ -159,5 +160,5 @@ class SMBPushParser:
         missing = required - present
         if missing:
             raise SMBPushParseError(
-                f"column: missing required columns: {', '.join(sorted(missing))}"
+                get_message("CTS_COLUMN_MISSING_REQUIRED_COLUMNS", value=', '.join(sorted(missing)))
             )

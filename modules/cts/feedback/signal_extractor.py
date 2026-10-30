@@ -24,6 +24,7 @@ from modules.cts.feedback.failure_classifier import (
     classify_failure,
     FailureMode,
 )
+from shared.messages import get_message
 
 
 class SignalSource(str, Enum):
@@ -173,5 +174,5 @@ def _assert_no_raw_account_numbers(fields: dict) -> None:
     for v in fields.values():
         if isinstance(v, str) and re.search(r'\d{10,}', v):
             raise ValueError(
-                "Raw account number detected in micr_fields — mask to last-4 before calling"
+                get_message("CTS_RAW_ACCOUNT_NUMBER_DETECTED_IN")
             )

@@ -50,6 +50,7 @@ from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
 from shared.auth.session_token import SessionTokenService
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -248,7 +249,7 @@ async def lifespan(app: FastAPI):
             _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
         else:
             # DB pool unavailable — auth service cannot be built
-            raise RuntimeError("db_pool_cts not available; cannot build AuthService")
+            raise RuntimeError(get_message("API_DB_POOL_CTS_NOT_AVAILABLE"))
 
         # TOTP secrets go to Vault — reuse config_service's shared hvac client
         # so we don't open a second Vault connection from the same env vars.
@@ -516,7 +517,7 @@ async def _validation_handler(request: Request, exc: RequestValidationError) -> 
         status_code=422,
         content={
             "error_code": "INVALID_REQUEST",
-            "message": "Request validation failed. Check required fields and data types.",
+            "message": get_message("API_REQUEST_VALIDATION_FAILED_CHECK_REQU"),
             "request_id": request_id,
         },
     )

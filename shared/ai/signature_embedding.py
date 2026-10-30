@@ -24,6 +24,7 @@ import struct
 
 import structlog
 from opentelemetry import trace
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.shared.ai")
@@ -81,7 +82,7 @@ class SignatureEmbeddingModel:
 
                 if len(embedding) != _EMBEDDING_DIM:
                     raise EmbeddingModelUnavailableError(
-                        f"Expected {_EMBEDDING_DIM}-dim embedding, got {len(embedding)}"
+                        get_message("MSV_EXPECTED_DIM_EMBEDDING_GOT", EMBEDDING_DIM=_EMBEDDING_DIM, len=len(embedding))
                     )
 
                 span.set_attribute("embedding_dim", len(embedding))
@@ -104,7 +105,7 @@ class SignatureEmbeddingModel:
                     error=str(exc),
                 )
                 raise EmbeddingModelUnavailableError(
-                    f"Embedding model unavailable: {exc}"
+                    get_message("MSV_EMBEDDING_MODEL_UNAVAILABLE", exc=exc)
                 ) from exc
 
 

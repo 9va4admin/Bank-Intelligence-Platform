@@ -255,6 +255,14 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   them. If the lookup fails the session's scope is used (a database blip must not lock every reviewer out). Items already locked by a reviewer
   keep their lock until it expires (10 minutes), but every decision re-checks scope. Still open: real CBS adapters do not map `account_type` (needs each CBS's real
   scheme-code field), and the custody retention default (10 years) is a placeholder to confirm with the bank.
+- **All wording is in the message taxonomy (2026-10-30).** Every piece of text a person reads, in the web app and in Python code, is a message in
+  `shared/messages/locales/messages.yaml` (4,100+ keys) and is asked for with `msg('KEY', {vars})` (web) or `get_message("KEY", name=value)` (Python).
+  Tools: `apps/web/scripts/i18n/` (`wording.mjs` detector, `convert.mjs` converter, `scan.mjs`) and `scripts/i18n_convert_py.py`; after a conversion run
+  `python -m shared.messages.build` and commit the YAML, the web bundles and `docs/CTS_Msg_Taxonomy.html` together. Guards fail the build on new
+  literal wording: `apps/web/src/shared/noLiteralWording.test.js` and `tests/shared/messages/test_python_wording_guard.py` (plus the key-exists checks in
+  `test_message_usage_guard.py`). The web app loads the bundle before importing any screen (`main.jsx`), because converted constants call `msg()` at
+  import time; `screens.smoke.test.jsx` renders every page and fails on a crash or a raw key. Placeholders may not be named `key` or `locale`.
+  Not covered: `apps/web-sb-only` (a separate copy of the app), `bank.config.js` (bank identity configuration), and the Hindi texts (stubs until translated).
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

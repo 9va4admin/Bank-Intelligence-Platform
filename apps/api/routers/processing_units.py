@@ -102,7 +102,7 @@ class PUUpdateRequest(BaseModel):
             return data
         for field in ("pu_id", "ngch_participant_code"):
             if field in data and data[field] is not None:
-                raise ValueError(f"{field} is immutable and cannot be updated")
+                raise ValueError(get_message("API_IS_IMMUTABLE_AND_CANNOT_BE", field=field))
         return data
 
 
@@ -234,7 +234,7 @@ async def list_processing_units(
                     return PUListResponse(processing_units=pus, total=total)
             except Exception as exc:
                 log.error("processing_units.list.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
         else:
             pus = [p for p in _PU_STORE.values() if p["bank_id"] == bank_id]
             if is_active is not None:
@@ -267,7 +267,7 @@ async def create_processing_unit(
                     )
                     if dup:
                         raise HTTPException(status_code=409,
-                                            detail=f"Processing Unit {payload.pu_id} already exists")
+                                            detail=get_message("UI_PROCESSINGUNITS_PROCESSING_UNIT_ALREADY_EXISTS", pu_id=payload.pu_id))
                     await conn.execute(
                         "INSERT INTO cts.processing_units "
                         "(pu_id, bank_id, pu_name, ngch_participant_code, "
@@ -289,7 +289,7 @@ async def create_processing_unit(
                 raise
             except Exception as exc:
                 log.error("processing_units.create.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             _write_audit(request, AuditEventType.PU_CREATED, bank_id, {
                 "pu_id": payload.pu_id,
@@ -301,7 +301,7 @@ async def create_processing_unit(
         else:
             if payload.pu_id in _PU_STORE:
                 raise HTTPException(status_code=409,
-                                    detail=f"Processing Unit {payload.pu_id} already exists")
+                                    detail=get_message("UI_PROCESSINGUNITS_PROCESSING_UNIT_ALREADY_EXISTS", pu_id=payload.pu_id))
             pu = {
                 "pu_id": payload.pu_id,
                 "bank_id": bank_id,
@@ -343,14 +343,14 @@ async def get_processing_unit(
                     )
             except Exception as exc:
                 log.error("processing_units.get.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             if not row:
-                raise HTTPException(status_code=404, detail=f"Processing Unit {pu_id} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
             return _pu_to_response(dict(row))
         else:
             pu = _PU_STORE.get(pu_id)
             if not pu or pu["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Processing Unit {pu_id} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
             return _pu_to_response(pu)
 
 
@@ -379,7 +379,7 @@ async def update_processing_unit(
                     )
                     if not existing:
                         raise HTTPException(status_code=404,
-                                            detail=f"Processing Unit {pu_id} not found")
+                                            detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
                     if updates:
                         set_clauses = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(updates))
                         set_clauses += f", updated_at = ${len(updates)+2}"
@@ -398,7 +398,7 @@ async def update_processing_unit(
                 raise
             except Exception as exc:
                 log.error("processing_units.update.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             _write_audit(request, AuditEventType.PU_UPDATED, bank_id, {
                 "pu_id": pu_id,
@@ -409,7 +409,7 @@ async def update_processing_unit(
         else:
             pu = _PU_STORE.get(pu_id)
             if not pu or pu["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Processing Unit {pu_id} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
             pu.update(updates)
             pu["updated_at"] = now.isoformat()
             return _pu_to_response(pu)
@@ -438,7 +438,7 @@ async def deactivate_processing_unit(
                     )
                     if not existing:
                         raise HTTPException(status_code=404,
-                                            detail=f"Processing Unit {pu_id} not found")
+                                            detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
                     branch_count_row = await conn.fetchrow(
                         "SELECT COUNT(*) as cnt FROM cts.branches "
                         "WHERE pu_id = $1 AND bank_id = $2 AND is_active = true",
@@ -459,7 +459,7 @@ async def deactivate_processing_unit(
                 raise
             except Exception as exc:
                 log.error("processing_units.deactivate.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             _write_audit(request, AuditEventType.PU_DEACTIVATED, bank_id, {
                 "pu_id": pu_id,
@@ -471,7 +471,7 @@ async def deactivate_processing_unit(
         else:
             pu = _PU_STORE.get(pu_id)
             if not pu or pu["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Processing Unit {pu_id} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
             # Count branches still mapped
             from apps.api.routers.branches import _BRANCH_STORE
             branch_count = sum(
@@ -511,7 +511,7 @@ async def list_branches_for_pu(
                     )
                     if not pu_exists:
                         raise HTTPException(status_code=404,
-                                            detail=f"Processing Unit {pu_id} not found")
+                                            detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
                     rows = await conn.fetch(
                         "SELECT branch_id, branch_ifsc, branch_name, city, "
                         "is_scanning_enabled, is_active "
@@ -525,11 +525,11 @@ async def list_branches_for_pu(
             except Exception as exc:
                 log.error("processing_units.list_branches.db_error", error=str(exc),
                           bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
         else:
             pu = _PU_STORE.get(pu_id)
             if not pu or pu["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Processing Unit {pu_id} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_PROCESSING_UNIT_NOT_FOUND", pu_id=pu_id))
             from apps.api.routers.branches import _BRANCH_STORE
             branches = [
                 BranchSummary(

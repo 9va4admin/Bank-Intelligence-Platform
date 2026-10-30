@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from modules.cts.demo.csv_writer import write_failure_csv, write_success_csv
 from modules.cts.demo.pipeline import DRAWEE_BANKS, demo_pipeline
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -56,7 +57,7 @@ async def upload_cheques(session_id: str, files: List[UploadFile] = File(...)):
     """Accept cheque image files from browser drag-and-drop upload."""
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
 
     filenames = [f.filename or f"file_{i}.jpg" for i, f in enumerate(files)]
     demo_pipeline.add_items(session_id, filenames)
@@ -68,7 +69,7 @@ async def upload_cheques(session_id: str, files: List[UploadFile] = File(...)):
 async def get_session(session_id: str):
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
 
     return {
         "session_id":  session.session_id,
@@ -114,7 +115,7 @@ async def stream_events(session_id: str):
     """Server-Sent Events stream — subscribe before triggering pipeline runs."""
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
 
     return StreamingResponse(
         demo_pipeline.events(session_id),
@@ -134,9 +135,9 @@ async def run_presentment(session_id: str, background_tasks: BackgroundTasks):
     """Kick off presentment pipeline. Subscribe to /stream first for live events."""
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
     if not session.items:
-        raise HTTPException(status_code=400, detail="No cheques in session. Upload files first.")
+        raise HTTPException(status_code=400, detail=get_message("API_NO_CHEQUES_IN_SESSION_UPLOAD"))
 
     background_tasks.add_task(demo_pipeline.run_presentment, session_id)
     log.info("demo.presentment_started", session_id=session_id, items=len(session.items))
@@ -148,13 +149,13 @@ async def run_drawee(session_id: str, body: RunDraweeRequest = RunDraweeRequest(
     """Kick off drawee pipeline for a specific bank (or first bank in NPCI groups)."""
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
 
     bank_name = body.bank_name
     if not bank_name and session.npci_output:
         bank_name = next(iter(session.npci_output))
     if not bank_name:
-        raise HTTPException(status_code=400, detail="No bank specified and no NPCI output available. Run presentment first.")
+        raise HTTPException(status_code=400, detail=get_message("API_NO_BANK_SPECIFIED_AND_NO"))
 
     asyncio.create_task(demo_pipeline.run_drawee(session_id, bank_name))
     log.info("demo.drawee_started", session_id=session_id, bank=bank_name)
@@ -167,7 +168,7 @@ async def run_drawee(session_id: str, body: RunDraweeRequest = RunDraweeRequest(
 async def download_presentment_success(session_id: str):
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
     content = write_success_csv(session.items, phase="presentment")
     return Response(
         content=content.encode("utf-8"),
@@ -180,7 +181,7 @@ async def download_presentment_success(session_id: str):
 async def download_presentment_failure(session_id: str):
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
     content = write_failure_csv(session.items)
     return Response(
         content=content.encode("utf-8"),
@@ -193,7 +194,7 @@ async def download_presentment_failure(session_id: str):
 async def download_drawee_success(session_id: str):
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
     content = write_success_csv(session.drawee_items, phase="drawee")
     return Response(
         content=content.encode("utf-8"),
@@ -206,7 +207,7 @@ async def download_drawee_success(session_id: str):
 async def download_drawee_failure(session_id: str):
     session = demo_pipeline.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail=get_message("API_SESSION_NOT_FOUND"))
     content = write_failure_csv(session.drawee_items)
     return Response(
         content=content.encode("utf-8"),

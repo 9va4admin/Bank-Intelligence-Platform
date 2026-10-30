@@ -20,6 +20,7 @@ import os
 from typing import List
 
 from modules.cts.dem.models import DEMConfig
+from shared.messages import get_message
 
 
 class ResendError(Exception):
@@ -71,7 +72,7 @@ class ResendHandler:
                     data = f.read()
             except FileNotFoundError as exc:
                 raise ResendError(
-                    f"Backup not found for resend: {backup_path}"
+                    get_message("CTS_BACKUP_NOT_FOUND_FOR_RESEND", backup_path=backup_path)
                 ) from exc
 
             await self._transmit(filename, data)

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from shared.auth.connectors.base import ASTRAIdentity, AuthConnector
 from shared.auth.exceptions import AccountLockedError, AuthenticationError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 _ph = PasswordHasher()
@@ -56,15 +57,15 @@ class LocalAuthConnector(AuthConnector):
             except Exception:
                 pass  # always fails — we only care about spending the time
             log.warn("auth.local.unknown_user", bank_id=self.bank_id)
-            raise AuthenticationError("invalid credentials")
+            raise AuthenticationError(get_message("API_INVALID_CREDENTIALS"))
 
         # Locked check — only if locked_until is set and still in the future
         locked_until: Optional[float] = account.get("locked_until")
         if locked_until and locked_until > time.time():
-            raise AccountLockedError("account locked due to repeated failures")
+            raise AccountLockedError(get_message("PLATFORM_ACCOUNT_LOCKED_DUE_TO_REPEATED"))
 
         if not account.get("is_active", True):
-            raise AuthenticationError("account inactive")
+            raise AuthenticationError(get_message("PLATFORM_ACCOUNT_INACTIVE"))
 
         try:
             _ph.verify(account["password_hash"], credentials.password)
@@ -75,7 +76,7 @@ class LocalAuthConnector(AuthConnector):
             else:
                 await self._increment_failed_attempts(account["user_id"])
             log.warn("auth.local.wrong_password", bank_id=self.bank_id, attempts=new_failures)
-            raise AuthenticationError("invalid credentials")
+            raise AuthenticationError(get_message("API_INVALID_CREDENTIALS"))
 
         await self._update_on_success(account["user_id"])
         log.info("auth.local.success", bank_id=self.bank_id, username=credentials.username)

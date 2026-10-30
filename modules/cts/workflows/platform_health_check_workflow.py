@@ -40,6 +40,8 @@ from modules.cts.workflows.activities.platform_health_activities import (
     dispatch_platform_alert,
     sweep_stuck_workflows,
 )
+with workflow.unsafe.imports_passed_through():       # the workflow sandbox restricts imports; the message registry is read-only wording
+    from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -94,8 +96,7 @@ class PlatformHealthCheckWorkflow:
                         severity="CRITICAL",
                         priority="P0",
                         message=(
-                            f"IET breach risk: {iet_result.near_breach_count} "
-                            f"cheques within 30s of deadline"
+                            get_message("CTS_IET_BREACH_RISK_CHEQUES_WITHIN", near_breach_count=iet_result.near_breach_count)
                         ),
                     ),
                     start_to_close_timeout=_ACTIVITY_TIMEOUT,
@@ -173,8 +174,7 @@ class PlatformHealthCheckWorkflow:
                         severity="WARN",
                         priority="P1",
                         message=(
-                            f"{fleet_result.offline_count} branch scanner(s) OFFLINE "
-                            f"during clearing hours: {branch_list}"
+                            get_message("CTS_BRANCH_SCANNER_S_OFFLINE_DURING", offline_count=fleet_result.offline_count, branch_list=branch_list)
                         ),
                     ),
                     start_to_close_timeout=_ACTIVITY_TIMEOUT,
@@ -195,8 +195,7 @@ class PlatformHealthCheckWorkflow:
                         severity="WARN",
                         priority="P1",
                         message=(
-                            f"Auto-terminated {sweep_result.terminated}/{sweep_result.found} "
-                            f"stuck CTS workflows (exceeded 4h limit)"
+                            get_message("CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS", terminated=sweep_result.terminated, found=sweep_result.found)
                         ),
                     ),
                     start_to_close_timeout=_ACTIVITY_TIMEOUT,
@@ -250,7 +249,7 @@ class PlatformHealthCheckWorkflow:
                 "severity": "CRITICAL",
                 "priority": iet_data.get("alert_priority", "P0"),
                 "bank_id": inp.bank_id,
-                "message": f"IET breach risk: {near_breach} cheques within 30s of deadline",
+                "message": get_message("CTS_IET_BREACH_RISK_CHEQUES_WITHIN_2", near_breach=near_breach),
             })
             alerts_sent += 1
 
@@ -264,8 +263,7 @@ class PlatformHealthCheckWorkflow:
                 "priority": "P1",
                 "bank_id": inp.bank_id,
                 "message": (
-                    f"Human review queue: depth={hr_data.get('queue_depth', 0)}, "
-                    f"reason={hr_data.get('alert_reason', 'UNKNOWN')}"
+                    get_message("CTS_HUMAN_REVIEW_QUEUE_DEPTH_REASON", hr_data=hr_data.get('queue_depth', 0), hr_data2=hr_data.get('alert_reason', 'UNKNOWN'))
                 ),
             })
             alerts_sent += 1
@@ -300,8 +298,7 @@ class PlatformHealthCheckWorkflow:
                 "priority": "P1",
                 "bank_id": inp.bank_id,
                 "message": (
-                    f"{fleet_data.get('offline_count', len(offline_branches))} branch scanner(s) "
-                    f"OFFLINE during clearing hours: {branch_list}"
+                    get_message("CTS_BRANCH_SCANNER_S_OFFLINE_DURING_2", fleet_data=fleet_data.get('offline_count', len(offline_branches)), branch_list=branch_list)
                 ),
             })
             alerts_sent += 1
@@ -316,8 +313,7 @@ class PlatformHealthCheckWorkflow:
                 "priority": "P1",
                 "bank_id": inp.bank_id,
                 "message": (
-                    f"Auto-terminated {sweep_data.get('terminated', 0)}/{sweep_data.get('found', 0)} "
-                    f"stuck CTS workflows (exceeded 4h limit)"
+                    get_message("CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS_2", sweep_data=sweep_data.get('terminated', 0), sweep_data2=sweep_data.get('found', 0))
                 ),
             })
             alerts_sent += 1

@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from shared.messages import get_message
 
 
 class AuditEventType(str, Enum):
@@ -160,12 +161,12 @@ class AuditEvent(BaseModel):
         Raises ValueError if the event is already signed.
         """
         if self.signature is not None:
-            raise ValueError("AuditEvent is already signed — cannot sign twice")
+            raise ValueError(get_message("PLATFORM_AUDITEVENT_IS_ALREADY_SIGNED_CANNOT"))
 
         canonical = self.to_json()
         try:
             sig = hsm.sign(canonical)
         except Exception as exc:
-            raise HSMSigningError(f"HSM signing failed: {exc}") from exc
+            raise HSMSigningError(get_message("PLATFORM_HSM_SIGNING_FAILED", exc=exc)) from exc
 
         return self.model_copy(update={"signature": sig})

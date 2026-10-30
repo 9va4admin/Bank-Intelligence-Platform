@@ -28,6 +28,7 @@ import time
 from datetime import datetime
 
 from modules.cts.dem.models import CCHKeyBundle, DEMConfig
+from shared.messages import get_message
 
 
 class DEMKeyError(Exception):
@@ -56,11 +57,11 @@ def _parse_w_response(response_body: str) -> CCHKeyBundle:
 
     mod_hex = fields.get("Modulus", "")
     if not mod_hex:
-        raise DEMKeyError("CCH Reqtype=W response missing 'Modulus' field")
+        raise DEMKeyError(get_message("CTS_CCH_REQTYPE_W_RESPONSE_MISSING"))
 
     exp_hex = fields.get("Exponent", "")
     if not exp_hex:
-        raise DEMKeyError("CCH Reqtype=W response missing 'Exponent' field")
+        raise DEMKeyError(get_message("CTS_CCH_REQTYPE_W_RESPONSE_MISSING_2"))
 
     try:
         modulus = int(mod_hex, 16)
@@ -150,7 +151,7 @@ class DEMKeyManager:
         except DEMKeyError:
             raise
         except Exception as exc:
-            raise DEMKeyError(f"Failed to fetch CCH key (Reqtype=W): {exc}") from exc
+            raise DEMKeyError(get_message("CTS_FAILED_TO_FETCH_CCH_KEY", exc=exc)) from exc
 
         bundle = _parse_w_response(response_body)
         self._cached_bundle = bundle

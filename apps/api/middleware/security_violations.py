@@ -33,6 +33,7 @@ from shared.auth.exceptions import (
     TenantIsolationError,
 )
 from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -152,8 +153,7 @@ class SecurityViolationMiddleware(BaseHTTPMiddleware):
                 status_code=403,
                 content={
                     "error_code": "ACCOUNT_SUSPENDED",
-                    "message": "Your account has been suspended due to a security violation. "
-                               "Contact your bank IT administrator.",
+                    "message": get_message("API_YOUR_ACCOUNT_HAS_BEEN_SUSPENDED"),
                     "request_id": request.headers.get("X-Request-Id", str(uuid.uuid4())),
                 },
             )

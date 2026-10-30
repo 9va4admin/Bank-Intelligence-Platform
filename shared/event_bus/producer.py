@@ -20,6 +20,7 @@ import structlog
 
 from shared.event_bus.exceptions import EventBusUnavailableError
 from shared.event_bus.schemas import KafkaEventEnvelope
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -56,7 +57,7 @@ class EventProducer:
                 key_serializer=lambda k: k,
             )
         except Exception as exc:
-            raise EventBusUnavailableError(f"Kafka producer connect failed: {exc}") from exc
+            raise EventBusUnavailableError(get_message("PLATFORM_KAFKA_PRODUCER_CONNECT_FAILED", exc=exc)) from exc
         self._ready = True
         log.info("event_bus.producer.connected", servers=self._bootstrap_servers, module=self._module)
 
@@ -94,7 +95,7 @@ class EventProducer:
             self._producer.flush()
         except Exception as exc:
             log.error("event_bus.publish_failed", topic=topic, event_type=event_type, error=str(exc))
-            raise EventBusUnavailableError(f"publish failed to topic '{topic}': {exc}") from exc
+            raise EventBusUnavailableError(get_message("PLATFORM_PUBLISH_FAILED_TO_TOPIC", topic=topic, exc=exc)) from exc
 
         log.info("event_bus.published", topic=topic, event_type=event_type, bank_id=self._bank_id)
 
@@ -107,14 +108,11 @@ class EventProducer:
         other = "ej" if self._module == "cts" else "cts"
         if topic.startswith(f"{other}."):
             raise ValueError(
-                f"Module isolation violation: '{self._module}' producer attempted to publish "
-                f"to '{topic}' which belongs to module '{other}'. "
-                f"Cross-module Kafka publishing is forbidden."
+                get_message("PLATFORM_MODULE_ISOLATION_VIOLATION_PRODUCER", module=self._module, topic=topic, other=other)
             )
 
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "EventProducer.connect() has not been called. "
-                "Call it in the service startup before publishing events."
+                get_message("PLATFORM_EVENTPRODUCER_CONNECT_HAS_NOT_BEEN")
             )

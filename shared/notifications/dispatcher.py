@@ -24,6 +24,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 from shared.notifications.exceptions import NotificationDeliveryError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -115,8 +116,7 @@ class NotificationDispatcher:
                       template_id=request.template_id,
                       error=str(exc))
             raise NotificationDeliveryError(
-                f"{request.channel} delivery failed for template "
-                f"'{request.template_id}': {exc}"
+                get_message("PLATFORM_DELIVERY_FAILED_FOR_TEMPLATE", channel=request.channel, template_id=request.template_id, exc=exc)
             ) from exc
 
         return {
@@ -148,4 +148,4 @@ class NotificationDispatcher:
             return self._whatsapp
         if channel == "bell":
             return self._bell
-        raise ValueError(f"Unsupported channel: {channel}")
+        raise ValueError(get_message("PLATFORM_UNSUPPORTED_CHANNEL", channel=channel))

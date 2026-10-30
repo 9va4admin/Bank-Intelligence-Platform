@@ -29,8 +29,7 @@ def _safe_temporal_param(value: str, field: str) -> str:
     """Reject bank_id / smb_id values that could inject into a Temporal visibility query."""
     if not _TEMPORAL_PARAM_RE.match(value):
         raise ValueError(
-            f"Invalid {field} for Temporal query: "
-            "must be alphanumeric + hyphens/underscores, max 64 chars"
+            get_message("API_INVALID_FOR_TEMPORAL_QUERY_MUST", field=field)
         )
     return value
 
@@ -147,7 +146,7 @@ def get_temporal_client(request: Request):
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Workflow engine unavailable",
+            detail=get_message("API_WORKFLOW_ENGINE_UNAVAILABLE"),
         )
     return client
 

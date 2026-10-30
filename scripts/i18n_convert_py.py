@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 YAML = ROOT / "shared/messages/locales/messages.yaml"
 WRITE = "--write" in sys.argv
+INCLUDE_WORKFLOWS = "--include-workflows" in sys.argv     # workflow files need the sandbox pass-through import; check mode covers them anyway
 FILTERS = [a for a in sys.argv[1:] if not a.startswith("--")]
 
 CALL_KWARGS = {"detail", "message", "description", "title", "subject", "message_body"}
@@ -56,8 +57,14 @@ def name_of(node: ast.AST) -> str:
     return "value"
 
 
+RESERVED = {"key", "locale", "self"}          # get_message(key, locale=..., **variables) already uses these names
+
+
 def unique(base: str, used: set) -> str:
     base = base if re.fullmatch(r"[A-Za-z_]\w*", base) else "value"
+    base = base.lstrip("_") or "value"                   # {_bank_id} is legal but reads as private; use the plain name
+    if base in RESERVED:
+        base = f"{base}_value"
     name, i = base, 2
     while name in used:
         name, i = f"{base}{i}", i + 1
@@ -201,7 +208,7 @@ for f in tracked_files():
     path = ROOT / f
     raw = path.read_bytes()
     src = raw.decode("utf-8", errors="replace")
-    if "@workflow.defn" in src:
+    if "@workflow.defn" in src and not INCLUDE_WORKFLOWS:
         skipped_workflow.append(f)
         continue
     try:

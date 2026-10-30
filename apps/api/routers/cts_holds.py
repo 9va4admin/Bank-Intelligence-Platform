@@ -415,7 +415,7 @@ async def release_hold(
     reviewer_id = ctx.user_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="ops_manager or ops_reviewer role required")
+                            detail=get_message("API_OPS_MANAGER_OR_OPS_REVIEWER"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     hold_id: Optional[str] = None
@@ -442,7 +442,7 @@ async def release_hold(
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Active hold not found for this instrument",
+                detail=get_message("API_ACTIVE_HOLD_NOT_FOUND_FOR"),
             )
         hold_id = row["hold_id"]
 
@@ -523,7 +523,7 @@ async def submit_hold_recommendation(
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Active hold not found for this instrument",
+                detail=get_message("API_ACTIVE_HOLD_NOT_FOUND_FOR"),
             )
         hold_id = row["hold_id"]
 
@@ -648,7 +648,7 @@ async def resolve_mismatch(
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mismatch not found or already resolved",
+                detail=get_message("API_MISMATCH_NOT_FOUND_OR_ALREADY"),
             )
 
         branch_id_val = row["branch_id"]
@@ -782,7 +782,7 @@ async def claim_instrument(
                                 detail=get_message("CTS_WF_REVIEW_PU_NOT_SCOPED"))
         if result.reason == "NOT_SUBSCRIBED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail="This cheque is in a bucket you are not connected to")
+                                detail=get_message("API_THIS_CHEQUE_IS_IN_A"))
         if result.reason == "FOUR_EYES":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail=get_message("CTS_WF_REVIEW_MAKER_CANNOT_CHECK"))
@@ -811,14 +811,14 @@ async def claim_instrument(
                  reviewer_id=reviewer_id, bank_id=bank_id)
         return ClaimResponse(
             instrument_id=instrument_id, claimed=True,
-            reviewer_id=reviewer_id, message="Claimed successfully",
+            reviewer_id=reviewer_id, message=get_message("API_CLAIMED_SUCCESSFULLY"),
         )
 
     log.info("cts.alloc.claim_rejected", instrument_id=instrument_id,
              reviewer_id=reviewer_id, held_by=result.held_by)
     return ClaimResponse(
         instrument_id=instrument_id, claimed=False,
-        held_by=result.held_by, message="Already claimed by another reviewer",
+        held_by=result.held_by, message=get_message("API_ALREADY_CLAIMED_BY_ANOTHER_REVIEWER"),
     )
 
 
@@ -872,7 +872,7 @@ async def unclaim_instrument(
 
     log.info("cts.alloc.unclaimed", instrument_id=instrument_id,
              reviewer_id=reviewer_id, bank_id=bank_id)
-    return ClaimResponse(instrument_id=instrument_id, claimed=False, message="Released successfully")
+    return ClaimResponse(instrument_id=instrument_id, claimed=False, message=get_message("API_RELEASED_SUCCESSFULLY"))
 
 
 # ---------------------------------------------------------------------------
@@ -1056,7 +1056,7 @@ async def admin_force_release_claim(
     return ClaimResponse(
         instrument_id=instrument_id,
         claimed=False,
-        message=f"Force-released (was held by {previous_holder or 'nobody'})",
+        message=get_message("API_FORCE_RELEASED_WAS_HELD_BY", value=previous_holder or 'nobody'),
     )
 
 
@@ -1098,7 +1098,7 @@ async def admin_assign_review(
 
     redis = getattr(request.app.state, "redis_cts", None)
     if redis is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Allocation store unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("API_ALLOCATION_STORE_UNAVAILABLE"))
 
     from modules.cts.allocation.lock_service import LockService
     from modules.cts.allocation.allocation_service import AllocationService, pu_allows
@@ -1119,7 +1119,7 @@ async def admin_assign_review(
             except Exception:  # noqa: BLE001 - an unreachable directory means we cannot vouch for the target
                 known = False
     if not known:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_REVIEWER_NOT_FOUND_FOR_THIS"))
 
     pus = (await lock_svc.get_reviewer_pus(bank_id)).get(target)
     meta = await lock_svc.get_item_meta(bank_id, instrument_id)
@@ -1135,7 +1135,7 @@ async def admin_assign_review(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail=get_message("CTS_WF_ASSIGN_REVIEWER_WAS_MAKER"))
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="That reviewer is not connected to this cheque's bucket; connect them first")
+                            detail=get_message("API_THAT_REVIEWER_IS_NOT_CONNECTED"))
 
     previous_holder = await alloc_svc.assign(instrument_id, target, cts_config, bank_id=bank_id)
 
@@ -1159,7 +1159,7 @@ async def admin_assign_review(
              admin_id=admin_id, previous_holder=previous_holder, bank_id=bank_id)
     return AssignResponse(
         instrument_id=instrument_id, reviewer_id=target, previous_holder=previous_holder,
-        message=f"Assigned to {target} (was held by {previous_holder or 'nobody'})",
+        message=get_message("API_ASSIGNED_TO_WAS_HELD_BY", target=target, value=previous_holder or 'nobody'),
     )
 
 
@@ -1260,7 +1260,7 @@ async def admin_set_reviewer_buckets(
             except Exception:  # noqa: BLE001
                 known = False
     if not known:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_REVIEWER_NOT_FOUND_FOR_THIS"))
 
     store = _subscriptions(request, redis)
     try:

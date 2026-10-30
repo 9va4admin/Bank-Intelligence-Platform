@@ -20,6 +20,7 @@ from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 from starlette.middleware.base import BaseHTTPMiddleware
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.rate_limit")
@@ -150,7 +151,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={
                     "error_code": "RATE_LIMIT_UNAVAILABLE",
-                    "message": "Service temporarily unavailable — rate limit infrastructure down",
+                    "message": get_message("API_SERVICE_TEMPORARILY_UNAVAILABLE_RATE"),
                 },
             )
 
@@ -188,7 +189,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={
                         "error_code": "RATE_LIMIT_EXCEEDED",
-                        "message": f"Too many requests. Limit: {limit}/min for {slug}.",
+                        "message": get_message("API_TOO_MANY_REQUESTS_LIMIT_MIN", limit=limit, slug=slug),
                         "limit": limit,
                         "window": "60s",
                     },

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from shared.messages import get_message
 
 try:                                             # zoneinfo needs the tz database; fall back to India time without it
     from zoneinfo import ZoneInfo
@@ -62,7 +63,7 @@ def next_cutoff(now: float, cfg: dict) -> float:
             candidate = datetime(day.year, day.month, day.day, h, m, tzinfo=tz)
             if candidate.timestamp() > now:
                 return candidate.timestamp()
-    raise RuntimeError("unreachable: two days always contain a cut-off")      # pragma: no cover
+    raise RuntimeError(get_message("CTS_UNREACHABLE_TWO_DAYS_ALWAYS_CONTAIN"))      # pragma: no cover
 
 
 def seconds_to_cutoff(now: float, cfg: dict) -> float:

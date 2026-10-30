@@ -14,6 +14,7 @@ from __future__ import annotations
 import io
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -44,7 +45,7 @@ def _render_xhtml2pdf(html: str) -> bytes:
     buf = io.BytesIO()
     result = pisa.CreatePDF(io.StringIO(html), dest=buf)
     if result.err:
-        raise RuntimeError(f"xhtml2pdf error: {result.err}")
+        raise RuntimeError(get_message("CTS_XHTML2PDF_ERROR", err=result.err))
     return buf.getvalue()
 
 

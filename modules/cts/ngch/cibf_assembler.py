@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import List
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -50,8 +51,7 @@ class CIBFInstrumentInput:
         ]:
             if len(ds_bytes) != _DS_SIZE:
                 raise CIBFValidationError(
-                    f"{ds_field} must be exactly {_DS_SIZE} bytes "
-                    f"(RSA-SHA256 raw signature); got {len(ds_bytes)}"
+                    get_message("CTS_MUST_BE_EXACTLY_BYTES_RSA", ds_field=ds_field, DS_SIZE=_DS_SIZE, len=len(ds_bytes))
                 )
 
 
@@ -106,7 +106,7 @@ class CIBFAssembler:
             ValueError: If instruments list is empty.
         """
         if not instruments:
-            raise ValueError("instruments list must not be empty — a CIBF must contain at least one instrument")
+            raise ValueError(get_message("CTS_INSTRUMENTS_LIST_MUST_NOT_BE"))
 
         chunks: List[bytes] = []
         offsets: List[CIBFInstrumentOffsets] = []

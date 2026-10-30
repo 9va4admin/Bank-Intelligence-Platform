@@ -25,6 +25,7 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict
 
 from shared.auth.exceptions import MFANotEnrolledError
+from shared.messages import get_message
 
 _INTERVAL = 30
 _DIGITS = 6
@@ -116,13 +117,13 @@ class TOTPMFAService:
     async def confirm_enrollment(self, user_id: str, code: str) -> bool:
         secret = await self._store.get(user_id)
         if secret is None:
-            raise MFANotEnrolledError(f"no pending TOTP secret for user '{user_id}'")
+            raise MFANotEnrolledError(get_message("PLATFORM_NO_PENDING_TOTP_SECRET_FOR", user_id=user_id))
         return self.verify_code(secret, code)
 
     async def verify(self, user_id: str, code: str) -> bool:
         secret = await self._store.get(user_id)
         if secret is None:
-            raise MFANotEnrolledError(f"user '{user_id}' has no TOTP enrolled")
+            raise MFANotEnrolledError(get_message("PLATFORM_USER_HAS_NO_TOTP_ENROLLED", user_id=user_id))
         return self.verify_code(secret, code)
 
     async def reset(self, user_id: str) -> None:

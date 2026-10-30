@@ -22,6 +22,7 @@ from shared.observability.otel_setup import get_tracer
 from shared.utils.instrument_uuid import to_instrument_uuid
 from shared.utils.masking import mask_amount
 from shared.utils.pii_crypto import hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -94,9 +95,9 @@ async def persist_outward_instrument_row(conn, inp: PersistOutwardInstrumentInpu
                                          today: Optional[date] = None) -> PersistOutwardInstrumentResult:
     micr = parse_micr(inp.micr_line, inp.cheque_number)
     if not inp.cheque_date:
-        raise ValueError(f"cheque_date missing for {inp.instrument_id}")
+        raise ValueError(get_message("CTS_CHEQUE_DATE_MISSING_FOR", instrument_id=inp.instrument_id))
     if inp.amount_str is None:
-        raise ValueError(f"amount missing for {inp.instrument_id}")
+        raise ValueError(get_message("CTS_AMOUNT_MISSING_FOR", instrument_id=inp.instrument_id))
     cheque_date = date.fromisoformat(inp.cheque_date)
     amount = Decimal(inp.amount_str)
     amount_paise = int(amount * 100)
@@ -170,7 +171,7 @@ async def persist_outward_instrument_or_hold(conn, inp, pepper, today=None):
     except ValueError as exc:
         raise ApplicationError(str(exc), type="MICR_UNPARSEABLE", non_retryable=True) from exc
     if not inp.cheque_date or inp.amount_str is None:
-        raise ApplicationError(f"date/amount missing for {inp.instrument_id}",
+        raise ApplicationError(get_message("CTS_DATE_AMOUNT_MISSING_FOR", instrument_id=inp.instrument_id),
                                type="INSTRUMENT_DATA_MISSING", non_retryable=True)
     return await persist_outward_instrument_row(conn, inp, pepper, today)
 

@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from shared.auth.exceptions import InvalidSessionError, SessionExpiredError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -83,7 +84,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             if not presented or not hmac.compare_digest(str(expected), str(presented)):
                 return JSONResponse(
                     status_code=403,
-                    content={"error_code": "CSRF_INVALID", "message": "Missing or invalid CSRF token"},
+                    content={"error_code": "CSRF_INVALID", "message": get_message("API_MISSING_OR_INVALID_CSRF_TOKEN")},
                 )
 
         return await call_next(request)

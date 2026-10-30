@@ -25401,3 +25401,3847 @@ UI_APPSHELL_CLEARING_SESSION_2026_08_12:
   variables: []
   en: "Clearing session 2026-08-12: 609 instruments, ₹27.4 Cr settled. IET breach rate: 0.000%."
   hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+API_NOT_AUTHENTICATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not authenticated"
+  hi: ""
+
+API_INVALID_SESSION_CLAIMS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid session claims"
+  hi: ""
+
+API_INVALID_CREDENTIALS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "invalid credentials"
+  hi: ""
+
+API_DB_POOL_CTS_NOT_AVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "db_pool_cts not available; cannot build AuthService"
+  hi: ""
+
+API_REQUEST_VALIDATION_FAILED_CHECK_REQU:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Request validation failed. Check required fields and data types."
+  hi: ""
+
+API_MISSING_OR_INVALID_CSRF_TOKEN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Missing or invalid CSRF token"
+  hi: ""
+
+API_SERVICE_TEMPORARILY_UNAVAILABLE_RATE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Service temporarily unavailable — rate limit infrastructure down"
+  hi: ""
+
+API_TOO_MANY_REQUESTS_LIMIT_MIN:
+  severity: INFO
+  surface: [UI]
+  variables: [limit, slug]
+  en: "Too many requests. Limit: {limit}/min for {slug}."
+  hi: ""
+
+API_YOUR_ACCOUNT_HAS_BEEN_SUSPENDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Your account has been suspended due to a security violation. Contact your bank IT administrator."
+  hi: ""
+
+API_STP_MODE_FULL_MANUAL_SUPERVISED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP"
+  hi: ""
+
+API_FRAUD_SCORE_BELOW_THIS_AUTO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)"
+  hi: ""
+
+API_FRAUD_SCORE_ABOVE_THIS_ROUTES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fraud score above this routes to human review"
+  hi: ""
+
+API_CHEQUES_ABOVE_THIS_GO_TO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques above this go to high_value Kafka topic and task queue"
+  hi: ""
+
+API_CHEQUES_ABOVE_THIS_GO_TO_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques above this go to very_high Kafka topic and task queue"
+  hi: ""
+
+API_REVIEWER_ALLOCATION_SELF_HYBRID_AUTO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reviewer allocation: SELF | HYBRID | AUTO"
+  hi: ""
+
+API_REDIS_LOCK_TTL_FOR_REVIEWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Redis lock TTL for reviewer-claimed instruments (minutes)"
+  hi: ""
+
+API_WHO_AN_AUTO_ASSIGNED_ITEM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who an auto-assigned item goes to: LEAST_LOADED | RANDOM"
+  hi: ""
+
+API_AUTO_ASSIGN_CAP_PER_REVIEWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Auto-assign cap per reviewer (0 = no cap). Items near their IET ignore the cap"
+  hi: ""
+
+API_ITEMS_THIS_CLOSE_TO_THEIR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Items this close to their IET jump the queue and ignore the cap (minutes)"
+  hi: ""
+
+API_SPREAD_UNOPENED_AUTO_ASSIGNED_WORK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Spread unopened auto-assigned work across reviewers as more log in"
+  hi: ""
+
+API_AT_MOST_ONE_REBALANCE_PER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "At most one rebalance per bank per interval (a new login bypasses it)"
+  hi: ""
+
+API_CAP_ON_ITEMS_MOVED_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cap on items moved in one rebalance"
+  hi: ""
+
+API_RETRY_DELAY_WHEN_NO_ELIGIBLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Retry delay when no eligible reviewer is available (seconds)"
+  hi: ""
+
+API_HYBRID_MODE_AUTO_ASSIGN_AN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HYBRID mode: auto-assign an unclaimed item after this many minutes"
+  hi: ""
+
+API_ON_REVIEWERS_WORK_ONLY_THE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ON: reviewers work only the buckets an admin connected them to (plus Miscellaneous)"
+  hi: ""
+
+API_WHICH_CLASS_BUCKET_WINS_WHEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Which class bucket wins when a cheque fits several (JSON list of HVC, CA, IP, FCC, LVC)"
+  hi: ""
+
+API_HVC_PRESENTED_AMOUNT_AT_OR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HVC: presented amount at or above this (rupees)"
+  hi: ""
+
+API_LVC_PRESENTED_AMOUNT_BELOW_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "LVC: presented amount below this (rupees)"
+  hi: ""
+
+API_FCC_AT_LEAST_THIS_MANY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FCC: at least this many cheques on the account in the window below"
+  hi: ""
+
+API_FCC_WINDOW_DAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FCC window (days)"
+  hi: ""
+
+API_CA_CBS_ACCOUNT_TYPES_THAT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CA: CBS account types that count as corporate (JSON list); the bank's CA account list also applies"
+  hi: ""
+
+API_IP_CBS_ACCOUNT_TYPES_THAT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IP: CBS account types that count as institution (JSON list); the bank's IP account list also applies"
+  hi: ""
+
+API_AN_ITEM_NOBODY_LOGGED_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "An item nobody logged in can take moves to Miscellaneous after this many minutes"
+  hi: ""
+
+API_SIP_HOLD_BANK_WIDE_THE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SIP hold, bank-wide: the system decision is filed if no reviewer acts within this time"
+  hi: ""
+
+API_NEVER_HOLD_A_SYSTEM_DECISION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Never hold a system decision within this many minutes of its IET"
+  hi: ""
+
+API_OUTWARD_CLEARING_SESSION_CUT_OFF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Outward clearing session cut-off times, local HH:MM (JSON list). Drives urgency and filing of staged decisions"
+  hi: ""
+
+API_OUTWARD_ITEMS_IN_THESE_MASKED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Outward items in these masked amount ranges go to the OUT_HV bucket (JSON list)"
+  hi: ""
+
+API_WHICH_OUTWARD_BUCKET_WINS_WHEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Which outward bucket wins when an item fits several (JSON list of OUT_HV, OUT_MISMATCH, OUT_COMPLIANCE, OUT_REVIEW)"
+  hi: ""
+
+API_WHO_MAKES_OUTWARD_DECISIONS_CENTRAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who makes outward decisions: CENTRAL (central staff) | BRANCH (staff of the item branch) | BRANCH_FIRST (branch first, central after the wait below)"
+  hi: ""
+
+API_BRANCH_FIRST_CENTRAL_STAFF_MAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "BRANCH_FIRST: central staff may take an outward item after it has waited this long"
+  hi: ""
+
+API_WHO_CHECKS_OUTWARD_DECISIONS_ANY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who checks outward decisions: ANY reviewer other than the maker, or CENTRAL staff only"
+  hi: ""
+
+API_TIME_ZONE_THE_CUT_OFF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Time zone the cut-off times are in (IANA name)"
+  hi: ""
+
+API_AN_ORIGINAL_KEPT_AT_ITS:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "An original kept at its branch longer than this many days is flagged overdue for handover to central storage"
+  hi: ""
+
+API_YEARS_CENTRAL_STORAGE_KEEPS_AN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Years central storage keeps an original before it may be disposed of (confirm the period with the bank)"
+  hi: ""
+
+API_A_STAGED_OUTWARD_DECISION_NO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A staged outward decision no checker has taken is filed this many minutes before the cut-off"
+  hi: ""
+
+API_ON_A_REVIEWER_S_DECISION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ON: a reviewer's decision goes to a second person (the checker) before it is filed"
+  hi: ""
+
+API_MAKER_CHECKER_IF_NO_CHECKER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Maker-checker: if no checker acts in this time the maker's decision is filed (never past the IET guard)"
+  hi: ""
+
+API_IET_WINDOW_IN_MINUTES_RBI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless."
+  hi: ""
+
+API_GOT_OCR2_0_CONFIDENCE_BELOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "GOT-OCR2.0 confidence below this → human review"
+  hi: ""
+
+API_SIAMESE_NETWORK_SCORE_BELOW_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Siamese network score below this → human review"
+  hi: ""
+
+API_DUAL_APPROVAL_THRESHOLD_FOR_HIGH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Dual-approval threshold for high-value cheques (₹)"
+  hi: ""
+
+API_LOCKED_VAULT_MISS_ALWAYS_ROUTES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "LOCKED — vault miss always routes to human review (Layer 1 constraint)"
+  hi: ""
+
+API_PAYEE_ACCOUNT_FROZEN_ON_OUTWARD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold)."
+  hi: ""
+
+API_PAYEE_ACCOUNT_DORMANT_NO_TXNS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN."
+  hi: ""
+
+API_PAYEE_ACCOUNT_NPA_ON_OUTWARD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN."
+  hi: ""
+
+API_REQUIRE_REAR_BACK_CHEQUE_IMAGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false: blank reverse is standard practice."
+  hi: ""
+
+API_ROLE_CANNOT_ACCESS_ADMIN_ROUTES:
+  severity: ERROR
+  surface: [UI]
+  variables: [user]
+  en: "Role '{user}' cannot access admin routes"
+  hi: ""
+
+API_ROLE_CANNOT_PERFORM_CHECKER_ACTIONS:
+  severity: ERROR
+  surface: [UI]
+  variables: [user]
+  en: "Role '{user}' cannot perform checker actions"
+  hi: ""
+
+API_ROLE_CANNOT_SUBMIT_THRESHOLD_CHANGES:
+  severity: ERROR
+  surface: [UI]
+  variables: [user]
+  en: "Role '{user}' cannot submit threshold changes"
+  hi: ""
+
+API_UNKNOWN_CONFIG_KEY:
+  severity: INFO
+  surface: [UI]
+  variables: [config_key]
+  en: "Unknown config_key: {config_key}"
+  hi: ""
+
+API_IS_A_LAYER_1_PLATFORM:
+  severity: ERROR
+  surface: [UI]
+  variables: [config_key]
+  en: "{config_key} is a Layer 1 platform constraint and cannot be changed"
+  hi: ""
+
+API_USER_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "User not found"
+  hi: ""
+
+API_TEST_IS_NOT_IN_SCOPE:
+  severity: INFO
+  surface: [UI]
+  variables: [test_id, entity_type, allowed]
+  en: "test '{test_id}' is not in scope for entity_type='{entity_type}'. Allowed: {allowed}"
+  hi: ""
+
+API_TEST_RUNNER_NOT_YET_IMPLEMENTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Test runner not yet implemented for this environment."
+  hi: ""
+
+API_ROLE_CANNOT_ACCESS_AUDIT_ROUTES:
+  severity: ERROR
+  surface: [UI]
+  variables: [user]
+  en: "Role '{user}' cannot access audit routes"
+  hi: ""
+
+API_EVENT_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Event not found"
+  hi: ""
+
+API_EVENT_NOT_FOUND_IN_IMMUDB:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Event not found in Immudb"
+  hi: ""
+
+API_AUTHENTICATION_NOT_CONFIGURED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Authentication not configured"
+  hi: ""
+
+API_SESSION_EXPIRED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Session expired"
+  hi: ""
+
+API_INVALID_SESSION:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid session"
+  hi: ""
+
+API_MFA_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "MFA required"
+  hi: ""
+
+API_ACCOUNT_LOCKED_DUE_TO_REPEATED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Account locked due to repeated failed attempts. Contact your administrator."
+  hi: ""
+
+API_INVALID_CODE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid code"
+  hi: ""
+
+API_INVALID_SESSION_STATE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid session state"
+  hi: ""
+
+API_IFSC_MUST_BE_11_ALPHANUMERIC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IFSC must be 11 alphanumeric characters with no spaces"
+  hi: ""
+
+API_SCANNER_INPUT_MODE_MUST_BE:
+  severity: INFO
+  surface: [UI]
+  variables: [sorted]
+  en: "scanner_input_mode must be one of {sorted}"
+  hi: ""
+
+API_BRANCH_IFSC_CANNOT_BE_UPDATED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "branch_ifsc cannot be updated — it is the immutable identity key"
+  hi: ""
+
+API_IFSC_CODE_IS_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IFSC Code is empty"
+  hi: ""
+
+API_IFSC_MUST_BE_11_CHARS:
+  severity: INFO
+  surface: [UI]
+  variables: [len]
+  en: "IFSC must be 11 chars, got {len}"
+  hi: ""
+
+API_IFSC_MUST_BE_ALPHANUMERIC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IFSC must be alphanumeric"
+  hi: ""
+
+API_CSV_FILE_MUST_BE_UTF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CSV file must be UTF-8 encoded"
+  hi: ""
+
+API_CSV_FILE_APPEARS_TO_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CSV file appears to be empty"
+  hi: ""
+
+API_CSV_MISSING_REQUIRED_COLUMNS:
+  severity: ERROR
+  surface: [UI]
+  variables: [sorted]
+  en: "CSV missing required columns: {sorted}"
+  hi: ""
+
+API_DATABASE_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Database error"
+  hi: ""
+
+API_BRANCH_IFSC_ALREADY_EXISTS:
+  severity: INFO
+  surface: [UI]
+  variables: [ifsc]
+  en: "Branch IFSC {ifsc} already exists"
+  hi: ""
+
+API_BRANCH_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [ifsc]
+  en: "Branch {ifsc} not found"
+  hi: ""
+
+API_FILE_MUST_BE_A_CSV:
+  severity: INFO
+  surface: [UI]
+  variables: [content_type]
+  en: "File must be a CSV. Got content-type: {content_type}"
+  hi: ""
+
+API_INSTRUMENT_NOT_FOUND_OR_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Instrument not found or not yet processed"
+  hi: ""
+
+API_SCHEDULE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Schedule not found"
+  hi: ""
+
+API_FAILED_TO_UPDATE_TEMPORAL_SCHEDULE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to update Temporal Schedule"
+  hi: ""
+
+API_SCHEDULE_UPDATED_TO_CRON:
+  severity: INFO
+  surface: [UI]
+  variables: [schedule_id, cron]
+  en: "Schedule {schedule_id} updated to cron: {cron}"
+  hi: ""
+
+API_FAILED_TO_PAUSE_TEMPORAL_SCHEDULE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to pause Temporal Schedule"
+  hi: ""
+
+API_SCHEDULE_PAUSED:
+  severity: INFO
+  surface: [UI]
+  variables: [schedule_id]
+  en: "Schedule {schedule_id} paused."
+  hi: ""
+
+API_FAILED_TO_RESUME_TEMPORAL_SCHEDULE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to resume Temporal Schedule"
+  hi: ""
+
+API_SCHEDULE_RESUMED:
+  severity: INFO
+  surface: [UI]
+  variables: [schedule_id]
+  en: "Schedule {schedule_id} resumed."
+  hi: ""
+
+API_IFSC_REGISTRY_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "IFSC registry unavailable"
+  hi: ""
+
+API_IFSC_ENTRY_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "IFSC entry not found"
+  hi: ""
+
+API_OPS_MANAGER_ROLE_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "ops_manager role required"
+  hi: ""
+
+API_BANK_IT_ADMIN_ROLE_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "bank_it_admin role required"
+  hi: ""
+
+API_INVALID_FOR_TEMPORAL_QUERY_MUST:
+  severity: ERROR
+  surface: [UI]
+  variables: [field]
+  en: "Invalid {field} for Temporal query: must be alphanumeric + hyphens/underscores, max 64 chars"
+  hi: ""
+
+API_WORKFLOW_ENGINE_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Workflow engine unavailable"
+  hi: ""
+
+API_OPS_MANAGER_OR_OPS_REVIEWER:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "ops_manager or ops_reviewer role required"
+  hi: ""
+
+API_ACTIVE_HOLD_NOT_FOUND_FOR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Active hold not found for this instrument"
+  hi: ""
+
+API_MISMATCH_NOT_FOUND_OR_ALREADY:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Mismatch not found or already resolved"
+  hi: ""
+
+API_THIS_CHEQUE_IS_IN_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This cheque is in a bucket you are not connected to"
+  hi: ""
+
+API_CLAIMED_SUCCESSFULLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Claimed successfully"
+  hi: ""
+
+API_ALREADY_CLAIMED_BY_ANOTHER_REVIEWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Already claimed by another reviewer"
+  hi: ""
+
+API_RELEASED_SUCCESSFULLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Released successfully"
+  hi: ""
+
+API_FORCE_RELEASED_WAS_HELD_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Force-released (was held by {value})"
+  hi: ""
+
+API_ALLOCATION_STORE_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Allocation store unavailable"
+  hi: ""
+
+API_REVIEWER_NOT_FOUND_FOR_THIS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Reviewer not found for this bank"
+  hi: ""
+
+API_THAT_REVIEWER_IS_NOT_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "That reviewer is not connected to this cheque's bucket; connect them first"
+  hi: ""
+
+API_ASSIGNED_TO_WAS_HELD_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [target, value]
+  en: "Assigned to {target} (was held by {value})"
+  hi: ""
+
+API_FAILED_TO_START_WORKFLOW:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to start workflow"
+  hi: ""
+
+API_SEARCH_QUERY_MUST_BE_AT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Search query must be at least 3 characters"
+  hi: ""
+
+API_COULD_NOT_PROVISION_UPLOAD_URLS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Could not provision upload URLs — MinIO unavailable"
+  hi: ""
+
+API_IMAGE_STORE_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Image store unavailable"
+  hi: ""
+
+API_IMAGE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Image not found"
+  hi: ""
+
+API_FAILED_TO_START_OUTWARDSCANWORKFLOW:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to start OutwardScanWorkflow"
+  hi: ""
+
+API_LOT_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Lot not found"
+  hi: ""
+
+API_LOT_IS_ALREADY:
+  severity: INFO
+  surface: [UI]
+  variables: [row]
+  en: "Lot is already {row}"
+  hi: ""
+
+API_REPORT_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Report not found"
+  hi: ""
+
+API_VAULT_TYPE_MUST_BE_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: [sorted]
+  en: "vault_type must be one of {sorted}"
+  hi: ""
+
+API_UPLOADED_FILE_IS_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Uploaded file is empty"
+  hi: ""
+
+API_DATABASE_POOL_NOT_READY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Database pool not ready"
+  hi: ""
+
+API_ACTIVE_SESSION_ALREADY_OPEN_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [existing]
+  en: "Active session {existing} already open for this branch today"
+  hi: ""
+
+API_SESSION_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Session not found"
+  hi: ""
+
+API_CROSS_BANK_SESSION_CLOSE_FORBIDDEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cross-bank session close forbidden"
+  hi: ""
+
+API_SESSION_IS_ALREADY:
+  severity: INFO
+  surface: [UI]
+  variables: [row]
+  en: "Session is already {row}"
+  hi: ""
+
+API_HUB_SUBMIT_REQUIRES_OPS_MANAGER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Hub submit requires ops_manager or bank_it_admin"
+  hi: ""
+
+API_TEMPORAL_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Temporal unavailable"
+  hi: ""
+
+API_CLEARINGSESSIONWORKFLOW_STARTED_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: [workflow_id]
+  en: "ClearingSessionWorkflow {workflow_id} started — NGCH filing in progress."
+  hi: ""
+
+API_FAILED_TO_TRIGGER_ENDORSEMENT_WORKFL:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to trigger endorsement workflow"
+  hi: ""
+
+API_FILE_NOT_FOUND_OR_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "File not found or not yet generated"
+  hi: ""
+
+API_FAILED_TO_TRIGGER_RE_SCAN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to trigger re-scan workflow"
+  hi: ""
+
+API_UNKNOWN_REPORT_TYPE_VALID:
+  severity: INFO
+  surface: [UI]
+  variables: [report_type, list]
+  en: "Unknown report_type '{report_type}'. Valid: {list}"
+  hi: ""
+
+API_FAILED_TO_GENERATE_DOWNLOAD_URL:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to generate download URL"
+  hi: ""
+
+API_DECISION_RECORDED_AND_SENT_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [action]
+  en: "Decision {action} recorded and sent to a checker; it is not final until the checker confirms."
+  hi: ""
+
+API_DECISION_RECORDED_WORKFLOW_SIGNAL:
+  severity: INFO
+  surface: [UI]
+  variables: [action, value]
+  en: "Decision {action} recorded. Workflow signal {value}."
+  hi: ""
+
+API_DECISION_FILED_BY_THE_CHECKER:
+  severity: INFO
+  surface: [UI]
+  variables: [action]
+  en: "Decision {action} filed by the checker."
+  hi: ""
+
+API_LOT_BELONGS_TO_A_DIFFERENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Lot belongs to a different bank"
+  hi: ""
+
+API_REASON_CATEGORY_DOES_NOT_MATCH:
+  severity: INFO
+  surface: [UI]
+  variables: [reason_category, action, expected_category]
+  en: "reason_category '{reason_category}' does not match action '{action}' — expected '{expected_category}'"
+  hi: ""
+
+API_BANK_ID_IN_REQUEST_BODY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "bank_id in request body must match authenticated bank"
+  hi: ""
+
+API_BRANCH_ID_IS_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "branch_id is required."
+  hi: ""
+
+API_BRANCH_NOT_FOUND_OR_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: [branch_id, bank_id]
+  en: "Branch {branch_id} not found or not active for bank {bank_id}."
+  hi: ""
+
+API_BRANCH_IS_NOT_CONFIGURED_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [branch_id]
+  en: "Branch {branch_id} is not configured for SDK_PUSH mode."
+  hi: ""
+
+API_REGISTRATION_CODE_MUST_BE_8:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Registration code must be 8 alphanumeric characters."
+  hi: ""
+
+API_REGISTRATION_CODE_NOT_FOUND_EXPIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Registration code not found, expired, or already used. Generate a new code in ASTRA Admin UI → Branches → Register Scanner."
+  hi: ""
+
+API_INTERNAL_ERROR_ISSUING_TOKEN_PLEASE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Internal error issuing token. Please retry."
+  hi: ""
+
+API_SMB_MANAGEMENT_IS_AN_SB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB management is an SB-only operation"
+  hi: ""
+
+API_SMB_REGISTRATION_IS_AN_SB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB registration is an SB-only operation"
+  hi: ""
+
+API_SOFT_HOLD_THRESHOLD_MUST_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "soft_hold_threshold must be greater than return_rate_threshold"
+  hi: ""
+
+API_SUB_MEMBER_BANK_REGISTERED_UNDER:
+  severity: ERROR
+  surface: [UI]
+  variables: [sub_member_id, bank_id, micr_prefix]
+  en: "Sub-Member Bank '{sub_member_id}' registered under sponsor '{bank_id}'. MICR prefix '{micr_prefix}' active from today. Vault sync required before first clearing session."
+  hi: ""
+
+API_SMB_USERS_CAN_ONLY_VIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB users can only view their own ledger"
+  hi: ""
+
+API_SMB_USERS_CAN_ONLY_VIEW_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB users can only view their own forwarding log"
+  hi: ""
+
+API_VAULT_SYNC_TRIGGER_IS_AN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault sync trigger is an SB-only operation"
+  hi: ""
+
+API_FAILED_TO_TRIGGER_SMB_VAULT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to trigger SMB vault sync workflow"
+  hi: ""
+
+API_VAULT_SYNC_STARTED_FOR_SUB:
+  severity: INFO
+  surface: [UI]
+  variables: [sub_member_id, sub_member_id2]
+  en: "Vault sync started for Sub-Member '{sub_member_id}'. Signature specimens and PPS entries will be loaded into vault namespace sig:{sub_member_id2}:* within ~60 seconds."
+  hi: ""
+
+API_SB_ONLY_ENDPOINT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SB-only endpoint"
+  hi: ""
+
+API_FAILED_TO_TRIGGER_VAULT_SYNC:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Failed to trigger vault sync workflow"
+  hi: ""
+
+API_VAULTSYNCWORKFLOW_STARTED_PPS_STOP_C:
+  severity: INFO
+  surface: [UI]
+  variables: [workflow_id]
+  en: "VaultSyncWorkflow started: {workflow_id}. PPS & Stop Cheque data will refresh within ~60 seconds."
+  hi: ""
+
+API_NO_CHEQUES_IN_SESSION_UPLOAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No cheques in session. Upload files first."
+  hi: ""
+
+API_NO_BANK_SPECIFIED_AND_NO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No bank specified and no NPCI output available. Run presentment first."
+  hi: ""
+
+API_UPLOADED_FILE_ISN_T_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Uploaded file isn't a readable image."
+  hi: ""
+
+API_CLOUD_AI_DEMO_TOKEN_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cloud AI demo token not configured — set demo.hf_token in Vault or ASTRA_DEMO_HF_TOKEN in the environment for local dev."
+  hi: ""
+
+API_FIELD_EXTRACTION_VIA_QWEN_32B:
+  severity: ERROR
+  surface: [UI]
+  variables: [fields_resp]
+  en: "Field extraction via Qwen 32B failed: {fields_resp}"
+  hi: ""
+
+API_BOTH_LOCAL_SERVICES_ARE_UNREACHABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: [sig_url, indic_error]
+  en: "Both local services are unreachable. Start sig detector: cd apps/sig_detector; python main.py  (expected at {sig_url}). IndicOCR: {indic_error}"
+  hi: ""
+
+API_HF_TOKEN_NOT_CONFIGURED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HF token not configured."
+  hi: ""
+
+API_UNKNOWN_MODEL_MUST_BE_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: [model, sorted]
+  en: "Unknown model '{model}'. Must be one of {sorted}."
+  hi: ""
+
+API_CLOUD_AI_DEMO_TOKEN_NOT_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cloud AI demo token not configured — set demo.hf_token in Vault, or ASTRA_DEMO_HF_TOKEN in the environment for local dev without Vault."
+  hi: ""
+
+API_HUGGING_FACE_REJECTED_THE_REQUEST:
+  severity: INFO
+  surface: [UI]
+  variables: [model, message]
+  en: "Hugging Face rejected the request for model '{model}': {message}"
+  hi: ""
+
+API_CLOUD_AI_EXTRACTION_FAILED_HUGGING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Cloud AI extraction failed — Hugging Face Inference Providers unreachable."
+  hi: ""
+
+API_CONNECTION_TYPE_MUST_BE_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: [VALID_TYPES]
+  en: "connection_type must be one of {VALID_TYPES}"
+  hi: ""
+
+API_CBS_VENDOR_MUST_BE_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: [VALID_CBS_VENDORS]
+  en: "cbs_vendor must be one of {VALID_CBS_VENDORS}"
+  hi: ""
+
+API_ENDPOINT_URL_BLOCKED_BY_SSRF:
+  severity: INFO
+  surface: [UI]
+  variables: [err]
+  en: "endpoint_url blocked by SSRF policy: {err}"
+  hi: ""
+
+API_CONNECTION_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Connection not found"
+  hi: ""
+
+API_SMB_ID_REQUIRED_FOR_SMB:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "smb_id required for SMB_CBS connection"
+  hi: ""
+
+API_SMB_ADMIN_CAN_ONLY_CONFIGURE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB admin can only configure their own CBS connection"
+  hi: ""
+
+API_CONNECTION_ALREADY_EXISTS_FOR_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: [connection_type]
+  en: "Connection {connection_type} already exists for this bank/SMB"
+  hi: ""
+
+API_SYNC_ONLY_AVAILABLE_FOR_CBS:
+  severity: INFO
+  surface: [UI]
+  variables: [CBS_TYPES, row]
+  en: "Sync only available for CBS connection types ({CBS_TYPES}), not {row}"
+  hi: ""
+
+API_CANNOT_SYNC_A_CONNECTION_IN:
+  severity: ERROR
+  surface: [UI]
+  variables: [row]
+  en: "Cannot sync a connection in status={row}. Must be ACTIVE."
+  hi: ""
+
+API_ROLE_CANNOT_ACCESS_NOTIFICATION_ROUT:
+  severity: ERROR
+  surface: [UI]
+  variables: [user]
+  en: "Role '{user}' cannot access notification routes"
+  hi: ""
+
+API_ROLE_CANNOT_SEND_OR_RETRY:
+  severity: ERROR
+  surface: [UI]
+  variables: [user]
+  en: "Role '{user}' cannot send or retry notifications"
+  hi: ""
+
+API_NOTIFICATION_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Notification not found"
+  hi: ""
+
+API_CANNOT_RETRY_NOTIFICATION_IN_STATUS:
+  severity: ERROR
+  surface: [UI]
+  variables: [row]
+  en: "Cannot retry notification in status '{row}'"
+  hi: ""
+
+API_DB_UNAVAILABLE_CONNECT_YUGABYTEDB_FI:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "DB unavailable — connect YugabyteDB first"
+  hi: ""
+
+API_NO_BRANCHES_LOADED_IMPORT_CSV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No branches loaded — import CSV before go-live"
+  hi: ""
+
+API_ONLY_BRANCH_LOADED_VERIFY_COMPLETENE:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "Only {count} branch{value} loaded — verify completeness"
+  hi: ""
+
+API_ACTIVE_BRANCHES_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [count, ms]
+  en: "{count} active branches ({ms}ms)"
+  hi: ""
+
+API_QUERY_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Query failed: {str}"
+  hi: ""
+
+API_REDIS_CTS_OR_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Redis CTS or DB unavailable"
+  hi: ""
+
+API_NO_SIGNATURES_IN_DB_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No signatures in DB — run vault sync before go-live"
+  hi: ""
+
+API_CHECK_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Check failed: {str}"
+  hi: ""
+
+API_REDIS_CTS_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Redis CTS unavailable"
+  hi: ""
+
+API_NO_PPS_ENTRIES_SEED_IF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No PPS entries — seed if bank issues cheque books"
+  hi: ""
+
+API_PPS_ENTRIES_IN_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} PPS entries in Redis"
+  hi: ""
+
+API_NO_MICR_PREFIXES_CONFIGURE_BEFORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No MICR prefixes — configure before processing cheques"
+  hi: ""
+
+API_PREFIX_CONFIGURED:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "{count} prefix{value} configured"
+  hi: ""
+
+API_NO_OPS_REVIEWER_USERS_HUMAN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No ops_reviewer users — human review queue will be unmanned"
+  hi: ""
+
+API_REVIEWER_MANAGER:
+  severity: INFO
+  surface: [UI]
+  variables: [reviewers, value, managers, value2]
+  en: "{reviewers} reviewer{value}, {managers} manager{value2}"
+  hi: ""
+
+API_CTS_INWARD_FOLDER_PATH_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "cts.inward.folder_path not configured"
+  hi: ""
+
+API_DIRECTORY_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [folder]
+  en: "{folder} — directory not found"
+  hi: ""
+
+API_CTS_OUTWARD_FOLDER_PATH_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "cts.outward.folder_path not configured"
+  hi: ""
+
+API_NO_KAFKA_PRODUCER_IN_APP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No Kafka producer in app.state — start Kafka first"
+  hi: ""
+
+API_KAFKA_PRODUCE_TIMED_OUT_10S:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kafka produce timed out (>10s) — check broker connectivity"
+  hi: ""
+
+API_KAFKA_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Kafka error: {str}"
+  hi: ""
+
+API_IMMUDB_CLIENT_NOT_CONFIGURED_AUDIT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Immudb client not configured — audit trail unavailable"
+  hi: ""
+
+API_AUDITEVENT_WRITTEN_VERIFIED_IN_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "AuditEvent written + verified in {ms}ms"
+  hi: ""
+
+API_IMMUDB_WRITE_TIMED_OUT_10S:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immudb write timed out (>10s)"
+  hi: ""
+
+API_IMMUDB_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Immudb error: {str}"
+  hi: ""
+
+API_REDIS_CTS_NOT_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Redis CTS not connected"
+  hi: ""
+
+API_REDIS_PING_OK_MS_BUT:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "Redis ping OK ({ms}ms) but no vault keys found — seed before go-live"
+  hi: ""
+
+API_REDIS_CTS_PING_MS_VAULT:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "Redis CTS ping {ms}ms · vault keys present"
+  hi: ""
+
+API_REDIS_PING_TIMED_OUT_5S:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Redis ping timed out (>5s)"
+  hi: ""
+
+API_REDIS_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Redis error: {str}"
+  hi: ""
+
+API_PPS_VAULT_PING_OK_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [ms, detail]
+  en: "PPS vault ping OK ({ms}ms) · {detail}"
+  hi: ""
+
+API_CBS_PING_OK_IN_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "CBS ping OK in {ms}ms"
+  hi: ""
+
+API_CBS_PING_RETURNED_FALSE_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS ping returned False — check CBS config in Vault"
+  hi: ""
+
+API_CBS_UNREACHABLE_10S_TIMEOUT_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS unreachable (>10s timeout) — check network / CBS config"
+  hi: ""
+
+API_CBS_CONNECTOR_NOT_INSTALLED_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS connector not installed in this environment"
+  hi: ""
+
+API_CBS_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "CBS error: {str}"
+  hi: ""
+
+API_TEMPORAL_CLIENT_NOT_CONNECTED_START:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Temporal client not connected — start Temporal first"
+  hi: ""
+
+API_TEMPORAL_NAMESPACE_REACHABLE_IN_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "Temporal namespace reachable in {ms}ms · IET workers assumed active"
+  hi: ""
+
+API_TEMPORAL_UNREACHABLE_10S_CHECK_TEMPO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Temporal unreachable (>10s) — check Temporal server"
+  hi: ""
+
+API_TEMPORAL_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Temporal error: {str}"
+  hi: ""
+
+API_NO_SIGNATURE_KEYS_FOUND_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No signature keys found for this bank — seed before go-live"
+  hi: ""
+
+API_SIGNATURE_KEYS_PRESENT_IN_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} signature keys present in Redis vault"
+  hi: ""
+
+API_CTS_INWARD_FOLDER_PATH_NOT_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "cts.inward.folder_path not configured — set in Helm values"
+  hi: ""
+
+API_FOLDER_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [folder]
+  en: "Folder not found: {folder}"
+  hi: ""
+
+API_EXISTS_BUT_NOT_WRITABLE_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: [folder]
+  en: "{folder} exists but not writable — check ASTRA service user ACL"
+  hi: ""
+
+API_EXISTS_AND_WRITABLE:
+  severity: INFO
+  surface: [UI]
+  variables: [folder]
+  en: "{folder} — exists and writable"
+  hi: ""
+
+API_AUTH_CONNECTOR_NOT_INITIALISED_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Auth connector not initialised — check startup logs"
+  hi: ""
+
+API_LOCAL_AUTH_DB_REACHABLE_IN:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "Local auth DB reachable in {ms}ms · argon2 verify OK"
+  hi: ""
+
+API_AUTH_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Auth error: {str}"
+  hi: ""
+
+API_TEST_NOT_IMPLEMENTED_FOR_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Test not implemented for this environment — check manually"
+  hi: ""
+
+API_TEST_TIMED_OUT_30S:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Test timed out (>30s)"
+  hi: ""
+
+API_UNEXPECTED_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [str]
+  en: "Unexpected error: {str}"
+  hi: ""
+
+API_DOCKER_COMPOSE_UP_D_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [container]
+  en: "docker compose up -d {container}: OK"
+  hi: ""
+
+API_DOCKER_NOT_FOUND_ON_PATH:
+  severity: ERROR
+  surface: [UI]
+  variables: [container]
+  en: "docker not found on PATH — run manually: docker compose up -d {container}"
+  hi: ""
+
+API_DOCKER_COMPOSE_START_TIMED_OUT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "docker compose start timed out (>60s)"
+  hi: ""
+
+API_ROUTED_TO_HUGGING_FACE_INFERENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Routed to Hugging Face Inference API in POC mode — no local container needed"
+  hi: ""
+
+API_UNKNOWN_SERVICE:
+  severity: INFO
+  surface: [UI]
+  variables: [service_id]
+  en: "Unknown service: {service_id}"
+  hi: ""
+
+API_OPS_MANAGER_OR_BANK_IT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "ops_manager or bank_it_admin required"
+  hi: ""
+
+API_BANK_IT_ADMIN_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "bank_it_admin required"
+  hi: ""
+
+API_BANK_TYPE_MUST_BE_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: [list]
+  en: "bank_type must be one of {list}"
+  hi: ""
+
+API_PLATFORM_ADMIN_ROLE_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "platform_admin role required"
+  hi: ""
+
+API_BANK_ALREADY_EXISTS:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id]
+  en: "bank {bank_id} already exists"
+  hi: ""
+
+API_IS_IMMUTABLE_AND_CANNOT_BE:
+  severity: ERROR
+  surface: [UI]
+  variables: [field]
+  en: "{field} is immutable and cannot be updated"
+  hi: ""
+
+API_PROCESSING_UNIT_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [pu_id]
+  en: "Processing Unit {pu_id} not found"
+  hi: ""
+
+API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST:
+  severity: INFO
+  surface: [UI]
+  variables: [ifsc]
+  en: "An active registration already exists for branch {ifsc}. Deactivate it first."
+  hi: ""
+
+API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST_2:
+  severity: INFO
+  surface: [UI]
+  variables: [ifsc]
+  en: "An active registration already exists for branch {ifsc}."
+  hi: ""
+
+API_TOKEN_SHOWN_ONCE_STORE_IT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Token shown once — store it securely. It cannot be retrieved again."
+  hi: ""
+
+API_SCANNER_MACHINE_TOKEN_REQUIRED_AUTHO:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Scanner machine token required: Authorization: Bearer <token>"
+  hi: ""
+
+API_NO_ACTIVE_SCANNER_TOKEN_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No active scanner token for this branch"
+  hi: ""
+
+API_INVALID_SCANNER_TOKEN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid scanner token"
+  hi: ""
+
+API_SCANNER_TOKEN_REQUIRED_AUTHORIZATION:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Scanner token required: Authorization: Bearer <token>"
+  hi: ""
+
+API_REGISTRATION_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Registration not found"
+  hi: ""
+
+API_REGISTRATION_DEACTIVATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Registration deactivated"
+  hi: ""
+
+API_NO_ACTIVE_SCANNER_REGISTRATION_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [ifsc]
+  en: "No active scanner registration for branch {ifsc}"
+  hi: ""
+
+API_AN_ACTIVE_CONFIG_ALREADY_EXISTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "An active config already exists for this branch."
+  hi: ""
+
+API_SCANNER_CONFIG_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Scanner config not found"
+  hi: ""
+
+API_INVALID_BANK_TYPE_MUST_BE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid bank_type. Must be SB or SMB."
+  hi: ""
+
+API_INVALID_PERMISSION_LEVEL_MUST_BE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY."
+  hi: ""
+
+API_INVALID_ROLE_MUST_BE_ONE:
+  severity: ERROR
+  surface: [UI]
+  variables: [sorted]
+  en: "Invalid role. Must be one of: {sorted}"
+  hi: ""
+
+API_ROLE_IS_ONLY_VALID_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [role]
+  en: "Role '{role}' is only valid for SMB users (bank_type=SMB)."
+  hi: ""
+
+API_ROLE_IS_ONLY_VALID_FOR_2:
+  severity: INFO
+  surface: [UI]
+  variables: [role]
+  en: "Role '{role}' is only valid for SB users (bank_type=SB)."
+  hi: ""
+
+API_USER_WITH_THIS_EMAIL_ALREADY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "User with this email already exists"
+  hi: ""
+
+API_INVALID_ROLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid role"
+  hi: ""
+
+API_ROLE_IS_ONLY_VALID_FOR_3:
+  severity: INFO
+  surface: [UI]
+  variables: [role]
+  en: "Role '{role}' is only valid for SMB users."
+  hi: ""
+
+API_ROLE_IS_ONLY_VALID_FOR_4:
+  severity: INFO
+  surface: [UI]
+  variables: [role]
+  en: "Role '{role}' is only valid for SB users."
+  hi: ""
+
+API_CANNOT_DEACTIVATE_YOUR_OWN_ACCOUNT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Cannot deactivate your own account"
+  hi: ""
+
+API_TOTP_SETUP_NOT_INITIATED_CALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "TOTP setup not initiated. Call /totp/setup first."
+  hi: ""
+
+API_INVALID_CODE_PLEASE_TRY_AGAIN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid code. Please try again."
+  hi: ""
+
+API_TOTP_ACTIVATED_MFA_IS_NOW:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "TOTP activated. MFA is now required at login."
+  hi: ""
+
+API_TOTP_NOT_ENABLED_FOR_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "TOTP not enabled for this user"
+  hi: ""
+
+API_TOTP_SECRET_NOT_FOUND_CONTACT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "TOTP secret not found. Contact IT admin."
+  hi: ""
+
+API_ROLE_CANNOT_UPLOAD_PPS:
+  severity: ERROR
+  surface: [UI]
+  variables: [role]
+  en: "Role {role} cannot upload PPS."
+  hi: ""
+
+API_CTS_CIIF_AMOUNT_UNIT_RUPEES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "cts.ciif_amount_unit (RUPEES or PAISE) is not configured for this deployment."
+  hi: ""
+
+API_FILE_EXCEEDS_MB_LIMIT:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "File exceeds {value} MB limit."
+  hi: ""
+
+API_ROLE_CANNOT_UPLOAD:
+  severity: ERROR
+  surface: [UI]
+  variables: [role, vault_type]
+  en: "Role {role} cannot upload {vault_type}."
+  hi: ""
+
+API_UNKNOWN:
+  severity: INFO
+  surface: [UI]
+  variables: [vault_type]
+  en: "Unknown: {vault_type}"
+  hi: ""
+
+API_INSUFFICIENT_ROLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Insufficient role."
+  hi: ""
+
+API_TEMPORAL_NOT_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Temporal not connected."
+  hi: ""
+
+EEH_SESSION_MANAGER_NOT_INITIALISED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Session manager not initialised"
+  hi: ""
+
+EEH_REDIS_NOT_AVAILABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Redis not available"
+  hi: ""
+
+EEH_INVALID_DATE_FORMAT_EXPECTED_YYYY:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid date format (expected YYYY-MM-DD)"
+  hi: ""
+
+EEH_CONNECTED_TO_EEH_STATUS_FEED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Connected to EEH status feed"
+  hi: ""
+
+SIG_DETECTOR_SPAN_PX_ISOLATED_DOTS_SPECKS:
+  severity: WARN
+  surface: [UI]
+  variables: [MIN_SPAN]
+  en: "span < {MIN_SPAN}px — isolated dots/specks"
+  hi: ""
+
+SIG_DETECTOR_DENSITY_40_SOLID_HORIZONTAL_RULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "density > 40% — solid horizontal rule lines"
+  hi: ""
+
+SIG_DETECTOR_RUNS_15_SECURITY_PRINT_DIAGONAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "runs > 15 — security-print diagonal patterns"
+  hi: ""
+
+SIG_DETECTOR_RIGHT_FRINGE_ONLY_BARCODE_STRIPE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "right-fringe only — barcode stripe rows"
+  hi: ""
+
+SIG_DETECTOR_COUNT_QUALITY:
+  severity: INFO
+  surface: [UI]
+  variables: [count, sp]
+  en: "count={count}, quality={sp}"
+  hi: ""
+
+SIG_DETECTOR_INVALID_IMAGE:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Invalid image: {exc}"
+  hi: ""
+
+SIG_DETECTOR_ROWS_REJECTED:
+  severity: INFO
+  surface: [UI]
+  variables: [rows_rejected, description]
+  en: "{rows_rejected} rows rejected — {description}"
+  hi: ""
+
+SIG_DETECTOR_VLLM_RETURNED_ERROR_RESULT_INCONCLUS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "vLLM returned error — result inconclusive"
+  hi: ""
+
+SIG_DETECTOR_SIG_DETECTOR_VISION_URL_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SIG_DETECTOR_VISION_URL not configured"
+  hi: ""
+
+CTS_NOT_A_SUBSCRIBABLE_BUCKET_VALID:
+  severity: INFO
+  surface: [UI]
+  variables: [bad, list]
+  en: "not a subscribable bucket: {bad}. Valid: {list}"
+  hi: ""
+
+CTS_DATABASE_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "database unavailable"
+  hi: ""
+
+CTS_CCH_REQTYPE_W_RESPONSE_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "CCH Reqtype=W response missing 'Modulus' field"
+  hi: ""
+
+CTS_CCH_REQTYPE_W_RESPONSE_MISSING_2:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "CCH Reqtype=W response missing 'Exponent' field"
+  hi: ""
+
+CTS_FAILED_TO_FETCH_CCH_KEY:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Failed to fetch CCH key (Reqtype=W): {exc}"
+  hi: ""
+
+CTS_DEM_END_MARKER_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [end_marker]
+  en: "DEM end marker '{end_marker}' not found in data"
+  hi: ""
+
+CTS_UNSUPPORTED_DEM_ENCRYPTION_ALGORITHM:
+  severity: INFO
+  surface: [UI]
+  variables: [algo]
+  en: "Unsupported DEM encryption algorithm: {algo}"
+  hi: ""
+
+CTS_FAILED_TO_PARSE_TRANS_ENCRYPT:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Failed to parse Trans.Encrypt.Data header: {exc}"
+  hi: ""
+
+CTS_TRANS_ENCRYPT_DATA_HEADER_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Trans.Encrypt.Data header missing 'Key' field"
+  hi: ""
+
+CTS_FAILED_TO_DECRYPT_AES_KEY:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Failed to decrypt AES key via HSM: {exc}"
+  hi: ""
+
+CTS_AES_DECRYPTION_FAILED_TAMPERED_CIPHE:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "AES decryption failed (tampered ciphertext?): {exc}"
+  hi: ""
+
+CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Trans.Signature.Data header missing or malformed after decryption"
+  hi: ""
+
+CTS_FAILED_TO_PARSE_TRANS_SIGNATURE:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Failed to parse Trans.Signature.Data header: {exc}"
+  hi: ""
+
+CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING_2:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Trans.Signature.Data header missing 'Data' (signature) field"
+  hi: ""
+
+CTS_CCH_SIGNATURE_VERIFICATION_FAILED_FI:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "CCH signature verification failed — file may be tampered"
+  hi: ""
+
+CTS_SIGNATURE_VERIFICATION_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Signature verification error: {exc}"
+  hi: ""
+
+CTS_BACKUP_NOT_FOUND_FOR_RESEND:
+  severity: ERROR
+  surface: [UI]
+  variables: [backup_path]
+  en: "Backup not found for resend: {backup_path}"
+  hi: ""
+
+CTS_QWEN2_VL_REPORTS_OVERWRITING_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Qwen2-VL reports overwriting in amount field (tamper confidence 0.91). Instrument rejected per CTS-2010 §5.2."
+  hi: ""
+
+CTS_CBS_CONFIRMS_STOP_PAYMENT_INSTRUCTIO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS confirms stop-payment instruction active. Instruction filed: 2026-06-29 14:32. Instrument returned."
+  hi: ""
+
+CTS_SIAMESE_SNN_MATCH_SCORE_0:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Siamese SNN match score 0.42 (threshold 0.85). 2 registered specimens on record. Human review required."
+  hi: ""
+
+CTS_CBS_ACCOUNT_STATUS_FROZEN_COURT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS: account status FROZEN (court order ref CO-2026-MUM-4421). Instrument returned immediately."
+  hi: ""
+
+CTS_LOAD_TEST_AI_STUBS_MAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "load-test AI stubs may only run with ASTRA_ENV=development"
+  hi: ""
+
+CTS_DUPLICATE_INSTRUMENT_ID_IN_ENDORSEME:
+  severity: INFO
+  surface: [UI]
+  variables: [instrument_id]
+  en: "Duplicate instrument_id '{instrument_id}' in endorsement batch"
+  hi: ""
+
+CTS_ACCOUNT_SUFFIX_MUST_BE_4:
+  severity: INFO
+  surface: [UI]
+  variables: [len]
+  en: "account_suffix must be ≤ 4 characters (PII rule); got {len} chars"
+  hi: ""
+
+CTS_REAR_IMAGE_NOT_DECODABLE:
+  severity: INFO
+  surface: [UI]
+  variables: [exc]
+  en: "rear image not decodable: {exc}"
+  hi: ""
+
+CTS_RAW_ACCOUNT_NUMBER_DETECTED_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Raw account number detected in micr_fields — mask to last-4 before calling"
+  hi: ""
+
+CTS_TRAINED_ON_RULE_LABELLED_SYNTHETIC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "trained on rule-labelled synthetic data; plumbing proof only, not real fraud detection"
+  hi: ""
+
+CTS_MISSING_REQUIRED_COLUMNS:
+  severity: ERROR
+  surface: [UI]
+  variables: [missing]
+  en: "missing required columns: {missing}"
+  hi: ""
+
+CTS_COLUMNS_THAT_MAY_CARRY_CUSTOMER:
+  severity: ERROR
+  surface: [UI]
+  variables: [bad]
+  en: "columns that may carry customer-identifying data are not allowed: {bad}"
+  hi: ""
+
+CTS_LINE_TIMESTAMP_MUST_BE_A:
+  severity: INFO
+  surface: [UI]
+  variables: [n]
+  en: "line {n}: timestamp must be a number (epoch seconds)"
+  hi: ""
+
+CTS_ROWS_IS_BELOW_THE_MINIMUM:
+  severity: INFO
+  surface: [UI]
+  variables: [len, min_rows]
+  en: "{len} rows is below the minimum of {min_rows}"
+  hi: ""
+
+CTS_POSITIVE_FRAUD_EXAMPLES_IS_BELOW:
+  severity: INFO
+  surface: [UI]
+  variables: [int, min_positives]
+  en: "{int} positive (fraud) examples is below the minimum of {min_positives}"
+  hi: ""
+
+CTS_A_TRAIN_VALIDATION_TEST_SLICE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "a train/validation/test slice contains no positive examples; more data or a longer window is needed"
+  hi: ""
+
+CTS_SMB_ID_IS_REQUIRED_WHEN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "smb_id is required when bank_type is SMB"
+  hi: ""
+
+CTS_SMB_ID_MUST_BE_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "smb_id must be None when bank_type is SB"
+  hi: ""
+
+CTS_BANK_NOT_FOUND_IN_PLATFORM:
+  severity: ERROR
+  surface: [UI]
+  variables: [bank_id]
+  en: "bank {bank_id} not found in platform.banks"
+  hi: ""
+
+CTS_DEVSTUBNGCHADAPTER_MAY_ONLY_RUN_WITH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DevStubNGCHAdapter may only run with ASTRA_ENV=development"
+  hi: ""
+
+CTS_INVALID_DECISION_MUST_BE_ONE:
+  severity: ERROR
+  surface: [UI]
+  variables: [decision, VALID_DECISIONS]
+  en: "Invalid decision '{decision}'. Must be one of: {VALID_DECISIONS}"
+  hi: ""
+
+CTS_DUPLICATE_FILING_FOR_IDEMPOTENCY_KEY:
+  severity: INFO
+  surface: [UI]
+  variables: [instrument_id, workflow_id]
+  en: "duplicate filing for {instrument_id} (idempotency_key={workflow_id})"
+  hi: ""
+
+CTS_NGCHADAPTER_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NGCHAdapter.connect() has not been called. Call it during service startup before filing to NGCH."
+  hi: ""
+
+CTS_INVALID_DECISION_MUST_BE_ONE_2:
+  severity: ERROR
+  surface: [UI]
+  variables: [decision, VALID_DECISIONS]
+  en: "Invalid decision '{decision}'. Must be one of: {VALID_DECISIONS}. Only CONFIRM or RETURN are valid NGCH filing decisions."
+  hi: ""
+
+CTS_NGCH_REJECTED_DUPLICATE_FILING_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [instrument_id, workflow_id]
+  en: "NGCH rejected duplicate filing for instrument {instrument_id} (idempotency_key={workflow_id})"
+  hi: ""
+
+CTS_NGCH_FILE_DECISION_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "NGCH file_decision failed: {exc}"
+  hi: ""
+
+CTS_NGCH_QUERY_STATUS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "NGCH query_status failed: {exc}"
+  hi: ""
+
+CTS_FILE_A_CHEQUE_DECISION_CONFIRM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "File a cheque decision (CONFIRM or RETURN) to NGCH. Exactly-once: idempotency_key prevents duplicate submissions."
+  hi: ""
+
+CTS_UNIQUE_CHEQUE_INSTRUMENT_ID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unique cheque instrument ID"
+  hi: ""
+
+CTS_TEMPORAL_WORKFLOW_ID_IDEMPOTENCY_KEY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Temporal workflow ID (idempotency key)"
+  hi: ""
+
+CTS_QUERY_THE_CURRENT_NGCH_FILING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Query the current NGCH filing status for an instrument."
+  hi: ""
+
+CTS_MUST_BE_EXACTLY_BYTES_RSA:
+  severity: INFO
+  surface: [UI]
+  variables: [ds_field, DS_SIZE, len]
+  en: "{ds_field} must be exactly {DS_SIZE} bytes (RSA-SHA256 raw signature); got {len}"
+  hi: ""
+
+CTS_INSTRUMENTS_LIST_MUST_NOT_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "instruments list must not be empty — a CIBF must contain at least one instrument"
+  hi: ""
+
+CTS_CIBF_BINARY_IS_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CIBF binary is empty"
+  hi: ""
+
+CTS_ITEM_OFFSET_OUT_OF_RANGE:
+  severity: INFO
+  surface: [UI]
+  variables: [item_seq_no, label, ds_offset, img_offset, img_length, len]
+  en: "Item {item_seq_no} {label}: offset out of range (ds_offset={ds_offset}, img_offset={img_offset}, img_length={img_length}, cibf_size={len})"
+  hi: ""
+
+CTS_ITEM_DS_END_EXCEEDS_CIBF:
+  severity: INFO
+  surface: [UI]
+  variables: [item_seq_no, label, ds_end, len]
+  en: "Item {item_seq_no} {label}: DS end {ds_end} exceeds CIBF size {len}"
+  hi: ""
+
+CTS_MICRDS_SIGNATURE_MUST_BE_CHARS:
+  severity: INFO
+  surface: [UI]
+  variables: [MICRDS_SIG_LENGTH, len]
+  en: "micrds_signature must be {MICRDS_SIG_LENGTH} chars (Base64 RSA-SHA256), got {len}"
+  hi: ""
+
+CTS_CXF_ITEMS_LIST_MUST_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CXF items list must not be empty"
+  hi: ""
+
+CTS_MISSING_REQUIRED_ATTRIBUTE_ON:
+  severity: ERROR
+  surface: [UI]
+  variables: [name, tag]
+  en: "Missing required attribute '{name}' on <{tag}>"
+  hi: ""
+
+CTS_MISSING_REQUIRED_CHILD_ELEMENT_IN:
+  severity: ERROR
+  surface: [UI]
+  variables: [local, tag]
+  en: "Missing required child element <{local}> in <{tag}>"
+  hi: ""
+
+CTS_CXF_XML_BYTES_ARE_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CXF XML bytes are empty"
+  hi: ""
+
+CTS_INVALID_CXF_XML:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Invalid CXF XML: {exc}"
+  hi: ""
+
+CTS_CXF_XML_MISSING_FILESUMMARY:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "CXF XML missing <FileSummary>"
+  hi: ""
+
+CTS_CXF_XML_MISSING_BATCH:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "CXF XML missing <Batch>"
+  hi: ""
+
+CTS_ITEM_MISSING_IMAGEVIEWDETAIL_VIEWSID:
+  severity: WARN
+  surface: [UI]
+  variables: [item_seq_no, view]
+  en: "Item {item_seq_no}: missing <ImageViewDetail ViewSideIndicator='{view}'>"
+  hi: ""
+
+CTS_MISSING_REQUIRED_PXF_ELEMENT:
+  severity: ERROR
+  surface: [UI]
+  variables: [local_name]
+  en: "Missing required PXF element: <{local_name}>"
+  hi: ""
+
+CTS_PXF_XML_BYTES_ARE_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PXF XML bytes are empty"
+  hi: ""
+
+CTS_INVALID_PXF_XML:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Invalid PXF XML: {exc}"
+  hi: ""
+
+CTS_PXF_XML_MISSING_REQUIRED_BATCHGROUP:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "PXF XML missing required <BatchGroup> element"
+  hi: ""
+
+CTS_PXF_XML_MISSING_BATCHHEADER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "PXF XML missing <BatchHeader>"
+  hi: ""
+
+CTS_PXF_XML_MISSING_FILEHEADER:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "PXF XML missing <FileHeader>"
+  hi: ""
+
+CTS_UNKNOWN_CLEARINGTYPE_IN_PXF_EXPECTED:
+  severity: INFO
+  surface: [UI]
+  variables: [clearing_type_raw]
+  en: "Unknown ClearingType '{clearing_type_raw}' in PXF — expected '01' (normal) or '14' (On Realization)"
+  hi: ""
+
+CTS_ITEM_INVALID_AMOUNTPAISE:
+  severity: ERROR
+  surface: [UI]
+  variables: [item_seq_no, amount_paise_str]
+  en: "Item {item_seq_no}: invalid AmountPaise '{amount_paise_str}'"
+  hi: ""
+
+CTS_UNREACHABLE_TWO_DAYS_ALWAYS_CONTAIN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "unreachable: two days always contain a cut-off"
+  hi: ""
+
+CTS_UNKNOWN_CTS_FIELD_VALID_FIELDS:
+  severity: INFO
+  surface: [UI]
+  variables: [field, sorted]
+  en: "Unknown CTS field '{field}'. Valid fields: {sorted}"
+  hi: ""
+
+CTS_ACCOUNT_SUFFIX_MUST_BE_AT:
+  severity: INFO
+  surface: [UI]
+  variables: [len]
+  en: "account_suffix must be at most 4 characters (got {len}). Store only the last 4 digits — never the full account number."
+  hi: ""
+
+CTS_XHTML2PDF_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [err]
+  en: "xhtml2pdf error: {err}"
+  hi: ""
+
+CTS_DIRECTION_MUST_BE_ONE_OF:
+  severity: INFO
+  surface: [UI]
+  variables: [DIRECTIONS]
+  en: "direction must be one of {DIRECTIONS}"
+  hi: ""
+
+CTS_NO_RETURN_ITEMS_RRF_REQUIRES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No return items — RRF requires at least one return instrument"
+  hi: ""
+
+CTS_RETURNREASONCOMMENT_IS_MANDATORY_WHE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ReturnReasonComment is mandatory when ReturnReasonCode is 88 (Other Reason). Provide a non-empty description of the return reason."
+  hi: ""
+
+CTS_RETURNREASONCOMMENT_FOR_CODE_88_MUST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ReturnReasonComment for code 88 must not start with a digit or a space (CHI spec Rev 3.0)."
+  hi: ""
+
+CTS_SECURELINK_UNREACHABLE_AT:
+  severity: INFO
+  surface: [UI]
+  variables: [base_url, exc]
+  en: "SecureLink unreachable at {base_url}: {exc}"
+  hi: ""
+
+CTS_SECURELINK_RETURNED_HTTP:
+  severity: INFO
+  surface: [UI]
+  variables: [status_code, exc]
+  en: "SecureLink returned HTTP {status_code}: {exc}"
+  hi: ""
+
+CTS_SECURELINK_STATUS_CHECK_FAILED_AT:
+  severity: ERROR
+  surface: [UI]
+  variables: [base_url, exc]
+  en: "SecureLink status check failed at {base_url}: {exc}"
+  hi: ""
+
+CTS_CANON_RANGER_TRANSPORT_NOT_CONFIGURE:
+  severity: INFO
+  surface: [UI]
+  variables: [branch_id]
+  en: "Canon Ranger Transport not configured for branch '{branch_id}'. Set ranger_host and ranger_port."
+  hi: ""
+
+CTS_AT_IS_UNREACHABLE:
+  severity: INFO
+  surface: [UI]
+  variables: [scanner_model, securelink_url]
+  en: "{scanner_model} at {securelink_url} is unreachable"
+  hi: ""
+
+CTS_NO_SCANNER_CONFIG_FOUND_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [branch_id, bank_id, branch_id2]
+  en: "No scanner config found for branch '{branch_id}' or bank '{bank_id}' default. Set cts.scanner.branch.{branch_id2} in Admin UI."
+  hi: ""
+
+CTS_USD_OPENSCANNER_RETURNED_CHECK_SCANN:
+  severity: INFO
+  surface: [UI]
+  variables: [handle]
+  en: "USD_OpenScanner() returned {handle}. Check scanner power, USB connection, and usd.dll version."
+  hi: ""
+
+CTS_USD_SCANITEM_RETURNED_ERROR_CODE:
+  severity: ERROR
+  surface: [UI]
+  variables: [rc]
+  en: "USD_ScanItem() returned error code {rc}. Ensure a cheque is placed in the feed tray."
+  hi: ""
+
+CTS_USD_GETIMAGEDATA_IMAGE_TYPE_RETURNED:
+  severity: ERROR
+  surface: [UI]
+  variables: [image_type, rc]
+  en: "USD_GetImageData(image_type={image_type}) returned error {rc}"
+  hi: ""
+
+CTS_DIGITAL_CHECK_DCC_API_DLL:
+  severity: ERROR
+  surface: [UI]
+  variables: [searched]
+  en: "Digital Check DCC API DLL not found. Place usd.dll in the bin/ folder. Searched: {searched}. usd.dll ships with the Digital Check DCC API SDK — obtain from Digital Check support (digitalcheck.com) and copy to bin/usd.dll."
+  hi: ""
+
+CTS_PANINI_PANINI_CONNECT_RETURNED_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: [handle]
+  en: "Panini panini_connect() returned {handle}. Check scanner power, USB cable, and DLL version."
+  hi: ""
+
+CTS_PANINI_PANINI_START_SCAN_RETURNED:
+  severity: ERROR
+  surface: [UI]
+  variables: [rc]
+  en: "Panini panini_start_scan() returned error code {rc}. Ensure a cheque is placed in the feeder."
+  hi: ""
+
+CTS_PANINI_GET_IMAGE_SIDE_RETURNED:
+  severity: ERROR
+  surface: [UI]
+  variables: [side, rc]
+  en: "panini_get_image(side={side}) returned error {rc}"
+  hi: ""
+
+CTS_PANINI_SDK_DLL_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [searched]
+  en: "Panini SDK DLL not found. Place panini64.dll (64-bit) or panini.dll (32-bit) in the bin/ folder. Searched: {searched}. Download from Panini support portal and copy to bin/panini64.dll."
+  hi: ""
+
+CTS_CANNOT_CONNECT_TO_CANON_RANGER:
+  severity: ERROR
+  surface: [UI]
+  variables: [host, port, exc]
+  en: "Cannot connect to Canon Ranger daemon at {host}:{port}. Ensure the Ranger Transport service is running. Detail: {exc}"
+  hi: ""
+
+CTS_NOT_CONNECTED_CALL_CONNECT_FIRST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not connected — call connect() first"
+  hi: ""
+
+CTS_IMAGE_SIDE_MAPPING_MUST_INCLUDE:
+  severity: INFO
+  surface: [UI]
+  variables: [list]
+  en: "image_side_mapping must include both a front_bw (or color_front) and a front_gray (or grey_front) entry. Got: {list}"
+  hi: ""
+
+CTS_PIPE_SEPARATED_IMAGE_NAMING_PATTERN:
+  severity: INFO
+  surface: [UI]
+  variables: [len]
+  en: "Pipe-separated image_naming_pattern must have 3 or 4 parts, got {len}"
+  hi: ""
+
+CTS_DUPLICATE_SCAN_ID_ALREADY_ADDED:
+  severity: INFO
+  surface: [UI]
+  variables: [scan_id, session_id]
+  en: "duplicate scan_id '{scan_id}' — already added to session {session_id}"
+  hi: ""
+
+CTS_EMPTY_FILE_CONTENT_IS_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "empty: file content is empty"
+  hi: ""
+
+CTS_UNKNOWN_FILE_TYPE:
+  severity: INFO
+  surface: [UI]
+  variables: [file_type]
+  en: "unknown file_type: {file_type}"
+  hi: ""
+
+CTS_COLUMN_MISSING_REQUIRED_COLUMNS:
+  severity: ERROR
+  surface: [UI]
+  variables: [value]
+  en: "column: missing required columns: {value}"
+  hi: ""
+
+CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE:
+  severity: INFO
+  surface: [UI]
+  variables: [len]
+  en: "cheque_number_suffix must be ≤ 4 chars (PII rule): got {len}"
+  hi: ""
+
+CTS_INVALID_BUCKET_MUST_BE_ONE:
+  severity: ERROR
+  surface: [UI]
+  variables: [bucket, set]
+  en: "Invalid bucket '{bucket}'. Must be one of {set}"
+  hi: ""
+
+CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE_2:
+  severity: INFO
+  surface: [UI]
+  variables: [len]
+  en: "cheque_number_suffix must be ≤ 4 characters (PII rule): got {len} chars"
+  hi: ""
+
+CTS_ACCOUNTVAULT_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "AccountVault.connect() has not been called. Call it during service startup before querying the vault."
+  hi: ""
+
+CTS_CHEQUELEAFVAULT_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ChequeLeafVault.connect() has not been called. Call it during service startup before querying the vault."
+  hi: ""
+
+CTS_CHEQUE_IS_ALREADY_DUPLICATE_PRESENTM:
+  severity: INFO
+  surface: [UI]
+  variables: [cheque_number, prev_status]
+  en: "Cheque {cheque_number} is already {prev_status} — duplicate presentment detected."
+  hi: ""
+
+CTS_PPSVAULT_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPSVault.connect() has not been called. Call it during service startup before querying the vault."
+  hi: ""
+
+CTS_SIGNATUREVAULT_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SignatureVault.connect() has not been called. Call it during service startup before querying the vault."
+  hi: ""
+
+CTS_CSV_PARSE_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "CSV parse error: {exc}"
+  hi: ""
+
+CTS_CSV_MISSING_REQUIRED_COLUMNS_FOR:
+  severity: ERROR
+  surface: [UI]
+  variables: [vault_type, missing]
+  en: "CSV missing required columns for {vault_type}: {missing}"
+  hi: ""
+
+CTS_ACCOUNT_NOT_FOUND_IN_CTS:
+  severity: ERROR
+  surface: [UI]
+  variables: [raw_acct]
+  en: "Account ****{raw_acct} not found in cts.account_vault — upload ACCOUNT_DETAIL first"
+  hi: ""
+
+CTS_CIIF_AMOUNT_UNIT_MUST_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CIIF amount unit must be set to RUPEES or PAISE (cts.ciif_amount_unit); it is not guessed"
+  hi: ""
+
+CTS_CIIF_FILE_IS_NOT_VALID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CIIF file is not valid UTF-8"
+  hi: ""
+
+CTS_CIIF_TEST_FILE_TESTFILEINDICATOR_T:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CIIF test file (Testfileindicator T): nothing was loaded"
+  hi: ""
+
+CTS_CIIF_FILE_REJECTED:
+  severity: INFO
+  surface: [UI]
+  variables: [message]
+  en: "CIIF file rejected: {message}"
+  hi: ""
+
+CTS_SERIALNUMBER_REQUIRED_TO_KEY_THE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "SerialNumber: required to key the PPS vault by cheque number"
+  hi: ""
+
+CTS_SERIES_START_MUST_BE_SERIES:
+  severity: INFO
+  surface: [UI]
+  variables: [series_start, series_end]
+  en: "series_start ({series_start}) must be ≤ series_end ({series_end})"
+  hi: ""
+
+CTS_CHEQUELEAFVAULT_NOT_CONFIGURED_IN_PR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ChequeLeafVault not configured in processor"
+  hi: ""
+
+CTS_ACCOUNTVAULT_NOT_CONFIGURED_IN_PROCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "AccountVault not configured in processor"
+  hi: ""
+
+CTS_DB_POOL_NOT_CONFIGURED_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DB pool not configured in processor"
+  hi: ""
+
+CTS_PPSVAULT_NOT_CONFIGURED_IN_PROCESSOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPSVault not configured in processor"
+  hi: ""
+
+CTS_SIGNATUREVAULT_NOT_CONFIGURED_IN_PRO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SignatureVault not configured in processor"
+  hi: ""
+
+CTS_TEMPORALIO_PACKAGE_NOT_INSTALLED_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "temporalio package not installed. Run: pip install temporalio"
+  hi: ""
+
+CTS_ASTRA_CTS_TEMPORAL_WORKER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA CTS Temporal Worker"
+  hi: ""
+
+CTS_BUILD_NGCH_FILE_INSTRUMENTS_LIST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "build_ngch_file: instruments list is empty — CXF requires at least one instrument per submission."
+  hi: ""
+
+CTS_IET_BREACH_IN_5_MINUTES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET breach in 5 minutes. Release hold and decide immediately."
+  hi: ""
+
+CTS_NGCH_ADAPTER_NOT_CONFIGURED_FILING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NGCH adapter not configured — filing stays queued"
+  hi: ""
+
+CTS_CHEQUE_DATE_MISSING_FOR:
+  severity: WARN
+  surface: [UI]
+  variables: [instrument_id]
+  en: "cheque_date missing for {instrument_id}"
+  hi: ""
+
+CTS_AMOUNT_MISSING_FOR:
+  severity: WARN
+  surface: [UI]
+  variables: [instrument_id]
+  en: "amount missing for {instrument_id}"
+  hi: ""
+
+CTS_DATE_AMOUNT_MISSING_FOR:
+  severity: WARN
+  surface: [UI]
+  variables: [instrument_id]
+  en: "date/amount missing for {instrument_id}"
+  hi: ""
+
+CTS_NO_CRL_ENTRY:
+  severity: INFO
+  surface: [UI]
+  variables: [ins]
+  en: "NO_CRL_ENTRY:{ins}"
+  hi: ""
+
+CTS_SMB_PUSH_FILE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [file_path]
+  en: "SMB push file not found: {file_path}"
+  hi: ""
+
+MSV_EXPECTED_DIM_EMBEDDING_GOT:
+  severity: INFO
+  surface: [UI]
+  variables: [EMBEDDING_DIM, len]
+  en: "Expected {EMBEDDING_DIM}-dim embedding, got {len}"
+  hi: ""
+
+MSV_EMBEDDING_MODEL_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Embedding model unavailable: {exc}"
+  hi: ""
+
+MSV_SIGNATURE_DETECTOR_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Signature detector unavailable: {exc}"
+  hi: ""
+
+MSV_ASTRA_MSV_TEMPORAL_WORKER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA MSV Temporal Worker"
+  hi: ""
+
+PLATFORM_UNDECODABLE_SIGNATURE_IMAGE:
+  severity: INFO
+  surface: [UI]
+  variables: [exc]
+  en: "undecodable signature image: {exc}"
+  hi: ""
+
+PLATFORM_BOTH_L1_AND_L2_VLLM:
+  severity: ERROR
+  surface: [UI]
+  variables: [call_type, bank_id]
+  en: "Both L1 and L2 vLLM unavailable for {call_type} cascade (bank_id={bank_id})"
+  hi: ""
+
+PLATFORM_AUDITEVENT_IS_ALREADY_SIGNED_CANNOT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "AuditEvent is already signed — cannot sign twice"
+  hi: ""
+
+PLATFORM_HSM_SIGNING_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "HSM signing failed: {exc}"
+  hi: ""
+
+PLATFORM_IMMUDB_CONNECT_FAILED_AT:
+  severity: ERROR
+  surface: [UI]
+  variables: [host, port, exc]
+  en: "immudb connect failed at {host}:{port}: {exc}"
+  hi: ""
+
+PLATFORM_PAYLOAD_MUST_INCLUDE_BANK_ID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "payload must include 'bank_id' for audit isolation"
+  hi: ""
+
+PLATFORM_IMMUDB_WRITE_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "immudb write failed: {exc}"
+  hi: ""
+
+PLATFORM_IMMUDB_VERIFY_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "immudb verify failed: {exc}"
+  hi: ""
+
+PLATFORM_IMMUDBCLIENT_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ImmudbClient.connect() has not been called. Call it in the service startup before writing events."
+  hi: ""
+
+PLATFORM_EITHER_CONNECTOR_OR_CONNECTOR_FACTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "either connector or connector_factory must be provided"
+  hi: ""
+
+PLATFORM_INVALID_MFA_CODE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "invalid MFA code"
+  hi: ""
+
+PLATFORM_INVALID_ENROLMENT_CODE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "invalid enrolment code"
+  hi: ""
+
+PLATFORM_CANNOT_REFRESH_A_PRE_MFA:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "cannot refresh a pre-MFA session"
+  hi: ""
+
+PLATFORM_SESSION_IS_ALREADY_MFA_AUTHENTICATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "session is already MFA-authenticated"
+  hi: ""
+
+PLATFORM_UNKNOWN_ENTITY_TYPE_VALID:
+  severity: INFO
+  surface: [UI]
+  variables: [entity_type, sorted]
+  en: "unknown entity_type '{entity_type}'. Valid: {sorted}"
+  hi: ""
+
+PLATFORM_AUTH_CONFIG_MISSING_THE_AUTH:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "auth config missing the 'auth' block"
+  hi: ""
+
+PLATFORM_UNKNOWN_INTEGRATION_TYPE_FOR_ENTITY:
+  severity: INFO
+  surface: [UI]
+  variables: [integration_type, entity_type]
+  en: "Unknown integration_type '{integration_type}' for entity_type='{entity_type}'."
+  hi: ""
+
+PLATFORM_LDAPS_REQUIRED_USE_LDAPS_PORT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "LDAPS required — use ldaps:// (port 636). Plain ldap:// rejected."
+  hi: ""
+
+PLATFORM_USER_NOT_FOUND_IN_DIRECTORY:
+  severity: ERROR
+  surface: [UI]
+  variables: [username]
+  en: "user '{username}' not found in directory"
+  hi: ""
+
+PLATFORM_USER_AUTHENTICATED_BUT_HAS_NO:
+  severity: INFO
+  surface: [UI]
+  variables: [username]
+  en: "user '{username}' authenticated but has no ASTRA role mapping. Add their AD group to group_role_map."
+  hi: ""
+
+PLATFORM_ACCOUNT_LOCKED_DUE_TO_REPEATED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "account locked due to repeated failures"
+  hi: ""
+
+PLATFORM_ACCOUNT_INACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "account inactive"
+  hi: ""
+
+PLATFORM_SAML_ASSERTION_MISSING_NAMEID:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "SAML assertion missing NameID"
+  hi: ""
+
+PLATFORM_USER_AUTHENTICATED_VIA_SAML_BUT:
+  severity: INFO
+  surface: [UI]
+  variables: [username]
+  en: "user '{username}' authenticated via SAML but has no ASTRA role mapping. Add their IdP group to group_role_map."
+  hi: ""
+
+PLATFORM_SAML_AUTHENTICATION_IS_NOT_YET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SAML authentication is not yet configured for this deployment. Contact bank IT admin to complete IdP integration."
+  hi: ""
+
+PLATFORM_NO_PENDING_TOTP_SECRET_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id]
+  en: "no pending TOTP secret for user '{user_id}'"
+  hi: ""
+
+PLATFORM_USER_HAS_NO_TOTP_ENROLLED:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id]
+  en: "user '{user_id}' has no TOTP enrolled"
+  hi: ""
+
+PLATFORM_VAULTTOTPSECRETSTORE_REQUIRES_A_VAUL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "VaultTOTPSecretStore requires a Vault client — pass vault_client=config_service.get_vault_client() at construction time. Only shared/config/config_service.py may read VAULT_ADDR / VAULT_TOKEN. For dev/CI, use InMemoryTOTPSecretStore instead."
+  hi: ""
+
+PLATFORM_ROLE_DOES_NOT_HAVE_PERMISSION:
+  severity: ERROR
+  surface: [UI]
+  variables: [value, value2, user_id, bank_id, name, value3]
+  en: "Role '{value}' does not have permission '{value2}' (user_id={user_id}, bank_id={bank_id}). Required: {name} [{value3}]"
+  hi: ""
+
+PLATFORM_USER_BANK_ATTEMPTED_TO_ACCESS:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id, bank_id, requested_bank_id]
+  en: "User '{user_id}' (bank={bank_id}) attempted to access bank '{requested_bank_id}' — cross-bank access is forbidden."
+  hi: ""
+
+PLATFORM_SB_USER_BANK_CANNOT_ACCESS:
+  severity: ERROR
+  surface: [UI]
+  variables: [user_id, bank_id, target_bank_id]
+  en: "SB user '{user_id}' (bank={bank_id}) cannot access SB data for bank '{target_bank_id}'."
+  hi: ""
+
+PLATFORM_SMB_USER_BANK_TYPE_SMB:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id, bank_id]
+  en: "SMB user '{user_id}' (bank={bank_id}, type=SMB) attempted to access SB-level data — tenant boundary violation."
+  hi: ""
+
+PLATFORM_SMB_USER_BANK_ATTEMPTED_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id, bank_id, target_bank_id]
+  en: "SMB user '{user_id}' (bank={bank_id}) attempted to access SMB '{target_bank_id}' — cross-SMB access is forbidden."
+  hi: ""
+
+PLATFORM_USER_HAS_PERMISSION_LEVEL_BUT:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id, value, value2]
+  en: "User '{user_id}' has permission level '{value}' but operation requires '{value2}'."
+  hi: ""
+
+PLATFORM_OPS_REVIEWER_IS_SCOPED_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id, pu_ids, requested_pu]
+  en: "ops_reviewer '{user_id}' is scoped to processing units {pu_ids} but requested processing unit '{requested_pu}'."
+  hi: ""
+
+PLATFORM_RBI_EXAMINER_ENGAGEMENT_HAS_EXPIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: [user_id]
+  en: "RBI examiner '{user_id}' engagement has expired or was never provisioned. A new time-limited engagement token is required."
+  hi: ""
+
+PLATFORM_BRANCH_MANAGER_IS_SCOPED_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [user_id, branch_code, branch_code2]
+  en: "branch_manager '{user_id}' is scoped to branch '{branch_code}' but requested branch '{branch_code2}'."
+  hi: ""
+
+PLATFORM_SESSIONTOKENSERVICE_HAS_NO_PRIVATE_K:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "SessionTokenService has no private key — cannot issue"
+  hi: ""
+
+PLATFORM_SESSION_TOKEN_EXPIRED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "session token expired"
+  hi: ""
+
+PLATFORM_INVALID_SESSION_TOKEN:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "invalid session token: {exc}"
+  hi: ""
+
+PLATFORM_SESSION_TOKEN_MISSING_CLAIM:
+  severity: WARN
+  surface: [UI]
+  variables: [exc]
+  en: "session token missing claim: {exc}"
+  hi: ""
+
+PLATFORM_CSRF_TOKEN_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CSRF token mismatch"
+  hi: ""
+
+PLATFORM_BANCS_GET_ACCOUNT_INFO_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS get_account_info failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCS_GET_SIGNATURE_SPECIMENS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS get_signature_specimens failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCS_CHECK_STOP_PAYMENT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS check_stop_payment failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCS_GET_PPS_ENTRIES_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS get_pps_entries failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCS_GET_CHEQUE_STATUS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS get_cheque_status failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCS_GET_SIGNATORY_DATA_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS get_signatory_data failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCS_GET_BRANCH_CONTACTS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "BaNCS get_branch_contacts failed: {exc}"
+  hi: ""
+
+PLATFORM_BANCSCBSCONNECTOR_CONNECT_HAS_NOT_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "BaNCSCBSConnector.connect() has not been called. Call it in the service startup before querying CBS."
+  hi: ""
+
+PLATFORM_DEVSTUBCBSCONNECTOR_MAY_ONLY_RUN_WIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DevStubCBSConnector may only run with ASTRA_ENV=development"
+  hi: ""
+
+PLATFORM_FINACLE_GET_ACCOUNT_INFO_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle get_account_info failed: {exc}"
+  hi: ""
+
+PLATFORM_FINACLE_GET_SIGNATURE_SPECIMENS_FAIL:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle get_signature_specimens failed: {exc}"
+  hi: ""
+
+PLATFORM_FINACLE_CHECK_STOP_PAYMENT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle check_stop_payment failed: {exc}"
+  hi: ""
+
+PLATFORM_FINACLE_GET_PPS_ENTRIES_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle get_pps_entries failed: {exc}"
+  hi: ""
+
+PLATFORM_FINACLE_GET_CHEQUE_STATUS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle get_cheque_status failed: {exc}"
+  hi: ""
+
+PLATFORM_ACCOUNT_NOT_FOUND_IN_FINACLE:
+  severity: ERROR
+  surface: [UI]
+  variables: [account_number]
+  en: "Account {account_number} not found in Finacle"
+  hi: ""
+
+PLATFORM_FINACLE_GET_SIGNATORY_DATA_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle get_signatory_data failed: {exc}"
+  hi: ""
+
+PLATFORM_FINACLE_GET_BRANCH_CONTACTS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Finacle get_branch_contacts failed: {exc}"
+  hi: ""
+
+PLATFORM_FINACLECBSCONNECTOR_CONNECT_HAS_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FinacleCBSConnector.connect() has not been called. Call it in the service startup before querying CBS."
+  hi: ""
+
+PLATFORM_FLEXCUBE_SOAP_CALL_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "FlexCube SOAP call failed: {exc}"
+  hi: ""
+
+PLATFORM_FLEXCUBE_FAULT:
+  severity: INFO
+  surface: [UI]
+  variables: [code]
+  en: "FlexCube fault: {code}"
+  hi: ""
+
+PLATFORM_FLEXCUBE_GET_SIGNATORY_DATA_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "FlexCube get_signatory_data failed: {exc}"
+  hi: ""
+
+PLATFORM_FLEXCUBE_GET_BRANCH_CONTACTS_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "FlexCube get_branch_contacts failed: {exc}"
+  hi: ""
+
+PLATFORM_FLEXCUBECBSCONNECTOR_CONNECT_HAS_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FlexCubeCBSConnector.connect() has not been called. Call it in the service startup before querying CBS."
+  hi: ""
+
+PLATFORM_BANK_ID_ENV_VAR_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "BANK_ID env var not set — check Helm values"
+  hi: ""
+
+PLATFORM_UNKNOWN_ASTRA_SECRETS_BACKEND_VALID:
+  severity: INFO
+  surface: [UI]
+  variables: [backend_name, value]
+  en: "Unknown ASTRA_SECRETS_BACKEND='{backend_name}'. Valid values: {value}."
+  hi: ""
+
+PLATFORM_CONFIG_KEY_NOT_SET_LAYER:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value]
+  en: "Config key '{key_value}' not set. Layer 3 (Redis + DB) both unavailable and no built-in default exists. Add to _LAYER3_DEFAULTS or check infra/helm/values/_defaults.yaml."
+  hi: ""
+
+PLATFORM_CONFIG_KEY_NOT_FOUND_DB:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value]
+  en: "Config key '{key_value}' not found — DB pool unavailable."
+  hi: ""
+
+PLATFORM_CONFIG_KEY_NOT_FOUND_FOR:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value, bank_id]
+  en: "Config key '{key_value}' not found for bank '{bank_id}'. Check Admin UI or infra/helm/values/_defaults.yaml."
+  hi: ""
+
+PLATFORM_PLATFORM_CONFIG_ENV_VAR_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: [key_value, env_var, bank_id]
+  en: "Platform config '{key_value}' (env var {env_var}) not set. Check infra/helm/values/banks/{bank_id}.yaml"
+  hi: ""
+
+PLATFORM_OPA_UNREACHABLE_FOR_POLICY:
+  severity: INFO
+  surface: [UI]
+  variables: [policy, exc]
+  en: "OPA unreachable for policy '{policy}': {exc}"
+  hi: ""
+
+PLATFORM_GET_VAULT_CLIENT_IS_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: [name__]
+  en: "get_vault_client() is only available when ASTRA_SECRETS_BACKEND=vault is active. Current backend: {name__}"
+  hi: ""
+
+PLATFORM_CONFIG_SERVICE_INITIALISE_HAS_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "config_service.initialise() has not been awaited. Call it in the FastAPI lifespan or Temporal worker startup."
+  hi: ""
+
+PLATFORM_ASTRA_SECRETS_BACKEND_ENV_IS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "ASTRA_SECRETS_BACKEND=env is not allowed in ASTRA_ENV=production. Set ASTRA_ALLOW_ENV_SECRETS=true to override (bank IT admin sign-off required). For production, use ASTRA_SECRETS_BACKEND=vault or ASTRA_SECRETS_BACKEND=k8s_secrets."
+  hi: ""
+
+PLATFORM_SECRET_NOT_FOUND_SET_ENV:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value, env_var]
+  en: "Secret '{key_value}' not found. Set env var '{env_var}' in your .env file or docker-compose environment."
+  hi: ""
+
+PLATFORM_K8S_SECRET_MOUNT_PATH_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: [mount_path, mount_path2]
+  en: "K8s secret mount path not found: {mount_path}. Ensure the Kubernetes Secret volume is mounted in the Pod spec at this path (volumeMounts.mountPath: {mount_path2})."
+  hi: ""
+
+PLATFORM_SECRET_NOT_FOUND_AT_ENSURE:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value, file_path, key_value2, mount_path]
+  en: "Secret '{key_value}' not found at '{file_path}'. Ensure the Kubernetes Secret has key '{key_value2}' and is mounted at {mount_path}."
+  hi: ""
+
+PLATFORM_FAILED_TO_READ_SECRET_FROM:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value, file_path, exc]
+  en: "Failed to read secret '{key_value}' from '{file_path}': {exc}"
+  hi: ""
+
+PLATFORM_VAULT_ADDR_VAULT_TOKEN_NOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "VAULT_ADDR / VAULT_TOKEN not set — Vault agent sidecar not running. For local dev/CI use ASTRA_SECRETS_BACKEND=env; for K8s smallest-tier use ASTRA_SECRETS_BACKEND=k8s_secrets."
+  hi: ""
+
+PLATFORM_VAULT_AUTH_FAILED_AT:
+  severity: ERROR
+  surface: [UI]
+  variables: [vault_addr]
+  en: "Vault auth failed at {vault_addr}"
+  hi: ""
+
+PLATFORM_VAULT_FETCH_FAILED_FOR_KEY:
+  severity: ERROR
+  surface: [UI]
+  variables: [key_value, exc]
+  en: "Vault fetch failed for key '{key_value}': {exc}"
+  hi: ""
+
+PLATFORM_CANNOT_ENCODE_AS_DATE:
+  severity: ERROR
+  surface: [UI]
+  variables: [name__]
+  en: "cannot encode {name__} as DATE"
+  hi: ""
+
+PLATFORM_KAFKA_CONSUMER_CONNECT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Kafka consumer connect failed: {exc}"
+  hi: ""
+
+PLATFORM_CORRUPT_KAFKA_MESSAGE_AT_OFFSET:
+  severity: INFO
+  surface: [UI]
+  variables: [offset, exc]
+  en: "corrupt Kafka message at offset {offset}: {exc}"
+  hi: ""
+
+PLATFORM_UNKNOWN_SCHEMA_VERSION_FOR_EVENT:
+  severity: INFO
+  surface: [UI]
+  variables: [schema_version, event_type, supported_versions]
+  en: "Unknown schema_version '{schema_version}' for event '{event_type}'. Supported: {supported_versions}"
+  hi: ""
+
+PLATFORM_EVENTCONSUMER_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "EventConsumer.connect() has not been called. Call it in the service startup before running the consumer."
+  hi: ""
+
+PLATFORM_KAFKA_PRODUCER_CONNECT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Kafka producer connect failed: {exc}"
+  hi: ""
+
+PLATFORM_PUBLISH_FAILED_TO_TOPIC:
+  severity: ERROR
+  surface: [UI]
+  variables: [topic, exc]
+  en: "publish failed to topic '{topic}': {exc}"
+  hi: ""
+
+PLATFORM_MODULE_ISOLATION_VIOLATION_PRODUCER:
+  severity: INFO
+  surface: [UI]
+  variables: [module, topic, other]
+  en: "Module isolation violation: '{module}' producer attempted to publish to '{topic}' which belongs to module '{other}'. Cross-module Kafka publishing is forbidden."
+  hi: ""
+
+PLATFORM_EVENTPRODUCER_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "EventProducer.connect() has not been called. Call it in the service startup before publishing events."
+  hi: ""
+
+PLATFORM_DEVSTUBHSMSIGNER_MAY_ONLY_RUN_WITH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DevStubHSMSigner may only run with ASTRA_ENV=development"
+  hi: ""
+
+PLATFORM_VAULT_TRANSIT_SIGNING_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Vault Transit signing failed: {exc}"
+  hi: ""
+
+PLATFORM_FAILED_TO_DECODE_VAULT_TRANSIT:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Failed to decode Vault Transit signature: {exc}"
+  hi: ""
+
+PLATFORM_HVAC_IS_NOT_INSTALLED_PIP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "hvac is not installed — pip install hvac"
+  hi: ""
+
+PLATFORM_CAUGHT_ERRORS_CLASSIFIED_FOR_INCIDEN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Caught errors classified for incident routing, by message key"
+  hi: ""
+
+PLATFORM_LOCK_ALREADY_HELD_FOR_RESOURCE:
+  severity: INFO
+  surface: [UI]
+  variables: [resource_id]
+  en: "Lock already held for resource '{resource_id}' — likely duplicate request in-flight"
+  hi: ""
+
+PLATFORM_NOTIFICATIONS_FIRED_WITHIN_THE_DEBOU:
+  severity: INFO
+  surface: [UI]
+  variables: [count, event_category]
+  en: "{count} {event_category} notifications fired within the debounce window. Please review the ops workstation for details."
+  hi: ""
+
+PLATFORM_DELIVERY_FAILED_FOR_TEMPLATE:
+  severity: ERROR
+  surface: [UI]
+  variables: [channel, template_id, exc]
+  en: "{channel} delivery failed for template '{template_id}': {exc}"
+  hi: ""
+
+PLATFORM_UNSUPPORTED_CHANNEL:
+  severity: INFO
+  surface: [UI]
+  variables: [channel]
+  en: "Unsupported channel: {channel}"
+  hi: ""
+
+PLATFORM_POSTAL_SMTP_CONNECT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Postal SMTP connect failed: {exc}"
+  hi: ""
+
+PLATFORM_EMAIL_SEND_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "Email send failed: {exc}"
+  hi: ""
+
+PLATFORM_EMAILCHANNEL_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "EmailChannel.connect() has not been called. Call it in the service startup before sending emails."
+  hi: ""
+
+PLATFORM_WHATSAPP_SEND_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "WhatsApp send failed: {exc}"
+  hi: ""
+
+PLATFORM_WHATSAPPCHANNEL_CONNECT_HAS_NOT_BEEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "WhatsAppChannel.connect() has not been called. Call it in the service startup before sending messages."
+  hi: ""
+
+PLATFORM_UNKNOWN_CONNECTOR_TYPE_VALID_TYPES:
+  severity: INFO
+  surface: [UI]
+  variables: [connector_type, sorted]
+  en: "Unknown connector_type '{connector_type}'. Valid types: {sorted}"
+  hi: ""
+
+PLATFORM_INSTRUMENT_ID_IS_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "instrument_id is required"
+  hi: ""
+
+PLATFORM_PEPPER_MUST_NOT_BE_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "pepper must not be empty — fetch it from Vault via config_service"
+  hi: ""
+
+PLATFORM_ENCRYPTION_KEY_MUST_NOT_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "encryption key must not be empty — fetch from Vault via config_service"
+  hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+CTS_IET_BREACH_RISK_CHEQUES_WITHIN:
+  severity: INFO
+  surface: [UI]
+  variables: [near_breach_count]
+  en: "IET breach risk: {near_breach_count} cheques within 30s of deadline"
+  hi: ""
+
+CTS_BRANCH_SCANNER_S_OFFLINE_DURING:
+  severity: INFO
+  surface: [UI]
+  variables: [offline_count, branch_list]
+  en: "{offline_count} branch scanner(s) OFFLINE during clearing hours: {branch_list}"
+  hi: ""
+
+CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS:
+  severity: INFO
+  surface: [UI]
+  variables: [terminated, found]
+  en: "Auto-terminated {terminated}/{found} stuck CTS workflows (exceeded 4h limit)"
+  hi: ""
+
+CTS_IET_BREACH_RISK_CHEQUES_WITHIN_2:
+  severity: INFO
+  surface: [UI]
+  variables: [near_breach]
+  en: "IET breach risk: {near_breach} cheques within 30s of deadline"
+  hi: ""
+
+CTS_HUMAN_REVIEW_QUEUE_DEPTH_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: [hr_data, hr_data2]
+  en: "Human review queue: depth={hr_data}, reason={hr_data2}"
+  hi: ""
+
+CTS_BRANCH_SCANNER_S_OFFLINE_DURING_2:
+  severity: INFO
+  surface: [UI]
+  variables: [fleet_data, branch_list]
+  en: "{fleet_data} branch scanner(s) OFFLINE during clearing hours: {branch_list}"
+  hi: ""
+
+CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS_2:
+  severity: INFO
+  surface: [UI]
+  variables: [sweep_data, sweep_data2]
+  en: "Auto-terminated {sweep_data}/{sweep_data2} stuck CTS workflows (exceeded 4h limit)"
+  hi: ""

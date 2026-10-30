@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Optional
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -56,10 +57,7 @@ class VaultTOTPSecretStore:
     def _ensure_client(self):
         if self._vault is None:
             raise RuntimeError(
-                "VaultTOTPSecretStore requires a Vault client — "
-                "pass vault_client=config_service.get_vault_client() at construction time. "
-                "Only shared/config/config_service.py may read VAULT_ADDR / VAULT_TOKEN. "
-                "For dev/CI, use InMemoryTOTPSecretStore instead."
+                get_message("PLATFORM_VAULTTOTPSECRETSTORE_REQUIRES_A_VAUL")
             )
         return self._vault
 

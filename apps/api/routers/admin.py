@@ -40,53 +40,53 @@ router_v1 = APIRouter(prefix="/v1/admin", tags=["Admin v1"])
 # The list_thresholds route returns these with current_value from config_service.
 
 _LAYER3_SCHEMA = [
-    {'config_key': 'stp_mode', 'layer': 'LAYER_3', 'default': 'FULL_MANUAL', 'value_type': 'string', 'description': 'STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP', 'allowed': ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP']},
-    {'config_key': 'stp_auto_confirm_threshold', 'layer': 'LAYER_3', 'default': '0.92', 'value_type': 'float', 'description': 'Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)'},
-    {'config_key': 'human_review_fraud_threshold', 'layer': 'LAYER_3', 'default': '0.72', 'value_type': 'float', 'description': 'Fraud score above this routes to human review'},
-    {'config_key': 'queue_tier_high_value_threshold', 'layer': 'LAYER_3', 'default': '100000', 'value_type': 'float', 'description': 'Cheques above this go to high_value Kafka topic and task queue'},
-    {'config_key': 'queue_tier_very_high_threshold', 'layer': 'LAYER_3', 'default': '1000000', 'value_type': 'float', 'description': 'Cheques above this go to very_high Kafka topic and task queue'},
-    {'config_key': 'allocation_mode', 'layer': 'LAYER_3', 'default': 'SELF', 'value_type': 'string', 'description': 'Reviewer allocation: SELF | HYBRID | AUTO', 'allowed': ['SELF', 'HYBRID', 'AUTO']},
-    {'config_key': 'allocation_lock_ttl_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Redis lock TTL for reviewer-claimed instruments (minutes)'},
-    {'config_key': 'allocation_strategy', 'layer': 'LAYER_3', 'default': 'LEAST_LOADED', 'value_type': 'string', 'description': 'Who an auto-assigned item goes to: LEAST_LOADED | RANDOM', 'allowed': ['LEAST_LOADED', 'RANDOM']},
-    {'config_key': 'allocation_max_per_reviewer', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Auto-assign cap per reviewer (0 = no cap). Items near their IET ignore the cap'},
-    {'config_key': 'allocation_urgent_margin_minutes', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': 'Items this close to their IET jump the queue and ignore the cap (minutes)'},
-    {'config_key': 'allocation_rebalance_enabled', 'layer': 'LAYER_3', 'default': 'true', 'value_type': 'bool', 'description': 'Spread unopened auto-assigned work across reviewers as more log in'},
-    {'config_key': 'allocation_rebalance_interval_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': 'At most one rebalance per bank per interval (a new login bypasses it)'},
-    {'config_key': 'allocation_rebalance_max_moves', 'layer': 'LAYER_3', 'default': '20', 'value_type': 'int', 'description': 'Cap on items moved in one rebalance'},
-    {'config_key': 'allocation_retry_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': 'Retry delay when no eligible reviewer is available (seconds)'},
-    {'config_key': 'hybrid_auto_assign_timeout_minutes', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': 'HYBRID mode: auto-assign an unclaimed item after this many minutes'},
-    {'config_key': 'bucket_routing_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': 'ON: reviewers work only the buckets an admin connected them to (plus Miscellaneous)'},
-    {'config_key': 'bucket_priority', 'layer': 'LAYER_3', 'default': '["HVC", "CA", "IP", "FCC", "LVC"]', 'value_type': 'json', 'description': 'Which class bucket wins when a cheque fits several (JSON list of HVC, CA, IP, FCC, LVC)'},
-    {'config_key': 'bucket_hvc_min_amount', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'int', 'description': 'HVC: presented amount at or above this (rupees)'},
-    {'config_key': 'bucket_lvc_max_amount', 'layer': 'LAYER_3', 'default': '50000', 'value_type': 'int', 'description': 'LVC: presented amount below this (rupees)'},
-    {'config_key': 'bucket_frequent_min_cheques', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': 'FCC: at least this many cheques on the account in the window below'},
-    {'config_key': 'bucket_frequent_window_days', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': 'FCC window (days)'},
-    {'config_key': 'bucket_corporate_account_types', 'layer': 'LAYER_3', 'default': '["CORPORATE"]', 'value_type': 'json', 'description': "CA: CBS account types that count as corporate (JSON list); the bank's CA account list also applies"},
-    {'config_key': 'bucket_institution_account_types', 'layer': 'LAYER_3', 'default': '["INSTITUTION", "GOVERNMENT"]', 'value_type': 'json', 'description': "IP: CBS account types that count as institution (JSON list); the bank's IP account list also applies"},
-    {'config_key': 'bucket_overflow_after_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'An item nobody logged in can take moves to Miscellaneous after this many minutes'},
-    {'config_key': 'sip_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': 'SIP hold, bank-wide: the system decision is filed if no reviewer acts within this time'},
-    {'config_key': 'sip_iet_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Never hold a system decision within this many minutes of its IET'},
-    {'config_key': 'outward_session_cutoffs', 'layer': 'LAYER_3', 'default': '["14:30"]', 'value_type': 'json', 'description': 'Outward clearing session cut-off times, local HH:MM (JSON list). Drives urgency and filing of staged decisions'},
-    {'config_key': 'outward_high_value_ranges', 'layer': 'LAYER_3', 'default': '["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"]', 'value_type': 'json', 'description': 'Outward items in these masked amount ranges go to the OUT_HV bucket (JSON list)'},
-    {'config_key': 'outward_bucket_priority', 'layer': 'LAYER_3', 'default': '["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"]', 'value_type': 'json', 'description': 'Which outward bucket wins when an item fits several (JSON list of OUT_HV, OUT_MISMATCH, OUT_COMPLIANCE, OUT_REVIEW)'},
-    {'config_key': 'outward_maker_scope', 'layer': 'LAYER_3', 'default': 'CENTRAL', 'value_type': 'string', 'description': 'Who makes outward decisions: CENTRAL (central staff) | BRANCH (staff of the item branch) | BRANCH_FIRST (branch first, central after the wait below)', 'allowed': ['CENTRAL', 'BRANCH', 'BRANCH_FIRST']},
-    {'config_key': 'outward_branch_first_fallback_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'BRANCH_FIRST: central staff may take an outward item after it has waited this long'},
-    {'config_key': 'outward_checker_scope', 'layer': 'LAYER_3', 'default': 'ANY', 'value_type': 'string', 'description': 'Who checks outward decisions: ANY reviewer other than the maker, or CENTRAL staff only', 'allowed': ['ANY', 'CENTRAL']},
-    {'config_key': 'outward_session_timezone', 'layer': 'LAYER_3', 'default': 'Asia/Kolkata', 'value_type': 'string', 'description': 'Time zone the cut-off times are in (IANA name)'},
-    {'config_key': 'custody_branch_hold_days', 'layer': 'LAYER_3', 'default': '7', 'value_type': 'int', 'description': 'An original kept at its branch longer than this many days is flagged overdue for handover to central storage'},
-    {'config_key': 'custody_retention_years', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'Years central storage keeps an original before it may be disposed of (confirm the period with the bank)'},
-    {'config_key': 'outward_cutoff_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': 'A staged outward decision no checker has taken is filed this many minutes before the cut-off'},
-    {'config_key': 'maker_checker_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': "ON: a reviewer's decision goes to a second person (the checker) before it is filed"},
-    {'config_key': 'checker_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': "Maker-checker: if no checker acts in this time the maker's decision is filed (never past the IET guard)"},
-    {'config_key': 'iet_minutes', 'layer': 'LAYER_3', 'default': '180', 'value_type': 'int', 'description': 'IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless.'},
-    {'config_key': 'ocr_min_confidence', 'layer': 'LAYER_3', 'default': '0.90', 'value_type': 'float', 'description': 'GOT-OCR2.0 confidence below this → human review'},
-    {'config_key': 'signature_min_match_score', 'layer': 'LAYER_3', 'default': '0.85', 'value_type': 'float', 'description': 'Siamese network score below this → human review'},
-    {'config_key': 'high_value_amount_threshold', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'float', 'description': 'Dual-approval threshold for high-value cheques (₹)'},
-    {'config_key': 'vault_miss_action', 'layer': 'LAYER_1', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'LOCKED — vault miss always routes to human review (Layer 1 constraint)'},
-    {'config_key': 'outward_frozen_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold).', 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
-    {'config_key': 'outward_dormant_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN.', 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
-    {'config_key': 'outward_npa_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': 'Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN.', 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
-    {'config_key': 'rear_image_required', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'string', 'description': 'Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false: blank reverse is standard practice.', 'allowed': ['true', 'false']},
+    {'config_key': 'stp_mode', 'layer': 'LAYER_3', 'default': 'FULL_MANUAL', 'value_type': 'string', 'description': get_message("API_STP_MODE_FULL_MANUAL_SUPERVISED"), 'allowed': ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP']},
+    {'config_key': 'stp_auto_confirm_threshold', 'layer': 'LAYER_3', 'default': '0.92', 'value_type': 'float', 'description': get_message("API_FRAUD_SCORE_BELOW_THIS_AUTO")},
+    {'config_key': 'human_review_fraud_threshold', 'layer': 'LAYER_3', 'default': '0.72', 'value_type': 'float', 'description': get_message("API_FRAUD_SCORE_ABOVE_THIS_ROUTES")},
+    {'config_key': 'queue_tier_high_value_threshold', 'layer': 'LAYER_3', 'default': '100000', 'value_type': 'float', 'description': get_message("API_CHEQUES_ABOVE_THIS_GO_TO")},
+    {'config_key': 'queue_tier_very_high_threshold', 'layer': 'LAYER_3', 'default': '1000000', 'value_type': 'float', 'description': get_message("API_CHEQUES_ABOVE_THIS_GO_TO_2")},
+    {'config_key': 'allocation_mode', 'layer': 'LAYER_3', 'default': 'SELF', 'value_type': 'string', 'description': get_message("API_REVIEWER_ALLOCATION_SELF_HYBRID_AUTO"), 'allowed': ['SELF', 'HYBRID', 'AUTO']},
+    {'config_key': 'allocation_lock_ttl_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_REDIS_LOCK_TTL_FOR_REVIEWER")},
+    {'config_key': 'allocation_strategy', 'layer': 'LAYER_3', 'default': 'LEAST_LOADED', 'value_type': 'string', 'description': get_message("API_WHO_AN_AUTO_ASSIGNED_ITEM"), 'allowed': ['LEAST_LOADED', 'RANDOM']},
+    {'config_key': 'allocation_max_per_reviewer', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_AUTO_ASSIGN_CAP_PER_REVIEWER")},
+    {'config_key': 'allocation_urgent_margin_minutes', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': get_message("API_ITEMS_THIS_CLOSE_TO_THEIR")},
+    {'config_key': 'allocation_rebalance_enabled', 'layer': 'LAYER_3', 'default': 'true', 'value_type': 'bool', 'description': get_message("API_SPREAD_UNOPENED_AUTO_ASSIGNED_WORK")},
+    {'config_key': 'allocation_rebalance_interval_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': get_message("API_AT_MOST_ONE_REBALANCE_PER")},
+    {'config_key': 'allocation_rebalance_max_moves', 'layer': 'LAYER_3', 'default': '20', 'value_type': 'int', 'description': get_message("API_CAP_ON_ITEMS_MOVED_IN")},
+    {'config_key': 'allocation_retry_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': get_message("API_RETRY_DELAY_WHEN_NO_ELIGIBLE")},
+    {'config_key': 'hybrid_auto_assign_timeout_minutes', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': get_message("API_HYBRID_MODE_AUTO_ASSIGN_AN")},
+    {'config_key': 'bucket_routing_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': get_message("API_ON_REVIEWERS_WORK_ONLY_THE")},
+    {'config_key': 'bucket_priority', 'layer': 'LAYER_3', 'default': '["HVC", "CA", "IP", "FCC", "LVC"]', 'value_type': 'json', 'description': get_message("API_WHICH_CLASS_BUCKET_WINS_WHEN")},
+    {'config_key': 'bucket_hvc_min_amount', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'int', 'description': get_message("API_HVC_PRESENTED_AMOUNT_AT_OR")},
+    {'config_key': 'bucket_lvc_max_amount', 'layer': 'LAYER_3', 'default': '50000', 'value_type': 'int', 'description': get_message("API_LVC_PRESENTED_AMOUNT_BELOW_THIS")},
+    {'config_key': 'bucket_frequent_min_cheques', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': get_message("API_FCC_AT_LEAST_THIS_MANY")},
+    {'config_key': 'bucket_frequent_window_days', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': get_message("API_FCC_WINDOW_DAYS")},
+    {'config_key': 'bucket_corporate_account_types', 'layer': 'LAYER_3', 'default': '["CORPORATE"]', 'value_type': 'json', 'description': get_message("API_CA_CBS_ACCOUNT_TYPES_THAT")},
+    {'config_key': 'bucket_institution_account_types', 'layer': 'LAYER_3', 'default': '["INSTITUTION", "GOVERNMENT"]', 'value_type': 'json', 'description': get_message("API_IP_CBS_ACCOUNT_TYPES_THAT")},
+    {'config_key': 'bucket_overflow_after_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_AN_ITEM_NOBODY_LOGGED_IN")},
+    {'config_key': 'sip_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': get_message("API_SIP_HOLD_BANK_WIDE_THE")},
+    {'config_key': 'sip_iet_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_NEVER_HOLD_A_SYSTEM_DECISION")},
+    {'config_key': 'outward_session_cutoffs', 'layer': 'LAYER_3', 'default': '["14:30"]', 'value_type': 'json', 'description': get_message("API_OUTWARD_CLEARING_SESSION_CUT_OFF")},
+    {'config_key': 'outward_high_value_ranges', 'layer': 'LAYER_3', 'default': '["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"]', 'value_type': 'json', 'description': get_message("API_OUTWARD_ITEMS_IN_THESE_MASKED")},
+    {'config_key': 'outward_bucket_priority', 'layer': 'LAYER_3', 'default': '["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"]', 'value_type': 'json', 'description': get_message("API_WHICH_OUTWARD_BUCKET_WINS_WHEN")},
+    {'config_key': 'outward_maker_scope', 'layer': 'LAYER_3', 'default': 'CENTRAL', 'value_type': 'string', 'description': get_message("API_WHO_MAKES_OUTWARD_DECISIONS_CENTRAL"), 'allowed': ['CENTRAL', 'BRANCH', 'BRANCH_FIRST']},
+    {'config_key': 'outward_branch_first_fallback_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_BRANCH_FIRST_CENTRAL_STAFF_MAY")},
+    {'config_key': 'outward_checker_scope', 'layer': 'LAYER_3', 'default': 'ANY', 'value_type': 'string', 'description': get_message("API_WHO_CHECKS_OUTWARD_DECISIONS_ANY"), 'allowed': ['ANY', 'CENTRAL']},
+    {'config_key': 'outward_session_timezone', 'layer': 'LAYER_3', 'default': 'Asia/Kolkata', 'value_type': 'string', 'description': get_message("API_TIME_ZONE_THE_CUT_OFF")},
+    {'config_key': 'custody_branch_hold_days', 'layer': 'LAYER_3', 'default': '7', 'value_type': 'int', 'description': get_message("API_AN_ORIGINAL_KEPT_AT_ITS")},
+    {'config_key': 'custody_retention_years', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_YEARS_CENTRAL_STORAGE_KEEPS_AN")},
+    {'config_key': 'outward_cutoff_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_A_STAGED_OUTWARD_DECISION_NO")},
+    {'config_key': 'maker_checker_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': get_message("API_ON_A_REVIEWER_S_DECISION")},
+    {'config_key': 'checker_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': get_message("API_MAKER_CHECKER_IF_NO_CHECKER")},
+    {'config_key': 'iet_minutes', 'layer': 'LAYER_3', 'default': '180', 'value_type': 'int', 'description': get_message("API_IET_WINDOW_IN_MINUTES_RBI")},
+    {'config_key': 'ocr_min_confidence', 'layer': 'LAYER_3', 'default': '0.90', 'value_type': 'float', 'description': get_message("API_GOT_OCR2_0_CONFIDENCE_BELOW")},
+    {'config_key': 'signature_min_match_score', 'layer': 'LAYER_3', 'default': '0.85', 'value_type': 'float', 'description': get_message("API_SIAMESE_NETWORK_SCORE_BELOW_THIS")},
+    {'config_key': 'high_value_amount_threshold', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'float', 'description': get_message("API_DUAL_APPROVAL_THRESHOLD_FOR_HIGH")},
+    {'config_key': 'vault_miss_action', 'layer': 'LAYER_1', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_LOCKED_VAULT_MISS_ALWAYS_ROUTES")},
+    {'config_key': 'outward_frozen_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_FROZEN_ON_OUTWARD"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'outward_dormant_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_DORMANT_NO_TXNS"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'outward_npa_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_NPA_ON_OUTWARD"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'rear_image_required', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'string', 'description': get_message("API_REQUIRE_REAR_BACK_CHEQUE_IMAGE"), 'allowed': ['true', 'false']},
 ]
 
 _SCHEMA_BY_KEY = {e["config_key"]: e for e in _LAYER3_SCHEMA}
@@ -163,7 +163,7 @@ def require_admin_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot access admin routes",
+            detail=get_message("API_ROLE_CANNOT_ACCESS_ADMIN_ROUTES", user=user.get('role')),
         )
     return user
 
@@ -172,7 +172,7 @@ def require_checker_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _CHECKER_ONLY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot perform checker actions",
+            detail=get_message("API_ROLE_CANNOT_PERFORM_CHECKER_ACTIONS", user=user.get('role')),
         )
     return user
 
@@ -181,7 +181,7 @@ def require_maker_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _MAKER_ONLY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot submit threshold changes",
+            detail=get_message("API_ROLE_CANNOT_SUBMIT_THRESHOLD_CHANGES", user=user.get('role')),
         )
     return user
 
@@ -465,10 +465,10 @@ async def submit_threshold_change(
     _editable_keys = {s["config_key"] for s in _LAYER3_SCHEMA if s["layer"] == "LAYER_3"}
     if body.config_key not in _known_keys:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Unknown config_key: {body.config_key}")
+                            detail=get_message("API_UNKNOWN_CONFIG_KEY", config_key=body.config_key))
     if body.config_key not in _editable_keys:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail=f"{body.config_key} is a Layer 1 platform constraint and cannot be changed")
+                            detail=get_message("API_IS_A_LAYER_1_PLATFORM", config_key=body.config_key))
 
     _validate_config_value(_SCHEMA_BY_KEY[body.config_key], body.new_value)
 
@@ -1128,7 +1128,7 @@ async def assign_user_role(
         except Exception:
             log.warning("admin.assign_role.db_error", bank_id=bank_id, user_id=user_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_USER_NOT_FOUND"))
 
 
 async def _probe_service(name: str, probe_fn: Any) -> ServiceHealthEntry:

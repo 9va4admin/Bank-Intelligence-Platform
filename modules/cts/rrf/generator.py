@@ -14,6 +14,7 @@ from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
 from .models import RRFDocument
+from shared.messages import get_message
 
 _RRF_NS = "urn:schemas-ncr-com:ECPIX:RRF:FileStructure:010004"
 _FORBIDDEN_CODES = {"99"}   # CCH-only code — drawee bank must never send this
@@ -28,7 +29,7 @@ class RRFGenerator:
     @staticmethod
     def to_xml(doc: RRFDocument, allow_empty: bool = True) -> str:
         if not allow_empty and not doc.returns:
-            raise ValueError('No return items — RRF requires at least one return instrument')
+            raise ValueError(get_message("CTS_NO_RETURN_ITEMS_RRF_REQUIRES"))
 
         # Defense-in-depth: reject code 99 even if it somehow bypassed enum validation
         for item in doc.returns:

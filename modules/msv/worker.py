@@ -32,6 +32,7 @@ except ImportError:
 
 from modules.msv.workflows.msv_workflow import MSVValidationWorkflow
 from modules.msv.worker_activities import build_bound_activities
+from shared.messages import get_message
 
 ALL_WORKFLOWS = [MSVValidationWorkflow]
 
@@ -39,7 +40,7 @@ ALL_WORKFLOWS = [MSVValidationWorkflow]
 async def run_worker(bank_id: str, config_service: Optional[ConfigService] = None) -> None:
     if not _TEMPORAL_AVAILABLE:
         log.error("msv_worker.temporal_not_installed", bank_id=bank_id)
-        raise RuntimeError("temporalio package not installed. Run: pip install temporalio")
+        raise RuntimeError(get_message("CTS_TEMPORALIO_PACKAGE_NOT_INSTALLED_RUN"))
 
     if config_service is None:
         config_service = ConfigService()
@@ -115,7 +116,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
 
 def main() -> None:
     import argparse
-    parser = argparse.ArgumentParser(description="ASTRA MSV Temporal Worker")
+    parser = argparse.ArgumentParser(description=get_message("MSV_ASTRA_MSV_TEMPORAL_WORKER"))
     parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
     args = parser.parse_args()
     asyncio.run(run_worker(bank_id=args.bank_id))

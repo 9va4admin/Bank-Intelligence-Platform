@@ -39,6 +39,7 @@ from shared.utils.pii_crypto import hash_account_number
 # ── Bundle status ──────────────────────────────────────────────────────────────
 
 from enum import Enum
+from shared.messages import get_message
 
 class BundleStatus(str, Enum):
     COMPLETE         = "COMPLETE"         # UV + front_bw + front_gray + rear_bw all present
@@ -357,16 +358,14 @@ class ScannerDropFolderMapper:
 
         if front_bw_canon is None or front_gray_canon is None:
             raise ScannerMappingError(
-                "image_side_mapping must include both a front_bw (or color_front) "
-                "and a front_gray (or grey_front) entry. "
-                f"Got: {list(side_map.values())}"
+                get_message("CTS_IMAGE_SIDE_MAPPING_MUST_INCLUDE", list=list(side_map.values()))
             )
 
         if "|" in pattern:
             parts = pattern.split("|")
             if len(parts) not in (3, 4):
                 raise ScannerMappingError(
-                    f"Pipe-separated image_naming_pattern must have 3 or 4 parts, got {len(parts)}"
+                    get_message("CTS_PIPE_SEPARATED_IMAGE_NAMING_PATTERN", len=len(parts))
                 )
             color_path = self._drop / parts[0].format(seq=seq, batch_id=batch_id)
             grey_path  = self._drop / parts[1].format(seq=seq, batch_id=batch_id)

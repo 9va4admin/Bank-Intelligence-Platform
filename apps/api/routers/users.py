@@ -81,7 +81,7 @@ async def get_admin_user(
 
 def require_it_admin(user: dict = Depends(get_admin_user)) -> dict:
     if user["role"] != "bank_it_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_REQUIRED"))
     return user
 
 
@@ -489,15 +489,15 @@ async def create_user(
     admin: dict = Depends(require_it_admin),
 ) -> UserResponse:
     if body.bank_type not in _VALID_BANK_TYPES:
-        raise HTTPException(status_code=422, detail="Invalid bank_type. Must be SB or SMB.")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_BANK_TYPE_MUST_BE"))
     if body.permission_level not in _VALID_PERMISSION_LEVELS:
-        raise HTTPException(status_code=422, detail="Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_PERMISSION_LEVEL_MUST_BE"))
     if body.role not in _VALID_ROLES:
-        raise HTTPException(status_code=422, detail=f"Invalid role. Must be one of: {sorted(_VALID_ROLES)}")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_ROLE_MUST_BE_ONE", sorted=sorted(_VALID_ROLES)))
     if body.bank_type == "SB" and body.role in _SMB_ROLES:
-        raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users (bank_type=SMB).")
+        raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR", role=body.role))
     if body.bank_type == "SMB" and body.role in _SB_ROLES:
-        raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users (bank_type=SB).")
+        raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR_2", role=body.role))
     pool = getattr(request.app.state, "db_pool_cts", None)
     if not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
         raise HTTPException(status_code=422, detail=get_message("PLATFORM_PU_UNKNOWN_OR_ALL"))
@@ -507,7 +507,7 @@ async def create_user(
 
     if pool is not None:
         if await _db_email_exists(pool, admin["bank_id"], body.email):
-            raise HTTPException(status_code=409, detail="User with this email already exists")
+            raise HTTPException(status_code=409, detail=get_message("API_USER_WITH_THIS_EMAIL_ALREADY"))
         new_user = {
             "user_id": user_id,
             "email": body.email,
@@ -528,7 +528,7 @@ async def create_user(
         await _db_create_user(pool, new_user)
     else:
         if any(u["email"] == body.email for u in _MOCK_USERS.values()):
-            raise HTTPException(status_code=409, detail="User with this email already exists")
+            raise HTTPException(status_code=409, detail=get_message("API_USER_WITH_THIS_EMAIL_ALREADY"))
         new_user = {
             "user_id": user_id,
             "email": body.email,
@@ -565,7 +565,7 @@ async def get_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     return _to_response(u)
 
 
@@ -580,10 +580,10 @@ async def update_user(
 
     # Validate before any write
     if body.permission_level is not None and body.permission_level not in _VALID_PERMISSION_LEVELS:
-        raise HTTPException(status_code=422, detail="Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_PERMISSION_LEVEL_MUST_BE"))
     if body.role is not None:
         if body.role not in _VALID_ROLES:
-            raise HTTPException(status_code=422, detail="Invalid role")
+            raise HTTPException(status_code=422, detail=get_message("API_INVALID_ROLE"))
         # Need existing bank_type to validate role↔bank_type compatibility
         if pool is not None:
             existing = await _db_fetch_user(pool, user_id, admin["bank_id"])
@@ -591,11 +591,11 @@ async def update_user(
             raw = _MOCK_USERS.get(user_id)
             existing = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
         if existing is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
         if existing["bank_type"] == "SB" and body.role in _SMB_ROLES:
-            raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users.")
+            raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR_3", role=body.role))
         if existing["bank_type"] == "SMB" and body.role in _SB_ROLES:
-            raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users.")
+            raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR_4", role=body.role))
     if body.pu_id is not None and not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
         raise HTTPException(status_code=422, detail=get_message("PLATFORM_PU_UNKNOWN"))
 
@@ -614,7 +614,7 @@ async def update_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
         if u is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
         if body.permission_level is not None:
             u["permission_level"] = body.permission_level
         if body.role is not None:
@@ -629,7 +629,7 @@ async def update_user(
             u["display_name"] = body.display_name
 
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     log.info("user.updated", user_id=user_id, bank_id=admin["bank_id"])
     return _to_response(u)
 
@@ -647,9 +647,9 @@ async def deactivate_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     if user_id == admin["user_id"]:
-        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        raise HTTPException(status_code=400, detail=get_message("API_CANNOT_DEACTIVATE_YOUR_OWN_ACCOUNT"))
     if pool is not None:
         await _db_deactivate_user(pool, user_id, admin["bank_id"])
     else:
@@ -674,7 +674,7 @@ async def totp_setup(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     secret = _generate_totp_secret()
     _TOTP_SECRETS[user_id] = secret
     email_encoded = u["email"].replace("@", "%40")
@@ -706,18 +706,18 @@ async def totp_confirm(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     secret = _TOTP_SECRETS.get(user_id)
     if not secret:
-        raise HTTPException(status_code=400, detail="TOTP setup not initiated. Call /totp/setup first.")
+        raise HTTPException(status_code=400, detail=get_message("API_TOTP_SETUP_NOT_INITIATED_CALL"))
     if not _verify_totp(secret, body.totp_code):
-        return TOTPVerifyResponse(valid=False, message="Invalid code. Please try again.")
+        return TOTPVerifyResponse(valid=False, message=get_message("API_INVALID_CODE_PLEASE_TRY_AGAIN"))
     if pool is not None:
         await _db_set_totp_enrolled(pool, user_id, admin["bank_id"], True)
     else:
         _MOCK_USERS[user_id]["totp_enabled"] = True
     log.info("totp.activated", user_id=user_id, bank_id=admin["bank_id"])
-    return TOTPVerifyResponse(valid=True, message="TOTP activated. MFA is now required at login.")
+    return TOTPVerifyResponse(valid=True, message=get_message("API_TOTP_ACTIVATED_MFA_IS_NOW"))
 
 
 @router_v1.delete("/v1/admin/users/{user_id}/totp", status_code=204)
@@ -733,7 +733,7 @@ async def totp_reset(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     if pool is not None:
         await _db_set_totp_enrolled(pool, user_id, admin["bank_id"], False)
     else:
@@ -758,12 +758,12 @@ async def totp_verify_login(
         raw = _MOCK_USERS.get(body.user_id)
         u = raw if (raw and raw["bank_id"] == body.bank_id) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     if not u["totp_enabled"]:
-        raise HTTPException(status_code=400, detail="TOTP not enabled for this user")
+        raise HTTPException(status_code=400, detail=get_message("API_TOTP_NOT_ENABLED_FOR_THIS"))
     secret = _TOTP_SECRETS.get(body.user_id)
     if not secret:
-        raise HTTPException(status_code=500, detail="TOTP secret not found. Contact IT admin.")
+        raise HTTPException(status_code=500, detail=get_message("API_TOTP_SECRET_NOT_FOUND_CONTACT"))
     valid = _verify_totp(secret, body.totp_code)
     if not valid:
         log.warning("totp.verify.failed", user_id=body.user_id, bank_id=body.bank_id)
@@ -790,7 +790,7 @@ async def list_user_sessions(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     # platform.user_sessions is the durable store; Redis is a 60s read-cache.
     # Cache key: sessions:{bank_id}:{user_id} (JSON list)
     import json as _json
@@ -876,7 +876,7 @@ async def force_logout_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     # Revoke in DB first — this is what makes the token actually dead.
     # Redis key cleared after so the cache reflects the revocation immediately.
     pool = getattr(request.app.state, "db_pool_cts", None)

@@ -20,6 +20,7 @@ import tempfile
 from typing import TYPE_CHECKING, List, Optional
 
 import structlog
+from shared.messages import get_message
 
 if TYPE_CHECKING:
     from modules.cts.ngch.pxf_parser import InwardInstrument
@@ -110,8 +111,7 @@ class NGCHAdapter:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "NGCHAdapter.connect() has not been called. "
-                "Call it during service startup before filing to NGCH."
+                get_message("CTS_NGCHADAPTER_CONNECT_HAS_NOT_BEEN")
             )
 
     async def file_decision(
@@ -132,8 +132,7 @@ class NGCHAdapter:
 
         if decision not in _VALID_DECISIONS:
             raise ValueError(
-                f"Invalid decision '{decision}'. Must be one of: {_VALID_DECISIONS}. "
-                "Only CONFIRM or RETURN are valid NGCH filing decisions."
+                get_message("CTS_INVALID_DECISION_MUST_BE_ONE_2", decision=decision, VALID_DECISIONS=_VALID_DECISIONS)
             )
 
         url = f"{self._base_url}/decisions"
@@ -154,8 +153,7 @@ class NGCHAdapter:
                     workflow_id=workflow_id,
                 )
                 raise DuplicateFilingError(
-                    f"NGCH rejected duplicate filing for instrument {instrument_id} "
-                    f"(idempotency_key={workflow_id})"
+                    get_message("CTS_NGCH_REJECTED_DUPLICATE_FILING_FOR", instrument_id=instrument_id, workflow_id=workflow_id)
                 )
 
             response.raise_for_status()
@@ -168,7 +166,7 @@ class NGCHAdapter:
                 instrument_id=instrument_id,
                 error=str(exc),
             )
-            raise NGCHUnavailableError(f"NGCH file_decision failed: {exc}") from exc
+            raise NGCHUnavailableError(get_message("CTS_NGCH_FILE_DECISION_FAILED", exc=exc)) from exc
 
         log.info(
             "ngch_adapter.filed",
@@ -188,7 +186,7 @@ class NGCHAdapter:
             return response.json()
         except Exception as exc:
             log.error("ngch_adapter.query_status.failed", instrument_id=instrument_id, error=str(exc))
-            raise NGCHUnavailableError(f"NGCH query_status failed: {exc}") from exc
+            raise NGCHUnavailableError(get_message("CTS_NGCH_QUERY_STATUS_FAILED", exc=exc)) from exc
 
     async def submit_outward_lot(self, bank_ifsc: str, lot_number: str, file_path: str,
                                  cibf_file_path: Optional[str], checksum: str) -> str:
@@ -230,26 +228,25 @@ class NGCHAdapter:
             {
                 "name": "file_decision",
                 "description": (
-                    "File a cheque decision (CONFIRM or RETURN) to NGCH. "
-                    "Exactly-once: idempotency_key prevents duplicate submissions."
+                    get_message("CTS_FILE_A_CHEQUE_DECISION_CONFIRM")
                 ),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "instrument_id": {"type": "string", "description": "Unique cheque instrument ID"},
+                        "instrument_id": {"type": "string", "description": get_message("CTS_UNIQUE_CHEQUE_INSTRUMENT_ID")},
                         "decision": {"type": "string", "enum": ["CONFIRM", "RETURN"]},
-                        "workflow_id": {"type": "string", "description": "Temporal workflow ID (idempotency key)"},
+                        "workflow_id": {"type": "string", "description": get_message("CTS_TEMPORAL_WORKFLOW_ID_IDEMPOTENCY_KEY")},
                     },
                     "required": ["instrument_id", "decision", "workflow_id"],
                 },
             },
             {
                 "name": "query_status",
-                "description": "Query the current NGCH filing status for an instrument.",
+                "description": get_message("CTS_QUERY_THE_CURRENT_NGCH_FILING"),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "instrument_id": {"type": "string", "description": "Unique cheque instrument ID"},
+                        "instrument_id": {"type": "string", "description": get_message("CTS_UNIQUE_CHEQUE_INSTRUMENT_ID")},
                     },
                     "required": ["instrument_id"],
                 },

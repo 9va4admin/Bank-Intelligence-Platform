@@ -507,7 +507,7 @@ async def endorse_batch(
 ) -> EndorsementBatchResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_OPS_MANAGER_ROLE_REQUIRED"))
 
     import time as _time
     session_id = body.session_id or f"manual-{int(_time.time())}"
@@ -541,7 +541,7 @@ async def endorse_batch(
             log.error("cts.endorsement_trigger_failed", lot_number=body.lot_number, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to trigger endorsement workflow",
+                detail=get_message("API_FAILED_TO_TRIGGER_ENDORSEMENT_WORKFL"),
             ) from exc
 
     log.info(
@@ -587,7 +587,7 @@ async def get_outward_file_download_url(
             log.error("cts.outward_file.presign_failed", filename=filename, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="File not found or not yet generated",
+                detail=get_message("API_FILE_NOT_FOUND_OR_NOT"),
             ) from exc
 
     return OutwardFileDownloadResponse(
@@ -609,7 +609,7 @@ async def trigger_iqa_rescan(
 ) -> IQARescanResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_OPS_MANAGER_ROLE_REQUIRED"))
 
     import time as _time
     workflow_id = f"cts-iqa-rescan-{bank_id}-{scan_id}-{int(_time.time())}"
@@ -633,7 +633,7 @@ async def trigger_iqa_rescan(
             log.error("cts.iqa_rescan_failed", scan_id=scan_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to trigger re-scan workflow",
+                detail=get_message("API_FAILED_TO_TRIGGER_RE_SCAN"),
             ) from exc
 
     log.info("cts.iqa.rescan_triggered", scan_id=scan_id, bank_id=bank_id, workflow_id=workflow_id)
@@ -652,12 +652,12 @@ async def get_session_report_download_url(
 ) -> SessionDownloadResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_OPS_MANAGER_ROLE_REQUIRED"))
 
     if report_type not in _SESSION_REPORT_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unknown report_type '{report_type}'. Valid: {list(_SESSION_REPORT_EXTENSIONS)}",
+            detail=get_message("API_UNKNOWN_REPORT_TYPE_VALID", report_type=report_type, list=list(_SESSION_REPORT_EXTENSIONS)),
         )
 
     ext = _SESSION_REPORT_EXTENSIONS[report_type]
@@ -677,7 +677,7 @@ async def get_session_report_download_url(
             log.error("cts.session_download.presign_failed", session_id=session_id, report_type=report_type, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to generate download URL",
+                detail=get_message("API_FAILED_TO_GENERATE_DOWNLOAD_URL"),
             ) from exc
     else:
         download_url = f"/dev-placeholder/sessions/{session_id}/{ext}"
@@ -991,7 +991,7 @@ async def decide_outward_review(
         log.info("cts.outward_review.maker_decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
         return OutwardReviewDecisionResponse(
             instrument_id=instrument_id, action=body.action, workflow_signal_sent=False,
-            message=f"Decision {body.action} recorded and sent to a checker; it is not final until the checker confirms.")
+            message=get_message("API_DECISION_RECORDED_AND_SENT_TO", action=body.action))
 
     signal_sent = await _file_outward_decision(request, ctx, instrument_id, body.action, body.reason)
     await _release_claim(request, ctx, instrument_id)
@@ -1000,7 +1000,7 @@ async def decide_outward_review(
         instrument_id=instrument_id,
         action=body.action,
         workflow_signal_sent=signal_sent,
-        message=f"Decision {body.action} recorded. Workflow signal {'sent' if signal_sent else 'queued (Temporal unavailable)'}.",
+        message=get_message("API_DECISION_RECORDED_WORKFLOW_SIGNAL", action=body.action, value='sent' if signal_sent else 'queued (Temporal unavailable)'),
     )
 
 
@@ -1052,7 +1052,7 @@ async def validate_outward_review(
              maker_id=staged["maker_id"], overrode=body.action != staged["maker_decision"])
     return OutwardReviewDecisionResponse(
         instrument_id=instrument_id, action=body.action, workflow_signal_sent=signal_sent,
-        message=f"Decision {body.action} filed by the checker.")
+        message=get_message("API_DECISION_FILED_BY_THE_CHECKER", action=body.action))
 
 
 async def _file_overdue_maker_decisions(request: Request, ctx: UserContext, db, rows: list, cfg: dict) -> list:
@@ -1239,9 +1239,9 @@ async def get_lot_instruments(
             lot_id,
         )
         if lot_row is None:
-            raise HTTPException(status_code=404, detail="Lot not found")
+            raise HTTPException(status_code=404, detail=get_message("API_LOT_NOT_FOUND"))
         if lot_row["bank_id"] != bank_id:
-            raise HTTPException(status_code=403, detail="Lot belongs to a different bank")
+            raise HTTPException(status_code=403, detail=get_message("API_LOT_BELONGS_TO_A_DIFFERENT"))
 
         rows = await conn.fetch(
             """

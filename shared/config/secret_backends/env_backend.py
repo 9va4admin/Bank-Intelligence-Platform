@@ -13,6 +13,7 @@ import structlog
 
 from shared.config.exceptions import VaultUnavailableError
 from shared.config.secret_backends.base import SecretBackend
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -23,9 +24,7 @@ class EnvSecretBackend(SecretBackend):
         allow_in_prod = os.environ.get("ASTRA_ALLOW_ENV_SECRETS", "").lower() == "true"
         if env == "production" and not allow_in_prod:
             raise RuntimeError(
-                "ASTRA_SECRETS_BACKEND=env is not allowed in ASTRA_ENV=production. "
-                "Set ASTRA_ALLOW_ENV_SECRETS=true to override (bank IT admin sign-off required). "
-                "For production, use ASTRA_SECRETS_BACKEND=vault or ASTRA_SECRETS_BACKEND=k8s_secrets."
+                get_message("PLATFORM_ASTRA_SECRETS_BACKEND_ENV_IS")
             )
         log.warning(
             "config.secrets.env_backend_active",
@@ -39,7 +38,6 @@ class EnvSecretBackend(SecretBackend):
         value = os.environ.get(env_var)
         if value is None:
             raise VaultUnavailableError(
-                f"Secret '{key}' not found. "
-                f"Set env var '{env_var}' in your .env file or docker-compose environment."
+                get_message("PLATFORM_SECRET_NOT_FOUND_SET_ENV", key_value=key, env_var=env_var)
             )
         return value

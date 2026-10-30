@@ -31,6 +31,7 @@ from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -197,7 +198,6 @@ class NotificationDebouncer:
             "smb_id": event.smb_id,
             "count": count,
             "message": (
-                f"{count} {event.event_category} notifications fired within the debounce window. "
-                f"Please review the ops workstation for details."
+                get_message("PLATFORM_NOTIFICATIONS_FIRED_WITHIN_THE_DEBOU", count=count, event_category=event.event_category)
             ),
         }

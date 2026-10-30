@@ -19,6 +19,7 @@ from modules.cts.workflows.activities.fraud import FraudActivityResult
 from modules.cts.workflows.activities.ocr import OCRActivityResult
 from modules.cts.workflows.activities.security_features import SecurityFeaturesResult
 from modules.cts.workflows.activities.signature import SignatureActivityResult
+from shared.messages import get_message
 
 STUB_LABEL = "LOAD-TEST-STUB"
 
@@ -58,7 +59,7 @@ class LoadTestBoundActivities(BoundCTSActivities):
 
 def apply_load_test_stubs(bound: BoundCTSActivities) -> LoadTestBoundActivities:
     if os.environ.get("ASTRA_ENV", "").lower() != "development":
-        raise RuntimeError("load-test AI stubs may only run with ASTRA_ENV=development")
+        raise RuntimeError(get_message("CTS_LOAD_TEST_AI_STUBS_MAY"))
     stub = LoadTestBoundActivities.__new__(LoadTestBoundActivities)
     stub.__dict__.update(bound.__dict__)      # keep every real dependency
     return stub

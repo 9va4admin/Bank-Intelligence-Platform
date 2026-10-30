@@ -31,6 +31,7 @@ from shared.auth.exceptions import (
     InvalidSessionError,
     SessionExpiredError,
 )
+from shared.messages import get_message
 
 _ALGORITHM = "RS256"
 _CSRF_BYTES = 32
@@ -102,7 +103,7 @@ class SessionTokenService:
         branch_ids: Optional[list[str]] = None,
     ) -> IssuedSession:
         if self._priv is None:
-            raise RuntimeError("SessionTokenService has no private key — cannot issue")
+            raise RuntimeError(get_message("PLATFORM_SESSIONTOKENSERVICE_HAS_NO_PRIVATE_K"))
 
         now = int(time.time())
         exp = now + self._ttl
@@ -169,9 +170,9 @@ class SessionTokenService:
                 options={"require": ["exp", "iat", "iss", "jti", "sub"]},
             )
         except jwt.ExpiredSignatureError as exc:
-            raise SessionExpiredError("session token expired") from exc
+            raise SessionExpiredError(get_message("PLATFORM_SESSION_TOKEN_EXPIRED")) from exc
         except jwt.PyJWTError as exc:
-            raise InvalidSessionError(f"invalid session token: {exc}") from exc
+            raise InvalidSessionError(get_message("PLATFORM_INVALID_SESSION_TOKEN", exc=exc)) from exc
 
         try:
             return SessionClaims(
@@ -192,9 +193,9 @@ class SessionTokenService:
                 csrf_token=decoded["csrf"],
             )
         except KeyError as exc:
-            raise InvalidSessionError(f"session token missing claim: {exc}") from exc
+            raise InvalidSessionError(get_message("PLATFORM_SESSION_TOKEN_MISSING_CLAIM", exc=exc)) from exc
 
     def validate_csrf(self, claims: SessionClaims, presented: Optional[str]) -> None:
         """Constant-time compare the presented CSRF token to the bound claim."""
         if not presented or not hmac.compare_digest(str(claims.csrf_token), str(presented)):
-            raise CSRFValidationError("CSRF token mismatch")
+            raise CSRFValidationError(get_message("PLATFORM_CSRF_TOKEN_MISMATCH"))

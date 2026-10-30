@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 from typing import Optional
+from shared.messages import get_message
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ def hash_account_number(account_number: str, bank_id: str, pepper: str) -> str:
     """
     if not pepper:
         raise ValueError(
-            "pepper must not be empty — fetch it from Vault via config_service"
+            get_message("PLATFORM_PEPPER_MUST_NOT_BE_EMPTY")
         )
     message = f"{bank_id}:{account_number}".encode()
     return hmac.new(pepper.encode(), message, hashlib.sha256).hexdigest()
@@ -76,7 +77,7 @@ async def encrypt_pii(plaintext: str, key: str, conn) -> bytes:
         return b""
     if not key:
         raise ValueError(
-            "encryption key must not be empty — fetch from Vault via config_service"
+            get_message("PLATFORM_ENCRYPTION_KEY_MUST_NOT_BE")
         )
     row = await conn.fetchrow(
         "SELECT pgp_sym_encrypt($1, $2)::bytea AS enc",
@@ -101,7 +102,7 @@ async def decrypt_pii(ciphertext: Optional[bytes], key: str, conn) -> str:
         return ""
     if not key:
         raise ValueError(
-            "encryption key must not be empty — fetch from Vault via config_service"
+            get_message("PLATFORM_ENCRYPTION_KEY_MUST_NOT_BE")
         )
     row = await conn.fetchrow(
         "SELECT pgp_sym_decrypt($1::bytea, $2) AS dec",

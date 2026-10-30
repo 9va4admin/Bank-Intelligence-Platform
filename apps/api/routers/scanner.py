@@ -79,7 +79,7 @@ def get_current_user(request: Request) -> dict[str, Any]:
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail=get_message("API_NOT_AUTHENTICATED"),
         )
 
 
@@ -237,8 +237,7 @@ async def register_scanner(
                     if existing:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
-                            detail=f"An active registration already exists for branch {ifsc}. "
-                                   "Deactivate it first.",
+                            detail=get_message("API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST", ifsc=ifsc),
                         )
                     token = secrets.token_urlsafe(32)
                     reg_id = str(uuid.uuid4())
@@ -257,7 +256,7 @@ async def register_scanner(
                 raise
             except Exception as exc:
                 log.error("scanner.register.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
         else:
             active_exists = any(
                 r["bank_id"] == bank_id and r["branch_ifsc"] == ifsc and r.get("is_active", True)
@@ -266,7 +265,7 @@ async def register_scanner(
             if active_exists:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"An active registration already exists for branch {ifsc}.",
+                    detail=get_message("API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST_2", ifsc=ifsc),
                 )
             token = secrets.token_urlsafe(32)
             reg_id = str(uuid.uuid4())
@@ -297,7 +296,7 @@ async def register_scanner(
             token=token,
             branch_ifsc=ifsc,
             status="PENDING",
-            message="Token shown once — store it securely. It cannot be retrieved again.",
+            message=get_message("API_TOKEN_SHOWN_ONCE_STORE_IT"),
         )
 
 
@@ -349,7 +348,7 @@ async def agent_heartbeat(
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Scanner machine token required: Authorization: Bearer <token>",
+                detail=get_message("API_SCANNER_MACHINE_TOKEN_REQUIRED_AUTHO"),
             )
         incoming_token = authorization[7:].strip()
         incoming_hash = hashlib.sha256(incoming_token.encode()).hexdigest()
@@ -370,13 +369,13 @@ async def agent_heartbeat(
                     )
             except Exception as exc:
                 log.error("scanner.agent_heartbeat.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             if row is None:
-                raise HTTPException(status_code=404, detail="No active scanner token for this branch")
+                raise HTTPException(status_code=404, detail=get_message("API_NO_ACTIVE_SCANNER_TOKEN_FOR"))
             if not hmac.compare_digest(row["token_hash"], incoming_hash):
                 log.warning("scanner.agent_heartbeat.bad_token",
                             bank_id=body.bank_id, branch_id=body.branch_id)
-                raise HTTPException(status_code=401, detail="Invalid scanner token")
+                raise HTTPException(status_code=401, detail=get_message("API_INVALID_SCANNER_TOKEN"))
             try:
                 async with db_pool.acquire() as conn:
                     await conn.execute(
@@ -386,7 +385,7 @@ async def agent_heartbeat(
                     )
             except Exception as exc:
                 log.error("scanner.agent_heartbeat.update_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
         else:
             # In-memory fallback — dev / unit tests (no DB available)
             if not hmac.compare_digest(
@@ -431,7 +430,7 @@ async def heartbeat(
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Scanner token required: Authorization: Bearer <token>",
+                detail=get_message("API_SCANNER_TOKEN_REQUIRED_AUTHORIZATION"),
             )
         incoming_token = authorization[7:].strip()
         incoming_hash = _token_hash(incoming_token)
@@ -450,15 +449,15 @@ async def heartbeat(
                     )
             except Exception as exc:
                 log.error("scanner.heartbeat.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             if reg is None:
-                raise HTTPException(status_code=404, detail="Registration not found")
+                raise HTTPException(status_code=404, detail=get_message("API_REGISTRATION_NOT_FOUND"))
             if not reg["is_active"]:
-                raise HTTPException(status_code=403, detail="Registration deactivated")
+                raise HTTPException(status_code=403, detail=get_message("API_REGISTRATION_DEACTIVATED"))
             if not hmac.compare_digest(reg["registration_token_hash"], incoming_hash):
                 log.warning("scanner.heartbeat.bad_token", registration_id=registration_id)
-                raise HTTPException(status_code=401, detail="Invalid scanner token")
+                raise HTTPException(status_code=401, detail=get_message("API_INVALID_SCANNER_TOKEN"))
 
             try:
                 async with db_pool.acquire() as conn:
@@ -473,18 +472,18 @@ async def heartbeat(
                     )
             except Exception as exc:
                 log.error("scanner.heartbeat.update_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             interval = reg["heartbeat_interval_seconds"]
         else:
             reg = _SCANNER_STORE.get(registration_id)
             if reg is None:
-                raise HTTPException(status_code=404, detail="Registration not found")
+                raise HTTPException(status_code=404, detail=get_message("API_REGISTRATION_NOT_FOUND"))
             if not reg.get("is_active", True):
-                raise HTTPException(status_code=403, detail="Registration deactivated")
+                raise HTTPException(status_code=403, detail=get_message("API_REGISTRATION_DEACTIVATED"))
             if not hmac.compare_digest(reg["registration_token_hash"], incoming_hash):
                 log.warning("scanner.heartbeat.bad_token", registration_id=registration_id)
-                raise HTTPException(status_code=401, detail="Invalid scanner token")
+                raise HTTPException(status_code=401, detail=get_message("API_INVALID_SCANNER_TOKEN"))
 
             reg["status"] = "ONLINE"
             reg["last_heartbeat_at"] = now.isoformat()
@@ -527,7 +526,7 @@ async def fleet_status(
                     )
             except Exception as exc:
                 log.error("scanner.fleet.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             regs = [_reg_to_summary(dict(r)) for r in rows]
         else:
             regs = [
@@ -577,7 +576,7 @@ async def agent_status(
                     )
             except Exception as exc:
                 log.error("scanner.agent_status.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             if row is None:
                 return AgentStatusResponse(
                     state="OFFLINE",
@@ -657,11 +656,11 @@ async def branch_scanner_status(
                     )
             except Exception as exc:
                 log.error("scanner.branch_status.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             if not row:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No active scanner registration for branch {ifsc}",
+                    detail=get_message("API_NO_ACTIVE_SCANNER_REGISTRATION_FOR", ifsc=ifsc),
                 )
             return _reg_to_summary(dict(row))
         else:
@@ -673,7 +672,7 @@ async def branch_scanner_status(
             if not reg:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No active scanner registration for branch {ifsc}",
+                    detail=get_message("API_NO_ACTIVE_SCANNER_REGISTRATION_FOR", ifsc=ifsc),
                 )
             return _reg_to_summary(reg)
 
@@ -709,7 +708,7 @@ async def deactivate_scanner(
                         registration_id, bank_id,
                     )
                     if not existing:
-                        raise HTTPException(status_code=404, detail="Registration not found")
+                        raise HTTPException(status_code=404, detail=get_message("API_REGISTRATION_NOT_FOUND"))
                     await conn.execute(
                         "UPDATE cts.scanner_registrations "
                         "SET status = 'OFFLINE', is_active = false "
@@ -728,13 +727,13 @@ async def deactivate_scanner(
                 raise
             except Exception as exc:
                 log.error("scanner.deactivate.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             log.info("scanner.deactivated", registration_id=registration_id, bank_id=bank_id)
             return _reg_to_summary(dict(row))
         else:
             reg = _SCANNER_STORE.get(registration_id)
             if not reg or reg["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail="Registration not found")
+                raise HTTPException(status_code=404, detail=get_message("API_REGISTRATION_NOT_FOUND"))
             reg["status"] = "OFFLINE"
             reg["is_active"] = False
             log.info("scanner.deactivated", registration_id=registration_id, bank_id=bank_id)

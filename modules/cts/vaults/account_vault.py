@@ -39,6 +39,7 @@ from typing import Any, Optional
 import structlog
 
 from shared.utils.pii_crypto import hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -123,8 +124,7 @@ class AccountVault:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "AccountVault.connect() has not been called. "
-                "Call it during service startup before querying the vault."
+                get_message("CTS_ACCOUNTVAULT_CONNECT_HAS_NOT_BEEN")
             )
 
     # ------------------------------------------------------------------

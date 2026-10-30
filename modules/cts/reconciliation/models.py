@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from shared.messages import get_message
 
 
 class ReconciliationStatus(str, Enum):
@@ -39,8 +40,7 @@ class ReconciliationItem:
     def __post_init__(self) -> None:
         if len(self.account_suffix) > 4:
             raise ValueError(
-                f"account_suffix must be at most 4 characters (got {len(self.account_suffix)}). "
-                "Store only the last 4 digits — never the full account number."
+                get_message("CTS_ACCOUNT_SUFFIX_MUST_BE_AT", len=len(self.account_suffix))
             )
 
 

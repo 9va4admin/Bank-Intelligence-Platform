@@ -589,14 +589,14 @@ class MCPConnectionCreate(BaseModel):
     @classmethod
     def validate_type(cls, v: str) -> str:
         if v not in _VALID_TYPES:
-            raise ValueError(f"connection_type must be one of {_VALID_TYPES}")
+            raise ValueError(get_message("API_CONNECTION_TYPE_MUST_BE_ONE", VALID_TYPES=_VALID_TYPES))
         return v
 
     @field_validator("cbs_vendor")
     @classmethod
     def validate_vendor(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in _VALID_CBS_VENDORS:
-            raise ValueError(f"cbs_vendor must be one of {_VALID_CBS_VENDORS}")
+            raise ValueError(get_message("API_CBS_VENDOR_MUST_BE_ONE", VALID_CBS_VENDORS=_VALID_CBS_VENDORS))
         return v
 
     @field_validator("endpoint_url")
@@ -606,7 +606,7 @@ class MCPConnectionCreate(BaseModel):
             return v
         err = _validate_ssrf_url(v)
         if err:
-            raise ValueError(f"endpoint_url blocked by SSRF policy: {err}")
+            raise ValueError(get_message("API_ENDPOINT_URL_BLOCKED_BY_SSRF", err=err))
         return v
 
 
@@ -622,7 +622,7 @@ class MCPConnectionUpdate(BaseModel):
     @classmethod
     def validate_vendor(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in _VALID_CBS_VENDORS:
-            raise ValueError(f"cbs_vendor must be one of {_VALID_CBS_VENDORS}")
+            raise ValueError(get_message("API_CBS_VENDOR_MUST_BE_ONE", VALID_CBS_VENDORS=_VALID_CBS_VENDORS))
         return v
 
     @field_validator("endpoint_url")
@@ -632,7 +632,7 @@ class MCPConnectionUpdate(BaseModel):
             return v
         err = _validate_ssrf_url(v)
         if err:
-            raise ValueError(f"endpoint_url blocked by SSRF policy: {err}")
+            raise ValueError(get_message("API_ENDPOINT_URL_BLOCKED_BY_SSRF", err=err))
         return v
 
 
@@ -756,7 +756,7 @@ def _scope_check(user: dict, row: dict):
     """
     if user["bank_type"] == "SMB":
         if row.get("smb_id") != user.get("smb_id"):
-            raise HTTPException(status_code=404, detail="Connection not found")
+            raise HTTPException(status_code=404, detail=get_message("API_CONNECTION_NOT_FOUND"))
 
 
 # ── Router ───────────────────────────────────────────────────────────────────
@@ -818,18 +818,18 @@ async def create_connection(
 ):
     # SMB_CBS must have smb_id
     if body.connection_type == "SMB_CBS" and not body.smb_id:
-        raise HTTPException(status_code=422, detail="smb_id required for SMB_CBS connection")
+        raise HTTPException(status_code=422, detail=get_message("API_SMB_ID_REQUIRED_FOR_SMB"))
 
     # SMB admin can only create for their own smb_id
     if user["bank_type"] == "SMB":
         if body.connection_type == "SMB_CBS" and body.smb_id != user.get("smb_id"):
-            raise HTTPException(status_code=403, detail="SMB admin can only configure their own CBS connection")
+            raise HTTPException(status_code=403, detail=get_message("API_SMB_ADMIN_CAN_ONLY_CONFIGURE"))
 
     # Duplicate check: unique on (bank_id, connection_type, smb_id)
     if await store.exists(user["bank_id"], body.connection_type, body.smb_id):
         raise HTTPException(
             status_code=409,
-            detail=f"Connection {body.connection_type} already exists for this bank/SMB",
+            detail=get_message("API_CONNECTION_ALREADY_EXISTS_FOR_THIS", connection_type=body.connection_type),
         )
 
     row = {
@@ -869,7 +869,7 @@ async def get_connection(
 ):
     row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise HTTPException(status_code=404, detail=get_message("API_CONNECTION_NOT_FOUND"))
     _scope_check(user, row)
     return _row_to_response(row)
 
@@ -886,7 +886,7 @@ async def update_connection(
 ):
     row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise HTTPException(status_code=404, detail=get_message("API_CONNECTION_NOT_FOUND"))
     _scope_check(user, row)
 
     updates: Dict[str, Any] = {"status": "PENDING"}  # reset to PENDING on any edit
@@ -928,7 +928,7 @@ async def delete_connection(
 ):
     row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise HTTPException(status_code=404, detail=get_message("API_CONNECTION_NOT_FOUND"))
     _scope_check(user, row)
     await _emit_audit(AuditEventType.MCP_CONN_DELETED, user["bank_id"], {
         "connection_id": connection_id,
@@ -972,7 +972,7 @@ async def test_connection(
 ):
     row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise HTTPException(status_code=404, detail=get_message("API_CONNECTION_NOT_FOUND"))
     _scope_check(user, row)
 
     success, latency_ms, error = await tester(row)
@@ -1035,19 +1035,19 @@ async def trigger_sync(
 ):
     row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise HTTPException(status_code=404, detail=get_message("API_CONNECTION_NOT_FOUND"))
     _scope_check(user, row)
 
     if row["connection_type"] not in _CBS_TYPES:
         raise HTTPException(
             status_code=422,
-            detail=f"Sync only available for CBS connection types ({_CBS_TYPES}), not {row['connection_type']}",
+            detail=get_message("API_SYNC_ONLY_AVAILABLE_FOR_CBS", CBS_TYPES=_CBS_TYPES, row=row['connection_type']),
         )
 
     if row["status"] != "ACTIVE":
         raise HTTPException(
             status_code=409,
-            detail=f"Cannot sync a connection in status={row['status']}. Must be ACTIVE.",
+            detail=get_message("API_CANNOT_SYNC_A_CONNECTION_IN", row=row['status']),
         )
 
     # Workflow ID convention per temporal.md: cts-vault-delta-{bank_id}-{yyyymmddhhmm}

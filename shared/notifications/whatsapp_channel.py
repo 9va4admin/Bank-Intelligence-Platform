@@ -15,6 +15,7 @@ from typing import Any
 import structlog
 
 from shared.notifications.exceptions import NotificationDeliveryError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -87,7 +88,7 @@ class WhatsAppChannel:
             data = response.json()
         except Exception as exc:
             log.error("whatsapp.send_failed", recipient=phone, template=meta_template, error=str(exc))
-            raise NotificationDeliveryError(f"WhatsApp send failed: {exc}") from exc
+            raise NotificationDeliveryError(get_message("PLATFORM_WHATSAPP_SEND_FAILED", exc=exc)) from exc
 
         messages = data.get("messages", [{}])
         message_id = messages[0].get("id", "") if messages else ""
@@ -106,6 +107,5 @@ class WhatsAppChannel:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "WhatsAppChannel.connect() has not been called. "
-                "Call it in the service startup before sending messages."
+                get_message("PLATFORM_WHATSAPPCHANNEL_CONNECT_HAS_NOT_BEEN")
             )

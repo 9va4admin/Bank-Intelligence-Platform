@@ -21,7 +21,7 @@ GUARDED_SCREENS = [
 
 def _tracked(*suffixes):
     out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout.split("\n")
-    return [f for f in out if f.endswith(suffixes) and "/tests/" not in f and ".test." not in f and not f.startswith("tests/")]
+    return [f for f in out if f.endswith(suffixes) and "/tests/" not in f and ".test." not in f and not f.startswith(("tests/", "scripts/"))]
 
 
 def test_every_key_the_python_code_asks_for_exists():

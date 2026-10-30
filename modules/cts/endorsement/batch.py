@@ -11,6 +11,7 @@ from datetime import datetime
 
 from modules.cts.endorsement.models import EndorsementRecord, EndorsementTemplate
 from modules.cts.endorsement.stamper import EndorsementStamper
+from shared.messages import get_message
 
 
 class BatchEndorsementProcessor:
@@ -34,7 +35,7 @@ class BatchEndorsementProcessor:
         for instrument_id, account_suffix, _front, rear in items:
             if instrument_id in seen:
                 raise ValueError(
-                    f"Duplicate instrument_id '{instrument_id}' in endorsement batch"
+                    get_message("CTS_DUPLICATE_INSTRUMENT_ID_IN_ENDORSEME", instrument_id=instrument_id)
                 )
             seen.add(instrument_id)
 

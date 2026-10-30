@@ -12,6 +12,7 @@ import asyncio
 import io
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -43,7 +44,7 @@ class LocalSignatureEmbedder:
         try:
             img = Image.open(io.BytesIO(image_bytes)).convert("L")
         except Exception as exc:
-            raise ValueError(f"undecodable signature image: {exc}") from exc
+            raise ValueError(get_message("PLATFORM_UNDECODABLE_SIGNATURE_IMAGE", exc=exc)) from exc
         # pad to a square on white so the stroke aspect ratio is preserved
         side = max(img.size)
         canvas = Image.new("L", (side, side), 255)

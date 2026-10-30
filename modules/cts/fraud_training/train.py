@@ -16,6 +16,7 @@ import numpy as np
 
 from modules.cts.evaluation.stats import wilson_interval
 from modules.cts.fraud_training.features import FEATURES
+from shared.messages import get_message
 
 MIN_ROWS = 1000
 MIN_POSITIVES = 30
@@ -56,9 +57,9 @@ def train_model(X: dict, y, timestamps, out_path: str, *, synthetic: bool, seed:
     y = np.asarray(y, dtype=int)
     ts = np.asarray(timestamps)
     if len(y) < min_rows:
-        raise TrainingRefused(f"{len(y)} rows is below the minimum of {min_rows}")
+        raise TrainingRefused(get_message("CTS_ROWS_IS_BELOW_THE_MINIMUM", len=len(y), min_rows=min_rows))
     if int(y.sum()) < min_positives:
-        raise TrainingRefused(f"{int(y.sum())} positive (fraud) examples is below the minimum of {min_positives}")
+        raise TrainingRefused(get_message("CTS_POSITIVE_FRAUD_EXAMPLES_IS_BELOW", int=int(y.sum()), min_positives=min_positives))
 
     names = [f.name for f in FEATURES]
     M = _matrix(X, names)
@@ -68,7 +69,7 @@ def train_model(X: dict, y, timestamps, out_path: str, *, synthetic: bool, seed:
     a, b = int(n * 0.6), int(n * 0.8)
     tr, va, te = slice(0, a), slice(a, b), slice(b, n)
     if y[tr].sum() == 0 or y[va].sum() == 0 or y[te].sum() == 0:
-        raise TrainingRefused("a train/validation/test slice contains no positive examples; more data or a longer window is needed")
+        raise TrainingRefused(get_message("CTS_A_TRAIN_VALIDATION_TEST_SLICE"))
 
     pos, neg = int(y[tr].sum()), int((y[tr] == 0).sum())
     clf = XGBClassifier(n_estimators=200, max_depth=4, learning_rate=0.08, subsample=0.9, colsample_bytree=0.9,

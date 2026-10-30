@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from modules.cts.scanner.drivers import ScannerUnavailableError
+from shared.messages import get_message
 
 
 @dataclass
@@ -83,8 +84,7 @@ class RangerTransportClient:
             )
         except (asyncio.TimeoutError, ConnectionRefusedError, OSError) as exc:
             raise ScannerUnavailableError(
-                f"Cannot connect to Canon Ranger daemon at {self._host}:{self._port}. "
-                f"Ensure the Ranger Transport service is running. Detail: {exc}"
+                get_message("CTS_CANNOT_CONNECT_TO_CANON_RANGER", host=self._host, port=self._port, exc=exc)
             ) from exc
 
     async def disconnect(self) -> None:
@@ -105,7 +105,7 @@ class RangerTransportClient:
         Returns a RangerScanResult with all image buffers populated.
         """
         if not self._reader or not self._writer:
-            raise ScannerUnavailableError("Not connected — call connect() first")
+            raise ScannerUnavailableError(get_message("CTS_NOT_CONNECTED_CALL_CONNECT_FIRST"))
 
         # Send scan trigger
         self._writer.write(b"SCAN\r\n")

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import List
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -83,8 +84,7 @@ class CXFItem:
             )
         if len(self.micrds_signature) != _MICRDS_SIG_LENGTH:
             raise CXFValidationError(
-                f"micrds_signature must be {_MICRDS_SIG_LENGTH} chars (Base64 RSA-SHA256), "
-                f"got {len(self.micrds_signature)}"
+                get_message("CTS_MICRDS_SIGNATURE_MUST_BE_CHARS", MICRDS_SIG_LENGTH=_MICRDS_SIG_LENGTH, len=len(self.micrds_signature))
             )
         for field_attr, (_, prefix) in zip(
             (self.iqa_user_field_front_bw,
@@ -139,7 +139,7 @@ class CXFBuilder:
             CXFValidationError: If items list is empty.
         """
         if not items:
-            raise CXFValidationError("CXF items list must not be empty")
+            raise CXFValidationError(get_message("CTS_CXF_ITEMS_LIST_MUST_NOT"))
 
         # Root: <FileHeader> with namespace
         root = ET.Element("FileHeader")

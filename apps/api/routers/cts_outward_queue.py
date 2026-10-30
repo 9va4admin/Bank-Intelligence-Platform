@@ -26,6 +26,7 @@ from apps.api.routers.cts_deps import get_current_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -112,8 +113,7 @@ async def record_decision(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"reason_category '{body.reason_category}' does not match action "
-                f"'{body.action}' — expected '{expected_category}'"
+                get_message("API_REASON_CATEGORY_DOES_NOT_MATCH", reason_category=body.reason_category, action=body.action, expected_category=expected_category)
             ),
         )
 

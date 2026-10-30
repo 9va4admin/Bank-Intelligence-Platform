@@ -225,7 +225,7 @@ async def report_outward_scan_event(
     if body.bank_id != bank_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="bank_id in request body must match authenticated bank",
+            detail=get_message("API_BANK_ID_IN_REQUEST_BODY"),
         )
 
     event_id = str(_uuid.uuid4())
@@ -411,7 +411,7 @@ async def generate_scanner_registration_code(
     branch_id = body.branch_id
     if not branch_id or len(branch_id) > 128:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail={"error_code": "INVALID_BRANCH_ID", "message": "branch_id is required."})
+                            detail={"error_code": "INVALID_BRANCH_ID", "message": get_message("API_BRANCH_ID_IS_REQUIRED")})
 
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     redis   = getattr(request.app.state, "redis_client", None)
@@ -430,7 +430,7 @@ async def generate_scanner_registration_code(
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail={"error_code": "BRANCH_NOT_FOUND",
-                                "message": f"Branch {branch_id} not found or not active for bank {bank_id}."},
+                                "message": get_message("API_BRANCH_NOT_FOUND_OR_NOT", branch_id=branch_id, bank_id=bank_id)},
                     )
                 branch_name = row["branch_name"]
                 bank_ifsc   = row["bank_ifsc"]
@@ -438,7 +438,7 @@ async def generate_scanner_registration_code(
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail={"error_code": "BRANCH_NOT_SDK",
-                                "message": f"Branch {branch_id} is not configured for SDK_PUSH mode."},
+                                "message": get_message("API_BRANCH_IS_NOT_CONFIGURED_FOR", branch_id=branch_id)},
                     )
         except HTTPException:
             raise
@@ -513,7 +513,7 @@ async def register_scanner(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error_code": "SCANNER_REG_INVALID_CODE",
-                    "message": "Registration code must be 8 alphanumeric characters."},
+                    "message": get_message("API_REGISTRATION_CODE_MUST_BE_8")},
         )
 
     redis_client = getattr(request.app.state, "redis_client", None)
@@ -535,8 +535,7 @@ async def register_scanner(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error_code": "SCANNER_REG_CODE_NOT_FOUND",
-                    "message": "Registration code not found, expired, or already used. "
-                               "Generate a new code in ASTRA Admin UI → Branches → Register Scanner."},
+                    "message": get_message("API_REGISTRATION_CODE_NOT_FOUND_EXPIRED")},
         )
 
     bank_id   = reg_data["bank_id"]
@@ -569,7 +568,7 @@ async def register_scanner(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={"error_code": "SCANNER_REG_TOKEN_WRITE_FAILED",
-                        "message": "Internal error issuing token. Please retry."},
+                        "message": get_message("API_INTERNAL_ERROR_ISSUING_TOKEN_PLEASE")},
             )
 
     log.info("scanner_reg.success",

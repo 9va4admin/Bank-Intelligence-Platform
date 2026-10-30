@@ -31108,5 +31108,5016 @@
       "UI"
     ],
     "variables": []
+  },
+  "API_NOT_AUTHENTICATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SESSION_CLAIMS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CREDENTIALS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DB_POOL_CTS_NOT_AVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REQUEST_VALIDATION_FAILED_CHECK_REQU": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MISSING_OR_INVALID_CSRF_TOKEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SERVICE_TEMPORARILY_UNAVAILABLE_RATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOO_MANY_REQUESTS_LIMIT_MIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "limit",
+      "slug"
+    ]
+  },
+  "API_YOUR_ACCOUNT_HAS_BEEN_SUSPENDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_STP_MODE_FULL_MANUAL_SUPERVISED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FRAUD_SCORE_BELOW_THIS_AUTO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FRAUD_SCORE_ABOVE_THIS_ROUTES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHEQUES_ABOVE_THIS_GO_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHEQUES_ABOVE_THIS_GO_TO_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REVIEWER_ALLOCATION_SELF_HYBRID_AUTO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REDIS_LOCK_TTL_FOR_REVIEWER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHO_AN_AUTO_ASSIGNED_ITEM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUTO_ASSIGN_CAP_PER_REVIEWER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ITEMS_THIS_CLOSE_TO_THEIR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SPREAD_UNOPENED_AUTO_ASSIGNED_WORK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AT_MOST_ONE_REBALANCE_PER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CAP_ON_ITEMS_MOVED_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_RETRY_DELAY_WHEN_NO_ELIGIBLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HYBRID_MODE_AUTO_ASSIGN_AN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ON_REVIEWERS_WORK_ONLY_THE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHICH_CLASS_BUCKET_WINS_WHEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HVC_PRESENTED_AMOUNT_AT_OR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LVC_PRESENTED_AMOUNT_BELOW_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FCC_AT_LEAST_THIS_MANY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FCC_WINDOW_DAYS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CA_CBS_ACCOUNT_TYPES_THAT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IP_CBS_ACCOUNT_TYPES_THAT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AN_ITEM_NOBODY_LOGGED_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIP_HOLD_BANK_WIDE_THE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NEVER_HOLD_A_SYSTEM_DECISION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OUTWARD_CLEARING_SESSION_CUT_OFF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OUTWARD_ITEMS_IN_THESE_MASKED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHICH_OUTWARD_BUCKET_WINS_WHEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHO_MAKES_OUTWARD_DECISIONS_CENTRAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_FIRST_CENTRAL_STAFF_MAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WHO_CHECKS_OUTWARD_DECISIONS_ANY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TIME_ZONE_THE_CUT_OFF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AN_ORIGINAL_KEPT_AT_ITS": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_YEARS_CENTRAL_STORAGE_KEEPS_AN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_A_STAGED_OUTWARD_DECISION_NO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ON_A_REVIEWER_S_DECISION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MAKER_CHECKER_IF_NO_CHECKER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_WINDOW_IN_MINUTES_RBI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_GOT_OCR2_0_CONFIDENCE_BELOW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIAMESE_NETWORK_SCORE_BELOW_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DUAL_APPROVAL_THRESHOLD_FOR_HIGH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOCKED_VAULT_MISS_ALWAYS_ROUTES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PAYEE_ACCOUNT_FROZEN_ON_OUTWARD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PAYEE_ACCOUNT_DORMANT_NO_TXNS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PAYEE_ACCOUNT_NPA_ON_OUTWARD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REQUIRE_REAR_BACK_CHEQUE_IMAGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_CANNOT_ACCESS_ADMIN_ROUTES": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_ROLE_CANNOT_PERFORM_CHECKER_ACTIONS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_ROLE_CANNOT_SUBMIT_THRESHOLD_CHANGES": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_UNKNOWN_CONFIG_KEY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "config_key"
+    ]
+  },
+  "API_IS_A_LAYER_1_PLATFORM": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "config_key"
+    ]
+  },
+  "API_USER_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEST_IS_NOT_IN_SCOPE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "test_id",
+      "entity_type",
+      "allowed"
+    ]
+  },
+  "API_TEST_RUNNER_NOT_YET_IMPLEMENTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_CANNOT_ACCESS_AUDIT_ROUTES": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_EVENT_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_EVENT_NOT_FOUND_IN_IMMUDB": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUTHENTICATION_NOT_CONFIGURED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SESSION_EXPIRED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SESSION": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MFA_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACCOUNT_LOCKED_DUE_TO_REPEATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CODE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SESSION_STATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_MUST_BE_11_ALPHANUMERIC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_INPUT_MODE_MUST_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_BRANCH_IFSC_CANNOT_BE_UPDATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_CODE_IS_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_MUST_BE_11_CHARS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "API_IFSC_MUST_BE_ALPHANUMERIC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CSV_FILE_MUST_BE_UTF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CSV_FILE_APPEARS_TO_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CSV_MISSING_REQUIRED_COLUMNS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_DATABASE_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_IFSC_ALREADY_EXISTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_BRANCH_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_FILE_MUST_BE_A_CSV": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "content_type"
+    ]
+  },
+  "API_INSTRUMENT_NOT_FOUND_OR_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_UPDATE_TEMPORAL_SCHEDULE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_UPDATED_TO_CRON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schedule_id",
+      "cron"
+    ]
+  },
+  "API_FAILED_TO_PAUSE_TEMPORAL_SCHEDULE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_PAUSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schedule_id"
+    ]
+  },
+  "API_FAILED_TO_RESUME_TEMPORAL_SCHEDULE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCHEDULE_RESUMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schedule_id"
+    ]
+  },
+  "API_IFSC_REGISTRY_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IFSC_ENTRY_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OPS_MANAGER_ROLE_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_IT_ADMIN_ROLE_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_FOR_TEMPORAL_QUERY_MUST": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "field"
+    ]
+  },
+  "API_WORKFLOW_ENGINE_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OPS_MANAGER_OR_OPS_REVIEWER": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACTIVE_HOLD_NOT_FOUND_FOR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MISMATCH_NOT_FOUND_OR_ALREADY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_THIS_CHEQUE_IS_IN_A": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CLAIMED_SUCCESSFULLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ALREADY_CLAIMED_BY_ANOTHER_REVIEWER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_RELEASED_SUCCESSFULLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FORCE_RELEASED_WAS_HELD_BY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "API_ALLOCATION_STORE_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REVIEWER_NOT_FOUND_FOR_THIS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_THAT_REVIEWER_IS_NOT_CONNECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ASSIGNED_TO_WAS_HELD_BY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "target",
+      "value"
+    ]
+  },
+  "API_FAILED_TO_START_WORKFLOW": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SEARCH_QUERY_MUST_BE_AT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_COULD_NOT_PROVISION_UPLOAD_URLS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_STORE_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_START_OUTWARDSCANWORKFLOW": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOT_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOT_IS_ALREADY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_REPORT_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_TYPE_MUST_BE_ONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_UPLOADED_FILE_IS_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DATABASE_POOL_NOT_READY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACTIVE_SESSION_ALREADY_OPEN_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "existing"
+    ]
+  },
+  "API_SESSION_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CROSS_BANK_SESSION_CLOSE_FORBIDDEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SESSION_IS_ALREADY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_HUB_SUBMIT_REQUIRES_OPS_MANAGER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CLEARINGSESSIONWORKFLOW_STARTED_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "workflow_id"
+    ]
+  },
+  "API_FAILED_TO_TRIGGER_ENDORSEMENT_WORKFL": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FILE_NOT_FOUND_OR_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_TRIGGER_RE_SCAN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNKNOWN_REPORT_TYPE_VALID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "report_type",
+      "list"
+    ]
+  },
+  "API_FAILED_TO_GENERATE_DOWNLOAD_URL": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DECISION_RECORDED_AND_SENT_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "action"
+    ]
+  },
+  "API_DECISION_RECORDED_WORKFLOW_SIGNAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "action",
+      "value"
+    ]
+  },
+  "API_DECISION_FILED_BY_THE_CHECKER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "action"
+    ]
+  },
+  "API_LOT_BELONGS_TO_A_DIFFERENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REASON_CATEGORY_DOES_NOT_MATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reason_category",
+      "action",
+      "expected_category"
+    ]
+  },
+  "API_BANK_ID_IN_REQUEST_BODY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_ID_IS_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_NOT_FOUND_OR_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id",
+      "bank_id"
+    ]
+  },
+  "API_BRANCH_IS_NOT_CONFIGURED_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id"
+    ]
+  },
+  "API_REGISTRATION_CODE_MUST_BE_8": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REGISTRATION_CODE_NOT_FOUND_EXPIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INTERNAL_ERROR_ISSUING_TOKEN_PLEASE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_MANAGEMENT_IS_AN_SB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_REGISTRATION_IS_AN_SB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SOFT_HOLD_THRESHOLD_MUST_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SUB_MEMBER_BANK_REGISTERED_UNDER": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sub_member_id",
+      "bank_id",
+      "micr_prefix"
+    ]
+  },
+  "API_SMB_USERS_CAN_ONLY_VIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_USERS_CAN_ONLY_VIEW_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SYNC_TRIGGER_IS_AN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_TRIGGER_SMB_VAULT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SYNC_STARTED_FOR_SUB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sub_member_id2"
+    ]
+  },
+  "API_SB_ONLY_ENDPOINT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FAILED_TO_TRIGGER_VAULT_SYNC": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULTSYNCWORKFLOW_STARTED_PPS_STOP_C": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "workflow_id"
+    ]
+  },
+  "API_NO_CHEQUES_IN_SESSION_UPLOAD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_BANK_SPECIFIED_AND_NO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UPLOADED_FILE_ISN_T_A": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CLOUD_AI_DEMO_TOKEN_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FIELD_EXTRACTION_VIA_QWEN_32B": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "fields_resp"
+    ]
+  },
+  "API_BOTH_LOCAL_SERVICES_ARE_UNREACHABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sig_url",
+      "indic_error"
+    ]
+  },
+  "API_HF_TOKEN_NOT_CONFIGURED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNKNOWN_MODEL_MUST_BE_ONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "model",
+      "sorted"
+    ]
+  },
+  "API_CLOUD_AI_DEMO_TOKEN_NOT_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HUGGING_FACE_REJECTED_THE_REQUEST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "model",
+      "message"
+    ]
+  },
+  "API_CLOUD_AI_EXTRACTION_FAILED_HUGGING": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CONNECTION_TYPE_MUST_BE_ONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "VALID_TYPES"
+    ]
+  },
+  "API_CBS_VENDOR_MUST_BE_ONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "VALID_CBS_VENDORS"
+    ]
+  },
+  "API_ENDPOINT_URL_BLOCKED_BY_SSRF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "err"
+    ]
+  },
+  "API_CONNECTION_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_ID_REQUIRED_FOR_SMB": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_ADMIN_CAN_ONLY_CONFIGURE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CONNECTION_ALREADY_EXISTS_FOR_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "connection_type"
+    ]
+  },
+  "API_SYNC_ONLY_AVAILABLE_FOR_CBS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "CBS_TYPES",
+      "row"
+    ]
+  },
+  "API_CANNOT_SYNC_A_CONNECTION_IN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_ROLE_CANNOT_ACCESS_NOTIFICATION_ROUT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_ROLE_CANNOT_SEND_OR_RETRY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user"
+    ]
+  },
+  "API_NOTIFICATION_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CANNOT_RETRY_NOTIFICATION_IN_STATUS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "row"
+    ]
+  },
+  "API_DB_UNAVAILABLE_CONNECT_YUGABYTEDB_FI": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_BRANCHES_LOADED_IMPORT_CSV": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ONLY_BRANCH_LOADED_VERIFY_COMPLETENE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "API_ACTIVE_BRANCHES_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "ms"
+    ]
+  },
+  "API_QUERY_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_REDIS_CTS_OR_DB_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_SIGNATURES_IN_DB_RUN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHECK_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_REDIS_CTS_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_PPS_ENTRIES_SEED_IF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PPS_ENTRIES_IN_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "API_NO_MICR_PREFIXES_CONFIGURE_BEFORE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PREFIX_CONFIGURED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "API_NO_OPS_REVIEWER_USERS_HUMAN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REVIEWER_MANAGER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reviewers",
+      "value",
+      "managers",
+      "value2"
+    ]
+  },
+  "API_CTS_INWARD_FOLDER_PATH_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DIRECTORY_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_CTS_OUTWARD_FOLDER_PATH_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_KAFKA_PRODUCER_IN_APP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_PRODUCE_TIMED_OUT_10S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_IMMUDB_CLIENT_NOT_CONFIGURED_AUDIT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUDITEVENT_WRITTEN_VERIFIED_IN_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_IMMUDB_WRITE_TIMED_OUT_10S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMMUDB_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_REDIS_CTS_NOT_CONNECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REDIS_PING_OK_MS_BUT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_REDIS_CTS_PING_MS_VAULT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_REDIS_PING_TIMED_OUT_5S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REDIS_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_PPS_VAULT_PING_OK_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms",
+      "detail"
+    ]
+  },
+  "API_CBS_PING_OK_IN_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_CBS_PING_RETURNED_FALSE_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_UNREACHABLE_10S_TIMEOUT_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_CONNECTOR_NOT_INSTALLED_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_TEMPORAL_CLIENT_NOT_CONNECTED_START": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_NAMESPACE_REACHABLE_IN_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_TEMPORAL_UNREACHABLE_10S_CHECK_TEMPO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_NO_SIGNATURE_KEYS_FOUND_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_KEYS_PRESENT_IN_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "API_CTS_INWARD_FOLDER_PATH_NOT_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FOLDER_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_EXISTS_BUT_NOT_WRITABLE_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_EXISTS_AND_WRITABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "folder"
+    ]
+  },
+  "API_AUTH_CONNECTOR_NOT_INITIALISED_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOCAL_AUTH_DB_REACHABLE_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "API_AUTH_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_TEST_NOT_IMPLEMENTED_FOR_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEST_TIMED_OUT_30S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNEXPECTED_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "str"
+    ]
+  },
+  "API_DOCKER_COMPOSE_UP_D_OK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "container"
+    ]
+  },
+  "API_DOCKER_NOT_FOUND_ON_PATH": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "container"
+    ]
+  },
+  "API_DOCKER_COMPOSE_START_TIMED_OUT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROUTED_TO_HUGGING_FACE_INFERENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_UNKNOWN_SERVICE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "service_id"
+    ]
+  },
+  "API_OPS_MANAGER_OR_BANK_IT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_IT_ADMIN_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_TYPE_MUST_BE_ONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "list"
+    ]
+  },
+  "API_PLATFORM_ADMIN_ROLE_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_ALREADY_EXISTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "API_IS_IMMUTABLE_AND_CANNOT_BE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "field"
+    ]
+  },
+  "API_PROCESSING_UNIT_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pu_id"
+    ]
+  },
+  "API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_AN_ACTIVE_REGISTRATION_ALREADY_EXIST_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_TOKEN_SHOWN_ONCE_STORE_IT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_MACHINE_TOKEN_REQUIRED_AUTHO": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_ACTIVE_SCANNER_TOKEN_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_SCANNER_TOKEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_TOKEN_REQUIRED_AUTHORIZATION": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REGISTRATION_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_REGISTRATION_DEACTIVATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_ACTIVE_SCANNER_REGISTRATION_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ifsc"
+    ]
+  },
+  "API_AN_ACTIVE_CONFIG_ALREADY_EXISTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_CONFIG_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_BANK_TYPE_MUST_BE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_PERMISSION_LEVEL_MUST_BE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_ROLE_MUST_BE_ONE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_USER_WITH_THIS_EMAIL_ALREADY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_ROLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR_3": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_ROLE_IS_ONLY_VALID_FOR_4": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_CANNOT_DEACTIVATE_YOUR_OWN_ACCOUNT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_SETUP_NOT_INITIATED_CALL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CODE_PLEASE_TRY_AGAIN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_ACTIVATED_MFA_IS_NOW": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_NOT_ENABLED_FOR_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TOTP_SECRET_NOT_FOUND_CONTACT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ROLE_CANNOT_UPLOAD_PPS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role"
+    ]
+  },
+  "API_CTS_CIIF_AMOUNT_UNIT_RUPEES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FILE_EXCEEDS_MB_LIMIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "API_ROLE_CANNOT_UPLOAD": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "role",
+      "vault_type"
+    ]
+  },
+  "API_UNKNOWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type"
+    ]
+  },
+  "API_INSUFFICIENT_ROLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TEMPORAL_NOT_CONNECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_SESSION_MANAGER_NOT_INITIALISED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_REDIS_NOT_AVAILABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_INVALID_DATE_FORMAT_EXPECTED_YYYY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_CONNECTED_TO_EEH_STATUS_FEED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_SPAN_PX_ISOLATED_DOTS_SPECKS": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "MIN_SPAN"
+    ]
+  },
+  "SIG_DETECTOR_DENSITY_40_SOLID_HORIZONTAL_RULE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_RUNS_15_SECURITY_PRINT_DIAGONAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_RIGHT_FRINGE_ONLY_BARCODE_STRIPE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_COUNT_QUALITY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "sp"
+    ]
+  },
+  "SIG_DETECTOR_INVALID_IMAGE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "SIG_DETECTOR_ROWS_REJECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rows_rejected",
+      "description"
+    ]
+  },
+  "SIG_DETECTOR_VLLM_RETURNED_ERROR_RESULT_INCONCLUS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_SIG_DETECTOR_VISION_URL_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NOT_A_SUBSCRIBABLE_BUCKET_VALID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bad",
+      "list"
+    ]
+  },
+  "CTS_DATABASE_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CCH_REQTYPE_W_RESPONSE_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CCH_REQTYPE_W_RESPONSE_MISSING_2": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FAILED_TO_FETCH_CCH_KEY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_DEM_END_MARKER_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "end_marker"
+    ]
+  },
+  "CTS_UNSUPPORTED_DEM_ENCRYPTION_ALGORITHM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "algo"
+    ]
+  },
+  "CTS_FAILED_TO_PARSE_TRANS_ENCRYPT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_TRANS_ENCRYPT_DATA_HEADER_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FAILED_TO_DECRYPT_AES_KEY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_AES_DECRYPTION_FAILED_TAMPERED_CIPHE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FAILED_TO_PARSE_TRANS_SIGNATURE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING_2": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CCH_SIGNATURE_VERIFICATION_FAILED_FI": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATURE_VERIFICATION_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_BACKUP_NOT_FOUND_FOR_RESEND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "backup_path"
+    ]
+  },
+  "CTS_QWEN2_VL_REPORTS_OVERWRITING_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_CONFIRMS_STOP_PAYMENT_INSTRUCTIO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIAMESE_SNN_MATCH_SCORE_0": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_ACCOUNT_STATUS_FROZEN_COURT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOAD_TEST_AI_STUBS_MAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DUPLICATE_INSTRUMENT_ID_IN_ENDORSEME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_ACCOUNT_SUFFIX_MUST_BE_4": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_REAR_IMAGE_NOT_DECODABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_RAW_ACCOUNT_NUMBER_DETECTED_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_TRAINED_ON_RULE_LABELLED_SYNTHETIC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISSING_REQUIRED_COLUMNS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "missing"
+    ]
+  },
+  "CTS_COLUMNS_THAT_MAY_CARRY_CUSTOMER": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bad"
+    ]
+  },
+  "CTS_LINE_TIMESTAMP_MUST_BE_A": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "n"
+    ]
+  },
+  "CTS_ROWS_IS_BELOW_THE_MINIMUM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "min_rows"
+    ]
+  },
+  "CTS_POSITIVE_FRAUD_EXAMPLES_IS_BELOW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "int",
+      "min_positives"
+    ]
+  },
+  "CTS_A_TRAIN_VALIDATION_TEST_SLICE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SMB_ID_IS_REQUIRED_WHEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SMB_ID_MUST_BE_NONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BANK_NOT_FOUND_IN_PLATFORM": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "CTS_DEVSTUBNGCHADAPTER_MAY_ONLY_RUN_WITH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_DECISION_MUST_BE_ONE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "decision",
+      "VALID_DECISIONS"
+    ]
+  },
+  "CTS_DUPLICATE_FILING_FOR_IDEMPOTENCY_KEY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id",
+      "workflow_id"
+    ]
+  },
+  "CTS_NGCHADAPTER_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_DECISION_MUST_BE_ONE_2": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "decision",
+      "VALID_DECISIONS"
+    ]
+  },
+  "CTS_NGCH_REJECTED_DUPLICATE_FILING_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id",
+      "workflow_id"
+    ]
+  },
+  "CTS_NGCH_FILE_DECISION_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_NGCH_QUERY_STATUS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_FILE_A_CHEQUE_DECISION_CONFIRM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNIQUE_CHEQUE_INSTRUMENT_ID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_TEMPORAL_WORKFLOW_ID_IDEMPOTENCY_KEY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_QUERY_THE_CURRENT_NGCH_FILING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MUST_BE_EXACTLY_BYTES_RSA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ds_field",
+      "DS_SIZE",
+      "len"
+    ]
+  },
+  "CTS_INSTRUMENTS_LIST_MUST_NOT_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIBF_BINARY_IS_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ITEM_OFFSET_OUT_OF_RANGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "label",
+      "ds_offset",
+      "img_offset",
+      "img_length",
+      "len"
+    ]
+  },
+  "CTS_ITEM_DS_END_EXCEEDS_CIBF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "label",
+      "ds_end",
+      "len"
+    ]
+  },
+  "CTS_MICRDS_SIGNATURE_MUST_BE_CHARS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "MICRDS_SIG_LENGTH",
+      "len"
+    ]
+  },
+  "CTS_CXF_ITEMS_LIST_MUST_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISSING_REQUIRED_ATTRIBUTE_ON": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name",
+      "tag"
+    ]
+  },
+  "CTS_MISSING_REQUIRED_CHILD_ELEMENT_IN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "local",
+      "tag"
+    ]
+  },
+  "CTS_CXF_XML_BYTES_ARE_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_CXF_XML": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_CXF_XML_MISSING_FILESUMMARY": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CXF_XML_MISSING_BATCH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ITEM_MISSING_IMAGEVIEWDETAIL_VIEWSID": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "view"
+    ]
+  },
+  "CTS_MISSING_REQUIRED_PXF_ELEMENT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "local_name"
+    ]
+  },
+  "CTS_PXF_XML_BYTES_ARE_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_PXF_XML": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_PXF_XML_MISSING_REQUIRED_BATCHGROUP": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PXF_XML_MISSING_BATCHHEADER": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PXF_XML_MISSING_FILEHEADER": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNKNOWN_CLEARINGTYPE_IN_PXF_EXPECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "clearing_type_raw"
+    ]
+  },
+  "CTS_ITEM_INVALID_AMOUNTPAISE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "item_seq_no",
+      "amount_paise_str"
+    ]
+  },
+  "CTS_UNREACHABLE_TWO_DAYS_ALWAYS_CONTAIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNKNOWN_CTS_FIELD_VALID_FIELDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "field",
+      "sorted"
+    ]
+  },
+  "CTS_ACCOUNT_SUFFIX_MUST_BE_AT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_XHTML2PDF_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "err"
+    ]
+  },
+  "CTS_DIRECTION_MUST_BE_ONE_OF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "DIRECTIONS"
+    ]
+  },
+  "CTS_NO_RETURN_ITEMS_RRF_REQUIRES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RETURNREASONCOMMENT_IS_MANDATORY_WHE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RETURNREASONCOMMENT_FOR_CODE_88_MUST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SECURELINK_UNREACHABLE_AT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "base_url",
+      "exc"
+    ]
+  },
+  "CTS_SECURELINK_RETURNED_HTTP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "status_code",
+      "exc"
+    ]
+  },
+  "CTS_SECURELINK_STATUS_CHECK_FAILED_AT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "base_url",
+      "exc"
+    ]
+  },
+  "CTS_CANON_RANGER_TRANSPORT_NOT_CONFIGURE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id"
+    ]
+  },
+  "CTS_AT_IS_UNREACHABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "scanner_model",
+      "securelink_url"
+    ]
+  },
+  "CTS_NO_SCANNER_CONFIG_FOUND_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_id",
+      "bank_id",
+      "branch_id2"
+    ]
+  },
+  "CTS_USD_OPENSCANNER_RETURNED_CHECK_SCANN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "handle"
+    ]
+  },
+  "CTS_USD_SCANITEM_RETURNED_ERROR_CODE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rc"
+    ]
+  },
+  "CTS_USD_GETIMAGEDATA_IMAGE_TYPE_RETURNED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "image_type",
+      "rc"
+    ]
+  },
+  "CTS_DIGITAL_CHECK_DCC_API_DLL": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "searched"
+    ]
+  },
+  "CTS_PANINI_PANINI_CONNECT_RETURNED_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "handle"
+    ]
+  },
+  "CTS_PANINI_PANINI_START_SCAN_RETURNED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rc"
+    ]
+  },
+  "CTS_PANINI_GET_IMAGE_SIDE_RETURNED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "side",
+      "rc"
+    ]
+  },
+  "CTS_PANINI_SDK_DLL_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "searched"
+    ]
+  },
+  "CTS_CANNOT_CONNECT_TO_CANON_RANGER": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host",
+      "port",
+      "exc"
+    ]
+  },
+  "CTS_NOT_CONNECTED_CALL_CONNECT_FIRST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IMAGE_SIDE_MAPPING_MUST_INCLUDE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "list"
+    ]
+  },
+  "CTS_PIPE_SEPARATED_IMAGE_NAMING_PATTERN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_DUPLICATE_SCAN_ID_ALREADY_ADDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "scan_id",
+      "session_id"
+    ]
+  },
+  "CTS_EMPTY_FILE_CONTENT_IS_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_UNKNOWN_FILE_TYPE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "file_type"
+    ]
+  },
+  "CTS_COLUMN_MISSING_REQUIRED_COLUMNS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_INVALID_BUCKET_MUST_BE_ONE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bucket",
+      "set"
+    ]
+  },
+  "CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len"
+    ]
+  },
+  "CTS_ACCOUNTVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUELEAFVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_IS_ALREADY_DUPLICATE_PRESENTM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "cheque_number",
+      "prev_status"
+    ]
+  },
+  "CTS_PPSVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATUREVAULT_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CSV_PARSE_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_CSV_MISSING_REQUIRED_COLUMNS_FOR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type",
+      "missing"
+    ]
+  },
+  "CTS_ACCOUNT_NOT_FOUND_IN_CTS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "raw_acct"
+    ]
+  },
+  "CTS_CIIF_AMOUNT_UNIT_MUST_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIIF_FILE_IS_NOT_VALID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIIF_TEST_FILE_TESTFILEINDICATOR_T": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CIIF_FILE_REJECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "message"
+    ]
+  },
+  "CTS_SERIALNUMBER_REQUIRED_TO_KEY_THE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SERIES_START_MUST_BE_SERIES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "series_start",
+      "series_end"
+    ]
+  },
+  "CTS_CHEQUELEAFVAULT_NOT_CONFIGURED_IN_PR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACCOUNTVAULT_NOT_CONFIGURED_IN_PROCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DB_POOL_NOT_CONFIGURED_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PPSVAULT_NOT_CONFIGURED_IN_PROCESSOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATUREVAULT_NOT_CONFIGURED_IN_PRO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_TEMPORALIO_PACKAGE_NOT_INSTALLED_RUN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ASTRA_CTS_TEMPORAL_WORKER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BUILD_NGCH_FILE_INSTRUMENTS_LIST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IET_BREACH_IN_5_MINUTES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NGCH_ADAPTER_NOT_CONFIGURED_FILING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_DATE_MISSING_FOR": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_AMOUNT_MISSING_FOR": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_DATE_AMOUNT_MISSING_FOR": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_NO_CRL_ENTRY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ins"
+    ]
+  },
+  "CTS_SMB_PUSH_FILE_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "file_path"
+    ]
+  },
+  "MSV_EXPECTED_DIM_EMBEDDING_GOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "EMBEDDING_DIM",
+      "len"
+    ]
+  },
+  "MSV_EMBEDDING_MODEL_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "MSV_SIGNATURE_DETECTOR_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "MSV_ASTRA_MSV_TEMPORAL_WORKER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNDECODABLE_SIGNATURE_IMAGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BOTH_L1_AND_L2_VLLM": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "call_type",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_AUDITEVENT_IS_ALREADY_SIGNED_CANNOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_HSM_SIGNING_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_IMMUDB_CONNECT_FAILED_AT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host",
+      "port",
+      "exc"
+    ]
+  },
+  "PLATFORM_PAYLOAD_MUST_INCLUDE_BANK_ID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_IMMUDB_WRITE_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_IMMUDB_VERIFY_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_IMMUDBCLIENT_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_EITHER_CONNECTOR_OR_CONNECTOR_FACTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_INVALID_MFA_CODE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_INVALID_ENROLMENT_CODE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CANNOT_REFRESH_A_PRE_MFA": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SESSION_IS_ALREADY_MFA_AUTHENTICATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_ENTITY_TYPE_VALID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "entity_type",
+      "sorted"
+    ]
+  },
+  "PLATFORM_AUTH_CONFIG_MISSING_THE_AUTH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_INTEGRATION_TYPE_FOR_ENTITY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "integration_type",
+      "entity_type"
+    ]
+  },
+  "PLATFORM_LDAPS_REQUIRED_USE_LDAPS_PORT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_USER_NOT_FOUND_IN_DIRECTORY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "username"
+    ]
+  },
+  "PLATFORM_USER_AUTHENTICATED_BUT_HAS_NO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "username"
+    ]
+  },
+  "PLATFORM_ACCOUNT_LOCKED_DUE_TO_REPEATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ACCOUNT_INACTIVE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SAML_ASSERTION_MISSING_NAMEID": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_USER_AUTHENTICATED_VIA_SAML_BUT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "username"
+    ]
+  },
+  "PLATFORM_SAML_AUTHENTICATION_IS_NOT_YET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_NO_PENDING_TOTP_SECRET_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id"
+    ]
+  },
+  "PLATFORM_USER_HAS_NO_TOTP_ENROLLED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id"
+    ]
+  },
+  "PLATFORM_VAULTTOTPSECRETSTORE_REQUIRES_A_VAUL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ROLE_DOES_NOT_HAVE_PERMISSION": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "value2",
+      "user_id",
+      "bank_id",
+      "name",
+      "value3"
+    ]
+  },
+  "PLATFORM_USER_BANK_ATTEMPTED_TO_ACCESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id",
+      "requested_bank_id"
+    ]
+  },
+  "PLATFORM_SB_USER_BANK_CANNOT_ACCESS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id",
+      "target_bank_id"
+    ]
+  },
+  "PLATFORM_SMB_USER_BANK_TYPE_SMB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_SMB_USER_BANK_ATTEMPTED_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id",
+      "target_bank_id"
+    ]
+  },
+  "PLATFORM_USER_HAS_PERMISSION_LEVEL_BUT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "value",
+      "value2"
+    ]
+  },
+  "PLATFORM_OPS_REVIEWER_IS_SCOPED_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "pu_ids",
+      "requested_pu"
+    ]
+  },
+  "PLATFORM_RBI_EXAMINER_ENGAGEMENT_HAS_EXPIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id"
+    ]
+  },
+  "PLATFORM_BRANCH_MANAGER_IS_SCOPED_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "user_id",
+      "branch_code",
+      "branch_code2"
+    ]
+  },
+  "PLATFORM_SESSIONTOKENSERVICE_HAS_NO_PRIVATE_K": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SESSION_TOKEN_EXPIRED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_INVALID_SESSION_TOKEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_SESSION_TOKEN_MISSING_CLAIM": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_CSRF_TOKEN_MISMATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_BANCS_GET_ACCOUNT_INFO_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_SIGNATURE_SPECIMENS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_CHECK_STOP_PAYMENT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_PPS_ENTRIES_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_CHEQUE_STATUS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_SIGNATORY_DATA_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCS_GET_BRANCH_CONTACTS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_BANCSCBSCONNECTOR_CONNECT_HAS_NOT_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_DEVSTUBCBSCONNECTOR_MAY_ONLY_RUN_WIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_FINACLE_GET_ACCOUNT_INFO_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_SIGNATURE_SPECIMENS_FAIL": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_CHECK_STOP_PAYMENT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_PPS_ENTRIES_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_CHEQUE_STATUS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_ACCOUNT_NOT_FOUND_IN_FINACLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_number"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_SIGNATORY_DATA_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLE_GET_BRANCH_CONTACTS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FINACLECBSCONNECTOR_CONNECT_HAS_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_FLEXCUBE_SOAP_CALL_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FLEXCUBE_FAULT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "code"
+    ]
+  },
+  "PLATFORM_FLEXCUBE_GET_SIGNATORY_DATA_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FLEXCUBE_GET_BRANCH_CONTACTS_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FLEXCUBECBSCONNECTOR_CONNECT_HAS_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_BANK_ID_ENV_VAR_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_ASTRA_SECRETS_BACKEND_VALID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "backend_name",
+      "value"
+    ]
+  },
+  "PLATFORM_CONFIG_KEY_NOT_SET_LAYER": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value"
+    ]
+  },
+  "PLATFORM_CONFIG_KEY_NOT_FOUND_DB": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value"
+    ]
+  },
+  "PLATFORM_CONFIG_KEY_NOT_FOUND_FOR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_PLATFORM_CONFIG_ENV_VAR_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "env_var",
+      "bank_id"
+    ]
+  },
+  "PLATFORM_OPA_UNREACHABLE_FOR_POLICY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "policy",
+      "exc"
+    ]
+  },
+  "PLATFORM_GET_VAULT_CLIENT_IS_ONLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name__"
+    ]
+  },
+  "PLATFORM_CONFIG_SERVICE_INITIALISE_HAS_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_SECRETS_BACKEND_ENV_IS": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_SECRET_NOT_FOUND_SET_ENV": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "env_var"
+    ]
+  },
+  "PLATFORM_K8S_SECRET_MOUNT_PATH_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mount_path",
+      "mount_path2"
+    ]
+  },
+  "PLATFORM_SECRET_NOT_FOUND_AT_ENSURE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "file_path",
+      "key_value2",
+      "mount_path"
+    ]
+  },
+  "PLATFORM_FAILED_TO_READ_SECRET_FROM": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "file_path",
+      "exc"
+    ]
+  },
+  "PLATFORM_VAULT_ADDR_VAULT_TOKEN_NOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_VAULT_AUTH_FAILED_AT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_addr"
+    ]
+  },
+  "PLATFORM_VAULT_FETCH_FAILED_FOR_KEY": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "key_value",
+      "exc"
+    ]
+  },
+  "PLATFORM_CANNOT_ENCODE_AS_DATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name__"
+    ]
+  },
+  "PLATFORM_KAFKA_CONSUMER_CONNECT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_CORRUPT_KAFKA_MESSAGE_AT_OFFSET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "offset",
+      "exc"
+    ]
+  },
+  "PLATFORM_UNKNOWN_SCHEMA_VERSION_FOR_EVENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "schema_version",
+      "event_type",
+      "supported_versions"
+    ]
+  },
+  "PLATFORM_EVENTCONSUMER_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_KAFKA_PRODUCER_CONNECT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_PUBLISH_FAILED_TO_TOPIC": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "topic",
+      "exc"
+    ]
+  },
+  "PLATFORM_MODULE_ISOLATION_VIOLATION_PRODUCER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "module",
+      "topic",
+      "other"
+    ]
+  },
+  "PLATFORM_EVENTPRODUCER_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_DEVSTUBHSMSIGNER_MAY_ONLY_RUN_WITH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_VAULT_TRANSIT_SIGNING_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_FAILED_TO_DECODE_VAULT_TRANSIT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_HVAC_IS_NOT_INSTALLED_PIP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_CAUGHT_ERRORS_CLASSIFIED_FOR_INCIDEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_LOCK_ALREADY_HELD_FOR_RESOURCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "resource_id"
+    ]
+  },
+  "PLATFORM_NOTIFICATIONS_FIRED_WITHIN_THE_DEBOU": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "event_category"
+    ]
+  },
+  "PLATFORM_DELIVERY_FAILED_FOR_TEMPLATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "channel",
+      "template_id",
+      "exc"
+    ]
+  },
+  "PLATFORM_UNSUPPORTED_CHANNEL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "channel"
+    ]
+  },
+  "PLATFORM_POSTAL_SMTP_CONNECT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_EMAIL_SEND_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_EMAILCHANNEL_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_WHATSAPP_SEND_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "PLATFORM_WHATSAPPCHANNEL_CONNECT_HAS_NOT_BEEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_UNKNOWN_CONNECTOR_TYPE_VALID_TYPES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "connector_type",
+      "sorted"
+    ]
+  },
+  "PLATFORM_INSTRUMENT_ID_IS_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_PEPPER_MUST_NOT_BE_EMPTY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ENCRYPTION_KEY_MUST_NOT_BE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IET_BREACH_RISK_CHEQUES_WITHIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "near_breach_count"
+    ]
+  },
+  "CTS_BRANCH_SCANNER_S_OFFLINE_DURING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "offline_count",
+      "branch_list"
+    ]
+  },
+  "CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "terminated",
+      "found"
+    ]
+  },
+  "CTS_IET_BREACH_RISK_CHEQUES_WITHIN_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "near_breach"
+    ]
+  },
+  "CTS_HUMAN_REVIEW_QUEUE_DEPTH_REASON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hr_data",
+      "hr_data2"
+    ]
+  },
+  "CTS_BRANCH_SCANNER_S_OFFLINE_DURING_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "fleet_data",
+      "branch_list"
+    ]
+  },
+  "CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sweep_data",
+      "sweep_data2"
+    ]
   }
 }

@@ -25,6 +25,7 @@ from typing import List
 import structlog
 
 from modules.cts.ngch.pxf_iet_parser import IETParseError, iet_to_unix_timestamp
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -95,7 +96,7 @@ def _find_text(element, local_name: str, *, required: bool = True) -> str:
         child = element.find(local_name)
     if child is None or child.text is None:
         if required:
-            raise PXFParseError(f"Missing required PXF element: <{local_name}>")
+            raise PXFParseError(get_message("CTS_MISSING_REQUIRED_PXF_ELEMENT", local_name=local_name))
         return ""
     return child.text.strip()
 
@@ -109,26 +110,26 @@ class PXFParser:
         Raises PXFParseError if the XML is malformed or missing required elements.
         """
         if not xml_bytes:
-            raise PXFParseError("PXF XML bytes are empty")
+            raise PXFParseError(get_message("CTS_PXF_XML_BYTES_ARE_EMPTY"))
 
         try:
             root = ET.fromstring(xml_bytes)
         except ET.ParseError as exc:
-            raise PXFParseError(f"Invalid PXF XML: {exc}") from exc
+            raise PXFParseError(get_message("CTS_INVALID_PXF_XML", exc=exc)) from exc
 
         # Locate BatchGroup (may or may not be namespaced)
         batch_group = root.find(_tag("BatchGroup"))
         if batch_group is None:
             batch_group = root.find("BatchGroup")
         if batch_group is None:
-            raise PXFParseError("PXF XML missing required <BatchGroup> element")
+            raise PXFParseError(get_message("CTS_PXF_XML_MISSING_REQUIRED_BATCHGROUP"))
 
         # Extract batch-level fields (shared across all items in the batch)
         batch_header = batch_group.find(_tag("BatchHeader"))
         if batch_header is None:
             batch_header = batch_group.find("BatchHeader")
         if batch_header is None:
-            raise PXFParseError("PXF XML missing <BatchHeader>")
+            raise PXFParseError(get_message("CTS_PXF_XML_MISSING_BATCHHEADER"))
 
         presenting_bank_rout_no = _find_text(batch_header, "PresentingBankRoutNo")
         presentment_date        = _find_text(batch_header, "PresentmentDate")
@@ -139,15 +140,14 @@ class PXFParser:
         if file_header is None:
             file_header = root.find("FileHeader")
         if file_header is None:
-            raise PXFParseError("PXF XML missing <FileHeader>")
+            raise PXFParseError(get_message("CTS_PXF_XML_MISSING_FILEHEADER"))
 
         clearing_type_raw = _find_text(file_header, "ClearingType")
         try:
             clearing_type = ClearingType(clearing_type_raw)
         except ValueError:
             raise PXFParseError(
-                f"Unknown ClearingType '{clearing_type_raw}' in PXF — "
-                "expected '01' (normal) or '14' (On Realization)"
+                get_message("CTS_UNKNOWN_CLEARINGTYPE_IN_PXF_EXPECTED", clearing_type_raw=clearing_type_raw)
             )
 
         # Parse each <Item>
@@ -208,7 +208,7 @@ class PXFParser:
             amount_paise = int(amount_paise_str)
         except ValueError as exc:
             raise PXFParseError(
-                f"Item {item_seq_no}: invalid AmountPaise '{amount_paise_str}'"
+                get_message("CTS_ITEM_INVALID_AMOUNTPAISE", item_seq_no=item_seq_no, amount_paise_str=amount_paise_str)
             ) from exc
 
         # UDK = PresentmentDate(8) + PresentingBankRoutNo(9) + CycleNo(2) + ItemSeqNo(5)

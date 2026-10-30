@@ -24,6 +24,7 @@ from typing import List
 import structlog
 
 from modules.cts.ngch.cxf_parser import ParsedCXFItem
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -71,21 +72,18 @@ class CIBFParser:
             CIBFParseError: If CIBF is empty or any offset is out of range.
         """
         if not cibf_bytes:
-            raise CIBFParseError("CIBF binary is empty")
+            raise CIBFParseError(get_message("CTS_CIBF_BINARY_IS_EMPTY"))
 
         def _slice(ds_offset: int, img_offset: int, img_length: int, label: str):
             end = img_offset + img_length
             if ds_offset < 0 or img_offset < 0 or end > len(cibf_bytes):
                 raise CIBFParseError(
-                    f"Item {item.item_seq_no} {label}: offset out of range "
-                    f"(ds_offset={ds_offset}, img_offset={img_offset}, "
-                    f"img_length={img_length}, cibf_size={len(cibf_bytes)})"
+                    get_message("CTS_ITEM_OFFSET_OUT_OF_RANGE", item_seq_no=item.item_seq_no, label=label, ds_offset=ds_offset, img_offset=img_offset, img_length=img_length, len=len(cibf_bytes))
                 )
             ds_end = ds_offset + _DS_SIZE
             if ds_end > len(cibf_bytes):
                 raise CIBFParseError(
-                    f"Item {item.item_seq_no} {label}: DS end {ds_end} "
-                    f"exceeds CIBF size {len(cibf_bytes)}"
+                    get_message("CTS_ITEM_DS_END_EXCEEDS_CIBF", item_seq_no=item.item_seq_no, label=label, ds_end=ds_end, len=len(cibf_bytes))
                 )
             return (
                 cibf_bytes[ds_offset:ds_end],

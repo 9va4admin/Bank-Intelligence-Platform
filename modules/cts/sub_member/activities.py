@@ -28,6 +28,7 @@ import structlog
 log = structlog.get_logger()
 
 from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
+from shared.messages import get_message
 
 _RETURN_NOTIFICATION_TOPIC = PLATFORM_NOTIFICATIONS
 _RISK_EVENT_TOPIC = PLATFORM_NOTIFICATIONS
@@ -78,7 +79,7 @@ async def notify_sub_member_return(
     """
     if len(cheque_number_suffix) > 4:
         raise ValueError(
-            f"cheque_number_suffix must be ≤ 4 chars (PII rule): got {len(cheque_number_suffix)}"
+            get_message("CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE", len=len(cheque_number_suffix))
         )
 
     notification_id = f"SMB-NOTIF-{uuid.uuid4().hex[:8].upper()}"
@@ -150,7 +151,7 @@ async def emit_batch_ledger_update(
     Valid bucket values: STP_PASS, STP_RETURN, EYEBALL, FRAUD_HOLD, IET_EMERGENCY
     """
     if bucket not in _BUCKET_COLUMNS:
-        raise ValueError(f"Invalid bucket '{bucket}'. Must be one of {set(_BUCKET_COLUMNS)}")
+        raise ValueError(get_message("CTS_INVALID_BUCKET_MUST_BE_ONE", bucket=bucket, set=set(_BUCKET_COLUMNS)))
 
     column = _BUCKET_COLUMNS[bucket]  # allowlisted — safe to interpolate as an identifier
     now = datetime.now(timezone.utc)

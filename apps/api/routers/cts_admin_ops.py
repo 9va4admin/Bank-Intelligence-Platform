@@ -99,7 +99,7 @@ async def get_instrument_digest(
         )
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Instrument not found or not yet processed")
+        raise HTTPException(status_code=404, detail=get_message("API_INSTRUMENT_NOT_FOUND_OR_NOT"))
 
     digest_payload = row["steps_digest"] or {}
     steps_raw = digest_payload.get("steps", [])
@@ -250,7 +250,7 @@ class ScheduleUpdateResponse(BaseModel):
 _CTS_SCHEDULE_REGISTRY = [
     {
         "schedule_id_tpl": "cts-vaultsync-schedule-{bank_id}",
-        "label": "PPS & Stop Cheque Vault Sync",
+        "label": get_message("UI_SCHEDULES_PPS_STOP_CHEQUE_VAULT_SYNC"),
         "workflow": "VaultSyncWorkflow",
         "module": "CTS",
         "cron": "0 7 * * *",
@@ -320,7 +320,7 @@ async def update_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SCHEDULE_NOT_FOUND"))
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -337,7 +337,7 @@ async def update_schedule(
             log.error("cts.schedule_update_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to update Temporal Schedule",
+                detail=get_message("API_FAILED_TO_UPDATE_TEMPORAL_SCHEDULE"),
             ) from exc
 
     log.info("cts.schedule_updated", bank_id=bank_id, schedule_id=schedule_id, cron=body.cron)
@@ -345,7 +345,7 @@ async def update_schedule(
         schedule_id=schedule_id,
         cron=body.cron,
         status="UPDATED",
-        message=f"Schedule {schedule_id} updated to cron: {body.cron}",
+        message=get_message("API_SCHEDULE_UPDATED_TO_CRON", schedule_id=schedule_id, cron=body.cron),
     )
 
 
@@ -356,7 +356,7 @@ async def pause_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SCHEDULE_NOT_FOUND"))
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -366,7 +366,7 @@ async def pause_schedule(
             log.error("cts.schedule_pause_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to pause Temporal Schedule",
+                detail=get_message("API_FAILED_TO_PAUSE_TEMPORAL_SCHEDULE"),
             ) from exc
 
     log.info("cts.schedule_paused", bank_id=bank_id, schedule_id=schedule_id)
@@ -374,7 +374,7 @@ async def pause_schedule(
         schedule_id=schedule_id,
         cron="",
         status="UPDATED",
-        message=f"Schedule {schedule_id} paused.",
+        message=get_message("API_SCHEDULE_PAUSED", schedule_id=schedule_id),
     )
 
 
@@ -385,7 +385,7 @@ async def resume_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SCHEDULE_NOT_FOUND"))
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -395,7 +395,7 @@ async def resume_schedule(
             log.error("cts.schedule_resume_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to resume Temporal Schedule",
+                detail=get_message("API_FAILED_TO_RESUME_TEMPORAL_SCHEDULE"),
             ) from exc
 
     log.info("cts.schedule_resumed", bank_id=bank_id, schedule_id=schedule_id)
@@ -403,7 +403,7 @@ async def resume_schedule(
         schedule_id=schedule_id,
         cron="",
         status="UPDATED",
-        message=f"Schedule {schedule_id} resumed.",
+        message=get_message("API_SCHEDULE_RESUMED", schedule_id=schedule_id),
     )
 
 
@@ -416,7 +416,7 @@ def _get_ifsc_repo(request: Request):
     if repo is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="IFSC registry unavailable",
+            detail=get_message("API_IFSC_REGISTRY_UNAVAILABLE"),
         )
     return repo
 
@@ -450,7 +450,7 @@ async def get_ifsc_by_id(
     repo = _get_ifsc_repo(request)
     entry = await repo.get_ifsc_by_id(entry_id)
     if entry is None or entry.bank_id != ctx.bank_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_IFSC_ENTRY_NOT_FOUND"))
     return entry
 
 
@@ -461,7 +461,7 @@ async def create_ifsc(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> IFSCEntry:
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_OPS_MANAGER_ROLE_REQUIRED"))
     repo = _get_ifsc_repo(request)
     try:
         entry = await repo.create_ifsc(ctx.bank_id, body, created_by=ctx.user_id)
@@ -478,11 +478,11 @@ async def approve_ifsc(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> IFSCEntry:
     if ctx.role.value != "bank_it_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_ROLE_REQUIRED"))
     repo = _get_ifsc_repo(request)
     entry = await repo.approve_ifsc(entry_id, approved_by=ctx.user_id)
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_IFSC_ENTRY_NOT_FOUND"))
     log.info("ifsc_registry.approved", entry_id=entry_id, bank_id=ctx.bank_id, approved_by=ctx.user_id)
     return entry
 
@@ -494,11 +494,11 @@ async def deactivate_ifsc(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> IFSCEntry:
     if ctx.role.value != "bank_it_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_ROLE_REQUIRED"))
     repo = _get_ifsc_repo(request)
     entry = await repo.deactivate_ifsc(entry_id, updated_by=ctx.user_id)
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_IFSC_ENTRY_NOT_FOUND"))
     log.info("ifsc_registry.deactivated", entry_id=entry_id, bank_id=ctx.bank_id, updated_by=ctx.user_id)
     return entry
 

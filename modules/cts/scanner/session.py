@@ -7,6 +7,7 @@ Enforces no-duplicate scan IDs (idempotency guard before Temporal submission).
 from __future__ import annotations
 
 from modules.cts.scanner.models import ScanResult
+from shared.messages import get_message
 
 
 class ScanSessionManager:
@@ -22,7 +23,7 @@ class ScanSessionManager:
     def add_scan(self, result: ScanResult) -> None:
         if result.scan_id in self._scans:
             raise ValueError(
-                f"duplicate scan_id '{result.scan_id}' — already added to session {self._session_id}"
+                get_message("CTS_DUPLICATE_SCAN_ID_ALREADY_ADDED", scan_id=result.scan_id, session_id=self._session_id)
             )
         self._scans[result.scan_id] = result
 

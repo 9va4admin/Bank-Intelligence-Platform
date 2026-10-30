@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from modules.cts.endorsement.models import EndorsementRecord, EndorsementTemplate
+from shared.messages import get_message
 
 
 class EndorsementStamper:
@@ -62,7 +63,7 @@ class EndorsementStamper:
             img = Image.open(io.BytesIO(rear_image_bytes))
             img.load()
         except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"rear image not decodable: {exc}") from exc
+            raise ValueError(get_message("CTS_REAR_IMAGE_NOT_DECODABLE", exc=exc)) from exc
         fmt = img.format or "TIFF"
         work = img.convert("RGB")
         w, h = work.size

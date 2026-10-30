@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Optional
 
 from modules.cts.scanner.drivers import ScannerDriverNotFoundError, ScannerUnavailableError
+from shared.messages import get_message
 
 
 # Maximum buffer sizes — well above any real scan output
@@ -81,15 +82,13 @@ class PaniniSDKDriver:
         )
         if handle <= 0:
             raise ScannerUnavailableError(
-                f"Panini panini_connect() returned {handle}. "
-                "Check scanner power, USB cable, and DLL version."
+                get_message("CTS_PANINI_PANINI_CONNECT_RETURNED_CHECK", handle=handle)
             )
         try:
             rc = self._dll.panini_start_scan(ctypes.c_int(handle))
             if rc != 0:
                 raise ScannerUnavailableError(
-                    f"Panini panini_start_scan() returned error code {rc}. "
-                    "Ensure a cheque is placed in the feeder."
+                    get_message("CTS_PANINI_PANINI_START_SCAN_RETURNED", rc=rc)
                 )
 
             front_image = self._get_image(handle, side=0)
@@ -116,7 +115,7 @@ class PaniniSDKDriver:
         )
         if rc != 0:
             raise ScannerUnavailableError(
-                f"panini_get_image(side={side}) returned error {rc}"
+                get_message("CTS_PANINI_GET_IMAGE_SIDE_RETURNED", side=side, rc=rc)
             )
         return bytes(buf[: size_ptr[0]])
 
@@ -153,8 +152,5 @@ class PaniniSDKDriver:
             str(d / n) for d in search_dirs for n in _DLL_NAMES
         )
         raise ScannerDriverNotFoundError(
-            f"Panini SDK DLL not found. "
-            f"Place panini64.dll (64-bit) or panini.dll (32-bit) in the bin/ folder. "
-            f"Searched: {searched}. "
-            f"Download from Panini support portal and copy to bin/panini64.dll."
+            get_message("CTS_PANINI_SDK_DLL_NOT_FOUND", searched=searched)
         )

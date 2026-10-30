@@ -10,13 +10,14 @@ from fastapi import HTTPException, Request, status
 
 from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
 from shared.auth.session_token import SessionClaims
+from shared.messages import get_message
 
 
 def require_session(request: Request) -> SessionClaims:
     """Return the verified full session, or raise 401."""
     claims = getattr(request.state, "user", None)
     if claims is None or not getattr(claims, "mfa_authenticated", False):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_NOT_AUTHENTICATED"))
     return claims
 
 
@@ -35,5 +36,5 @@ def require_user_context(request: Request) -> UserContext:
         )
     except ValueError as exc:  # unknown role/type/level in a (signed) token — fail closed
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session claims"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_SESSION_CLAIMS")
         ) from exc

@@ -19,6 +19,7 @@ from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from shared.messages import get_message
 
 
 class IFSCEntry(BaseModel):
@@ -68,9 +69,9 @@ class IFSCCreateRequest(BaseModel):
     @model_validator(mode="after")
     def smb_consistency(self) -> "IFSCCreateRequest":
         if self.bank_type == "SMB" and not self.smb_id:
-            raise ValueError("smb_id is required when bank_type is SMB")
+            raise ValueError(get_message("CTS_SMB_ID_IS_REQUIRED_WHEN"))
         if self.bank_type == "SB" and self.smb_id:
-            raise ValueError("smb_id must be None when bank_type is SB")
+            raise ValueError(get_message("CTS_SMB_ID_MUST_BE_NONE"))
         return self
 
 
