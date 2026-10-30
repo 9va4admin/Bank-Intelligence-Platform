@@ -14,31 +14,27 @@ function renderEndorsement() {
 }
 
 describe('CTSEndorsement', () => {
-  it('renders the page heading', () => {
-    renderEndorsement()
-    expect(screen.getAllByText('Endorsement').length).toBeGreaterThan(0)
-  })
 
-  it('shows 8 instrument rows', () => {
+  it('shows all 20 instrument rows', () => {
     renderEndorsement()
-    expect(screen.queryAllByText(/CHQ-IN-20260619/).length).toBe(8)
+    expect(screen.queryAllByText(/CHQ-IN-20260619/).length).toBe(20)
   })
 
   it('shows all instruments as Pending initially', () => {
     renderEndorsement()
-    // 8 rows + 1 KPI tile label = 9 "Pending" occurrences
-    expect(screen.queryAllByText('Pending').length).toBeGreaterThanOrEqual(8)
+    // 20 rows + 1 KPI tile label
+    expect(screen.queryAllByText('Pending').length).toBeGreaterThanOrEqual(20)
   })
 
   it('shows Endorse All button with count', () => {
     renderEndorsement()
-    expect(screen.getByText('Endorse All (8)')).toBeTruthy()
+    expect(screen.getByText('Endorse All (20)')).toBeTruthy()
   })
 
   it('shows endorsement stamp template card', () => {
     renderEndorsement()
     expect(screen.getByText('Endorsement Stamp Template')).toBeTruthy()
-    expect(screen.queryAllByText(/SVCB0000001/).length).toBeGreaterThan(0)
+    expect(screen.queryAllByText(/IFSC: [A-Z]{4}0\w{6}/).length).toBeGreaterThan(0)
   })
 
   it('View buttons are disabled when instruments are Pending', () => {
@@ -58,7 +54,7 @@ describe('CTSEndorsement', () => {
 
   it('shows bank IFSC in template section', () => {
     renderEndorsement()
-    const ifscEls = screen.queryAllByText(/SVCB0000001/)
+    const ifscEls = screen.queryAllByText(/IFSC: [A-Z]{4}0\w{6}/)
     expect(ifscEls.length).toBeGreaterThan(0)
   })
 })

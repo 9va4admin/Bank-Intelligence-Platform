@@ -45,8 +45,8 @@ vi.mock('../components/ReviewPanel', () => ({
     item ? (
       <div data-testid="review-panel">
         <span data-testid="selected-id">{item.instrument_id}</span>
-        <button onClick={() => onDecision(item.instrument_id, 'CONFIRM', '')}>Confirm</button>
-        <button onClick={() => onDecision(item.instrument_id, 'RETURN', 'Signature mismatch confirmed')}>Return</button>
+        <button onClick={() => onDecision(item.instrument_id, 'APPROVE_TO_VALIDATION', {})}>Confirm</button>
+        <button onClick={() => onDecision(item.instrument_id, 'RETURN', { label: 'Signature mismatch confirmed' })}>Return</button>
       </div>
     ) : (
       <div data-testid="review-panel-empty">No item selected</div>
@@ -62,15 +62,15 @@ describe('CTSWorkstation — initial state', () => {
     expect(screen.getByTestId('appshell')).toBeInTheDocument()
   })
 
-  it('shows all 6 pending queue cards on load', () => {
+  it('shows the 4 own-bank pending queue cards on load', () => {
     renderWithTheme(<CTSWorkstation />)
-    // All MOCK_QUEUE items are PENDING initially
-    expect(screen.getAllByTestId(/queue-card-CHQ/)).toHaveLength(6)
+    // The sponsor bank starts on "My Bank": the 2 sub-member items of the 6 mock items are on the other tab
+    expect(screen.getAllByTestId(/queue-card-CHQ/)).toHaveLength(4)
   })
 
-  it('passes human_review count of 6 to BatchStats on load', () => {
+  it('passes the pending count of the open tab (4) to BatchStats on load', () => {
     renderWithTheme(<CTSWorkstation />)
-    expect(screen.getByTestId('human-review-count')).toHaveTextContent('6')
+    expect(screen.getByTestId('human-review-count')).toHaveTextContent('4')
   })
 
   it('auto-selects first item and passes it to ReviewPanel', () => {
@@ -98,15 +98,15 @@ describe('CTSWorkstation — STP simulation', () => {
   it('adds a STP entry after first interval fires', async () => {
     renderWithTheme(<CTSWorkstation />)
     await act(async () => { vi.advanceTimersByTime(3300) })
-    // First STP item should appear — CHQ-2026-001901
-    expect(screen.getByText('CHQ-2026-001901')).toBeInTheDocument()
+    // First STP item should appear — CHQ-2026-006291
+    expect(screen.getByText('CHQ-2026-006291')).toBeInTheDocument()
   })
 
   it('adds multiple STP entries as intervals fire', async () => {
     renderWithTheme(<CTSWorkstation />)
     await act(async () => { vi.advanceTimersByTime(10000) })
     // After 10s at 3.2s interval, should have ~3 entries
-    const stpIds = screen.queryAllByText(/CHQ-2026-00190/)
+    const stpIds = screen.queryAllByText(/CHQ-2026-00629/)
     expect(stpIds.length).toBeGreaterThanOrEqual(3)
   })
 
@@ -133,19 +133,26 @@ describe('CTSWorkstation — human decisions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     // Confirmed item moves to "decided" section — pending count drops by 1
-    expect(screen.getByTestId('human-review-count')).toHaveTextContent('5')
+    expect(screen.getByTestId('human-review-count')).toHaveTextContent('3')
   })
 
   it('removes returned item from pending queue', async () => {
     renderWithTheme(<CTSWorkstation />)
     fireEvent.click(screen.getByRole('button', { name: 'Return' }))
-    expect(screen.getByTestId('human-review-count')).toHaveTextContent('5')
+    expect(screen.getByTestId('human-review-count')).toHaveTextContent('3')
   })
 
   it('increments human decisions counter in session summary', async () => {
     renderWithTheme(<CTSWorkstation />)
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(screen.getByText('Human decisions')).toBeInTheDocument()
+  })
+
+  it('marks an approved cheque as confirmed, not returned', () => {
+    renderWithTheme(<CTSWorkstation />)
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(screen.getByText('Decided this session')).toBeInTheDocument()
+    expect(screen.queryByText('Returned')).not.toBeInTheDocument()
   })
 
   it('shows decided section after a decision is made', () => {
@@ -164,14 +171,16 @@ describe('CTSWorkstation — human decisions', () => {
 
   it('marks sub-member queue items with SUB_MEMBER principal_tag', () => {
     renderWithTheme(<CTSWorkstation />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sponsored SMBs' }))
     const smbBadges = screen.getAllByTestId(/smb-badge-CHQ/)
     expect(smbBadges.length).toBeGreaterThanOrEqual(2)
   })
 
   it('sub-member items carry sub_member_name from mockQueue', () => {
     renderWithTheme(<CTSWorkstation />)
-    const vasaviBadge = screen.queryByText('Vasavi Co-op Bank')
-    const andheriBadge = screen.queryByText('Andheri Urban Co-op Bank')
+    fireEvent.click(screen.getByRole('button', { name: 'Sponsored SMBs' }))
+    const vasaviBadge = screen.queryByText('Sample Sub-Member Bank 1')
+    const andheriBadge = screen.queryByText('Sample Sub-Member Bank 2')
     expect(vasaviBadge).toBeTruthy()
     expect(andheriBadge).toBeTruthy()
   })
@@ -183,8 +192,8 @@ describe('CTSWorkstation — queue clear state', () => {
 
   it('shows Queue clear message when all items decided', () => {
     renderWithTheme(<CTSWorkstation />)
-    // Confirm all 6 items
-    for (let i = 0; i < 6; i++) {
+    // Confirm all 4 own-bank items
+    for (let i = 0; i < 4; i++) {
       const confirmBtn = screen.queryByRole('button', { name: 'Confirm' })
       if (confirmBtn) fireEvent.click(confirmBtn)
     }

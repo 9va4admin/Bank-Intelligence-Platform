@@ -124,7 +124,7 @@ export default function CTSWorkstation() {
         }))
         // Auto-select first pending item when queue first loads
         if (prev.length === 0 && merged.length > 0) {
-          const firstPending = merged.find(i => i.status === 'PENDING')
+          const firstPending = merged.find(i => i.status === 'PENDING' && inScope(i))
           if (firstPending) setSelected(firstPending)
         }
         return merged
@@ -190,7 +190,7 @@ export default function CTSWorkstation() {
     setQueue((prev) =>
       prev.map((item) =>
         item.instrument_id === id
-          ? { ...item, status: action === 'CONFIRM' ? 'CONFIRMED' : 'RETURNED' }
+          ? { ...item, status: ['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(action) ? 'CONFIRMED' : 'RETURNED' }
           : item
       )
     )

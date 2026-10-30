@@ -34,15 +34,15 @@ describe('CTSNGCHRouting', () => {
 
   it('shows routing rules', () => {
     renderPage()
-    expect(screen.getByText('Default Mumbai Zone')).toBeInTheDocument()
-    expect(screen.getByText('Default Delhi Zone')).toBeInTheDocument()
+    expect(screen.getByText('Default NGCH Route')).toBeInTheDocument()
+    expect(screen.getByText('Government Cheque Route')).toBeInTheDocument()
     expect(screen.getByText('High-Value Override')).toBeInTheDocument()
     expect(screen.getByText('IET Emergency Fallback')).toBeInTheDocument()
   })
 
   it('shows rule type badges', () => {
     renderPage()
-    expect(screen.getAllByText('ZONE').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('DEFAULT')).toBeInTheDocument()
     expect(screen.getByText('OVERRIDE')).toBeInTheDocument()
     expect(screen.getByText('EMERGENCY')).toBeInTheDocument()
   })
@@ -77,6 +77,7 @@ describe('CTSNGCHRouting', () => {
 
   it('shows filed today counts', () => {
     renderPage()
-    expect(screen.getByText('1,842')).toBeInTheDocument()
+    // the default route files most of the day's cheques
+    expect(screen.getByText('3,388')).toBeInTheDocument()
   })
 })

@@ -49,15 +49,17 @@ describe('ReviewPanel — header', () => {
     expect(screen.getByText('Signature mismatch')).toBeInTheDocument()
   })
 
-  it('does NOT show OPA badge when opa_rule is absent', () => {
+  it('shows a dash for the policy rule on the passport tab when opa_rule is absent', () => {
     render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
-    expect(screen.queryByText('OPA')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /passport/i }))
+    expect(screen.getByText('OPA Rule').nextSibling).toHaveTextContent('—')
   })
 
-  it('shows OPA badge when opa_rule is set', () => {
+  it('shows the policy rule on the passport tab when opa_rule is set', () => {
     const item = { ...baseItem, opa_rule: 'cts_routing.rego · rule: high_value_dual_approval' }
     render(<ReviewPanel item={item} onDecision={() => {}} />)
-    expect(screen.getByText('OPA')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /passport/i }))
+    expect(screen.getByText('cts_routing.rego · rule: high_value_dual_approval')).toBeInTheDocument()
   })
 })
 
@@ -97,57 +99,53 @@ describe('ReviewPanel — SigPanel (vault miss)', () => {
 
   it('displays N/A in sig score tile', () => {
     render(<ReviewPanel item={vaultMissItem} onDecision={() => {}} />)
-    expect(screen.getByText('N/A')).toBeInTheDocument()
+    expect(screen.getAllByText('N/A')[0]).toBeInTheDocument()
   })
 })
 
 describe('ReviewPanel — action footer', () => {
+  // The reviewer is the maker: Approve sends the cheque on to validation, Return files a URRBCH reason code.
+  const pickReason = (label) => {
+    fireEvent.click(screen.getByText('Select Return Reason…'))
+    fireEvent.mouseDown(screen.getByText(label))
+  }
+
   it('Return button is disabled when no reason selected', () => {
     render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
-    const returnBtn = screen.getByRole('button', { name: /return cheque/i })
-    expect(returnBtn).toBeDisabled()
+    expect(screen.getByRole('button', { name: /✕ return/i })).toBeDisabled()
   })
 
   it('Return button enables after selecting a reason', () => {
     render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: 'Signature mismatch confirmed' } })
-    const returnBtn = screen.getByRole('button', { name: /return cheque/i })
-    expect(returnBtn).not.toBeDisabled()
+    pickReason('Insufficient funds')
+    expect(screen.getByRole('button', { name: /✕ return/i })).not.toBeDisabled()
   })
 
-  it('Confirm button is always enabled', () => {
+  it('Approve button is always enabled', () => {
     render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
-    expect(screen.getByRole('button', { name: /confirm cheque/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /approve → validation iq/i })).not.toBeDisabled()
   })
 
-  it('calls onDecision with CONFIRM action after timeout', async () => {
-    vi.useFakeTimers()
+  it('calls onDecision with APPROVE_TO_VALIDATION when approved', () => {
     const onDecision = vi.fn()
     render(<ReviewPanel item={baseItem} onDecision={onDecision} />)
-    fireEvent.click(screen.getByRole('button', { name: /confirm cheque/i }))
-    await act(async () => { vi.advanceTimersByTime(900) })
-    expect(onDecision).toHaveBeenCalledWith('CHQ-2026-001847', 'CONFIRM', '')
-    vi.useRealTimers()
+    fireEvent.click(screen.getByRole('button', { name: /approve → validation iq/i }))
+    expect(onDecision).toHaveBeenCalledWith('CHQ-2026-001847', 'APPROVE_TO_VALIDATION', {})
   })
 
-  it('calls onDecision with RETURN action and reason after timeout', async () => {
-    vi.useFakeTimers()
+  it('calls onDecision with RETURN, the reason and its URRBCH code', () => {
     const onDecision = vi.fn()
     render(<ReviewPanel item={baseItem} onDecision={onDecision} />)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Signature mismatch confirmed' } })
-    fireEvent.click(screen.getByRole('button', { name: /return cheque/i }))
-    await act(async () => { vi.advanceTimersByTime(900) })
-    expect(onDecision).toHaveBeenCalledWith('CHQ-2026-001847', 'RETURN', 'Signature mismatch confirmed')
-    vi.useRealTimers()
+    pickReason('Insufficient funds')
+    fireEvent.click(screen.getByRole('button', { name: /✕ return/i }))
+    expect(onDecision).toHaveBeenCalledWith('CHQ-2026-001847', 'RETURN', expect.objectContaining({ label: 'Insufficient funds', urrbch_code: '01' }))
   })
 
   it('does NOT call onDecision for RETURN when reason is empty', () => {
     const onDecision = vi.fn()
     render(<ReviewPanel item={baseItem} onDecision={onDecision} />)
     // Force click even though button is disabled
-    const returnBtn = screen.getByRole('button', { name: /return cheque/i })
-    fireEvent.click(returnBtn)
+    fireEvent.click(screen.getByRole('button', { name: /✕ return/i }))
     expect(onDecision).not.toHaveBeenCalled()
   })
 })
@@ -155,13 +153,13 @@ describe('ReviewPanel — action footer', () => {
 describe('ReviewPanel — tabs', () => {
   it('renders overview tab by default', () => {
     render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
-    expect(screen.getByText('OCR Extracted Fields · GOT-OCR2.0')).toBeInTheDocument()
+    expect(screen.getByText('OCR Fields · click ⓘ for AI detail')).toBeInTheDocument()
   })
 
   it('switches to cheque tab and renders specimen watermark', () => {
     render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: /^cheque$/i }))
-    expect(screen.getByText('SPECIMEN')).toBeInTheDocument()
+    expect(screen.getAllByText('Front B/W')[0]).toBeInTheDocument()
   })
 
   it('switches to AI analysis tab', () => {

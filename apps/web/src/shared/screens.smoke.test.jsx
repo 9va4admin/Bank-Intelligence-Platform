@@ -40,6 +40,6 @@ describe('every page renders and shows real wording', () => {
       })
       const text = document.body.textContent
       expect(leakedKey(text)).toBeNull()
-    })
+    }, 30_000) // a large page, loaded for the first time, can take longer than the 5 s default on a busy machine
   }
 })

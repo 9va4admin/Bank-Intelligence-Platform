@@ -85,7 +85,7 @@ export default function CTSWorkstation() {
     setQueue((prev) =>
       prev.map((item) =>
         item.instrument_id === id
-          ? { ...item, status: action === 'CONFIRM' || action === 'APPROVE_TO_VALIDATION' ? 'CONFIRMED' : 'RETURNED' }
+          ? { ...item, status: ['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(action) ? 'CONFIRMED' : 'RETURNED' }
           : item
       )
     )

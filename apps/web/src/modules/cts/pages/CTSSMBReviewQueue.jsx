@@ -123,7 +123,7 @@ export default function CTSSMBReviewQueue() {
     setQueue(prev =>
       prev.map(item =>
         item.instrument_id === id
-          ? { ...item, status: action === 'CONFIRM' ? 'CONFIRMED' : 'RETURNED' }
+          ? { ...item, status: ['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(action) ? 'CONFIRMED' : 'RETURNED' }
           : item
       )
     )
@@ -270,7 +270,7 @@ export default function CTSSMBReviewQueue() {
                 <div className="flex items-center justify-between">
                   <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_CONFIRMED')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                    {decisions.filter(d => d.action === 'CONFIRM').length}
+                    {decisions.filter(d => ['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(d.action)).length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -304,14 +304,14 @@ export default function CTSSMBReviewQueue() {
                       <div
                         key={i}
                         className={`rounded-lg px-3 py-2 border ${
-                          d.action === 'CONFIRM'
+                          ['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(d.action)
                             ? isDark ? 'border-emerald-700/30 bg-emerald-900/10' : 'border-emerald-200 bg-emerald-50'
                             : isDark ? 'border-red-700/30 bg-red-900/10' : 'border-red-200 bg-red-50'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={`text-[10px] font-semibold ${d.action === 'CONFIRM' ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {d.action === 'CONFIRM' ? msg('UI_COMMON_CONFIRMED_2') : msg('UI_SMBREVIEWQUEUE_RETURNED')}
+                          <span className={`text-[10px] font-semibold ${['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(d.action) ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(d.action) ? msg('UI_COMMON_CONFIRMED_2') : msg('UI_SMBREVIEWQUEUE_RETURNED')}
                           </span>
                           <span className={`text-[9px] font-mono ${th.faint}`}>{d.ts}</span>
                         </div>

@@ -19,8 +19,8 @@ describe('CTSOpsDashboard', () => {
   it('shows KPI labels', () => {
     render(<MemoryRouter><CTSOpsDashboard /></MemoryRouter>)
     expect(screen.getByText('Total Inward')).toBeTruthy()
-    expect(screen.getByText('STP Confirmed')).toBeTruthy()
-    expect(screen.getByText('Net Position')).toBeTruthy()
+    expect(screen.getAllByText('STP Confirmed')[0]).toBeTruthy()
+    expect(screen.getByText(/^Net \(/)).toBeTruthy()
   })
 
   it('shows session cards', () => {

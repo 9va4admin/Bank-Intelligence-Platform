@@ -27,9 +27,9 @@ describe('CTSSubMemberBanks', () => {
 
   it('shows all mock sub-members', () => {
     renderPage()
-    expect(screen.getByText('Saraswat Co-operative Bank')).toBeInTheDocument()
-    expect(screen.getByText('Cosmos Co-operative Bank')).toBeInTheDocument()
-    expect(screen.getByText('Janata Sahakari Bank')).toBeInTheDocument()
+    expect(screen.getByText('Sample Sub-Member Bank 1')).toBeInTheDocument()
+    expect(screen.getByText('Sample Sub-Member Bank 2')).toBeInTheDocument()
+    expect(screen.getByText('Sample Sub-Member Bank 3')).toBeInTheDocument()
   })
 
   it('shows stats cards', () => {
@@ -42,21 +42,21 @@ describe('CTSSubMemberBanks', () => {
 
   it('shows IFSC prefixes', () => {
     renderPage()
-    expect(screen.getByText('SRCB')).toBeInTheDocument()
-    expect(screen.getByText('COSB')).toBeInTheDocument()
-    expect(screen.getByText('JSBP')).toBeInTheDocument()
+    expect(screen.getByText('SMBA')).toBeInTheDocument()
+    expect(screen.getByText('SMBB')).toBeInTheDocument()
+    expect(screen.getByText('SMBC')).toBeInTheDocument()
   })
 
   it('shows risk level badges', () => {
     renderPage()
     expect(screen.getAllByText('LOW').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('HIGH')).toBeInTheDocument()
+    expect(screen.getByText('MEDIUM')).toBeInTheDocument()
   })
 
-  it('shows ACTIVE and SUSPENDED status badges', () => {
+  it('shows ACTIVE status badges and no suspended bank', () => {
     renderPage()
     expect(screen.getAllByText('ACTIVE').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('SUSPENDED')).toBeInTheDocument()
+    expect(screen.queryByText('SUSPENDED')).not.toBeInTheDocument()
   })
 
   it('clicking View shows detail panel', () => {

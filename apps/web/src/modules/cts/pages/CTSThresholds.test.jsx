@@ -71,11 +71,12 @@ describe('CTSThresholds', () => {
     expect(screen.queryByText('Submit for Approval')).not.toBeInTheDocument()
   })
 
-  it('change log tab shows history', () => {
+  it('change log tab shows history', async () => {
     renderPage()
     fireEvent.click(screen.getByText('Change Log'))
-    expect(screen.getAllByText('ops_manager@svcb').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('LIVE').length).toBeGreaterThanOrEqual(1)
+    // the history is fetched, so it appears a moment after the tab opens
+    expect((await screen.findAllByText('ops_manager@svcb')).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('APPROVED').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('PENDING')).toBeInTheDocument()
   })
 

@@ -15,6 +15,6 @@ function Wrapper({ children }) {
 describe('CTSImageQuality', () => {
   it('renders IQA page with KPI strip', () => {
     render(<CTSImageQuality />, { wrapper: Wrapper })
-    expect(screen.getByText(/Image Quality/i)).toBeTruthy()
+    expect(screen.getByText(/IQA Gate/)).toBeTruthy()
   })
 })
