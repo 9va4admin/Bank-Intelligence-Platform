@@ -25,6 +25,7 @@ from modules.cts.preprocessing.payee_normalizer import (
     transliterate_by_script,
     _jaro_winkler,
 )
+from shared.messages import get_message
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ _CORPUS: list[NameRow] = [
     NameRow("रामेश्वर",    "Rameshwar",    "devanagari", "Hindi"),
     NameRow("विश्वनाथ",   "Vishwanath",   "devanagari", "Hindi"),
     NameRow("देशपांडे",   "Deshpande",    "devanagari", "Marathi"),
-    NameRow("लता देवी",   "Lata Devi",    "devanagari", "Hindi"),
+    NameRow("लता देवी",   get_message("CTS_LATA_DEVI"),    "devanagari", "Hindi"),
     NameRow("महेंद्र",    "Mahendra",     "devanagari", "Hindi"),
     # Bengali
     NameRow("রামকৃষ্ণ",   "Ramkrishna",   "bengali",    "Bengali"),

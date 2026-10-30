@@ -13,6 +13,7 @@ from modules.cts.reconciliation.models import (
     ReconciliationStatus,
     SessionReconciliationReport,
 )
+from shared.messages import get_message
 
 # CBS statuses that mean "settlement complete"
 _CBS_SETTLED = {'POSTED', 'CONFIRMED', 'DEBITED', 'CREDITED'}
@@ -70,16 +71,16 @@ class ReconciliationEngine:
 
         if ngch and not cbs:
             status = ReconciliationStatus.NGCH_ONLY
-            detail = 'NGCH record present; no CBS posting found'
+            detail = get_message("CTS_NGCH_RECORD_PRESENT_NO_CBS")
         elif cbs and not ngch:
             status = ReconciliationStatus.CBS_ONLY
-            detail = 'CBS posting present; no NGCH record found'
+            detail = get_message("CTS_CBS_POSTING_PRESENT_NO_NGCH")
         elif ngch_status in _PENDING_STATUSES or cbs_status in _PENDING_STATUSES:
             status = ReconciliationStatus.PENDING
-            detail = f'Settlement in progress (NGCH={ngch_status}, CBS={cbs_status})'
+            detail = get_message("CTS_SETTLEMENT_IN_PROGRESS_NGCH_CBS", ngch_status=ngch_status, cbs_status=cbs_status)
         elif ngch_amount and cbs_amount and ngch_amount != cbs_amount:
             status = ReconciliationStatus.AMOUNT_MISMATCH
-            detail = f'Amount range differs: NGCH={ngch_amount} CBS={cbs_amount}'
+            detail = get_message("CTS_AMOUNT_RANGE_DIFFERS_NGCH_CBS", ngch_amount=ngch_amount, cbs_amount=cbs_amount)
         else:
             status = ReconciliationStatus.MATCHED
             detail = None

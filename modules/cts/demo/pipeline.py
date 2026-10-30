@@ -34,36 +34,36 @@ log = structlog.get_logger()
 # ── Simulated drawee bank pool (NPCI routing targets) ─────────────────────────
 
 DRAWEE_BANKS = [
-    {"name": "State Bank of India",     "ifsc": "SBIN0000001", "short": "SBI"},
-    {"name": "HDFC Bank Ltd",           "ifsc": "HDFC0000001", "short": "HDFC"},
-    {"name": "ICICI Bank Ltd",          "ifsc": "ICIC0000001", "short": "ICICI"},
-    {"name": "Axis Bank Ltd",           "ifsc": "UTIB0000001", "short": "AXIS"},
+    {"name": get_message("CTS_STATE_BANK_OF_INDIA"),     "ifsc": "SBIN0000001", "short": "SBI"},
+    {"name": get_message("CTS_HDFC_BANK_LTD"),           "ifsc": "HDFC0000001", "short": "HDFC"},
+    {"name": get_message("CTS_ICICI_BANK_LTD"),          "ifsc": "ICIC0000001", "short": "ICICI"},
+    {"name": get_message("CTS_AXIS_BANK_LTD"),           "ifsc": "UTIB0000001", "short": "AXIS"},
 ]
 
 # ── Step definitions: (enum value, display label, min_ms, max_ms) ─────────────
 
 PRESENTMENT_STEPS = [
-    (PresentmentStep.FILE_DETECTED,   "File detected in input folder",        40,   150),
-    (PresentmentStep.IMAGE_LOAD,      "Image loaded and decoded",             80,   250),
-    (PresentmentStep.OCR_MICR,        "GOT-OCR2.0 — MICR line extraction",   350,  750),
-    (PresentmentStep.CTS_COMPLIANCE,  "CTS-2010 compliance — 8 checks",      120,  350),
-    (PresentmentStep.VISION_LLM,      "Qwen2-VL — alteration detection",     500, 1100),
-    (PresentmentStep.DATA_EXTRACTION, "Field extraction and cross-check",     150,  400),
-    (PresentmentStep.LOT_ASSIGNMENT,  "Assigned to clearing lot",             60,   160),
-    (PresentmentStep.DECISION,        "Presentment decision rendered",        40,   120),
+    (PresentmentStep.FILE_DETECTED,   get_message("CTS_FILE_DETECTED_IN_INPUT_FOLDER"),        40,   150),
+    (PresentmentStep.IMAGE_LOAD,      get_message("CTS_IMAGE_LOADED_AND_DECODED"),             80,   250),
+    (PresentmentStep.OCR_MICR,        get_message("CTS_GOT_OCR2_0_MICR_LINE"),   350,  750),
+    (PresentmentStep.CTS_COMPLIANCE,  get_message("CTS_CTS_2010_COMPLIANCE_8_CHECKS"),      120,  350),
+    (PresentmentStep.VISION_LLM,      get_message("CTS_QWEN2_VL_ALTERATION_DETECTION"),     500, 1100),
+    (PresentmentStep.DATA_EXTRACTION, get_message("CTS_FIELD_EXTRACTION_AND_CROSS_CHECK"),     150,  400),
+    (PresentmentStep.LOT_ASSIGNMENT,  get_message("CTS_ASSIGNED_TO_CLEARING_LOT"),             60,   160),
+    (PresentmentStep.DECISION,        get_message("CTS_PRESENTMENT_DECISION_RENDERED"),        40,   120),
 ]
 
 DRAWEE_STEPS = [
-    (DraweeStep.FILE_RECEIPT,    "Received from NPCI clearing grid",          60,   180),
-    (DraweeStep.OCR_REEXTRACT,   "GOT-OCR2.0 — field re-extraction",         300,  650),
-    (DraweeStep.RBI_CHECKLIST,   "RBI CTS-2010 checklist — 11 items",        180,  420),
-    (DraweeStep.SIGNATURE_VAULT, "Siamese SNN — signature match",             280,  600),
-    (DraweeStep.ACCOUNT_STATUS,  "CBS Finacle — account status check",        180,  380),
-    (DraweeStep.STOP_PAYMENT,    "CBS stop-payment lookup",                   220,  450),
-    (DraweeStep.PPS_CHECK,       "PPS positive pay validation",               130,  300),
-    (DraweeStep.FRAUD_SCORE,     "XGBoost + SHAP — fraud score",             280,  580),
-    (DraweeStep.VISION_LLM,      "Qwen2-VL — final verification",            480, 1000),
-    (DraweeStep.DECISION,        "IET-safe decision filed to NGCH",           50,   140),
+    (DraweeStep.FILE_RECEIPT,    get_message("CTS_RECEIVED_FROM_NPCI_CLEARING_GRID"),          60,   180),
+    (DraweeStep.OCR_REEXTRACT,   get_message("CTS_GOT_OCR2_0_FIELD_RE"),         300,  650),
+    (DraweeStep.RBI_CHECKLIST,   get_message("CTS_RBI_CTS_2010_CHECKLIST_11"),        180,  420),
+    (DraweeStep.SIGNATURE_VAULT, get_message("CTS_SIAMESE_SNN_SIGNATURE_MATCH"),             280,  600),
+    (DraweeStep.ACCOUNT_STATUS,  get_message("CTS_CBS_FINACLE_ACCOUNT_STATUS_CHECK"),        180,  380),
+    (DraweeStep.STOP_PAYMENT,    get_message("CTS_CBS_STOP_PAYMENT_LOOKUP"),                   220,  450),
+    (DraweeStep.PPS_CHECK,       get_message("CTS_PPS_POSITIVE_PAY_VALIDATION"),               130,  300),
+    (DraweeStep.FRAUD_SCORE,     get_message("CTS_XGBOOST_SHAP_FRAUD_SCORE"),             280,  580),
+    (DraweeStep.VISION_LLM,      get_message("CTS_QWEN2_VL_FINAL_VERIFICATION"),            480, 1000),
+    (DraweeStep.DECISION,        get_message("CTS_IET_SAFE_DECISION_FILED_TO"),           50,   140),
 ]
 
 # ── Deterministic failure injection ───────────────────────────────────────────
@@ -118,14 +118,14 @@ def _drawee_failure(index: int) -> Optional[dict]:
 
 _AMOUNTS = [10_000, 25_000, 45_000, 72_500, 1_00_000, 2_00_000, 3_50_000, 5_00_000]
 _WORDS   = [
-    "Ten Thousand Only", "Twenty Five Thousand Only", "Forty Five Thousand Only",
-    "Seventy Two Thousand Five Hundred Only", "One Lakh Only",
-    "Two Lakhs Only", "Three Lakhs Fifty Thousand Only", "Five Lakhs Only",
+    get_message("CTS_TEN_THOUSAND_ONLY"), get_message("CTS_TWENTY_FIVE_THOUSAND_ONLY"), get_message("CTS_FORTY_FIVE_THOUSAND_ONLY"),
+    get_message("CTS_SEVENTY_TWO_THOUSAND_FIVE_HUNDRED"), get_message("CTS_ONE_LAKH_ONLY"),
+    get_message("CTS_TWO_LAKHS_ONLY"), get_message("CTS_THREE_LAKHS_FIFTY_THOUSAND_ONLY"), get_message("CTS_FIVE_LAKHS_ONLY"),
 ]
 _PAYEES  = [
-    "M/s Sunshine Traders", "ABC Enterprises Pvt Ltd", "R.K. Construction Co.",
-    "Priya Hospital Trust", "National Exports Ltd",
-    "Kotak Mahindra Bank Ltd", "Future Tech Solutions", "Rajesh Kumar",
+    get_message("CTS_M_S_SUNSHINE_TRADERS"), get_message("CTS_ABC_ENTERPRISES_PVT_LTD"), get_message("CTS_R_K_CONSTRUCTION_CO"),
+    get_message("CTS_PRIYA_HOSPITAL_TRUST"), get_message("CTS_NATIONAL_EXPORTS_LTD"),
+    get_message("CTS_KOTAK_MAHINDRA_BANK_LTD"), get_message("CTS_FUTURE_TECH_SOLUTIONS"), get_message("CTS_RAJESH_KUMAR"),
 ]
 
 

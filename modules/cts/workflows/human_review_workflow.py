@@ -30,6 +30,8 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
+with workflow.unsafe.imports_passed_through():
+    from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -267,7 +269,7 @@ class HumanReviewWorkflow:
             ngch_action = self._decision.action
             outcome = "MAKER_AUTO_FILED"
             reviewer_id = self._decision.reviewer_id
-            reason = f"checker_timeout: no checker acted, maker decision {ngch_action} filed"
+            reason = get_message("CTS_CHECKER_TIMEOUT_NO_CHECKER_ACTED", ngch_action=ngch_action)
             timed_out = True
             log.info("human_review.maker_decision_filed_no_checker", instrument_id=inp.instrument_id, bank_id=inp.bank_id)
         elif self._decision is not None:
@@ -282,7 +284,7 @@ class HumanReviewWorkflow:
             ngch_action = inp.system_decision
             outcome = "SIP_AUTO_FILED"
             reviewer_id = None
-            reason = f"sip_review_timeout_{inp.review_timeout_minutes}min: system decision {inp.system_decision} filed"
+            reason = get_message("CTS_SIP_REVIEW_TIMEOUT_MIN_SYSTEM", review_timeout_minutes=inp.review_timeout_minutes, system_decision=inp.system_decision)
             timed_out = True
             log.info("human_review.sip_timeout_system_decision", instrument_id=inp.instrument_id,
                      bank_id=inp.bank_id, decision=inp.system_decision)
@@ -471,7 +473,7 @@ class HumanReviewWorkflow:
             ngch_action = self._decision.action
             outcome = "MAKER_AUTO_FILED"
             reviewer_id = self._decision.reviewer_id
-            reason = f"checker_timeout: no checker acted, maker decision {ngch_action} filed"
+            reason = get_message("CTS_CHECKER_TIMEOUT_NO_CHECKER_ACTED", ngch_action=ngch_action)
             timed_out = True
         elif self._decision is not None:
             # Reviewer made a decision
@@ -489,7 +491,7 @@ class HumanReviewWorkflow:
             ngch_action = inp.system_decision
             outcome = "SIP_AUTO_FILED"
             reviewer_id = None
-            reason = f"sip_review_timeout_{inp.review_timeout_minutes}min: system decision {inp.system_decision} filed"
+            reason = get_message("CTS_SIP_REVIEW_TIMEOUT_MIN_SYSTEM", review_timeout_minutes=inp.review_timeout_minutes, system_decision=inp.system_decision)
             timed_out = True
         else:
             # Timeout — auto-return to protect bank

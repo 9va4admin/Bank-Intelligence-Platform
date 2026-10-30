@@ -745,7 +745,7 @@ class ChequeProcessingWorkflow:
         if _leaf_duplicate:
             return await finalise(
                 "STP_RETURN",
-                "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
+                get_message("CTS_DUPLICATE_PRESENTMENT_CHEQUE_LEAF_AL"),
             )
 
         # Drawee name for the reviewer, from the bank's own account record (never OCR).
@@ -1020,12 +1020,12 @@ class ChequeProcessingWorkflow:
         ))
         if stop_result.outcome == "STP_RETURN":
             return await finalise(
-                "STP_RETURN", f"Stop payment: {stop_result.stop_reason}",
+                "STP_RETURN", get_message("CTS_STOP_PAYMENT", stop_reason=stop_result.stop_reason),
             )
         if stop_result.outcome == "HUMAN_REVIEW":
             return await finalise(
                 "HUMAN_REVIEW",
-                f"Stop payment check: {stop_result.stop_reason or 'bloom_hit'}",
+                get_message("CTS_STOP_PAYMENT_CHECK_2", value=stop_result.stop_reason or 'bloom_hit'),
             )
 
         # Step 3a: validate_ifsc — confirm presentment IFSC belongs to this bank / SMB
@@ -1052,7 +1052,7 @@ class ChequeProcessingWorkflow:
             if ifsc_result.outcome == "HUMAN_REVIEW":
                 return await finalise(
                     "HUMAN_REVIEW",
-                    f"IFSC registry: {ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'}",
+                    get_message("CTS_IFSC_REGISTRY", value=ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'),
                 )
 
         # Step 4: lookup_pps
@@ -1213,12 +1213,12 @@ class ChequeProcessingWorkflow:
         if cheque_series_result.outcome == "STP_RETURN":
             return await finalise(
                 "STP_RETURN",
-                f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
+                get_message("CTS_CHEQUE_SERIES", reason=cheque_series_result.reason, return_reason_code=cheque_series_result.return_reason_code),
             )
         if cheque_series_result.outcome == "HUMAN_REVIEW":
             return await finalise(
                 "HUMAN_REVIEW",
-                f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
+                get_message("CTS_CHEQUE_SERIES_2", value=cheque_series_result.reason or 'CBS_UNAVAILABLE'),
             )
 
         # Stage D — Step 7: check_cbs_balance
@@ -1242,7 +1242,7 @@ class ChequeProcessingWorkflow:
             return await finalise("HUMAN_REVIEW", "cbs_unavailable_image_only_path")
         if cbs_balance_result.outcome == "RETURN":
             return await finalise(
-                "STP_RETURN", f"CBS balance check: {cbs_balance_result.outcome}",
+                "STP_RETURN", get_message("CTS_CBS_BALANCE_CHECK_2", outcome=cbs_balance_result.outcome),
             )
 
         # Step 8: check_account_status
@@ -1263,12 +1263,12 @@ class ChequeProcessingWorkflow:
         ))
         if acct_status_result.outcome == "RETURN":
             return await finalise(
-                "STP_RETURN", f"Account status: {acct_status_result.account_status}",
+                "STP_RETURN", get_message("CTS_ACCOUNT_STATUS", account_status=acct_status_result.account_status),
             )
         if acct_status_result.outcome == "HUMAN_REVIEW":
             return await finalise(
                 "HUMAN_REVIEW",
-                f"Account status review: {acct_status_result.account_status}",
+                get_message("CTS_ACCOUNT_STATUS_REVIEW", account_status=acct_status_result.account_status),
             )
 
         # Kill-switch checkpoint 2: re-resolved independently of checkpoint 1 —

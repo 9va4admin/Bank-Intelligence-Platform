@@ -35,6 +35,7 @@ from typing import Optional
 
 import structlog
 from opentelemetry import trace
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.msv.file_watcher")
@@ -171,11 +172,7 @@ class DropZoneHandler:
 
         try:
             error_text = (
-                f"job_id: {job_id}\n"
-                f"bank_id: {self._bank_id}\n"
-                f"filename: {processing_path.name}\n"
-                f"error: {exc.__class__.__name__}: {exc}\n"
-                f"timestamp: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(timestamp))}\n"
+                get_message("MSV_JOB_ID_BANK_ID_FILENAME", job_id=job_id, bank_id=self._bank_id, name=processing_path.name, name2=exc.__class__.__name__, exc=exc, time=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(timestamp)))
             )
             failed_error.write_text(error_text, encoding="utf-8")
         except Exception as write_exc:

@@ -21,6 +21,7 @@ from pathlib import Path
 from modules.cts.pipeline.registry import (
     INWARD_STEPS, OUTWARD_STEPS, REGISTRY_VERSION, PipelineStep,
 )
+from shared.messages import get_message
 
 
 def _badge(step: PipelineStep) -> str:
@@ -82,12 +83,12 @@ def _pipeline_section(title: str, steps: list[PipelineStep], anchor: str) -> str
 
 def build_html() -> str:
     inward_section = _pipeline_section(
-        f"Inward Pipeline — Drawee Bank (ChequeProcessingWorkflow · {len(INWARD_STEPS)} checks)",
+        get_message("CTS_INWARD_PIPELINE_DRAWEE_BANK_CHEQUEPR", len=len(INWARD_STEPS)),
         INWARD_STEPS,
         "inward",
     )
     outward_section = _pipeline_section(
-        f"Outward Pipeline — Presentee Bank (OutwardScanWorkflow · {len(OUTWARD_STEPS)} checks)",
+        get_message("CTS_OUTWARD_PIPELINE_PRESENTEE_BANK_OUTW", len=len(OUTWARD_STEPS)),
         OUTWARD_STEPS,
         "outward",
     )

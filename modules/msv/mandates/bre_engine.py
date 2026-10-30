@@ -102,8 +102,7 @@ class BREEngine:
         min_required = _min_required_count(mandate, expected_signatories)
         if detected_count < min_required:
             msg = (
-                f"Only {detected_count} signature(s) detected; "
-                f"mandate requires {min_required}."
+                get_message("MSV_ONLY_SIGNATURE_S_DETECTED_MANDATE", detected_count=detected_count, min_required=min_required)
             )
             log.info(
                 "bre.precheck_failed",

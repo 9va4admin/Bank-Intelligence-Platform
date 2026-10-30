@@ -194,14 +194,12 @@ class NGCHAdapter:
         docs/npci-readiness-plan.md. Fail loudly rather than AttributeError so a bank running this
         adapter without ngch.dev_stub gets a clear, actionable error instead of a confusing crash."""
         raise NotImplementedError(
-            "NGCHAdapter.submit_outward_lot: NPCI outward transport (SFTP/API filing of CXF+CIBF) is not "
-            "yet implemented — see docs/npci-readiness-plan.md. Use ngch.dev_stub for non-production testing."
+            get_message("CTS_NGCHADAPTER_SUBMIT_OUTWARD_LOT_NPCI")
         )
 
     async def query_status_outward(self, reference: str) -> None:
         raise NotImplementedError(
-            "NGCHAdapter.query_status_outward: NPCI outward transport is not yet implemented — "
-            "see docs/npci-readiness-plan.md."
+            get_message("CTS_NGCHADAPTER_QUERY_STATUS_OUTWARD_NPC")
         )
 
     def get_inward_instruments(self, pxf_xml_bytes: bytes) -> List["InwardInstrument"]:
