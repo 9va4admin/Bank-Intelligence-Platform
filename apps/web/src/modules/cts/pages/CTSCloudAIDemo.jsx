@@ -204,7 +204,7 @@ export default function CTSCloudAIDemo() {
               disabled={!file || loading}
               className="w-full h-11 rounded-lg font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition"
             >
-              {loading ? 'Extracting…' : '🚀 Extract Information'}
+              {loading ? msg('UI_CLOUDAIDEMO_EXTRACTING_2') : msg('UI_CLOUDAIDEMO_EXTRACT_INFORMATION')}
             </button>
 
             {error && (
@@ -303,7 +303,7 @@ export default function CTSCloudAIDemo() {
                       <div className={`rounded-lg border px-3 py-2 mb-2 ${th.infoCard}`}>
                         <div className={`text-[11px] font-semibold ${th.muted}`}>{msg('UI_CLOUDAIDEMO_SIGNATURE')}</div>
                         <div className={`text-sm font-semibold ${th.heading}`}>
-                          {result.signature_present ? 'Present' : 'Not Found'}
+                          {result.signature_present ? msg('UI_CLOUDAIDEMO_PRESENT') : msg('UI_CLOUDAIDEMO_NOT_FOUND')}
                         </div>
                       </div>
 
@@ -387,10 +387,10 @@ export default function CTSCloudAIDemo() {
             ) : (
               <p className={`text-sm ${th.faint}`}>
                 {result.error?.startsWith('SIG_DETECTOR_OFFLINE')
-                  ? 'Sig detector offline — start it with: cd apps/sig_detector; python main.py'
+                  ? msg('UI_CLOUDAIDEMO_SIG_DETECTOR_OFFLINE_START_IT')
                   : result.signature_present
-                    ? 'Signature present · region could not be isolated from this scan.'
-                    : 'No signature detected on this cheque.'}
+                    ? msg('UI_CLOUDAIDEMO_SIGNATURE_PRESENT_REGION_COULD_NOT')
+                    : msg('UI_CLOUDAIDEMO_NO_SIGNATURE_DETECTED_ON_THIS')}
               </p>
             )}
 

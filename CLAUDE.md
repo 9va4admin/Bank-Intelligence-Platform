@@ -262,7 +262,12 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   literal wording: `apps/web/src/shared/noLiteralWording.test.js` and `tests/shared/messages/test_python_wording_guard.py` (plus the key-exists checks in
   `test_message_usage_guard.py`). The web app loads the bundle before importing any screen (`main.jsx`), because converted constants call `msg()` at
   import time; `screens.smoke.test.jsx` renders every page and fails on a crash or a raw key. Placeholders may not be named `key` or `locale`.
-  Not covered: `apps/web-sb-only` (a separate copy of the app), `bank.config.js` (bank identity configuration), and the Hindi texts (stubs until translated).
+  **Extended 2026-10-30:** the detector also finds wording in ternaries inside JSX, template strings shown as content, returned labels, `*_label` /
+  `*_notes` style properties and error setters (web), and in returned strings, list/tuple items, dict values and keyword arguments (Python).
+  Exempt by decision: the landing page (`components/landing`); sample *records* (people, branches, payees, addresses, cities, bank names), CSS values and
+  API-documentation tags are data, not wording; LLM prompts, SQL, protocol lines and `dev_auth_server.py` are machine text. Not covered: `apps/web-sb-only`
+  (a separate copy of the app), `bank.config.js`, and the Hindi texts (stubs until translated). Temporal workflow files import `get_message` through
+  `workflow.unsafe.imports_passed_through()`.
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 

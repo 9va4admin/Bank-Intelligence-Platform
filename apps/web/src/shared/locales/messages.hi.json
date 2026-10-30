@@ -36119,5 +36119,6295 @@
       "sweep_data",
       "sweep_data2"
     ]
+  },
+  "UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_ALL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_LOGIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINLOG_ALL_TYPES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINLOG_ALL_BANKS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_STP_PIPELINE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_QUEUE_SEGMENTATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_ALLOCATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_IET_TIMING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_AI_CONFIDENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_AMOUNT_CONTROLS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_SECURITY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_OUTWARD_PROCESSING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_REASON_MUST_BE_AT_LEAST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_PENDING_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_SUBMITTING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_SUBMIT_FOR_APPROVAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_KUBERNETES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_YUGABYTEDB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_KAFKA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_TEMPORAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_CAB_TICKET_REFERENCE_IS_REQUIRED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_PENDING_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_RAISING_REQUEST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_RAISE_CHANGE_REQUEST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_S_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "diff"
+    ]
+  },
+  "UI_SECURITYVIOLATIONS_M_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SECURITYVIOLATIONS_H_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_COMMON_LOADING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_REFRESH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_REINSTATING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_REINSTATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_EDIT_USER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_CREATE_USER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_BANK_TYPE_CANNOT_BE_CHANGED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_SB_SPONSOR_BANK_STAFF_SMB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_SB_SPONSOR_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_SMB_SUB_MEMBER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_EMAIL_CANNOT_BE_CHANGED_AFTER": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_SAVE_CHANGES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_ACTIVE_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_INACTIVE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_NO_USERS_MATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "search"
+    ]
+  },
+  "UI_USERMANAGEMENT_NO_USERS_YET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bankTypeTab"
+    ]
+  },
+  "UI_USERMANAGEMENT_TRY_A_DIFFERENT_NAME_OR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_CREATE_THE_FIRST_USER_WITH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_SIGNING_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_SIGN_IN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_VERIFYING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_VERIFY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_CONFIRMING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_CONFIRM_FINISH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_BRANCH_COUNTER_CAPTURE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_SCANNER_BACK_SIDE_OCR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_CDM_MACHINE_SYSTEM_VERIFIED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_NO_REAR_IMAGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_NO_IMAGE_URL_SHOWING_SVG": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_LIVE_SCAN_IMAGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_GOT_OCR2_0": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_PRESENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_OCR_MICR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_VISION_CTS_2010": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_FILING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_RETURN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_M": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "minsLeft"
+    ]
+  },
+  "UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_ON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_AI_CONFIDENCE_BELOW_THRESHOLD_MANUAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_RISK_SCORE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_ALTERATION_DETECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_NO_ALTERATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_ALL_UV_CHECKS_PASS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_UV_CHECK_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBDASHBOARDCONTENT_SUB_MEMBER_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_HIGH_VALUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_SIGNATURE_MATCH_SCORE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_AMOUNT_VS_AVG_30D": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_FIRST_CLEARING_DAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_ACCOUNT_AGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_PPS_ON_FILE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_CBS_BALANCE_SUFFICIENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_PAYEE_PATTERN_MATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_22_APR_2026": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_DIFFERENTIAL_UV_INK_PATTERN_CLEARLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BRIGHT_FLUORESCENT_THREAD_CONFIRMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BANK_GHOST_IMAGE_DISTINCTLY_VISIBLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_VELOCITY_3_CHQS_TODAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_NEW_PAYEE_FIRST_TIME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_TIME_OF_PRESENTATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_07_JAN_2026": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_UV_INK_PATTERN_PRESENT_AND": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_METALLIC_SECURITY_THREAD_CONFIRMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_GHOST_IMAGE_VISIBLE_UNDER_UV": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_OCR_CONFIDENCE_LOW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_AMOUNT_ALTERATION_FLAG": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_14_MAR_2026": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_PENTOGRAPH_PATTERN_AUTHENTIC_PAPER_S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_THREAD_CONFIRMED_ALTERATION_IS_POST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BANK_GHOST_IMAGE_PRESENT_CONFIRMS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_VAULT_MISS_NO_SPECIMEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_ACCOUNT_AGE_6_MONTHS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_OCR_CONFIDENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_NO_SPECIMEN_ACCOUNT_OPENED_03": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_SECURITY_THREAD_CONFIRMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BANK_WATERMARK_FULLY_VISIBLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_VERY_HIGH_VALUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_AMOUNT_1CR_OPA_RULE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_18_JUN_2026": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_UV_DIFFERENTIAL_PATTERN_INTACT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_THREAD_CONFIRMED_HIGH_VALUE_L2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_WATERMARK_CLEARLY_VISIBLE_UNDER_UV": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_DORMANCY_REACTIVATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_22_MAY_2026": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_UV_PATTERN_AUTHENTIC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_THREAD_CONFIRMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_WATERMARK_PRESENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USEREVIEWQUEUE_FLAGGED_FOR_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_AGENCYCC_SFTP_TIMEOUT_HOST_UNREACHABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_AGENCYCC_ACTIVE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_AGENCYCC_DOWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_NO_ONE_ONLINE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_LEAST_LOADED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_RANDOM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_MAX_EACH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "maxPer"
+    ]
+  },
+  "UI_ALLOCATIONADMIN_STANDARD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_RELEASING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_FORCE_RELEASE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_IET_PASSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_IET_IN_MIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mins"
+    ]
+  },
+  "UI_ANALYTICS_FRAUD_RISK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_SIG_MISMATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_ALTERATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_INSUFFICIENT_FUNDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_STOP_PAYMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_DORMANT_ACCOUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_OTHER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_ALL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_CHEQUES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_DEMAND_DRAFTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_OK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_WARN": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_EDIT_BRANCH_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_ADD_BRANCH_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IFSC_CODE_READ_ONLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IFSC_CODE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_CREATE_BRANCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_VALIDATING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_VALIDATE_CSV": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IMPORTING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IMPORT_BRANCHES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "valid_count"
+    ]
+  },
+  "UI_BRANCHMASTER_COPIED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_COPY_CODE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_SWITCH_TO_LIGHT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_SWITCH_TO_DARK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_0_05_BREACH_RATE_AVG": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_85_STP_MANUAL_REVIEW_DROPS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_2_3_CATCH_RATE_ON": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_AUTOMATED_IMMUTABLE_AUDIT_VS_MANUAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_EXTRACTING_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_EXTRACT_INFORMATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_PRESENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_NOT_FOUND": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_SIG_DETECTOR_OFFLINE_START_IT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_SIGNATURE_PRESENT_REGION_COULD_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_NO_SIGNATURE_DETECTED_ON_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMPLIANCE_LOT_01": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMPLIANCE_LOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "l"
+    ]
+  },
+  "UI_CONFIG_UPDATED_VIA_ASTRA_ADMIN_UI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DECISIONSLOG_HIGH_RISK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DECISIONSLOG_MEDIUM_RISK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DECISIONSLOG_LOW_RISK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_NONE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_STP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_RTN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_HRV": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_DOCKER_ONLINE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_USING_SIMULATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_VISION_ONLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_VISION_FOCUS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_STOP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "totalProcessed",
+      "count"
+    ]
+  },
+  "UI_DEMOLIVE_PROCESS_CHEQUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_DEMOLIVE_DOCKER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_SIMULATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOPIPELINE_PRESENTMENT_PIPELINE_8_STAGES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOPIPELINE_DRAWEE_PIPELINE_10_STAGES_RBI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOPIPELINE_MS_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "totalMs"
+    ]
+  },
+  "UI_DRAWEEVIEW_CR_3": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "totalValueCr"
+    ]
+  },
+  "UI_DRAWEEVIEW_RATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_DRAWEEVIEW_RECEIVE_TODAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_PAYEE_S_ACCOUNT_CREDITED_RECEIVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ENDORSING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ALL_ENDORSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ENDORSE_ALL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pending"
+    ]
+  },
+  "UI_ENDORSEMENT_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lotPending"
+    ]
+  },
+  "UI_ENDORSEMENT_ENDORSED_3": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ENDORSE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lot"
+    ]
+  },
+  "UI_ENDORSEMENT_ENDORSED_4": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_PENDING_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HOLDQUEUE_INSTRUMENT_ON_HOLD_IET_COUNTDOWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_HOLDQUEUE_RELEASE_HOLD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_CONNECTED_MS": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "latency"
+    ]
+  },
+  "UI_HUBDASHBOARD_HIGH_LATENCY_MS": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "latency"
+    ]
+  },
+  "UI_HUBDASHBOARD_DISCONNECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_SEAL_FULL_LOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_SEAL_LOT_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_OPEN_LOT_MUST_BE_SEALED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_HUBDASHBOARD_ALL_LOTS_SEALED_READY_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_SUBMIT_TO_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_SCANNING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_RESCAN_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_RESCANNING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_TRIGGER_RESCAN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_RBI_CLEARING_GRID": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_QWEN2_VL_FIRST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_IMAGE_QUALITY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_BLOOM_CBS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_VAULT_SIAMESE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_XGBOOST_SHAP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_BALANCE_STATUS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_AI_SYNTHESIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_RTN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_HRQ": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_MY_INWARD_PIPELINE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_SUB_MEMBER_BANKS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "UI_INWARDPIPELINE_IET_WINDOW_NARROWING_1_INSTRUMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_INSTRUMENTS_IN_FORWARDING_STAGE_WITH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "alerts"
+    ]
+  },
+  "UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_DETECTED_IN_PAYEE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_IN_PAYEE_FIELD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_HIGH_VALUE_2_5L": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_84": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE_NO_STOP_PAYMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_CHEQUE_PRINTED_60_DAYS_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_93": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_IN_GOOD_STANDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_STANDARD_VALUE_RANGE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE_97": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_REGISTERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_ACTIVE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_VERY_HIGH_VALUE_1_CR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_BELOW_80_THRESHOLD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SELF_DRAWN_CHEQUE_DRAWER_PAYEE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_96": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_LOW_VALUE_LOW_RISK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_NO_ADVERSE_ACCOUNT_HISTORY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_DRAWEE_ACCOUNT_DORMANT_FOR_14": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_DORMANT_14_MONTHS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_HIGH_VALUE_8_75L": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_88": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_NO_STOP_PAYMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_PAYEE_IS_A_REGISTERED_COMPANY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_INSTRUMENT_CLICK_ANY_ROW_TO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_MCPCONFIG_CONNECTION_REFUSED_CBS_UNREACHABLE_A": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_EDIT_MCP_CONNECTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_ADD_MCP_CONNECTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_SAVING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_UPDATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_ADD_CONNECTION_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_TESTING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_TEST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_SYNCING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_SYNC_VAULT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_HIDE_DETAILS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_DETAILS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_PRE_FLIGHT_CHECK_PASSED_CLEARING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_PRE_FLIGHT_CHECK_BLOCKED_CONNECTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_OUTWARDPIPELINEMONITOR_ACCEPTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDPIPELINEMONITOR_ACK_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDPIPELINEMONITOR_URGENT_SUBMIT_BEFORE_NGCH_CLOSES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDPIPELINEMONITOR_UNTIL_NEXT_NGCH_SUBMISSION_CLOSE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDQUEUE_NO_ITEMS_AWAITING_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDQUEUE_NO_STP_REJECTIONS_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_CONFIRMED_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDQUEUE_REJECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_INGEST_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_VISION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_COMPLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_STOPPAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_SIG": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_FRAUD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_DECIDE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "UI_PIPELINEVISUALIZER_NOT_REACHED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_EXCEPTION_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_HELD_FOR_HUMAN_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_VIEW_ALL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "label"
+    ]
+  },
+  "UI_PIPELINEVISUALIZER_RUNNING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_PAUSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_NGCH_RETURNED_ERROR_TEMPORAL_AUTO": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_IMAGE_QUALITY_BELOW_CTS_2010": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_SUCCESSFULLY_PARSED_BY_AI_OCR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_FILED_TO_NGCH_CONFIRM_RETURN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_TOTAL_INWARD_INSTRUMENTS_RECEIVED_TH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_WORDS_VS_FIGURES_AMOUNT_DISCREPANCY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_NO_STALE_OR_POST_DATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_MS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "STAGE_MS"
+    ]
+  },
+  "UI_PRESENTMENT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_LIVE_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_ALL_STATUSES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_ALL_LOTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_LOT_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_PRESENTMENTFILE_DATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_AMOUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_SIGN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_COMP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_DUP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_OPEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_CLOSED_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_HDR_CTS2010": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sbIfsc",
+      "DATE_STR",
+      "sessionId",
+      "value"
+    ]
+  },
+  "UI_PRESENTMENTFILE_DTL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "micr",
+      "account_display",
+      "amount",
+      "date_on_cheque",
+      "image_bw"
+    ]
+  },
+  "UI_PRESENTMENTFILE_DTL_2": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "micr",
+      "account_display",
+      "amount",
+      "date_on_cheque",
+      "fail_code",
+      "fail_label"
+    ]
+  },
+  "UI_PRESENTMENTFILE_MORE_RECORDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_PRESENTMENTFILE_TRL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "totalAmt"
+    ]
+  },
+  "UI_PRESENTMENTFILE_NGCH_SUBMIT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_NGCH_SUBMIT_ERROR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_KAFKA_LISTENER_ACTIVE_AUTO_UPDATING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_LIVE_POLLING_EVERY_10S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_SEND_TO_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_EDIT_PROCESSING_UNIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_ADD_PROCESSING_UNIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_CREATE_PU": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_YES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_NO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_BRANCHES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_BRANCHES_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_PROCESSINGUNITS_PU_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_PU_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_PU_DEACTIVATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_SESSION_1": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "d",
+      "d2"
+    ]
+  },
+  "UI_RECONCILIATION_SAFE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_SOFT_HOLD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_HARD_STOP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_SENT_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_PENDING_SESSION_ACTIVE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_SUSPEND": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_REACTIVATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_SYNCING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_SYNC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREVIEWQUEUE_SPONSOR_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREVIEWQUEUE_AWAITING_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "UI_SMBREVIEWQUEUE_QUEUE_CLEAR_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREVIEWQUEUE_RETURNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_SCANNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_LOT_SEALED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_SUBMITTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_ASTRA_CTS_OUTWARD_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_STOP_SESSION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_START_SESSION_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_CONNECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_OFFLINE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCHEDULES_SAVE_SCHEDULE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCHEDULES_PAUSE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCHEDULES_RESUME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_ACTIVE_CONN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SMOKETEST_HIT_RATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SMOKETEST_NAMESPACE_REACHABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_CHECKING_3": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_REFRESHED_AUTO_15S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lastRefreshed"
+    ]
+  },
+  "UI_SMOKETEST_STARTING_S": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SMOKETEST_START_ALL_SERVICES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_STARTING_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_START": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_BACKEND_UNREACHABLE_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_FETCHING_READINESS_CHECKLIST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_NO_ITEMS_RETURNED_BACKEND_MAY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_RUNNING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_RUN_AGAIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_RUN_SMOKE_TESTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMEMBERBANKS_SUBMIT_FOR_COMPLIANCE_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CONFIRMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_FILED_TO_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SIGNATURE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_FRAUD_SCORING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_RISK_NARRATIVE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_VISION_LAYOUT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CONFIRM_FILE_TO_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SUBMIT_TO_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_OPS_REVIEWER_CONFIRMED_ALL_CHECKS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SUBMISSION_IQ": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SUBMISSION_OQ": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_2S_CANCELLABLE_CONFIRM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_SUBMIT_TO_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_ACCT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_display"
+    ]
+  },
+  "UI_THRESHOLDS_FRAUD_SCORING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_ALIGN_WITH_Q2_RISK_REVIEW": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_REDUCE_FALSE_POSITIVES_AFTER_MODEL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_BOARD_RESOLUTION_TO_RAISE_THRESHOLD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_MATCH_UPDATED_GOT_OCR2_0": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_CHANGE_LOG": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_THRESHOLDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_MATCHED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_PARTIAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_MISMATCH_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_ACCT_N_F": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_CBS_DOWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_DRAWER_NAME_DOES_NOT_MATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_PAYEE_NAME_DOES_NOT_MATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_VALIDATION_IQ": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_VALIDATION_OQ": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_STP_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_VERIFIED_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_NEW_ACCOUNT_NO_SPECIMEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_PPS_LIMIT_EXHAUSTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_SPECIMEN_UPDATE_IN_PROGRESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_PPS_NOT_REGISTERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_SPECIMEN_EXPIRED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_CBS_SYNC_LAG_KEY_ABSENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_MULTI_SIGNATORY_PARTIAL_LOAD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_CHEQUE_SERIES_MISMATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_VAULTSYNCWORKFLOW_COMPLETED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_VAULTSYNCWORKFLOW_RETRIED_CBS_LAG": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_LOST_STOLEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_DISPUTED_AMOUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_COUNTERMAND_BY_DRAWER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_ACTIVE_ENTRIES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_ACTIVE_HOLDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_DAILY_AT_07_00_AM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_UPLOADING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_UPLOAD_PROCESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_NO_FILENAME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_DOWNLOADING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_ERRORS_CSV": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_1_SPECIMEN_ON_FILE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_OCR_CONFIDENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_SIGNATURE_MATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_AMOUNT_CONSISTENCY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_SECURITY_FEATURES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_2_SPECIMENS_ON_FILE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_NO_INSTRUMENTS_YET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_STP_CONFIRMS_WILL_APPEAR_HERE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_NO_STP_CONFIRMED_ITEMS_YET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_STP_CONFIRMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_STP_RETURNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHDASHBOARD_SCANNING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHDASHBOARD_IDLE_S_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "secondsAgo"
+    ]
+  },
+  "UI_BRANCHDASHBOARD_IDLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_VERIFIED_WITH_ACCOUNT_MANAGER_AUTHOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_RECOMMEND_CONFIRM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_RECOMMEND_RETURN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_INSTRUMENT_AWAITING_YOUR_CONFIRMATIO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_BRANCHMISMATCHQUEUE_GO_AHEAD_TRUST_SCANNER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMISMATCHQUEUE_REJECT_RETURN_TO_DRAWER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMISMATCHQUEUE_PROCEEDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMISMATCHQUEUE_REJECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHSCANMONITOR_HW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHSCANMONITOR_OCR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHSCANMONITOR_NOT_READABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_REFRESH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALERTLOG_AUDIT_DB_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALERTLOG_NO_CRITICAL_ERROR_EVENTS_IN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OCRFEEDBACK_THRESHOLD_REACHED_RETRAINING_TRIGGER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OCRFEEDBACK_MORE_TO_TRIGGER_NEXT_RETRAIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_OPSDASHBOARD_TRIGGERING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPSDASHBOARD_WARM_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPSDASHBOARD_REFRESHING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_UNAVAILABLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_CONNECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_UNSEALED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_SEALED_ACTION_REQUIRED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_UNKNOWN_STATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_CONNECTED_TOTAL_LAG": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "total_lag"
+    ]
+  },
+  "UI_APPSHELL_JUST_NOW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_M_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mins"
+    ]
+  },
+  "UI_APPSHELL_H_AGO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hrs"
+    ]
+  },
+  "UI_APPSHELL_CHEQUE_TRUNCATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_PLATFORM_OPERATIONS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_ADMINISTRATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_USER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_UNREAD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "unreadCount"
+    ]
+  },
+  "UI_APPSHELL_ALL_CAUGHT_UP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CTS_INWARD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CLAIM_AND_REVIEW_PENDING_INSTRUMENTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_LIVE_SWIMLANE_VIEW_OF_INWARD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ALL_AI_DRIVEN_CHEQUE_DECISIONS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CTS_VAULT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_SIGNATURE_AND_PPS_VAULT_HEALTH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_UPLOAD_SIGNATURE_PPS_STOP_PAYMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_NEXT_SYNC_COUNTDOWN_AND_SYNC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ACCOUNTS_WITH_NO_VAULT_SPECIMEN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CTS_OUTWARD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_SCANNER_CAPTURE_LOT_MANAGEMENT_NGCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_OPERATIONS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_PLATFORM_HEALTH_ALERTS_AND_THROUGHPU": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ADMIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_IMMUTABLE_AUDIT_LOG_IMMUDB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_BANK_CONFIGURATION_AND_USER_MANAGEME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ACTIONS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_SWITCH_BETWEEN_DARK_AND_LIGHT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CROSS_BANK_DATA_ACCESS_DETECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACCESS_DENIED_YOU_DO_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_CONNECTIVITY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NGCH_ADAPTER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_VAULT_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PPS_VAULT_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMMUDB_AUDIT_TRAIL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_TOPICS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SB_AUTH_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_WATCHDOG_SYNTHETIC_CHEQUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_AUTH_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AGENCY_SFTP_PUSH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SEEDING_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_CBS_CONNECTIVITY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_DROP_FOLDER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_AUTH_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_EEH_IEH_SESSION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AGENCY_SB_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PU_AUTH_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_CONNECTIVITY_CHECK_WIRE_REAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NGCH_ADAPTER_CHECK_WIRE_REAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_VAULT_CHECK_WIRE_REAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PPS_VAULT_CHECK_WIRE_REAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMMUDB_CHECK_WIRE_REAL_IMMUDB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_CHECK_WIRE_REAL_KAFKA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUTH_CONNECTOR_CHECK_WIRE_AUTHCONNEC": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_WATCHDOG_SEND_SYNTHETIC_CHEQUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SFTP_PUSH_CHECK_WIRE_AGENCY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SEEDING_CHECK_QUERY_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_CBS_CHECK_ONLY_RUNS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_DROP_FOLDER_CHECK_VERIFY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_EEH_IEH_GRPC_PING_WIRE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SB_CONNECTOR_CHECK_WIRE_REAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_ID_1": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HDFC_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ICICI_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_STATE_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AXIS_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KOTAK_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_YES_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ASTRA_MIS_REPORT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SESSION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "session_id"
+    ]
+  },
+  "API_BANK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "API_SECTION_1_INWARD_SUMMARY_PRESENTING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VALUE_INR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SECTION_2_OUTWARD_SUMMARY_DRAWEE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SECTION_3_RETURN_REASONS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SECTION_4_PERFORMANCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OVERALL_RETURN_RATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AVG_DECISION_TIME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_P99_DECISION_TIME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_NEAR_BREACH_COUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_BREACH_COUNT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SETTLEMENT_POSITION_STATEMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INWARD_CONFIRMED_INR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OUTWARD_RETURNED_INR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NET_POSITION_INR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ASTRA_ADMIN_CLEANUP_EXCEEDED_MIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "max_age_minutes"
+    ]
+  },
+  "API_PAUSED_VIA_ASTRA_ADMIN_UI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_RESUMED_VIA_ASTRA_ADMIN_UI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_BREACHED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_VAULT_MISS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_STALE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OCR_LOW_CONFIDENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_LOW_CONFIDENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHEQUE_ALTERATION_DETECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WORDS_FIGURES_MISMATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_UNREACHABLE_IMAGE_ONLY_MODE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_STOP_PAYMENT_TRIGGERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DUPLICATE_INSTRUMENT_DETECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WORKFLOW_ENDED_WITH_STATUS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name"
+    ]
+  },
+  "API_PRIVATE_MAX_AGE_300": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_TOO_DARK_RESCAN_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MICR_BAND_NOT_READABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_SKEW_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TORN_CORNER_RESCAN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DUPLICATE_INSTRUMENT_DETECTED_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FOCUS_BLUR_RESCAN_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FOLD_CREASE_OVER_AMOUNT_FIELD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SPECIAL_SESSION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PRESENTED_BY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "API_FINACLE_REST_V2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MALFORMED_URL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MISSING_HOST_IN_URL": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOOPBACK_HOST_NOT_ALLOWED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_ASTRA_INTERNAL_SERVICE_HOSTNAME_NOT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_KUBERNETES_CLUSTER_INTERNAL_HOSTNAME": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_PRIVATE_OR_LINK_LOCAL_IP": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_NO_ENDPOINT_URL_CONFIGURED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SSRF_POLICY_BLOCKED_PROBE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ssrf_err"
+    ]
+  },
+  "API_NO_MANDATE_ON_RECORD_FOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MSV_WORKFLOW_STARTED_POLL_V1": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "workflow_id",
+      "instrument_id"
+    ]
+  },
+  "API_EXISTS_BUT_NOT_WRITABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACK_SLOW_CHECK_KAFKA_LOAD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_PPS_ENTRIES_SEEDED_SEED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TIER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "API_RAMESH_KUMAR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PRIYA_SHARMA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SUNIL_MEHTA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ANITA_DESAI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VIKRAM_SINGH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCAN_THIS_QR_CODE_WITH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOGIN_AUTHORISED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CODE_PLEASE_CHECK_YOUR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_SCAN_ID_IS_REQUIRED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_NO_QUALIFYING_CLUSTER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RUPEES_TEN_THOUSAND_ONLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOAD_TEST_PAYEE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOAD_TEST_STUB_NOT_A": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LATIN_SCRIPT_PAYEES_WITH_RELIABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_THE_COST_SIDE_HANDLED_BY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_READ_WRONGLY_THE_PRESENTED_NUMBER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_READ_WRONGLY_FIGURES_VS_WORDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_RETURNS_WHOSE_CORRECTNESS_IS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NOT_ASSESSABLE_NO_DATA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_DEGRADED_SIGNAL_EXCLUDED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATION_SLICE_ONLY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FRONT_BW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BACK_BW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IETWATCHDOGWORKFLOW_TEMPORAL_CHILD_A": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DUPLICATE_PRESENTMENT_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MARK_LEAF_PRESENTED_CHEQUE_LEAF": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OCR_EXTRACTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_GOT_OCR2_0_INDICOCR_CTS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_KILL_SWITCH_CHECKPOINT_1": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_GET_KILL_SWITCH_STATUS_REDIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ALTERATION_DETECTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_QWEN2_VL_72B_CTS_VISION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CTS_2010_SECURITY_FEATURES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_STOP_PAYMENT_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BLOOM_FILTER_CBS_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IFSC_REGISTRY_VALIDATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_IFSC_IFSC_REGISTRY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_NGCH_IFSC_PROVIDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PPS_LOOKUP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOOKUP_PPS_REDIS_PPS_VAULT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATURE_PRESENCE_DETECTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DETECT_SIGNATURES_CTS_VISION_QUEUE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIAMESE_NETWORK_PYTORCH_SIGNATURE_VA": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_XGBOOST_ENSEMBLE_SHAP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_SERIES_VALIDATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_CHEQUE_SERIES_REDIS_CBS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_BALANCE_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHECK_CBS_BALANCE_CBS_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACCOUNT_STATUS_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHECK_ACCOUNT_STATUS_CBS_CONNECTOR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_KILL_SWITCH_CHECKPOINT_2_BACKSTOP": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DECISION_SYNTHESIS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SYNTHESISE_DECISION_OPA_LAYER_4": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_STP_MODE_ROUTING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CONFIG_SERVICE_STP_MODE_LAYER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PERSIST_AGENT_DECISION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PERSIST_AGENT_DECISION_YUGABYTEDB": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FILE_TO_NGCH_NGCH_FILER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IMMUDB_AUDIT_WRITE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WRITE_AUDIT_IMMUDB_HSM_SIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_HUMANREVIEWWORKFLOW_SPAWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_HUMANREVIEWWORKFLOW_TEMPORAL_CHILD_A": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_ON_HUMAN_REVIEW_OUTCOME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SMB_LEDGER_UPDATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_EMIT_BATCH_LEDGER_UPDATE_NOTIFY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_SMB_ID_PRESENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OCR_FEEDBACK_EMIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FEEDBACKEMITWORKFLOW_FIRE_AND_FORGET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OCR_CR_120_EXTRACTION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_GOT_OCR2_0_LEGACY_QWEN2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DATE_VALIDATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_CHEQUE_DATE_INLINE_NO": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_POSTDATED_HOLD_SPAWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_POSTDATEDHOLDWORKFLOW_TEMPORAL_CHILD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_DATE_VALIDATE_RETURNS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_DEDUPLICATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHECK_CHEQUE_DEDUP_REDIS_18": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_REAR_IMAGE_OCR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_EXTRACT_REAR_PAYEE_DETAILS_GOT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_REAR_IMAGE_OCR": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PAYEE_ACCOUNT_VALIDATION": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_PAYEE_ACCOUNT_ACCOUNT_VAULT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_PAYEE_ACCOUNT_NUMBER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NGCH_METADATA_CROSS_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CTS_2010_COMPLIANCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_CTS2010_DPI_COLOUR_DEPTH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VISION_LLM_CROSS_CHECK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RUN_VISION_PRESENTMENT_CHECK_QWEN2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_SCANNER_AMOUNT_STR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISMATCHRESOLUTION_SPAWN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISMATCHRESOLUTIONWORKFLOW_TEMPORAL": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_ON_MISMATCH_HELD_OUTCOME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BRANCH_MONITOR_EVENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RECORD_OUTWARD_SCAN_EVENT_BEST": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_EMPTY_IFSC_CODE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NAME_MISMATCH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LENGTH_MUST_BE_CHARACTERS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lo",
+      "hi"
+    ]
+  },
+  "CTS_CONTAINS_A_CHARACTER_THE_SPECIFICATI": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MUST_NOT_START_OR_END": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACTION_ACCOUNT_NUMBER_HOLDER_SEQ": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BANK_IDENTIFIER_E_G_SARASWAT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_KILL_SWITCH_ACTIVE_MODE_SCOPE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "effective_ks_mode",
+      "effective_ks_scope"
+    ]
+  },
+  "CTS_OPA_POLICY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reason"
+    ]
+  },
+  "CTS_OPA_UNAVAILABLE_BUSINESS_POLICY_ENGI": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PAYEE_NAME_BLANK_OR_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IFSC_MISMATCH_NGCH_PRESENTMENT_VS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ngch_ifsc",
+      "ocr_ifsc"
+    ]
+  },
+  "CTS_DATE_IMPLAUSIBLE_CHEQUE_DATE_IS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "cheque_date",
+      "abs"
+    ]
+  },
+  "CTS_POST_DATED_CHEQUE_CHEQUE_DATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "cheque_date"
+    ]
+  },
+  "CTS_STALE_CHEQUE_DAYS_OLD_LIMIT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "days",
+      "validity_days"
+    ]
+  },
+  "CTS_AMOUNT_IN_WORDS_FIGURES_DIFFER": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mask_amount",
+      "mask_amount2"
+    ]
+  },
+  "CTS_CBS_ACCOUNT_STATUS_REQUIRES_RETURN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CTS_ALTERATION_IN_NON_DATE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "non_date_altered"
+    ]
+  },
+  "CTS_SIGNATURE_VERIFIER_UNTRAINED_THE_SIG": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_C_PROGRAM_FILES_TESSERACT_OCR": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_C_PROGRAM_FILES_X86_TESSERACT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PSM_6": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PSM_6_OEM_1": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_THE_PAYEE_NAME_ONLY_THE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_THE_AMOUNT_WRITTEN_IN_WORDS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ASTRA_AUTO_TERMINATED_EXCEEDED_MIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "max_age_minutes"
+    ]
+  },
+  "CTS_SUBMITTED_BUT_NOT_IN_THE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_IET_DEADLINE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "iet_deadline_utc"
+    ]
+  },
+  "CTS_SMB_SUSPENDED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sub_member_id"
+    ]
+  },
+  "CTS_IET_EMERGENCY_FILED_THE_IET": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "iet_emergency_decision",
+      "decision",
+      "rationale"
+    ]
+  },
+  "CTS_WEAK_FIELDS_DEFERRED_TO_SYNTHESISE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "low_confidence_fields"
+    ]
+  },
+  "CTS_STOP_PAYMENT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "stop_reason"
+    ]
+  },
+  "CTS_STOP_PAYMENT_CHECK_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_IFSC_REGISTRY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CHEQUE_SERIES": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reason",
+      "return_reason_code"
+    ]
+  },
+  "CTS_CHEQUE_SERIES_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CBS_BALANCE_CHECK_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "outcome"
+    ]
+  },
+  "CTS_ACCOUNT_STATUS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_status"
+    ]
+  },
+  "CTS_ACCOUNT_STATUS_REVIEW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_status"
+    ]
+  },
+  "CTS_POSTDATEDHOLDWORKFLOW_SPAWNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISMATCHRESOLUTIONWORKFLOW_SPAWNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FETCH_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_UNKNOWN_VAULT_TYPE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type"
+    ]
+  },
+  "CTS_UNKNOWN_VAULT_TYPE_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type"
+    ]
+  },
+  "MSV_UNKNOWN_MANDATE_RULE_TYPE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rule_type"
+    ]
+  },
+  "MSV_REQUIRED_SIGNATORIES_ABSENT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "MSV_SIGNATORY_IES_SCORED_BELOW_MINIMUM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "min_score"
+    ]
+  },
+  "MSV_ALL_SIGNATORIES_MATCHED_ABOVE_HIGH": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ALL_SIGNATORIES_PRESENT_BUT_SOME": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ONLY_SIGNATORY_IES_MATCHED_ABOVE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "min_score",
+      "n"
+    ]
+  },
+  "MSV_QUORUM_MET_BUT_CONFIDENCE_BELOW": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_MANDATORY_SIGNATORY_DID_NOT_SIGN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sig_id"
+    ]
+  },
+  "MSV_ONLY_OF_REQUIRED_QUORUM_SIGNATORIES": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "required_count"
+    ]
+  },
+  "MSV_MANDATORY_SIGNER_S_AND_QUORUM": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_MANDATORY_SIGNER_S_AND_QUORUM_2": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ALL_SIGNATORIES_MET_THEIR_ROLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ONLY_SIGNATORIES_WITH_REQUIRED_ROLE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "required_roles",
+      "required_count"
+    ]
+  },
+  "MSV_REQUIRED_ROLE_S_MATCHED_WITH": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "required_roles",
+      "required_count"
+    ]
+  },
+  "MSV_ROLE_QUORUM_MET_BUT_CONFIDENCE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_OPERATION_TYPE_IS_NOT_RECOGNISED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "op_type"
+    ]
+  },
+  "MSV_NO_ENROLLED_SIGNATORIES_FOUND_ROUTIN": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_SIGNATURE_DETECTOR_UNAVAILABLE_ROUTI": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_EMBEDDING_MODEL_UNAVAILABLE_ROUTING": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_SIGNATUREORCHESTRATOR_NOT_AVAILABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_CHEQUE_RETURN_NOTICE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_FRAUD_ALERT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_IET_EXPIRY_WARNING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_SHIFT_SUMMARY": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
   }
 }

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from shared.messages import get_message
 
 _IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 
@@ -45,7 +46,7 @@ def parse_ifsc(ifsc: str) -> IFSCInfo:
     """
     if not ifsc:
         return IFSCInfo(valid=False, bank_code=None, branch_code=None,
-                        error="Empty IFSC code")
+                        error=get_message("CTS_EMPTY_IFSC_CODE"))
     normalised = ifsc.strip().upper()
     if not _IFSC_RE.match(normalised):
         return IFSCInfo(

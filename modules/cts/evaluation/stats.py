@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from shared.messages import get_message
 
 _Z95 = 1.959964
 
@@ -30,7 +31,7 @@ def verdict(k: int, n: int, target: float, higher_is_better: bool) -> str:
     MEETS only when the 95% interval clears the target; a point estimate that meets it on too few samples is
     NOT DEMONSTRABLE, and one that does not is BELOW."""
     if n <= 0:
-        return "NOT ASSESSABLE (no data)"
+        return get_message("CTS_NOT_ASSESSABLE_NO_DATA")
     lo, hi = wilson_interval(k, n)
     rate = k / n
     if higher_is_better:

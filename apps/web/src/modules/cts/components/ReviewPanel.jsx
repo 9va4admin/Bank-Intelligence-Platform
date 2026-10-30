@@ -46,7 +46,7 @@ function ExtractionPopover({ meta, isDark, onClose }) {
       <div className="space-y-1.5">
         <div className="flex justify-between">
           <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_EXTRACTED_BY')}</span>
-          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? 'GOT-OCR2.0'}</span>
+          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? msg('UI_OUTWARDREVIEWPANEL_GOT_OCR2_0')}</span>
         </div>
         <div className="flex justify-between">
           <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_RAW_VALUE')}</span>
@@ -176,7 +176,7 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
         className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none ${sel}`}
       >
         <span className={`truncate flex items-center gap-2 min-w-0 ${returnReason ? '' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-          <span className="truncate">{returnReason || 'Select Return Reason…'}</span>
+          <span className="truncate">{returnReason || msg('UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON')}</span>
           {selectedEntry && (
             <span className={`shrink-0 text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border ${selectedEntry.customerFault ? (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700') : (isDark ? 'bg-sky-900/40 border-sky-700/50 text-sky-300' : 'bg-sky-100 border-sky-300 text-sky-700')}`}>{selectedEntry.code}</span>
           )}
@@ -337,7 +337,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             { label: 'OCR',   pct: item.ocr_confidence,                      bar: item.ocr_confidence >= 0.92 ? 'bg-emerald-500' : item.ocr_confidence >= 0.80 ? 'bg-amber-400' : 'bg-red-400' },
             { label: msg('UI_REVIEWPANEL_SIG'),   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
             { label: msg('UI_COMMON_FRAUD'), pct: item.fraud_score,                          bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500' },
-            { label: 'IET',   pct: ietPct, display: `${minsLeft}m`,           bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400' },
+            { label: 'IET',   pct: ietPct, display: msg('UI_REVIEWPANEL_M', { minsLeft }),           bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400' },
           ].map(({ label, pct, bar, display }) => (
             <div key={label} className="flex items-center gap-1.5">
               <span className={`text-[9px] font-semibold uppercase tracking-wider ${th.lbl} w-6`}>{label}</span>
@@ -376,7 +376,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                 <div>
                   <div className="text-xs font-semibold">{msg('UI_REVIEWPANEL_FLAGGED', { reason_label: item.reason_label })}</div>
                   <div className="text-[11px] opacity-70 mt-0.5">
-                    {item.reason === 'VAULT_MISS' ? 'Vault miss — no specimen on file. Auto-return is never permitted.' : 'AI confidence below threshold — manual verification required before IET.'}
+                    {item.reason === 'VAULT_MISS' ? msg('UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_ON') : msg('UI_REVIEWPANEL_AI_CONFIDENCE_BELOW_THRESHOLD_MANUAL')}
                   </div>
                 </div>
               </div>
@@ -385,7 +385,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
               {[
                 { label: 'OCR',       val: `${Math.round(item.ocr_confidence * 100)}%`,       sub: 'confidence', color: th.heading },
                 { label: msg('UI_COMMON_SIGNATURE'), val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : 'vault miss', color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
-                { label: msg('UI_COMMON_FRAUD'),     val: `${Math.round(item.fraud_score * 100)}%`,           sub: 'risk score',  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
+                { label: msg('UI_COMMON_FRAUD'),     val: `${Math.round(item.fraud_score * 100)}%`,           sub: msg('UI_REVIEWPANEL_RISK_SCORE'),  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
               ].map(({ label, val, sub, color }) => (
                 <div key={label} className={`rounded-xl p-3 text-center ${th.glass}`}>
                   <div className={`text-[10px] ${th.lbl} uppercase tracking-wide mb-0.5`}>{label}</div>
@@ -465,7 +465,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                       <div key={key} className="flex items-center justify-between text-[11px]">
                         <span className={th.lbl}>{label}</span>
                         <span className={`font-mono font-semibold ${ok ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
-                          {ok ? '✓ Present' : '⚠ Missing'}
+                          {ok ? msg('UI_OUTWARDREVIEWPANEL_PRESENT') : msg('UI_OUTWARDREVIEWPANEL_MISSING')}
                         </span>
                       </div>
                     )
@@ -486,7 +486,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                       ? (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700')
                       : (isDark ? 'bg-emerald-900/40 border-emerald-700/50 text-emerald-300' : 'bg-emerald-100 border-emerald-300 text-emerald-700')
                   }`}>
-                    {item.alteration_result.alteration_detected ? '⚠ Alteration Detected' : '✓ No Alteration'}
+                    {item.alteration_result.alteration_detected ? msg('UI_REVIEWPANEL_ALTERATION_DETECTED') : msg('UI_REVIEWPANEL_NO_ALTERATION')}
                   </span>
                 </div>
 
@@ -572,7 +572,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
                       ? (isDark ? 'bg-emerald-900/40 border-emerald-700/50 text-emerald-300' : 'bg-emerald-100 border-emerald-300 text-emerald-700')
                       : (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700')
                   }`}>
-                    {item.uv_security.uv_security_passed ? '✓ All UV Checks Pass' : '⚠ UV Check Failed'}
+                    {item.uv_security.uv_security_passed ? msg('UI_REVIEWPANEL_ALL_UV_CHECKS_PASS') : msg('UI_REVIEWPANEL_UV_CHECK_FAILED')}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -646,7 +646,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
           <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
           <button onClick={handleReturn} disabled={!returnReason || submitting}
             className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          >{submitting ? 'Filing…' : '✕ Return'}</button>
+          >{submitting ? msg('UI_OUTWARDREVIEWPANEL_FILING') : msg('UI_OUTWARDREVIEWPANEL_RETURN')}</button>
           <button onClick={handleApprove} disabled={submitting}
             className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
           >{msg('UI_REVIEWPANEL_APPROVE_VALIDATION_IQ')}</button>

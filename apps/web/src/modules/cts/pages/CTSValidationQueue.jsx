@@ -423,10 +423,10 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_MODEL_ATTRIBUTION')}</div>
               <div className="space-y-1.5 text-[11px]">
                 {[
-                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'     },
-                  { task: 'Signature',       model: 'Siamese Net v2'  },
-                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'  },
-                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'   },
+                  { task: msg('UI_COMMON_OCR_MICR'),     model: 'GOT-OCR2.0'     },
+                  { task: msg('UI_SUBMISSIONQUEUE_SIGNATURE'),       model: 'Siamese Net v2'  },
+                  { task: msg('UI_SUBMISSIONQUEUE_FRAUD_SCORING'),   model: 'XGBoost + SHAP'  },
+                  { task: msg('UI_SUBMISSIONQUEUE_VISION_LAYOUT'), model: 'Qwen2-VL 72B'   },
                 ].map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
@@ -531,11 +531,11 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
 // ── Name-Account match verdict config ────────────────────────────────────────
 
 const NAME_MATCH_CFG = {
-  FULL_MATCH:        { label: msg('UI_VALIDATIONQUEUE_NAME_MATCHED'),       shortLabel: 'Matched',    icon: '✓', darkCls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', lightCls: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
-  PARTIAL_MATCH:     { label: msg('UI_VALIDATIONQUEUE_PARTIAL_MATCH'),      shortLabel: 'Partial',    icon: '≈', darkCls: 'text-amber-400 bg-amber-500/10 border-amber-500/30',       lightCls: 'text-amber-700 bg-amber-50 border-amber-400'       },
-  NO_MATCH:          { label: msg('UI_VALIDATIONQUEUE_NAME_MISMATCH'),      shortLabel: 'Mismatch',   icon: '✗', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
-  ACCOUNT_NOT_FOUND: { label: msg('UI_VALIDATIONQUEUE_ACCOUNT_NOT_FOUND'),  shortLabel: 'Acct N/F',   icon: '!', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
-  CBS_UNAVAILABLE:   { label: msg('UI_VALIDATIONQUEUE_CBS_UNAVAILABLE'),    shortLabel: 'CBS Down',   icon: '?', darkCls: 'text-slate-400 bg-slate-500/10 border-slate-500/30',        lightCls: 'text-slate-500 bg-slate-100 border-slate-300'      },
+  FULL_MATCH:        { label: msg('UI_VALIDATIONQUEUE_NAME_MATCHED'),       shortLabel: msg('UI_VALIDATIONQUEUE_MATCHED'),    icon: '✓', darkCls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', lightCls: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
+  PARTIAL_MATCH:     { label: msg('UI_VALIDATIONQUEUE_PARTIAL_MATCH'),      shortLabel: msg('UI_VALIDATIONQUEUE_PARTIAL'),    icon: '≈', darkCls: 'text-amber-400 bg-amber-500/10 border-amber-500/30',       lightCls: 'text-amber-700 bg-amber-50 border-amber-400'       },
+  NO_MATCH:          { label: msg('UI_VALIDATIONQUEUE_NAME_MISMATCH'),      shortLabel: msg('UI_VALIDATIONQUEUE_MISMATCH_2'),   icon: '✗', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
+  ACCOUNT_NOT_FOUND: { label: msg('UI_VALIDATIONQUEUE_ACCOUNT_NOT_FOUND'),  shortLabel: msg('UI_VALIDATIONQUEUE_ACCT_N_F'),   icon: '!', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
+  CBS_UNAVAILABLE:   { label: msg('UI_VALIDATIONQUEUE_CBS_UNAVAILABLE'),    shortLabel: msg('UI_VALIDATIONQUEUE_CBS_DOWN'),   icon: '?', darkCls: 'text-slate-400 bg-slate-500/10 border-slate-500/30',        lightCls: 'text-slate-500 bg-slate-100 border-slate-300'      },
 }
 
 function isNameAlert(verdict) {
@@ -615,8 +615,8 @@ function NameMatchCard({ inst, isInward, isDark }) {
       {inst.name_match === 'NO_MATCH' && (
         <div className={`mt-2 text-[9px] px-2 py-1.5 rounded ${isDark ? 'bg-red-400/10 text-red-300' : 'bg-red-100 text-red-800'}`}>
           {isInward
-            ? 'Drawer name does not match CBS account holder — possible cheque theft or forged signature. Do not pass without investigation.'
-            : 'Payee name does not match account holder — suspected wrong account or fraud. Do not approve without branch confirmation.'}
+            ? msg('UI_VALIDATIONQUEUE_DRAWER_NAME_DOES_NOT_MATCH')
+            : msg('UI_VALIDATIONQUEUE_PAYEE_NAME_DOES_NOT_MATCH')}
         </div>
       )}
       {inst.name_match === 'ACCOUNT_NOT_FOUND' && (
@@ -989,7 +989,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
         <div className={`px-6 py-4 border-b ${th.divider} shrink-0`}>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className={`text-lg font-semibold ${th.heading}`}>{isInward ? 'Validation IQ' : 'Validation OQ'}</h1>
+              <h1 className={`text-lg font-semibold ${th.heading}`}>{isInward ? msg('UI_VALIDATIONQUEUE_VALIDATION_IQ') : msg('UI_VALIDATIONQUEUE_VALIDATION_OQ')}</h1>
               <p className={`text-xs ${th.muted} mt-0.5`}>
                {msg('UI_VALIDATIONQUEUE_INLINE_EDITABLE_GRID_CHANGED_CELLS')}
                 <span className={`mx-1.5 inline-flex items-center gap-1 text-[10px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{msg('UI_VALIDATIONQUEUE_STP')}</span>
@@ -1096,7 +1096,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                       <td className={`sticky left-0 z-10 border-r ${sourceBar(inst.source_stage)} ${isDark ? 'bg-navy-900 border-r-white/8' : 'bg-white border-r-slate-200'} ${isViewing ? (isDark ? '!bg-amber-400/8' : '!bg-amber-50') : ''} px-3 py-2`}>
                         <div className={`font-mono text-[11px] font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{inst.instrument_id}</div>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className={`text-[9px] font-bold px-1 py-0.5 rounded text-[9px] ${sourceDot(inst.source_stage)}`}>{isSTP ? 'STP' : 'VERIFIED'}</span>
+                          <span className={`text-[9px] font-bold px-1 py-0.5 rounded text-[9px] ${sourceDot(inst.source_stage)}`}>{isSTP ? msg('UI_VALIDATIONQUEUE_STP_2') : msg('UI_VALIDATIONQUEUE_VERIFIED_2')}</span>
                           {manualCount > 0 && <span className={`text-[9px] ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>{msg('UI_VALIDATIONQUEUE_MANUAL', { manualCount })}</span>}
                           {inst.name_match && <NameMatchBadge verdict={inst.name_match} isDark={isDark} short />}
                         </div>

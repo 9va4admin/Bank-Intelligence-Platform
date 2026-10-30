@@ -15,15 +15,15 @@ const DATE_STR = `${_today.getFullYear()}${String(_today.getMonth()+1).padStart(
 
 // DBC check failure reasons (maps to which AI check failed)
 const FAIL_REASONS = [
-  { code: 'UV_FAIL',       label: msg('UI_PRESENTMENTFILE_UV_WATERMARK_NOT_DETECTED'),           category: 'Fraud' },
-  { code: 'DATE_STALE',    label: msg('UI_PRESENTMENTFILE_CHEQUE_DATE_3_MONTHS_OLD'),          category: 'Date'  },
-  { code: 'DATE_FUTURE',   label: msg('UI_PRESENTMENTFILE_POST_DATED_BEYOND_PERMISSIBLE_LIMIT'),  category: 'Date'  },
-  { code: 'AMT_MISMATCH',  label: msg('UI_PRESENTMENTFILE_AMOUNT_FIGURES_AMOUNT_IN_WORDS'),    category: 'Amount'},
-  { code: 'ALTERATION',    label: msg('UI_PRESENTMENTFILE_ALTERATION_OVERWRITING_DETECTED'),    category: 'Fraud' },
-  { code: 'NO_SIGNATURE',  label: msg('UI_PRESENTMENTFILE_SIGNATURE_ABSENT_OR_NOT_DETECTABLE'),  category: 'Sign'  },
+  { code: 'UV_FAIL',       label: msg('UI_PRESENTMENTFILE_UV_WATERMARK_NOT_DETECTED'),           category: msg('UI_PIPELINEVISUALIZER_FRAUD') },
+  { code: 'DATE_STALE',    label: msg('UI_PRESENTMENTFILE_CHEQUE_DATE_3_MONTHS_OLD'),          category: msg('UI_PRESENTMENTFILE_DATE')  },
+  { code: 'DATE_FUTURE',   label: msg('UI_PRESENTMENTFILE_POST_DATED_BEYOND_PERMISSIBLE_LIMIT'),  category: msg('UI_PRESENTMENTFILE_DATE')  },
+  { code: 'AMT_MISMATCH',  label: msg('UI_PRESENTMENTFILE_AMOUNT_FIGURES_AMOUNT_IN_WORDS'),    category: msg('UI_PRESENTMENTFILE_AMOUNT')},
+  { code: 'ALTERATION',    label: msg('UI_PRESENTMENTFILE_ALTERATION_OVERWRITING_DETECTED'),    category: msg('UI_PIPELINEVISUALIZER_FRAUD') },
+  { code: 'NO_SIGNATURE',  label: msg('UI_PRESENTMENTFILE_SIGNATURE_ABSENT_OR_NOT_DETECTABLE'),  category: msg('UI_PRESENTMENTFILE_SIGN')  },
   { code: 'MICR_UNREAD',   label: msg('UI_PRESENTMENTFILE_MICR_LINE_UNREADABLE'),                category: 'MICR'  },
-  { code: 'CTS_NON_COMP',  label: msg('UI_PRESENTMENTFILE_NON_CTS_2010_COMPLIANT_CHEQUE'),       category: 'Comp'  },
-  { code: 'DUPLICATE',     label: msg('UI_PRESENTMENTFILE_DUPLICATE_INSTRUMENT_ALREADY_PRESENT'),category: 'Dup'  },
+  { code: 'CTS_NON_COMP',  label: msg('UI_PRESENTMENTFILE_NON_CTS_2010_COMPLIANT_CHEQUE'),       category: msg('UI_PRESENTMENTFILE_COMP')  },
+  { code: 'DUPLICATE',     label: msg('UI_PRESENTMENTFILE_DUPLICATE_INSTRUMENT_ALREADY_PRESENT'),category: msg('UI_PRESENTMENTFILE_DUP')  },
 ]
 
 function pickFailReason(seed) {
@@ -101,7 +101,7 @@ function BatchHeader({ batch, onClose, isDark, sessionId }) {
               ? (isDark ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
               : (isDark ? 'bg-slate-700 text-slate-400 border border-white/8' : 'bg-slate-100 text-slate-500 border border-slate-200')
             }`}>
-            {isOpen ? '● OPEN' : '■ CLOSED'}
+            {isOpen ? msg('UI_PRESENTMENTFILE_OPEN') : msg('UI_PRESENTMENTFILE_CLOSED_2')}
           </span>
         </div>
       </div>
@@ -221,18 +221,18 @@ function CxfPreview({ items, filename, isDark, type, sessionId, sbName, sbIfsc }
         ${isDark ? 'bg-black/40 border-white/8 text-slate-400' : 'bg-slate-900 border-slate-700 text-slate-300'}`}>
         <div className="text-emerald-400">{`# NPCI CTS-2010 · ${type === 'success' ? 'Presentment' : 'Rejected'} File`}</div>
         <div className="text-slate-500">{`# Presenting Bank: ${sbName} (${sbIfsc}) · Date: ${DATE_STR}`}</div>
-        <div>{`HDR|${sbIfsc}|${DATE_STR}|${sessionId}|${String(total).padStart(6,'0')}|CTS2010`}</div>
+        <div>{msg('UI_PRESENTMENTFILE_HDR_CTS2010', { sbIfsc, DATE_STR, sessionId, value: String(total).padStart(6,'0') })}</div>
         {rows.slice(0, 4).map((item, i) => (
           <div key={i} className={type === 'success' ? 'text-slate-300' : 'text-red-400/80'}>
             {type === 'success'
-              ? `DTL|${String(i+1).padStart(6,'0')}|${item.micr}|${item.account_display}|${item.amount}|${item.date_on_cheque.replace(/-/g,'')}|${item.image_bw}`
-              : `DTL|${String(i+1).padStart(6,'0')}|${item.micr}|${item.account_display}|${item.amount}|${item.date_on_cheque.replace(/-/g,'')}|${item.fail_code}|${item.fail_label}`
+              ? msg('UI_PRESENTMENTFILE_DTL', { value: String(i+1).padStart(6,'0'), micr: item.micr, account_display: item.account_display, amount: item.amount, date_on_cheque: item.date_on_cheque.replace(/-/g,''), image_bw: item.image_bw })
+              : msg('UI_PRESENTMENTFILE_DTL_2', { value: String(i+1).padStart(6,'0'), micr: item.micr, account_display: item.account_display, amount: item.amount, date_on_cheque: item.date_on_cheque.replace(/-/g,''), fail_code: item.fail_code, fail_label: item.fail_label })
             }
           </div>
         ))}
-        {total > 4 && <div className="text-slate-600">{`... ${total - 4} more records ...`}</div>}
+        {total > 4 && <div className="text-slate-600">{msg('UI_PRESENTMENTFILE_MORE_RECORDS', { value: total - 4 })}</div>}
         <div className={type === 'success' ? 'text-slate-300' : 'text-red-400/80'}>
-          {`TRL|${String(total).padStart(6,'0')}|${totalAmt.toLocaleString()}`}
+          {msg('UI_PRESENTMENTFILE_TRL', { value: String(total).padStart(6,'0'), totalAmt: totalAmt.toLocaleString() })}
         </div>
       </div>
     </div>
@@ -438,10 +438,10 @@ export default function CTSPresentmentFile() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        console.warn('NGCH submit failed:', err.detail ?? res.status)
+        console.warn(msg('UI_PRESENTMENTFILE_NGCH_SUBMIT_FAILED'), err.detail ?? res.status)
       }
     } catch (e) {
-      console.warn('NGCH submit error:', e.message)
+      console.warn(msg('UI_PRESENTMENTFILE_NGCH_SUBMIT_ERROR'), e.message)
     } finally {
       setNgchSending(false)
     }
@@ -503,7 +503,7 @@ export default function CTSPresentmentFile() {
           ))}
           {isOpen && (
             <span className={`ml-auto text-[9px] font-mono ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-              ● {isDemo ? 'Kafka listener active — auto-updating' : 'Live — polling every 10s'}
+              ● {isDemo ? msg('UI_PRESENTMENTFILE_KAFKA_LISTENER_ACTIVE_AUTO_UPDATING') : msg('UI_PRESENTMENTFILE_LIVE_POLLING_EVERY_10S')}
             </span>
           )}
         </div>
@@ -559,7 +559,7 @@ export default function CTSPresentmentFile() {
                         : 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
                     }`}
                   >
-                    {ngchSending ? 'Submitting…' : 'Send to NGCH'}
+                    {ngchSending ? msg('UI_COMMON_SUBMITTING') : msg('UI_PRESENTMENTFILE_SEND_TO_NGCH')}
                   </button>
                 </div>
 

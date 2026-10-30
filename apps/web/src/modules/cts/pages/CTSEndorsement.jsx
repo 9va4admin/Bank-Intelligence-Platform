@@ -73,7 +73,7 @@ export default function CTSEndorsement() {
     bank_name: bankName || 'South View Co-operative Bank',
     branch_name: 'Fort Branch',
     bank_ifsc: bankIfsc || 'SVCB0000001',
-    endorsement_text: "Payee's Account Credited. Received for Collection.",
+    endorsement_text: msg('UI_ENDORSEMENT_PAYEE_S_ACCOUNT_CREDITED_RECEIVED'),
   }
   const { isDark } = useTheme()
 
@@ -181,7 +181,7 @@ export default function CTSEndorsement() {
         }`}
       >
         {endorsing && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-        {endorsing ? 'Endorsing…' : pending === 0 ? 'All Endorsed' : `Endorse All (${pending})`}
+        {endorsing ? msg('UI_ENDORSEMENT_ENDORSING') : pending === 0 ? msg('UI_ENDORSEMENT_ALL_ENDORSED') : msg('UI_ENDORSEMENT_ENDORSE_ALL', { pending })}
       </button>
     ),
   })
@@ -281,7 +281,7 @@ export default function CTSEndorsement() {
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-medium ${th.heading}`}>{lot}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${STATUS[isLotDone ? 'ENDORSED' : 'PENDING']}`}>
-                    {isLotDone ? '✓ Complete' : `${lotPending} pending`}
+                    {isLotDone ? msg('UI_ENDORSEMENT_COMPLETE') : msg('UI_ENDORSEMENT_PENDING', { lotPending })}
                   </span>
                   <span className={`text-xs ${th.muted}`}>
                     {msg('UI_ENDORSEMENT_ENDORSED_2', { lotEndorsed, count: lotInstruments.length })}
@@ -299,7 +299,7 @@ export default function CTSEndorsement() {
                   }`}
                 >
                   {isLotEndorsing && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-                  {isLotEndorsing ? 'Endorsing…' : isLotDone ? 'Endorsed' : `Endorse ${lot}`}
+                  {isLotEndorsing ? msg('UI_ENDORSEMENT_ENDORSING') : isLotDone ? msg('UI_ENDORSEMENT_ENDORSED_3') : msg('UI_ENDORSEMENT_ENDORSE', { lot })}
                 </button>
               </div>
 
@@ -326,7 +326,7 @@ export default function CTSEndorsement() {
                     <div className={`col-span-1 ${th.faint} text-xs`}>{instr.lot}</div>
                     <div className="col-span-2 text-center">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${STATUS[status]}`}>
-                        {status === 'ENDORSED' ? '✓ Endorsed' : 'Pending'}
+                        {status === 'ENDORSED' ? msg('UI_ENDORSEMENT_ENDORSED_4') : msg('UI_ENDORSEMENT_PENDING_2')}
                       </span>
                     </div>
                     <div className="col-span-1 text-right">

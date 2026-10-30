@@ -67,7 +67,7 @@ function ReviewerSelect({ reviewers, onPick, disabled, isDark, label = 'Reassign
       onChange={(e) => e.target.value && onPick(e.target.value)}
       className={`text-xs px-2 py-1 rounded border ${isDark ? 'bg-navy-900 border-white/10 text-slate-300' : 'bg-white border-slate-300 text-slate-700'}`}
     >
-      <option value="">{reviewers.length === 0 ? 'no one online' : label}</option>
+      <option value="">{reviewers.length === 0 ? msg('UI_ALLOCATIONADMIN_NO_ONE_ONLINE') : label}</option>
       {reviewers.map(r => (
         <option key={r.reviewer_id} value={r.reviewer_id}>{msg('UI_ALLOCATIONADMIN_HELD', { reviewer_id: r.reviewer_id, value: r.load ?? 0 })}</option>
       ))}
@@ -290,7 +290,7 @@ export default function CTSAllocationAdmin() {
               <ModeTag mode={allocationMode} isDark={isDark} />
               {strategy && allocationMode !== 'SELF' && (
                 <span className={th.muted}>
-                  {strategy === 'LEAST_LOADED' ? 'least loaded' : 'random'}{maxPer ? `, max ${maxPer} each` : ''}
+                  {strategy === 'LEAST_LOADED' ? msg('UI_ALLOCATIONADMIN_LEAST_LOADED') : msg('UI_ALLOCATIONADMIN_RANDOM')}{maxPer ? msg('UI_ALLOCATIONADMIN_MAX_EACH', { maxPer }) : ''}
                 </span>
               )}
               <Link
@@ -466,7 +466,7 @@ export default function CTSAllocationAdmin() {
                       {claim.reviewer_id}
                     </td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>
-                      {claim.tier || 'standard'}
+                      {claim.tier || msg('UI_ALLOCATIONADMIN_STANDARD')}
                     </td>
                     <td className="px-4 py-3">
                       <ReviewerSelect
@@ -488,7 +488,7 @@ export default function CTSAllocationAdmin() {
                               : 'border-red-300 text-red-600 hover:bg-red-50'
                         }`}
                       >
-                        {isReleasing ? 'Releasing…' : 'Force Release'}
+                        {isReleasing ? msg('UI_ALLOCATIONADMIN_RELEASING') : msg('UI_ALLOCATIONADMIN_FORCE_RELEASE')}
                       </button>
                       {releaseMutation.isError &&
                         releaseMutation.variables === claim.instrument_id && (
@@ -522,7 +522,7 @@ export default function CTSAllocationAdmin() {
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.bucket ? bucketLabel(item.bucket) : ''}</td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>{item.pu_id ?? ''}</td>
                     <td className={`px-4 py-3 text-xs ${mins !== null && mins <= 30 ? 'text-red-400 font-semibold' : th.muted}`}>
-                      {mins === null ? '' : mins <= 0 ? 'IET passed' : `IET in ${mins} min`}
+                      {mins === null ? '' : mins <= 0 ? msg('UI_ALLOCATIONADMIN_IET_PASSED') : msg('UI_ALLOCATIONADMIN_IET_IN_MIN', { mins })}
                     </td>
                     <td className="px-4 py-3">
                       <ReviewerSelect

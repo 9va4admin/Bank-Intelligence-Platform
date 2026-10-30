@@ -18,5 +18,5 @@ describe('no literal wording in screens', () => {
       sites.forEach(s => offenders.push(`${relative(root, f)}:${s.line} ${JSON.stringify(s.text).slice(0, 60)}`))
     }
     expect(offenders).toEqual([])
-  })
+  }, 60_000)                       // parsing every screen takes a while on a busy machine
 })

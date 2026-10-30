@@ -24,35 +24,35 @@ import { msg } from '../../../shared/messages'
 // ─── Layer 2 config schema (UI metadata — values are from last Helm deploy) ─────
 
 const PLATFORM_META = [
-  { key: 'cts.namespace',               label: msg('UI_PLATFORMCONFIG_CTS_NAMESPACE'),                  type: 'string',  category: 'Kubernetes', editable: false,
+  { key: 'cts.namespace',               label: msg('UI_PLATFORMCONFIG_CTS_NAMESPACE'),                  type: 'string',  category: msg('UI_PLATFORMCONFIG_KUBERNETES'), editable: false,
     desc: msg('UI_PLATFORMCONFIG_KUBERNETES_NAMESPACE_FOR_ALL_CTS') },
-  { key: 'cts.workers.min_replicas',    label: msg('UI_PLATFORMCONFIG_CTS_WORKER_MIN_REPLICAS'),        type: 'integer', category: 'Kubernetes', editable: true,
+  { key: 'cts.workers.min_replicas',    label: msg('UI_PLATFORMCONFIG_CTS_WORKER_MIN_REPLICAS'),        type: 'integer', category: msg('UI_PLATFORMCONFIG_KUBERNETES'), editable: true,
     desc: msg('UI_PLATFORMCONFIG_MINIMUM_NUMBER_OF_WARM_CTS') },
-  { key: 'cts.workers.max_replicas',    label: msg('UI_PLATFORMCONFIG_CTS_WORKER_MAX_REPLICAS'),        type: 'integer', category: 'Kubernetes', editable: true,
+  { key: 'cts.workers.max_replicas',    label: msg('UI_PLATFORMCONFIG_CTS_WORKER_MAX_REPLICAS'),        type: 'integer', category: msg('UI_PLATFORMCONFIG_KUBERNETES'), editable: true,
     desc: msg('UI_PLATFORMCONFIG_MAXIMUM_CTS_WORKER_PODS_KEDA') },
-  { key: 'redis.cts.cluster_size',      label: msg('UI_PLATFORMCONFIG_CTS_REDIS_CLUSTER_SIZE'),         type: 'integer', category: 'Redis',      editable: false,
+  { key: 'redis.cts.cluster_size',      label: msg('UI_PLATFORMCONFIG_CTS_REDIS_CLUSTER_SIZE'),         type: 'integer', category: msg('UI_PLATFORMCONFIG_REDIS'),      editable: false,
     desc: msg('UI_PLATFORMCONFIG_NUMBER_OF_REDIS_NODES_IN') },
-  { key: 'redis.cts.max_memory_gb',     label: msg('UI_PLATFORMCONFIG_CTS_REDIS_MAX_MEMORY_GB'),      type: 'integer', category: 'Redis',      editable: true,
+  { key: 'redis.cts.max_memory_gb',     label: msg('UI_PLATFORMCONFIG_CTS_REDIS_MAX_MEMORY_GB'),      type: 'integer', category: msg('UI_PLATFORMCONFIG_REDIS'),      editable: true,
     desc: msg('UI_PLATFORMCONFIG_MAXIMUM_MEMORY_PER_CTS_REDIS') },
-  { key: 'yugabyte.replication_factor', label: msg('UI_PLATFORMCONFIG_YUGABYTEDB_REPLICATION_FACTOR'), type: 'integer', category: 'YugabyteDB', editable: false,
+  { key: 'yugabyte.replication_factor', label: msg('UI_PLATFORMCONFIG_YUGABYTEDB_REPLICATION_FACTOR'), type: 'integer', category: msg('UI_PLATFORMCONFIG_YUGABYTEDB'), editable: false,
     desc: msg('UI_PLATFORMCONFIG_YSQL_REPLICATION_FACTOR_ACROSS_YUGAB') },
-  { key: 'yugabyte.pgbouncer_cts_max_connections', label: msg('UI_PLATFORMCONFIG_CTS_PGBOUNCER_MAX_CONNECTIONS'), type: 'integer', category: 'YugabyteDB', editable: true,
+  { key: 'yugabyte.pgbouncer_cts_max_connections', label: msg('UI_PLATFORMCONFIG_CTS_PGBOUNCER_MAX_CONNECTIONS'), type: 'integer', category: msg('UI_PLATFORMCONFIG_YUGABYTEDB'), editable: true,
     desc: msg('UI_PLATFORMCONFIG_MAXIMUM_CONNECTIONS_PGBOUNCER_CTS_PO') },
-  { key: 'kafka.min_insync_replicas',   label: msg('UI_PLATFORMCONFIG_KAFKA_MIN_IN_SYNC_REPLICAS'),    type: 'integer', category: 'Kafka',      editable: false,
+  { key: 'kafka.min_insync_replicas',   label: msg('UI_PLATFORMCONFIG_KAFKA_MIN_IN_SYNC_REPLICAS'),    type: 'integer', category: msg('UI_PLATFORMCONFIG_KAFKA'),      editable: false,
     desc: msg('UI_PLATFORMCONFIG_MINIMUM_REPLICAS_THAT_MUST_ACKNOWLED') },
-  { key: 'kafka.cts.retention_hours',   label: msg('UI_PLATFORMCONFIG_CTS_TOPIC_RETENTION_HOURS'),    type: 'integer', category: 'Kafka',      editable: true,
+  { key: 'kafka.cts.retention_hours',   label: msg('UI_PLATFORMCONFIG_CTS_TOPIC_RETENTION_HOURS'),    type: 'integer', category: msg('UI_PLATFORMCONFIG_KAFKA'),      editable: true,
     desc: msg('UI_PLATFORMCONFIG_MESSAGE_RETENTION_ON_CTS_TOPICS') },
-  { key: 'temporal.cts.task_queue_partitions', label: msg('UI_PLATFORMCONFIG_CTS_TASK_QUEUE_PARTITIONS'), type: 'integer', category: 'Temporal', editable: true,
+  { key: 'temporal.cts.task_queue_partitions', label: msg('UI_PLATFORMCONFIG_CTS_TASK_QUEUE_PARTITIONS'), type: 'integer', category: msg('UI_PLATFORMCONFIG_TEMPORAL'), editable: true,
     desc: msg('UI_PLATFORMCONFIG_NUMBER_OF_TEMPORAL_TASK_QUEUE') },
-  { key: 'temporal.namespace',          label: msg('UI_PLATFORMCONFIG_TEMPORAL_NAMESPACE'),             type: 'string',  category: 'Temporal',   editable: false,
+  { key: 'temporal.namespace',          label: msg('UI_PLATFORMCONFIG_TEMPORAL_NAMESPACE'),             type: 'string',  category: msg('UI_PLATFORMCONFIG_TEMPORAL'),   editable: false,
     desc: msg('UI_PLATFORMCONFIG_TEMPORAL_NAMESPACE_FOR_CTS_WORKFLOWS') },
-  { key: 'platform.min_tls_version',    label: msg('UI_PLATFORMCONFIG_MINIMUM_TLS_VERSION'),           type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+  { key: 'platform.min_tls_version',    label: msg('UI_PLATFORMCONFIG_MINIMUM_TLS_VERSION'),           type: 'string',  category: msg('UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS'), editable: false, layer1: true,
     desc: msg('UI_PLATFORMCONFIG_MINIMUM_TLS_VERSION_FOR_ALL') },
-  { key: 'platform.audit_trail_enabled', label: msg('UI_COMMON_AUDIT_TRAIL'),                  type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+  { key: 'platform.audit_trail_enabled', label: msg('UI_COMMON_AUDIT_TRAIL'),                  type: 'string',  category: msg('UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS'), editable: false, layer1: true,
     desc: msg('UI_PLATFORMCONFIG_IMMUDB_CRYPTOGRAPHIC_AUDIT_TRAIL_LAY') },
-  { key: 'platform.hsm_required',       label: msg('UI_PLATFORMCONFIG_HSM_REQUIRED_FOR_PKI'),          type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+  { key: 'platform.hsm_required',       label: msg('UI_PLATFORMCONFIG_HSM_REQUIRED_FOR_PKI'),          type: 'string',  category: msg('UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS'), editable: false, layer1: true,
     desc: msg('UI_PLATFORMCONFIG_ALL_NGCH_PKI_SIGNING_MUST') },
-  { key: 'platform.iet_watchdog_enabled', label: msg('UI_PLATFORMCONFIG_IET_WATCHDOG'),                type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+  { key: 'platform.iet_watchdog_enabled', label: msg('UI_PLATFORMCONFIG_IET_WATCHDOG'),                type: 'string',  category: msg('UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS'), editable: false, layer1: true,
     desc: msg('UI_PLATFORMCONFIG_IETWATCHDOGWORKFLOW_SPAWNED_AS_FIRST') },
 ]
 
@@ -171,11 +171,11 @@ export default function PlatformConfig() {
 
   function doSubmitRequest() {
     if (!reqNote.trim() || reqNote.trim().length < 10) {
-      setReasonErr('Reason must be at least 10 characters')
+      setReasonErr(msg('UI_OPERATIONSCONFIG_REASON_MUST_BE_AT_LEAST'))
       return
     }
     if (!cabTicket.trim()) {
-      setReasonErr('CAB ticket reference is required')
+      setReasonErr(msg('UI_PLATFORMCONFIG_CAB_TICKET_REFERENCE_IS_REQUIRED'))
       return
     }
     setReasonErr('')
@@ -333,7 +333,7 @@ export default function PlatformConfig() {
                                 ? (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
                                 : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
                           }`}>
-                            {r.status === 'PENDING_ASTRA_REVIEW' ? 'PENDING REVIEW' : r.status}
+                            {r.status === 'PENDING_ASTRA_REVIEW' ? msg('UI_PLATFORMCONFIG_PENDING_REVIEW') : r.status}
                           </span>
                         </td>
                       </tr>
@@ -412,7 +412,7 @@ export default function PlatformConfig() {
                 disabled={submitMutation.isPending}
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${submitMutation.isPending ? 'opacity-60 cursor-not-allowed bg-sky-700 text-white' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
               >
-                {submitMutation.isPending ? 'Raising request…' : 'Raise Change Request'}
+                {submitMutation.isPending ? msg('UI_PLATFORMCONFIG_RAISING_REQUEST') : msg('UI_PLATFORMCONFIG_RAISE_CHANGE_REQUEST')}
               </button>
             </div>
           </div>

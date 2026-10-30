@@ -41,6 +41,7 @@ from shared.ai.model_cascade import CascadeOrchestrator
 from shared.observability.otel_setup import get_tracer
 
 from shared.storage.image_fetch import fetch_image_bytes
+from shared.messages import get_message
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
 
@@ -643,8 +644,8 @@ def _configure_tesseract(pytesseract_mod) -> None:
     """Point pytesseract at the standard Windows install (winget -> Program Files); no-op elsewhere."""
     if platform.system() != "Windows":
         return
-    for _p in (r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-               r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"):
+    for _p in (get_message("CTS_C_PROGRAM_FILES_TESSERACT_OCR"),
+               get_message("CTS_C_PROGRAM_FILES_X86_TESSERACT")):
         if os.path.isfile(_p):
             pytesseract_mod.pytesseract.tesseract_cmd = _p
             return
@@ -664,7 +665,7 @@ async def _header_says_dd(image_url: str):
             img = Image.open(io.BytesIO(raw)).convert("L")
             w, h = img.size
             band = img.crop((0, 0, w, int(h * 0.30)))
-            return pytesseract.image_to_string(band, lang="eng", config="--psm 6")
+            return pytesseract.image_to_string(band, lang="eng", config=get_message("CTS_PSM_6"))
 
         text = await _aio.to_thread(_read)
         return bool(_re.search(r"DEMAND\s*DRAFT|D\.?\s?D\.?\s*NO", text, _re.IGNORECASE))
@@ -817,8 +818,8 @@ async def _extract_tesseract(
         import os as _os, platform as _plat
         if _plat.system() == "Windows":
             for _p in [
-                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                get_message("CTS_C_PROGRAM_FILES_TESSERACT_OCR"),
+                get_message("CTS_C_PROGRAM_FILES_X86_TESSERACT"),
             ]:
                 if _os.path.isfile(_p):
                     pytesseract.pytesseract.tesseract_cmd = _p
@@ -830,7 +831,7 @@ async def _extract_tesseract(
         img = Image.open(io.BytesIO(await fetch_image_bytes(inp.image_url))).convert("RGB")
 
         # PSM 6 = assume a single uniform block of text — reasonable for cheques
-        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
+        raw_text = pytesseract.image_to_string(img, lang="eng", config=get_message("CTS_PSM_6_OEM_1"))
         lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
 
         # ── Heuristic field extraction ────────────────────────────────────────
@@ -946,9 +947,8 @@ async def _cloud_vlm_refine_zone(
     never fabricates a value.
     """
     _field_hint = {
-        "payee": "the PAYEE NAME only — the person or company being paid, usually after 'Pay' — "
-                 "ignore any amount, currency figure, or amount-in-words also visible in this crop",
-        "amount_words": "the AMOUNT WRITTEN IN WORDS only — ignore any payee name also visible in this crop",
+        "payee": get_message("CTS_THE_PAYEE_NAME_ONLY_THE"),
+        "amount_words": get_message("CTS_THE_AMOUNT_WRITTEN_IN_WORDS"),
     }.get(field, field)
     prompt = (
         f"This is a small crop from an Indian bank cheque, in an Indic script. Read {_field_hint}, "

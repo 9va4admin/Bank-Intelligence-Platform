@@ -36119,5 +36119,6295 @@
       "sweep_data",
       "sweep_data2"
     ]
+  },
+  "UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_ALL": {
+    "text": "Immutable audit trail of all login events across SB and sub-member banks",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_LOGIN": {
+    "text": "Immutable audit trail of login events for your institution",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINLOG_ALL_TYPES": {
+    "text": "All Types",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINLOG_ALL_BANKS": {
+    "text": "All Banks",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_STP_PIPELINE": {
+    "text": "STP Pipeline",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_QUEUE_SEGMENTATION": {
+    "text": "Queue Segmentation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_ALLOCATION": {
+    "text": "Allocation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_IET_TIMING": {
+    "text": "IET & Timing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_AI_CONFIDENCE": {
+    "text": "AI Confidence",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_AMOUNT_CONTROLS": {
+    "text": "Amount Controls",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_SECURITY": {
+    "text": "Security",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_OUTWARD_PROCESSING": {
+    "text": "Outward Processing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_REASON_MUST_BE_AT_LEAST": {
+    "text": "Reason must be at least 10 characters",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_PENDING_2": {
+    "text": "PENDING",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_SUBMITTING": {
+    "text": "Submitting…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPERATIONSCONFIG_SUBMIT_FOR_APPROVAL": {
+    "text": "Submit for Approval",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_KUBERNETES": {
+    "text": "Kubernetes",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_REDIS": {
+    "text": "Redis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_YUGABYTEDB": {
+    "text": "YugabyteDB",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_KAFKA": {
+    "text": "Kafka",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_TEMPORAL": {
+    "text": "Temporal",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS": {
+    "text": "Platform Constraints",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_CAB_TICKET_REFERENCE_IS_REQUIRED": {
+    "text": "CAB ticket reference is required",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_PENDING_REVIEW": {
+    "text": "PENDING REVIEW",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_RAISING_REQUEST": {
+    "text": "Raising request…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PLATFORMCONFIG_RAISE_CHANGE_REQUEST": {
+    "text": "Raise Change Request",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_S_AGO": {
+    "text": "{diff}s ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "diff"
+    ]
+  },
+  "UI_SECURITYVIOLATIONS_M_AGO": {
+    "text": "{value}m ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SECURITYVIOLATIONS_H_AGO": {
+    "text": "{value}h ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_COMMON_LOADING": {
+    "text": "Loading…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_REFRESH": {
+    "text": "↻ Refresh",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_REINSTATING": {
+    "text": "Reinstating…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SECURITYVIOLATIONS_REINSTATE": {
+    "text": "Reinstate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_EDIT_USER": {
+    "text": "Edit User",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_CREATE_USER": {
+    "text": "Create User",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_BANK_TYPE_CANNOT_BE_CHANGED": {
+    "text": "Bank type cannot be changed after user creation.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_SB_SPONSOR_BANK_STAFF_SMB": {
+    "text": "SB = Sponsor Bank staff · SMB = Sub-Member Bank staff",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_SB_SPONSOR_BANK": {
+    "text": "SB — Sponsor Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_SMB_SUB_MEMBER": {
+    "text": "SMB — Sub-Member",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_EMAIL_CANNOT_BE_CHANGED_AFTER": {
+    "text": "Email cannot be changed after creation.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_SAVE_CHANGES": {
+    "text": "Save Changes",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_ACTIVE_2": {
+    "text": "Active",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_INACTIVE": {
+    "text": "Inactive",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_NO_USERS_MATCH": {
+    "text": "No users match \"{search}\"",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "search"
+    ]
+  },
+  "UI_USERMANAGEMENT_NO_USERS_YET": {
+    "text": "No {bankTypeTab} users yet",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bankTypeTab"
+    ]
+  },
+  "UI_USERMANAGEMENT_TRY_A_DIFFERENT_NAME_OR": {
+    "text": "Try a different name or email.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USERMANAGEMENT_CREATE_THE_FIRST_USER_WITH": {
+    "text": "Create the first user with the button above.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_SIGNING_IN": {
+    "text": "Signing in…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_SIGN_IN": {
+    "text": "Sign in →",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_VERIFYING": {
+    "text": "Verifying…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_VERIFY": {
+    "text": "Verify →",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_CONFIRMING": {
+    "text": "Confirming…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_LOGINPAGE_CONFIRM_FINISH": {
+    "text": "Confirm & finish →",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_BRANCH_COUNTER_CAPTURE": {
+    "text": "Branch counter capture",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_SCANNER_BACK_SIDE_OCR": {
+    "text": "Scanner back-side OCR",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_CDM_MACHINE_SYSTEM_VERIFIED": {
+    "text": "CDM machine — system-verified",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_NO_REAR_IMAGE": {
+    "text": "No rear image",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_NO_IMAGE_URL_SHOWING_SVG": {
+    "text": "No image URL — showing SVG preview",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CHEQUEIMAGEVIEWER_LIVE_SCAN_IMAGE": {
+    "text": "Live scan image",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_GOT_OCR2_0": {
+    "text": "GOT-OCR2.0",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON": {
+    "text": "Select Return Reason…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_PRESENT": {
+    "text": "✓ Present",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_MISSING": {
+    "text": "⚠ Missing",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_OCR_MICR": {
+    "text": "OCR / MICR",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_VISION_CTS_2010": {
+    "text": "Vision / CTS-2010",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK": {
+    "text": "Compliance check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_FILING": {
+    "text": "Filing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDREVIEWPANEL_RETURN": {
+    "text": "✕ Return",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_M": {
+    "text": "{minsLeft}m",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "minsLeft"
+    ]
+  },
+  "UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_ON": {
+    "text": "Vault miss — no specimen on file. Auto-return is never permitted.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_AI_CONFIDENCE_BELOW_THRESHOLD_MANUAL": {
+    "text": "AI confidence below threshold — manual verification required before IET.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_RISK_SCORE": {
+    "text": "risk score",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_ALTERATION_DETECTED": {
+    "text": "⚠ Alteration Detected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_NO_ALTERATION": {
+    "text": "✓ No Alteration",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_ALL_UV_CHECKS_PASS": {
+    "text": "✓ All UV Checks Pass",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_REVIEWPANEL_UV_CHECK_FAILED": {
+    "text": "⚠ UV Check Failed",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBDASHBOARDCONTENT_SUB_MEMBER_BANK": {
+    "text": "Sub-Member Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_HIGH_VALUE": {
+    "text": "HIGH VALUE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_SIGNATURE_MATCH_SCORE": {
+    "text": "Signature match score",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_AMOUNT_VS_AVG_30D": {
+    "text": "Amount vs avg (30d)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_FIRST_CLEARING_DAY": {
+    "text": "First clearing day",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_ACCOUNT_AGE": {
+    "text": "Account age",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_PPS_ON_FILE": {
+    "text": "PPS on file",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_CBS_BALANCE_SUFFICIENT": {
+    "text": "CBS balance sufficient",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_PAYEE_PATTERN_MATCH": {
+    "text": "Payee pattern match",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_22_APR_2026": {
+    "text": "Last updated: 22-Apr-2026",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_DIFFERENTIAL_UV_INK_PATTERN_CLEARLY": {
+    "text": "Differential UV-ink pattern clearly visible",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BRIGHT_FLUORESCENT_THREAD_CONFIRMED": {
+    "text": "Bright fluorescent thread confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BANK_GHOST_IMAGE_DISTINCTLY_VISIBLE": {
+    "text": "Bank ghost image distinctly visible under UV",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_VELOCITY_3_CHQS_TODAY": {
+    "text": "Velocity: 3 chqs today",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_NEW_PAYEE_FIRST_TIME": {
+    "text": "New payee (first time)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_TIME_OF_PRESENTATION": {
+    "text": "Time of presentation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_07_JAN_2026": {
+    "text": "Last updated: 07-Jan-2026",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_UV_INK_PATTERN_PRESENT_AND": {
+    "text": "UV-ink pattern present and authentic",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_METALLIC_SECURITY_THREAD_CONFIRMED": {
+    "text": "Metallic security thread confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_GHOST_IMAGE_VISIBLE_UNDER_UV": {
+    "text": "Ghost image visible under UV lamp",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_OCR_CONFIDENCE_LOW": {
+    "text": "OCR confidence low",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_AMOUNT_ALTERATION_FLAG": {
+    "text": "Amount alteration flag",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_14_MAR_2026": {
+    "text": "Last updated: 14-Mar-2026",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_PENTOGRAPH_PATTERN_AUTHENTIC_PAPER_S": {
+    "text": "Pentograph pattern authentic — paper stock is genuine CTS-2010",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_THREAD_CONFIRMED_ALTERATION_IS_POST": {
+    "text": "Thread confirmed — alteration is post-issue ink manipulation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BANK_GHOST_IMAGE_PRESENT_CONFIRMS": {
+    "text": "Bank ghost image present — confirms genuine paper substrate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_VAULT_MISS_NO_SPECIMEN": {
+    "text": "Vault miss — no specimen",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_ACCOUNT_AGE_6_MONTHS": {
+    "text": "Account age < 6 months",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_OCR_CONFIDENCE": {
+    "text": "OCR confidence",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_NO_SPECIMEN_ACCOUNT_OPENED_03": {
+    "text": "No specimen — account opened 03-Mar-2026",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_SECURITY_THREAD_CONFIRMED": {
+    "text": "Security thread confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_BANK_WATERMARK_FULLY_VISIBLE": {
+    "text": "Bank watermark fully visible",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_VERY_HIGH_VALUE": {
+    "text": "VERY HIGH VALUE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_AMOUNT_1CR_OPA_RULE": {
+    "text": "Amount >₹1Cr (OPA rule)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_18_JUN_2026": {
+    "text": "Last updated: 18-Jun-2026",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_UV_DIFFERENTIAL_PATTERN_INTACT": {
+    "text": "UV differential pattern intact",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_THREAD_CONFIRMED_HIGH_VALUE_L2": {
+    "text": "Thread confirmed — high-value L2 scan",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_WATERMARK_CLEARLY_VISIBLE_UNDER_UV": {
+    "text": "Watermark clearly visible under UV",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_DORMANCY_REACTIVATION": {
+    "text": "Dormancy reactivation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_LAST_UPDATED_22_MAY_2026": {
+    "text": "Last updated: 22-May-2026",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_UV_PATTERN_AUTHENTIC": {
+    "text": "UV pattern authentic",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_THREAD_CONFIRMED": {
+    "text": "Thread confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MOCKQUEUE_WATERMARK_PRESENT": {
+    "text": "Watermark present",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_USEREVIEWQUEUE_FLAGGED_FOR_REVIEW": {
+    "text": "Flagged for review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_AGENCYCC_SFTP_TIMEOUT_HOST_UNREACHABLE": {
+    "text": "SFTP timeout — host unreachable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_AGENCYCC_ACTIVE": {
+    "text": "ACTIVE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_AGENCYCC_DOWN": {
+    "text": "DOWN",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_NO_ONE_ONLINE": {
+    "text": "no one online",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_LEAST_LOADED": {
+    "text": "least loaded",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_RANDOM": {
+    "text": "random",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_MAX_EACH": {
+    "text": ", max {maxPer} each",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "maxPer"
+    ]
+  },
+  "UI_ALLOCATIONADMIN_STANDARD": {
+    "text": "standard",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_RELEASING": {
+    "text": "Releasing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_FORCE_RELEASE": {
+    "text": "Force Release",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_IET_PASSED": {
+    "text": "IET passed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALLOCATIONADMIN_IET_IN_MIN": {
+    "text": "IET in {mins} min",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mins"
+    ]
+  },
+  "UI_ANALYTICS_FRAUD_RISK": {
+    "text": "Fraud Risk",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_SIG_MISMATCH": {
+    "text": "Sig Mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_ALTERATION": {
+    "text": "Alteration",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_INSUFFICIENT_FUNDS": {
+    "text": "Insufficient Funds",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_STOP_PAYMENT": {
+    "text": "Stop Payment",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_DORMANT_ACCOUNT": {
+    "text": "Dormant Account",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_OTHER": {
+    "text": "Other",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_ALL": {
+    "text": "All",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_CHEQUES": {
+    "text": "Cheques",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_DEMAND_DRAFTS": {
+    "text": "Demand Drafts",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_OK": {
+    "text": "OK",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ANALYTICS_WARN": {
+    "text": "WARN",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_EDIT_BRANCH_2": {
+    "text": "Edit Branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_ADD_BRANCH_2": {
+    "text": "Add Branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IFSC_CODE_READ_ONLY": {
+    "text": "IFSC Code (read-only)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IFSC_CODE": {
+    "text": "IFSC Code *",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_CREATE_BRANCH": {
+    "text": "Create Branch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_VALIDATING": {
+    "text": "Validating…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_VALIDATE_CSV": {
+    "text": "Validate CSV",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IMPORTING": {
+    "text": "Importing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_IMPORT_BRANCHES": {
+    "text": "Import {valid_count} branches",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "valid_count"
+    ]
+  },
+  "UI_BRANCHMASTER_COPIED": {
+    "text": "✓ Copied",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMASTER_COPY_CODE": {
+    "text": "Copy Code",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_SWITCH_TO_LIGHT": {
+    "text": "Switch to light",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_SWITCH_TO_DARK": {
+    "text": "Switch to dark",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_0_05_BREACH_RATE_AVG": {
+    "text": "0.05% breach rate × avg ₹45k × deemed-approval loss",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_85_STP_MANUAL_REVIEW_DROPS": {
+    "text": "85% STP → manual review drops ~85% · ₹8/cheque saved",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_2_3_CATCH_RATE_ON": {
+    "text": "+2.3% catch rate on high-fraud cheques · ₹45k avg value",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BUSINESSMODEL_AUTOMATED_IMMUTABLE_AUDIT_VS_MANUAL": {
+    "text": "Automated immutable audit vs manual reconciliation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_EXTRACTING_2": {
+    "text": "Extracting…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_EXTRACT_INFORMATION": {
+    "text": "🚀 Extract Information",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_PRESENT": {
+    "text": "Present",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_NOT_FOUND": {
+    "text": "Not Found",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_SIG_DETECTOR_OFFLINE_START_IT": {
+    "text": "Sig detector offline — start it with: cd apps/sig_detector; python main.py",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_SIGNATURE_PRESENT_REGION_COULD_NOT": {
+    "text": "Signature present · region could not be isolated from this scan.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_CLOUDAIDEMO_NO_SIGNATURE_DETECTED_ON_THIS": {
+    "text": "No signature detected on this cheque.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMPLIANCE_LOT_01": {
+    "text": "Lot 01",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMPLIANCE_LOT": {
+    "text": "Lot {l}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "l"
+    ]
+  },
+  "UI_CONFIG_UPDATED_VIA_ASTRA_ADMIN_UI": {
+    "text": "Updated via ASTRA Admin UI",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DECISIONSLOG_HIGH_RISK": {
+    "text": "HIGH RISK",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DECISIONSLOG_MEDIUM_RISK": {
+    "text": "MEDIUM RISK",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DECISIONSLOG_LOW_RISK": {
+    "text": "LOW RISK",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_NONE": {
+    "text": "None",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_STP": {
+    "text": "✓ STP",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_RTN": {
+    "text": "✗ RTN",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_HRV": {
+    "text": "👁 HRV",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_DOCKER_ONLINE": {
+    "text": "Docker online",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_USING_SIMULATION": {
+    "text": "Using simulation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_VISION_ONLY": {
+    "text": "🧠 Vision Only",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_VISION_FOCUS": {
+    "text": "🧠 Vision Focus",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_STOP": {
+    "text": "⏹ Stop ({totalProcessed}/{count})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "totalProcessed",
+      "count"
+    ]
+  },
+  "UI_DEMOLIVE_PROCESS_CHEQUE": {
+    "text": "▶ Process {count} Cheque{value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_DEMOLIVE_DOCKER": {
+    "text": "Docker",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOLIVE_SIMULATION": {
+    "text": "Simulation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOPIPELINE_PRESENTMENT_PIPELINE_8_STAGES": {
+    "text": "Presentment Pipeline (8 stages)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOPIPELINE_DRAWEE_PIPELINE_10_STAGES_RBI": {
+    "text": "Drawee Pipeline (10 stages) — RBI CTS checklist · Sig Vault · CBS · Fraud · NGCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_DEMOPIPELINE_MS_2": {
+    "text": "{totalMs}ms",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "totalMs"
+    ]
+  },
+  "UI_DRAWEEVIEW_CR_3": {
+    "text": "₹{totalValueCr}Cr",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "totalValueCr"
+    ]
+  },
+  "UI_DRAWEEVIEW_RATE": {
+    "text": "{value}% rate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_DRAWEEVIEW_RECEIVE_TODAY": {
+    "text": "RECEIVE today",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_PAYEE_S_ACCOUNT_CREDITED_RECEIVED": {
+    "text": "Payee's Account Credited. Received for Collection.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ENDORSING": {
+    "text": "Endorsing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ALL_ENDORSED": {
+    "text": "All Endorsed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ENDORSE_ALL": {
+    "text": "Endorse All ({pending})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pending"
+    ]
+  },
+  "UI_ENDORSEMENT_COMPLETE": {
+    "text": "✓ Complete",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_PENDING": {
+    "text": "{lotPending} pending",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lotPending"
+    ]
+  },
+  "UI_ENDORSEMENT_ENDORSED_3": {
+    "text": "Endorsed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_ENDORSE": {
+    "text": "Endorse {lot}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lot"
+    ]
+  },
+  "UI_ENDORSEMENT_ENDORSED_4": {
+    "text": "✓ Endorsed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ENDORSEMENT_PENDING_2": {
+    "text": "Pending",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HOLDQUEUE_INSTRUMENT_ON_HOLD_IET_COUNTDOWN": {
+    "text": "{count} instrument{value} on hold — IET countdown active on all",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_HOLDQUEUE_RELEASE_HOLD": {
+    "text": "Release Hold",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_CONNECTED_MS": {
+    "text": "Connected · {latency}ms",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "latency"
+    ]
+  },
+  "UI_HUBDASHBOARD_HIGH_LATENCY_MS": {
+    "text": "High latency · {latency}ms",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "latency"
+    ]
+  },
+  "UI_HUBDASHBOARD_DISCONNECTED": {
+    "text": "Disconnected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_SEAL_FULL_LOT": {
+    "text": "Seal Full Lot",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_SEAL_LOT_2": {
+    "text": "Seal Lot",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_OPEN_LOT_MUST_BE_SEALED": {
+    "text": "{count} open lot{value} must be sealed before submission",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_HUBDASHBOARD_ALL_LOTS_SEALED_READY_TO": {
+    "text": "All lots sealed — ready to trigger ClearingSessionWorkflow",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_HUBDASHBOARD_SUBMIT_TO_NGCH": {
+    "text": "Submit to NGCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_SCANNING": {
+    "text": "⟳ Scanning…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_RESCAN_2": {
+    "text": "Rescan",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_RESCANNING": {
+    "text": "⟳ Rescanning…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_IMAGEQUALITY_TRIGGER_RESCAN": {
+    "text": "Trigger Rescan",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_RBI_CLEARING_GRID": {
+    "text": "RBI clearing grid",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_QWEN2_VL_FIRST": {
+    "text": "Qwen2-VL · FIRST",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_IMAGE_QUALITY": {
+    "text": "Image quality",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_BLOOM_CBS": {
+    "text": "Bloom + CBS",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_VAULT_SIAMESE": {
+    "text": "Vault + Siamese",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_XGBOOST_SHAP": {
+    "text": "XGBoost + SHAP",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_BALANCE_STATUS": {
+    "text": "Balance + Status",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_AI_SYNTHESIS": {
+    "text": "AI synthesis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_RTN": {
+    "text": "✕ RTN",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_HRQ": {
+    "text": "👤 HRQ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_MY_INWARD_PIPELINE": {
+    "text": "My Inward Pipeline",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_SUB_MEMBER_BANKS": {
+    "text": "Sub-Member Banks ({count})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "UI_INWARDPIPELINE_IET_WINDOW_NARROWING_1_INSTRUMENT": {
+    "text": "IET window narrowing — 1 instrument approaching T-30s. Watchdog monitoring.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDPIPELINE_INSTRUMENTS_IN_FORWARDING_STAGE_WITH": {
+    "text": "{alerts} instruments in forwarding stage with elevated IET risk. Immediate review recommended.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "alerts"
+    ]
+  },
+  "UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_DETECTED_IN_PAYEE": {
+    "text": "Ink inconsistency detected in payee name field. Possible overwriting between \"Kumar\" and \"Sharma\". Confidence 0.71. Manual verification recommended.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_IN_PAYEE_FIELD": {
+    "text": "Ink inconsistency in payee field",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_HIGH_VALUE_2_5L": {
+    "text": "High value (₹2.5L)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_84": {
+    "text": "Signature match 84%",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE_NO_STOP_PAYMENT": {
+    "text": "Account active, no stop payment",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_CHEQUE_PRINTED_60_DAYS_AGO": {
+    "text": "Cheque printed > 60 days ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_93": {
+    "text": "Signature match 93%",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_IN_GOOD_STANDING": {
+    "text": "Account in good standing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_STANDARD_VALUE_RANGE": {
+    "text": "Standard value range",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE_97": {
+    "text": "OCR confidence 97%",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_REGISTERED": {
+    "text": "Stop payment instruction registered on this account. Amount exceeds ₹1 Cr threshold. Immediate ops_manager escalation required.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_ACTIVE": {
+    "text": "Stop payment instruction active",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_VERY_HIGH_VALUE_1_CR": {
+    "text": "Very high value (>₹1 Cr)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_BELOW_80_THRESHOLD": {
+    "text": "Signature below 80% threshold",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SELF_DRAWN_CHEQUE_DRAWER_PAYEE": {
+    "text": "Self-drawn cheque (drawer = payee)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE": {
+    "text": "Account active",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_96": {
+    "text": "Signature match 96%",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_LOW_VALUE_LOW_RISK": {
+    "text": "Low value, low risk",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_NO_ADVERSE_ACCOUNT_HISTORY": {
+    "text": "No adverse account history",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_DRAWEE_ACCOUNT_DORMANT_FOR_14": {
+    "text": "Drawee account dormant for 14 months. Last activity Feb 2025. High-value instrument on dormant account requires manual clearance.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_ACCOUNT_DORMANT_14_MONTHS": {
+    "text": "Account dormant 14 months",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_HIGH_VALUE_8_75L": {
+    "text": "High value (₹8.75L)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_88": {
+    "text": "Signature match 88%",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_NO_STOP_PAYMENT": {
+    "text": "No stop payment",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_PAYEE_IS_A_REGISTERED_COMPANY": {
+    "text": "Payee is a registered company",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_INWARDREVIEWQUEUE_INSTRUMENT_CLICK_ANY_ROW_TO": {
+    "text": "{count} instrument{value} · click any row to view cheque image and AI analysis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_MCPCONFIG_CONNECTION_REFUSED_CBS_UNREACHABLE_A": {
+    "text": "Connection refused: CBS unreachable at endpoint",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_EDIT_MCP_CONNECTION": {
+    "text": "Edit MCP Connection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_ADD_MCP_CONNECTION": {
+    "text": "Add MCP Connection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_SAVING": {
+    "text": "Saving…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_UPDATE": {
+    "text": "Update",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_ADD_CONNECTION_2": {
+    "text": "Add Connection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_TESTING": {
+    "text": "Testing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_TEST": {
+    "text": "⚡ Test",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_SYNCING": {
+    "text": "Syncing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_SYNC_VAULT": {
+    "text": "↻ Sync Vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_HIDE_DETAILS": {
+    "text": "Hide details",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_DETAILS": {
+    "text": "Details",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_PRE_FLIGHT_CHECK_PASSED_CLEARING": {
+    "text": "Pre-flight check passed — clearing sessions can open",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_MCPCONFIG_PRE_FLIGHT_CHECK_BLOCKED_CONNECTION": {
+    "text": "Pre-flight check blocked — {count} connection{value} not ACTIVE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_OUTWARDPIPELINEMONITOR_ACCEPTED": {
+    "text": "✓ Accepted",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDPIPELINEMONITOR_ACK_PENDING": {
+    "text": "⟳ Ack Pending",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDPIPELINEMONITOR_URGENT_SUBMIT_BEFORE_NGCH_CLOSES": {
+    "text": "URGENT — submit before NGCH closes",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDPIPELINEMONITOR_UNTIL_NEXT_NGCH_SUBMISSION_CLOSE": {
+    "text": "Until next NGCH submission close",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDQUEUE_NO_ITEMS_AWAITING_REVIEW": {
+    "text": "No items awaiting review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDQUEUE_NO_STP_REJECTIONS_PENDING": {
+    "text": "No STP rejections pending",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_CONFIRMED_2": {
+    "text": "✓ Confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OUTWARDQUEUE_REJECTED": {
+    "text": "✕ Rejected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_INGEST_2": {
+    "text": "Ingest",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_VISION": {
+    "text": "Vision",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_COMPLY": {
+    "text": "Comply",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_STOPPAY": {
+    "text": "StopPay",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_SIG": {
+    "text": "Sig",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_FRAUD": {
+    "text": "Fraud",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_DECIDE": {
+    "text": "Decide",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_MS": {
+    "text": "{ms}ms",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ms"
+    ]
+  },
+  "UI_PIPELINEVISUALIZER_NOT_REACHED": {
+    "text": "not reached",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_EXCEPTION_2": {
+    "text": "Exception — ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_HELD_FOR_HUMAN_REVIEW": {
+    "text": "Held for human review — ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_VIEW_ALL": {
+    "text": "View all {label}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "label"
+    ]
+  },
+  "UI_PIPELINEVISUALIZER_RUNNING": {
+    "text": "Running",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_PAUSED": {
+    "text": "Paused",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B": {
+    "text": "Cheques confirmed and acknowledged by NGCH — settled.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_NGCH_RETURNED_ERROR_TEMPORAL_AUTO": {
+    "text": "NGCH returned error; Temporal auto-retried. 4 required manual intervention.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_IMAGE_QUALITY_BELOW_CTS_2010": {
+    "text": "Image quality below CTS-2010 DPI threshold (200 DPI). Returned via NGCH.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_SUCCESSFULLY_PARSED_BY_AI_OCR": {
+    "text": "Successfully parsed by AI (OCR + vision). Includes all STP and human review items.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_FILED_TO_NGCH_CONFIRM_RETURN": {
+    "text": "Filed to NGCH (confirm + return). Excludes items still in human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_TOTAL_INWARD_INSTRUMENTS_RECEIVED_TH": {
+    "text": "Total inward instruments received this session from NGCH.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_WORDS_VS_FIGURES_AMOUNT_DISCREPANCY": {
+    "text": "Words vs figures amount discrepancy detected by OCR. Routed to human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PIPELINEVISUALIZER_NO_STALE_OR_POST_DATED": {
+    "text": "No stale or post-dated instruments detected this session.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_MS": {
+    "text": "{STAGE_MS}ms",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "STAGE_MS"
+    ]
+  },
+  "UI_PRESENTMENT_FAILED": {
+    "text": "FAILED",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_LIVE_2": {
+    "text": "● live",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_ALL_STATUSES": {
+    "text": "All Statuses",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_ALL_LOTS": {
+    "text": "All Lots",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENT_LOT_2": {
+    "text": "Lot {value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_PRESENTMENTFILE_DATE": {
+    "text": "Date",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_AMOUNT": {
+    "text": "Amount",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_SIGN": {
+    "text": "Sign",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_COMP": {
+    "text": "Comp",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_DUP": {
+    "text": "Dup",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_OPEN": {
+    "text": "● OPEN",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_CLOSED_2": {
+    "text": "■ CLOSED",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_HDR_CTS2010": {
+    "text": "HDR|{sbIfsc}|{DATE_STR}|{sessionId}|{value}|CTS2010",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sbIfsc",
+      "DATE_STR",
+      "sessionId",
+      "value"
+    ]
+  },
+  "UI_PRESENTMENTFILE_DTL": {
+    "text": "DTL|{value}|{micr}|{account_display}|{amount}|{date_on_cheque}|{image_bw}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "micr",
+      "account_display",
+      "amount",
+      "date_on_cheque",
+      "image_bw"
+    ]
+  },
+  "UI_PRESENTMENTFILE_DTL_2": {
+    "text": "DTL|{value}|{micr}|{account_display}|{amount}|{date_on_cheque}|{fail_code}|{fail_label}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "micr",
+      "account_display",
+      "amount",
+      "date_on_cheque",
+      "fail_code",
+      "fail_label"
+    ]
+  },
+  "UI_PRESENTMENTFILE_MORE_RECORDS": {
+    "text": "... {value} more records ...",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_PRESENTMENTFILE_TRL": {
+    "text": "TRL|{value}|{totalAmt}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "totalAmt"
+    ]
+  },
+  "UI_PRESENTMENTFILE_NGCH_SUBMIT_FAILED": {
+    "text": "NGCH submit failed:",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_NGCH_SUBMIT_ERROR": {
+    "text": "NGCH submit error:",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_KAFKA_LISTENER_ACTIVE_AUTO_UPDATING": {
+    "text": "Kafka listener active — auto-updating",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_LIVE_POLLING_EVERY_10S": {
+    "text": "Live — polling every 10s",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PRESENTMENTFILE_SEND_TO_NGCH": {
+    "text": "Send to NGCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_EDIT_PROCESSING_UNIT": {
+    "text": "Edit Processing Unit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_ADD_PROCESSING_UNIT": {
+    "text": "Add Processing Unit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_CREATE_PU": {
+    "text": "Create PU",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS": {
+    "text": "No branches mapped to this PU.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS_2": {
+    "text": "No branches mapped to this PU yet.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_YES": {
+    "text": "Yes",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_NO": {
+    "text": "No",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_BRANCHES": {
+    "text": "▲ Branches",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_BRANCHES_2": {
+    "text": "▼ Branches{value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_PROCESSINGUNITS_PU_CREATED": {
+    "text": "PU created.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_PU_UPDATED": {
+    "text": "PU updated.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_PROCESSINGUNITS_PU_DEACTIVATED": {
+    "text": "PU deactivated.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_SESSION_1": {
+    "text": "{d} {d2} — Session 1",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "d",
+      "d2"
+    ]
+  },
+  "UI_RECONCILIATION_SAFE": {
+    "text": "✓ SAFE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_SOFT_HOLD": {
+    "text": "⚠ SOFT HOLD",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_HARD_STOP": {
+    "text": "✕ HARD STOP",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_SENT_2": {
+    "text": "sent",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_RECONCILIATION_PENDING_SESSION_ACTIVE": {
+    "text": "pending (session active)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_SUSPEND": {
+    "text": "Suspend",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_REACTIVATE": {
+    "text": "Reactivate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_SYNCING": {
+    "text": "↻ syncing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREGISTRY_SYNC": {
+    "text": "↻ Sync",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREVIEWQUEUE_SPONSOR_BANK": {
+    "text": "Sponsor Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREVIEWQUEUE_AWAITING_REVIEW": {
+    "text": "{count} awaiting review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count"
+    ]
+  },
+  "UI_SMBREVIEWQUEUE_QUEUE_CLEAR_2": {
+    "text": "Queue clear",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMBREVIEWQUEUE_RETURNED": {
+    "text": "✕ Returned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_SCANNED": {
+    "text": "Scanned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_LOT_SEALED": {
+    "text": "Lot Sealed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_SUBMITTED": {
+    "text": "Submitted",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_ASTRA_CTS_OUTWARD_2": {
+    "text": "ASTRA/CTS/OUTWARD",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_STOP_SESSION": {
+    "text": "Stop Session",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_START_SESSION_2": {
+    "text": "Start Session",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_CONNECTED": {
+    "text": "CONNECTED",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCANNER_OFFLINE": {
+    "text": "OFFLINE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCHEDULES_SAVE_SCHEDULE": {
+    "text": "Save Schedule",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCHEDULES_PAUSE": {
+    "text": "Pause",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SCHEDULES_RESUME": {
+    "text": "Resume",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_ACTIVE_CONN": {
+    "text": "{value} active conn",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SMOKETEST_HIT_RATE": {
+    "text": "{value}% hit rate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SMOKETEST_NAMESPACE_REACHABLE": {
+    "text": "namespace reachable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_CHECKING_3": {
+    "text": "checking…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_REFRESHED_AUTO_15S": {
+    "text": "refreshed {lastRefreshed} · auto 15s",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lastRefreshed"
+    ]
+  },
+  "UI_SMOKETEST_STARTING_S": {
+    "text": "◌ Starting… ({value}s)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_SMOKETEST_START_ALL_SERVICES": {
+    "text": "⬤ Start All Services",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_STARTING_2": {
+    "text": "Starting…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_START": {
+    "text": "Start",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_BACKEND_UNREACHABLE_2": {
+    "text": "Backend unreachable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_FETCHING_READINESS_CHECKLIST": {
+    "text": "Fetching readiness checklist…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_NO_ITEMS_RETURNED_BACKEND_MAY": {
+    "text": "No items returned — backend may be unreachable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_RUNNING": {
+    "text": "◌ Running…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_RUN_AGAIN": {
+    "text": "↺ Run Again",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SMOKETEST_RUN_SMOKE_TESTS": {
+    "text": "▶ Run Smoke Tests",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMEMBERBANKS_SUBMIT_FOR_COMPLIANCE_REVIEW": {
+    "text": "Submit for Compliance Review",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CONFIRMED": {
+    "text": "Confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_FILED_TO_NGCH": {
+    "text": "Filed to NGCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SIGNATURE": {
+    "text": "Signature",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_FRAUD_SCORING": {
+    "text": "Fraud scoring",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_RISK_NARRATIVE": {
+    "text": "Risk narrative",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_VISION_LAYOUT": {
+    "text": "Vision / layout",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CONFIRM_FILE_TO_NGCH": {
+    "text": "✓ Confirm — File to NGCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SUBMIT_TO_NGCH": {
+    "text": "↑ Submit to NGCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_OPS_REVIEWER_CONFIRMED_ALL_CHECKS": {
+    "text": "Ops reviewer confirmed — all checks passed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SUBMISSION_IQ": {
+    "text": "Submission IQ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_SUBMISSION_OQ": {
+    "text": "Submission OQ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_2S_CANCELLABLE_CONFIRM": {
+    "text": "Cheque image · 2s cancellable confirm before NGCH filing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_SUBMIT_TO_NGCH": {
+    "text": "Cheque image · Submit to NGCH · Confirmed → Outward File",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SUBMISSIONQUEUE_ACCT": {
+    "text": "Acct {account_display}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_display"
+    ]
+  },
+  "UI_THRESHOLDS_FRAUD_SCORING": {
+    "text": "Fraud Scoring",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_ALIGN_WITH_Q2_RISK_REVIEW": {
+    "text": "Align with Q2 risk review",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_REDUCE_FALSE_POSITIVES_AFTER_MODEL": {
+    "text": "Reduce false positives after model retrain",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_BOARD_RESOLUTION_TO_RAISE_THRESHOLD": {
+    "text": "Board resolution to raise threshold",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_MATCH_UPDATED_GOT_OCR2_0": {
+    "text": "Match updated GOT-OCR2.0 confidence calibration",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_CHANGE_LOG": {
+    "text": "Change Log",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_THRESHOLDS_THRESHOLDS": {
+    "text": "Thresholds",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_MATCHED": {
+    "text": "Matched",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_PARTIAL": {
+    "text": "Partial",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_MISMATCH_2": {
+    "text": "Mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_ACCT_N_F": {
+    "text": "Acct N/F",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_CBS_DOWN": {
+    "text": "CBS Down",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_DRAWER_NAME_DOES_NOT_MATCH": {
+    "text": "Drawer name does not match CBS account holder — possible cheque theft or forged signature. Do not pass without investigation.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_PAYEE_NAME_DOES_NOT_MATCH": {
+    "text": "Payee name does not match account holder — suspected wrong account or fraud. Do not approve without branch confirmation.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_VALIDATION_IQ": {
+    "text": "Validation IQ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_VALIDATION_OQ": {
+    "text": "Validation OQ",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_STP_2": {
+    "text": "STP",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VALIDATIONQUEUE_VERIFIED_2": {
+    "text": "VERIFIED",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_NEW_ACCOUNT_NO_SPECIMEN": {
+    "text": "New account — no specimen",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_PPS_LIMIT_EXHAUSTED": {
+    "text": "PPS limit exhausted",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_SPECIMEN_UPDATE_IN_PROGRESS": {
+    "text": "Specimen update in progress",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_PPS_NOT_REGISTERED": {
+    "text": "PPS not registered",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_SPECIMEN_EXPIRED": {
+    "text": "Specimen expired",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_CBS_SYNC_LAG_KEY_ABSENT": {
+    "text": "CBS sync lag — key absent",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_MULTI_SIGNATORY_PARTIAL_LOAD": {
+    "text": "Multi-signatory — partial load",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_CHEQUE_SERIES_MISMATCH": {
+    "text": "Cheque series mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_VAULTSYNCWORKFLOW_COMPLETED": {
+    "text": "VaultSyncWorkflow completed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSTATUS_VAULTSYNCWORKFLOW_RETRIED_CBS_LAG": {
+    "text": "VaultSyncWorkflow retried (CBS lag)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_LOST_STOLEN": {
+    "text": "Lost / Stolen",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_DISPUTED_AMOUNT": {
+    "text": "Disputed Amount",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_COUNTERMAND_BY_DRAWER": {
+    "text": "Countermand by Drawer",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_ACTIVE_ENTRIES": {
+    "text": "Active entries",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_ACTIVE_HOLDS": {
+    "text": "Active holds",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTSYNC_DAILY_AT_07_00_AM": {
+    "text": "Daily at 07:00 AM",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_BANK": {
+    "text": "Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_UPLOADING": {
+    "text": "Uploading…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_UPLOAD_PROCESS": {
+    "text": "Upload & Process",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_NO_FILENAME": {
+    "text": "(no filename)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_DOWNLOADING": {
+    "text": "downloading…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_VAULTUPLOAD_ERRORS_CSV": {
+    "text": "↓ errors.csv",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_1_SPECIMEN_ON_FILE": {
+    "text": "1 specimen on file",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_OCR_CONFIDENCE": {
+    "text": "OCR Confidence",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_SIGNATURE_MATCH": {
+    "text": "Signature Match",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_AMOUNT_CONSISTENCY": {
+    "text": "Amount Consistency",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_SECURITY_FEATURES": {
+    "text": "Security Features",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_2_SPECIMENS_ON_FILE": {
+    "text": "2 specimens on file",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_NO_INSTRUMENTS_YET": {
+    "text": "No instruments yet",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_STP_CONFIRMS_WILL_APPEAR_HERE": {
+    "text": "STP confirms will appear here...",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_NO_STP_CONFIRMED_ITEMS_YET": {
+    "text": "No STP confirmed items yet",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_STP_CONFIRMED": {
+    "text": "✓ STP Confirmed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_WORKSTATION_STP_RETURNED": {
+    "text": "✕ STP Returned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHDASHBOARD_SCANNING": {
+    "text": "Scanning",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHDASHBOARD_IDLE_S_AGO": {
+    "text": "Idle · {secondsAgo}s ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "secondsAgo"
+    ]
+  },
+  "UI_BRANCHDASHBOARD_IDLE": {
+    "text": "Idle",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_VERIFIED_WITH_ACCOUNT_MANAGER_AUTHOR": {
+    "text": "Verified with account manager — authorized.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_RECOMMEND_CONFIRM": {
+    "text": "Recommend CONFIRM",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_RECOMMEND_RETURN": {
+    "text": "Recommend RETURN",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHHOLDQUEUE_INSTRUMENT_AWAITING_YOUR_CONFIRMATIO": {
+    "text": "{count} instrument{value} awaiting your confirmation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "count",
+      "value"
+    ]
+  },
+  "UI_BRANCHMISMATCHQUEUE_GO_AHEAD_TRUST_SCANNER": {
+    "text": "Go Ahead (trust scanner)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMISMATCHQUEUE_REJECT_RETURN_TO_DRAWER": {
+    "text": "Reject (return to drawer)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMISMATCHQUEUE_PROCEEDED": {
+    "text": "Proceeded",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHMISMATCHQUEUE_REJECTED": {
+    "text": "Rejected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHSCANMONITOR_HW": {
+    "text": "HW",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHSCANMONITOR_OCR": {
+    "text": "OCR",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_BRANCHSCANMONITOR_NOT_READABLE": {
+    "text": "Not readable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMON_REFRESH": {
+    "text": "Refresh",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALERTLOG_AUDIT_DB_UNAVAILABLE": {
+    "text": "Audit DB unavailable.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_ALERTLOG_NO_CRITICAL_ERROR_EVENTS_IN": {
+    "text": "No CRITICAL/ERROR events in the last 24 hours.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OCRFEEDBACK_THRESHOLD_REACHED_RETRAINING_TRIGGER": {
+    "text": "Threshold reached — retraining triggered",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OCRFEEDBACK_MORE_TO_TRIGGER_NEXT_RETRAIN": {
+    "text": "{value} more to trigger next retrain",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "UI_OPSDASHBOARD_TRIGGERING": {
+    "text": "Triggering…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPSDASHBOARD_WARM_REDIS": {
+    "text": "Warm Redis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_OPSDASHBOARD_REFRESHING": {
+    "text": "Refreshing…",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_UNAVAILABLE": {
+    "text": "Unavailable",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_CONNECTED": {
+    "text": "Connected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_UNSEALED": {
+    "text": "Unsealed",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_SEALED_ACTION_REQUIRED": {
+    "text": "SEALED — action required",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_UNKNOWN_STATE": {
+    "text": "Unknown state",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_SYSTEMHEALTH_CONNECTED_TOTAL_LAG": {
+    "text": "Connected · total lag {total_lag}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "total_lag"
+    ]
+  },
+  "UI_APPSHELL_JUST_NOW": {
+    "text": "just now",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_M_AGO": {
+    "text": "{mins}m ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mins"
+    ]
+  },
+  "UI_APPSHELL_H_AGO": {
+    "text": "{hrs}h ago",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "hrs"
+    ]
+  },
+  "UI_APPSHELL_CHEQUE_TRUNCATION": {
+    "text": "Cheque Truncation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_PLATFORM_OPERATIONS": {
+    "text": "Platform Operations",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_ADMINISTRATION": {
+    "text": "Administration",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_USER": {
+    "text": "User",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_APPSHELL_UNREAD": {
+    "text": "{unreadCount} unread",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "unreadCount"
+    ]
+  },
+  "UI_APPSHELL_ALL_CAUGHT_UP": {
+    "text": "All caught up",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CTS_INWARD": {
+    "text": "CTS Inward",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CLAIM_AND_REVIEW_PENDING_INSTRUMENTS": {
+    "text": "Claim and review pending instruments",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_LIVE_SWIMLANE_VIEW_OF_INWARD": {
+    "text": "Live swimlane view of inward clearing session",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ALL_AI_DRIVEN_CHEQUE_DECISIONS": {
+    "text": "All AI-driven cheque decisions",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CTS_VAULT": {
+    "text": "CTS Vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_SIGNATURE_AND_PPS_VAULT_HEALTH": {
+    "text": "Signature and PPS vault health + trends",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_UPLOAD_SIGNATURE_PPS_STOP_PAYMENT": {
+    "text": "Upload signature / PPS / stop payment CSV",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_NEXT_SYNC_COUNTDOWN_AND_SYNC": {
+    "text": "Next sync countdown and sync history",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ACCOUNTS_WITH_NO_VAULT_SPECIMEN": {
+    "text": "Accounts with no vault specimen — enroll before next session",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_CTS_OUTWARD": {
+    "text": "CTS Outward",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_SCANNER_CAPTURE_LOT_MANAGEMENT_NGCH": {
+    "text": "Scanner capture, lot management, NGCH filing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_OPERATIONS": {
+    "text": "Operations",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_PLATFORM_HEALTH_ALERTS_AND_THROUGHPU": {
+    "text": "Platform health, alerts, and throughput",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ADMIN": {
+    "text": "Admin",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_IMMUTABLE_AUDIT_LOG_IMMUDB": {
+    "text": "Immutable audit log (Immudb)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_BANK_CONFIGURATION_AND_USER_MANAGEME": {
+    "text": "Bank configuration and user management",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_ACTIONS": {
+    "text": "Actions",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "UI_COMMANDPALETTE_SWITCH_BETWEEN_DARK_AND_LIGHT": {
+    "text": "Switch between dark and light mode",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CROSS_BANK_DATA_ACCESS_DETECTED": {
+    "text": "Cross-bank data access detected. Your account has been suspended immediately. This incident has been reported to your bank administrator.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACCESS_DENIED_YOU_DO_NOT": {
+    "text": "Access denied. You do not have permission to perform this operation.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_CONNECTIVITY": {
+    "text": "CBS Connectivity",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NGCH_ADAPTER": {
+    "text": "NGCH Adapter",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_VAULT_REDIS": {
+    "text": "Signature Vault (Redis)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PPS_VAULT_REDIS": {
+    "text": "PPS Vault (Redis)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMMUDB_AUDIT_TRAIL": {
+    "text": "Immudb Audit Trail",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_TOPICS": {
+    "text": "Kafka Topics",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SB_AUTH_CONNECTOR": {
+    "text": "SB Auth Connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_WATCHDOG_SYNTHETIC_CHEQUE": {
+    "text": "IET Watchdog (Synthetic Cheque)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_AUTH_CONNECTOR": {
+    "text": "SMB Auth Connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AGENCY_SFTP_PUSH": {
+    "text": "Agency SFTP Push",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SEEDING_CHECK": {
+    "text": "Vault Seeding Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_CBS_CONNECTIVITY": {
+    "text": "SMB CBS Connectivity",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_DROP_FOLDER": {
+    "text": "Scanner Drop Folder",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BRANCH_AUTH_CONNECTOR": {
+    "text": "Branch Auth Connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_EEH_IEH_SESSION": {
+    "text": "EEH/IEH Session",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AGENCY_SB_CONNECTOR": {
+    "text": "Agency → SB Connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PU_AUTH_CONNECTOR": {
+    "text": "PU Auth Connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_CONNECTIVITY_CHECK_WIRE_REAL": {
+    "text": "CBS connectivity check — wire real CBS client in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NGCH_ADAPTER_CHECK_WIRE_REAL": {
+    "text": "NGCH adapter check — wire real NGCH adapter in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_VAULT_CHECK_WIRE_REAL": {
+    "text": "Signature vault check — wire real Redis client in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PPS_VAULT_CHECK_WIRE_REAL": {
+    "text": "PPS vault check — wire real Redis client in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMMUDB_CHECK_WIRE_REAL_IMMUDB": {
+    "text": "Immudb check — wire real Immudb client in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KAFKA_CHECK_WIRE_REAL_KAFKA": {
+    "text": "Kafka check — wire real Kafka producer in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AUTH_CONNECTOR_CHECK_WIRE_AUTHCONNEC": {
+    "text": "Auth connector check — wire AuthConnectorFactory in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_WATCHDOG_SEND_SYNTHETIC_CHEQUE": {
+    "text": "IET watchdog — send synthetic cheque with test_mode=True",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SFTP_PUSH_CHECK_WIRE_AGENCY": {
+    "text": "SFTP push check — wire Agency SFTP endpoint in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_SEEDING_CHECK_QUERY_REDIS": {
+    "text": "Vault seeding check — query Redis for SMB's account signatures",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SMB_CBS_CHECK_ONLY_RUNS": {
+    "text": "SMB CBS check — only runs if SMB_CBS MCP connection configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCANNER_DROP_FOLDER_CHECK_VERIFY": {
+    "text": "Scanner drop-folder check — verify path writable in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_EEH_IEH_GRPC_PING_WIRE": {
+    "text": "EEH/IEH gRPC ping — wire real gRPC channel in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SB_CONNECTOR_CHECK_WIRE_REAL": {
+    "text": "SB connector check — wire real sb_connector in production",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_BANK_ID_1": {
+    "text": "bank_id = $1",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_HDFC_BANK": {
+    "text": "HDFC Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ICICI_BANK": {
+    "text": "ICICI Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_STATE_BANK": {
+    "text": "State Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AXIS_BANK": {
+    "text": "Axis Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_KOTAK_BANK": {
+    "text": "Kotak Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_YES_BANK": {
+    "text": "Yes Bank",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ASTRA_MIS_REPORT": {
+    "text": "ASTRA MIS Report",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SESSION": {
+    "text": "Session: {session_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "session_id"
+    ]
+  },
+  "API_BANK": {
+    "text": "Bank: {bank_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "API_SECTION_1_INWARD_SUMMARY_PRESENTING": {
+    "text": "SECTION 1 — INWARD SUMMARY (Presenting Bank)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VALUE_INR": {
+    "text": "Value (INR)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SECTION_2_OUTWARD_SUMMARY_DRAWEE": {
+    "text": "SECTION 2 — OUTWARD SUMMARY (Drawee Bank)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SECTION_3_RETURN_REASONS": {
+    "text": "SECTION 3 — RETURN REASONS",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SECTION_4_PERFORMANCE": {
+    "text": "SECTION 4 — PERFORMANCE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OVERALL_RETURN_RATE": {
+    "text": "Overall Return Rate",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_AVG_DECISION_TIME": {
+    "text": "Avg Decision Time",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_P99_DECISION_TIME": {
+    "text": "P99 Decision Time",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_NEAR_BREACH_COUNT": {
+    "text": "IET Near-Breach Count",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_BREACH_COUNT": {
+    "text": "IET Breach Count",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SETTLEMENT_POSITION_STATEMENT": {
+    "text": "Settlement Position Statement",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INWARD_CONFIRMED_INR": {
+    "text": "Inward Confirmed (INR)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OUTWARD_RETURNED_INR": {
+    "text": "Outward Returned (INR)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NET_POSITION_INR": {
+    "text": "Net Position (INR)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ASTRA_ADMIN_CLEANUP_EXCEEDED_MIN": {
+    "text": "ASTRA admin cleanup: exceeded {max_age_minutes}min limit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "max_age_minutes"
+    ]
+  },
+  "API_PAUSED_VIA_ASTRA_ADMIN_UI": {
+    "text": "Paused via ASTRA Admin UI",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_RESUMED_VIA_ASTRA_ADMIN_UI": {
+    "text": "Resumed via ASTRA Admin UI",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IET_BREACHED": {
+    "text": "IET Breached",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_VAULT_MISS": {
+    "text": "Signature Vault Miss",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VAULT_STALE": {
+    "text": "Vault Stale",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_OCR_LOW_CONFIDENCE": {
+    "text": "OCR Low Confidence",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SIGNATURE_LOW_CONFIDENCE": {
+    "text": "Signature Low Confidence",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CHEQUE_ALTERATION_DETECTED": {
+    "text": "Cheque Alteration Detected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WORDS_FIGURES_MISMATCH": {
+    "text": "Words / Figures Mismatch",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_CBS_UNREACHABLE_IMAGE_ONLY_MODE": {
+    "text": "CBS Unreachable — Image-Only Mode",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_STOP_PAYMENT_TRIGGERED": {
+    "text": "Stop Payment Triggered",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DUPLICATE_INSTRUMENT_DETECTED": {
+    "text": "Duplicate Instrument Detected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_WORKFLOW_ENDED_WITH_STATUS": {
+    "text": "Workflow ended with status: {name}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "name"
+    ]
+  },
+  "API_PRIVATE_MAX_AGE_300": {
+    "text": "private, max-age=300",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_TOO_DARK_RESCAN_REQUIRED": {
+    "text": "Image too dark — rescan required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MICR_BAND_NOT_READABLE": {
+    "text": "MICR band not readable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_IMAGE_SKEW_2": {
+    "text": "Image skew > 2°",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TORN_CORNER_RESCAN": {
+    "text": "Torn corner — rescan",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_DUPLICATE_INSTRUMENT_DETECTED_2": {
+    "text": "Duplicate instrument detected",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FOCUS_BLUR_RESCAN_REQUIRED": {
+    "text": "Focus blur — rescan required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_FOLD_CREASE_OVER_AMOUNT_FIELD": {
+    "text": "Fold crease over amount field",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SPECIAL_SESSION": {
+    "text": "Special Session",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PRESENTED_BY": {
+    "text": "PRESENTED BY {bank_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "API_FINACLE_REST_V2": {
+    "text": "Finacle REST v2",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MALFORMED_URL": {
+    "text": "Malformed URL",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MISSING_HOST_IN_URL": {
+    "text": "Missing host in URL",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOOPBACK_HOST_NOT_ALLOWED": {
+    "text": "Loopback host not allowed: {host}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_ASTRA_INTERNAL_SERVICE_HOSTNAME_NOT": {
+    "text": "ASTRA-internal service hostname not allowed: {host}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_KUBERNETES_CLUSTER_INTERNAL_HOSTNAME": {
+    "text": "Kubernetes cluster-internal hostname not allowed: {host}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_PRIVATE_OR_LINK_LOCAL_IP": {
+    "text": "Private or link-local IP range not allowed: {host}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "host"
+    ]
+  },
+  "API_NO_ENDPOINT_URL_CONFIGURED": {
+    "text": "No endpoint_url configured",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SSRF_POLICY_BLOCKED_PROBE": {
+    "text": "SSRF policy blocked probe: {ssrf_err}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ssrf_err"
+    ]
+  },
+  "API_NO_MANDATE_ON_RECORD_FOR": {
+    "text": "No mandate on record for this account — routed to human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_MSV_WORKFLOW_STARTED_POLL_V1": {
+    "text": "MSV workflow {workflow_id} started. Poll /v1/msv/status/{instrument_id} for result.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "workflow_id",
+      "instrument_id"
+    ]
+  },
+  "API_EXISTS_BUT_NOT_WRITABLE": {
+    "text": "exists but not writable",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ACK_SLOW_CHECK_KAFKA_LOAD": {
+    "text": " — ACK slow, check Kafka load",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_NO_PPS_ENTRIES_SEEDED_SEED": {
+    "text": "No PPS entries seeded — seed if bank issues cheque books",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_TIER": {
+    "text": "Tier {value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "API_RAMESH_KUMAR": {
+    "text": "Ramesh Kumar",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_PRIYA_SHARMA": {
+    "text": "Priya Sharma",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SUNIL_MEHTA": {
+    "text": "Sunil Mehta",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_ANITA_DESAI": {
+    "text": "Anita Desai",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_VIKRAM_SINGH": {
+    "text": "Vikram Singh",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_SCAN_THIS_QR_CODE_WITH": {
+    "text": "Scan this QR code with Google Authenticator, Authy, or any TOTP app. Enter the 6-digit code below to confirm setup.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_LOGIN_AUTHORISED": {
+    "text": "Login authorised.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "API_INVALID_CODE_PLEASE_CHECK_YOUR": {
+    "text": "Invalid code. Please check your authenticator app.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "EEH_SCAN_ID_IS_REQUIRED": {
+    "text": "scan_id is required",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "SIG_DETECTOR_NO_QUALIFYING_CLUSTER": {
+    "text": "no qualifying cluster",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RUPEES_TEN_THOUSAND_ONLY": {
+    "text": "Rupees Ten Thousand Only",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOAD_TEST_PAYEE": {
+    "text": "LOAD TEST PAYEE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOAD_TEST_STUB_NOT_A": {
+    "text": "load-test stub — not a model output",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LATIN_SCRIPT_PAYEES_WITH_RELIABLE": {
+    "text": "Latin-script payees with reliable truth",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_THE_COST_SIDE_HANDLED_BY": {
+    "text": "the cost side: handled by a human, not wrong",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_READ_WRONGLY_THE_PRESENTED_NUMBER": {
+    "text": "read wrongly; the presented-number and branch-master cross-checks may still catch it",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_READ_WRONGLY_FIGURES_VS_WORDS": {
+    "text": "read wrongly; figures-vs-words, amount-vs-presented and reviewer checks may still catch it",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_RETURNS_WHOSE_CORRECTNESS_IS": {
+    "text": "only returns whose correctness is verifiable from ground truth are counted",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NOT_ASSESSABLE_NO_DATA": {
+    "text": "NOT ASSESSABLE (no data)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_DEGRADED_SIGNAL_EXCLUDED": {
+    "text": "cbs_degraded — signal excluded",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATION_SLICE_ONLY": {
+    "text": "validation slice only",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FRONT_BW": {
+    "text": "Front BW",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BACK_BW": {
+    "text": "Back BW",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IETWATCHDOGWORKFLOW_TEMPORAL_CHILD_A": {
+    "text": "IETWatchdogWorkflow (Temporal child, ABANDON)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DUPLICATE_PRESENTMENT_CHECK": {
+    "text": "Duplicate Presentment Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MARK_LEAF_PRESENTED_CHEQUE_LEAF": {
+    "text": "mark_leaf_presented · cheque_leaf_vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OCR_EXTRACTION": {
+    "text": "OCR Extraction",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_GOT_OCR2_0_INDICOCR_CTS": {
+    "text": "GOT-OCR2.0 + IndicOCR · cts-ocr queue",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_KILL_SWITCH_CHECKPOINT_1": {
+    "text": "Kill Switch Checkpoint 1",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_GET_KILL_SWITCH_STATUS_REDIS": {
+    "text": "get_kill_switch_status · Redis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ALTERATION_DETECTION": {
+    "text": "Alteration Detection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_QWEN2_VL_72B_CTS_VISION": {
+    "text": "Qwen2-VL 72B · cts-vision queue",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CTS_2010_SECURITY_FEATURES": {
+    "text": "CTS-2010 Security Features",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_STOP_PAYMENT_CHECK": {
+    "text": "Stop Payment Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BLOOM_FILTER_CBS_CONNECTOR": {
+    "text": "Bloom filter + CBS connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IFSC_REGISTRY_VALIDATION": {
+    "text": "IFSC Registry Validation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_IFSC_IFSC_REGISTRY": {
+    "text": "validate_ifsc · IFSC registry",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_NGCH_IFSC_PROVIDED": {
+    "text": "Only when ngch_ifsc provided in workflow input",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PPS_LOOKUP": {
+    "text": "PPS Lookup",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LOOKUP_PPS_REDIS_PPS_VAULT": {
+    "text": "lookup_pps · Redis PPS vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIGNATURE_PRESENCE_DETECTION": {
+    "text": "Signature Presence Detection",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DETECT_SIGNATURES_CTS_VISION_QUEUE": {
+    "text": "detect_signatures · cts-vision queue",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SIAMESE_NETWORK_PYTORCH_SIGNATURE_VA": {
+    "text": "Siamese Network (PyTorch) · signature_vault",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_XGBOOST_ENSEMBLE_SHAP": {
+    "text": "XGBoost ensemble + SHAP",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_SERIES_VALIDATION": {
+    "text": "Cheque Series Validation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_CHEQUE_SERIES_REDIS_CBS": {
+    "text": "validate_cheque_series · Redis / CBS",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CBS_BALANCE_CHECK": {
+    "text": "CBS Balance Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHECK_CBS_BALANCE_CBS_CONNECTOR": {
+    "text": "check_cbs_balance · CBS connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACCOUNT_STATUS_CHECK": {
+    "text": "Account Status Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHECK_ACCOUNT_STATUS_CBS_CONNECTOR": {
+    "text": "check_account_status · CBS connector",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_KILL_SWITCH_CHECKPOINT_2_BACKSTOP": {
+    "text": "Kill Switch Checkpoint 2 (Backstop)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DECISION_SYNTHESIS": {
+    "text": "Decision Synthesis",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SYNTHESISE_DECISION_OPA_LAYER_4": {
+    "text": "synthesise_decision · OPA (Layer 4 Rego)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_STP_MODE_ROUTING": {
+    "text": "STP Mode Routing",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CONFIG_SERVICE_STP_MODE_LAYER": {
+    "text": "config_service · stp_mode (Layer 3)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PERSIST_AGENT_DECISION": {
+    "text": "Persist Agent Decision",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PERSIST_AGENT_DECISION_YUGABYTEDB": {
+    "text": "persist_agent_decision · YugabyteDB",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FILE_TO_NGCH_NGCH_FILER": {
+    "text": "file_to_ngch · ngch_filer (exactly-once)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IMMUDB_AUDIT_WRITE": {
+    "text": "Immudb Audit Write",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_WRITE_AUDIT_IMMUDB_HSM_SIGNED": {
+    "text": "write_audit · Immudb (HSM-signed, unlimited retry)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_HUMANREVIEWWORKFLOW_SPAWN": {
+    "text": "HumanReviewWorkflow Spawn",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_HUMANREVIEWWORKFLOW_TEMPORAL_CHILD_A": {
+    "text": "HumanReviewWorkflow (Temporal child, ABANDON)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_ON_HUMAN_REVIEW_OUTCOME": {
+    "text": "Only on HUMAN_REVIEW outcome",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_SMB_LEDGER_UPDATE": {
+    "text": "SMB Ledger Update",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_EMIT_BATCH_LEDGER_UPDATE_NOTIFY": {
+    "text": "emit_batch_ledger_update + notify_sub_member_return",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_SMB_ID_PRESENT": {
+    "text": "Only when smb_id present in workflow input",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OCR_FEEDBACK_EMIT": {
+    "text": "OCR Feedback Emit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FEEDBACKEMITWORKFLOW_FIRE_AND_FORGET": {
+    "text": "FeedbackEmitWorkflow (fire-and-forget, ABANDON)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_OCR_CR_120_EXTRACTION": {
+    "text": "OCR / CR-120 Extraction",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_GOT_OCR2_0_LEGACY_QWEN2": {
+    "text": "GOT-OCR2.0 (legacy) · Qwen2-VL (CR-120 path)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_DATE_VALIDATION": {
+    "text": "Date Validation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_CHEQUE_DATE_INLINE_NO": {
+    "text": "_validate_cheque_date (inline, no activity)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_POSTDATED_HOLD_SPAWN": {
+    "text": "PostDated Hold Spawn",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_POSTDATEDHOLDWORKFLOW_TEMPORAL_CHILD": {
+    "text": "PostDatedHoldWorkflow (Temporal child, ABANDON)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_DATE_VALIDATE_RETURNS": {
+    "text": "Only when date_validate returns POST_DATED_CHEQUE",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHEQUE_DEDUPLICATION": {
+    "text": "Cheque Deduplication",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CHECK_CHEQUE_DEDUP_REDIS_18": {
+    "text": "check_cheque_dedup · Redis (18-month TTL)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_REAR_IMAGE_OCR": {
+    "text": "Rear Image OCR",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_EXTRACT_REAR_PAYEE_DETAILS_GOT": {
+    "text": "extract_rear_payee_details · GOT-OCR2.0",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_REAR_IMAGE_OCR": {
+    "text": "Only when rear_image_ocr_required = true",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PAYEE_ACCOUNT_VALIDATION": {
+    "text": "Payee Account Validation",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_PAYEE_ACCOUNT_ACCOUNT_VAULT": {
+    "text": "validate_payee_account · Account Vault + CBS",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_PAYEE_ACCOUNT_NUMBER": {
+    "text": "Only when payee_account_number provided",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NGCH_METADATA_CROSS_CHECK": {
+    "text": "NGCH Metadata Cross-Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_CTS_2010_COMPLIANCE": {
+    "text": "CTS-2010 Compliance",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VALIDATE_CTS2010_DPI_COLOUR_DEPTH": {
+    "text": "validate_cts2010 (DPI, colour depth, IQA, MICR band)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_VISION_LLM_CROSS_CHECK": {
+    "text": "Vision LLM Cross-Check",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RUN_VISION_PRESENTMENT_CHECK_QWEN2": {
+    "text": "run_vision_presentment_check · Qwen2-VL 72B",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_WHEN_SCANNER_AMOUNT_STR": {
+    "text": "Only when scanner_amount_str available",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISMATCHRESOLUTION_SPAWN": {
+    "text": "MismatchResolution Spawn",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISMATCHRESOLUTIONWORKFLOW_TEMPORAL": {
+    "text": "MismatchResolutionWorkflow (Temporal child, ABANDON, 4h)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ONLY_ON_MISMATCH_HELD_OUTCOME": {
+    "text": "Only on MISMATCH_HELD outcome",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BRANCH_MONITOR_EVENT": {
+    "text": "Branch Monitor Event",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_RECORD_OUTWARD_SCAN_EVENT_BEST": {
+    "text": "record_outward_scan_event (best-effort)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_EMPTY_IFSC_CODE": {
+    "text": "Empty IFSC code",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NOT_FOUND": {
+    "text": "NOT FOUND",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_NAME_MISMATCH": {
+    "text": "NAME MISMATCH",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_LENGTH_MUST_BE_CHARACTERS": {
+    "text": "length must be {lo}-{hi} characters",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lo",
+      "hi"
+    ]
+  },
+  "CTS_CONTAINS_A_CHARACTER_THE_SPECIFICATI": {
+    "text": "contains a character the specification does not allow",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MUST_NOT_START_OR_END": {
+    "text": "must not start or end with a space",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER": {
+    "text": "action,account_number,cheque_number,new_status,reason,reported_by,effective_date\nINSERT_ONLY,00112233445566,000023,LOST,Purse stolen at railway station,Ramesh Kumar,2026-08-15\n",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACTION_ACCOUNT_NUMBER_HOLDER_SEQ": {
+    "text": "action,account_number,holder_seq,holder_name,role,pan_last4\nUPSERT,00112233445566,1,Ramesh Balkrishna Kumar,PRIMARY,8765\nUPSERT,00112233445566,2,Sunita Ramesh Kumar,JOINT,2341\n",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER_2": {
+    "text": "action,account_number,cheque_number,cheque_date,amount,payee_name,registration_channel,cbs_pps_ref,npci_flag\nINSERT_ONLY,00112233445566,000101,2026-08-20,50000.00,Mahindra Finance Ltd,NET_BANKING,,\n",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_BANK_IDENTIFIER_E_G_SARASWAT": {
+    "text": "Bank identifier (e.g. saraswat-coop)",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_KILL_SWITCH_ACTIVE_MODE_SCOPE": {
+    "text": "kill_switch active: mode={effective_ks_mode} scope={effective_ks_scope}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "effective_ks_mode",
+      "effective_ks_scope"
+    ]
+  },
+  "CTS_OPA_POLICY": {
+    "text": "OPA policy: {reason}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reason"
+    ]
+  },
+  "CTS_OPA_UNAVAILABLE_BUSINESS_POLICY_ENGI": {
+    "text": "OPA_UNAVAILABLE: business policy engine unreachable — routed for manual review",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PAYEE_NAME_BLANK_OR_MISSING": {
+    "text": "Payee name blank or missing — open-bearer instrument requires review",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_IFSC_MISMATCH_NGCH_PRESENTMENT_VS": {
+    "text": "IFSC mismatch: NGCH presentment={ngch_ifsc} vs cheque face={ocr_ifsc}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "ngch_ifsc",
+      "ocr_ifsc"
+    ]
+  },
+  "CTS_DATE_IMPLAUSIBLE_CHEQUE_DATE_IS": {
+    "text": "date_implausible: cheque date {cheque_date} is {abs} days from today - probable OCR misread, not auto-returned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "cheque_date",
+      "abs"
+    ]
+  },
+  "CTS_POST_DATED_CHEQUE_CHEQUE_DATE": {
+    "text": "Post-dated cheque — cheque date {cheque_date} is in the future",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "cheque_date"
+    ]
+  },
+  "CTS_STALE_CHEQUE_DAYS_OLD_LIMIT": {
+    "text": "Stale cheque — {days} days old (limit {validity_days})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "days",
+      "validity_days"
+    ]
+  },
+  "CTS_AMOUNT_IN_WORDS_FIGURES_DIFFER": {
+    "text": "Amount in words/figures differ: words={mask_amount} figures={mask_amount2}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "mask_amount",
+      "mask_amount2"
+    ]
+  },
+  "CTS_CBS_ACCOUNT_STATUS_REQUIRES_RETURN": {
+    "text": "CBS account status requires return: {value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CTS_ALTERATION_IN_NON_DATE": {
+    "text": "CTS alteration in non-date fields: {non_date_altered}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "non_date_altered"
+    ]
+  },
+  "CTS_SIGNATURE_VERIFIER_UNTRAINED_THE_SIG": {
+    "text": "signature_verifier_untrained: the signature match score comes from a generic model, not a trained signature verifier, so it cannot support an automatic confirm",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_C_PROGRAM_FILES_TESSERACT_OCR": {
+    "text": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_C_PROGRAM_FILES_X86_TESSERACT": {
+    "text": "C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PSM_6": {
+    "text": "--psm 6",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_PSM_6_OEM_1": {
+    "text": "--psm 6 --oem 1",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_THE_PAYEE_NAME_ONLY_THE": {
+    "text": "the PAYEE NAME only — the person or company being paid, usually after 'Pay' — ignore any amount, currency figure, or amount-in-words also visible in this crop",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_THE_AMOUNT_WRITTEN_IN_WORDS": {
+    "text": "the AMOUNT WRITTEN IN WORDS only — ignore any payee name also visible in this crop",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_ASTRA_AUTO_TERMINATED_EXCEEDED_MIN": {
+    "text": "ASTRA auto-terminated: exceeded {max_age_minutes}min limit",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "max_age_minutes"
+    ]
+  },
+  "CTS_SUBMITTED_BUT_NOT_IN_THE": {
+    "text": "Submitted but not in the NGCH settlement report",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_INVALID_IET_DEADLINE": {
+    "text": "INVALID_IET_DEADLINE: {iet_deadline_utc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "iet_deadline_utc"
+    ]
+  },
+  "CTS_SMB_SUSPENDED": {
+    "text": "SMB_SUSPENDED: {sub_member_id}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sub_member_id"
+    ]
+  },
+  "CTS_IET_EMERGENCY_FILED_THE_IET": {
+    "text": "iet_emergency_filed: the IET watchdog filed {iet_emergency_decision} before the pipeline finished; pipeline outcome superseded ({decision}: {rationale})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "iet_emergency_decision",
+      "decision",
+      "rationale"
+    ]
+  },
+  "CTS_WEAK_FIELDS_DEFERRED_TO_SYNTHESISE": {
+    "text": "weak_fields={low_confidence_fields} — deferred to synthesise_decision",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "low_confidence_fields"
+    ]
+  },
+  "CTS_STOP_PAYMENT": {
+    "text": "Stop payment: {stop_reason}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "stop_reason"
+    ]
+  },
+  "CTS_STOP_PAYMENT_CHECK_2": {
+    "text": "Stop payment check: {value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_IFSC_REGISTRY": {
+    "text": "IFSC registry: {value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CHEQUE_SERIES": {
+    "text": "Cheque series: {reason} ({return_reason_code})",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "reason",
+      "return_reason_code"
+    ]
+  },
+  "CTS_CHEQUE_SERIES_2": {
+    "text": "Cheque series: {value}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value"
+    ]
+  },
+  "CTS_CBS_BALANCE_CHECK_2": {
+    "text": "CBS balance check: {outcome}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "outcome"
+    ]
+  },
+  "CTS_ACCOUNT_STATUS": {
+    "text": "Account status: {account_status}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_status"
+    ]
+  },
+  "CTS_ACCOUNT_STATUS_REVIEW": {
+    "text": "Account status review: {account_status}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "account_status"
+    ]
+  },
+  "CTS_POSTDATEDHOLDWORKFLOW_SPAWNED": {
+    "text": "PostDatedHoldWorkflow spawned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_MISMATCHRESOLUTIONWORKFLOW_SPAWNED": {
+    "text": "MismatchResolutionWorkflow spawned",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "CTS_FETCH_FAILED": {
+    "text": "FETCH_FAILED: {exc}",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "exc"
+    ]
+  },
+  "CTS_UNKNOWN_VAULT_TYPE": {
+    "text": "UNKNOWN_VAULT_TYPE: {vault_type}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type"
+    ]
+  },
+  "CTS_UNKNOWN_VAULT_TYPE_2": {
+    "text": "Unknown vault_type: {vault_type}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "vault_type"
+    ]
+  },
+  "MSV_UNKNOWN_MANDATE_RULE_TYPE": {
+    "text": "Unknown mandate rule type: {rule_type}",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "rule_type"
+    ]
+  },
+  "MSV_REQUIRED_SIGNATORIES_ABSENT": {
+    "text": "Required signatories absent: {sorted}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sorted"
+    ]
+  },
+  "MSV_SIGNATORY_IES_SCORED_BELOW_MINIMUM": {
+    "text": "Signatory(ies) {value} scored below minimum threshold {min_score}.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "value",
+      "min_score"
+    ]
+  },
+  "MSV_ALL_SIGNATORIES_MATCHED_ABOVE_HIGH": {
+    "text": "All signatories matched above high-confidence threshold.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ALL_SIGNATORIES_PRESENT_BUT_SOME": {
+    "text": "All signatories present but some below high-confidence threshold.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ONLY_SIGNATORY_IES_MATCHED_ABOVE": {
+    "text": "Only {len} signatory(ies) matched above threshold {min_score}; {n} required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "min_score",
+      "n"
+    ]
+  },
+  "MSV_QUORUM_MET_BUT_CONFIDENCE_BELOW": {
+    "text": "Quorum met but confidence below high-confidence threshold.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_MANDATORY_SIGNATORY_DID_NOT_SIGN": {
+    "text": "Mandatory signatory '{sig_id}' did not sign.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "sig_id"
+    ]
+  },
+  "MSV_ONLY_OF_REQUIRED_QUORUM_SIGNATORIES": {
+    "text": "Only {len} of {required_count} required quorum signatories matched.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "required_count"
+    ]
+  },
+  "MSV_MANDATORY_SIGNER_S_AND_QUORUM": {
+    "text": "Mandatory signer(s) and quorum met above high-confidence threshold.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_MANDATORY_SIGNER_S_AND_QUORUM_2": {
+    "text": "Mandatory signer(s) and quorum met, but some scores below high-confidence threshold.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ALL_SIGNATORIES_MET_THEIR_ROLE": {
+    "text": "All signatories met their role-specific thresholds.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_ONLY_SIGNATORIES_WITH_REQUIRED_ROLE": {
+    "text": "Only {len} signatories with required role(s) {required_roles} matched; {required_count} required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "len",
+      "required_roles",
+      "required_count"
+    ]
+  },
+  "MSV_REQUIRED_ROLE_S_MATCHED_WITH": {
+    "text": "Required role(s) {required_roles} matched with {required_count} signatories.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "required_roles",
+      "required_count"
+    ]
+  },
+  "MSV_ROLE_QUORUM_MET_BUT_CONFIDENCE": {
+    "text": "Role quorum met but confidence below high-confidence threshold.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_OPERATION_TYPE_IS_NOT_RECOGNISED": {
+    "text": "Operation type '{op_type}' is not recognised.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "op_type"
+    ]
+  },
+  "MSV_NO_ENROLLED_SIGNATORIES_FOUND_ROUTIN": {
+    "text": "No enrolled signatories found — routing to human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_SIGNATURE_DETECTOR_UNAVAILABLE_ROUTI": {
+    "text": "Signature detector unavailable — routing to human review.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_EMBEDDING_MODEL_UNAVAILABLE_ROUTING": {
+    "text": "Embedding model unavailable — routing to human review.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "MSV_SIGNATUREORCHESTRATOR_NOT_AVAILABLE": {
+    "text": "SignatureOrchestrator not available at worker startup — routing to human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_CHEQUE_RETURN_NOTICE": {
+    "text": "ASTRA CTS — Cheque return notice",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_FRAUD_ALERT": {
+    "text": "ASTRA CTS — Fraud alert",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_IET_EXPIRY_WARNING": {
+    "text": "ASTRA CTS — IET expiry warning",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
+  },
+  "PLATFORM_ASTRA_CTS_SHIFT_SUMMARY": {
+    "text": "ASTRA CTS — Shift summary",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": []
   }
 }

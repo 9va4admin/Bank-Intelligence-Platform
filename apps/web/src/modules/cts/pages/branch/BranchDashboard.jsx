@@ -53,10 +53,10 @@ function ScannerDot({ state }) {
 }
 
 function scannerLabel(state, secondsAgo) {
-  if (state === 'ACTIVE')  return 'Scanning'
+  if (state === 'ACTIVE')  return msg('UI_BRANCHDASHBOARD_SCANNING')
   if (state === 'OFFLINE') return 'OFFLINE'
-  if (state === 'IDLE' && secondsAgo != null) return `Idle · ${secondsAgo}s ago`
-  return 'Idle'
+  if (state === 'IDLE' && secondsAgo != null) return msg('UI_BRANCHDASHBOARD_IDLE_S_AGO', { secondsAgo })
+  return msg('UI_BRANCHDASHBOARD_IDLE')
 }
 
 function StatCard({ label, value, sub, accent, isDark }) {

@@ -450,8 +450,8 @@ function OutwardPipelineViz({ item }) {
 
                 {/* Timing / status sub-label */}
                 <div className="text-[7px] mt-0.5 text-center" style={{ color: ns.tc, opacity: 0.55 }}>
-                  {state === 'done'    && `${STAGE_MS[i]}ms`}
-                  {state === 'current' && (isFail ? 'FAILED' : '● live')}
+                  {state === 'done'    && msg('UI_PRESENTMENT_MS', { STAGE_MS: STAGE_MS[i] })}
+                  {state === 'current' && (isFail ? msg('UI_PRESENTMENT_FAILED') : msg('UI_PRESENTMENT_LIVE_2'))}
                   {state === 'pending' && '—'}
                 </div>
               </div>
@@ -903,14 +903,14 @@ export default function CTSPresentment() {
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className={`text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none ${th.sel}`}>
                 {allStatuses.map(s => (
-                  <option key={s} value={s}>{s === 'ALL' ? 'All Statuses' : (STATUS_META[s]?.label ?? s)}</option>
+                  <option key={s} value={s}>{s === 'ALL' ? msg('UI_PRESENTMENT_ALL_STATUSES') : (STATUS_META[s]?.label ?? s)}</option>
                 ))}
               </select>
               <select value={filterLot} onChange={e => setFilterLot(e.target.value)}
                 className={`text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none ${th.sel}`}>
                 {lotNumbers.map(l => (
                   <option key={l} value={l}>
-                    {l === 'ALL' ? 'All Lots' : `Lot ${batch.find(b => b.lot_number === l)?.lot_seq ?? l}`}
+                    {l === 'ALL' ? msg('UI_PRESENTMENT_ALL_LOTS') : msg('UI_PRESENTMENT_LOT_2', { value: batch.find(b => b.lot_number === l)?.lot_seq ?? l })}
                   </option>
                 ))}
               </select>

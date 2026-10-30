@@ -284,12 +284,12 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
     : 'px-4 py-1.5 rounded-lg text-[12px] border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors'
 
   return (
-    <Modal title={isEdit ? 'Edit User' : 'Create User'} onClose={onClose} isDark={isDark}>
+    <Modal title={isEdit ? msg('UI_USERMANAGEMENT_EDIT_USER') : msg('UI_USERMANAGEMENT_CREATE_USER')} onClose={onClose} isDark={isDark}>
       <div className="px-6 py-5 space-y-4">
 
         {/* Bank Type — hidden in SB_ONLY deployments (always SB); immutable after creation */}
         {bankMode !== 'SB_ONLY' && (
-          <Field label={msg('UI_USERMANAGEMENT_BANK_TYPE')} isDark={isDark} hint={isEdit ? 'Bank type cannot be changed after user creation.' : 'SB = Sponsor Bank staff · SMB = Sub-Member Bank staff'}>
+          <Field label={msg('UI_USERMANAGEMENT_BANK_TYPE')} isDark={isDark} hint={isEdit ? msg('UI_USERMANAGEMENT_BANK_TYPE_CANNOT_BE_CHANGED') : msg('UI_USERMANAGEMENT_SB_SPONSOR_BANK_STAFF_SMB')}>
             {isEdit ? (
               <div className={`flex items-center gap-2 text-sm font-medium ${body}`}>
                 <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
@@ -310,7 +310,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
                         ? 'bg-blue-600 border-blue-500 text-white'
                         : (isDark ? 'bg-navy-950 border-white/10 text-slate-400 hover:border-white/20' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
                     }`}
-                  >{bt === 'SB' ? 'SB — Sponsor Bank' : 'SMB — Sub-Member'}</button>
+                  >{bt === 'SB' ? msg('UI_USERMANAGEMENT_SB_SPONSOR_BANK') : msg('UI_USERMANAGEMENT_SMB_SUB_MEMBER')}</button>
                 ))}
               </div>
             )}
@@ -321,7 +321,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
           <input className={inputCls(isDark)} value={form.display_name} onChange={e => set('display_name', e.target.value)} />
         </Field>
 
-        <Field label={msg('UI_USERMANAGEMENT_EMAIL')} isDark={isDark} hint={isEdit ? 'Email cannot be changed after creation.' : undefined}>
+        <Field label={msg('UI_USERMANAGEMENT_EMAIL')} isDark={isDark} hint={isEdit ? msg('UI_USERMANAGEMENT_EMAIL_CANNOT_BE_CHANGED_AFTER') : undefined}>
           <input className={inputCls(isDark)} type="email" value={form.email} onChange={e => set('email', e.target.value)} disabled={isEdit} />
         </Field>
 
@@ -366,7 +366,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankM
 
       <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         <button onClick={onClose} className={btnSec}>{msg('UI_COMMON_CANCEL')}</button>
-        <button onClick={() => onSave(form)} className={btnPri}>{isEdit ? 'Save Changes' : 'Create User'}</button>
+        <button onClick={() => onSave(form)} className={btnPri}>{isEdit ? msg('UI_COMMON_SAVE_CHANGES') : msg('UI_USERMANAGEMENT_CREATE_USER')}</button>
       </div>
     </Modal>
   )
@@ -658,7 +658,7 @@ export default function UserManagement() {
                           u.is_active
                             ? (isDark ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/30' : 'bg-emerald-100 text-emerald-700 border-emerald-300')
                             : (isDark ? 'bg-slate-800 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-400 border-slate-200')
-                        }`}>{u.is_active ? 'Active' : 'Inactive'}</span>
+                        }`}>{u.is_active ? msg('UI_USERMANAGEMENT_ACTIVE_2') : msg('UI_USERMANAGEMENT_INACTIVE')}</span>
                       </td>
                       <td className={`px-4 py-3 text-[11px] ${th.muted} font-mono`}>{fmt(u.last_login_at ?? u.last_login)}</td>
                       <td className="px-4 py-3">
@@ -682,10 +682,10 @@ export default function UserManagement() {
                       <td colSpan={8} className={`px-4 py-12 text-center ${th.muted}`}>
                         <div className="text-2xl mb-2 opacity-30">👤</div>
                         <div className={`text-[12px] font-medium ${th.body} mb-1`}>
-                          {search ? `No users match "${search}"` : `No ${bankTypeTab} users yet`}
+                          {search ? msg('UI_USERMANAGEMENT_NO_USERS_MATCH', { search }) : msg('UI_USERMANAGEMENT_NO_USERS_YET', { bankTypeTab })}
                         </div>
                         <div className={`text-[11px] ${th.muted}`}>
-                          {search ? 'Try a different name or email.' : 'Create the first user with the button above.'}
+                          {search ? msg('UI_USERMANAGEMENT_TRY_A_DIFFERENT_NAME_OR') : msg('UI_USERMANAGEMENT_CREATE_THE_FIRST_USER_WITH')}
                         </div>
                       </td>
                     </tr>

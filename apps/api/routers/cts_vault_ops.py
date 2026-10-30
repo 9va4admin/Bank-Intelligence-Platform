@@ -289,7 +289,7 @@ async def get_vault_sync_status_v2(
         stop_cheque_records_loaded=int(stop_count),
         status="SUCCESS" if last_run_iso else "UNKNOWN",
         next_scheduled=next_scheduled_iso,
-        cbs_connector="Finacle REST v2",
+        cbs_connector=get_message("API_FINACLE_REST_V2"),
         mcp_tool="get_pps_data",
     )
 

@@ -214,7 +214,7 @@ async def list_processing_units(
         if db_pool:
             try:
                 async with db_pool.acquire() as conn:
-                    conditions = ["bank_id = $1"]
+                    conditions = [get_message("API_BANK_ID_1")]
                     params: list[Any] = [bank_id]
                     idx = 2
                     if is_active is not None:

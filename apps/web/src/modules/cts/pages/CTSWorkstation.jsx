@@ -29,17 +29,17 @@ const MOCK_STP_SUCCESS_IQ = [
     iet_deadline: new Date(_t - 50 * 60000 + 3 * 3600000).toISOString(),
     status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED'),
     fraud_score: 0.04, ocr_confidence: 0.98, sig_match_score: 0.96,
-    sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
+    sig_specimen_available: true, sig_specimen_label: msg('UI_WORKSTATION_1_SPECIMEN_ON_FILE'),
     bank: BANK_CONFIG.bank_name, branch: 'Fort Main',
     cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
-      { feature: 'OCR Confidence', value: 0.98, direction: 'safe' },
-      { feature: 'Signature Match', value: 0.96, direction: 'safe' },
-      { feature: 'Fraud Risk', value: 0.04, direction: 'safe' },
-      { feature: 'Amount Consistency', value: 0.95, direction: 'safe' },
-      { feature: 'Security Features', value: 0.92, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_OCR_CONFIDENCE'), value: 0.98, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_SIGNATURE_MATCH'), value: 0.96, direction: 'safe' },
+      { feature: msg('UI_ANALYTICS_FRAUD_RISK'), value: 0.04, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_AMOUNT_CONSISTENCY'), value: 0.95, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_SECURITY_FEATURES'), value: 0.92, direction: 'safe' },
     ],
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true },
     ocr_fields: {
@@ -55,17 +55,17 @@ const MOCK_STP_SUCCESS_IQ = [
     iet_deadline: new Date(_t - 42 * 60000 + 3 * 3600000).toISOString(),
     status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED'),
     fraud_score: 0.06, ocr_confidence: 0.97, sig_match_score: 0.94,
-    sig_specimen_available: true, sig_specimen_label: '2 specimens on file',
+    sig_specimen_available: true, sig_specimen_label: msg('UI_WORKSTATION_2_SPECIMENS_ON_FILE'),
     bank: BANK_CONFIG.bank_name, branch: 'Andheri West',
     cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
-      { feature: 'OCR Confidence', value: 0.97, direction: 'safe' },
-      { feature: 'Signature Match', value: 0.94, direction: 'safe' },
-      { feature: 'Fraud Risk', value: 0.06, direction: 'safe' },
-      { feature: 'Amount Consistency', value: 0.93, direction: 'safe' },
-      { feature: 'Security Features', value: 0.91, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_OCR_CONFIDENCE'), value: 0.97, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_SIGNATURE_MATCH'), value: 0.94, direction: 'safe' },
+      { feature: msg('UI_ANALYTICS_FRAUD_RISK'), value: 0.06, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_AMOUNT_CONSISTENCY'), value: 0.93, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_SECURITY_FEATURES'), value: 0.91, direction: 'safe' },
     ],
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true },
     ocr_fields: {
@@ -81,17 +81,17 @@ const MOCK_STP_SUCCESS_IQ = [
     iet_deadline: new Date(_t - 28 * 60000 + 3 * 3600000).toISOString(),
     status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED'),
     fraud_score: 0.03, ocr_confidence: 0.99, sig_match_score: 0.98,
-    sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
+    sig_specimen_available: true, sig_specimen_label: msg('UI_WORKSTATION_1_SPECIMEN_ON_FILE'),
     bank: BANK_CONFIG.bank_name, branch: 'Dadar Main',
     cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
-      { feature: 'OCR Confidence', value: 0.99, direction: 'safe' },
-      { feature: 'Signature Match', value: 0.98, direction: 'safe' },
-      { feature: 'Fraud Risk', value: 0.03, direction: 'safe' },
-      { feature: 'Amount Consistency', value: 0.97, direction: 'safe' },
-      { feature: 'Security Features', value: 0.99, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_OCR_CONFIDENCE'), value: 0.99, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_SIGNATURE_MATCH'), value: 0.98, direction: 'safe' },
+      { feature: msg('UI_ANALYTICS_FRAUD_RISK'), value: 0.03, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_AMOUNT_CONSISTENCY'), value: 0.97, direction: 'safe' },
+      { feature: msg('UI_WORKSTATION_SECURITY_FEATURES'), value: 0.99, direction: 'safe' },
     ],
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true },
     ocr_fields: {
@@ -215,7 +215,7 @@ export default function CTSWorkstation() {
             : isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
         }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${pending.length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-          {pending.length > 0 ? `${pending.length} awaiting review` : 'Queue clear'}
+          {pending.length > 0 ? msg('UI_SMBREVIEWQUEUE_AWAITING_REVIEW', { count: pending.length }) : msg('UI_SMBREVIEWQUEUE_QUEUE_CLEAR_2')}
         </div>
       </div>
     ),
@@ -300,7 +300,7 @@ export default function CTSWorkstation() {
                 {pending.length === 0 && (
                   <div className={`text-center ${th.empty} text-sm py-12`}>
                     <div className="text-3xl mb-2">{isDemo || decisions.length > 0 ? '✓' : '📂'}</div>
-                    <div>{isDemo || decisions.length > 0 ? 'Queue clear' : 'No instruments yet'}</div>
+                    <div>{isDemo || decisions.length > 0 ? msg('UI_SMBREVIEWQUEUE_QUEUE_CLEAR_2') : msg('UI_WORKSTATION_NO_INSTRUMENTS_YET')}</div>
                     {!isDemo && decisions.length === 0 && (
                       <div className={`text-[10px] mt-1 ${th.empty}`}>{msg('UI_WORKSTATION_DROP_FILES_INTO_THE_INWARD')}</div>
                     )}
@@ -325,7 +325,7 @@ export default function CTSWorkstation() {
                         <div className="flex items-center justify-between">
                           <div className={`text-[11px] font-mono ${th.muted}`}>{item.instrument_id}</div>
                           <span className={`text-[10px] font-semibold ${item.status === 'CONFIRMED' ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {item.status === 'CONFIRMED' ? '✓ Confirmed' : '✕ Returned'}
+                            {item.status === 'CONFIRMED' ? msg('UI_COMMON_CONFIRMED_2') : msg('UI_SMBREVIEWQUEUE_RETURNED')}
                           </span>
                         </div>
                       </div>
@@ -339,7 +339,7 @@ export default function CTSWorkstation() {
                   <div className={`text-center ${th.empty} text-sm py-12`}>
                     <div className="text-3xl mb-2">{isDemo ? '⚡' : '📂'}</div>
                     <div className={`text-[11px] ${th.empty}`}>
-                      {isDemo ? 'STP confirms will appear here...' : 'No STP confirmed items yet'}
+                      {isDemo ? msg('UI_WORKSTATION_STP_CONFIRMS_WILL_APPEAR_HERE') : msg('UI_WORKSTATION_NO_STP_CONFIRMED_ITEMS_YET')}
                     </div>
                   </div>
                 ) : stpSuccessQueue.map((item) => {
@@ -407,7 +407,7 @@ export default function CTSWorkstation() {
                 >
                   <div className="flex items-center justify-between mb-0.5">
                     <span className={`text-[10px] font-semibold ${item.outcome === 'CONFIRM' ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {item.outcome === 'CONFIRM' ? '✓ STP Confirmed' : '✕ STP Returned'}
+                      {item.outcome === 'CONFIRM' ? msg('UI_WORKSTATION_STP_CONFIRMED') : msg('UI_WORKSTATION_STP_RETURNED')}
                     </span>
                     <span className={`text-[9px] font-mono ${th.faint}`}>{msg('UI_COMMON_MS', { ms: item.ms })}</span>
                   </div>

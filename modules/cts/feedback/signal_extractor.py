@@ -99,7 +99,7 @@ def extract_payee_signal(
             failure_mode=FailureMode.INDETERMINATE,
             add_to_corpus=False,
             human_approved=human_approved,
-            rationale="cbs_degraded — signal excluded",
+            rationale=get_message("CTS_CBS_DEGRADED_SIGNAL_EXCLUDED"),
         )
 
     classification = classify_failure(

@@ -29,9 +29,9 @@ const MSG_TAXONOMY = [
 
 // Kafka topics for outward clearing
 const KAFKA_TOPICS = (bankId) => [
-  { topic: `cts.outward.scanned.${bankId}`,    label: 'scanned',   display: 'Scanned',    desc: uiMsg('UI_SCANNER_SCANNER_OUTWARDSCANWORKFLOW'),      color: 'violet' },
-  { topic: `cts.outward.lot.sealed.${bankId}`, label: 'sealed',    display: 'Lot Sealed', desc: uiMsg('UI_SCANNER_LOT_MANAGER_ENDORSEMENTWORKFLOW'),  color: 'amber'  },
-  { topic: `cts.outward.submitted.${bankId}`,  label: 'submitted', display: 'Submitted',  desc: uiMsg('UI_SCANNER_NGCHSUBMISSION_AUDIT_ANALYTICS'), color: 'emerald'},
+  { topic: `cts.outward.scanned.${bankId}`,    label: 'scanned',   display: uiMsg('UI_SCANNER_SCANNED'),    desc: uiMsg('UI_SCANNER_SCANNER_OUTWARDSCANWORKFLOW'),      color: 'violet' },
+  { topic: `cts.outward.lot.sealed.${bankId}`, label: 'sealed',    display: uiMsg('UI_SCANNER_LOT_SEALED'), desc: uiMsg('UI_SCANNER_LOT_MANAGER_ENDORSEMENTWORKFLOW'),  color: 'amber'  },
+  { topic: `cts.outward.submitted.${bankId}`,  label: 'submitted', display: uiMsg('UI_SCANNER_SUBMITTED'),  desc: uiMsg('UI_SCANNER_NGCHSUBMISSION_AUDIT_ANALYTICS'), color: 'emerald'},
 ]
 
 // ── Mock scanner registry (kept for SDK reference section) ────────────────────
@@ -230,7 +230,7 @@ export default function CTSScanner() {
   const [cfgDraft, setCfgDraft]             = useState({
     agentUrl:        SCANNER_AGENT_DEFAULT_URL,
     sessionPrefix:   'MUM',
-    endorsementText: 'ASTRA/CTS/OUTWARD',
+    endorsementText: uiMsg('UI_SCANNER_ASTRA_CTS_OUTWARD_2'),
     enableImprinter: true,
     enableUV:        false,
     bankIfsc:        bankIfsc ?? '',
@@ -451,7 +451,7 @@ export default function CTSScanner() {
           }`}
         >
           <span className={`w-2 h-2 rounded-full bg-white ${sessionActive ? 'animate-pulse' : ''}`} />
-          {sessionActive ? 'Stop Session' : 'Start Session'}
+          {sessionActive ? uiMsg('UI_SCANNER_STOP_SESSION') : uiMsg('UI_SCANNER_START_SESSION_2')}
         </button>
       </div>
     ),
@@ -469,7 +469,7 @@ export default function CTSScanner() {
               <span className={`text-xs font-medium ${th.heading}`}>{uiMsg('UI_SCANNER_SCANNER_AGENT')}</span>
               <span className={`text-[11px] font-mono ${th.muted}`}>{agentUrl}</span>
               <span className={`text-[10px] font-medium ${agentConnected ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
-                {agentConnected ? 'CONNECTED' : 'OFFLINE'}
+                {agentConnected ? uiMsg('UI_SCANNER_CONNECTED') : uiMsg('UI_SCANNER_OFFLINE')}
               </span>
             </div>
             {sessionActive && (

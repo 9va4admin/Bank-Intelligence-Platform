@@ -19,6 +19,7 @@ import structlog
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Optional, AsyncIterator
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -336,7 +337,7 @@ class EEHServicer:
                 yield ChequeAck(
                     scan_id="unknown",
                     status="INVALID_PAYLOAD",
-                    reason="scan_id is required",
+                    reason=get_message("EEH_SCAN_ID_IS_REQUIRED"),
                 )
                 continue
 

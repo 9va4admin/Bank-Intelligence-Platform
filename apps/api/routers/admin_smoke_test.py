@@ -114,23 +114,23 @@ _ENTITY_TESTS: dict[str, list[str]] = {
 }
 
 _TEST_NAMES: dict[str, str] = {
-    "test_cbs":              "CBS Connectivity",
-    "test_ngch":             "NGCH Adapter",
-    "test_signature_vault":  "Signature Vault (Redis)",
-    "test_pps_vault":        "PPS Vault (Redis)",
-    "test_immudb":           "Immudb Audit Trail",
-    "test_kafka":            "Kafka Topics",
-    "test_auth_sb":          "SB Auth Connector",
-    "test_iet_watchdog":     "IET Watchdog (Synthetic Cheque)",
-    "test_auth_smb":         "SMB Auth Connector",
-    "test_sftp_push":        "Agency SFTP Push",
-    "test_vault_seeded":     "Vault Seeding Check",
-    "test_smb_cbs":          "SMB CBS Connectivity",
-    "test_scanner_folder":   "Scanner Drop Folder",
-    "test_auth_branch":      "Branch Auth Connector",
-    "test_eeh_connectivity": "EEH/IEH Session",
-    "test_sb_connector":     "Agency → SB Connector",
-    "test_auth_pu":          "PU Auth Connector",
+    "test_cbs":              get_message("API_CBS_CONNECTIVITY"),
+    "test_ngch":             get_message("API_NGCH_ADAPTER"),
+    "test_signature_vault":  get_message("API_SIGNATURE_VAULT_REDIS"),
+    "test_pps_vault":        get_message("API_PPS_VAULT_REDIS"),
+    "test_immudb":           get_message("API_IMMUDB_AUDIT_TRAIL"),
+    "test_kafka":            get_message("API_KAFKA_TOPICS"),
+    "test_auth_sb":          get_message("API_SB_AUTH_CONNECTOR"),
+    "test_iet_watchdog":     get_message("API_IET_WATCHDOG_SYNTHETIC_CHEQUE"),
+    "test_auth_smb":         get_message("API_SMB_AUTH_CONNECTOR"),
+    "test_sftp_push":        get_message("API_AGENCY_SFTP_PUSH"),
+    "test_vault_seeded":     get_message("API_VAULT_SEEDING_CHECK"),
+    "test_smb_cbs":          get_message("API_SMB_CBS_CONNECTIVITY"),
+    "test_scanner_folder":   get_message("API_SCANNER_DROP_FOLDER"),
+    "test_auth_branch":      get_message("API_BRANCH_AUTH_CONNECTOR"),
+    "test_eeh_connectivity": get_message("API_EEH_IEH_SESSION"),
+    "test_sb_connector":     get_message("API_AGENCY_SB_CONNECTOR"),
+    "test_auth_pu":          get_message("API_PU_AUTH_CONNECTOR"),
 }
 
 
@@ -210,59 +210,59 @@ async def run_single_test(
 # Stubs return SKIP — wired to real checks in production config.
 
 async def _run_test_cbs(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "CBS connectivity check — wire real CBS client in production"
+    return SmokeTestStatus.SKIP, get_message("API_CBS_CONNECTIVITY_CHECK_WIRE_REAL")
 
 
 async def _run_test_ngch(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "NGCH adapter check — wire real NGCH adapter in production"
+    return SmokeTestStatus.SKIP, get_message("API_NGCH_ADAPTER_CHECK_WIRE_REAL")
 
 
 async def _run_test_signature_vault(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "Signature vault check — wire real Redis client in production"
+    return SmokeTestStatus.SKIP, get_message("API_SIGNATURE_VAULT_CHECK_WIRE_REAL")
 
 
 async def _run_test_pps_vault(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "PPS vault check — wire real Redis client in production"
+    return SmokeTestStatus.SKIP, get_message("API_PPS_VAULT_CHECK_WIRE_REAL")
 
 
 async def _run_test_immudb(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "Immudb check — wire real Immudb client in production"
+    return SmokeTestStatus.SKIP, get_message("API_IMMUDB_CHECK_WIRE_REAL_IMMUDB")
 
 
 async def _run_test_kafka(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "Kafka check — wire real Kafka producer in production"
+    return SmokeTestStatus.SKIP, get_message("API_KAFKA_CHECK_WIRE_REAL_KAFKA")
 
 
 async def _run_test_auth(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "Auth connector check — wire AuthConnectorFactory in production"
+    return SmokeTestStatus.SKIP, get_message("API_AUTH_CONNECTOR_CHECK_WIRE_AUTHCONNEC")
 
 
 async def _run_test_iet_watchdog(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "IET watchdog — send synthetic cheque with test_mode=True"
+    return SmokeTestStatus.SKIP, get_message("API_IET_WATCHDOG_SEND_SYNTHETIC_CHEQUE")
 
 
 async def _run_test_sftp_push(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "SFTP push check — wire Agency SFTP endpoint in production"
+    return SmokeTestStatus.SKIP, get_message("API_SFTP_PUSH_CHECK_WIRE_AGENCY")
 
 
 async def _run_test_vault_seeded(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "Vault seeding check — query Redis for SMB's account signatures"
+    return SmokeTestStatus.SKIP, get_message("API_VAULT_SEEDING_CHECK_QUERY_REDIS")
 
 
 async def _run_test_smb_cbs(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "SMB CBS check — only runs if SMB_CBS MCP connection configured"
+    return SmokeTestStatus.SKIP, get_message("API_SMB_CBS_CHECK_ONLY_RUNS")
 
 
 async def _run_test_scanner_folder(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "Scanner drop-folder check — verify path writable in production"
+    return SmokeTestStatus.SKIP, get_message("API_SCANNER_DROP_FOLDER_CHECK_VERIFY")
 
 
 async def _run_test_eeh(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "EEH/IEH gRPC ping — wire real gRPC channel in production"
+    return SmokeTestStatus.SKIP, get_message("API_EEH_IEH_GRPC_PING_WIRE")
 
 
 async def _run_test_sb_connector(entity_id: str, bank_id: str):
-    return SmokeTestStatus.SKIP, "SB connector check — wire real sb_connector in production"
+    return SmokeTestStatus.SKIP, get_message("API_SB_CONNECTOR_CHECK_WIRE_REAL")
 
 
 _TEST_RUNNERS = {

@@ -546,9 +546,9 @@ function DepositInfoPanel({ depositInfo, isDark }) {
 
       {/* Source footer */}
       <div className={`px-3 py-1.5 border-t text-[9px] italic ${isDark ? 'border-white/8 text-slate-600' : 'border-slate-200 text-slate-400'}`}>
-        {depositInfo.channel === 'PAY_IN_SLIP'     && 'Branch counter capture'}
-        {depositInfo.channel === 'BACK_ANNOTATION' && 'Scanner back-side OCR'}
-        {depositInfo.channel === 'KIOSK'           && 'CDM machine — system-verified'}
+        {depositInfo.channel === 'PAY_IN_SLIP'     && msg('UI_CHEQUEIMAGEVIEWER_BRANCH_COUNTER_CAPTURE')}
+        {depositInfo.channel === 'BACK_ANNOTATION' && msg('UI_CHEQUEIMAGEVIEWER_SCANNER_BACK_SIDE_OCR')}
+        {depositInfo.channel === 'KIOSK'           && msg('UI_CHEQUEIMAGEVIEWER_CDM_MACHINE_SYSTEM_VERIFIED')}
       </div>
     </div>
   )
@@ -691,7 +691,7 @@ export default function ChequeImageViewer({
               </>
             )}
             <span className="flex-1" />
-            <span className="italic">{noRear ? 'No rear image' : isPlaceholder ? 'No image URL — showing SVG preview' : 'Live scan image'}</span>
+            <span className="italic">{noRear ? msg('UI_CHEQUEIMAGEVIEWER_NO_REAR_IMAGE') : isPlaceholder ? msg('UI_CHEQUEIMAGEVIEWER_NO_IMAGE_URL_SHOWING_SVG') : msg('UI_CHEQUEIMAGEVIEWER_LIVE_SCAN_IMAGE')}</span>
           </div>
         )}
       </div>

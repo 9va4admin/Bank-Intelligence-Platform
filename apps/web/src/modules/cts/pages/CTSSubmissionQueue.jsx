@@ -313,7 +313,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3">
         <div className="text-4xl">✓</div>
-        <div className={`text-lg font-semibold ${th.heading}`}>{isInward ? 'Confirmed' : 'Filed to NGCH'}</div>
+        <div className={`text-lg font-semibold ${th.heading}`}>{isInward ? msg('UI_SUBMISSIONQUEUE_CONFIRMED') : msg('UI_SUBMISSIONQUEUE_FILED_TO_NGCH')}</div>
         <div className={`text-sm ${th.muted}`}>{item.instrument_id}</div>
       </div>
     )
@@ -455,15 +455,15 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_MODEL_ATTRIBUTION')}</div>
               <div className="space-y-1.5 text-[11px]">
                 {(isInward ? [
-                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'     },
-                  { task: 'Signature',       model: 'Siamese Net v2'  },
-                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'  },
-                  { task: 'Risk narrative',  model: 'Llama 3.3 70B'   },
-                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'   },
+                  { task: msg('UI_COMMON_OCR_MICR'),     model: 'GOT-OCR2.0'     },
+                  { task: msg('UI_SUBMISSIONQUEUE_SIGNATURE'),       model: 'Siamese Net v2'  },
+                  { task: msg('UI_SUBMISSIONQUEUE_FRAUD_SCORING'),   model: 'XGBoost + SHAP'  },
+                  { task: msg('UI_SUBMISSIONQUEUE_RISK_NARRATIVE'),  model: 'Llama 3.3 70B'   },
+                  { task: msg('UI_SUBMISSIONQUEUE_VISION_LAYOUT'), model: 'Qwen2-VL 72B'   },
                 ] : [
-                  { task: 'OCR / MICR',       model: 'GOT-OCR2.0'            },
-                  { task: 'Vision / CTS-2010', model: 'Qwen2-VL 72B'          },
-                  { task: 'Compliance check',  model: 'CTS-2010 Validator v3' },
+                  { task: msg('UI_COMMON_OCR_MICR'),       model: 'GOT-OCR2.0'            },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_VISION_CTS_2010'), model: 'Qwen2-VL 72B'          },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK'),  model: 'CTS-2010 Validator v3' },
                 ]).map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
@@ -568,7 +568,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
           : (
             <button type="button" onClick={() => isInward ? setConfirming(true) : handleConfirm()}
               className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${isDark ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}
-            >{isInward ? '✓ Confirm — File to NGCH' : '↑ Submit to NGCH'}</button>
+            >{isInward ? msg('UI_SUBMISSIONQUEUE_CONFIRM_FILE_TO_NGCH') : msg('UI_SUBMISSIONQUEUE_SUBMIT_TO_NGCH')}</button>
           )
         }
         <button type="button" onClick={() => setShowReturnPicker(v => !v)}
@@ -644,7 +644,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'CONFIRM', reason: 'Ops reviewer confirmed — all checks passed' }),
+        body: JSON.stringify({ action: 'CONFIRM', reason: msg('UI_SUBMISSIONQUEUE_OPS_REVIEWER_CONFIRMED_ALL_CHECKS') }),
       })
       if (!res.ok) throw new Error(msg('UI_SUBMISSIONQUEUE_CONFIRM_FAILED'))
       return res.json()
@@ -692,9 +692,9 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
         {/* Page header */}
         <div className={`px-6 py-3 border-b ${th.divider} shrink-0 flex items-center gap-4`}>
           <div>
-            <h1 className={`text-base font-semibold ${th.heading}`}>{isInward ? 'Submission IQ' : 'Submission OQ'}</h1>
+            <h1 className={`text-base font-semibold ${th.heading}`}>{isInward ? msg('UI_SUBMISSIONQUEUE_SUBMISSION_IQ') : msg('UI_SUBMISSIONQUEUE_SUBMISSION_OQ')}</h1>
             <p className={`text-[11px] ${th.muted}`}>
-              {isInward ? 'Cheque image · 2s cancellable confirm before NGCH filing' : 'Cheque image · Submit to NGCH · Confirmed → Outward File'}
+              {isInward ? msg('UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_2S_CANCELLABLE_CONFIRM') : msg('UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_SUBMIT_TO_NGCH')}
             </p>
           </div>
           <div className={`ml-auto text-[10px] px-3 py-1 rounded-lg border font-medium ${isDark ? 'bg-violet-400/5 border-violet-400/20 text-violet-400' : 'bg-violet-50 border-violet-300 text-violet-700'}`}>
@@ -759,7 +759,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
                       ) : null
                     })()}
                     <div className={`text-[11px] ${th.muted} mt-0.5 truncate`}>
-                      {isInward ? `Acct ${inst.account_display}` : inst.drawee_bank}
+                      {isInward ? msg('UI_SUBMISSIONQUEUE_ACCT', { account_display: inst.account_display }) : inst.drawee_bank}
                     </div>
                     {isInward && minsLeft != null && (
                       <div className={`text-[10px] font-mono font-semibold mt-0.5 ${urgent ? 'text-red-400' : isDark ? 'text-sky-400' : 'text-sky-600'}`}>

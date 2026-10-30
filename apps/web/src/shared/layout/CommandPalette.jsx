@@ -5,20 +5,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { msg } from '../messages'
+import { msg as uiMsg } from '../messages'
 
 const COMMANDS = [
-  { id: 'nav-hrq',      group: 'CTS Inward',  label: msg('UI_APPSHELL_HUMAN_REVIEW_QUEUE'),         sub: 'Claim and review pending instruments',         to: '/cts/inward/review-queue', icon: '👁' },
-  { id: 'nav-inward',   group: 'CTS Inward',  label: msg('UI_APPSHELL_INWARD_MONITOR'),              sub: 'Live swimlane view of inward clearing session', to: '/cts/inward',              icon: '📥' },
-  { id: 'nav-decisions',group: 'CTS Inward',  label: msg('UI_COMMANDPALETTE_AI_DECISIONS_LOG'),            sub: 'All AI-driven cheque decisions',               to: '/cts/decisions',           icon: '🧠' },
-  { id: 'nav-vault-st', group: 'CTS Vault',   label: msg('UI_SMBREGISTRY_VAULT_STATUS'),                sub: 'Signature and PPS vault health + trends',      to: '/cts/vault/status',        icon: '🔐' },
-  { id: 'nav-vault-up', group: 'CTS Vault',   label: msg('UI_COMMON_VAULT_UPLOAD'),                sub: 'Upload signature / PPS / stop payment CSV',    to: '/cts/vault/upload',        icon: '📤' },
-  { id: 'nav-vault-sy', group: 'CTS Vault',   label: msg('UI_COMMANDPALETTE_VAULT_SYNC_SCHEDULE'),         sub: 'Next sync countdown and sync history',         to: '/cts/vault/sync',          icon: '🔄' },
-  { id: 'nav-vault-gap',group: 'CTS Vault',   label: msg('UI_APPSHELL_VAULT_GAP_REPORT'),            sub: 'Accounts with no vault specimen — enroll before next session', to: '/cts/vault/gaps', icon: '⚠️' },
-  { id: 'nav-outward',  group: 'CTS Outward', label: msg('UI_APPSHELL_OUTWARD_CLEARING'),            sub: 'Scanner capture, lot management, NGCH filing', to: '/cts/outward',             icon: '📄' },
-  { id: 'nav-ops',      group: 'Operations',  label: msg('UI_COMMANDPALETTE_OPERATIONS_DASHBOARD'),        sub: 'Platform health, alerts, and throughput',      to: '/ops/dashboard',           icon: '📊' },
-  { id: 'nav-audit',    group: 'Admin',       label: msg('UI_COMMON_AUDIT_TRAIL'),                 sub: 'Immutable audit log (Immudb)',                  to: '/admin/audit',             icon: '📋' },
-  { id: 'nav-admin',    group: 'Admin',       label: msg('UI_COMMANDPALETTE_ADMIN_CONSOLE'),               sub: 'Bank configuration and user management',       to: '/admin',                   icon: '⚙️' },
-  { id: 'act-theme',    group: 'Actions',     label: msg('UI_COMMANDPALETTE_TOGGLE_DARK_LIGHT_THEME'),   sub: 'Switch between dark and light mode',           action: 'toggle-theme',         icon: '🌙' },
+  { id: 'nav-hrq',      group: uiMsg('UI_COMMANDPALETTE_CTS_INWARD'),  label: msg('UI_APPSHELL_HUMAN_REVIEW_QUEUE'),         sub: uiMsg('UI_COMMANDPALETTE_CLAIM_AND_REVIEW_PENDING_INSTRUMENTS'),         to: '/cts/inward/review-queue', icon: '👁' },
+  { id: 'nav-inward',   group: uiMsg('UI_COMMANDPALETTE_CTS_INWARD'),  label: msg('UI_APPSHELL_INWARD_MONITOR'),              sub: uiMsg('UI_COMMANDPALETTE_LIVE_SWIMLANE_VIEW_OF_INWARD'), to: '/cts/inward',              icon: '📥' },
+  { id: 'nav-decisions',group: uiMsg('UI_COMMANDPALETTE_CTS_INWARD'),  label: msg('UI_COMMANDPALETTE_AI_DECISIONS_LOG'),            sub: uiMsg('UI_COMMANDPALETTE_ALL_AI_DRIVEN_CHEQUE_DECISIONS'),               to: '/cts/decisions',           icon: '🧠' },
+  { id: 'nav-vault-st', group: uiMsg('UI_COMMANDPALETTE_CTS_VAULT'),   label: msg('UI_SMBREGISTRY_VAULT_STATUS'),                sub: uiMsg('UI_COMMANDPALETTE_SIGNATURE_AND_PPS_VAULT_HEALTH'),      to: '/cts/vault/status',        icon: '🔐' },
+  { id: 'nav-vault-up', group: uiMsg('UI_COMMANDPALETTE_CTS_VAULT'),   label: msg('UI_COMMON_VAULT_UPLOAD'),                sub: uiMsg('UI_COMMANDPALETTE_UPLOAD_SIGNATURE_PPS_STOP_PAYMENT'),    to: '/cts/vault/upload',        icon: '📤' },
+  { id: 'nav-vault-sy', group: uiMsg('UI_COMMANDPALETTE_CTS_VAULT'),   label: msg('UI_COMMANDPALETTE_VAULT_SYNC_SCHEDULE'),         sub: uiMsg('UI_COMMANDPALETTE_NEXT_SYNC_COUNTDOWN_AND_SYNC'),         to: '/cts/vault/sync',          icon: '🔄' },
+  { id: 'nav-vault-gap',group: uiMsg('UI_COMMANDPALETTE_CTS_VAULT'),   label: msg('UI_APPSHELL_VAULT_GAP_REPORT'),            sub: uiMsg('UI_COMMANDPALETTE_ACCOUNTS_WITH_NO_VAULT_SPECIMEN'), to: '/cts/vault/gaps', icon: '⚠️' },
+  { id: 'nav-outward',  group: uiMsg('UI_COMMANDPALETTE_CTS_OUTWARD'), label: msg('UI_APPSHELL_OUTWARD_CLEARING'),            sub: uiMsg('UI_COMMANDPALETTE_SCANNER_CAPTURE_LOT_MANAGEMENT_NGCH'), to: '/cts/outward',             icon: '📄' },
+  { id: 'nav-ops',      group: uiMsg('UI_COMMANDPALETTE_OPERATIONS'),  label: msg('UI_COMMANDPALETTE_OPERATIONS_DASHBOARD'),        sub: uiMsg('UI_COMMANDPALETTE_PLATFORM_HEALTH_ALERTS_AND_THROUGHPU'),      to: '/ops/dashboard',           icon: '📊' },
+  { id: 'nav-audit',    group: uiMsg('UI_COMMANDPALETTE_ADMIN'),       label: msg('UI_COMMON_AUDIT_TRAIL'),                 sub: uiMsg('UI_COMMANDPALETTE_IMMUTABLE_AUDIT_LOG_IMMUDB'),                  to: '/admin/audit',             icon: '📋' },
+  { id: 'nav-admin',    group: uiMsg('UI_COMMANDPALETTE_ADMIN'),       label: msg('UI_COMMANDPALETTE_ADMIN_CONSOLE'),               sub: uiMsg('UI_COMMANDPALETTE_BANK_CONFIGURATION_AND_USER_MANAGEME'),       to: '/admin',                   icon: '⚙️' },
+  { id: 'act-theme',    group: uiMsg('UI_COMMANDPALETTE_ACTIONS'),     label: msg('UI_COMMANDPALETTE_TOGGLE_DARK_LIGHT_THEME'),   sub: uiMsg('UI_COMMANDPALETTE_SWITCH_BETWEEN_DARK_AND_LIGHT'),           action: 'toggle-theme',         icon: '🌙' },
 ]
 
 export default function CommandPalette({ open, onClose, onToggleTheme, isDark }) {

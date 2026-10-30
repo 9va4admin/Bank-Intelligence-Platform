@@ -226,9 +226,9 @@ function eehDot(status) {
 }
 
 function eehLabel(status, latency) {
-  if (status === 'CONNECTED') return `Connected · ${latency}ms`
-  if (status === 'WARN')      return `High latency · ${latency}ms`
-  return 'Disconnected'
+  if (status === 'CONNECTED') return msg('UI_HUBDASHBOARD_CONNECTED_MS', { latency })
+  if (status === 'WARN')      return msg('UI_HUBDASHBOARD_HIGH_LATENCY_MS', { latency })
+  return msg('UI_HUBDASHBOARD_DISCONNECTED')
 }
 
 function LotBar({ filled, max, isDark }) {
@@ -348,7 +348,7 @@ function BranchRow({ branch, onSealLot, isDark }) {
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
-            {lotFull ? 'Seal Full Lot' : 'Seal Lot'}
+            {lotFull ? msg('UI_HUBDASHBOARD_SEAL_FULL_LOT') : msg('UI_HUBDASHBOARD_SEAL_LOT_2')}
           </button>
         ) : (
           <span className={`text-xs ${th.muted}`}>—</span>
@@ -686,8 +686,8 @@ export default function CTSHubDashboard() {
             <p className={`text-xs font-medium uppercase tracking-wider ${th.muted}`}>{msg('UI_HUBDASHBOARD_NGCH_SUBMISSION_READINESS')}</p>
             <p className={`text-sm mt-0.5 ${th.body}`}>
               {openLots.length > 0
-                ? `${openLots.length} open lot${openLots.length > 1 ? 's' : ''} must be sealed before submission`
-                : 'All lots sealed — ready to trigger ClearingSessionWorkflow'
+                ? msg('UI_HUBDASHBOARD_OPEN_LOT_MUST_BE_SEALED', { count: openLots.length, value: openLots.length > 1 ? 's' : '' })
+                : msg('UI_HUBDASHBOARD_ALL_LOTS_SEALED_READY_TO')
               }
             </p>
           </div>
@@ -700,7 +700,7 @@ export default function CTSHubDashboard() {
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
             }`}
           >
-            {ngchPending ? 'Submitting…' : 'Submit to NGCH'}
+            {ngchPending ? msg('UI_COMMON_SUBMITTING') : msg('UI_HUBDASHBOARD_SUBMIT_TO_NGCH')}
           </button>
         </div>
 

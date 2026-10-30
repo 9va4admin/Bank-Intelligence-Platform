@@ -21,6 +21,7 @@ from temporalio import activity
 from shared.notifications.dispatcher import NotificationRequest
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -510,7 +511,7 @@ async def sweep_stuck_workflows(inp: StuckWorkflowSweepInput) -> StuckWorkflowSw
                         try:
                             handle = client.get_workflow_handle(wf.id, run_id=wf.run_id)
                             await handle.terminate(
-                                reason=f"ASTRA auto-terminated: exceeded {inp.max_age_minutes}min limit"
+                                reason=get_message("CTS_ASTRA_AUTO_TERMINATED_EXCEEDED_MIN", max_age_minutes=inp.max_age_minutes)
                             )
                             terminated += 1
                             log.warning(

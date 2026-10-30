@@ -29245,3 +29245,5310 @@ CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS_2:
   variables: [sweep_data, sweep_data2]
   en: "Auto-terminated {sweep_data}/{sweep_data2} stuck CTS workflows (exceeded 4h limit)"
   hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# SCREEN WORDING — generated from the web app by apps/web/scripts/i18n/convert.mjs
+# ══════════════════════════════════════════════════════════════════
+
+UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immutable audit trail of all login events across SB and sub-member banks"
+  hi: ""
+
+UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_LOGIN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immutable audit trail of login events for your institution"
+  hi: ""
+
+UI_LOGINLOG_ALL_TYPES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All Types"
+  hi: ""
+
+UI_LOGINLOG_ALL_BANKS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All Banks"
+  hi: ""
+
+UI_OPERATIONSCONFIG_STP_PIPELINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP Pipeline"
+  hi: ""
+
+UI_OPERATIONSCONFIG_QUEUE_SEGMENTATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Queue Segmentation"
+  hi: ""
+
+UI_OPERATIONSCONFIG_ALLOCATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Allocation"
+  hi: ""
+
+UI_OPERATIONSCONFIG_IET_TIMING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET & Timing"
+  hi: ""
+
+UI_OPERATIONSCONFIG_AI_CONFIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "AI Confidence"
+  hi: ""
+
+UI_OPERATIONSCONFIG_AMOUNT_CONTROLS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount Controls"
+  hi: ""
+
+UI_OPERATIONSCONFIG_SECURITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Security"
+  hi: ""
+
+UI_OPERATIONSCONFIG_OUTWARD_PROCESSING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Outward Processing"
+  hi: ""
+
+UI_OPERATIONSCONFIG_REASON_MUST_BE_AT_LEAST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reason must be at least 10 characters"
+  hi: ""
+
+UI_OPERATIONSCONFIG_PENDING_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PENDING"
+  hi: ""
+
+UI_COMMON_SUBMITTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submitting…"
+  hi: ""
+
+UI_OPERATIONSCONFIG_SUBMIT_FOR_APPROVAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submit for Approval"
+  hi: ""
+
+UI_PLATFORMCONFIG_KUBERNETES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kubernetes"
+  hi: ""
+
+UI_PLATFORMCONFIG_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Redis"
+  hi: ""
+
+UI_PLATFORMCONFIG_YUGABYTEDB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "YugabyteDB"
+  hi: ""
+
+UI_PLATFORMCONFIG_KAFKA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kafka"
+  hi: ""
+
+UI_PLATFORMCONFIG_TEMPORAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Temporal"
+  hi: ""
+
+UI_PLATFORMCONFIG_PLATFORM_CONSTRAINTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Platform Constraints"
+  hi: ""
+
+UI_PLATFORMCONFIG_CAB_TICKET_REFERENCE_IS_REQUIRED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CAB ticket reference is required"
+  hi: ""
+
+UI_PLATFORMCONFIG_PENDING_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PENDING REVIEW"
+  hi: ""
+
+UI_PLATFORMCONFIG_RAISING_REQUEST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Raising request…"
+  hi: ""
+
+UI_PLATFORMCONFIG_RAISE_CHANGE_REQUEST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Raise Change Request"
+  hi: ""
+
+UI_SECURITYVIOLATIONS_S_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [diff]
+  en: "{diff}s ago"
+  hi: ""
+
+UI_SECURITYVIOLATIONS_M_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value}m ago"
+  hi: ""
+
+UI_SECURITYVIOLATIONS_H_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value}h ago"
+  hi: ""
+
+UI_COMMON_LOADING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Loading…"
+  hi: ""
+
+UI_SECURITYVIOLATIONS_REFRESH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "↻ Refresh"
+  hi: ""
+
+UI_SECURITYVIOLATIONS_REINSTATING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reinstating…"
+  hi: ""
+
+UI_SECURITYVIOLATIONS_REINSTATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reinstate"
+  hi: ""
+
+UI_USERMANAGEMENT_EDIT_USER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Edit User"
+  hi: ""
+
+UI_USERMANAGEMENT_CREATE_USER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Create User"
+  hi: ""
+
+UI_USERMANAGEMENT_BANK_TYPE_CANNOT_BE_CHANGED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Bank type cannot be changed after user creation."
+  hi: ""
+
+UI_USERMANAGEMENT_SB_SPONSOR_BANK_STAFF_SMB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SB = Sponsor Bank staff · SMB = Sub-Member Bank staff"
+  hi: ""
+
+UI_USERMANAGEMENT_SB_SPONSOR_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SB — Sponsor Bank"
+  hi: ""
+
+UI_USERMANAGEMENT_SMB_SUB_MEMBER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB — Sub-Member"
+  hi: ""
+
+UI_USERMANAGEMENT_EMAIL_CANNOT_BE_CHANGED_AFTER:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Email cannot be changed after creation."
+  hi: ""
+
+UI_COMMON_SAVE_CHANGES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save Changes"
+  hi: ""
+
+UI_USERMANAGEMENT_ACTIVE_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Active"
+  hi: ""
+
+UI_USERMANAGEMENT_INACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Inactive"
+  hi: ""
+
+UI_USERMANAGEMENT_NO_USERS_MATCH:
+  severity: INFO
+  surface: [UI]
+  variables: [search]
+  en: "No users match \"{search}\""
+  hi: ""
+
+UI_USERMANAGEMENT_NO_USERS_YET:
+  severity: INFO
+  surface: [UI]
+  variables: [bankTypeTab]
+  en: "No {bankTypeTab} users yet"
+  hi: ""
+
+UI_USERMANAGEMENT_TRY_A_DIFFERENT_NAME_OR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Try a different name or email."
+  hi: ""
+
+UI_USERMANAGEMENT_CREATE_THE_FIRST_USER_WITH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Create the first user with the button above."
+  hi: ""
+
+UI_LOGINPAGE_SIGNING_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signing in…"
+  hi: ""
+
+UI_LOGINPAGE_SIGN_IN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sign in →"
+  hi: ""
+
+UI_LOGINPAGE_VERIFYING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verifying…"
+  hi: ""
+
+UI_LOGINPAGE_VERIFY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verify →"
+  hi: ""
+
+UI_LOGINPAGE_CONFIRMING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Confirming…"
+  hi: ""
+
+UI_LOGINPAGE_CONFIRM_FINISH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Confirm & finish →"
+  hi: ""
+
+UI_CHEQUEIMAGEVIEWER_BRANCH_COUNTER_CAPTURE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branch counter capture"
+  hi: ""
+
+UI_CHEQUEIMAGEVIEWER_SCANNER_BACK_SIDE_OCR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scanner back-side OCR"
+  hi: ""
+
+UI_CHEQUEIMAGEVIEWER_CDM_MACHINE_SYSTEM_VERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CDM machine — system-verified"
+  hi: ""
+
+UI_CHEQUEIMAGEVIEWER_NO_REAR_IMAGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No rear image"
+  hi: ""
+
+UI_CHEQUEIMAGEVIEWER_NO_IMAGE_URL_SHOWING_SVG:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No image URL — showing SVG preview"
+  hi: ""
+
+UI_CHEQUEIMAGEVIEWER_LIVE_SCAN_IMAGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Live scan image"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_GOT_OCR2_0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "GOT-OCR2.0"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Select Return Reason…"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_PRESENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Present"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "⚠ Missing"
+  hi: ""
+
+UI_COMMON_OCR_MICR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR / MICR"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_VISION_CTS_2010:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vision / CTS-2010"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Compliance check"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_FILING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Filing…"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_RETURN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✕ Return"
+  hi: ""
+
+UI_REVIEWPANEL_M:
+  severity: INFO
+  surface: [UI]
+  variables: [minsLeft]
+  en: "{minsLeft}m"
+  hi: ""
+
+UI_REVIEWPANEL_VAULT_MISS_NO_SPECIMEN_ON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault miss — no specimen on file. Auto-return is never permitted."
+  hi: ""
+
+UI_REVIEWPANEL_AI_CONFIDENCE_BELOW_THRESHOLD_MANUAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "AI confidence below threshold — manual verification required before IET."
+  hi: ""
+
+UI_REVIEWPANEL_RISK_SCORE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "risk score"
+  hi: ""
+
+UI_REVIEWPANEL_ALTERATION_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⚠ Alteration Detected"
+  hi: ""
+
+UI_REVIEWPANEL_NO_ALTERATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ No Alteration"
+  hi: ""
+
+UI_REVIEWPANEL_ALL_UV_CHECKS_PASS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ All UV Checks Pass"
+  hi: ""
+
+UI_REVIEWPANEL_UV_CHECK_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "⚠ UV Check Failed"
+  hi: ""
+
+UI_SMBDASHBOARDCONTENT_SUB_MEMBER_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sub-Member Bank"
+  hi: ""
+
+UI_MOCKQUEUE_HIGH_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HIGH VALUE"
+  hi: ""
+
+UI_MOCKQUEUE_SIGNATURE_MATCH_SCORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature match score"
+  hi: ""
+
+UI_MOCKQUEUE_AMOUNT_VS_AVG_30D:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount vs avg (30d)"
+  hi: ""
+
+UI_MOCKQUEUE_FIRST_CLEARING_DAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "First clearing day"
+  hi: ""
+
+UI_MOCKQUEUE_ACCOUNT_AGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account age"
+  hi: ""
+
+UI_MOCKQUEUE_PPS_ON_FILE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPS on file"
+  hi: ""
+
+UI_MOCKQUEUE_CBS_BALANCE_SUFFICIENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS balance sufficient"
+  hi: ""
+
+UI_MOCKQUEUE_PAYEE_PATTERN_MATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee pattern match"
+  hi: ""
+
+UI_MOCKQUEUE_LAST_UPDATED_22_APR_2026:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Last updated: 22-Apr-2026"
+  hi: ""
+
+UI_MOCKQUEUE_DIFFERENTIAL_UV_INK_PATTERN_CLEARLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Differential UV-ink pattern clearly visible"
+  hi: ""
+
+UI_MOCKQUEUE_BRIGHT_FLUORESCENT_THREAD_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bright fluorescent thread confirmed"
+  hi: ""
+
+UI_MOCKQUEUE_BANK_GHOST_IMAGE_DISTINCTLY_VISIBLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank ghost image distinctly visible under UV"
+  hi: ""
+
+UI_MOCKQUEUE_VELOCITY_3_CHQS_TODAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Velocity: 3 chqs today"
+  hi: ""
+
+UI_MOCKQUEUE_NEW_PAYEE_FIRST_TIME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "New payee (first time)"
+  hi: ""
+
+UI_MOCKQUEUE_TIME_OF_PRESENTATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Time of presentation"
+  hi: ""
+
+UI_MOCKQUEUE_LAST_UPDATED_07_JAN_2026:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Last updated: 07-Jan-2026"
+  hi: ""
+
+UI_MOCKQUEUE_UV_INK_PATTERN_PRESENT_AND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "UV-ink pattern present and authentic"
+  hi: ""
+
+UI_MOCKQUEUE_METALLIC_SECURITY_THREAD_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Metallic security thread confirmed"
+  hi: ""
+
+UI_MOCKQUEUE_GHOST_IMAGE_VISIBLE_UNDER_UV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Ghost image visible under UV lamp"
+  hi: ""
+
+UI_MOCKQUEUE_OCR_CONFIDENCE_LOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR confidence low"
+  hi: ""
+
+UI_MOCKQUEUE_AMOUNT_ALTERATION_FLAG:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount alteration flag"
+  hi: ""
+
+UI_MOCKQUEUE_LAST_UPDATED_14_MAR_2026:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Last updated: 14-Mar-2026"
+  hi: ""
+
+UI_MOCKQUEUE_PENTOGRAPH_PATTERN_AUTHENTIC_PAPER_S:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Pentograph pattern authentic — paper stock is genuine CTS-2010"
+  hi: ""
+
+UI_MOCKQUEUE_THREAD_CONFIRMED_ALTERATION_IS_POST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Thread confirmed — alteration is post-issue ink manipulation"
+  hi: ""
+
+UI_MOCKQUEUE_BANK_GHOST_IMAGE_PRESENT_CONFIRMS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank ghost image present — confirms genuine paper substrate"
+  hi: ""
+
+UI_MOCKQUEUE_VAULT_MISS_NO_SPECIMEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault miss — no specimen"
+  hi: ""
+
+UI_MOCKQUEUE_ACCOUNT_AGE_6_MONTHS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account age < 6 months"
+  hi: ""
+
+UI_MOCKQUEUE_OCR_CONFIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR confidence"
+  hi: ""
+
+UI_MOCKQUEUE_NO_SPECIMEN_ACCOUNT_OPENED_03:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No specimen — account opened 03-Mar-2026"
+  hi: ""
+
+UI_MOCKQUEUE_SECURITY_THREAD_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Security thread confirmed"
+  hi: ""
+
+UI_MOCKQUEUE_BANK_WATERMARK_FULLY_VISIBLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank watermark fully visible"
+  hi: ""
+
+UI_MOCKQUEUE_VERY_HIGH_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "VERY HIGH VALUE"
+  hi: ""
+
+UI_MOCKQUEUE_AMOUNT_1CR_OPA_RULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount >₹1Cr (OPA rule)"
+  hi: ""
+
+UI_MOCKQUEUE_LAST_UPDATED_18_JUN_2026:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Last updated: 18-Jun-2026"
+  hi: ""
+
+UI_MOCKQUEUE_UV_DIFFERENTIAL_PATTERN_INTACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "UV differential pattern intact"
+  hi: ""
+
+UI_MOCKQUEUE_THREAD_CONFIRMED_HIGH_VALUE_L2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Thread confirmed — high-value L2 scan"
+  hi: ""
+
+UI_MOCKQUEUE_WATERMARK_CLEARLY_VISIBLE_UNDER_UV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Watermark clearly visible under UV"
+  hi: ""
+
+UI_MOCKQUEUE_DORMANCY_REACTIVATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Dormancy reactivation"
+  hi: ""
+
+UI_MOCKQUEUE_LAST_UPDATED_22_MAY_2026:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Last updated: 22-May-2026"
+  hi: ""
+
+UI_MOCKQUEUE_UV_PATTERN_AUTHENTIC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "UV pattern authentic"
+  hi: ""
+
+UI_MOCKQUEUE_THREAD_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Thread confirmed"
+  hi: ""
+
+UI_MOCKQUEUE_WATERMARK_PRESENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Watermark present"
+  hi: ""
+
+UI_USEREVIEWQUEUE_FLAGGED_FOR_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Flagged for review"
+  hi: ""
+
+UI_AGENCYCC_SFTP_TIMEOUT_HOST_UNREACHABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SFTP timeout — host unreachable"
+  hi: ""
+
+UI_AGENCYCC_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ACTIVE"
+  hi: ""
+
+UI_AGENCYCC_DOWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DOWN"
+  hi: ""
+
+UI_ALLOCATIONADMIN_NO_ONE_ONLINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "no one online"
+  hi: ""
+
+UI_ALLOCATIONADMIN_LEAST_LOADED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "least loaded"
+  hi: ""
+
+UI_ALLOCATIONADMIN_RANDOM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "random"
+  hi: ""
+
+UI_ALLOCATIONADMIN_MAX_EACH:
+  severity: INFO
+  surface: [UI]
+  variables: [maxPer]
+  en: ", max {maxPer} each"
+  hi: ""
+
+UI_ALLOCATIONADMIN_STANDARD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "standard"
+  hi: ""
+
+UI_ALLOCATIONADMIN_RELEASING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Releasing…"
+  hi: ""
+
+UI_ALLOCATIONADMIN_FORCE_RELEASE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Force Release"
+  hi: ""
+
+UI_ALLOCATIONADMIN_IET_PASSED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET passed"
+  hi: ""
+
+UI_ALLOCATIONADMIN_IET_IN_MIN:
+  severity: INFO
+  surface: [UI]
+  variables: [mins]
+  en: "IET in {mins} min"
+  hi: ""
+
+UI_ANALYTICS_FRAUD_RISK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Fraud Risk"
+  hi: ""
+
+UI_ANALYTICS_SIG_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sig Mismatch"
+  hi: ""
+
+UI_ANALYTICS_ALTERATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alteration"
+  hi: ""
+
+UI_ANALYTICS_INSUFFICIENT_FUNDS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Insufficient Funds"
+  hi: ""
+
+UI_ANALYTICS_STOP_PAYMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Stop Payment"
+  hi: ""
+
+UI_ANALYTICS_DORMANT_ACCOUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Dormant Account"
+  hi: ""
+
+UI_ANALYTICS_OTHER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Other"
+  hi: ""
+
+UI_COMMON_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All"
+  hi: ""
+
+UI_ANALYTICS_CHEQUES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques"
+  hi: ""
+
+UI_ANALYTICS_DEMAND_DRAFTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Demand Drafts"
+  hi: ""
+
+UI_ANALYTICS_OK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OK"
+  hi: ""
+
+UI_ANALYTICS_WARN:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "WARN"
+  hi: ""
+
+UI_BRANCHMASTER_EDIT_BRANCH_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Edit Branch"
+  hi: ""
+
+UI_BRANCHMASTER_ADD_BRANCH_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add Branch"
+  hi: ""
+
+UI_BRANCHMASTER_IFSC_CODE_READ_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IFSC Code (read-only)"
+  hi: ""
+
+UI_BRANCHMASTER_IFSC_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IFSC Code *"
+  hi: ""
+
+UI_BRANCHMASTER_CREATE_BRANCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Create Branch"
+  hi: ""
+
+UI_BRANCHMASTER_VALIDATING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Validating…"
+  hi: ""
+
+UI_BRANCHMASTER_VALIDATE_CSV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Validate CSV"
+  hi: ""
+
+UI_BRANCHMASTER_IMPORTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Importing…"
+  hi: ""
+
+UI_BRANCHMASTER_IMPORT_BRANCHES:
+  severity: INFO
+  surface: [UI]
+  variables: [valid_count]
+  en: "Import {valid_count} branches"
+  hi: ""
+
+UI_BRANCHMASTER_COPIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Copied"
+  hi: ""
+
+UI_BRANCHMASTER_COPY_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Copy Code"
+  hi: ""
+
+UI_BUSINESSMODEL_SWITCH_TO_LIGHT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Switch to light"
+  hi: ""
+
+UI_BUSINESSMODEL_SWITCH_TO_DARK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Switch to dark"
+  hi: ""
+
+UI_BUSINESSMODEL_0_05_BREACH_RATE_AVG:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "0.05% breach rate × avg ₹45k × deemed-approval loss"
+  hi: ""
+
+UI_BUSINESSMODEL_85_STP_MANUAL_REVIEW_DROPS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "85% STP → manual review drops ~85% · ₹8/cheque saved"
+  hi: ""
+
+UI_BUSINESSMODEL_2_3_CATCH_RATE_ON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "+2.3% catch rate on high-fraud cheques · ₹45k avg value"
+  hi: ""
+
+UI_BUSINESSMODEL_AUTOMATED_IMMUTABLE_AUDIT_VS_MANUAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Automated immutable audit vs manual reconciliation"
+  hi: ""
+
+UI_CLOUDAIDEMO_EXTRACTING_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Extracting…"
+  hi: ""
+
+UI_CLOUDAIDEMO_EXTRACT_INFORMATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "🚀 Extract Information"
+  hi: ""
+
+UI_CLOUDAIDEMO_PRESENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Present"
+  hi: ""
+
+UI_CLOUDAIDEMO_NOT_FOUND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not Found"
+  hi: ""
+
+UI_CLOUDAIDEMO_SIG_DETECTOR_OFFLINE_START_IT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sig detector offline — start it with: cd apps/sig_detector; python main.py"
+  hi: ""
+
+UI_CLOUDAIDEMO_SIGNATURE_PRESENT_REGION_COULD_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Signature present · region could not be isolated from this scan."
+  hi: ""
+
+UI_CLOUDAIDEMO_NO_SIGNATURE_DETECTED_ON_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No signature detected on this cheque."
+  hi: ""
+
+UI_COMPLIANCE_LOT_01:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Lot 01"
+  hi: ""
+
+UI_COMPLIANCE_LOT:
+  severity: INFO
+  surface: [UI]
+  variables: [l]
+  en: "Lot {l}"
+  hi: ""
+
+UI_CONFIG_UPDATED_VIA_ASTRA_ADMIN_UI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Updated via ASTRA Admin UI"
+  hi: ""
+
+UI_DECISIONSLOG_HIGH_RISK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "HIGH RISK"
+  hi: ""
+
+UI_DECISIONSLOG_MEDIUM_RISK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "MEDIUM RISK"
+  hi: ""
+
+UI_DECISIONSLOG_LOW_RISK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "LOW RISK"
+  hi: ""
+
+UI_DEMOLIVE_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "None"
+  hi: ""
+
+UI_DEMOLIVE_STP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ STP"
+  hi: ""
+
+UI_DEMOLIVE_RTN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✗ RTN"
+  hi: ""
+
+UI_DEMOLIVE_HRV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "👁 HRV"
+  hi: ""
+
+UI_DEMOLIVE_DOCKER_ONLINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Docker online"
+  hi: ""
+
+UI_DEMOLIVE_USING_SIMULATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Using simulation"
+  hi: ""
+
+UI_DEMOLIVE_VISION_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "🧠 Vision Only"
+  hi: ""
+
+UI_DEMOLIVE_VISION_FOCUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "🧠 Vision Focus"
+  hi: ""
+
+UI_DEMOLIVE_STOP:
+  severity: INFO
+  surface: [UI]
+  variables: [totalProcessed, count]
+  en: "⏹ Stop ({totalProcessed}/{count})"
+  hi: ""
+
+UI_DEMOLIVE_PROCESS_CHEQUE:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "▶ Process {count} Cheque{value}"
+  hi: ""
+
+UI_DEMOLIVE_DOCKER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Docker"
+  hi: ""
+
+UI_DEMOLIVE_SIMULATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Simulation"
+  hi: ""
+
+UI_DEMOPIPELINE_PRESENTMENT_PIPELINE_8_STAGES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Presentment Pipeline (8 stages)"
+  hi: ""
+
+UI_DEMOPIPELINE_DRAWEE_PIPELINE_10_STAGES_RBI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Drawee Pipeline (10 stages) — RBI CTS checklist · Sig Vault · CBS · Fraud · NGCH"
+  hi: ""
+
+UI_DEMOPIPELINE_MS_2:
+  severity: INFO
+  surface: [UI]
+  variables: [totalMs]
+  en: "{totalMs}ms"
+  hi: ""
+
+UI_DRAWEEVIEW_CR_3:
+  severity: INFO
+  surface: [UI]
+  variables: [totalValueCr]
+  en: "₹{totalValueCr}Cr"
+  hi: ""
+
+UI_DRAWEEVIEW_RATE:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value}% rate"
+  hi: ""
+
+UI_DRAWEEVIEW_RECEIVE_TODAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "RECEIVE today"
+  hi: ""
+
+UI_ENDORSEMENT_PAYEE_S_ACCOUNT_CREDITED_RECEIVED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee's Account Credited. Received for Collection."
+  hi: ""
+
+UI_ENDORSEMENT_ENDORSING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Endorsing…"
+  hi: ""
+
+UI_ENDORSEMENT_ALL_ENDORSED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All Endorsed"
+  hi: ""
+
+UI_ENDORSEMENT_ENDORSE_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: [pending]
+  en: "Endorse All ({pending})"
+  hi: ""
+
+UI_ENDORSEMENT_COMPLETE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Complete"
+  hi: ""
+
+UI_ENDORSEMENT_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: [lotPending]
+  en: "{lotPending} pending"
+  hi: ""
+
+UI_ENDORSEMENT_ENDORSED_3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Endorsed"
+  hi: ""
+
+UI_ENDORSEMENT_ENDORSE:
+  severity: INFO
+  surface: [UI]
+  variables: [lot]
+  en: "Endorse {lot}"
+  hi: ""
+
+UI_ENDORSEMENT_ENDORSED_4:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Endorsed"
+  hi: ""
+
+UI_ENDORSEMENT_PENDING_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Pending"
+  hi: ""
+
+UI_HOLDQUEUE_INSTRUMENT_ON_HOLD_IET_COUNTDOWN:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "{count} instrument{value} on hold — IET countdown active on all"
+  hi: ""
+
+UI_HOLDQUEUE_RELEASE_HOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Release Hold"
+  hi: ""
+
+UI_HUBDASHBOARD_CONNECTED_MS:
+  severity: WARN
+  surface: [UI]
+  variables: [latency]
+  en: "Connected · {latency}ms"
+  hi: ""
+
+UI_HUBDASHBOARD_HIGH_LATENCY_MS:
+  severity: WARN
+  surface: [UI]
+  variables: [latency]
+  en: "High latency · {latency}ms"
+  hi: ""
+
+UI_HUBDASHBOARD_DISCONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Disconnected"
+  hi: ""
+
+UI_HUBDASHBOARD_SEAL_FULL_LOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Seal Full Lot"
+  hi: ""
+
+UI_HUBDASHBOARD_SEAL_LOT_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Seal Lot"
+  hi: ""
+
+UI_HUBDASHBOARD_OPEN_LOT_MUST_BE_SEALED:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "{count} open lot{value} must be sealed before submission"
+  hi: ""
+
+UI_HUBDASHBOARD_ALL_LOTS_SEALED_READY_TO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All lots sealed — ready to trigger ClearingSessionWorkflow"
+  hi: ""
+
+UI_HUBDASHBOARD_SUBMIT_TO_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submit to NGCH"
+  hi: ""
+
+UI_IMAGEQUALITY_SCANNING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⟳ Scanning…"
+  hi: ""
+
+UI_IMAGEQUALITY_RESCAN_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rescan"
+  hi: ""
+
+UI_IMAGEQUALITY_RESCANNING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⟳ Rescanning…"
+  hi: ""
+
+UI_IMAGEQUALITY_TRIGGER_RESCAN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Trigger Rescan"
+  hi: ""
+
+UI_INWARDPIPELINE_RBI_CLEARING_GRID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "RBI clearing grid"
+  hi: ""
+
+UI_INWARDPIPELINE_QWEN2_VL_FIRST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Qwen2-VL · FIRST"
+  hi: ""
+
+UI_INWARDPIPELINE_IMAGE_QUALITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Image quality"
+  hi: ""
+
+UI_INWARDPIPELINE_BLOOM_CBS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bloom + CBS"
+  hi: ""
+
+UI_INWARDPIPELINE_VAULT_SIAMESE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault + Siamese"
+  hi: ""
+
+UI_INWARDPIPELINE_XGBOOST_SHAP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "XGBoost + SHAP"
+  hi: ""
+
+UI_INWARDPIPELINE_BALANCE_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Balance + Status"
+  hi: ""
+
+UI_INWARDPIPELINE_AI_SYNTHESIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "AI synthesis"
+  hi: ""
+
+UI_INWARDPIPELINE_RTN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✕ RTN"
+  hi: ""
+
+UI_INWARDPIPELINE_HRQ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "👤 HRQ"
+  hi: ""
+
+UI_INWARDPIPELINE_MY_INWARD_PIPELINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "My Inward Pipeline"
+  hi: ""
+
+UI_INWARDPIPELINE_SUB_MEMBER_BANKS:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "Sub-Member Banks ({count})"
+  hi: ""
+
+UI_INWARDPIPELINE_IET_WINDOW_NARROWING_1_INSTRUMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET window narrowing — 1 instrument approaching T-30s. Watchdog monitoring."
+  hi: ""
+
+UI_INWARDPIPELINE_INSTRUMENTS_IN_FORWARDING_STAGE_WITH:
+  severity: WARN
+  surface: [UI]
+  variables: [alerts]
+  en: "{alerts} instruments in forwarding stage with elevated IET risk. Immediate review recommended."
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_DETECTED_IN_PAYEE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Ink inconsistency detected in payee name field. Possible overwriting between \"Kumar\" and \"Sharma\". Confidence 0.71. Manual verification recommended."
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_IN_PAYEE_FIELD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Ink inconsistency in payee field"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_HIGH_VALUE_2_5L:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "High value (₹2.5L)"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_84:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature match 84%"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE_NO_STOP_PAYMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account active, no stop payment"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_CHEQUE_PRINTED_60_DAYS_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque printed > 60 days ago"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_93:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature match 93%"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_ACCOUNT_IN_GOOD_STANDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account in good standing"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_STANDARD_VALUE_RANGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Standard value range"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE_97:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR confidence 97%"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_REGISTERED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Stop payment instruction registered on this account. Amount exceeds ₹1 Cr threshold. Immediate ops_manager escalation required."
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Stop payment instruction active"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_VERY_HIGH_VALUE_1_CR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Very high value (>₹1 Cr)"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_SIGNATURE_BELOW_80_THRESHOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature below 80% threshold"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_SELF_DRAWN_CHEQUE_DRAWER_PAYEE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Self-drawn cheque (drawer = payee)"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account active"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_96:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature match 96%"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_LOW_VALUE_LOW_RISK:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Low value, low risk"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_NO_ADVERSE_ACCOUNT_HISTORY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No adverse account history"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_DRAWEE_ACCOUNT_DORMANT_FOR_14:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Drawee account dormant for 14 months. Last activity Feb 2025. High-value instrument on dormant account requires manual clearance."
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_ACCOUNT_DORMANT_14_MONTHS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account dormant 14 months"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_HIGH_VALUE_8_75L:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "High value (₹8.75L)"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_88:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature match 88%"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_NO_STOP_PAYMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No stop payment"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_PAYEE_IS_A_REGISTERED_COMPANY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee is a registered company"
+  hi: ""
+
+UI_INWARDREVIEWQUEUE_INSTRUMENT_CLICK_ANY_ROW_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "{count} instrument{value} · click any row to view cheque image and AI analysis"
+  hi: ""
+
+UI_MCPCONFIG_CONNECTION_REFUSED_CBS_UNREACHABLE_A:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Connection refused: CBS unreachable at endpoint"
+  hi: ""
+
+UI_MCPCONFIG_EDIT_MCP_CONNECTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Edit MCP Connection"
+  hi: ""
+
+UI_MCPCONFIG_ADD_MCP_CONNECTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add MCP Connection"
+  hi: ""
+
+UI_COMMON_SAVING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Saving…"
+  hi: ""
+
+UI_MCPCONFIG_UPDATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Update"
+  hi: ""
+
+UI_MCPCONFIG_ADD_CONNECTION_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add Connection"
+  hi: ""
+
+UI_MCPCONFIG_TESTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Testing…"
+  hi: ""
+
+UI_MCPCONFIG_TEST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⚡ Test"
+  hi: ""
+
+UI_MCPCONFIG_SYNCING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Syncing…"
+  hi: ""
+
+UI_MCPCONFIG_SYNC_VAULT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "↻ Sync Vault"
+  hi: ""
+
+UI_MCPCONFIG_HIDE_DETAILS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Hide details"
+  hi: ""
+
+UI_MCPCONFIG_DETAILS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Details"
+  hi: ""
+
+UI_MCPCONFIG_PRE_FLIGHT_CHECK_PASSED_CLEARING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Pre-flight check passed — clearing sessions can open"
+  hi: ""
+
+UI_MCPCONFIG_PRE_FLIGHT_CHECK_BLOCKED_CONNECTION:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "Pre-flight check blocked — {count} connection{value} not ACTIVE"
+  hi: ""
+
+UI_OUTWARDPIPELINEMONITOR_ACCEPTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Accepted"
+  hi: ""
+
+UI_OUTWARDPIPELINEMONITOR_ACK_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⟳ Ack Pending"
+  hi: ""
+
+UI_OUTWARDPIPELINEMONITOR_URGENT_SUBMIT_BEFORE_NGCH_CLOSES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "URGENT — submit before NGCH closes"
+  hi: ""
+
+UI_OUTWARDPIPELINEMONITOR_UNTIL_NEXT_NGCH_SUBMISSION_CLOSE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Until next NGCH submission close"
+  hi: ""
+
+UI_OUTWARDQUEUE_NO_ITEMS_AWAITING_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No items awaiting review"
+  hi: ""
+
+UI_OUTWARDQUEUE_NO_STP_REJECTIONS_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No STP rejections pending"
+  hi: ""
+
+UI_COMMON_CONFIRMED_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Confirmed"
+  hi: ""
+
+UI_OUTWARDQUEUE_REJECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✕ Rejected"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_INGEST_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Ingest"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_VISION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vision"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_COMPLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Comply"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_STOPPAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "StopPay"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_SIG:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sig"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_FRAUD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fraud"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_DECIDE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Decide"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [ms]
+  en: "{ms}ms"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_NOT_REACHED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "not reached"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_EXCEPTION_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Exception — "
+  hi: ""
+
+UI_PIPELINEVISUALIZER_HELD_FOR_HUMAN_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Held for human review — "
+  hi: ""
+
+UI_PIPELINEVISUALIZER_VIEW_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: [label]
+  en: "View all {label}"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_RUNNING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Running"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_PAUSED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Paused"
+  hi: ""
+
+UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques confirmed and acknowledged by NGCH — settled."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_NGCH_RETURNED_ERROR_TEMPORAL_AUTO:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "NGCH returned error; Temporal auto-retried. 4 required manual intervention."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_IMAGE_QUALITY_BELOW_CTS_2010:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Image quality below CTS-2010 DPI threshold (200 DPI). Returned via NGCH."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_SUCCESSFULLY_PARSED_BY_AI_OCR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Successfully parsed by AI (OCR + vision). Includes all STP and human review items."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_FILED_TO_NGCH_CONFIRM_RETURN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Filed to NGCH (confirm + return). Excludes items still in human review."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_TOTAL_INWARD_INSTRUMENTS_RECEIVED_TH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Total inward instruments received this session from NGCH."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_WORDS_VS_FIGURES_AMOUNT_DISCREPANCY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Words vs figures amount discrepancy detected by OCR. Routed to human review."
+  hi: ""
+
+UI_PIPELINEVISUALIZER_NO_STALE_OR_POST_DATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No stale or post-dated instruments detected this session."
+  hi: ""
+
+UI_PRESENTMENT_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [STAGE_MS]
+  en: "{STAGE_MS}ms"
+  hi: ""
+
+UI_PRESENTMENT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "FAILED"
+  hi: ""
+
+UI_PRESENTMENT_LIVE_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "● live"
+  hi: ""
+
+UI_PRESENTMENT_ALL_STATUSES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All Statuses"
+  hi: ""
+
+UI_PRESENTMENT_ALL_LOTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All Lots"
+  hi: ""
+
+UI_PRESENTMENT_LOT_2:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Lot {value}"
+  hi: ""
+
+UI_PRESENTMENTFILE_DATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Date"
+  hi: ""
+
+UI_PRESENTMENTFILE_AMOUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount"
+  hi: ""
+
+UI_PRESENTMENTFILE_SIGN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sign"
+  hi: ""
+
+UI_PRESENTMENTFILE_COMP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Comp"
+  hi: ""
+
+UI_PRESENTMENTFILE_DUP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Dup"
+  hi: ""
+
+UI_PRESENTMENTFILE_OPEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "● OPEN"
+  hi: ""
+
+UI_PRESENTMENTFILE_CLOSED_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "■ CLOSED"
+  hi: ""
+
+UI_PRESENTMENTFILE_HDR_CTS2010:
+  severity: INFO
+  surface: [UI]
+  variables: [sbIfsc, DATE_STR, sessionId, value]
+  en: "HDR|{sbIfsc}|{DATE_STR}|{sessionId}|{value}|CTS2010"
+  hi: ""
+
+UI_PRESENTMENTFILE_DTL:
+  severity: INFO
+  surface: [UI]
+  variables: [value, micr, account_display, amount, date_on_cheque, image_bw]
+  en: "DTL|{value}|{micr}|{account_display}|{amount}|{date_on_cheque}|{image_bw}"
+  hi: ""
+
+UI_PRESENTMENTFILE_DTL_2:
+  severity: ERROR
+  surface: [UI]
+  variables: [value, micr, account_display, amount, date_on_cheque, fail_code, fail_label]
+  en: "DTL|{value}|{micr}|{account_display}|{amount}|{date_on_cheque}|{fail_code}|{fail_label}"
+  hi: ""
+
+UI_PRESENTMENTFILE_MORE_RECORDS:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "... {value} more records ..."
+  hi: ""
+
+UI_PRESENTMENTFILE_TRL:
+  severity: INFO
+  surface: [UI]
+  variables: [value, totalAmt]
+  en: "TRL|{value}|{totalAmt}"
+  hi: ""
+
+UI_PRESENTMENTFILE_NGCH_SUBMIT_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "NGCH submit failed:"
+  hi: ""
+
+UI_PRESENTMENTFILE_NGCH_SUBMIT_ERROR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "NGCH submit error:"
+  hi: ""
+
+UI_PRESENTMENTFILE_KAFKA_LISTENER_ACTIVE_AUTO_UPDATING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kafka listener active — auto-updating"
+  hi: ""
+
+UI_PRESENTMENTFILE_LIVE_POLLING_EVERY_10S:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Live — polling every 10s"
+  hi: ""
+
+UI_PRESENTMENTFILE_SEND_TO_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Send to NGCH"
+  hi: ""
+
+UI_PROCESSINGUNITS_EDIT_PROCESSING_UNIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Edit Processing Unit"
+  hi: ""
+
+UI_PROCESSINGUNITS_ADD_PROCESSING_UNIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add Processing Unit"
+  hi: ""
+
+UI_PROCESSINGUNITS_CREATE_PU:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Create PU"
+  hi: ""
+
+UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No branches mapped to this PU."
+  hi: ""
+
+UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No branches mapped to this PU yet."
+  hi: ""
+
+UI_COMMON_YES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Yes"
+  hi: ""
+
+UI_COMMON_NO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No"
+  hi: ""
+
+UI_PROCESSINGUNITS_BRANCHES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "▲ Branches"
+  hi: ""
+
+UI_PROCESSINGUNITS_BRANCHES_2:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "▼ Branches{value}"
+  hi: ""
+
+UI_PROCESSINGUNITS_PU_CREATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PU created."
+  hi: ""
+
+UI_PROCESSINGUNITS_PU_UPDATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PU updated."
+  hi: ""
+
+UI_PROCESSINGUNITS_PU_DEACTIVATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PU deactivated."
+  hi: ""
+
+UI_RECONCILIATION_SESSION_1:
+  severity: INFO
+  surface: [UI]
+  variables: [d, d2]
+  en: "{d} {d2} — Session 1"
+  hi: ""
+
+UI_RECONCILIATION_SAFE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ SAFE"
+  hi: ""
+
+UI_RECONCILIATION_SOFT_HOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⚠ SOFT HOLD"
+  hi: ""
+
+UI_RECONCILIATION_HARD_STOP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✕ HARD STOP"
+  hi: ""
+
+UI_RECONCILIATION_SENT_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "sent"
+  hi: ""
+
+UI_RECONCILIATION_PENDING_SESSION_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "pending (session active)"
+  hi: ""
+
+UI_SMBREGISTRY_SUSPEND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Suspend"
+  hi: ""
+
+UI_SMBREGISTRY_REACTIVATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reactivate"
+  hi: ""
+
+UI_SMBREGISTRY_SYNCING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "↻ syncing…"
+  hi: ""
+
+UI_SMBREGISTRY_SYNC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "↻ Sync"
+  hi: ""
+
+UI_SMBREVIEWQUEUE_SPONSOR_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sponsor Bank"
+  hi: ""
+
+UI_SMBREVIEWQUEUE_AWAITING_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} awaiting review"
+  hi: ""
+
+UI_SMBREVIEWQUEUE_QUEUE_CLEAR_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Queue clear"
+  hi: ""
+
+UI_SMBREVIEWQUEUE_RETURNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✕ Returned"
+  hi: ""
+
+UI_SCANNER_SCANNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scanned"
+  hi: ""
+
+UI_SCANNER_LOT_SEALED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Lot Sealed"
+  hi: ""
+
+UI_SCANNER_SUBMITTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submitted"
+  hi: ""
+
+UI_SCANNER_ASTRA_CTS_OUTWARD_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA/CTS/OUTWARD"
+  hi: ""
+
+UI_SCANNER_STOP_SESSION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Stop Session"
+  hi: ""
+
+UI_SCANNER_START_SESSION_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start Session"
+  hi: ""
+
+UI_SCANNER_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CONNECTED"
+  hi: ""
+
+UI_SCANNER_OFFLINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OFFLINE"
+  hi: ""
+
+UI_SCHEDULES_SAVE_SCHEDULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save Schedule"
+  hi: ""
+
+UI_SCHEDULES_PAUSE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Pause"
+  hi: ""
+
+UI_SCHEDULES_RESUME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Resume"
+  hi: ""
+
+UI_SMOKETEST_ACTIVE_CONN:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value} active conn"
+  hi: ""
+
+UI_SMOKETEST_HIT_RATE:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value}% hit rate"
+  hi: ""
+
+UI_SMOKETEST_NAMESPACE_REACHABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "namespace reachable"
+  hi: ""
+
+UI_SMOKETEST_CHECKING_3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "checking…"
+  hi: ""
+
+UI_SMOKETEST_REFRESHED_AUTO_15S:
+  severity: INFO
+  surface: [UI]
+  variables: [lastRefreshed]
+  en: "refreshed {lastRefreshed} · auto 15s"
+  hi: ""
+
+UI_SMOKETEST_STARTING_S:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "◌ Starting… ({value}s)"
+  hi: ""
+
+UI_SMOKETEST_START_ALL_SERVICES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⬤ Start All Services"
+  hi: ""
+
+UI_SMOKETEST_STARTING_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Starting…"
+  hi: ""
+
+UI_SMOKETEST_START:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start"
+  hi: ""
+
+UI_SMOKETEST_BACKEND_UNREACHABLE_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Backend unreachable"
+  hi: ""
+
+UI_SMOKETEST_FETCHING_READINESS_CHECKLIST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fetching readiness checklist…"
+  hi: ""
+
+UI_SMOKETEST_NO_ITEMS_RETURNED_BACKEND_MAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No items returned — backend may be unreachable"
+  hi: ""
+
+UI_SMOKETEST_RUNNING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "◌ Running…"
+  hi: ""
+
+UI_SMOKETEST_RUN_AGAIN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "↺ Run Again"
+  hi: ""
+
+UI_SMOKETEST_RUN_SMOKE_TESTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "▶ Run Smoke Tests"
+  hi: ""
+
+UI_SUBMEMBERBANKS_SUBMIT_FOR_COMPLIANCE_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submit for Compliance Review"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Confirmed"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_FILED_TO_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Filed to NGCH"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_SIGNATURE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_FRAUD_SCORING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fraud scoring"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_RISK_NARRATIVE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Risk narrative"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_VISION_LAYOUT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vision / layout"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_CONFIRM_FILE_TO_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ Confirm — File to NGCH"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_SUBMIT_TO_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "↑ Submit to NGCH"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_OPS_REVIEWER_CONFIRMED_ALL_CHECKS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Ops reviewer confirmed — all checks passed"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_SUBMISSION_IQ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submission IQ"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_SUBMISSION_OQ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submission OQ"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_2S_CANCELLABLE_CONFIRM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque image · 2s cancellable confirm before NGCH filing"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_CHEQUE_IMAGE_SUBMIT_TO_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque image · Submit to NGCH · Confirmed → Outward File"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_ACCT:
+  severity: INFO
+  surface: [UI]
+  variables: [account_display]
+  en: "Acct {account_display}"
+  hi: ""
+
+UI_THRESHOLDS_FRAUD_SCORING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fraud Scoring"
+  hi: ""
+
+UI_THRESHOLDS_ALIGN_WITH_Q2_RISK_REVIEW:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Align with Q2 risk review"
+  hi: ""
+
+UI_THRESHOLDS_REDUCE_FALSE_POSITIVES_AFTER_MODEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reduce false positives after model retrain"
+  hi: ""
+
+UI_THRESHOLDS_BOARD_RESOLUTION_TO_RAISE_THRESHOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Board resolution to raise threshold"
+  hi: ""
+
+UI_THRESHOLDS_MATCH_UPDATED_GOT_OCR2_0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Match updated GOT-OCR2.0 confidence calibration"
+  hi: ""
+
+UI_THRESHOLDS_CHANGE_LOG:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Change Log"
+  hi: ""
+
+UI_THRESHOLDS_THRESHOLDS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Thresholds"
+  hi: ""
+
+UI_VALIDATIONQUEUE_MATCHED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Matched"
+  hi: ""
+
+UI_VALIDATIONQUEUE_PARTIAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Partial"
+  hi: ""
+
+UI_VALIDATIONQUEUE_MISMATCH_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mismatch"
+  hi: ""
+
+UI_VALIDATIONQUEUE_ACCT_N_F:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Acct N/F"
+  hi: ""
+
+UI_VALIDATIONQUEUE_CBS_DOWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS Down"
+  hi: ""
+
+UI_VALIDATIONQUEUE_DRAWER_NAME_DOES_NOT_MATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Drawer name does not match CBS account holder — possible cheque theft or forged signature. Do not pass without investigation."
+  hi: ""
+
+UI_VALIDATIONQUEUE_PAYEE_NAME_DOES_NOT_MATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee name does not match account holder — suspected wrong account or fraud. Do not approve without branch confirmation."
+  hi: ""
+
+UI_VALIDATIONQUEUE_VALIDATION_IQ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Validation IQ"
+  hi: ""
+
+UI_VALIDATIONQUEUE_VALIDATION_OQ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Validation OQ"
+  hi: ""
+
+UI_VALIDATIONQUEUE_STP_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP"
+  hi: ""
+
+UI_VALIDATIONQUEUE_VERIFIED_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "VERIFIED"
+  hi: ""
+
+UI_VAULTSTATUS_NEW_ACCOUNT_NO_SPECIMEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "New account — no specimen"
+  hi: ""
+
+UI_VAULTSTATUS_PPS_LIMIT_EXHAUSTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPS limit exhausted"
+  hi: ""
+
+UI_VAULTSTATUS_SPECIMEN_UPDATE_IN_PROGRESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Specimen update in progress"
+  hi: ""
+
+UI_VAULTSTATUS_PPS_NOT_REGISTERED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPS not registered"
+  hi: ""
+
+UI_VAULTSTATUS_SPECIMEN_EXPIRED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Specimen expired"
+  hi: ""
+
+UI_VAULTSTATUS_CBS_SYNC_LAG_KEY_ABSENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS sync lag — key absent"
+  hi: ""
+
+UI_VAULTSTATUS_MULTI_SIGNATORY_PARTIAL_LOAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Multi-signatory — partial load"
+  hi: ""
+
+UI_VAULTSTATUS_CHEQUE_SERIES_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque series mismatch"
+  hi: ""
+
+UI_VAULTSTATUS_VAULTSYNCWORKFLOW_COMPLETED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "VaultSyncWorkflow completed"
+  hi: ""
+
+UI_VAULTSTATUS_VAULTSYNCWORKFLOW_RETRIED_CBS_LAG:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "VaultSyncWorkflow retried (CBS lag)"
+  hi: ""
+
+UI_VAULTSYNC_LOST_STOLEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Lost / Stolen"
+  hi: ""
+
+UI_VAULTSYNC_DISPUTED_AMOUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Disputed Amount"
+  hi: ""
+
+UI_VAULTSYNC_COUNTERMAND_BY_DRAWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Countermand by Drawer"
+  hi: ""
+
+UI_VAULTSYNC_ACTIVE_ENTRIES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Active entries"
+  hi: ""
+
+UI_VAULTSYNC_ACTIVE_HOLDS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Active holds"
+  hi: ""
+
+UI_VAULTSYNC_DAILY_AT_07_00_AM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Daily at 07:00 AM"
+  hi: ""
+
+UI_VAULTUPLOAD_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank"
+  hi: ""
+
+UI_VAULTUPLOAD_UPLOADING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Uploading…"
+  hi: ""
+
+UI_VAULTUPLOAD_UPLOAD_PROCESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Upload & Process"
+  hi: ""
+
+UI_VAULTUPLOAD_NO_FILENAME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "(no filename)"
+  hi: ""
+
+UI_VAULTUPLOAD_DOWNLOADING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "downloading…"
+  hi: ""
+
+UI_VAULTUPLOAD_ERRORS_CSV:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "↓ errors.csv"
+  hi: ""
+
+UI_WORKSTATION_1_SPECIMEN_ON_FILE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "1 specimen on file"
+  hi: ""
+
+UI_WORKSTATION_OCR_CONFIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR Confidence"
+  hi: ""
+
+UI_WORKSTATION_SIGNATURE_MATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature Match"
+  hi: ""
+
+UI_WORKSTATION_AMOUNT_CONSISTENCY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount Consistency"
+  hi: ""
+
+UI_WORKSTATION_SECURITY_FEATURES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Security Features"
+  hi: ""
+
+UI_WORKSTATION_2_SPECIMENS_ON_FILE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "2 specimens on file"
+  hi: ""
+
+UI_WORKSTATION_NO_INSTRUMENTS_YET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No instruments yet"
+  hi: ""
+
+UI_WORKSTATION_STP_CONFIRMS_WILL_APPEAR_HERE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP confirms will appear here..."
+  hi: ""
+
+UI_WORKSTATION_NO_STP_CONFIRMED_ITEMS_YET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No STP confirmed items yet"
+  hi: ""
+
+UI_WORKSTATION_STP_CONFIRMED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ STP Confirmed"
+  hi: ""
+
+UI_WORKSTATION_STP_RETURNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✕ STP Returned"
+  hi: ""
+
+UI_BRANCHDASHBOARD_SCANNING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scanning"
+  hi: ""
+
+UI_BRANCHDASHBOARD_IDLE_S_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [secondsAgo]
+  en: "Idle · {secondsAgo}s ago"
+  hi: ""
+
+UI_BRANCHDASHBOARD_IDLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Idle"
+  hi: ""
+
+UI_BRANCHHOLDQUEUE_VERIFIED_WITH_ACCOUNT_MANAGER_AUTHOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verified with account manager — authorized."
+  hi: ""
+
+UI_BRANCHHOLDQUEUE_RECOMMEND_CONFIRM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Recommend CONFIRM"
+  hi: ""
+
+UI_BRANCHHOLDQUEUE_RECOMMEND_RETURN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Recommend RETURN"
+  hi: ""
+
+UI_BRANCHHOLDQUEUE_INSTRUMENT_AWAITING_YOUR_CONFIRMATIO:
+  severity: INFO
+  surface: [UI]
+  variables: [count, value]
+  en: "{count} instrument{value} awaiting your confirmation"
+  hi: ""
+
+UI_BRANCHMISMATCHQUEUE_GO_AHEAD_TRUST_SCANNER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Go Ahead (trust scanner)"
+  hi: ""
+
+UI_BRANCHMISMATCHQUEUE_REJECT_RETURN_TO_DRAWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reject (return to drawer)"
+  hi: ""
+
+UI_BRANCHMISMATCHQUEUE_PROCEEDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Proceeded"
+  hi: ""
+
+UI_BRANCHMISMATCHQUEUE_REJECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rejected"
+  hi: ""
+
+UI_BRANCHSCANMONITOR_HW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HW"
+  hi: ""
+
+UI_BRANCHSCANMONITOR_OCR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR"
+  hi: ""
+
+UI_BRANCHSCANMONITOR_NOT_READABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not readable"
+  hi: ""
+
+UI_COMMON_REFRESH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Refresh"
+  hi: ""
+
+UI_ALERTLOG_AUDIT_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Audit DB unavailable."
+  hi: ""
+
+UI_ALERTLOG_NO_CRITICAL_ERROR_EVENTS_IN:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "No CRITICAL/ERROR events in the last 24 hours."
+  hi: ""
+
+UI_OCRFEEDBACK_THRESHOLD_REACHED_RETRAINING_TRIGGER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Threshold reached — retraining triggered"
+  hi: ""
+
+UI_OCRFEEDBACK_MORE_TO_TRIGGER_NEXT_RETRAIN:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value} more to trigger next retrain"
+  hi: ""
+
+UI_OPSDASHBOARD_TRIGGERING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Triggering…"
+  hi: ""
+
+UI_OPSDASHBOARD_WARM_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Warm Redis"
+  hi: ""
+
+UI_OPSDASHBOARD_REFRESHING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Refreshing…"
+  hi: ""
+
+UI_SYSTEMHEALTH_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Unavailable"
+  hi: ""
+
+UI_SYSTEMHEALTH_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Connected"
+  hi: ""
+
+UI_SYSTEMHEALTH_UNSEALED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unsealed"
+  hi: ""
+
+UI_SYSTEMHEALTH_SEALED_ACTION_REQUIRED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SEALED — action required"
+  hi: ""
+
+UI_SYSTEMHEALTH_UNKNOWN_STATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unknown state"
+  hi: ""
+
+UI_SYSTEMHEALTH_CONNECTED_TOTAL_LAG:
+  severity: INFO
+  surface: [UI]
+  variables: [total_lag]
+  en: "Connected · total lag {total_lag}"
+  hi: ""
+
+UI_APPSHELL_JUST_NOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "just now"
+  hi: ""
+
+UI_APPSHELL_M_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [mins]
+  en: "{mins}m ago"
+  hi: ""
+
+UI_APPSHELL_H_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [hrs]
+  en: "{hrs}h ago"
+  hi: ""
+
+UI_APPSHELL_CHEQUE_TRUNCATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque Truncation"
+  hi: ""
+
+UI_APPSHELL_PLATFORM_OPERATIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Platform Operations"
+  hi: ""
+
+UI_APPSHELL_ADMINISTRATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Administration"
+  hi: ""
+
+UI_APPSHELL_USER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "User"
+  hi: ""
+
+UI_APPSHELL_UNREAD:
+  severity: INFO
+  surface: [UI]
+  variables: [unreadCount]
+  en: "{unreadCount} unread"
+  hi: ""
+
+UI_APPSHELL_ALL_CAUGHT_UP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All caught up"
+  hi: ""
+
+UI_COMMANDPALETTE_CTS_INWARD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CTS Inward"
+  hi: ""
+
+UI_COMMANDPALETTE_CLAIM_AND_REVIEW_PENDING_INSTRUMENTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Claim and review pending instruments"
+  hi: ""
+
+UI_COMMANDPALETTE_LIVE_SWIMLANE_VIEW_OF_INWARD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Live swimlane view of inward clearing session"
+  hi: ""
+
+UI_COMMANDPALETTE_ALL_AI_DRIVEN_CHEQUE_DECISIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All AI-driven cheque decisions"
+  hi: ""
+
+UI_COMMANDPALETTE_CTS_VAULT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CTS Vault"
+  hi: ""
+
+UI_COMMANDPALETTE_SIGNATURE_AND_PPS_VAULT_HEALTH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature and PPS vault health + trends"
+  hi: ""
+
+UI_COMMANDPALETTE_UPLOAD_SIGNATURE_PPS_STOP_PAYMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Upload signature / PPS / stop payment CSV"
+  hi: ""
+
+UI_COMMANDPALETTE_NEXT_SYNC_COUNTDOWN_AND_SYNC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Next sync countdown and sync history"
+  hi: ""
+
+UI_COMMANDPALETTE_ACCOUNTS_WITH_NO_VAULT_SPECIMEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Accounts with no vault specimen — enroll before next session"
+  hi: ""
+
+UI_COMMANDPALETTE_CTS_OUTWARD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CTS Outward"
+  hi: ""
+
+UI_COMMANDPALETTE_SCANNER_CAPTURE_LOT_MANAGEMENT_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scanner capture, lot management, NGCH filing"
+  hi: ""
+
+UI_COMMANDPALETTE_OPERATIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Operations"
+  hi: ""
+
+UI_COMMANDPALETTE_PLATFORM_HEALTH_ALERTS_AND_THROUGHPU:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Platform health, alerts, and throughput"
+  hi: ""
+
+UI_COMMANDPALETTE_ADMIN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Admin"
+  hi: ""
+
+UI_COMMANDPALETTE_IMMUTABLE_AUDIT_LOG_IMMUDB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immutable audit log (Immudb)"
+  hi: ""
+
+UI_COMMANDPALETTE_BANK_CONFIGURATION_AND_USER_MANAGEME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank configuration and user management"
+  hi: ""
+
+UI_COMMANDPALETTE_ACTIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Actions"
+  hi: ""
+
+UI_COMMANDPALETTE_SWITCH_BETWEEN_DARK_AND_LIGHT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Switch between dark and light mode"
+  hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+API_CROSS_BANK_DATA_ACCESS_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cross-bank data access detected. Your account has been suspended immediately. This incident has been reported to your bank administrator."
+  hi: ""
+
+API_ACCESS_DENIED_YOU_DO_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Access denied. You do not have permission to perform this operation."
+  hi: ""
+
+API_CBS_CONNECTIVITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS Connectivity"
+  hi: ""
+
+API_NGCH_ADAPTER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NGCH Adapter"
+  hi: ""
+
+API_SIGNATURE_VAULT_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature Vault (Redis)"
+  hi: ""
+
+API_PPS_VAULT_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPS Vault (Redis)"
+  hi: ""
+
+API_IMMUDB_AUDIT_TRAIL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immudb Audit Trail"
+  hi: ""
+
+API_KAFKA_TOPICS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kafka Topics"
+  hi: ""
+
+API_SB_AUTH_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SB Auth Connector"
+  hi: ""
+
+API_IET_WATCHDOG_SYNTHETIC_CHEQUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET Watchdog (Synthetic Cheque)"
+  hi: ""
+
+API_SMB_AUTH_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB Auth Connector"
+  hi: ""
+
+API_AGENCY_SFTP_PUSH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Agency SFTP Push"
+  hi: ""
+
+API_VAULT_SEEDING_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault Seeding Check"
+  hi: ""
+
+API_SMB_CBS_CONNECTIVITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB CBS Connectivity"
+  hi: ""
+
+API_SCANNER_DROP_FOLDER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scanner Drop Folder"
+  hi: ""
+
+API_BRANCH_AUTH_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branch Auth Connector"
+  hi: ""
+
+API_EEH_IEH_SESSION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "EEH/IEH Session"
+  hi: ""
+
+API_AGENCY_SB_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Agency → SB Connector"
+  hi: ""
+
+API_PU_AUTH_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PU Auth Connector"
+  hi: ""
+
+API_CBS_CONNECTIVITY_CHECK_WIRE_REAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS connectivity check — wire real CBS client in production"
+  hi: ""
+
+API_NGCH_ADAPTER_CHECK_WIRE_REAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NGCH adapter check — wire real NGCH adapter in production"
+  hi: ""
+
+API_SIGNATURE_VAULT_CHECK_WIRE_REAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature vault check — wire real Redis client in production"
+  hi: ""
+
+API_PPS_VAULT_CHECK_WIRE_REAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPS vault check — wire real Redis client in production"
+  hi: ""
+
+API_IMMUDB_CHECK_WIRE_REAL_IMMUDB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immudb check — wire real Immudb client in production"
+  hi: ""
+
+API_KAFKA_CHECK_WIRE_REAL_KAFKA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kafka check — wire real Kafka producer in production"
+  hi: ""
+
+API_AUTH_CONNECTOR_CHECK_WIRE_AUTHCONNEC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Auth connector check — wire AuthConnectorFactory in production"
+  hi: ""
+
+API_IET_WATCHDOG_SEND_SYNTHETIC_CHEQUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET watchdog — send synthetic cheque with test_mode=True"
+  hi: ""
+
+API_SFTP_PUSH_CHECK_WIRE_AGENCY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SFTP push check — wire Agency SFTP endpoint in production"
+  hi: ""
+
+API_VAULT_SEEDING_CHECK_QUERY_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault seeding check — query Redis for SMB's account signatures"
+  hi: ""
+
+API_SMB_CBS_CHECK_ONLY_RUNS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB CBS check — only runs if SMB_CBS MCP connection configured"
+  hi: ""
+
+API_SCANNER_DROP_FOLDER_CHECK_VERIFY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scanner drop-folder check — verify path writable in production"
+  hi: ""
+
+API_EEH_IEH_GRPC_PING_WIRE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "EEH/IEH gRPC ping — wire real gRPC channel in production"
+  hi: ""
+
+API_SB_CONNECTOR_CHECK_WIRE_REAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SB connector check — wire real sb_connector in production"
+  hi: ""
+
+API_BANK_ID_1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "bank_id = $1"
+  hi: ""
+
+API_HDFC_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HDFC Bank"
+  hi: ""
+
+API_ICICI_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ICICI Bank"
+  hi: ""
+
+API_STATE_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "State Bank"
+  hi: ""
+
+API_AXIS_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Axis Bank"
+  hi: ""
+
+API_KOTAK_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kotak Bank"
+  hi: ""
+
+API_YES_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Yes Bank"
+  hi: ""
+
+API_ASTRA_MIS_REPORT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA MIS Report"
+  hi: ""
+
+API_SESSION:
+  severity: INFO
+  surface: [UI]
+  variables: [session_id]
+  en: "Session: {session_id}"
+  hi: ""
+
+API_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id]
+  en: "Bank: {bank_id}"
+  hi: ""
+
+API_SECTION_1_INWARD_SUMMARY_PRESENTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 1 — INWARD SUMMARY (Presenting Bank)"
+  hi: ""
+
+API_VALUE_INR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Value (INR)"
+  hi: ""
+
+API_SECTION_2_OUTWARD_SUMMARY_DRAWEE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 2 — OUTWARD SUMMARY (Drawee Bank)"
+  hi: ""
+
+API_SECTION_3_RETURN_REASONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 3 — RETURN REASONS"
+  hi: ""
+
+API_SECTION_4_PERFORMANCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 4 — PERFORMANCE"
+  hi: ""
+
+API_OVERALL_RETURN_RATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Overall Return Rate"
+  hi: ""
+
+API_AVG_DECISION_TIME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Avg Decision Time"
+  hi: ""
+
+API_P99_DECISION_TIME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "P99 Decision Time"
+  hi: ""
+
+API_IET_NEAR_BREACH_COUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET Near-Breach Count"
+  hi: ""
+
+API_IET_BREACH_COUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET Breach Count"
+  hi: ""
+
+API_SETTLEMENT_POSITION_STATEMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Settlement Position Statement"
+  hi: ""
+
+API_INWARD_CONFIRMED_INR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Inward Confirmed (INR)"
+  hi: ""
+
+API_OUTWARD_RETURNED_INR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Outward Returned (INR)"
+  hi: ""
+
+API_NET_POSITION_INR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Net Position (INR)"
+  hi: ""
+
+API_ASTRA_ADMIN_CLEANUP_EXCEEDED_MIN:
+  severity: INFO
+  surface: [UI]
+  variables: [max_age_minutes]
+  en: "ASTRA admin cleanup: exceeded {max_age_minutes}min limit"
+  hi: ""
+
+API_PAUSED_VIA_ASTRA_ADMIN_UI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Paused via ASTRA Admin UI"
+  hi: ""
+
+API_RESUMED_VIA_ASTRA_ADMIN_UI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Resumed via ASTRA Admin UI"
+  hi: ""
+
+API_IET_BREACHED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IET Breached"
+  hi: ""
+
+API_SIGNATURE_VAULT_MISS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature Vault Miss"
+  hi: ""
+
+API_VAULT_STALE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vault Stale"
+  hi: ""
+
+API_OCR_LOW_CONFIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR Low Confidence"
+  hi: ""
+
+API_SIGNATURE_LOW_CONFIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature Low Confidence"
+  hi: ""
+
+API_CHEQUE_ALTERATION_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque Alteration Detected"
+  hi: ""
+
+API_WORDS_FIGURES_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Words / Figures Mismatch"
+  hi: ""
+
+API_CBS_UNREACHABLE_IMAGE_ONLY_MODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS Unreachable — Image-Only Mode"
+  hi: ""
+
+API_STOP_PAYMENT_TRIGGERED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Stop Payment Triggered"
+  hi: ""
+
+API_DUPLICATE_INSTRUMENT_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Duplicate Instrument Detected"
+  hi: ""
+
+API_WORKFLOW_ENDED_WITH_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: [name]
+  en: "Workflow ended with status: {name}"
+  hi: ""
+
+API_PRIVATE_MAX_AGE_300:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "private, max-age=300"
+  hi: ""
+
+API_IMAGE_TOO_DARK_RESCAN_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Image too dark — rescan required"
+  hi: ""
+
+API_MICR_BAND_NOT_READABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "MICR band not readable"
+  hi: ""
+
+API_IMAGE_SKEW_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Image skew > 2°"
+  hi: ""
+
+API_TORN_CORNER_RESCAN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Torn corner — rescan"
+  hi: ""
+
+API_DUPLICATE_INSTRUMENT_DETECTED_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Duplicate instrument detected"
+  hi: ""
+
+API_FOCUS_BLUR_RESCAN_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Focus blur — rescan required"
+  hi: ""
+
+API_FOLD_CREASE_OVER_AMOUNT_FIELD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fold crease over amount field"
+  hi: ""
+
+API_SPECIAL_SESSION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Special Session"
+  hi: ""
+
+API_PRESENTED_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id]
+  en: "PRESENTED BY {bank_id}"
+  hi: ""
+
+API_FINACLE_REST_V2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Finacle REST v2"
+  hi: ""
+
+API_MALFORMED_URL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Malformed URL"
+  hi: ""
+
+API_MISSING_HOST_IN_URL:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Missing host in URL"
+  hi: ""
+
+API_LOOPBACK_HOST_NOT_ALLOWED:
+  severity: ERROR
+  surface: [UI]
+  variables: [host]
+  en: "Loopback host not allowed: {host}"
+  hi: ""
+
+API_ASTRA_INTERNAL_SERVICE_HOSTNAME_NOT:
+  severity: ERROR
+  surface: [UI]
+  variables: [host]
+  en: "ASTRA-internal service hostname not allowed: {host}"
+  hi: ""
+
+API_KUBERNETES_CLUSTER_INTERNAL_HOSTNAME:
+  severity: ERROR
+  surface: [UI]
+  variables: [host]
+  en: "Kubernetes cluster-internal hostname not allowed: {host}"
+  hi: ""
+
+API_PRIVATE_OR_LINK_LOCAL_IP:
+  severity: ERROR
+  surface: [UI]
+  variables: [host]
+  en: "Private or link-local IP range not allowed: {host}"
+  hi: ""
+
+API_NO_ENDPOINT_URL_CONFIGURED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No endpoint_url configured"
+  hi: ""
+
+API_SSRF_POLICY_BLOCKED_PROBE:
+  severity: INFO
+  surface: [UI]
+  variables: [ssrf_err]
+  en: "SSRF policy blocked probe: {ssrf_err}"
+  hi: ""
+
+API_NO_MANDATE_ON_RECORD_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No mandate on record for this account — routed to human review."
+  hi: ""
+
+API_MSV_WORKFLOW_STARTED_POLL_V1:
+  severity: INFO
+  surface: [UI]
+  variables: [workflow_id, instrument_id]
+  en: "MSV workflow {workflow_id} started. Poll /v1/msv/status/{instrument_id} for result."
+  hi: ""
+
+API_EXISTS_BUT_NOT_WRITABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "exists but not writable"
+  hi: ""
+
+API_ACK_SLOW_CHECK_KAFKA_LOAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: " — ACK slow, check Kafka load"
+  hi: ""
+
+API_NO_PPS_ENTRIES_SEEDED_SEED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No PPS entries seeded — seed if bank issues cheque books"
+  hi: ""
+
+API_TIER:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Tier {value}"
+  hi: ""
+
+API_RAMESH_KUMAR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Ramesh Kumar"
+  hi: ""
+
+API_PRIYA_SHARMA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Priya Sharma"
+  hi: ""
+
+API_SUNIL_MEHTA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sunil Mehta"
+  hi: ""
+
+API_ANITA_DESAI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Anita Desai"
+  hi: ""
+
+API_VIKRAM_SINGH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vikram Singh"
+  hi: ""
+
+API_SCAN_THIS_QR_CODE_WITH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Scan this QR code with Google Authenticator, Authy, or any TOTP app. Enter the 6-digit code below to confirm setup."
+  hi: ""
+
+API_LOGIN_AUTHORISED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Login authorised."
+  hi: ""
+
+API_INVALID_CODE_PLEASE_CHECK_YOUR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Invalid code. Please check your authenticator app."
+  hi: ""
+
+EEH_SCAN_ID_IS_REQUIRED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "scan_id is required"
+  hi: ""
+
+SIG_DETECTOR_NO_QUALIFYING_CLUSTER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "no qualifying cluster"
+  hi: ""
+
+CTS_RUPEES_TEN_THOUSAND_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rupees Ten Thousand Only"
+  hi: ""
+
+CTS_LOAD_TEST_PAYEE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "LOAD TEST PAYEE"
+  hi: ""
+
+CTS_LOAD_TEST_STUB_NOT_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "load-test stub — not a model output"
+  hi: ""
+
+CTS_LATIN_SCRIPT_PAYEES_WITH_RELIABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Latin-script payees with reliable truth"
+  hi: ""
+
+CTS_THE_COST_SIDE_HANDLED_BY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the cost side: handled by a human, not wrong"
+  hi: ""
+
+CTS_READ_WRONGLY_THE_PRESENTED_NUMBER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "read wrongly; the presented-number and branch-master cross-checks may still catch it"
+  hi: ""
+
+CTS_READ_WRONGLY_FIGURES_VS_WORDS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "read wrongly; figures-vs-words, amount-vs-presented and reviewer checks may still catch it"
+  hi: ""
+
+CTS_ONLY_RETURNS_WHOSE_CORRECTNESS_IS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "only returns whose correctness is verifiable from ground truth are counted"
+  hi: ""
+
+CTS_NOT_ASSESSABLE_NO_DATA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NOT ASSESSABLE (no data)"
+  hi: ""
+
+CTS_CBS_DEGRADED_SIGNAL_EXCLUDED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "cbs_degraded — signal excluded"
+  hi: ""
+
+CTS_VALIDATION_SLICE_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "validation slice only"
+  hi: ""
+
+CTS_FRONT_BW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Front BW"
+  hi: ""
+
+CTS_BACK_BW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Back BW"
+  hi: ""
+
+CTS_IETWATCHDOGWORKFLOW_TEMPORAL_CHILD_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IETWatchdogWorkflow (Temporal child, ABANDON)"
+  hi: ""
+
+CTS_DUPLICATE_PRESENTMENT_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Duplicate Presentment Check"
+  hi: ""
+
+CTS_MARK_LEAF_PRESENTED_CHEQUE_LEAF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "mark_leaf_presented · cheque_leaf_vault"
+  hi: ""
+
+CTS_OCR_EXTRACTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR Extraction"
+  hi: ""
+
+CTS_GOT_OCR2_0_INDICOCR_CTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "GOT-OCR2.0 + IndicOCR · cts-ocr queue"
+  hi: ""
+
+CTS_KILL_SWITCH_CHECKPOINT_1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kill Switch Checkpoint 1"
+  hi: ""
+
+CTS_GET_KILL_SWITCH_STATUS_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "get_kill_switch_status · Redis"
+  hi: ""
+
+CTS_ALTERATION_DETECTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alteration Detection"
+  hi: ""
+
+CTS_QWEN2_VL_72B_CTS_VISION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Qwen2-VL 72B · cts-vision queue"
+  hi: ""
+
+CTS_CTS_2010_SECURITY_FEATURES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CTS-2010 Security Features"
+  hi: ""
+
+CTS_STOP_PAYMENT_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Stop Payment Check"
+  hi: ""
+
+CTS_BLOOM_FILTER_CBS_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bloom filter + CBS connector"
+  hi: ""
+
+CTS_IFSC_REGISTRY_VALIDATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IFSC Registry Validation"
+  hi: ""
+
+CTS_VALIDATE_IFSC_IFSC_REGISTRY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "validate_ifsc · IFSC registry"
+  hi: ""
+
+CTS_ONLY_WHEN_NGCH_IFSC_PROVIDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only when ngch_ifsc provided in workflow input"
+  hi: ""
+
+CTS_PPS_LOOKUP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PPS Lookup"
+  hi: ""
+
+CTS_LOOKUP_PPS_REDIS_PPS_VAULT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "lookup_pps · Redis PPS vault"
+  hi: ""
+
+CTS_SIGNATURE_PRESENCE_DETECTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature Presence Detection"
+  hi: ""
+
+CTS_DETECT_SIGNATURES_CTS_VISION_QUEUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "detect_signatures · cts-vision queue"
+  hi: ""
+
+CTS_SIAMESE_NETWORK_PYTORCH_SIGNATURE_VA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Siamese Network (PyTorch) · signature_vault"
+  hi: ""
+
+CTS_XGBOOST_ENSEMBLE_SHAP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "XGBoost ensemble + SHAP"
+  hi: ""
+
+CTS_CHEQUE_SERIES_VALIDATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque Series Validation"
+  hi: ""
+
+CTS_VALIDATE_CHEQUE_SERIES_REDIS_CBS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "validate_cheque_series · Redis / CBS"
+  hi: ""
+
+CTS_CBS_BALANCE_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CBS Balance Check"
+  hi: ""
+
+CTS_CHECK_CBS_BALANCE_CBS_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "check_cbs_balance · CBS connector"
+  hi: ""
+
+CTS_ACCOUNT_STATUS_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account Status Check"
+  hi: ""
+
+CTS_CHECK_ACCOUNT_STATUS_CBS_CONNECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "check_account_status · CBS connector"
+  hi: ""
+
+CTS_KILL_SWITCH_CHECKPOINT_2_BACKSTOP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kill Switch Checkpoint 2 (Backstop)"
+  hi: ""
+
+CTS_DECISION_SYNTHESIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Decision Synthesis"
+  hi: ""
+
+CTS_SYNTHESISE_DECISION_OPA_LAYER_4:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "synthesise_decision · OPA (Layer 4 Rego)"
+  hi: ""
+
+CTS_STP_MODE_ROUTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "STP Mode Routing"
+  hi: ""
+
+CTS_CONFIG_SERVICE_STP_MODE_LAYER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "config_service · stp_mode (Layer 3)"
+  hi: ""
+
+CTS_PERSIST_AGENT_DECISION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Persist Agent Decision"
+  hi: ""
+
+CTS_PERSIST_AGENT_DECISION_YUGABYTEDB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "persist_agent_decision · YugabyteDB"
+  hi: ""
+
+CTS_FILE_TO_NGCH_NGCH_FILER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "file_to_ngch · ngch_filer (exactly-once)"
+  hi: ""
+
+CTS_IMMUDB_AUDIT_WRITE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immudb Audit Write"
+  hi: ""
+
+CTS_WRITE_AUDIT_IMMUDB_HSM_SIGNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "write_audit · Immudb (HSM-signed, unlimited retry)"
+  hi: ""
+
+CTS_HUMANREVIEWWORKFLOW_SPAWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HumanReviewWorkflow Spawn"
+  hi: ""
+
+CTS_HUMANREVIEWWORKFLOW_TEMPORAL_CHILD_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "HumanReviewWorkflow (Temporal child, ABANDON)"
+  hi: ""
+
+CTS_ONLY_ON_HUMAN_REVIEW_OUTCOME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only on HUMAN_REVIEW outcome"
+  hi: ""
+
+CTS_SMB_LEDGER_UPDATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB Ledger Update"
+  hi: ""
+
+CTS_EMIT_BATCH_LEDGER_UPDATE_NOTIFY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "emit_batch_ledger_update + notify_sub_member_return"
+  hi: ""
+
+CTS_ONLY_WHEN_SMB_ID_PRESENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only when smb_id present in workflow input"
+  hi: ""
+
+CTS_OCR_FEEDBACK_EMIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR Feedback Emit"
+  hi: ""
+
+CTS_FEEDBACKEMITWORKFLOW_FIRE_AND_FORGET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FeedbackEmitWorkflow (fire-and-forget, ABANDON)"
+  hi: ""
+
+CTS_OCR_CR_120_EXTRACTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OCR / CR-120 Extraction"
+  hi: ""
+
+CTS_GOT_OCR2_0_LEGACY_QWEN2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "GOT-OCR2.0 (legacy) · Qwen2-VL (CR-120 path)"
+  hi: ""
+
+CTS_DATE_VALIDATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Date Validation"
+  hi: ""
+
+CTS_VALIDATE_CHEQUE_DATE_INLINE_NO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "_validate_cheque_date (inline, no activity)"
+  hi: ""
+
+CTS_POSTDATED_HOLD_SPAWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PostDated Hold Spawn"
+  hi: ""
+
+CTS_POSTDATEDHOLDWORKFLOW_TEMPORAL_CHILD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PostDatedHoldWorkflow (Temporal child, ABANDON)"
+  hi: ""
+
+CTS_ONLY_WHEN_DATE_VALIDATE_RETURNS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only when date_validate returns POST_DATED_CHEQUE"
+  hi: ""
+
+CTS_CHEQUE_DEDUPLICATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque Deduplication"
+  hi: ""
+
+CTS_CHECK_CHEQUE_DEDUP_REDIS_18:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "check_cheque_dedup · Redis (18-month TTL)"
+  hi: ""
+
+CTS_REAR_IMAGE_OCR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rear Image OCR"
+  hi: ""
+
+CTS_EXTRACT_REAR_PAYEE_DETAILS_GOT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "extract_rear_payee_details · GOT-OCR2.0"
+  hi: ""
+
+CTS_ONLY_WHEN_REAR_IMAGE_OCR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Only when rear_image_ocr_required = true"
+  hi: ""
+
+CTS_PAYEE_ACCOUNT_VALIDATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Payee Account Validation"
+  hi: ""
+
+CTS_VALIDATE_PAYEE_ACCOUNT_ACCOUNT_VAULT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "validate_payee_account · Account Vault + CBS"
+  hi: ""
+
+CTS_ONLY_WHEN_PAYEE_ACCOUNT_NUMBER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only when payee_account_number provided"
+  hi: ""
+
+CTS_NGCH_METADATA_CROSS_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NGCH Metadata Cross-Check"
+  hi: ""
+
+CTS_CTS_2010_COMPLIANCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CTS-2010 Compliance"
+  hi: ""
+
+CTS_VALIDATE_CTS2010_DPI_COLOUR_DEPTH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "validate_cts2010 (DPI, colour depth, IQA, MICR band)"
+  hi: ""
+
+CTS_VISION_LLM_CROSS_CHECK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Vision LLM Cross-Check"
+  hi: ""
+
+CTS_RUN_VISION_PRESENTMENT_CHECK_QWEN2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "run_vision_presentment_check · Qwen2-VL 72B"
+  hi: ""
+
+CTS_ONLY_WHEN_SCANNER_AMOUNT_STR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only when scanner_amount_str available"
+  hi: ""
+
+CTS_MISMATCHRESOLUTION_SPAWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "MismatchResolution Spawn"
+  hi: ""
+
+CTS_MISMATCHRESOLUTIONWORKFLOW_TEMPORAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "MismatchResolutionWorkflow (Temporal child, ABANDON, 4h)"
+  hi: ""
+
+CTS_ONLY_ON_MISMATCH_HELD_OUTCOME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only on MISMATCH_HELD outcome"
+  hi: ""
+
+CTS_BRANCH_MONITOR_EVENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branch Monitor Event"
+  hi: ""
+
+CTS_RECORD_OUTWARD_SCAN_EVENT_BEST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "record_outward_scan_event (best-effort)"
+  hi: ""
+
+CTS_EMPTY_IFSC_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Empty IFSC code"
+  hi: ""
+
+CTS_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "NOT FOUND"
+  hi: ""
+
+CTS_NAME_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "NAME MISMATCH"
+  hi: ""
+
+CTS_LENGTH_MUST_BE_CHARACTERS:
+  severity: INFO
+  surface: [UI]
+  variables: [lo, hi]
+  en: "length must be {lo}-{hi} characters"
+  hi: ""
+
+CTS_CONTAINS_A_CHARACTER_THE_SPECIFICATI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "contains a character the specification does not allow"
+  hi: ""
+
+CTS_MUST_NOT_START_OR_END:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "must not start or end with a space"
+  hi: ""
+
+CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "action,account_number,cheque_number,new_status,reason,reported_by,effective_date\nINSERT_ONLY,00112233445566,000023,LOST,Purse stolen at railway station,Ramesh Kumar,2026-08-15\n"
+  hi: ""
+
+CTS_ACTION_ACCOUNT_NUMBER_HOLDER_SEQ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "action,account_number,holder_seq,holder_name,role,pan_last4\nUPSERT,00112233445566,1,Ramesh Balkrishna Kumar,PRIMARY,8765\nUPSERT,00112233445566,2,Sunita Ramesh Kumar,JOINT,2341\n"
+  hi: ""
+
+CTS_ACTION_ACCOUNT_NUMBER_CHEQUE_NUMBER_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "action,account_number,cheque_number,cheque_date,amount,payee_name,registration_channel,cbs_pps_ref,npci_flag\nINSERT_ONLY,00112233445566,000101,2026-08-20,50000.00,Mahindra Finance Ltd,NET_BANKING,,\n"
+  hi: ""
+
+CTS_BANK_IDENTIFIER_E_G_SARASWAT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank identifier (e.g. saraswat-coop)"
+  hi: ""
+
+CTS_KILL_SWITCH_ACTIVE_MODE_SCOPE:
+  severity: INFO
+  surface: [UI]
+  variables: [effective_ks_mode, effective_ks_scope]
+  en: "kill_switch active: mode={effective_ks_mode} scope={effective_ks_scope}"
+  hi: ""
+
+CTS_OPA_POLICY:
+  severity: INFO
+  surface: [UI]
+  variables: [reason]
+  en: "OPA policy: {reason}"
+  hi: ""
+
+CTS_OPA_UNAVAILABLE_BUSINESS_POLICY_ENGI:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "OPA_UNAVAILABLE: business policy engine unreachable — routed for manual review"
+  hi: ""
+
+CTS_PAYEE_NAME_BLANK_OR_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "Payee name blank or missing — open-bearer instrument requires review"
+  hi: ""
+
+CTS_IFSC_MISMATCH_NGCH_PRESENTMENT_VS:
+  severity: INFO
+  surface: [UI]
+  variables: [ngch_ifsc, ocr_ifsc]
+  en: "IFSC mismatch: NGCH presentment={ngch_ifsc} vs cheque face={ocr_ifsc}"
+  hi: ""
+
+CTS_DATE_IMPLAUSIBLE_CHEQUE_DATE_IS:
+  severity: INFO
+  surface: [UI]
+  variables: [cheque_date, abs]
+  en: "date_implausible: cheque date {cheque_date} is {abs} days from today - probable OCR misread, not auto-returned"
+  hi: ""
+
+CTS_POST_DATED_CHEQUE_CHEQUE_DATE:
+  severity: INFO
+  surface: [UI]
+  variables: [cheque_date]
+  en: "Post-dated cheque — cheque date {cheque_date} is in the future"
+  hi: ""
+
+CTS_STALE_CHEQUE_DAYS_OLD_LIMIT:
+  severity: INFO
+  surface: [UI]
+  variables: [days, validity_days]
+  en: "Stale cheque — {days} days old (limit {validity_days})"
+  hi: ""
+
+CTS_AMOUNT_IN_WORDS_FIGURES_DIFFER:
+  severity: INFO
+  surface: [UI]
+  variables: [mask_amount, mask_amount2]
+  en: "Amount in words/figures differ: words={mask_amount} figures={mask_amount2}"
+  hi: ""
+
+CTS_CBS_ACCOUNT_STATUS_REQUIRES_RETURN:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "CBS account status requires return: {value}"
+  hi: ""
+
+CTS_CTS_ALTERATION_IN_NON_DATE:
+  severity: INFO
+  surface: [UI]
+  variables: [non_date_altered]
+  en: "CTS alteration in non-date fields: {non_date_altered}"
+  hi: ""
+
+CTS_SIGNATURE_VERIFIER_UNTRAINED_THE_SIG:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "signature_verifier_untrained: the signature match score comes from a generic model, not a trained signature verifier, so it cannot support an automatic confirm"
+  hi: ""
+
+CTS_C_PROGRAM_FILES_TESSERACT_OCR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+  hi: ""
+
+CTS_C_PROGRAM_FILES_X86_TESSERACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe"
+  hi: ""
+
+CTS_PSM_6:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "--psm 6"
+  hi: ""
+
+CTS_PSM_6_OEM_1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "--psm 6 --oem 1"
+  hi: ""
+
+CTS_THE_PAYEE_NAME_ONLY_THE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the PAYEE NAME only — the person or company being paid, usually after 'Pay' — ignore any amount, currency figure, or amount-in-words also visible in this crop"
+  hi: ""
+
+CTS_THE_AMOUNT_WRITTEN_IN_WORDS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the AMOUNT WRITTEN IN WORDS only — ignore any payee name also visible in this crop"
+  hi: ""
+
+CTS_ASTRA_AUTO_TERMINATED_EXCEEDED_MIN:
+  severity: INFO
+  surface: [UI]
+  variables: [max_age_minutes]
+  en: "ASTRA auto-terminated: exceeded {max_age_minutes}min limit"
+  hi: ""
+
+CTS_SUBMITTED_BUT_NOT_IN_THE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submitted but not in the NGCH settlement report"
+  hi: ""
+
+CTS_INVALID_IET_DEADLINE:
+  severity: ERROR
+  surface: [UI]
+  variables: [iet_deadline_utc]
+  en: "INVALID_IET_DEADLINE: {iet_deadline_utc}"
+  hi: ""
+
+CTS_SMB_SUSPENDED:
+  severity: INFO
+  surface: [UI]
+  variables: [sub_member_id]
+  en: "SMB_SUSPENDED: {sub_member_id}"
+  hi: ""
+
+CTS_IET_EMERGENCY_FILED_THE_IET:
+  severity: INFO
+  surface: [UI]
+  variables: [iet_emergency_decision, decision, rationale]
+  en: "iet_emergency_filed: the IET watchdog filed {iet_emergency_decision} before the pipeline finished; pipeline outcome superseded ({decision}: {rationale})"
+  hi: ""
+
+CTS_WEAK_FIELDS_DEFERRED_TO_SYNTHESISE:
+  severity: INFO
+  surface: [UI]
+  variables: [low_confidence_fields]
+  en: "weak_fields={low_confidence_fields} — deferred to synthesise_decision"
+  hi: ""
+
+CTS_STOP_PAYMENT:
+  severity: INFO
+  surface: [UI]
+  variables: [stop_reason]
+  en: "Stop payment: {stop_reason}"
+  hi: ""
+
+CTS_STOP_PAYMENT_CHECK_2:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Stop payment check: {value}"
+  hi: ""
+
+CTS_IFSC_REGISTRY:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "IFSC registry: {value}"
+  hi: ""
+
+CTS_CHEQUE_SERIES:
+  severity: INFO
+  surface: [UI]
+  variables: [reason, return_reason_code]
+  en: "Cheque series: {reason} ({return_reason_code})"
+  hi: ""
+
+CTS_CHEQUE_SERIES_2:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Cheque series: {value}"
+  hi: ""
+
+CTS_CBS_BALANCE_CHECK_2:
+  severity: INFO
+  surface: [UI]
+  variables: [outcome]
+  en: "CBS balance check: {outcome}"
+  hi: ""
+
+CTS_ACCOUNT_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: [account_status]
+  en: "Account status: {account_status}"
+  hi: ""
+
+CTS_ACCOUNT_STATUS_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: [account_status]
+  en: "Account status review: {account_status}"
+  hi: ""
+
+CTS_POSTDATEDHOLDWORKFLOW_SPAWNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PostDatedHoldWorkflow spawned"
+  hi: ""
+
+CTS_MISMATCHRESOLUTIONWORKFLOW_SPAWNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "MismatchResolutionWorkflow spawned"
+  hi: ""
+
+CTS_FETCH_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [exc]
+  en: "FETCH_FAILED: {exc}"
+  hi: ""
+
+CTS_UNKNOWN_VAULT_TYPE:
+  severity: INFO
+  surface: [UI]
+  variables: [vault_type]
+  en: "UNKNOWN_VAULT_TYPE: {vault_type}"
+  hi: ""
+
+CTS_UNKNOWN_VAULT_TYPE_2:
+  severity: INFO
+  surface: [UI]
+  variables: [vault_type]
+  en: "Unknown vault_type: {vault_type}"
+  hi: ""
+
+MSV_UNKNOWN_MANDATE_RULE_TYPE:
+  severity: INFO
+  surface: [UI]
+  variables: [rule_type]
+  en: "Unknown mandate rule type: {rule_type}"
+  hi: ""
+
+MSV_REQUIRED_SIGNATORIES_ABSENT:
+  severity: ERROR
+  surface: [UI]
+  variables: [sorted]
+  en: "Required signatories absent: {sorted}."
+  hi: ""
+
+MSV_SIGNATORY_IES_SCORED_BELOW_MINIMUM:
+  severity: INFO
+  surface: [UI]
+  variables: [value, min_score]
+  en: "Signatory(ies) {value} scored below minimum threshold {min_score}."
+  hi: ""
+
+MSV_ALL_SIGNATORIES_MATCHED_ABOVE_HIGH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All signatories matched above high-confidence threshold."
+  hi: ""
+
+MSV_ALL_SIGNATORIES_PRESENT_BUT_SOME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All signatories present but some below high-confidence threshold."
+  hi: ""
+
+MSV_ONLY_SIGNATORY_IES_MATCHED_ABOVE:
+  severity: ERROR
+  surface: [UI]
+  variables: [len, min_score, n]
+  en: "Only {len} signatory(ies) matched above threshold {min_score}; {n} required."
+  hi: ""
+
+MSV_QUORUM_MET_BUT_CONFIDENCE_BELOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Quorum met but confidence below high-confidence threshold."
+  hi: ""
+
+MSV_MANDATORY_SIGNATORY_DID_NOT_SIGN:
+  severity: INFO
+  surface: [UI]
+  variables: [sig_id]
+  en: "Mandatory signatory '{sig_id}' did not sign."
+  hi: ""
+
+MSV_ONLY_OF_REQUIRED_QUORUM_SIGNATORIES:
+  severity: ERROR
+  surface: [UI]
+  variables: [len, required_count]
+  en: "Only {len} of {required_count} required quorum signatories matched."
+  hi: ""
+
+MSV_MANDATORY_SIGNER_S_AND_QUORUM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mandatory signer(s) and quorum met above high-confidence threshold."
+  hi: ""
+
+MSV_MANDATORY_SIGNER_S_AND_QUORUM_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mandatory signer(s) and quorum met, but some scores below high-confidence threshold."
+  hi: ""
+
+MSV_ALL_SIGNATORIES_MET_THEIR_ROLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All signatories met their role-specific thresholds."
+  hi: ""
+
+MSV_ONLY_SIGNATORIES_WITH_REQUIRED_ROLE:
+  severity: ERROR
+  surface: [UI]
+  variables: [len, required_roles, required_count]
+  en: "Only {len} signatories with required role(s) {required_roles} matched; {required_count} required."
+  hi: ""
+
+MSV_REQUIRED_ROLE_S_MATCHED_WITH:
+  severity: ERROR
+  surface: [UI]
+  variables: [required_roles, required_count]
+  en: "Required role(s) {required_roles} matched with {required_count} signatories."
+  hi: ""
+
+MSV_ROLE_QUORUM_MET_BUT_CONFIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Role quorum met but confidence below high-confidence threshold."
+  hi: ""
+
+MSV_OPERATION_TYPE_IS_NOT_RECOGNISED:
+  severity: INFO
+  surface: [UI]
+  variables: [op_type]
+  en: "Operation type '{op_type}' is not recognised."
+  hi: ""
+
+MSV_NO_ENROLLED_SIGNATORIES_FOUND_ROUTIN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No enrolled signatories found — routing to human review."
+  hi: ""
+
+MSV_SIGNATURE_DETECTOR_UNAVAILABLE_ROUTI:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Signature detector unavailable — routing to human review."
+  hi: ""
+
+MSV_EMBEDDING_MODEL_UNAVAILABLE_ROUTING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Embedding model unavailable — routing to human review."
+  hi: ""
+
+MSV_SIGNATUREORCHESTRATOR_NOT_AVAILABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SignatureOrchestrator not available at worker startup — routing to human review."
+  hi: ""
+
+PLATFORM_ASTRA_CTS_CHEQUE_RETURN_NOTICE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA CTS — Cheque return notice"
+  hi: ""
+
+PLATFORM_ASTRA_CTS_FRAUD_ALERT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA CTS — Fraud alert"
+  hi: ""
+
+PLATFORM_ASTRA_CTS_IET_EXPIRY_WARNING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "ASTRA CTS — IET expiry warning"
+  hi: ""
+
+PLATFORM_ASTRA_CTS_SHIFT_SUMMARY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA CTS — Shift summary"
+  hi: ""

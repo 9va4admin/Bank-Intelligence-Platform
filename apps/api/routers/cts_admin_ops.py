@@ -178,7 +178,7 @@ async def trigger_workflow_cleanup(
                     try:
                         handle = client.get_workflow_handle(wf.id, run_id=wf.run_id)
                         await handle.terminate(
-                            reason=f"ASTRA admin cleanup: exceeded {body.max_age_minutes}min limit"
+                            reason=get_message("API_ASTRA_ADMIN_CLEANUP_EXCEEDED_MIN", max_age_minutes=body.max_age_minutes)
                         )
                         terminated += 1
                         log.warning(
@@ -254,7 +254,7 @@ _CTS_SCHEDULE_REGISTRY = [
         "workflow": "VaultSyncWorkflow",
         "module": "CTS",
         "cron": "0 7 * * *",
-        "cron_human": "Daily at 07:00 AM",
+        "cron_human": get_message("UI_SCHEDULES_DAILY_AT_07_00_AM"),
         "task_queue_tpl": "cts-processing-{bank_id}",
     },
 ]
@@ -361,7 +361,7 @@ async def pause_schedule(
     if temporal_client is not None:
         try:
             handle = temporal_client.get_schedule_handle(schedule_id)
-            await handle.pause(note="Paused via ASTRA Admin UI")
+            await handle.pause(note=get_message("API_PAUSED_VIA_ASTRA_ADMIN_UI"))
         except Exception as exc:
             log.error("cts.schedule_pause_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
@@ -390,7 +390,7 @@ async def resume_schedule(
     if temporal_client is not None:
         try:
             handle = temporal_client.get_schedule_handle(schedule_id)
-            await handle.unpause(note="Resumed via ASTRA Admin UI")
+            await handle.unpause(note=get_message("API_RESUMED_VIA_ASTRA_ADMIN_UI"))
         except Exception as exc:
             log.error("cts.schedule_resume_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(

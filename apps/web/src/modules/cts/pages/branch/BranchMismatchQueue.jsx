@@ -109,14 +109,14 @@ function MismatchCard({ item, isDark, onResolve, isResolving }) {
           disabled={isResolving}
           className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
         >
-          {isResolving ? '…' : 'Go Ahead (trust scanner)'}
+          {isResolving ? '…' : msg('UI_BRANCHMISMATCHQUEUE_GO_AHEAD_TRUST_SCANNER')}
         </button>
         <button
           onClick={() => onResolve(item.mismatch_id, 'REJECTED', note)}
           disabled={isResolving}
           className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
         >
-          {isResolving ? '…' : 'Reject (return to drawer)'}
+          {isResolving ? '…' : msg('UI_BRANCHMISMATCHQUEUE_REJECT_RETURN_TO_DRAWER')}
         </button>
       </div>
     </div>
@@ -223,7 +223,7 @@ export default function BranchMismatchQueue() {
                 <div className="flex items-center justify-between text-xs">
                   <span className={`font-mono ${th.muted}`}>{r.mismatch_id}</span>
                   <span className={r.action === 'GO_AHEAD' ? 'text-emerald-400' : 'text-red-400'}>
-                    {r.action === 'GO_AHEAD' ? 'Proceeded' : 'Rejected'}
+                    {r.action === 'GO_AHEAD' ? msg('UI_BRANCHMISMATCHQUEUE_PROCEEDED') : msg('UI_BRANCHMISMATCHQUEUE_REJECTED')}
                   </span>
                   <span className={th.muted}>{r.resolved_at}</span>
                 </div>

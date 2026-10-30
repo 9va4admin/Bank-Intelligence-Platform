@@ -16,15 +16,15 @@ import { msg } from '../../../shared/messages'
 // Account/CBS moved to after Fraud (status check at end, not at start).
 
 const STAGES = [
-  { id: 0, label: msg('UI_PIPELINEVISUALIZER_INGEST'),      icon: '📥', shortLabel: 'Ingest',   avgMs: 3,   bank: 'd' },
-  { id: 1, label: msg('UI_DEMOLIVE_VISION'),      icon: '🔍', shortLabel: 'Vision',   avgMs: 110, bank: 'd' },
-  { id: 2, label: msg('UI_PIPELINEVISUALIZER_COMPLIANCE'),  icon: '✅', shortLabel: 'Comply',   avgMs: 80,  bank: 'd' },
-  { id: 3, label: msg('UI_PIPELINEVISUALIZER_STOP_PAY'),    icon: '🛑', shortLabel: 'StopPay',  avgMs: 50,  bank: 'd' },
+  { id: 0, label: msg('UI_PIPELINEVISUALIZER_INGEST'),      icon: '📥', shortLabel: msg('UI_PIPELINEVISUALIZER_INGEST_2'),   avgMs: 3,   bank: 'd' },
+  { id: 1, label: msg('UI_DEMOLIVE_VISION'),      icon: '🔍', shortLabel: msg('UI_PIPELINEVISUALIZER_VISION'),   avgMs: 110, bank: 'd' },
+  { id: 2, label: msg('UI_PIPELINEVISUALIZER_COMPLIANCE'),  icon: '✅', shortLabel: msg('UI_PIPELINEVISUALIZER_COMPLY'),   avgMs: 80,  bank: 'd' },
+  { id: 3, label: msg('UI_PIPELINEVISUALIZER_STOP_PAY'),    icon: '🛑', shortLabel: msg('UI_PIPELINEVISUALIZER_STOPPAY'),  avgMs: 50,  bank: 'd' },
   { id: 4, label: msg('UI_PIPELINEVISUALIZER_POS_PAY'),     icon: '📋', shortLabel: 'PPS',      avgMs: 30,  bank: 'd' },
-  { id: 5, label: msg('UI_COMMON_SIGNATURE'),   icon: '✍️', shortLabel: 'Sig',      avgMs: 95,  bank: 'd' },
-  { id: 6, label: msg('UI_COMMON_FRAUD'),       icon: '🛡️', shortLabel: 'Fraud',    avgMs: 45,  bank: 'd' },
+  { id: 5, label: msg('UI_COMMON_SIGNATURE'),   icon: '✍️', shortLabel: msg('UI_PIPELINEVISUALIZER_SIG'),      avgMs: 95,  bank: 'd' },
+  { id: 6, label: msg('UI_COMMON_FRAUD'),       icon: '🛡️', shortLabel: msg('UI_PIPELINEVISUALIZER_FRAUD'),    avgMs: 45,  bank: 'd' },
   { id: 7, label: msg('UI_PIPELINEVISUALIZER_CBS_ACCT'),  icon: '🏦', shortLabel: 'CBS',      avgMs: 60,  bank: 'd' },
-  { id: 8, label: msg('UI_COMMON_DECISION'),    icon: '⚖️', shortLabel: 'Decide',   avgMs: 12,  bank: 'd' },
+  { id: 8, label: msg('UI_COMMON_DECISION'),    icon: '⚖️', shortLabel: msg('UI_PIPELINEVISUALIZER_DECIDE'),   avgMs: 12,  bank: 'd' },
   { id: 9, label: msg('UI_COMMON_NGCH'),        icon: '🌐', shortLabel: 'NGCH',     avgMs: 485, bank: 'g' },
 ]
 
@@ -335,11 +335,11 @@ function ChildPanel({ item, onClose, isException }) {
                         <div>
                           <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
                           <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
-                            {s.result ? `${s.result.ms}ms` : '—'}
+                            {s.result ? msg('UI_PIPELINEVISUALIZER_MS', { ms: s.result.ms }) : '—'}
                           </div>
                         </div>
                         <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
-                          {s.result ? s.result.detail : 'not reached'}
+                          {s.result ? s.result.detail : msg('UI_PIPELINEVISUALIZER_NOT_REACHED')}
                         </div>
                       </div>
                       {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
@@ -393,7 +393,7 @@ function ChildPanel({ item, onClose, isException }) {
           <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
             <div className="flex-1 text-[11px] text-slate-400 min-w-0">
-              {isException ? 'Exception — ' : 'Held for human review — '}
+              {isException ? msg('UI_PIPELINEVISUALIZER_EXCEPTION_2') : msg('UI_PIPELINEVISUALIZER_HELD_FOR_HUMAN_REVIEW')}
               <span className="text-amber-400 font-mono">{item.id}</span>
               {msg('UI_PIPELINEVISUALIZER_IS_MONITORING_ONLY_HERE_DECIDE')} <span className="text-slate-300 font-medium">{msg('UI_PIPELINEVISUALIZER_INWARD_Q')}</span>.
             </div>
@@ -503,7 +503,7 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCo
           onClick={disabled ? undefined : () => onOpenPool(key)}
           disabled={disabled}
           className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors ${disabled ? 'cursor-default' : `cursor-pointer ${hoverCls}`}`}
-          title={disabled ? label : `View all ${label}`}
+          title={disabled ? label : msg('UI_PIPELINEVISUALIZER_VIEW_ALL', { label })}
         >
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5 whitespace-nowrap">{label}</div>
           <div className={`font-mono text-xl font-bold ${disabled ? '' : 'underline-offset-2 hover:underline'} ${color}`}>{val}</div>
@@ -878,7 +878,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
         }`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${running ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-        {running ? 'Running' : 'Paused'}
+        {running ? msg('UI_PIPELINEVISUALIZER_RUNNING') : msg('UI_PIPELINEVISUALIZER_PAUSED')}
       </button>
     ),
   })
@@ -1153,14 +1153,14 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
               </div>
               <div className="text-[11px] text-slate-500">{msg('UI_PIPELINEVISUALIZER_SESSION_SES_0619_001_MUMBAI')}</div>
               <div className="mt-4 pt-4 border-t border-white/6 text-[11px] text-slate-600">
-                {statModal === 'ngch_ack'    && 'Cheques confirmed and acknowledged by NGCH — settled.'}
-                {statModal === 'ngch_reject' && 'NGCH returned error; Temporal auto-retried. 4 required manual intervention.'}
-                {statModal === 'iqa_fail'    && 'Image quality below CTS-2010 DPI threshold (200 DPI). Returned via NGCH.'}
-                {statModal === 'ai_extract'  && 'Successfully parsed by AI (OCR + vision). Includes all STP and human review items.'}
-                {statModal === 'submitted'   && 'Filed to NGCH (confirm + return). Excludes items still in human review.'}
-                {statModal === 'total'       && 'Total inward instruments received this session from NGCH.'}
-                {statModal === 'amt_mismatch'&& 'Words vs figures amount discrepancy detected by OCR. Routed to human review.'}
-                {statModal === 'date_invalid'&& 'No stale or post-dated instruments detected this session.'}
+                {statModal === 'ngch_ack'    && msg('UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B')}
+                {statModal === 'ngch_reject' && msg('UI_PIPELINEVISUALIZER_NGCH_RETURNED_ERROR_TEMPORAL_AUTO')}
+                {statModal === 'iqa_fail'    && msg('UI_PIPELINEVISUALIZER_IMAGE_QUALITY_BELOW_CTS_2010')}
+                {statModal === 'ai_extract'  && msg('UI_PIPELINEVISUALIZER_SUCCESSFULLY_PARSED_BY_AI_OCR')}
+                {statModal === 'submitted'   && msg('UI_PIPELINEVISUALIZER_FILED_TO_NGCH_CONFIRM_RETURN')}
+                {statModal === 'total'       && msg('UI_PIPELINEVISUALIZER_TOTAL_INWARD_INSTRUMENTS_RECEIVED_TH')}
+                {statModal === 'amt_mismatch'&& msg('UI_PIPELINEVISUALIZER_WORDS_VS_FIGURES_AMOUNT_DISCREPANCY')}
+                {statModal === 'date_invalid'&& msg('UI_PIPELINEVISUALIZER_NO_STALE_OR_POST_DATED')}
               </div>
             </div>
           </div>

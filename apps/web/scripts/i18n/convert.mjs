@@ -63,9 +63,9 @@ for (const o of analysed) {
   const uniqueKey = (base) => { let k = base, i = 2; while (existingKeys.has(k) || newKeys.has(k) || taken.has(k)) k = `${base}_${i++}`; taken.add(k); return k }
 
   // does this file already use the name `msg` for something else?
-  const importRe = /import\s*\{[^}]*\bmsg\b[^}]*\}\s*from\s*['"][^'"]*shared\/messages['"]/
+  const importRe = /import\s*\{[^}]*\bmsg\b[^}]*\}\s*from\s*['"][^'"]*\/messages['"]/
   const hasImport = importRe.test(o.src)
-  const existingAlias = hasImport ? (o.src.match(/import\s*\{[^}]*\bmsg\s+as\s+(\w+)[^}]*\}\s*from\s*['"][^'"]*shared\/messages['"]/) ?? [])[1] : null
+  const existingAlias = hasImport ? (o.src.match(/import\s*\{[^}]*\bmsg\s+as\s+(\w+)[^}]*\}\s*from\s*['"][^'"]*\/messages['"]/) ?? [])[1] : null
   const otherMsg = hasImport ? false : /\bmsg\b/.test(o.src)
   const fn = existingAlias ?? (otherMsg ? 'uiMsg' : 'msg')
 

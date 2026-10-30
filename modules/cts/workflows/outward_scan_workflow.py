@@ -48,6 +48,8 @@ _STALE_DAYS = 90   # RBI: cheques older than 3 months cannot be presented
 
 from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
 from shared.utils.cheque_amount import parse_amount_figures  # noqa: E402
+with workflow.unsafe.imports_passed_through():
+    from shared.messages import get_message
 
 
 def _validate_cheque_date(date_str):
@@ -414,7 +416,7 @@ class OutwardScanWorkflow:
                 self._outward_steps.append(StepResult(
                     step_id="post_dated_hold",
                     outcome="PASS",
-                    reason="PostDatedHoldWorkflow spawned",
+                    reason=get_message("CTS_POSTDATEDHOLDWORKFLOW_SPAWNED"),
                 ))
                 return OutwardScanResult(
                     outcome="POST_DATED_HELD",
@@ -841,7 +843,7 @@ class OutwardScanWorkflow:
             self._outward_steps.append(StepResult(
                 step_id="mismatch_spawn",
                 outcome="PASS",
-                reason="MismatchResolutionWorkflow spawned",
+                reason=get_message("CTS_MISMATCHRESOLUTIONWORKFLOW_SPAWNED"),
             ))
             return await self._spawn_mismatch(
                 inp, None, micr_line,

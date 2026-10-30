@@ -129,7 +129,7 @@ class ServiceStartAllResponse(BaseModel):
 async def _check_branches(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
-            check_id="branches_loaded", label="Branch Master loaded",
+            check_id="branches_loaded", label=get_message("UI_SMOKETEST_BRANCH_MASTER_LOADED"),
             status="WARN", detail=get_message("API_DB_UNAVAILABLE_CONNECT_YUGABYTEDB_FI"),
             action_url="/cts/admin/branches",
         )
@@ -144,24 +144,24 @@ async def _check_branches(bank_id: str, db_pool: Any) -> ReadinessItem:
         ms = int((time.monotonic() - t0) * 1000)
         if count == 0:
             return ReadinessItem(
-                check_id="branches_loaded", label="Branch Master loaded",
+                check_id="branches_loaded", label=get_message("UI_SMOKETEST_BRANCH_MASTER_LOADED"),
                 status="FAIL", detail=get_message("API_NO_BRANCHES_LOADED_IMPORT_CSV"),
                 action_url="/cts/admin/branches",
             )
         if count < 3:
             return ReadinessItem(
-                check_id="branches_loaded", label="Branch Master loaded",
+                check_id="branches_loaded", label=get_message("UI_SMOKETEST_BRANCH_MASTER_LOADED"),
                 status="WARN", detail=get_message("API_ONLY_BRANCH_LOADED_VERIFY_COMPLETENE", count=count, value='es' if count > 1 else ''),
                 action_url="/cts/admin/branches",
             )
         return ReadinessItem(
-            check_id="branches_loaded", label="Branch Master loaded",
+            check_id="branches_loaded", label=get_message("UI_SMOKETEST_BRANCH_MASTER_LOADED"),
             status="PASS", detail=get_message("API_ACTIVE_BRANCHES_MS", count=count, ms=ms),
         )
     except Exception as exc:
         log.warning("platform.readiness.branches_error", bank_id=bank_id, error=str(exc))
         return ReadinessItem(
-            check_id="branches_loaded", label="Branch Master loaded",
+            check_id="branches_loaded", label=get_message("UI_SMOKETEST_BRANCH_MASTER_LOADED"),
             status="WARN", detail=get_message("API_QUERY_FAILED", str=str(exc)[:80]),
             action_url="/cts/admin/branches",
         )
@@ -170,7 +170,7 @@ async def _check_branches(bank_id: str, db_pool: Any) -> ReadinessItem:
 async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> ReadinessItem:
     if redis_cts is None or db_pool is None:
         return ReadinessItem(
-            check_id="sig_vault_seeded", label="Signature Vault seeded",
+            check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
             status="WARN", detail=get_message("API_REDIS_CTS_OR_DB_UNAVAILABLE"),
             action_url="/cts/vaults",
         )
@@ -184,25 +184,25 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
         redis_count = sum(1 for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000))
         if db_total == 0:
             return ReadinessItem(
-                check_id="sig_vault_seeded", label="Signature Vault seeded",
+                check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
                 status="FAIL", detail=get_message("API_NO_SIGNATURES_IN_DB_RUN"),
                 action_url="/cts/vaults",
             )
         pct = min(100.0, redis_count / db_total * 100) if db_total > 0 else 100.0
         if pct < 80:
             return ReadinessItem(
-                check_id="sig_vault_seeded", label="Signature Vault seeded",
+                check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
                 status="WARN", detail=f"Redis warm: {redis_count}/{db_total} ({pct:.0f}%) — run vault sync",
                 action_url="/cts/vaults",
             )
         return ReadinessItem(
-            check_id="sig_vault_seeded", label="Signature Vault seeded",
+            check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
             status="PASS", detail=f"{redis_count}/{db_total} accounts in Redis ({pct:.0f}%)",
         )
     except Exception as exc:
         log.warning("platform.readiness.sig_vault_error", bank_id=bank_id, error=str(exc))
         return ReadinessItem(
-            check_id="sig_vault_seeded", label="Signature Vault seeded",
+            check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
             status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
             action_url="/cts/vaults",
         )
@@ -211,23 +211,23 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
 async def _check_pps_vault(bank_id: str, redis_cts: Any) -> ReadinessItem:
     if redis_cts is None:
         return ReadinessItem(
-            check_id="pps_vault_seeded", label="PPS Vault seeded",
+            check_id="pps_vault_seeded", label=get_message("UI_SMOKETEST_PPS_VAULT_SEEDED"),
             status="WARN", detail=get_message("API_REDIS_CTS_UNAVAILABLE"),
         )
     try:
         count = sum(1 for _ in redis_cts.scan_iter(match=f"pps:{bank_id}:*", count=1000))
         if count == 0:
             return ReadinessItem(
-                check_id="pps_vault_seeded", label="PPS Vault seeded",
+                check_id="pps_vault_seeded", label=get_message("UI_SMOKETEST_PPS_VAULT_SEEDED"),
                 status="WARN", detail=get_message("API_NO_PPS_ENTRIES_SEED_IF"),
             )
         return ReadinessItem(
-            check_id="pps_vault_seeded", label="PPS Vault seeded",
+            check_id="pps_vault_seeded", label=get_message("UI_SMOKETEST_PPS_VAULT_SEEDED"),
             status="PASS", detail=get_message("API_PPS_ENTRIES_IN_REDIS", count=count),
         )
     except Exception as exc:
         return ReadinessItem(
-            check_id="pps_vault_seeded", label="PPS Vault seeded",
+            check_id="pps_vault_seeded", label=get_message("UI_SMOKETEST_PPS_VAULT_SEEDED"),
             status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
         )
 
@@ -235,7 +235,7 @@ async def _check_pps_vault(bank_id: str, redis_cts: Any) -> ReadinessItem:
 async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
-            check_id="micr_prefixes", label="MICR Prefixes configured",
+            check_id="micr_prefixes", label=get_message("UI_SMOKETEST_MICR_PREFIXES_CONFIGURED"),
             status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"),
             action_url="/cts/config/micr-prefixes",
         )
@@ -248,17 +248,17 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
         count = int(row["cnt"] or 0)
         if count == 0:
             return ReadinessItem(
-                check_id="micr_prefixes", label="MICR Prefixes configured",
+                check_id="micr_prefixes", label=get_message("UI_SMOKETEST_MICR_PREFIXES_CONFIGURED"),
                 status="FAIL", detail=get_message("API_NO_MICR_PREFIXES_CONFIGURE_BEFORE"),
                 action_url="/cts/config/micr-prefixes",
             )
         return ReadinessItem(
-            check_id="micr_prefixes", label="MICR Prefixes configured",
+            check_id="micr_prefixes", label=get_message("UI_SMOKETEST_MICR_PREFIXES_CONFIGURED"),
             status="PASS", detail=get_message("API_PREFIX_CONFIGURED", count=count, value='es' if count > 1 else ''),
         )
     except Exception as exc:
         return ReadinessItem(
-            check_id="micr_prefixes", label="MICR Prefixes configured",
+            check_id="micr_prefixes", label=get_message("UI_SMOKETEST_MICR_PREFIXES_CONFIGURED"),
             status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
             action_url="/cts/config/micr-prefixes",
         )
@@ -267,7 +267,7 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
 async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
-            check_id="ops_users", label="Ops reviewers configured",
+            check_id="ops_users", label=get_message("UI_SMOKETEST_OPS_REVIEWERS_CONFIGURED"),
             status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"),
             action_url="/admin/users",
         )
@@ -287,17 +287,17 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
         managers  = int(row["managers"]  or 0)
         if reviewers == 0:
             return ReadinessItem(
-                check_id="ops_users", label="Ops reviewers configured",
+                check_id="ops_users", label=get_message("UI_SMOKETEST_OPS_REVIEWERS_CONFIGURED"),
                 status="FAIL", detail=get_message("API_NO_OPS_REVIEWER_USERS_HUMAN"),
                 action_url="/admin/users",
             )
         return ReadinessItem(
-            check_id="ops_users", label="Ops reviewers configured",
+            check_id="ops_users", label=get_message("UI_SMOKETEST_OPS_REVIEWERS_CONFIGURED"),
             status="PASS", detail=get_message("API_REVIEWER_MANAGER", reviewers=reviewers, value='s' if reviewers > 1 else '', managers=managers, value2='s' if managers > 1 else ''),
         )
     except Exception as exc:
         return ReadinessItem(
-            check_id="ops_users", label="Ops reviewers configured",
+            check_id="ops_users", label=get_message("UI_SMOKETEST_OPS_REVIEWERS_CONFIGURED"),
             status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
             action_url="/admin/users",
         )
@@ -311,23 +311,23 @@ def _check_inward_folder() -> ReadinessItem:
         folder = ""
     if not folder:
         return ReadinessItem(
-            check_id="inward_folder", label="Inward watch folder (POC)",
+            check_id="inward_folder", label=get_message("UI_SMOKETEST_INWARD_WATCH_FOLDER_POC"),
             status="FAIL", detail=get_message("API_CTS_INWARD_FOLDER_PATH_NOT"),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
     if not os.path.isdir(folder):
         return ReadinessItem(
-            check_id="inward_folder", label="Inward watch folder (POC)",
+            check_id="inward_folder", label=get_message("UI_SMOKETEST_INWARD_WATCH_FOLDER_POC"),
             status="FAIL", detail=get_message("API_DIRECTORY_NOT_FOUND", folder=folder),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
     writable = os.access(folder, os.W_OK)
     return ReadinessItem(
-        check_id="inward_folder", label="Inward watch folder (POC)",
+        check_id="inward_folder", label=get_message("UI_SMOKETEST_INWARD_WATCH_FOLDER_POC"),
         status="PASS" if writable else "WARN",
-        detail=f"{folder} — {'writable' if writable else 'exists but not writable'}",
+        detail=f"{folder} — {'writable' if writable else get_message("API_EXISTS_BUT_NOT_WRITABLE")}",
         deployment_modes=["POC"],
     )
 
@@ -340,23 +340,23 @@ def _check_outward_folder() -> ReadinessItem:
         folder = ""
     if not folder:
         return ReadinessItem(
-            check_id="outward_folder", label="Outward output folder (POC)",
+            check_id="outward_folder", label=get_message("UI_SMOKETEST_OUTWARD_OUTPUT_FOLDER_POC"),
             status="FAIL", detail=get_message("API_CTS_OUTWARD_FOLDER_PATH_NOT"),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
     if not os.path.isdir(folder):
         return ReadinessItem(
-            check_id="outward_folder", label="Outward output folder (POC)",
+            check_id="outward_folder", label=get_message("UI_SMOKETEST_OUTWARD_OUTPUT_FOLDER_POC"),
             status="FAIL", detail=get_message("API_DIRECTORY_NOT_FOUND", folder=folder),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
     writable = os.access(folder, os.W_OK)
     return ReadinessItem(
-        check_id="outward_folder", label="Outward output folder (POC)",
+        check_id="outward_folder", label=get_message("UI_SMOKETEST_OUTWARD_OUTPUT_FOLDER_POC"),
         status="PASS" if writable else "WARN",
-        detail=f"{folder} — {'writable' if writable else 'exists but not writable'}",
+        detail=f"{folder} — {'writable' if writable else get_message("API_EXISTS_BUT_NOT_WRITABLE")}",
         deployment_modes=["POC"],
     )
 
@@ -379,7 +379,7 @@ async def _run_test_kafka(state: Any, bank_id: str) -> SmokeTestResult:
         )
         ms = int((time.monotonic() - t0) * 1000)
         status = "PASS" if ms < 500 else "WARN"
-        msg = f"Produced to {topic} in {ms}ms" + (" — ACK slow, check Kafka load" if ms >= 500 else "")
+        msg = f"Produced to {topic} in {ms}ms" + (get_message("API_ACK_SLOW_CHECK_KAFKA_LOAD") if ms >= 500 else "")
         return SmokeTestResult(test_id="test_kafka", status=status, message=msg, latency_ms=ms)
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id="test_kafka", status="FAIL",
@@ -452,7 +452,7 @@ async def _run_test_pps_vault(state: Any, bank_id: str) -> SmokeTestResult:
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
         count = sum(1 for _ in redis.scan_iter(match=f"pps:{bank_id}:*", count=500))
-        detail = f"{count} PPS entries seeded" if count > 0 else "No PPS entries seeded — seed if bank issues cheque books"
+        detail = f"{count} PPS entries seeded" if count > 0 else get_message("API_NO_PPS_ENTRIES_SEEDED_SEED")
         st = "PASS" if count > 0 else "WARN"
         return SmokeTestResult(test_id="test_pps_vault", status=st,
                                message=get_message("API_PPS_VAULT_PING_OK_MS", ms=ms, detail=detail), latency_ms=ms)
@@ -624,7 +624,7 @@ _STARTUP_SEQUENCE: list[list[str]] = [
     ["temporal"],                                # Tier 3 — needs yugabyte healthy
     ["vllm"],                                    # Tier 4 — HF-hosted, instant
 ]
-_TIER_LABELS = ["Foundation", "Data Layer", "Orchestration", "AI Inference"]
+_TIER_LABELS = ["Foundation", get_message("UI_SMOKETEST_DATA_LAYER"), "Orchestration", get_message("UI_SMOKETEST_AI_INFERENCE")]
 _INTER_TIER_SLEEP = 15  # seconds between real Docker tiers (let services stabilise)
 
 # Default path is the dev compose file co-located in this repo.
@@ -846,7 +846,7 @@ async def start_all_services(
             *[_start_single(svc_id) for svc_id in tier_svc_ids]
         ))
 
-        label = _TIER_LABELS[idx] if idx < len(_TIER_LABELS) else f"Tier {idx + 1}"
+        label = _TIER_LABELS[idx] if idx < len(_TIER_LABELS) else get_message("API_TIER", value=idx + 1)
         tier_results.append(TierStartResult(tier=idx + 1, label=label, services=svc_results))
 
         for r in svc_results:

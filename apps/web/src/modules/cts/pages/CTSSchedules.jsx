@@ -189,7 +189,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
                 : (isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white')
             }`}
           >
-            {saving ? 'Saving…' : 'Save Schedule'}
+            {saving ? msg('UI_COMMON_SAVING') : msg('UI_SCHEDULES_SAVE_SCHEDULE')}
           </button>
         </div>
       </div>
@@ -315,7 +315,7 @@ export default function CTSSchedules() {
                           : (isDark ? 'border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/20' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50')
                     }`}
                   >
-                    {togglingId === s.schedule_id ? '…' : s.status === 'RUNNING' ? 'Pause' : 'Resume'}
+                    {togglingId === s.schedule_id ? '…' : s.status === 'RUNNING' ? msg('UI_SCHEDULES_PAUSE') : msg('UI_SCHEDULES_RESUME')}
                   </button>
                   {/* Edit */}
                   <button

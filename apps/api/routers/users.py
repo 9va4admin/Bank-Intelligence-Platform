@@ -216,7 +216,7 @@ def _generate_totp_secret() -> str:
 
 _MOCK_USERS: dict[str, dict] = {
     "usr-001": {
-        "user_id": "usr-001", "email": "ops1@bank.com", "display_name": "Ramesh Kumar",
+        "user_id": "usr-001", "email": "ops1@bank.com", "display_name": get_message("API_RAMESH_KUMAR"),
         "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
         "pu_id": "MUMBAI", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1001",
@@ -224,7 +224,7 @@ _MOCK_USERS: dict[str, dict] = {
         "last_login_at": datetime(2026, 6, 25, 9, 12, tzinfo=timezone.utc),
     },
     "usr-002": {
-        "user_id": "usr-002", "email": "fraud@bank.com", "display_name": "Priya Sharma",
+        "user_id": "usr-002", "email": "fraud@bank.com", "display_name": get_message("API_PRIYA_SHARMA"),
         "role": "fraud_analyst", "bank_type": "SB", "permission_level": "EDIT",
         "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": False, "employee_id": "EMP-1002",
@@ -232,7 +232,7 @@ _MOCK_USERS: dict[str, dict] = {
         "last_login_at": datetime(2026, 6, 24, 16, 45, tzinfo=timezone.utc),
     },
     "usr-003": {
-        "user_id": "usr-003", "email": "mgr@bank.com", "display_name": "Sunil Mehta",
+        "user_id": "usr-003", "email": "mgr@bank.com", "display_name": get_message("API_SUNIL_MEHTA"),
         "role": "ops_manager", "bank_type": "SB", "permission_level": "EDIT",
         "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1003",
@@ -240,7 +240,7 @@ _MOCK_USERS: dict[str, dict] = {
         "last_login_at": datetime(2026, 6, 25, 8, 55, tzinfo=timezone.utc),
     },
     "usr-004": {
-        "user_id": "usr-004", "email": "compliance@bank.com", "display_name": "Anita Desai",
+        "user_id": "usr-004", "email": "compliance@bank.com", "display_name": get_message("API_ANITA_DESAI"),
         "role": "compliance_officer", "bank_type": "SB", "permission_level": "EDIT",
         "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1004",
@@ -248,7 +248,7 @@ _MOCK_USERS: dict[str, dict] = {
         "last_login_at": datetime(2026, 6, 23, 14, 20, tzinfo=timezone.utc),
     },
     "usr-005": {
-        "user_id": "usr-005", "email": "ops2@bank.com", "display_name": "Vikram Singh",
+        "user_id": "usr-005", "email": "ops2@bank.com", "display_name": get_message("API_VIKRAM_SINGH"),
         "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
         "pu_id": "DELHI", "bank_id": "hdfc-bank",
         "is_active": False, "totp_enabled": False, "employee_id": "EMP-1005",
@@ -318,7 +318,7 @@ async def _db_fetch_users(
     limit: int,
     offset: int,
 ) -> tuple[list[dict], int]:
-    conditions = ["bank_id = $1"]
+    conditions = [get_message("API_BANK_ID_1")]
     params: list[Any] = [bank_id]
     idx = 2
     if active_only:
@@ -687,8 +687,7 @@ async def totp_setup(
         user_id=user_id,
         otpauth_uri=otpauth_uri,
         secret_base32=secret,
-        qr_hint="Scan this QR code with Google Authenticator, Authy, or any TOTP app. "
-                "Enter the 6-digit code below to confirm setup.",
+        qr_hint=get_message("API_SCAN_THIS_QR_CODE_WITH"),
     )
 
 
@@ -769,7 +768,7 @@ async def totp_verify_login(
         log.warning("totp.verify.failed", user_id=body.user_id, bank_id=body.bank_id)
     return TOTPVerifyResponse(
         valid=valid,
-        message="Login authorised." if valid else "Invalid code. Please check your authenticator app.",
+        message=get_message("API_LOGIN_AUTHORISED") if valid else get_message("API_INVALID_CODE_PLEASE_CHECK_YOUR"),
     )
 
 

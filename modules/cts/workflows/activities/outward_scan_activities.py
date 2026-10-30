@@ -25,6 +25,7 @@ from shared.ai.model_cascade import CascadeOrchestrator
 from shared.observability.otel_setup import get_tracer
 
 from shared.storage.image_fetch import fetch_image_bytes
+from shared.messages import get_message
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
 
@@ -419,8 +420,8 @@ async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractA
         import os as _os, platform as _plat
         if _plat.system() == "Windows":
             for _p in [
-                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                get_message("CTS_C_PROGRAM_FILES_TESSERACT_OCR"),
+                get_message("CTS_C_PROGRAM_FILES_X86_TESSERACT"),
             ]:
                 if _os.path.isfile(_p):
                     pytesseract.pytesseract.tesseract_cmd = _p
@@ -430,7 +431,7 @@ async def _tesseract_fallback(inp: VisionExtractAndCheckInput) -> VisionExtractA
         img = Image.open(io.BytesIO(await fetch_image_bytes(inp.image_front_url))).convert("RGB")
 
         # Full-page PSM 6 (uniform block of text) — works reasonably for cheques
-        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+        raw_text = pytesseract.image_to_string(img, lang="eng", config=get_message("CTS_PSM_6"))
         lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
 
         # Heuristic extraction ────────────────────────────────────────────────
@@ -927,8 +928,8 @@ async def _rear_tesseract_fallback(image_url: str, instrument_id: str) -> Option
         import os as _os, platform as _plat
         if _plat.system() == "Windows":
             for _p in [
-                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                get_message("CTS_C_PROGRAM_FILES_TESSERACT_OCR"),
+                get_message("CTS_C_PROGRAM_FILES_X86_TESSERACT"),
             ]:
                 if _os.path.isfile(_p):
                     pytesseract.pytesseract.tesseract_cmd = _p
@@ -940,7 +941,7 @@ async def _rear_tesseract_fallback(image_url: str, instrument_id: str) -> Option
 
     try:
         img = Image.open(io.BytesIO(await fetch_image_bytes(image_url))).convert("RGB")
-        raw_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6 --oem 1")
+        raw_text = pytesseract.image_to_string(img, lang="eng", config=get_message("CTS_PSM_6_OEM_1"))
         clean = re.sub(r'[^\x20-\x7E\n]', ' ', raw_text)
         lines = [ln.strip() for ln in clean.splitlines() if ln.strip()]
 

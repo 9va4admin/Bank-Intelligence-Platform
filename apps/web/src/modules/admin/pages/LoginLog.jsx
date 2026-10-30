@@ -252,8 +252,8 @@ export default function LoginLog() {
           <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_LOGINLOG_LOGIN_LOG')}</h1>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
             {isSBViewer
-              ? 'Immutable audit trail of all login events across SB and sub-member banks'
-              : 'Immutable audit trail of login events for your institution'}
+              ? msg('UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_ALL')
+              : msg('UI_LOGINLOG_IMMUTABLE_AUDIT_TRAIL_OF_LOGIN')}
           </p>
         </div>
 
@@ -293,7 +293,7 @@ export default function LoginLog() {
             {['ALL', 'LOGIN_SUCCESS', 'LOGIN_FAILED', 'TOTP_FAILED', msg('UI_LOGINLOG_LOGOUT_2'), 'SESSION_EXPIRED', 'FORCE_LOGOUT'].map(t => (
               <button key={t} onClick={() => setEventTypeFilter(t)}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${th.tab(eventTypeFilter === t)}`}>
-                {t === 'ALL' ? 'All Types' : EVENT_TYPE_META[t]?.label ?? t}
+                {t === 'ALL' ? msg('UI_LOGINLOG_ALL_TYPES') : EVENT_TYPE_META[t]?.label ?? t}
               </button>
             ))}
           </div>
@@ -304,7 +304,7 @@ export default function LoginLog() {
               {['ALL', 'SB', 'SMB'].map(t => (
                 <button key={t} onClick={() => setBankTypeFilter(t)}
                   className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${th.tab(bankTypeFilter === t)}`}>
-                  {t === 'ALL' ? 'All Banks' : t}
+                  {t === 'ALL' ? msg('UI_LOGINLOG_ALL_BANKS') : t}
                 </button>
               ))}
             </div>

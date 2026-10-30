@@ -77,7 +77,7 @@ function MicrSourceBadge({ source }) {
         ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
         : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
     }`}>
-      {source === 'HARDWARE' ? 'HW' : 'OCR'}
+      {source === 'HARDWARE' ? msg('UI_BRANCHSCANMONITOR_HW') : msg('UI_BRANCHSCANMONITOR_OCR')}
     </span>
   )
 }
@@ -119,7 +119,7 @@ function EventRow({ item, isDark }) {
         <MicrSourceBadge source={item.micr_source} />
       </td>
       <td className={`py-2 px-3 ${isHardwareFault ? th.faint : th.muted}`}>
-        {isHardwareFault ? 'Not readable' : item.payee}
+        {isHardwareFault ? msg('UI_BRANCHSCANMONITOR_NOT_READABLE') : item.payee}
       </td>
       <td className={`py-2 px-3 ${isHardwareFault ? th.faint : th.muted} tabular-nums`}>
         {isHardwareFault ? '—' : item.amount_range}

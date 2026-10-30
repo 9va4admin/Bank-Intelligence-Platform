@@ -145,7 +145,7 @@ export default function CTSConfig() {
         body: JSON.stringify({
           config_key: key,
           new_value: String(newValue),
-          reason: 'Updated via ASTRA Admin UI',
+          reason: msg('UI_CONFIG_UPDATED_VIA_ASTRA_ADMIN_UI'),
         }),
       })
       if (res.ok) {

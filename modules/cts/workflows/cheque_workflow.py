@@ -105,6 +105,8 @@ def _make_early_stp_return(instrument_id: str, reason: str) -> _EarlyDecision:
 # ---------------------------------------------------------------------------
 
 from shared.utils.cheque_date import parse_cheque_date as _parse_cheque_date  # noqa: E402  (shared inward/outward)
+with workflow.unsafe.imports_passed_through():
+    from shared.messages import get_message
 
 
 def _parse_amount_figures(raw: Optional[str]) -> Optional[float]:
@@ -466,8 +468,7 @@ class ChequeProcessingWorkflow:
                 return ChequeWorkflowResult(
                     instrument_id=inp.instrument_id, bank_id=inp.bank_id,
                     decision=self._iet_emergency_decision,
-                    rationale=(f"iet_emergency_filed: the IET watchdog filed {self._iet_emergency_decision} before the "
-                               f"pipeline finished; pipeline outcome superseded ({decision}: {rationale})"),
+                    rationale=(get_message("CTS_IET_EMERGENCY_FILED_THE_IET", iet_emergency_decision=self._iet_emergency_decision, decision=decision, rationale=rationale)),
                     shap_values=shap_values or _shap_values or {},
                     emergency_iet_filed=True,
                 )
@@ -926,7 +927,7 @@ class ChequeProcessingWorkflow:
             _steps.append(StepResult(
                 step_id="ocr_multisignal_rescue",
                 outcome="PASS",
-                reason=f"weak_fields={ocr_result.low_confidence_fields} — deferred to synthesise_decision",
+                reason=get_message("CTS_WEAK_FIELDS_DEFERRED_TO_SYNTHESISE", low_confidence_fields=ocr_result.low_confidence_fields),
                 score=_ocr_confidence,
             ))
 
@@ -1474,7 +1475,7 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 decision="STP_RETURN",
-                rationale=f"Stop payment: {stop_payment_result.stop_reason}",
+                rationale=get_message("CTS_STOP_PAYMENT", stop_reason=stop_payment_result.stop_reason),
                 shap_values={},
             )
         if stop_payment_result.outcome == "HUMAN_REVIEW":
@@ -1482,7 +1483,7 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 decision="HUMAN_REVIEW",
-                rationale=f"Stop payment check: {stop_payment_result.stop_reason or 'bloom_hit_or_cbs_unavailable'}",
+                rationale=get_message("CTS_STOP_PAYMENT_CHECK_2", value=stop_payment_result.stop_reason or 'bloom_hit_or_cbs_unavailable'),
                 shap_values={},
             )
 
@@ -1493,7 +1494,7 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 decision="HUMAN_REVIEW",
-                rationale=f"IFSC registry: {ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'}",
+                rationale=get_message("CTS_IFSC_REGISTRY", value=ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'),
                 shap_values={},
             )
 
@@ -1538,7 +1539,7 @@ class ChequeProcessingWorkflow:
                     instrument_id=inp.instrument_id,
                     bank_id=inp.bank_id,
                     decision="STP_RETURN",
-                    rationale=f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
+                    rationale=get_message("CTS_CHEQUE_SERIES", reason=cheque_series_result.reason, return_reason_code=cheque_series_result.return_reason_code),
                     shap_values={},
                 )
             if cheque_series_result.outcome == "HUMAN_REVIEW":
@@ -1546,7 +1547,7 @@ class ChequeProcessingWorkflow:
                     instrument_id=inp.instrument_id,
                     bank_id=inp.bank_id,
                     decision="HUMAN_REVIEW",
-                    rationale=f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
+                    rationale=get_message("CTS_CHEQUE_SERIES_2", value=cheque_series_result.reason or 'CBS_UNAVAILABLE'),
                     shap_values={},
                 )
 
@@ -1570,7 +1571,7 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 decision="STP_RETURN",
-                rationale=f"CBS balance check: {cbs_result.outcome}",
+                rationale=get_message("CTS_CBS_BALANCE_CHECK_2", outcome=cbs_result.outcome),
                 shap_values={},
             )
 
@@ -1581,7 +1582,7 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 decision="STP_RETURN",
-                rationale=f"Account status: {account_status_result.account_status}",
+                rationale=get_message("CTS_ACCOUNT_STATUS", account_status=account_status_result.account_status),
                 shap_values={},
             )
         if account_status_result.outcome == "HUMAN_REVIEW":
@@ -1589,7 +1590,7 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 decision="HUMAN_REVIEW",
-                rationale=f"Account status review: {account_status_result.account_status}",
+                rationale=get_message("CTS_ACCOUNT_STATUS_REVIEW", account_status=account_status_result.account_status),
                 shap_values={},
             )
 

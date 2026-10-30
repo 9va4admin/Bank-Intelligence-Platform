@@ -40,7 +40,7 @@ const STAGES = [
   {
     id: 'inward',
     label: msg('UI_INWARDPIPELINE_NGCH_INWARD'),
-    sub: 'RBI clearing grid',
+    sub: msg('UI_INWARDPIPELINE_RBI_CLEARING_GRID'),
     icon: '⬇',
     color: 'sky',
     avgMs: null,
@@ -48,7 +48,7 @@ const STAGES = [
   {
     id: 'alteration',
     label: msg('UI_INWARDPIPELINE_ALTERATION'),
-    sub: 'Qwen2-VL · FIRST',
+    sub: msg('UI_INWARDPIPELINE_QWEN2_VL_FIRST'),
     icon: '🔍',
     color: 'violet',
     avgMs: 110,
@@ -56,7 +56,7 @@ const STAGES = [
   {
     id: 'cts2010',
     label: msg('UI_DEMOPIPELINE_CTS_2010'),
-    sub: 'Image quality',
+    sub: msg('UI_INWARDPIPELINE_IMAGE_QUALITY'),
     icon: '🖼',
     color: 'blue',
     avgMs: 80,
@@ -64,7 +64,7 @@ const STAGES = [
   {
     id: 'stop_pay',
     label: msg('UI_COMMON_STOP_PAYMENT'),
-    sub: 'Bloom + CBS',
+    sub: msg('UI_INWARDPIPELINE_BLOOM_CBS'),
     icon: '🛑',
     color: 'red',
     avgMs: 50,
@@ -72,7 +72,7 @@ const STAGES = [
   {
     id: 'pps_sig',
     label: msg('UI_INWARDPIPELINE_PPS_SIGNATURE'),
-    sub: 'Vault + Siamese',
+    sub: msg('UI_INWARDPIPELINE_VAULT_SIAMESE'),
     icon: '✍',
     color: 'indigo',
     avgMs: 125,
@@ -80,7 +80,7 @@ const STAGES = [
   {
     id: 'fraud',
     label: msg('UI_COMMON_FRAUD_SCORE'),
-    sub: 'XGBoost + SHAP',
+    sub: msg('UI_INWARDPIPELINE_XGBOOST_SHAP'),
     icon: '🛡',
     color: 'amber',
     avgMs: 45,
@@ -88,7 +88,7 @@ const STAGES = [
   {
     id: 'cbs',
     label: msg('UI_INWARDPIPELINE_CBS_ACCOUNT'),
-    sub: 'Balance + Status',
+    sub: msg('UI_INWARDPIPELINE_BALANCE_STATUS'),
     icon: '🏦',
     color: 'cyan',
     avgMs: 60,
@@ -96,7 +96,7 @@ const STAGES = [
   {
     id: 'decision',
     label: msg('UI_COMMON_DECISION'),
-    sub: 'AI synthesis',
+    sub: msg('UI_INWARDPIPELINE_AI_SYNTHESIS'),
     icon: '⚡',
     color: 'emerald',
     avgMs: 12,
@@ -341,7 +341,7 @@ function ActivityLog({ events, isDark }) {
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ev.outcome === 'CONFIRM' ? 'bg-emerald-400' : ev.outcome === 'RETURN' ? 'bg-red-400' : 'bg-amber-400'}`} />
             <span className={`font-mono truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{ev.id}</span>
             <span className={`ml-auto shrink-0 font-semibold ${ev.outcome === 'CONFIRM' ? 'text-emerald-500' : ev.outcome === 'RETURN' ? 'text-red-500' : 'text-amber-500'}`}>
-              {ev.outcome === 'CONFIRM' ? '✓ STP' : ev.outcome === 'RETURN' ? '✕ RTN' : '👤 HRQ'}
+              {ev.outcome === 'CONFIRM' ? msg('UI_DEMOLIVE_STP') : ev.outcome === 'RETURN' ? msg('UI_INWARDPIPELINE_RTN') : msg('UI_INWARDPIPELINE_HRQ')}
             </span>
             <span className={`shrink-0 font-mono ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_COMMON_MS', { ms: ev.ms })}</span>
           </div>
@@ -659,7 +659,7 @@ export default function CTSInwardPipeline() {
                 : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
               }`}
           >
-            {isSMB ? 'My Inward Pipeline' : `Sub-Member Banks (${SMB_LIST.length})`}
+            {isSMB ? msg('UI_INWARDPIPELINE_MY_INWARD_PIPELINE') : msg('UI_INWARDPIPELINE_SUB_MEMBER_BANKS', { count: SMB_LIST.length })}
             {isSB && Object.values(smbAlerts).some(a => a > 0) && (
               <span className="ml-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded-full bg-amber-500/20 text-amber-500">
                 {Object.values(smbAlerts).reduce((a, b) => a + b, 0)}
@@ -834,8 +834,8 @@ export default function CTSInwardPipeline() {
                           </div>
                           <div className={`text-[9px] leading-relaxed ${isDark ? 'text-amber-400/70' : 'text-amber-600/80'}`}>
                             {alerts === 1
-                              ? 'IET window narrowing — 1 instrument approaching T-30s. Watchdog monitoring.'
-                              : `${alerts} instruments in forwarding stage with elevated IET risk. Immediate review recommended.`}
+                              ? msg('UI_INWARDPIPELINE_IET_WINDOW_NARROWING_1_INSTRUMENT')
+                              : msg('UI_INWARDPIPELINE_INSTRUMENTS_IN_FORWARDING_STAGE_WITH', { alerts })}
                           </div>
                         </div>
                       )}

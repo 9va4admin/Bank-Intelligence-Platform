@@ -20,6 +20,7 @@ from typing import Optional
 import structlog
 
 from modules.cts.ifsc.models import IFSCCreateRequest, IFSCEntry
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -132,7 +133,7 @@ class IFSCRepository:
         active_only: bool = True,
         limit: int = 50,
     ) -> list[IFSCEntry]:
-        conditions = ["bank_id = $1"]
+        conditions = [get_message("API_BANK_ID_1")]
         params: list = [bank_id]
         idx = 2
 

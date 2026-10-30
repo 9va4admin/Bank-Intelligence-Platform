@@ -374,12 +374,12 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
   const infoCls = isDark ? 'text-xs text-slate-400 bg-white/4 border border-white/10 rounded-lg px-3 py-2' : 'text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2'
 
   return (
-    <Modal title={isEdit ? 'Edit Branch' : 'Add Branch'} onClose={onClose} isDark={isDark}>
+    <Modal title={isEdit ? uiMsg('UI_BRANCHMASTER_EDIT_BRANCH_2') : uiMsg('UI_BRANCHMASTER_ADD_BRANCH_2')} onClose={onClose} isDark={isDark}>
       <div className="grid grid-cols-2 gap-4">
         <Field label={uiMsg('UI_BRANCHMASTER_BRANCH_NAME')} isDark={isDark}>
           <Input isDark={isDark} value={form.branch_name} onChange={e => handleChange('branch_name', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KORAMANGALA_BRANCH')} />
         </Field>
-        <Field label={isEdit ? 'IFSC Code (read-only)' : 'IFSC Code *'} isDark={isDark}>
+        <Field label={isEdit ? uiMsg('UI_BRANCHMASTER_IFSC_CODE_READ_ONLY') : uiMsg('UI_BRANCHMASTER_IFSC_CODE')} isDark={isDark}>
           <Input isDark={isDark} value={form.branch_ifsc} onChange={e => handleChange('branch_ifsc', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KARB0000123')} maxLength={11} disabled={isEdit} />
         </Field>
         <Field label={uiMsg('UI_BRANCHMASTER_CITY')} isDark={isDark}>
@@ -442,7 +442,7 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
       {err && <p className="text-red-400 text-xs mt-2">{err}</p>}
       <div className="flex justify-end gap-3 pt-2">
         <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
-        <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Branch'}</button>
+        <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleSubmit}>{isEdit ? uiMsg('UI_COMMON_SAVE_CHANGES') : uiMsg('UI_BRANCHMASTER_CREATE_BRANCH')}</button>
       </div>
     </Modal>
   )
@@ -521,7 +521,7 @@ function ImportModal({ isDark, onClose, qc }) {
           <div className="flex justify-end gap-3">
             <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL')}</button>
             <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40`} onClick={handlePreview} disabled={!file || loading}>
-              {loading ? 'Validating…' : 'Validate CSV'}
+              {loading ? uiMsg('UI_BRANCHMASTER_VALIDATING') : uiMsg('UI_BRANCHMASTER_VALIDATE_CSV')}
             </button>
           </div>
         </div>
@@ -559,7 +559,7 @@ function ImportModal({ isDark, onClose, qc }) {
               onClick={handleConfirm}
               disabled={preview.valid_count === 0 || loading}
             >
-              {loading ? 'Importing…' : `Import ${preview.valid_count} branches`}
+              {loading ? uiMsg('UI_BRANCHMASTER_IMPORTING') : uiMsg('UI_BRANCHMASTER_IMPORT_BRANCHES', { valid_count: preview.valid_count })}
             </button>
           </div>
         </div>
@@ -715,7 +715,7 @@ function ScannerRegistrationModal({ branch, isDark, onClose }) {
               className={`${btnCls} ${isDark ? 'border border-white/15 text-slate-300 hover:bg-white/6' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
               onClick={handleCopy}
             >
-              {copied ? '✓ Copied' : 'Copy Code'}
+              {copied ? uiMsg('UI_BRANCHMASTER_COPIED') : uiMsg('UI_BRANCHMASTER_COPY_CODE')}
             </button>
             <button
               className={`${btnCls} ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}
@@ -928,7 +928,7 @@ export default function CTSBranchMaster() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge isDark={isDark} variant={b.is_active ? 'green' : 'red'}>
-                      {b.is_active ? 'Active' : 'Inactive'}
+                      {b.is_active ? uiMsg('UI_USERMANAGEMENT_ACTIVE_2') : uiMsg('UI_USERMANAGEMENT_INACTIVE')}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">

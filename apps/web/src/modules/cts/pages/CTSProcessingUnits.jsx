@@ -163,7 +163,7 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
         className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${th.modal}`}
         onClick={e => e.stopPropagation()}
       >
-        <h3 className="text-sm font-semibold mb-5">{isEdit ? 'Edit Processing Unit' : 'Add Processing Unit'}</h3>
+        <h3 className="text-sm font-semibold mb-5">{isEdit ? uiMsg('UI_PROCESSINGUNITS_EDIT_PROCESSING_UNIT') : uiMsg('UI_PROCESSINGUNITS_ADD_PROCESSING_UNIT')}</h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isEdit && (
@@ -239,7 +239,7 @@ function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
               type="submit"
               className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg py-2 transition-colors"
             >
-              {isEdit ? 'Save Changes' : 'Create PU'}
+              {isEdit ? uiMsg('UI_COMMON_SAVE_CHANGES') : uiMsg('UI_PROCESSINGUNITS_CREATE_PU')}
             </button>
             <button
               type="button"
@@ -278,7 +278,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
   if (branches.length === 0) {
     return (
       <div className={`px-6 py-3 text-xs ${th.muted}`}>
-        {isDemo ? 'No branches mapped to this PU.' : 'No branches mapped to this PU yet.'}
+        {isDemo ? uiMsg('UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS') : uiMsg('UI_PROCESSINGUNITS_NO_BRANCHES_MAPPED_TO_THIS_2')}
       </div>
     )
   }
@@ -299,7 +299,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
               <td className={`py-1.5 pr-4 font-mono ${th.muted}`}>{b.branch_ifsc}</td>
               <td className={`py-1.5 pr-4 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{b.branch_name}</td>
               <td className={`py-1.5 pr-4 ${th.muted}`}>{b.city || '—'}</td>
-              <td className={`py-1.5 pr-4 ${th.muted}`}>{b.is_scanning_enabled ? 'Yes' : 'No'}</td>
+              <td className={`py-1.5 pr-4 ${th.muted}`}>{b.is_scanning_enabled ? uiMsg('UI_COMMON_YES') : uiMsg('UI_COMMON_NO')}</td>
               <td className="py-1.5"><Badge active={b.is_active} isDark={isDark} /></td>
             </tr>
           ))}
@@ -339,7 +339,7 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
               onClick={() => setExpanded(v => !v)}
               className={th.btnGhost}
             >
-              {expanded ? '▲ Branches' : `▼ Branches${(DEMO_BRANCHES_BY_PU[pu.pu_id]?.length ?? 0) > 0 ? ` (${DEMO_BRANCHES_BY_PU[pu.pu_id].length})` : ''}`}
+              {expanded ? uiMsg('UI_PROCESSINGUNITS_BRANCHES') : uiMsg('UI_PROCESSINGUNITS_BRANCHES_2', { value: (DEMO_BRANCHES_BY_PU[pu.pu_id]?.length ?? 0) > 0 ? ` (${DEMO_BRANCHES_BY_PU[pu.pu_id].length})` : '' })}
             </button>
             <button onClick={() => onEdit(pu)} className={th.btnGhost}>{uiMsg('UI_COMMON_EDIT')}</button>
             {pu.is_active && (
@@ -406,7 +406,7 @@ export default function CTSProcessingUnits() {
     mutationFn: (body) => USE_MOCK
       ? Promise.resolve(createMockPU(body, bankId))
       : apiFetch('/v1/processing-units', { method: 'POST', body }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['processing-units', bankId] }); setShowForm(false); flash('PU created.', 'ok') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['processing-units', bankId] }); setShowForm(false); flash(uiMsg('UI_PROCESSINGUNITS_PU_CREATED'), 'ok') },
     onError:   (e) => flash(e.message, 'err'),
   })
 
@@ -414,7 +414,7 @@ export default function CTSProcessingUnits() {
     mutationFn: ({ puId, body }) => USE_MOCK
       ? Promise.resolve(updateMockPU(puId, body))
       : apiFetch(`/v1/processing-units/${puId}`, { method: 'PUT', body }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['processing-units', bankId] }); setEditTarget(null); flash('PU updated.', 'ok') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['processing-units', bankId] }); setEditTarget(null); flash(uiMsg('UI_PROCESSINGUNITS_PU_UPDATED'), 'ok') },
     onError:   (e) => flash(e.message, 'err'),
   })
 
@@ -422,7 +422,7 @@ export default function CTSProcessingUnits() {
     mutationFn: (puId) => USE_MOCK
       ? Promise.resolve(deactivateMockPU(puId))
       : apiFetch(`/v1/processing-units/${puId}`, { method: 'DELETE' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['processing-units', bankId] }); flash('PU deactivated.', 'ok') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['processing-units', bankId] }); flash(uiMsg('UI_PROCESSINGUNITS_PU_DEACTIVATED'), 'ok') },
     onError:   (e) => flash(e.message, 'err'),
   })
 

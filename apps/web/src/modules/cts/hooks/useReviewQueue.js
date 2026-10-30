@@ -59,7 +59,7 @@ function _reasonLabel(reason) {
     CBS_UNAVAILABLE: 'CBS unreachable',
     PPS_MISS: 'PPS not registered',
   }
-  return MAP[reason] ?? reason ?? 'Flagged for review'
+  return MAP[reason] ?? reason ?? msg('UI_USEREVIEWQUEUE_FLAGGED_FOR_REVIEW')
 }
 
 export default function useReviewQueue({ token, pollEnabled = true, isDemo = true } = {}) {

@@ -30,6 +30,7 @@ from modules.msv.mandates.models import (
     MSVOutcome,
     MSVOutput,
 )
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.msv.orchestrator")
@@ -100,7 +101,7 @@ class SignatureOrchestrator:
                     outcome=MSVOutcome.AMBER,
                     confidence=0.0,
                     reason_code="UNKNOWN_OPERATION_TYPE",
-                    reason_message=f"Operation type '{op_type}' is not recognised.",
+                    reason_message=get_message("MSV_OPERATION_TYPE_IS_NOT_RECOGNISED", op_type=op_type),
                     matched_signatories=[],
                     detected_sig_count=0,
                     mandate_rule_type=meta.mandate.rule_type.value,
@@ -134,7 +135,7 @@ class SignatureOrchestrator:
                 outcome=MSVOutcome.AMBER,
                 confidence=0.0,
                 reason_code="NO_SIGNATORIES_ENROLLED",
-                reason_message="No enrolled signatories found — routing to human review.",
+                reason_message=get_message("MSV_NO_ENROLLED_SIGNATORIES_FOUND_ROUTIN"),
                 matched_signatories=[],
                 detected_sig_count=0,
                 mandate_rule_type=mandate_rule_type,
@@ -157,7 +158,7 @@ class SignatureOrchestrator:
                 outcome=MSVOutcome.AMBER,
                 confidence=0.0,
                 reason_code="DETECTOR_MODEL_UNAVAILABLE",
-                reason_message="Signature detector unavailable — routing to human review.",
+                reason_message=get_message("MSV_SIGNATURE_DETECTOR_UNAVAILABLE_ROUTI"),
                 matched_signatories=[],
                 detected_sig_count=0,
                 mandate_rule_type=mandate_rule_type,
@@ -188,7 +189,7 @@ class SignatureOrchestrator:
                     outcome=MSVOutcome.AMBER,
                     confidence=0.0,
                     reason_code="EMBEDDING_MODEL_UNAVAILABLE",
-                    reason_message="Embedding model unavailable — routing to human review.",
+                    reason_message=get_message("MSV_EMBEDDING_MODEL_UNAVAILABLE_ROUTING"),
                     matched_signatories=[],
                     detected_sig_count=detected_count,
                     mandate_rule_type=mandate_rule_type,

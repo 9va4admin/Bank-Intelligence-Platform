@@ -42,10 +42,10 @@ const MOCK_NOTIFICATIONS = [
 
 function fmtNotifTs(ts) {
   const mins = Math.floor((Date.now() - ts) / 60000)
-  if (mins < 1)  return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1)  return uiMsg('UI_APPSHELL_JUST_NOW')
+  if (mins < 60) return uiMsg('UI_APPSHELL_M_AGO', { mins })
   const hrs = Math.floor(mins / 60)
-  return `${hrs}h ago`
+  return uiMsg('UI_APPSHELL_H_AGO', { hrs })
 }
 
 const SEV_D = {
@@ -114,7 +114,7 @@ const SIDEBAR_MODULES = [
   {
     id: 'cts',
     label: 'CTS',
-    fullLabel: 'Cheque Truncation',
+    fullLabel: uiMsg('UI_APPSHELL_CHEQUE_TRUNCATION'),
     Icon: CtsIcon,
     sections: [
       {
@@ -213,7 +213,7 @@ const SIDEBAR_MODULES = [
   {
     id: 'ops',
     label: uiMsg('UI_APPSHELL_OPS'),
-    fullLabel: 'Platform Operations',
+    fullLabel: uiMsg('UI_APPSHELL_PLATFORM_OPERATIONS'),
     Icon: OpsIcon,
     sections: [
       {
@@ -231,7 +231,7 @@ const SIDEBAR_MODULES = [
   {
     id: 'admin',
     label: uiMsg('UI_APPSHELL_ADMIN'),
-    fullLabel: 'Administration',
+    fullLabel: uiMsg('UI_APPSHELL_ADMINISTRATION'),
     Icon: AdminIcon,
     sections: [
       {
@@ -556,7 +556,7 @@ export default function AppShell({ children }) {
             {/* Theme toggle */}
             <button
               onClick={toggle}
-              title={isDark ? 'Switch to light' : 'Switch to dark'}
+              title={isDark ? uiMsg('UI_BUSINESSMODEL_SWITCH_TO_LIGHT') : uiMsg('UI_BUSINESSMODEL_SWITCH_TO_DARK')}
               className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
             >
               {isDark ? '☀' : '🌙'}
@@ -572,7 +572,7 @@ export default function AppShell({ children }) {
                   {(userName || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div className="text-left hidden md:block leading-tight">
-                  <div className={`text-[11px] font-medium truncate max-w-[130px] ${isDark ? 'text-white' : 'text-slate-700'}`}>{userName || 'User'}</div>
+                  <div className={`text-[11px] font-medium truncate max-w-[130px] ${isDark ? 'text-white' : 'text-slate-700'}`}>{userName || uiMsg('UI_APPSHELL_USER')}</div>
                   <div className={`text-[10px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{BANK_CONFIG.bank_short_name}</div>
                 </div>
                 <span className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>▾</span>
@@ -623,7 +623,7 @@ export default function AppShell({ children }) {
               <div>
                 <h2 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{uiMsg('UI_APPSHELL_NOTIFICATIONS')}</h2>
                 <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+                  {unreadCount > 0 ? uiMsg('UI_APPSHELL_UNREAD', { unreadCount }) : uiMsg('UI_APPSHELL_ALL_CAUGHT_UP')}
                 </p>
               </div>
               <div className="flex items-center gap-2">

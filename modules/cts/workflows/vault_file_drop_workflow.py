@@ -41,6 +41,8 @@ import structlog
 from pydantic import BaseModel, ConfigDict, field_validator
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
+with workflow.unsafe.imports_passed_through():
+    from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -168,7 +170,7 @@ async def fetch_drop_file(inp: FetchDropFileInput, minio_client=None) -> FetchDr
     except Exception as exc:
         log.error("vault_file_drop.fetch_failed",
                   bank_id=inp.bank_id, minio_key=inp.minio_key, error=str(exc))
-        return FetchDropFileResult(error=f"FETCH_FAILED: {exc}")
+        return FetchDropFileResult(error=get_message("CTS_FETCH_FAILED", exc=exc))
 
     actual_hash = hashlib.sha256(csv_bytes).hexdigest()
     if actual_hash != inp.file_hash:
@@ -196,7 +198,7 @@ async def process_vault_csv(inp: ProcessVaultCSVInput, db_pool=None, vaults: dic
         vaults = {}
 
     if inp.vault_type not in _VALID_VAULT_TYPES:
-        return ProcessVaultCSVResult(error=f"UNKNOWN_VAULT_TYPE: {inp.vault_type}")
+        return ProcessVaultCSVResult(error=get_message("CTS_UNKNOWN_VAULT_TYPE", vault_type=inp.vault_type))
 
     try:
         from modules.cts.vaults.vault_upload_processor import VaultUploadProcessor
@@ -334,7 +336,7 @@ class VaultFileDropWorkflow:
                 outcome="PARSE_FAILED",
                 bank_id=inp.bank_id,
                 vault_type=inp.vault_type,
-                error=f"Unknown vault_type: {inp.vault_type}",
+                error=get_message("CTS_UNKNOWN_VAULT_TYPE_2", vault_type=inp.vault_type),
             )
 
         # 1. Fetch CSV from MinIO
@@ -445,7 +447,7 @@ class VaultFileDropWorkflow:
                 outcome="PARSE_FAILED",
                 bank_id=inp.bank_id,
                 vault_type=inp.vault_type,
-                error=f"Unknown vault_type: {inp.vault_type}",
+                error=get_message("CTS_UNKNOWN_VAULT_TYPE_2", vault_type=inp.vault_type),
             )
 
         fetch_result: FetchDropFileResult = mock_results.get("fetch") or FetchDropFileResult()

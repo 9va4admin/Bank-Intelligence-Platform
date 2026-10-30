@@ -11,6 +11,7 @@ Instrument table with outcome-coded row badges. Summary stat cards at top.
 from __future__ import annotations
 
 from modules.cts.reports.session_report_builder import SessionReportData
+from shared.messages import get_message
 
 _OUTCOME_BADGE = {
     "ACCEPTED":     ("badge-accepted",  "ACCEPTED"),
@@ -20,9 +21,9 @@ _OUTCOME_BADGE = {
 
 _PAYEE_BADGE = {
     "PROCEED":          ("ps-ok",       "CLEAR"),
-    "NOT_FOUND":        ("ps-warn",     "NOT FOUND"),
+    "NOT_FOUND":        ("ps-warn",     get_message("CTS_NOT_FOUND")),
     "ACCOUNT_INACTIVE": ("ps-warn",     "INACTIVE"),
-    "NAME_MISMATCH":    ("ps-warn",     "NAME MISMATCH"),
+    "NAME_MISMATCH":    ("ps-warn",     get_message("CTS_NAME_MISMATCH")),
 }
 
 

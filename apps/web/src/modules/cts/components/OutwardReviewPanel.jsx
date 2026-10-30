@@ -45,7 +45,7 @@ function ExtractionPopover({ meta, isDark, onClose }) {
       <div className="space-y-1.5">
         <div className="flex justify-between">
           <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_EXTRACTED_BY')}</span>
-          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? 'GOT-OCR2.0'}</span>
+          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? msg('UI_OUTWARDREVIEWPANEL_GOT_OCR2_0')}</span>
         </div>
         <div className="flex justify-between">
           <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_RAW_VALUE')}</span>
@@ -187,7 +187,7 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
         className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none ${th.sel}`}
       >
         <span className={`truncate ${returnReason ? '' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-          {returnReason || 'Select Return Reason…'}
+          {returnReason || msg('UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON')}
         </span>
         {selectedEntry && <span className={`ml-2 shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700'}`}>{selectedEntry.code}</span>}
         <span className={`ml-1 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{open ? '▲' : '▼'}</span>
@@ -521,7 +521,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark, tabKind =
                       <div key={key} className="flex items-center justify-between">
                         <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
                         <span className={`font-mono font-semibold ${ok ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
-                          {ok ? '✓ Present' : '⚠ Missing'}
+                          {ok ? msg('UI_OUTWARDREVIEWPANEL_PRESENT') : msg('UI_OUTWARDREVIEWPANEL_MISSING')}
                         </span>
                       </div>
                     )
@@ -535,9 +535,9 @@ export default function OutwardReviewPanel({ item, onDecision, isDark, tabKind =
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_MODEL_ATTRIBUTION')}</div>
               <div className="space-y-1.5 text-[11px]">
                 {[
-                  { task: 'OCR / MICR',        model: 'GOT-OCR2.0'            },
-                  { task: 'Vision / CTS-2010',  model: 'Qwen2-VL 72B'          },
-                  { task: 'Compliance check',   model: 'CTS-2010 Validator v3' },
+                  { task: msg('UI_COMMON_OCR_MICR'),        model: 'GOT-OCR2.0'            },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_VISION_CTS_2010'),  model: 'Qwen2-VL 72B'          },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK'),   model: 'CTS-2010 Validator v3' },
                 ].map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
@@ -634,7 +634,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark, tabKind =
           <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
           <button onClick={handleReturn} disabled={!returnReason || submitting}
             className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          >{submitting ? 'Filing…' : '✕ Return'}</button>
+          >{submitting ? msg('UI_OUTWARDREVIEWPANEL_FILING') : msg('UI_OUTWARDREVIEWPANEL_RETURN')}</button>
           <button onClick={handleApprove} disabled={submitting}
             className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
           >{msg('UI_OUTWARDREVIEWPANEL_APPROVE_VALIDATION_OQ')}</button>

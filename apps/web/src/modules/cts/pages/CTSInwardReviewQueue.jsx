@@ -77,18 +77,18 @@ const MOCK_REVIEW_ITEMS = [
     date: '10-Aug-2026', payee: 'Mahesh Kumar Sharma',
     amount_figures: '2,50,000', micr: '400026001',
     risk_flags: ['HIGH_VALUE', 'ALTERATION_SUSPECTED'],
-    ai_summary: 'Ink inconsistency detected in payee name field. Possible overwriting between "Kumar" and "Sharma". Confidence 0.71. Manual verification recommended.',
+    ai_summary: msg('UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_DETECTED_IN_PAYEE'),
     ai: {
       ocr_confidence: 0.71, ocr_model: 'GOT-OCR2.0',
       signature_score: 0.84, signature_model: 'Siamese-SigNet',
       fraud_score: 0.61, fraud_model: 'XGBoost + LLM',
       alteration_risk: 0.68,
       shap: [
-        { feature: 'Ink inconsistency in payee field', contribution: +0.18 },
-        { feature: 'High value (₹2.5L)', contribution: +0.12 },
-        { feature: 'Signature match 84%', contribution: -0.06 },
-        { feature: 'Account active, no stop payment', contribution: -0.09 },
-        { feature: 'Cheque printed > 60 days ago', contribution: +0.04 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_INK_INCONSISTENCY_IN_PAYEE_FIELD'), contribution: +0.18 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_HIGH_VALUE_2_5L'), contribution: +0.12 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_84'), contribution: -0.06 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE_NO_STOP_PAYMENT'), contribution: -0.09 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_CHEQUE_PRINTED_60_DAYS_AGO'), contribution: +0.04 },
       ],
     },
   },
@@ -114,10 +114,10 @@ const MOCK_REVIEW_ITEMS = [
       fraud_score: 0.08, fraud_model: 'XGBoost + LLM',
       alteration_risk: 0.04,
       shap: [
-        { feature: 'Signature match 93%', contribution: -0.14 },
-        { feature: 'Account in good standing', contribution: -0.10 },
-        { feature: 'Standard value range', contribution: -0.05 },
-        { feature: 'OCR confidence 97%', contribution: -0.08 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_93'), contribution: -0.14 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_ACCOUNT_IN_GOOD_STANDING'), contribution: -0.10 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_STANDARD_VALUE_RANGE'), contribution: -0.05 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE_97'), contribution: -0.08 },
       ],
     },
   },
@@ -136,18 +136,18 @@ const MOCK_REVIEW_ITEMS = [
     date: '08-Aug-2026', payee: 'Apex Infrastructure Ltd.',
     amount_figures: '1,25,00,000', micr: '110026001',
     risk_flags: ['VERY_HIGH_VALUE', 'STOP_PAYMENT'],
-    ai_summary: 'Stop payment instruction registered on this account. Amount exceeds ₹1 Cr threshold. Immediate ops_manager escalation required.',
+    ai_summary: msg('UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_REGISTERED'),
     ai: {
       ocr_confidence: 0.96, ocr_model: 'GOT-OCR2.0',
       signature_score: 0.79, signature_model: 'Siamese-SigNet',
       fraud_score: 0.88, fraud_model: 'XGBoost + LLM',
       alteration_risk: 0.12,
       shap: [
-        { feature: 'Stop payment instruction active', contribution: +0.35 },
-        { feature: 'Very high value (>₹1 Cr)', contribution: +0.22 },
-        { feature: 'Signature below 80% threshold', contribution: +0.10 },
-        { feature: 'Self-drawn cheque (drawer = payee)', contribution: +0.08 },
-        { feature: 'Account active', contribution: -0.05 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_STOP_PAYMENT_INSTRUCTION_ACTIVE'), contribution: +0.35 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_VERY_HIGH_VALUE_1_CR'), contribution: +0.22 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_SIGNATURE_BELOW_80_THRESHOLD'), contribution: +0.10 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_SELF_DRAWN_CHEQUE_DRAWER_PAYEE'), contribution: +0.08 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_ACCOUNT_ACTIVE'), contribution: -0.05 },
       ],
     },
   },
@@ -173,9 +173,9 @@ const MOCK_REVIEW_ITEMS = [
       fraud_score: 0.05, fraud_model: 'XGBoost + LLM',
       alteration_risk: 0.02,
       shap: [
-        { feature: 'Signature match 96%', contribution: -0.18 },
-        { feature: 'Low value, low risk', contribution: -0.12 },
-        { feature: 'No adverse account history', contribution: -0.09 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_96'), contribution: -0.18 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_LOW_VALUE_LOW_RISK'), contribution: -0.12 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_NO_ADVERSE_ACCOUNT_HISTORY'), contribution: -0.09 },
       ],
     },
   },
@@ -194,18 +194,18 @@ const MOCK_REVIEW_ITEMS = [
     date: '09-Aug-2026', payee: 'Anand Exports Pvt. Ltd.',
     amount_figures: '8,75,000', micr: '560026001',
     risk_flags: ['DORMANT_ACCOUNT'],
-    ai_summary: 'Drawee account dormant for 14 months. Last activity Feb 2025. High-value instrument on dormant account requires manual clearance.',
+    ai_summary: msg('UI_INWARDREVIEWQUEUE_DRAWEE_ACCOUNT_DORMANT_FOR_14'),
     ai: {
       ocr_confidence: 0.94, ocr_model: 'GOT-OCR2.0',
       signature_score: 0.88, signature_model: 'Siamese-SigNet',
       fraud_score: 0.44, fraud_model: 'XGBoost + LLM',
       alteration_risk: 0.09,
       shap: [
-        { feature: 'Account dormant 14 months', contribution: +0.28 },
-        { feature: 'High value (₹8.75L)', contribution: +0.14 },
-        { feature: 'Signature match 88%', contribution: -0.04 },
-        { feature: 'No stop payment', contribution: -0.07 },
-        { feature: 'Payee is a registered company', contribution: -0.05 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_ACCOUNT_DORMANT_14_MONTHS'), contribution: +0.28 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_HIGH_VALUE_8_75L'), contribution: +0.14 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH_88'), contribution: -0.04 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_NO_STOP_PAYMENT'), contribution: -0.07 },
+        { feature: msg('UI_INWARDREVIEWQUEUE_PAYEE_IS_A_REGISTERED_COMPANY'), contribution: -0.05 },
       ],
     },
   },
@@ -959,7 +959,7 @@ export default function CTSInwardReviewQueue() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_INWARDREVIEWQUEUE_INWARD_HUMAN_REVIEW_QUEUE_2', { bank_name: BANK_CONFIG.bank_name })}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {isLoading ? 'Loading…' : `${items.length} instrument${items.length !== 1 ? 's' : ''} · click any row to view cheque image and AI analysis`}
+              {isLoading ? msg('UI_COMMON_LOADING') : msg('UI_INWARDREVIEWQUEUE_INSTRUMENT_CLICK_ANY_ROW_TO', { count: items.length, value: items.length !== 1 ? 's' : '' })}
             </p>
           </div>
           <div className="flex items-center gap-2">

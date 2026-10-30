@@ -105,7 +105,7 @@ def train_model(X: dict, y, timestamps, out_path: str, *, synthetic: bool, seed:
                   "test_min_ts": float(ts[b:].min())},
         "threshold": chosen,
         "threshold_selection": {"target_false_negative_rate": TARGET_FNR, "validation_false_negative_rate": vfnr,
-                                "chosen_on": "validation slice only"},
+                                "chosen_on": get_message("CTS_VALIDATION_SLICE_ONLY")},
         "test": {**test, "false_negative_interval": [fn_lo, fn_hi], "false_positive_interval": [fp_lo, fp_hi]},
         "meets_nfr": meets,
         "nfr_note": (f"Targets: F1 > {TARGET_F1}, false negative < {TARGET_FNR:.0%}, false positive < {TARGET_FPR:.0%}. "

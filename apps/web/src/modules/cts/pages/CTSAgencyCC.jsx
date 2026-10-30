@@ -83,7 +83,7 @@ const MOCK_SB_CONNECTIONS = [
     last_tested_at: '2026-07-04T18:30:00Z',
     last_test_latency_ms: null,
     smb_count: 1,
-    error_message: 'SFTP timeout — host unreachable',
+    error_message: msg('UI_AGENCYCC_SFTP_TIMEOUT_HOST_UNREACHABLE'),
   },
 ]
 
@@ -264,7 +264,7 @@ function SBConnectionCard({ conn, isDark }) {
               ? (isDark ? 'text-emerald-400 border-emerald-700/50 bg-emerald-900/30' : 'text-emerald-700 border-emerald-300 bg-emerald-50')
               : (isDark ? 'text-red-400 border-red-700/50 bg-red-900/30' : 'text-red-700 border-red-300 bg-red-50')
           }`}>
-            {conn.is_active ? 'ACTIVE' : 'DOWN'}
+            {conn.is_active ? msg('UI_AGENCYCC_ACTIVE') : msg('UI_AGENCYCC_DOWN')}
           </span>
         </div>
       </div>

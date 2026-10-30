@@ -223,10 +223,10 @@ export default function CTSDraweeView() {
           {/* Summary row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: msg('UI_OPSDASHBOARDBODY_TOTAL_OUTWARD'),   value: totalOutward.toLocaleString(),           color: th.heading, sub: `₹${totalValueCr.toFixed(1)}Cr` },
-              { label: msg('UI_DRAWEEVIEW_NGCH_RETURNED'),   value: totalReturned.toLocaleString(),           color: 'text-red-400',     sub: `${((totalReturned / totalOutward) * 100).toFixed(1)}% rate` },
+              { label: msg('UI_OPSDASHBOARDBODY_TOTAL_OUTWARD'),   value: totalOutward.toLocaleString(),           color: th.heading, sub: msg('UI_DRAWEEVIEW_CR_3', { totalValueCr: totalValueCr.toFixed(1) }) },
+              { label: msg('UI_DRAWEEVIEW_NGCH_RETURNED'),   value: totalReturned.toLocaleString(),           color: 'text-red-400',     sub: msg('UI_DRAWEEVIEW_RATE', { value: ((totalReturned / totalOutward) * 100).toFixed(1) }) },
               { label: msg('UI_DRAWEEVIEW_NGCH_ACCEPTED'),   value: (totalOutward - totalReturned).toLocaleString(), color: 'text-emerald-400', sub: 'cleared' },
-              { label: msg('UI_DRAWEEVIEW_NET_POSITION'),    value: '₹43.2Cr',                               color: 'text-emerald-400', sub: 'RECEIVE today' },
+              { label: msg('UI_DRAWEEVIEW_NET_POSITION'),    value: '₹43.2Cr',                               color: 'text-emerald-400', sub: msg('UI_DRAWEEVIEW_RECEIVE_TODAY') },
             ].map(k => (
               <div key={k.label} className={`border rounded-xl p-4 ${th.card}`}>
                 <div className={`text-[10px] uppercase tracking-wide ${th.muted} mb-1`}>{k.label}</div>
