@@ -64,6 +64,8 @@ describe('CTSCompliance', () => {
 
   it('lot selector changes displayed instruments', () => {
     renderPage()
+    // the lot selector lives in the page-header actions, so render those
+    render(<div>{captured.actions}</div>, { wrapper: ({ children }) => <MemoryRouter><ThemeProvider>{children}</ThemeProvider></MemoryRouter> })
     const select = screen.getByRole('combobox')
     fireEvent.change(select, { target: { value: screen.getAllByRole('option')[1]?.value } })
     expect(screen.getByText('Instruments')).toBeInTheDocument()

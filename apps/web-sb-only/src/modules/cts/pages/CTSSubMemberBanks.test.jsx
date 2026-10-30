@@ -27,7 +27,7 @@ describe('CTSSubMemberBanks', () => {
 
   it('shows all mock sub-members', () => {
     renderPage()
-    expect(screen.getByText('Saraswat Co-operative Bank')).toBeInTheDocument()
+    expect(screen.getByText('Vasavi Co-operative Bank')).toBeInTheDocument()
     expect(screen.getByText('Cosmos Co-operative Bank')).toBeInTheDocument()
     expect(screen.getByText('Janata Sahakari Bank')).toBeInTheDocument()
   })
@@ -42,7 +42,7 @@ describe('CTSSubMemberBanks', () => {
 
   it('shows IFSC prefixes', () => {
     renderPage()
-    expect(screen.getByText('SRCB')).toBeInTheDocument()
+    expect(screen.getByText('VASB')).toBeInTheDocument()
     expect(screen.getByText('COSB')).toBeInTheDocument()
     expect(screen.getByText('JSBP')).toBeInTheDocument()
   })

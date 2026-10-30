@@ -28,7 +28,8 @@ const MOCK_ITEMS = [
 
 describe('useReviewQueue', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
+    // waitFor polls on real time; letting the fake clock follow it keeps the test from waiting forever
+    vi.useFakeTimers({ shouldAdvanceTime: true })
   })
   afterEach(() => {
     vi.useRealTimers()

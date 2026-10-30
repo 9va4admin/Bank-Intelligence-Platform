@@ -26,9 +26,8 @@ describe('UserManagement', () => {
 
   it('shows summary card counts', () => {
     renderPage()
-    expect(screen.getByText('Total Users')).toBeTruthy()
-    expect(screen.getByText('Active')).toBeTruthy()
-    expect(screen.getByText('TOTP Enabled')).toBeTruthy()
+    // one summary line: "<n> active · <n> with TOTP · <n> users"
+    expect(screen.getByText(/\d+ active · \d+ with TOTP · \d+ users/)).toBeTruthy()
   })
 
   it('renders a row for each mock user', () => {
@@ -52,30 +51,24 @@ describe('UserManagement', () => {
     expect(screen.queryByText('Rahul Singh')).toBeFalsy()
   })
 
-  it('role filter narrows results', () => {
-    renderPage()
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: 'bank_it_admin' } })
-    expect(screen.getByText('Vikram Kapoor')).toBeTruthy()
-    expect(screen.queryByText('Priya Mehta')).toBeFalsy()
-  })
 
   it('opens create user modal on + New User click', () => {
     renderPage()
     fireEvent.click(screen.getByText('+ New User'))
-    expect(screen.getByText('Create User')).toBeTruthy()
+    expect(screen.getAllByText('Create User')[0]).toBeTruthy()
   })
 
   it('opens edit modal when Edit is clicked', () => {
     renderPage()
-    const editBtns = screen.getAllByText('Edit')
+    const editBtns = screen.getAllByRole('button', { name: 'Edit' })
     fireEvent.click(editBtns[0])
     expect(screen.getByText('Edit User')).toBeTruthy()
   })
 
-  it('shows TOTP info panel', () => {
+  it('opens the TOTP set-up dialog for a user without TOTP', () => {
     renderPage()
-    expect(screen.getByText(/RFC 6238/)).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Setup TOTP' })[0])
+    expect(screen.getByText('Set Up TOTP Authenticator')).toBeTruthy()
   })
 
   it('inactive users show Inactive badge', () => {

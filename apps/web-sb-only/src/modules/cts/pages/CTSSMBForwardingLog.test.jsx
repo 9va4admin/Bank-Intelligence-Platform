@@ -20,6 +20,6 @@ describe('CTSSMBForwardingLog', () => {
 
   it('shows status filter', () => {
     render(<CTSSMBForwardingLog />, { wrapper: Wrapper })
-    expect(screen.getByText(/All Statuses/i)).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'FORWARDING' })).toBeTruthy()
   })
 })

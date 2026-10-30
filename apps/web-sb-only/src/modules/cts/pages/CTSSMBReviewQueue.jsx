@@ -122,7 +122,7 @@ export default function CTSSMBReviewQueue() {
     setQueue(prev =>
       prev.map(item =>
         item.instrument_id === id
-          ? { ...item, status: action === 'CONFIRM' ? 'CONFIRMED' : 'RETURNED' }
+          ? { ...item, status: action === 'CONFIRM' || action === 'APPROVE_TO_VALIDATION' ? 'CONFIRMED' : 'RETURNED' }
           : item
       )
     )
