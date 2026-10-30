@@ -41,6 +41,7 @@ from typing import Any, Optional
 import structlog
 
 from shared.utils.pii_crypto import encrypt_pii, hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -74,8 +75,7 @@ class PPSVault:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "PPSVault.connect() has not been called. "
-                "Call it during service startup before querying the vault."
+                get_message("CTS_PPSVAULT_CONNECT_HAS_NOT_BEEN")
             )
 
     # ------------------------------------------------------------------

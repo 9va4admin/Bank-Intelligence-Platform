@@ -8,6 +8,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { demoChequeUrl } from '../demoImages'
+import { msg } from '../../../shared/messages'
 
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
@@ -23,7 +24,6 @@ const SMB_MOCK_ITEMS = [
     account_display: '****7812',
     payee_display: 'K***',
     amount_range: '₹[1L-5L]',
-    clearing_zone: 'MUMBAI',
     received_at: Math.floor(Date.now() / 1000) - 480,
     iet_deadline: Math.floor(Date.now() / 1000) + 8220,
     reason: 'SIGNATURE_LOW_CONFIDENCE',
@@ -41,7 +41,6 @@ const SMB_MOCK_ITEMS = [
     account_display: '****3341',
     payee_display: 'P***',
     amount_range: '₹[5L-10L]',
-    clearing_zone: 'MUMBAI',
     received_at: Math.floor(Date.now() / 1000) - 1200,
     iet_deadline: Math.floor(Date.now() / 1000) + 7500,
     reason: 'FRAUD_SCORE_HIGH',
@@ -59,7 +58,6 @@ const SMB_MOCK_ITEMS = [
     account_display: '****5509',
     payee_display: 'M***',
     amount_range: '₹[>1Cr]',
-    clearing_zone: 'MUMBAI',
     received_at: Math.floor(Date.now() / 1000) - 2700,
     iet_deadline: Math.floor(Date.now() / 1000) + 6000,
     reason: 'HIGH_VALUE_DUAL_APPROVAL',
@@ -142,13 +140,13 @@ export default function CTSSMBReviewQueue() {
   ].join(':')
 
   usePageHeader({
-    subtitle: `${bankName || bankId} · Routed via ${sponsorLabel} · IET ${IET_WINDOW_MINS}min`,
+    subtitle: msg('UI_SMBREVIEWQUEUE_ROUTED_VIA_IET_MIN', { value: bankName || bankId, sponsorLabel, IET_WINDOW_MINS }),
     actions: (
       <div className="flex items-center gap-3">
         <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${
           isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'
         }`}>
-          Session {elapsedStr}
+         {msg('UI_SMBREVIEWQUEUE_SESSION', { elapsedStr })}
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border ${
           pending.length > 0
@@ -183,21 +181,21 @@ export default function CTSSMBReviewQueue() {
         {/* SMB context banner */}
         <div className={`px-6 py-2.5 border-b ${th.divider} flex items-center gap-3`}>
           <div className={`text-[11px] px-2.5 py-1 rounded-md border font-semibold ${th.smbBadge}`}>
-            SMB · {bankName || bankId}
+           {msg('UI_SMBREVIEWQUEUE_SMB', { value: bankName || bankId })}
           </div>
           <div className={`text-[11px] px-2.5 py-1 rounded-md border ${th.infoBand}`}>
-            Routed via {sponsorLabel} · You see only your own instruments
+           {msg('UI_SMBREVIEWQUEUE_ROUTED_VIA_YOU_SEE_ONLY', { sponsorLabel })}
           </div>
           <div className="ml-auto flex items-center gap-4">
             <div className="flex items-center gap-2 text-[11px]">
-              <span className={th.faint}>Pending</span>
+              <span className={th.faint}>{msg('UI_COMMON_PENDING')}</span>
               <span className={`font-black text-lg tabular-nums ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                 {pending.length}
               </span>
             </div>
             <div className={`w-px h-4 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
             <div className="flex items-center gap-2 text-[11px]">
-              <span className={th.faint}>Decided</span>
+              <span className={th.faint}>{msg('UI_SMBREVIEWQUEUE_DECIDED')}</span>
               <span className={`font-black text-lg tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 {decided.length}
               </span>
@@ -209,13 +207,13 @@ export default function CTSSMBReviewQueue() {
           {/* Queue column */}
           <div className={`w-72 shrink-0 border-r ${th.divider} flex flex-col`}>
             <div className={`px-4 py-3 border-b ${th.dividerSm} flex items-center justify-between`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>Your Review Queue</div>
+              <div className={`text-xs font-semibold ${th.heading}`}>{msg('UI_SMBREVIEWQUEUE_YOUR_REVIEW_QUEUE')}</div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                 pending.length > 0
                   ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
                   : 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10'
               }`}>
-                {pending.length} pending
+                {msg('UI_COMMON_PENDING_2', { count: pending.length })}
               </span>
             </div>
 
@@ -223,7 +221,7 @@ export default function CTSSMBReviewQueue() {
               {pending.length === 0 && (
                 <div className={`text-center ${th.empty} text-sm py-12`}>
                   <div className="text-3xl mb-2">✓</div>
-                  <div>Queue clear</div>
+                  <div>{msg('UI_SMBREVIEWQUEUE_QUEUE_CLEAR')}</div>
                 </div>
               )}
               {pending.map(item => (
@@ -239,7 +237,7 @@ export default function CTSSMBReviewQueue() {
               {decided.length > 0 && (
                 <>
                   <div className={`text-[10px] ${th.faint} uppercase tracking-widest pt-3 pb-1 px-1`}>
-                    Decided this session
+                   {msg('UI_COMMON_DECIDED_THIS_SESSION')}
                   </div>
                   {decided.map(item => (
                     <div key={item.instrument_id} className={`rounded-xl border ${th.decided} px-4 py-3 opacity-50`}>
@@ -264,31 +262,31 @@ export default function CTSSMBReviewQueue() {
           {/* Session summary — right rail (SMB has no STP stream, just decision log) */}
           <div className={`w-60 shrink-0 border-l ${th.divider} flex flex-col`}>
             <div className={`px-4 py-3 border-b ${th.dividerSm}`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>This Session</div>
+              <div className={`text-xs font-semibold ${th.heading}`}>{msg('UI_SMBREVIEWQUEUE_THIS_SESSION')}</div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Confirmed</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_CONFIRMED')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                     {decisions.filter(d => d.action === 'CONFIRM').length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Returned</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_RETURNED')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                     {decisions.filter(d => d.action === 'RETURN').length}
                   </span>
                 </div>
                 <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Pending</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_PENDING')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                     {pending.length}
                   </span>
                 </div>
                 <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Immudb writes</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_SMBREVIEWQUEUE_IMMUDB_WRITES')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     {decisions.length}
                   </span>
@@ -299,7 +297,7 @@ export default function CTSSMBReviewQueue() {
               {decisions.length > 0 && (
                 <div className={`mt-5 pt-5 border-t ${th.divider}`}>
                   <div className={`text-[10px] uppercase tracking-widest mb-2 ${th.faint}`}>
-                    Recent decisions
+                   {msg('UI_SMBREVIEWQUEUE_RECENT_DECISIONS')}
                   </div>
                   <div className="space-y-2">
                     {decisions.slice(0, 6).map((d, i) => (
@@ -327,11 +325,11 @@ export default function CTSSMBReviewQueue() {
 
             {/* SMB identity footer */}
             <div className={`px-4 py-4 border-t ${th.footer}`}>
-              <div className={`text-[10px] ${th.faint} mb-1`}>Your bank</div>
+              <div className={`text-[10px] ${th.faint} mb-1`}>{msg('UI_SMBREVIEWQUEUE_YOUR_BANK')}</div>
               <div className={`text-[11px] font-semibold ${th.heading}`}>{bankName || bankId}</div>
-              <div className={`text-[10px] mt-0.5 ${th.faint}`}>via {sponsorLabel}</div>
+              <div className={`text-[10px] mt-0.5 ${th.faint}`}>{msg('UI_SMBREVIEWQUEUE_VIA', { sponsorLabel })}</div>
               <div className={`text-[10px] mt-3 px-2 py-1.5 rounded-lg border text-center ${th.infoBand}`}>
-                Every decision → Immudb audit
+               {msg('UI_SMBREVIEWQUEUE_EVERY_DECISION_IMMUDB_AUDIT')}
               </div>
             </div>
           </div>

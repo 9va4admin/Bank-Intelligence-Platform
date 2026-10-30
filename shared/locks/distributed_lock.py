@@ -18,6 +18,7 @@ from typing import AsyncIterator, Optional
 
 import structlog
 from opentelemetry import trace
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.distributed_lock")
@@ -85,7 +86,7 @@ class DistributedLock:
                         resource_id=self._resource_id,
                     )
                     raise LockAcquireError(
-                        f"Lock already held for resource '{self._resource_id}' — likely duplicate request in-flight"
+                        get_message("PLATFORM_LOCK_ALREADY_HELD_FOR_RESOURCE", resource_id=self._resource_id)
                     )
 
                 span.set_attribute("lock_acquired", True)

@@ -12,6 +12,7 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
+import { msg } from '../../../shared/messages'
 
 const STP_DELAY_MS = 3200
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
@@ -26,11 +27,11 @@ const MOCK_STP_SUCCESS_IQ = [
     amount_range: '₹[<1L]',
     received_at: new Date(_t - 50 * 60000).toISOString(),
     iet_deadline: new Date(_t - 50 * 60000 + 3 * 3600000).toISOString(),
-    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Confirmed',
+    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED'),
     fraud_score: 0.04, ocr_confidence: 0.98, sig_match_score: 0.96,
     sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
-    bank: 'Federal Bank Limited', branch: 'Thrissur Main',
-    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    bank: BANK_CONFIG.bank_name, branch: 'Fort Main',
+    cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
@@ -52,11 +53,11 @@ const MOCK_STP_SUCCESS_IQ = [
     amount_range: '₹[1L-5L]',
     received_at: new Date(_t - 42 * 60000).toISOString(),
     iet_deadline: new Date(_t - 42 * 60000 + 3 * 3600000).toISOString(),
-    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Confirmed',
+    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED'),
     fraud_score: 0.06, ocr_confidence: 0.97, sig_match_score: 0.94,
     sig_specimen_available: true, sig_specimen_label: '2 specimens on file',
-    bank: 'Federal Bank Limited', branch: 'Ernakulam',
-    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    bank: BANK_CONFIG.bank_name, branch: 'Andheri West',
+    cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
@@ -78,11 +79,11 @@ const MOCK_STP_SUCCESS_IQ = [
     amount_range: '₹[<1L]',
     received_at: new Date(_t - 28 * 60000).toISOString(),
     iet_deadline: new Date(_t - 28 * 60000 + 3 * 3600000).toISOString(),
-    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Confirmed',
+    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: msg('UI_REVIEWPANEL_STP_AUTO_CONFIRMED'),
     fraud_score: 0.03, ocr_confidence: 0.99, sig_match_score: 0.98,
     sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
-    bank: 'Federal Bank Limited', branch: 'Kozhikode Main',
-    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    bank: BANK_CONFIG.bank_name, branch: 'Dadar Main',
+    cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
     bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
@@ -202,11 +203,11 @@ export default function CTSWorkstation() {
   const sessionElapsedStr = `${String(Math.floor(sessionElapsedSec / 3600)).padStart(2,'0')}:${String(Math.floor((sessionElapsedSec % 3600) / 60)).padStart(2,'0')}:${String(sessionElapsedSec % 60).padStart(2,'0')}`
 
   usePageHeader({
-    subtitle: `AM Clearing · SES-${bankIfsc || 'BANK'}-${(() => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}` })()}-001 · IET Window: ${IET_WINDOW_MINS}min`,
+    subtitle: msg('UI_WORKSTATION_AM_CLEARING_SES_001_IET', { value: bankIfsc || 'BANK', value2: (() => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}` })(), IET_WINDOW_MINS }),
     actions: (
       <div className="flex items-center gap-3">
         <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'}`}>
-          Session {sessionElapsedStr}
+         {msg('UI_WORKSTATION_SESSION', { sessionElapsedStr })}
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border ${
           pending.length > 0
@@ -301,7 +302,7 @@ export default function CTSWorkstation() {
                     <div className="text-3xl mb-2">{isDemo || decisions.length > 0 ? '✓' : '📂'}</div>
                     <div>{isDemo || decisions.length > 0 ? 'Queue clear' : 'No instruments yet'}</div>
                     {!isDemo && decisions.length === 0 && (
-                      <div className={`text-[10px] mt-1 ${th.empty}`}>Drop files into the inward folder to start</div>
+                      <div className={`text-[10px] mt-1 ${th.empty}`}>{msg('UI_WORKSTATION_DROP_FILES_INTO_THE_INWARD')}</div>
                     )}
                   </div>
                 )}
@@ -317,7 +318,7 @@ export default function CTSWorkstation() {
                 {decided.length > 0 && (
                   <>
                     <div className={`text-[10px] ${th.faint} uppercase tracking-widest pt-3 pb-1 px-1`}>
-                      Decided this session
+                     {msg('UI_COMMON_DECIDED_THIS_SESSION')}
                     </div>
                     {decided.map((item) => (
                       <div key={item.instrument_id} className={`rounded-xl border ${th.decided} px-4 py-3 opacity-50`}>
@@ -356,8 +357,8 @@ export default function CTSWorkstation() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px] font-semibold text-emerald-500">STP Confirmed</span>
-                        <span className={`text-[9px] font-mono ${th.faint}`}>{Math.round((item.ocr_confidence ?? 0.98) * 100)}% OCR</span>
+                        <span className="text-[10px] font-semibold text-emerald-500">{msg('UI_COMMON_STP_CONFIRMED')}</span>
+                        <span className={`text-[9px] font-mono ${th.faint}`}>{msg('UI_WORKSTATION_OCR', { Math: Math.round((item.ocr_confidence ?? 0.98) * 100) })}</span>
                       </div>
                       <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.instrument_id}</div>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -379,10 +380,10 @@ export default function CTSWorkstation() {
           {/* Live STP stream */}
           <div className={`w-64 shrink-0 border-l ${th.divider} flex flex-col`}>
             <div className={`px-4 py-3 border-b ${th.dividerSm} flex items-center justify-between`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>STP Live Stream</div>
+              <div className={`text-xs font-semibold ${th.heading}`}>{msg('UI_WORKSTATION_STP_LIVE_STREAM')}</div>
               <span className="flex items-center gap-1.5 text-[10px] text-emerald-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                AI Processing
+               {msg('UI_WORKSTATION_AI_PROCESSING')}
               </span>
             </div>
 
@@ -391,8 +392,8 @@ export default function CTSWorkstation() {
                 <div className={`text-[11px] ${th.empty} text-center pt-8 leading-relaxed`}>
                   <div className="text-2xl mb-2">{isDemo ? '⚡' : '📂'}</div>
                   {isDemo
-                    ? <span>STP agents processing<br />inward cheques…</span>
-                    : <span>Waiting for instruments<br />Drop TIF/JPG into inward folder</span>}
+                    ? <span>{msg('UI_WORKSTATION_STP_AGENTS_PROCESSING')}<br />{msg('UI_WORKSTATION_INWARD_CHEQUES')}</span>
+                    : <span>{msg('UI_WORKSTATION_WAITING_FOR_INSTRUMENTS')}<br />{msg('UI_WORKSTATION_DROP_TIF_JPG_INTO_INWARD')}</span>}
                 </div>
               )}
               {stpStream.map((item, i) => (
@@ -408,7 +409,7 @@ export default function CTSWorkstation() {
                     <span className={`text-[10px] font-semibold ${item.outcome === 'CONFIRM' ? 'text-emerald-500' : 'text-red-500'}`}>
                       {item.outcome === 'CONFIRM' ? '✓ STP Confirmed' : '✕ STP Returned'}
                     </span>
-                    <span className={`text-[9px] font-mono ${th.faint}`}>{item.ms}ms</span>
+                    <span className={`text-[9px] font-mono ${th.faint}`}>{msg('UI_COMMON_MS', { ms: item.ms })}</span>
                   </div>
                   <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.id}</div>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -423,33 +424,33 @@ export default function CTSWorkstation() {
             {/* Session summary footer */}
             <div className={`px-4 pt-4 pb-4 border-t ${th.footer}`}>
               <div className={`text-[11px] font-extrabold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                This Session
+               {msg('UI_SMBREVIEWQUEUE_THIS_SESSION')}
               </div>
 
               <div className="flex flex-col gap-3.5">
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Confirmed</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_STP_CONFIRMED')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                     {stpStream.filter(s => s.outcome === 'CONFIRM').length}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Returned</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_COMMON_STP_RETURNED')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                     {stpStream.filter(s => s.outcome === 'RETURN').length}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Human decisions</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_WORKSTATION_HUMAN_DECISIONS')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                     {decisions.length}
                   </span>
                 </div>
 
                 <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
-                  <span className={`text-[11px] font-medium ${th.muted}`}>Immudb writes</span>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>{msg('UI_SMBREVIEWQUEUE_IMMUDB_WRITES')}</span>
                   <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     {stpStream.length + decisions.length}
                   </span>

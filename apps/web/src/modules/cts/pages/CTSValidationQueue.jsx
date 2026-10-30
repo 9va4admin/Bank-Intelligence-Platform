@@ -4,6 +4,8 @@
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
  * Actions are icon buttons: ✓ approve · ↩ return (opens reason dropdown).
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { csrfHeader } from '../../../shared/api/csrf'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -13,15 +15,94 @@ import useOutwardDecisions from '../hooks/useOutwardDecisions'
 
 const _VQ_API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+// A VAL-bucket queue row, shaped for this grid. Fields the queue does not carry are left out rather than invented.
+function adaptValItem(i) {
+  const f = v => ({ extracted_value: v, extracted_confidence: 1, extracted_by: 'ASTRA', actual_value: v, source: 'STP' })
+  return {
+    instrument_id: i.instrument_id,
+    source_stage: 'VERIFIED',
+    instrument_category: i.instrument_category || 'CHEQUE',
+    account_display: i.account_display,
+    iet_deadline: i.iet_deadline ? new Date(i.iet_deadline * 1000).toISOString() : null,
+    drawer_name: i.drawee_name ?? '—',
+    maker_id: i.maker_id,
+    maker_decision: i.maker_decision,
+    assigned_to: i.assigned_to,
+    fields_meta: { payee: f(i.payee_display ?? ''), amount_figures: f(i.amount_range ?? '') },
+  }
+}
+
+async function postValidation(instrumentId, action, reason) {
+  const res = await fetch(`${_VQ_API_BASE}/v1/cts/review/${encodeURIComponent(instrumentId)}/validate`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
+    body: JSON.stringify({ action, reason }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || msg('CTS_WF_VAL_FAILED'))
+  }
+}
+
+// An outward instrument whose maker has decided and which waits for a checker.
+function adaptStagedOutward(i) {
+  const f = v => ({ extracted_value: v, extracted_confidence: 1, extracted_by: 'ASTRA', actual_value: v, source: 'STP' })
+  return {
+    instrument_id: i.instrument_id,
+    source_stage: 'VERIFIED',
+    outcome_label: msg('CTS_WF_VAL_MAKER_DECIDED'),
+    instrument_category: i.instrument_category || 'CHEQUE',
+    account_display: '****',
+    drawer_name: '—',
+    maker_id: i.maker_id,
+    maker_decision: i.maker_decision,
+    staged_outward: true,
+    lot_number: i.lot_id ?? '—',
+    decision_reason: i.maker_reason || i.review_reason,
+    fields_meta: { payee: f(i.payee_display ?? ''), amount_figures: f(i.amount_range ?? '') },
+  }
+}
+
+async function postOutwardValidation(instrumentId, action, reason) {
+  const res = await fetch(`${_VQ_API_BASE}/v1/cts/outward/review/${encodeURIComponent(instrumentId)}/validate`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
+    body: JSON.stringify({ action, reason, reason_category: 'manual' }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || msg('CTS_WF_VAL_FAILED'))
+  }
+}
+
+function useOutwardStagedQueue({ pollEnabled }) {
+  const [items, setItems] = useState([])
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_VQ_API_BASE}/v1/cts/outward/validation-queue?limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems((json.items ?? []).map(adaptStagedOutward))
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 15_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
+
 function useInwardValidationQueue({ pollEnabled, bankId }) {
   const [items, setItems] = useState(null)
   const timerRef = useRef(null)
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch(`${_VQ_API_BASE}/v1/cts/inward/human-review-queue?bank_id=${bankId}&limit=100`, { credentials: 'include' })
+      // Cheques a maker has decided and a checker must confirm or overrule: the VAL bucket of the review queue.
+      const res = await fetch(`${_VQ_API_BASE}/v1/cts/queue?bucket=VAL&limit=100`, { credentials: 'include' })
       if (!res.ok) return
       const json = await res.json()
-      setItems(json.items ?? [])
+      setItems((json.items ?? []).map(adaptValItem))
     } catch { /* keep last */ }
   }, [bankId])
   useEffect(() => {
@@ -35,6 +116,7 @@ function useInwardValidationQueue({ pollEnabled, bankId }) {
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -120,7 +202,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Suresh B. Patkar — Saraswat customer; Payee: Ramesh N. Rao — received at presenting bank
     instrument_id: 'CHQ-IN-V001', source_stage: 'STP', front_bw_url: null, front_gray_url: null,
     account_display: '00000000004521', iet_deadline: new Date(Date.now() + 72 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Dadar',
     drawer_name: 'Suresh B. Patkar',
     ocr_score: 0.97, sig_score: 0.96, fraud_score: 0.03, iqa_score: 0.99,
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Suresh B. Patkar',
@@ -134,7 +216,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Prakash V. Rane — Saraswat customer; Payee: Meena S. Sharma
     instrument_id: 'CHQ-IN-V002', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null,
     account_display: '00000000008912', iet_deadline: new Date(Date.now() + 28 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Vile Parle',
     drawer_name: 'Prakash V. Rane',
     ocr_score: 0.86, sig_score: 0.84, fraud_score: 0.09, iqa_score: 0.97,
     name_match: 'PARTIAL_MATCH', name_match_cbs_name: 'Prakash Rane',
@@ -148,7 +230,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Anand M. Kulkarni — Saraswat customer; Payee: Priya R. Nair
     instrument_id: 'CHQ-IN-V003', source_stage: 'STP', front_bw_url: null, front_gray_url: null,
     account_display: '00000000002234', iet_deadline: new Date(Date.now() + 115 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Pune Main',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Pune Main',
     drawer_name: 'Anand M. Kulkarni',
     ocr_score: 0.96, sig_score: 0.95, fraud_score: 0.02, iqa_score: 0.99,
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Anand M. Kulkarni',
@@ -162,7 +244,7 @@ const BASE_INSTRUMENTS_INWARD = [
     // Payer (drawer): Deepak R. Joshi — but CBS shows this account belongs to Ramesh T. Mehta — mismatch
     instrument_id: 'CHQ-IN-V004', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null,
     account_display: '00000000006677', iet_deadline: new Date(Date.now() + 54 * 60000).toISOString(),
-    drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Borivali',
     drawer_name: 'Deepak R. Joshi',
     ocr_score: 0.88, sig_score: 0.71, fraud_score: 0.21, iqa_score: 0.96,
     name_match: 'NO_MATCH', name_match_cbs_name: 'Ramesh T. Mehta',
@@ -226,9 +308,9 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
     : (isDark ? 'text-red-400' : 'text-red-700')
 
   const panelTabs = [
-    { id: 'images',      label: '▣ Images'       },
-    { id: 'ai_analysis', label: '🤖 AI Analysis' },
-    { id: 'passport',    label: '🪪 Passport'    },
+    { id: 'images',      label: msg('UI_VALIDATIONQUEUE_IMAGES')       },
+    { id: 'ai_analysis', label: msg('UI_SUBMISSIONQUEUE_AI_ANALYSIS') },
+    { id: 'passport',    label: msg('UI_SUBMISSIONQUEUE_PASSPORT')    },
   ]
 
   return (
@@ -259,9 +341,9 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
             <NameMatchCard inst={inst} isInward={isInward} isDark={isDark} />
             <ChequeImageViewer
               views={[
-                { key: 'BFB', label: 'BFB — Front Black', url: inst.front_bw_url   ?? null },
-                { key: 'BBB', label: 'BBB — Back Black',  url: inst.back_bw_url ?? null },
-                { key: 'BFG', label: 'BFG — Front Grey',  url: inst.front_gray_url ?? null },
+                { key: 'BFB', label: msg('UI_PRESENTMENT_BFB_FRONT_BLACK'), url: inst.front_bw_url   ?? null },
+                { key: 'BBB', label: msg('UI_PRESENTMENT_BBB_BACK_BLACK'),  url: inst.back_bw_url ?? null },
+                { key: 'BFG', label: msg('UI_PRESENTMENT_BFG_FRONT_GREY'),  url: inst.front_gray_url ?? null },
               ]}
               fields={fields}
               isDark={isDark}
@@ -276,18 +358,18 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
           <div className="px-4 py-4 space-y-5">
             {/* Aggregate score pills */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>{msg('UI_COMMON_AI_CONFIDENCE')}</div>
               <div className="grid grid-cols-2 gap-2">
-                <ScorePill label="OCR Accuracy"    value={inst.ocr_score}             isDark={isDark} />
-                <ScorePill label="Signature Match"  value={inst.sig_score}             isDark={isDark} />
-                <ScorePill label="Fraud Clean"      value={1 - (inst.fraud_score ?? 0)} isDark={isDark} />
-                <ScorePill label="Image IQA"        value={inst.iqa_score}             isDark={isDark} />
+                <ScorePill label={msg('UI_COMMON_OCR_ACCURACY')}    value={inst.ocr_score}             isDark={isDark} />
+                <ScorePill label={msg('UI_COMMON_SIGNATURE_MATCH')}  value={inst.sig_score}             isDark={isDark} />
+                <ScorePill label={msg('UI_SUBMISSIONQUEUE_FRAUD_CLEAN')}      value={1 - (inst.fraud_score ?? 0)} isDark={isDark} />
+                <ScorePill label={msg('UI_SUBMISSIONQUEUE_IMAGE_IQA')}        value={inst.iqa_score}             isDark={isDark} />
               </div>
             </div>
 
             {/* Per-field OCR confidence */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>Field Confidence</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>{msg('UI_OUTWARDREVIEWPANEL_FIELD_CONFIDENCE')}</div>
               <div className={`rounded-lg border overflow-hidden text-[11px] ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 {Object.entries(fm).map(([key, meta]) => {
                   if (!meta || meta.extracted_confidence == null) return null
@@ -310,17 +392,17 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
 
             {/* Risk signals */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_RISK_SIGNALS')}</div>
               <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
                 (inst.fraud_score ?? 0) > 0.12
                   ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
                   : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
               }`}>
                 {[
-                  { label: 'Fraud score',         val: `${((inst.fraud_score ?? 0) * 100).toFixed(1)}%`, warn: (inst.fraud_score ?? 0) > 0.12 },
-                  { label: 'Alteration detected', val: fm.alterations?.actual_value ? '⚠ Yes' : '✓ None', warn: !!fm.alterations?.actual_value },
-                  { label: 'Signature match',     val: `${((inst.sig_score ?? 0) * 100).toFixed(0)}%`,    warn: (inst.sig_score ?? 0) < 0.88  },
-                  { label: 'Image quality',       val: `${((inst.iqa_score ?? 0) * 100).toFixed(0)}%`,    warn: (inst.iqa_score ?? 0) < 0.90  },
+                  { label: msg('UI_SUBMISSIONQUEUE_FRAUD_SCORE'),         val: `${((inst.fraud_score ?? 0) * 100).toFixed(1)}%`, warn: (inst.fraud_score ?? 0) > 0.12 },
+                  { label: msg('UI_COMMON_ALTERATION_DETECTED'), val: fm.alterations?.actual_value ? '⚠ Yes' : '✓ None', warn: !!fm.alterations?.actual_value },
+                  { label: msg('UI_SUBMISSIONQUEUE_SIGNATURE_MATCH'),     val: `${((inst.sig_score ?? 0) * 100).toFixed(0)}%`,    warn: (inst.sig_score ?? 0) < 0.88  },
+                  { label: msg('UI_SUBMISSIONQUEUE_IMAGE_QUALITY'),       val: `${((inst.iqa_score ?? 0) * 100).toFixed(0)}%`,    warn: (inst.iqa_score ?? 0) < 0.90  },
                 ].map(({ label, val, warn }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
@@ -332,13 +414,13 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
 
             {/* Name match */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>CBS Name Verification</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_VALIDATIONQUEUE_CBS_NAME_VERIFICATION')}</div>
               <NameMatchCard inst={inst} isInward={isInward} isDark={isDark} />
             </div>
 
             {/* Model attribution */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_MODEL_ATTRIBUTION')}</div>
               <div className="space-y-1.5 text-[11px]">
                 {[
                   { task: 'OCR / MICR',     model: 'GOT-OCR2.0'     },
@@ -358,7 +440,7 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
 
         {panelTab === 'passport' && (
           <div className="px-4 py-4">
-            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>Cheque Passport</div>
+            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>{msg('UI_COMMON_CHEQUE_PASSPORT')}</div>
             <div className={`rounded-xl border divide-y text-xs ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
               {/* Header */}
               <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
@@ -371,15 +453,15 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
               </div>
               {/* Cheque fields */}
               {[
-                { label: 'Payee',          value: fm.payee?.actual_value         },
-                { label: 'Drawer',         value: inst.drawer_name               },
-                { label: 'Amount',         value: fm.amount_figures?.actual_value },
-                { label: 'Amount (words)', value: fm.amount_words?.actual_value  },
-                { label: 'Date',           value: fm.date?.actual_value          },
-                { label: 'MICR',           value: fm.micr?.actual_value          },
-                { label: 'Account',        value: inst.account_display           },
-                { label: 'Drawee Bank',    value: inst.drawee_bank               },
-                { label: 'Branch',         value: inst.drawee_branch             },
+                { label: msg('CTS_OUT_CUSTODY_COL_PAYEE'),          value: fm.payee?.actual_value         },
+                { label: msg('UI_SUBMISSIONQUEUE_DRAWER'),         value: inst.drawer_name               },
+                { label: msg('CTS_OUT_CUSTODY_COL_AMOUNT'),         value: fm.amount_figures?.actual_value },
+                { label: msg('UI_COMMON_AMOUNT_WORDS'), value: fm.amount_words?.actual_value  },
+                { label: msg('UI_COMMON_DATE'),           value: fm.date?.actual_value          },
+                { label: msg('UI_COMMON_MICR'),           value: fm.micr?.actual_value          },
+                { label: msg('CTS_WF_BUCKETCFG_COL_ACCOUNT'),        value: inst.account_display           },
+                { label: msg('UI_COMMON_DRAWEE_BANK'),    value: inst.drawee_bank               },
+                { label: msg('CTS_OUT_CUSTODY_COL_BRANCH'),         value: inst.drawee_branch             },
               ].filter(r => r.value).map(({ label, value }) => (
                 <div key={label} className="flex items-start gap-3 px-4 py-2">
                   <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
@@ -389,26 +471,26 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
               {/* Deposit channel section (outward only) */}
               {!isInward && inst.deposit_channel && (() => {
                 const DCFG = {
-                  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾' },
-                  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️' },
-                  KIOSK:           { label: 'Kiosk / CDM', icon: '🏧' },
+                  PAY_IN_SLIP:     { label: msg('UI_COMMON_PAY_IN_SLIP'), icon: '🧾' },
+                  BACK_ANNOTATION: { label: msg('UI_COMMON_BACK_NOTE'),   icon: '✍️' },
+                  KIOSK:           { label: msg('UI_COMMON_KIOSK_CDM'), icon: '🏧' },
                 }
                 const dd = inst.deposit_data ?? {}
                 const depositRows =
                   inst.deposit_channel === 'PAY_IN_SLIP' ? [
-                    { label: 'Depositor',    value: dd.depositor_name    },
-                    { label: 'Dep. Account', value: dd.depositor_account },
-                    { label: 'Deposit Amt',  value: dd.deposit_amount    },
-                    { label: 'Token',        value: dd.counter_token     },
-                    { label: 'Dep. Branch',  value: dd.branch            },
+                    { label: msg('UI_COMMON_DEPOSITOR'),    value: dd.depositor_name    },
+                    { label: msg('UI_COMMON_DEP_ACCOUNT'), value: dd.depositor_account },
+                    { label: msg('UI_COMMON_DEPOSIT_AMT'),  value: dd.deposit_amount    },
+                    { label: msg('UI_COMMON_TOKEN'),        value: dd.counter_token     },
+                    { label: msg('UI_COMMON_DEP_BRANCH'),  value: dd.branch            },
                   ] : inst.deposit_channel === 'BACK_ANNOTATION' ? [
-                    { label: 'Ext. Account', value: dd.extracted_account },
-                    { label: 'Ext. Mobile',  value: dd.extracted_mobile  },
+                    { label: msg('UI_COMMON_EXT_ACCOUNT'), value: dd.extracted_account },
+                    { label: msg('UI_COMMON_EXT_MOBILE'),  value: dd.extracted_mobile  },
                   ] : inst.deposit_channel === 'KIOSK' ? [
-                    { label: 'Depositor',    value: dd.name      },
-                    { label: 'CDM Account',  value: dd.account   },
-                    { label: 'Txn ID',       value: dd.txn_id    },
-                    { label: 'Timestamp',    value: dd.timestamp },
+                    { label: msg('UI_COMMON_DEPOSITOR'),    value: dd.name      },
+                    { label: msg('UI_COMMON_CDM_ACCOUNT'),  value: dd.account   },
+                    { label: msg('UI_COMMON_TXN_ID'),       value: dd.txn_id    },
+                    { label: msg('UI_COMMON_TIMESTAMP'),    value: dd.timestamp },
                   ] : []
                 return (
                   <>
@@ -430,9 +512,9 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
                 const urgent = minsLeft < 45
                 return (
                   <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
-                    <span className={th.lbl}>IET Remaining</span>
+                    <span className={th.lbl}>{msg('UI_IETTIMER_IET_REMAINING')}</span>
                     <span className={`font-mono font-semibold text-[11px] ${urgent ? 'text-red-400 animate-pulse' : (isDark ? 'text-sky-400' : 'text-sky-600')}`}>
-                      {minsLeft}m {urgent ? '⚠' : ''}
+                      {msg('UI_VALIDATIONQUEUE_M', { minsLeft, value: urgent ? '⚠' : '' })}
                     </span>
                   </div>
                 )
@@ -449,11 +531,11 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
 // ── Name-Account match verdict config ────────────────────────────────────────
 
 const NAME_MATCH_CFG = {
-  FULL_MATCH:        { label: 'Name Matched',       shortLabel: 'Matched',    icon: '✓', darkCls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', lightCls: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
-  PARTIAL_MATCH:     { label: 'Partial Match',      shortLabel: 'Partial',    icon: '≈', darkCls: 'text-amber-400 bg-amber-500/10 border-amber-500/30',       lightCls: 'text-amber-700 bg-amber-50 border-amber-400'       },
-  NO_MATCH:          { label: 'Name Mismatch',      shortLabel: 'Mismatch',   icon: '✗', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
-  ACCOUNT_NOT_FOUND: { label: 'Account Not Found',  shortLabel: 'Acct N/F',   icon: '!', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
-  CBS_UNAVAILABLE:   { label: 'CBS Unavailable',    shortLabel: 'CBS Down',   icon: '?', darkCls: 'text-slate-400 bg-slate-500/10 border-slate-500/30',        lightCls: 'text-slate-500 bg-slate-100 border-slate-300'      },
+  FULL_MATCH:        { label: msg('UI_VALIDATIONQUEUE_NAME_MATCHED'),       shortLabel: 'Matched',    icon: '✓', darkCls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', lightCls: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
+  PARTIAL_MATCH:     { label: msg('UI_VALIDATIONQUEUE_PARTIAL_MATCH'),      shortLabel: 'Partial',    icon: '≈', darkCls: 'text-amber-400 bg-amber-500/10 border-amber-500/30',       lightCls: 'text-amber-700 bg-amber-50 border-amber-400'       },
+  NO_MATCH:          { label: msg('UI_VALIDATIONQUEUE_NAME_MISMATCH'),      shortLabel: 'Mismatch',   icon: '✗', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
+  ACCOUNT_NOT_FOUND: { label: msg('UI_VALIDATIONQUEUE_ACCOUNT_NOT_FOUND'),  shortLabel: 'Acct N/F',   icon: '!', darkCls: 'text-red-400 bg-red-500/10 border-red-500/30',             lightCls: 'text-red-700 bg-red-50 border-red-400'             },
+  CBS_UNAVAILABLE:   { label: msg('UI_VALIDATIONQUEUE_CBS_UNAVAILABLE'),    shortLabel: 'CBS Down',   icon: '?', darkCls: 'text-slate-400 bg-slate-500/10 border-slate-500/30',        lightCls: 'text-slate-500 bg-slate-100 border-slate-300'      },
 }
 
 function isNameAlert(verdict) {
@@ -503,7 +585,7 @@ function NameMatchCard({ inst, isInward, isDark }) {
     }`}>
       <div className="flex items-center gap-2 mb-2.5">
         <span className={`text-[9px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          CBS {isInward ? 'Payer' : 'Payee'} Name Verification
+         {msg('UI_VALIDATIONQUEUE_CBS_NAME_VERIFICATION_2', { value: isInward ? 'Payer' : 'Payee' })}
         </span>
         <NameMatchBadge verdict={inst.name_match} isDark={isDark} short={false} />
       </div>
@@ -513,7 +595,7 @@ function NameMatchCard({ inst, isInward, isDark }) {
           <div className={`text-[11px] font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{chequeName}</div>
         </div>
         <div>
-          <div className={`text-[9px] uppercase tracking-wide mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>CBS Account Holder</div>
+          <div className={`text-[9px] uppercase tracking-wide mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_VALIDATIONQUEUE_CBS_ACCOUNT_HOLDER')}</div>
           <div className={`text-[11px] font-semibold ${alert ? (isDark ? 'text-red-400' : 'text-red-700') : inst.name_match === 'PARTIAL_MATCH' ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{cbsName}</div>
         </div>
         <div>
@@ -521,13 +603,13 @@ function NameMatchCard({ inst, isInward, isDark }) {
           <div className={`text-[11px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{accountNo}</div>
         </div>
         <div>
-          <div className={`text-[9px] uppercase tracking-wide mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Verified via</div>
-          <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>CBS Finacle API · real-time</div>
+          <div className={`text-[9px] uppercase tracking-wide mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_VALIDATIONQUEUE_VERIFIED_VIA')}</div>
+          <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{msg('UI_VALIDATIONQUEUE_CBS_FINACLE_API_REAL_TIME')}</div>
         </div>
       </div>
       {inst.name_match === 'PARTIAL_MATCH' && (
         <div className={`mt-2 text-[9px] px-2 py-1.5 rounded ${isDark ? 'bg-amber-400/10 text-amber-300' : 'bg-amber-100 text-amber-800'}`}>
-          {notePrefix} name is similar but not identical to CBS record — verify before {isInward ? 'passing' : 'approval'}.
+          {msg('UI_VALIDATIONQUEUE_NAME_IS_SIMILAR_BUT_NOT', { notePrefix, value: isInward ? 'passing' : 'approval' })}
         </div>
       )}
       {inst.name_match === 'NO_MATCH' && (
@@ -539,7 +621,7 @@ function NameMatchCard({ inst, isInward, isDark }) {
       )}
       {inst.name_match === 'ACCOUNT_NOT_FOUND' && (
         <div className={`mt-2 text-[9px] px-2 py-1.5 rounded ${isDark ? 'bg-red-400/10 text-red-300' : 'bg-red-100 text-red-800'}`}>
-          Account number does not exist in CBS — possible data entry error or fictitious account.
+         {msg('UI_VALIDATIONQUEUE_ACCOUNT_NUMBER_DOES_NOT_EXIST')}
         </div>
       )}
     </div>
@@ -555,12 +637,12 @@ function ReturnDropdown({ isDark, onReturn, onClose }) {
   return (
     <div className={`absolute right-0 top-full mt-1 z-50 w-80 rounded-xl border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
       <div className={`flex items-center gap-2 px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Return reason</span>
+        <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{msg('UI_VALIDATIONQUEUE_RETURN_REASON')}</span>
         <button type="button" onClick={onClose} className={`ml-auto text-base leading-none ${isDark ? 'text-slate-600 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>×</button>
       </div>
       <div className={`px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search…"
+          placeholder={msg('UI_VALIDATIONQUEUE_SEARCH')}
           className={`w-full text-xs bg-transparent outline-none ${isDark ? 'text-slate-300 placeholder-slate-600' : 'text-slate-700 placeholder-slate-400'}`}
           onKeyDown={e => e.key === 'Escape' && onClose()}
         />
@@ -606,8 +688,8 @@ function EditCell({ value, onChange, isDark, isManual, isBoolean }) {
           ? (isDark ? 'border-amber-400/50 bg-amber-400/5 text-amber-300' : 'border-amber-400 bg-amber-50 text-amber-800')
           : (isDark ? 'bg-transparent border-transparent text-slate-200 hover:border-white/15' : 'bg-transparent border-transparent text-slate-800 hover:border-slate-300')}`}
       >
-        <option value="no">✓ None</option>
-        <option value="yes">⚠ Detected</option>
+        <option value="no">{msg('UI_VALIDATIONQUEUE_NONE')}</option>
+        <option value="yes">{msg('UI_VALIDATIONQUEUE_DETECTED')}</option>
       </select>
     )
   }
@@ -622,13 +704,13 @@ function EditCell({ value, onChange, isDark, isManual, isBoolean }) {
 
 function SBadge({ source, isDark }) {
   if (source === 'STP') return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>STP</span>
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>{msg('UI_COMMON_STP')}</span>
   )
   if (source === 'MISMATCH') return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-400 text-red-700'}`}>MISMATCH</span>
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-400 text-red-700'}`}>{msg('UI_VALIDATIONQUEUE_MISMATCH')}</span>
   )
   return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>MANUAL</span>
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>{msg('UI_COMMON_MANUAL')}</span>
   )
 }
 
@@ -672,15 +754,15 @@ function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
 
 // Maps outward scan event outcome codes to human-readable stage / source labels
 const _OUTCOME_STAGE = {
-  STP_CONFIRM:    { stage: 'STP',      label: 'STP Auto-Filed'         },
-  STP_RETURN:     { stage: 'REJECTED', label: 'STP Auto-Return'        },
-  MISMATCH_HELD:  { stage: 'HELD',     label: 'Amount Mismatch — Held' },
-  CTS_REJECTED:   { stage: 'REJECTED', label: 'CTS Compliance Fail'    },
-  WORKFLOW_ERROR: { stage: 'ERROR',    label: 'Processing Error'       },
-  HUMAN_REVIEW:   { stage: 'REVIEW',   label: 'Flagged for Review'     },
-  AI_EXTRACTED:   { stage: 'VERIFIED', label: 'AI Extracted'           },
-  IQA_PASS:       { stage: 'VERIFIED', label: 'IQA Passed'             },
-  IQA_FAIL:       { stage: 'REJECTED', label: 'IQA Failed'             },
+  STP_CONFIRM:    { stage: 'STP',      label: msg('UI_VALIDATIONQUEUE_STP_AUTO_FILED')         },
+  STP_RETURN:     { stage: 'REJECTED', label: msg('UI_VALIDATIONQUEUE_STP_AUTO_RETURN')        },
+  MISMATCH_HELD:  { stage: 'HELD',     label: msg('UI_VALIDATIONQUEUE_AMOUNT_MISMATCH_HELD') },
+  CTS_REJECTED:   { stage: 'REJECTED', label: msg('UI_VALIDATIONQUEUE_CTS_COMPLIANCE_FAIL')    },
+  WORKFLOW_ERROR: { stage: 'ERROR',    label: msg('UI_VALIDATIONQUEUE_PROCESSING_ERROR')       },
+  HUMAN_REVIEW:   { stage: 'REVIEW',   label: msg('UI_VALIDATIONQUEUE_FLAGGED_FOR_REVIEW')     },
+  AI_EXTRACTED:   { stage: 'VERIFIED', label: msg('UI_COMMON_AI_EXTRACTED')           },
+  IQA_PASS:       { stage: 'VERIFIED', label: msg('UI_VALIDATIONQUEUE_IQA_PASSED')             },
+  IQA_FAIL:       { stage: 'REJECTED', label: msg('UI_VALIDATIONQUEUE_IQA_FAILED')             },
 }
 
 // Adapts a live outward decision row into the instrument shape the page renders
@@ -726,7 +808,9 @@ function adaptDecision(d) {
 
 export default function CTSValidationQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_INWARD_LIVE=true: this screen reads the live queue/allocation even in a DEMO build (default: sample data).
+  const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const isInward = mode === 'inward'
 
   // Live data for outward tab — polls /v1/cts/outward/decisions
@@ -734,6 +818,9 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
 
   // Live data for inward tab — polls /v1/cts/inward/human-review-queue
   const liveInwardItems = useInwardValidationQueue({ pollEnabled: isInward && !isDemo, bankId })
+
+  // Maker-checker: outward instruments a maker has decided, waiting for a checker (shown first, whatever else is live).
+  const stagedOutward = useOutwardStagedQueue({ pollEnabled: !isInward && !isDemo })
 
   const BASE = useDemoData(isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD)
   const [instruments, setInstruments] = useState(() => BASE.map(i => ({ ...i, edits: {} })))
@@ -743,7 +830,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   useEffect(() => {
     if (!isInward && liveDecisions.length > 0 && liveDecisions !== prevLiveRef.current) {
       prevLiveRef.current = liveDecisions
-      setInstruments(liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} })))
+      setInstruments(prev => [...prev.filter(i => i.staged_outward), ...liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} }))])
     }
   }, [liveDecisions, isInward])
 
@@ -751,15 +838,25 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   useEffect(() => {
     if (isInward && liveInwardItems && liveInwardItems !== prevInwardRef.current) {
       prevInwardRef.current = liveInwardItems
-      if (liveInwardItems.length > 0) {
-        setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
-      }
+      // Live data replaces the sample rows even when it is empty: an empty queue is a real answer.
+      setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
     }
   }, [liveInwardItems, isInward])
+  const prevStagedRef = useRef(null)
+  useEffect(() => {
+    if (isInward || isDemo || stagedOutward === prevStagedRef.current) return
+    prevStagedRef.current = stagedOutward
+    setInstruments(prev => {
+      const others = prev.filter(i => !i.staged_outward)
+      return [...stagedOutward.map(d => ({ ...d, edits: {} })), ...others]
+    })
+  }, [stagedOutward, isInward, isDemo])
   const [filter, setFilter]           = useState('ALL')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
   const [chequeViewId, setChequeViewId]   = useState(null)
+  const [actionError, setActionError]     = useState(null)
+  const [busyId, setBusyId]               = useState(null)
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -803,24 +900,73 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
     }))
   }
 
-  function handleApprove(instrumentId) {
+  function removeRow(instrumentId) {
     if (chequeViewId === instrumentId) setChequeViewId(null)
     setInstruments(prev => prev.filter(i => i.instrument_id !== instrumentId))
   }
 
-  function doReturn(instrumentId) {
-    if (chequeViewId === instrumentId) setChequeViewId(null)
-    setInstruments(prev => prev.filter(i => i.instrument_id !== instrumentId))
+  // Real checker decision for inward cheques (maker-checker); the sample grids stay local.
+  async function submitValidation(instrumentId, action, reason) {
+    setActionError(null); setBusyId(instrumentId)
+    try {
+      await postValidation(instrumentId, action, reason)
+      removeRow(instrumentId)
+    } catch (e) {
+      setActionError(`${instrumentId}: ${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function submitOutwardValidation(instrumentId, action, reason) {
+    setActionError(null); setBusyId(instrumentId)
+    try {
+      await postOutwardValidation(instrumentId, action, reason)
+      removeRow(instrumentId)
+    } catch (e) {
+      setActionError(`${instrumentId}: ${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function handleApprove(instrumentId) {
+    const staged = instruments.find(i => i.instrument_id === instrumentId)
+    if (!isInward && !isDemo && staged?.staged_outward) {
+      submitOutwardValidation(instrumentId, staged.maker_decision, msg('CTS_WF_VAL_AGREES'))
+      return
+    }
+    if (isInward && !isDemo) {
+      // Approve = the checker agrees with the maker.
+      const inst = instruments.find(i => i.instrument_id === instrumentId)
+      submitValidation(instrumentId, inst?.maker_decision ?? 'CONFIRM', msg('CTS_WF_VAL_AGREES'))
+      return
+    }
+    removeRow(instrumentId)
+  }
+
+  function doReturn(instrumentId, reason) {
     setReturnOpenFor(null)
+    const staged = instruments.find(i => i.instrument_id === instrumentId)
+    if (!isInward && !isDemo && staged?.staged_outward) {
+      submitOutwardValidation(instrumentId, 'REJECTED', reason || msg('CTS_WF_VAL_RETURNED'))
+      return
+    }
+    if (isInward && !isDemo) {
+      // Return = the checker overrules to RETURN, with the chosen return reason.
+      submitValidation(instrumentId, 'RETURN', reason || msg('CTS_WF_VAL_RETURNED'))
+      return
+    }
+    removeRow(instrumentId)
   }
 
   const OCR_COLS = [
-    { key: 'date',           label: 'Date',           w: 'w-28', isBoolean: false },
-    { key: 'payee',          label: 'Payee',          w: 'w-44', isBoolean: false },
-    { key: 'amount_figures', label: 'Amount',         w: 'w-28', isBoolean: false },
-    { key: 'amount_words',   label: 'Amount (words)', w: 'w-52', isBoolean: false },
-    { key: 'micr',           label: 'MICR',           w: 'w-24', isBoolean: false },
-    { key: 'alterations',    label: 'Altered?',       w: 'w-20', isBoolean: true  },
+    { key: 'date',           label: msg('UI_COMMON_DATE'),           w: 'w-28', isBoolean: false },
+    { key: 'payee',          label: msg('CTS_OUT_CUSTODY_COL_PAYEE'),          w: 'w-44', isBoolean: false },
+    { key: 'amount_figures', label: msg('CTS_OUT_CUSTODY_COL_AMOUNT'),         w: 'w-28', isBoolean: false },
+    { key: 'amount_words',   label: msg('UI_COMMON_AMOUNT_WORDS'), w: 'w-52', isBoolean: false },
+    { key: 'micr',           label: msg('UI_COMMON_MICR'),           w: 'w-24', isBoolean: false },
+    { key: 'alterations',    label: msg('UI_VALIDATIONQUEUE_ALTERED'),       w: 'w-20', isBoolean: true  },
   ]
 
   // Source colour coding for the instrument cell left border
@@ -845,24 +991,24 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
             <div>
               <h1 className={`text-lg font-semibold ${th.heading}`}>{isInward ? 'Validation IQ' : 'Validation OQ'}</h1>
               <p className={`text-xs ${th.muted} mt-0.5`}>
-                Inline-editable grid · Changed cells → MANUAL ·
-                <span className={`mx-1.5 inline-flex items-center gap-1 text-[10px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>█ STP</span>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${isDark ? 'text-sky-400' : 'text-sky-700'}`}>█ Verified</span>
+               {msg('UI_VALIDATIONQUEUE_INLINE_EDITABLE_GRID_CHANGED_CELLS')}
+                <span className={`mx-1.5 inline-flex items-center gap-1 text-[10px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{msg('UI_VALIDATIONQUEUE_STP')}</span>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${isDark ? 'text-sky-400' : 'text-sky-700'}`}>{msg('UI_VALIDATIONQUEUE_VERIFIED')}</span>
               </p>
             </div>
             <div className={`text-[10px] px-3 py-1.5 rounded-lg border font-medium ${isDark ? 'bg-amber-400/5 border-amber-400/20 text-amber-400' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
-              Stage 2 of 3 — Validation
+             {msg('UI_VALIDATIONQUEUE_STAGE_2_OF_3_VALIDATION')}
             </div>
           </div>
 
           <div className="flex items-center gap-5 mb-3">
             {[
-              { label: 'Total',          val: instruments.length, color: th.heading },
-              { label: 'STP Auto',       val: stpCount,           color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-              { label: 'Human Verified', val: verifiedCount,      color: isDark ? 'text-sky-400' : 'text-sky-600' },
-              { label: 'Edited',         val: editedCount,        color: isDark ? 'text-amber-400' : 'text-amber-600' },
-              { label: 'High Value',     val: hvCount,            color: isDark ? 'text-red-400' : 'text-red-600' },
-              { label: 'Name Alerts', val: nameAlertCount, color: nameAlertCount > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-slate-500' : 'text-slate-400') },
+              { label: msg('UI_COMMON_TOTAL'),          val: instruments.length, color: th.heading },
+              { label: msg('UI_VALIDATIONQUEUE_STP_AUTO'),       val: stpCount,           color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+              { label: msg('UI_VALIDATIONQUEUE_HUMAN_VERIFIED'), val: verifiedCount,      color: isDark ? 'text-sky-400' : 'text-sky-600' },
+              { label: msg('UI_VALIDATIONQUEUE_EDITED'),         val: editedCount,        color: isDark ? 'text-amber-400' : 'text-amber-600' },
+              { label: msg('UI_VALIDATIONQUEUE_HIGH_VALUE'),     val: hvCount,            color: isDark ? 'text-red-400' : 'text-red-600' },
+              { label: msg('UI_VALIDATIONQUEUE_NAME_ALERTS'), val: nameAlertCount, color: nameAlertCount > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-slate-500' : 'text-slate-400') },
             ].map(({ label, val, color }) => (
               <div key={label} className="flex items-center gap-1.5">
                 <span className={`text-2xl font-bold font-mono ${color}`}>{val}</span>
@@ -907,9 +1053,9 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
           </div>
 
           <div className={`text-[11px] ${th.lbl} flex items-center gap-3`}>
-            <span>Click cell to edit</span><span>·</span>
-            <span>Edited → <span className={isDark ? 'text-amber-400 font-semibold' : 'text-amber-600 font-semibold'}>amber / MANUAL</span></span><span>·</span>
-            <span>🖼 view cheque · ✓ approve · ↩ return with reason</span>
+            <span>{msg('UI_VALIDATIONQUEUE_CLICK_CELL_TO_EDIT')}</span><span>·</span>
+            <span>{msg('UI_VALIDATIONQUEUE_EDITED_2')} <span className={isDark ? 'text-amber-400 font-semibold' : 'text-amber-600 font-semibold'}>{msg('UI_VALIDATIONQUEUE_AMBER_MANUAL')}</span></span><span>·</span>
+            <span>{msg('UI_VALIDATIONQUEUE_VIEW_CHEQUE_APPROVE_RETURN_WITH')}</span>
           </div>
         </div>
 
@@ -920,20 +1066,20 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
               <thead>
                 <tr className={`border-b ${th.thCell} text-left`}>
                   {/* No Source column — colour on instrument cell */}
-                  <th className={`sticky left-0 z-10 px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200'} border-r w-40`}>Instrument</th>
-                  {!isInward && <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-36">Drawee Bank</th>}
-                  {isInward  && <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-24">Account</th>}
-                  {isInward  && <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-14 text-right">IET</th>}
+                  <th className={`sticky left-0 z-10 px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200'} border-r w-40`}>{msg('CTS_OUT_CUSTODY_COL_INSTRUMENT')}</th>
+                  {!isInward && <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-36">{msg('UI_COMMON_DRAWEE_BANK')}</th>}
+                  {isInward  && <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-24">{msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}</th>}
+                  {isInward  && <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-14 text-right">{msg('UI_COMMON_IET')}</th>}
                   {OCR_COLS.map(col => (
                     <th key={col.key} className={`px-2 py-2.5 text-[10px] uppercase tracking-wider font-semibold ${col.w}`}>{col.label}</th>
                   ))}
                   <th className="px-2 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-8 text-center">🖼</th>
-                  <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-20 text-center">Actions</th>
+                  <th className="px-3 py-2.5 text-[10px] uppercase tracking-wider font-semibold w-20 text-center">{msg('UI_COMMON_ACTIONS')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={20} className={`text-center py-12 ${th.lbl}`}>No instruments in validation queue.</td></tr>
+                  <tr><td colSpan={20} className={`text-center py-12 ${th.lbl}`}>{msg('UI_VALIDATIONQUEUE_NO_INSTRUMENTS_IN_VALIDATION_QUEUE')}</td></tr>
                 )}
                 {filtered.map(inst => {
                   const manualCount = Object.values(inst.fields_meta ?? {}).filter(m => m.source === 'MANUAL').length
@@ -951,9 +1097,14 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                         <div className={`font-mono text-[11px] font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{inst.instrument_id}</div>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <span className={`text-[9px] font-bold px-1 py-0.5 rounded text-[9px] ${sourceDot(inst.source_stage)}`}>{isSTP ? 'STP' : 'VERIFIED'}</span>
-                          {manualCount > 0 && <span className={`text-[9px] ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>{manualCount} MANUAL</span>}
+                          {manualCount > 0 && <span className={`text-[9px] ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>{msg('UI_VALIDATIONQUEUE_MANUAL', { manualCount })}</span>}
                           {inst.name_match && <NameMatchBadge verdict={inst.name_match} isDark={isDark} short />}
                         </div>
+                        {inst.maker_id && (
+                          <div className={`text-[10px] mt-0.5 ${th.muted}`} title={msg('CTS_WF_VAL_FIRST_DECISION_TITLE')}>
+                           {msg('UI_VALIDATIONQUEUE_MAKER', { maker_id: inst.maker_id })} <span className="font-semibold">{inst.maker_decision}</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Bank / Account */}
@@ -968,7 +1119,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                       {/* IET */}
                       {isInward && (
                         <td className="px-2 py-2 text-right">
-                          <span className={`text-[11px] font-mono font-semibold ${ietUrgent ? 'text-red-400 animate-pulse' : isDark ? 'text-sky-400' : 'text-sky-600'}`}>{minsLeft}m</span>
+                          <span className={`text-[11px] font-mono font-semibold ${ietUrgent ? 'text-red-400 animate-pulse' : isDark ? 'text-sky-400' : 'text-sky-600'}`}>{msg('UI_OUTWARDPIPELINEMONITOR_M', { minsLeft })}</span>
                         </td>
                       )}
 
@@ -1000,7 +1151,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                       <td className="px-2 py-2 text-center">
                         <button type="button"
                           onClick={() => setChequeViewId(isViewing ? null : inst.instrument_id)}
-                          title="View cheque image"
+                          title={msg('UI_VALIDATIONQUEUE_VIEW_CHEQUE_IMAGE')}
                           className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto text-sm transition-all ${isViewing
                             ? (isDark ? 'bg-amber-400/15 text-amber-300' : 'bg-amber-100 text-amber-600')
                             : (isDark ? 'text-slate-500 hover:bg-white/5 hover:text-amber-400' : 'text-slate-400 hover:bg-slate-100 hover:text-amber-600')
@@ -1015,7 +1166,8 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                           <button
                             type="button"
                             onClick={() => handleApprove(inst.instrument_id)}
-                            title={`Approve → ${approveLabel}`}
+                            disabled={busyId === inst.instrument_id}
+                            title={msg('UI_VALIDATIONQUEUE_APPROVE', { approveLabel })}
                             className={`w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold transition-all ${isDark
                               ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
                               : 'bg-emerald-50 border border-emerald-400 text-emerald-600 hover:bg-emerald-100'
@@ -1027,7 +1179,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                             <button
                               type="button"
                               onClick={() => setReturnOpenFor(isReturning ? null : inst.instrument_id)}
-                              title="Return — select reason"
+                              title={msg('UI_VALIDATIONQUEUE_RETURN_SELECT_REASON')}
                               className={`w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold transition-all ${isReturning
                                 ? (isDark ? 'bg-red-500/25 border border-red-500/50 text-red-300' : 'bg-red-100 border border-red-400 text-red-700')
                                 : (isDark ? 'bg-red-500/10 border border-red-500/25 text-red-400 hover:bg-red-500/20' : 'bg-red-50 border border-red-300 text-red-600 hover:bg-red-100')
@@ -1037,7 +1189,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                             {isReturning && (
                               <ReturnDropdown
                                 isDark={isDark}
-                                onReturn={() => doReturn(inst.instrument_id)}
+                                onReturn={(reason) => doReturn(inst.instrument_id, reason)}
                                 onClose={() => setReturnOpenFor(null)}
                               />
                             )}
@@ -1057,13 +1209,17 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
           )}
         </div>
 
+        {actionError && (
+          <div role="alert" className="px-6 py-2 text-xs text-red-400">{actionError}</div>
+        )}
+
         {/* Footer */}
         {instruments.length > 0 && (
           <div className={`px-6 py-2.5 border-t ${th.divider} flex items-center gap-4 shrink-0`}>
-            <span className={`text-[11px] ${th.lbl}`}>{filtered.length} of {instruments.length} shown</span>
-            {editedCount > 0 && <span className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{editedCount} with manual edits</span>}
+            <span className={`text-[11px] ${th.lbl}`}>{msg('UI_VALIDATIONQUEUE_OF_SHOWN', { count: filtered.length, count2: instruments.length })}</span>
+            {editedCount > 0 && <span className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{msg('UI_VALIDATIONQUEUE_WITH_MANUAL_EDITS', { editedCount })}</span>}
             <div className="ml-auto flex items-center gap-2">
-              <span className={`text-[11px] ${th.lbl}`}>Approved →</span>
+              <span className={`text-[11px] ${th.lbl}`}>{msg('UI_VALIDATIONQUEUE_APPROVED')}</span>
               <span className={`text-[11px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{approveLabel}</span>
             </div>
           </div>

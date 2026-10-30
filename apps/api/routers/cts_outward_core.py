@@ -36,6 +36,7 @@ from apps.api.routers.cts_deps import (
     get_temporal_client,
     get_kafka_producer,
 )
+from shared.messages import get_message
 from shared.auth.rbac import Role, UserContext
 from shared.config.config_service import config_service
 
@@ -454,7 +455,7 @@ async def request_scan_upload_urls(
             log.error("cts.upload_url.minio_error", scan_id=body.scan_id, bank_id=bank_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Could not provision upload URLs — MinIO unavailable",
+                detail=get_message("API_COULD_NOT_PROVISION_UPLOAD_URLS"),
             ) from exc
     else:
         front_url = f"http://minio-dev.local/{_CTS_IMAGES_BUCKET}/{front_key}?presigned=1"
@@ -496,13 +497,13 @@ async def get_scan_image_url(
 
     minio_store = getattr(request.app.state, "minio_store", None) if request else None
     if minio_store is None:
-        raise HTTPException(status_code=503, detail="Image store unavailable")
+        raise HTTPException(status_code=503, detail=get_message("API_IMAGE_STORE_UNAVAILABLE"))
 
     try:
         raw_bytes = await minio_store.download_bytes(_CTS_IMAGES_BUCKET, object_key)
     except Exception as exc:
         log.warning("cts.scan_image_download_error", scan_id=scan_id, view=view, error=str(exc))
-        raise HTTPException(status_code=404, detail="Image not found") from exc
+        raise HTTPException(status_code=404, detail=get_message("API_IMAGE_NOT_FOUND")) from exc
 
     try:
         import io
@@ -586,7 +587,7 @@ async def submit_outward_scan(
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to start OutwardScanWorkflow",
+                detail=get_message("API_FAILED_TO_START_OUTWARDSCANWORKFLOW"),
             ) from exc
 
     path = "CR120" if body.micr_hardware_raw else "LEGACY"
@@ -635,7 +636,7 @@ async def get_hub_summary(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> HubSummaryResponse:
     if ctx.role.value not in _HUB_READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     today = date.today().isoformat()
@@ -654,7 +655,7 @@ async def get_hub_summary(
             rows = await conn.fetch(_HUB_SUMMARY_SQL, bank_id, date.today())   # DATE column needs a date, not a str
     except Exception as exc:
         log.error("cts.hub_summary.db_error", bank_id=bank_id, error=str(exc))
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
     branches = [_row_to_branch_summary(dict(r)) for r in rows]
     active = sum(1 for b in branches if b.session is not None)
@@ -672,12 +673,12 @@ async def seal_lot(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> dict:
     if ctx.role.value not in _HUB_WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     state = getattr(getattr(request, "app", None), "state", None)
     db_pool = getattr(state, "db_pool_cts", None) if state else None
     if db_pool is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     bank_id = ctx.bank_id
     async with db_pool.acquire() as conn:
@@ -686,9 +687,9 @@ async def seal_lot(
             lot_id,
         )
         if row is None or row["bank_id"] != bank_id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lot not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_LOT_NOT_FOUND"))
         if row["status"] != "OPEN":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Lot is already {row['status']}")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("API_LOT_IS_ALREADY", row=row['status']))
         await conn.execute(
             "UPDATE cts.lots SET status='SEALED', sealed_at=NOW() WHERE lot_id=$1",
             lot_id,
@@ -704,12 +705,12 @@ async def seal_all_lots(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> dict:
     if ctx.role.value not in _HUB_WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     state = getattr(getattr(request, "app", None), "state", None)
     db_pool = getattr(state, "db_pool_cts", None) if state else None
     if db_pool is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     bank_id = ctx.bank_id
     today = date.today()
@@ -743,11 +744,11 @@ async def get_session_report(
     bank_id = ctx.bank_id
     allowed = {"ops_manager", "bank_it_admin", "ops_reviewer", "fraud_analyst"}
     if ctx.role.value not in allowed:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     db = getattr(request.app.state, "db", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     row = await db.fetchrow(
         """
@@ -763,7 +764,7 @@ async def get_session_report(
         session_id, bank_id,
     )
     if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_REPORT_NOT_FOUND"))
 
     html_url = pdf_url = None
 
@@ -833,7 +834,7 @@ async def upload_vault_csv(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "error_code": "VAULT_UNKNOWN_TYPE",
-                "message": f"vault_type must be one of {sorted(_VALID_VAULT_TYPES)}",
+                "message": get_message("API_VAULT_TYPE_MUST_BE_ONE", sorted=sorted(_VALID_VAULT_TYPES)),
                 "request_id": request.headers.get("X-Request-Id", ""),
             },
         )
@@ -844,7 +845,7 @@ async def upload_vault_csv(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "error_code": "VAULT_EMPTY_FILE",
-                "message": "Uploaded file is empty",
+                "message": get_message("API_UPLOADED_FILE_IS_EMPTY"),
                 "request_id": request.headers.get("X-Request-Id", ""),
             },
         )
@@ -943,7 +944,7 @@ async def get_vault_batch_status(
     if db_pool is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"error_code": "DB_UNAVAILABLE", "message": "Database pool not ready"},
+            detail={"error_code": "DB_UNAVAILABLE", "message": get_message("API_DATABASE_POOL_NOT_READY")},
         )
 
     import json as _json
@@ -1005,7 +1006,7 @@ async def download_vault_batch_errors(
     if db_pool is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"error_code": "DB_UNAVAILABLE", "message": "Database pool not ready"},
+            detail={"error_code": "DB_UNAVAILABLE", "message": get_message("API_DATABASE_POOL_NOT_READY")},
         )
 
     import json as _json
@@ -1086,11 +1087,11 @@ async def open_scanner_session(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> ScannerSessionOpenResponse:
     if ctx.role.value not in _SESSION_OPEN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     import uuid as _uuid
     from datetime import date as _date, datetime as _dt, timezone as _tz
@@ -1107,7 +1108,7 @@ async def open_scanner_session(
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Active session {existing['session_id']} already open for this branch today",
+                detail=get_message("API_ACTIVE_SESSION_ALREADY_OPEN_FOR", existing=existing['session_id']),
             )
         expires_at = _dt.now(_tz.utc).replace(hour=18, minute=0, second=0, microsecond=0)
         await conn.execute(
@@ -1144,11 +1145,11 @@ async def close_scanner_session(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> ScannerSessionCloseResponse:
     if ctx.role.value not in _SESSION_OPEN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     from datetime import datetime as _dt, timezone as _tz
 
@@ -1158,13 +1159,13 @@ async def close_scanner_session(
             body.session_id,
         )
         if row is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SESSION_NOT_FOUND"))
         if row["bank_id"] != bank_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cross-bank session close forbidden")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_CROSS_BANK_SESSION_CLOSE_FORBIDDEN"))
         if row["status"] != "ACTIVE":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Session is already {row['status']}",
+                detail=get_message("API_SESSION_IS_ALREADY", row=row['status']),
             )
         closed_at = _dt.now(_tz.utc)
         await conn.execute(
@@ -1190,11 +1191,11 @@ async def submit_clearing_session(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> ClearingSessionSubmitResponse:
     if ctx.role.value not in _HUB_SUBMIT_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hub submit requires ops_manager or bank_it_admin")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_HUB_SUBMIT_REQUIRES_OPS_MANAGER"))
     bank_id = ctx.bank_id
     temporal = get_temporal_client(request)
     if temporal is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Temporal unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("API_TEMPORAL_UNAVAILABLE"))
 
     from modules.cts.workflows.clearing_session_workflow import (
         ClearingSessionWorkflow,
@@ -1237,7 +1238,7 @@ async def submit_clearing_session(
         clearing_date=clearing_date,
         session_type=session_type,
         status="STARTED",
-        message=f"ClearingSessionWorkflow {workflow_id} started — NGCH filing in progress.",
+        message=get_message("API_CLEARINGSESSIONWORKFLOW_STARTED_NGCH", workflow_id=workflow_id),
     )
 
 

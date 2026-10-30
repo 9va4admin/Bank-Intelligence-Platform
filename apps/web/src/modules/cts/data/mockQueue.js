@@ -1,5 +1,6 @@
 import { demoChequeUrl } from '../demoImages'
-import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { BANK_CONFIG, sampleSmb } from '../../../shared/config/bank.config'
+import { msg } from '../../../shared/messages'
 
 const now = Date.now()
 const mins = (m) => now + m * 60 * 1000
@@ -8,8 +9,8 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006214',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Thrissur UCB',
-    branch: 'Thrissur Main',
+    bank: sampleSmb(0).name,
+    branch: `${sampleSmb(0).city} Main`,
     bank_slug: 'smb-kl-tsucb',
     account_display: '****4813',
     payee_display: 'Krishnan Textiles Pvt. Ltd.',
@@ -17,13 +18,12 @@ export const MOCK_QUEUE = [
     amount_label: 'HIGH VALUE',
     received_at: new Date(now - 112 * 60000).toISOString(),
     iet_deadline: new Date(mins(28)).toISOString(),
-    clearing_zone: 'SOUTH',
     cbs_type: 'Finacle',
     fraud_score: 0.81,
     ocr_confidence: 0.97,
     sig_match_score: 0.58,
     reason: 'SIGNATURE_LOW_CONFIDENCE',
-    reason_label: 'Signature mismatch',
+    reason_label: msg('UI_MOCKQUEUE_SIGNATURE_MISMATCH'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Signature match score', value: -0.34, direction: 'risk' },
@@ -46,7 +46,7 @@ export const MOCK_QUEUE = [
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 22-Apr-2026',
     principal_tag: 'SUB_MEMBER',
-    sub_member_name: 'Thrissur UCB',
+    sub_member_name: sampleSmb(0).name,
     sub_member_id: 'SMB-KL-001',
     alteration_result: {
       alteration_detected: false, tamper_risk_score: 0.04, physical_anomaly_score: 0.02,
@@ -64,8 +64,8 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006221',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
-    branch: 'Ernakulam City',
+    bank: BANK_CONFIG.bank_name,
+    branch: 'Fort Branch, Mumbai',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****9027',
     payee_display: 'Menon Constructions Ltd.',
@@ -73,13 +73,12 @@ export const MOCK_QUEUE = [
     amount_label: 'STANDARD',
     received_at: new Date(now - 95 * 60000).toISOString(),
     iet_deadline: new Date(mins(45)).toISOString(),
-    clearing_zone: 'SOUTH',
     cbs_type: 'Finacle',
     fraud_score: 0.76,
     ocr_confidence: 0.99,
     sig_match_score: 0.87,
     reason: 'FRAUD_SCORE_HIGH',
-    reason_label: 'Fraud score above threshold',
+    reason_label: msg('UI_MOCKQUEUE_FRAUD_SCORE_ABOVE_THRESHOLD'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Amount vs avg (30d)',    value: -0.23, direction: 'risk' },
@@ -117,8 +116,8 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006248',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
-    branch: 'Aluva HO',
+    bank: BANK_CONFIG.bank_name,
+    branch: 'Andheri West Branch, Mumbai',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****3374',
     payee_display: 'Rajan Nair',
@@ -126,13 +125,12 @@ export const MOCK_QUEUE = [
     amount_label: 'STANDARD',
     received_at: new Date(now - 68 * 60000).toISOString(),
     iet_deadline: new Date(mins(72)).toISOString(),
-    clearing_zone: 'SOUTH',
     cbs_type: 'Finacle',
     fraud_score: 0.73,
     ocr_confidence: 0.83,
     sig_match_score: 0.81,
     reason: 'OCR_LOW_CONFIDENCE',
-    reason_label: 'Possible alteration detected',
+    reason_label: msg('UI_MOCKQUEUE_POSSIBLE_ALTERATION_DETECTED'),
     status: 'PENDING',
     shap_values: [
       { feature: 'OCR confidence low',     value: -0.27, direction: 'risk' },
@@ -180,7 +178,7 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006259',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Ernakulam UCB',
+    bank: sampleSmb(1).name,
     branch: 'Kochi Mattancherry',
     bank_slug: 'smb-kl-eklucb',
     account_display: '****7702',
@@ -189,13 +187,12 @@ export const MOCK_QUEUE = [
     amount_label: 'STANDARD',
     received_at: new Date(now - 42 * 60000).toISOString(),
     iet_deadline: new Date(mins(98)).toISOString(),
-    clearing_zone: 'SOUTH',
     cbs_type: 'Finacle',
     fraud_score: 0.77,
     ocr_confidence: 0.96,
     sig_match_score: null,
     reason: 'VAULT_MISS',
-    reason_label: 'No signature specimen on file',
+    reason_label: msg('UI_MOCKQUEUE_NO_SIGNATURE_SPECIMEN_ON_FILE'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Vault miss — no specimen',  value: -0.42, direction: 'risk' },
@@ -218,7 +215,7 @@ export const MOCK_QUEUE = [
     sig_specimen_available: false,
     sig_specimen_label: 'No specimen — account opened 03-Mar-2026',
     principal_tag: 'SUB_MEMBER',
-    sub_member_name: 'Ernakulam UCB',
+    sub_member_name: sampleSmb(1).name,
     sub_member_id: 'SMB-KL-002',
     alteration_result: {
       alteration_detected: false, tamper_risk_score: 0.06, physical_anomaly_score: 0.03,
@@ -236,7 +233,7 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006271',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
+    bank: BANK_CONFIG.bank_name,
     branch: 'Kozhikode Main',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****6618',
@@ -245,13 +242,12 @@ export const MOCK_QUEUE = [
     amount_label: 'VERY HIGH VALUE',
     received_at: new Date(now - 31 * 60000).toISOString(),
     iet_deadline: new Date(mins(109)).toISOString(),
-    clearing_zone: 'SOUTH',
     cbs_type: 'Finacle',
     fraud_score: 0.69,
     ocr_confidence: 0.98,
     sig_match_score: 0.73,
     reason: 'HIGH_VALUE_DUAL_APPROVAL',
-    reason_label: 'Cheque >₹1Cr — dual approval required (OPA)',
+    reason_label: msg('UI_MOCKQUEUE_CHEQUE_1CR_DUAL_APPROVAL_REQUIRED'),
     status: 'PENDING',
     shap_values: [
       { feature: 'Amount >₹1Cr (OPA rule)', value: -0.36, direction: 'risk' },
@@ -290,7 +286,7 @@ export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-006283',
     front_bw_url: null, front_gray_url: null,
-    bank: 'Federal Bank Limited',
+    bank: BANK_CONFIG.bank_name,
     branch: 'Palakkad Market',
     bank_slug: BANK_CONFIG.bank_id,
     account_display: '****1155',
@@ -299,13 +295,12 @@ export const MOCK_QUEUE = [
     amount_label: 'STANDARD',
     received_at: new Date(now - 18 * 60000).toISOString(),
     iet_deadline: new Date(mins(122)).toISOString(),
-    clearing_zone: 'SOUTH',
     cbs_type: 'Finacle',
     fraud_score: 0.79,
     ocr_confidence: 0.95,
     sig_match_score: 0.92,
     reason: 'FRAUD_SCORE_HIGH',
-    reason_label: 'Fraud score above threshold',
+    reason_label: msg('UI_MOCKQUEUE_FRAUD_SCORE_ABOVE_THRESHOLD'),
     status: 'PENDING',
     shap_values: [
       { feature: 'New payee (first time)',   value: -0.25, direction: 'risk' },
@@ -342,11 +337,9 @@ export const MOCK_QUEUE = [
   },
 ]
 
-// Federal Bank SOUTH zone — SESSION_1 (10:30 AM session)
-// Total inward across all 4 zones: ~36,000/day; SOUTH zone SESSION_1 share: ~5,200
+// Sample daily summary for SESSION_1 (10:30 AM session)
 export const BATCH_STATS = {
   date: '11-Aug-2026',
-  clearing_zone: 'SOUTH',
   total_inward: 5241,
   stp_confirmed: 5078,
   stp_returned: 157,

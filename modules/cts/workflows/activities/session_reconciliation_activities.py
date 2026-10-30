@@ -84,6 +84,8 @@ class MatchInput(BaseModel):
     bank_id: str
     settlement_rows: list[dict]
     submitted_count: int
+    submitted_instrument_ids: list[str] = []   # what we actually submitted; lets a missing report row be seen
+    report_unavailable: bool = False           # NGCH could not be reached: an empty report proves nothing
 
 
 class MatchResult(BaseModel):
@@ -102,12 +104,15 @@ async def match_submitted_vs_settled(
 ) -> MatchResult:
     """
     Matches submitted instruments against NGCH settlement rows.
-    Instruments with status != SETTLED are flagged as exceptions.
-    Degrades gracefully when db_pool is unavailable.
+
+    Exceptions are: a submitted instrument whose row is not SETTLED, a submitted instrument that has NO row in the report
+    (MISSING_FROM_SETTLEMENT), and a row for an instrument we did not submit. A session is RECONCILED only when every
+    submitted instrument was settled; an unavailable report never reconciles a session that submitted anything.
     """
     with tracer.start_as_current_span("activity.match_submitted_vs_settled") as span:
         span.set_attribute("bank_id", inp.bank_id)
-        if db_pool is None:
+        have_ids = bool(inp.submitted_instrument_ids)
+        if db_pool is None and not have_ids and not inp.report_unavailable:
             log.warning(
                 "match_submitted_vs_settled.db_unavailable",
                 session_id=inp.session_id,
@@ -120,11 +125,26 @@ async def match_submitted_vs_settled(
                 exception_instruments=[],
             )
 
-        settled = [r for r in inp.settlement_rows if r.get("status") == "SETTLED"]
-        exceptions = [r for r in inp.settlement_rows if r.get("status") != "SETTLED"]
+        rows = inp.settlement_rows
+        if have_ids:
+            submitted = set(inp.submitted_instrument_ids)
+            in_report = {r.get("instrument_id") for r in rows}
+            settled = [r for r in rows if r.get("status") == "SETTLED" and r.get("instrument_id") in submitted]
+            exceptions = [r for r in rows if r.get("status") != "SETTLED" or r.get("instrument_id") not in submitted]
+            exceptions += [
+                {"instrument_id": iid, "status": "MISSING_FROM_SETTLEMENT",
+                 "reason": "Submitted but not in the NGCH settlement report"}
+                for iid in inp.submitted_instrument_ids if iid not in in_report
+            ]
+            exception_count = len(exceptions)
+        else:
+            settled = [r for r in rows if r.get("status") == "SETTLED"]
+            exceptions = [r for r in rows if r.get("status") != "SETTLED"]
+            exception_count = len(exceptions)
+            if inp.report_unavailable and inp.submitted_count > 0:
+                exception_count = max(exception_count, inp.submitted_count)   # we only know how many, not which
 
         matched_count = len(settled)
-        exception_count = len(exceptions)
         outcome = "EXCEPTIONS_FLAGGED" if exception_count > 0 else "RECONCILED"
 
         log.info(
@@ -233,7 +253,6 @@ async def generate_rrf(
                 bank_ifsc=inp.bank_ifsc,
                 bank_id=inp.bank_id,
                 session_id=inp.session_id,
-                clearing_zone="",   # resolved by session context; not in GenerateRRFInput
                 generated_at=_now,
                 returns=_return_items,
             )

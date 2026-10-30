@@ -24,6 +24,7 @@ from shared.cbs_connector.base import (
     CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -153,7 +154,7 @@ class FlexCubeCBSConnector(CBSConnector):
             response.raise_for_status()
             return ET.fromstring(response.text)
         except Exception as exc:
-            raise CBSUnavailableError(f"FlexCube SOAP call failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FLEXCUBE_SOAP_CALL_FAILED", exc=exc)) from exc
 
     async def get_account_info(self, account_number: str, bank_id: str) -> AccountInfo:
         self._assert_ready()
@@ -167,7 +168,7 @@ class FlexCubeCBSConnector(CBSConnector):
             code = _fault_code(root)
             if "404" in code or "not found" in code.lower():
                 raise AccountNotFoundError(account_number)
-            raise CBSUnavailableError(f"FlexCube fault: {code}")
+            raise CBSUnavailableError(get_message("PLATFORM_FLEXCUBE_FAULT", code=code))
 
         raw_status = _find_text(root, "ACCOUNT_STATUS") or "A"
         # Also check structural flags when explicit status not provided
@@ -387,7 +388,7 @@ class FlexCubeCBSConnector(CBSConnector):
                 bank_id=bank_id,
                 error=str(exc),
             )
-            raise CBSUnavailableError(f"FlexCube get_signatory_data failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FLEXCUBE_GET_SIGNATORY_DATA_FAILED", exc=exc)) from exc
 
         result: list[CBSSignatoryData] = []
         for sig in getattr(response, "signatories", []) or []:
@@ -431,7 +432,7 @@ class FlexCubeCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.flexcube.get_branch_contacts.failed",
                       branch_code=branch_code, bank_id=bank_id, error=str(exc))
-            raise CBSUnavailableError(f"FlexCube get_branch_contacts failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_FLEXCUBE_GET_BRANCH_CONTACTS_FAILED", exc=exc)) from exc
 
         def _text(tag: str) -> str:
             el = body.find(f".//fcc:{tag}", ns)
@@ -451,6 +452,5 @@ class FlexCubeCBSConnector(CBSConnector):
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "FlexCubeCBSConnector.connect() has not been called. "
-                "Call it in the service startup before querying CBS."
+                get_message("PLATFORM_FLEXCUBECBSCONNECTOR_CONNECT_HAS_NOT")
             )

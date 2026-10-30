@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -182,7 +183,7 @@ class LotStore:
                 bank_id, lot_number,
             )
         if row is None:
-            raise ValueError(f"bank {bank_id} not found in platform.banks")
+            raise ValueError(get_message("CTS_BANK_NOT_FOUND_IN_PLATFORM", bank_id=bank_id))
         return {"bank_name": row["bank_name"], "branch_name": row["branch_name"]}
 
     async def _fetch_lot_instruments(self, bank_id: str, lot_number: str) -> List[dict]:

@@ -3,6 +3,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -18,7 +19,7 @@ function useSecurityViolations() {
       const res = await fetch(`${API_BASE}/v1/admin/security-violations?limit=100`, {
         headers: { Authorization: `Bearer test-token-${BANK_CONFIG.bank_id}` },
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       setData(await res.json())
     } catch (e) {
       setError(e.message)
@@ -46,10 +47,10 @@ function useSecurityViolations() {
 }
 
 const SEVERITY_META = {
-  TenantIsolationError: { label: 'Tenant Isolation',  color: 'red',    icon: '⛔' },
-  BankIsolationError:   { label: 'Bank Isolation',    color: 'red',    icon: '⛔' },
-  AccessDeniedError:    { label: 'Access Denied',     color: 'amber',  icon: '⚠' },
-  EngagementExpiredError: { label: 'Engagement Expired', color: 'slate', icon: 'ℹ' },
+  TenantIsolationError: { label: msg('UI_SECURITYVIOLATIONS_TENANT_ISOLATION'),  color: 'red',    icon: '⛔' },
+  BankIsolationError:   { label: msg('UI_SECURITYVIOLATIONS_BANK_ISOLATION'),    color: 'red',    icon: '⛔' },
+  AccessDeniedError:    { label: msg('UI_SECURITYVIOLATIONS_ACCESS_DENIED'),     color: 'amber',  icon: '⚠' },
+  EngagementExpiredError: { label: msg('UI_SECURITYVIOLATIONS_ENGAGEMENT_EXPIRED'), color: 'slate', icon: 'ℹ' },
 }
 
 function sev(violationType, isDark) {
@@ -140,20 +141,20 @@ export default function SecurityViolations() {
         <div className={`flex-1 overflow-y-auto px-6 py-8 ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
           <div className={`max-w-3xl mx-auto rounded-2xl border p-8 text-center ${isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200'}`}>
             <div className="text-3xl mb-3">🛡</div>
-            <h1 className={`text-lg font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Security Violation Log</h1>
+            <h1 className={`text-lg font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{msg('UI_SECURITYVIOLATIONS_SECURITY_VIOLATION_LOG')}</h1>
             <p className={`text-sm mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Real-time log of unauthorised API access attempts. Accounts that attempt cross-bank data access are suspended immediately.
+             {msg('UI_SECURITYVIOLATIONS_REAL_TIME_LOG_OF_UNAUTHORISED')}
             </p>
             {!isSB && (
               <p className={`text-sm px-4 py-3 rounded-lg mb-6 ${isDark ? 'bg-amber-900/30 text-amber-300 border border-amber-700/40' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                This view is available to your Sponsor Bank's IT administrator.
+               {msg('UI_SECURITYVIOLATIONS_THIS_VIEW_IS_AVAILABLE_TO')}
               </p>
             )}
             <button
               onClick={() => { setLoaded(true); if (!isDemo) load() }}
               className="px-5 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-500 transition-colors"
             >
-              Load violation log
+             {msg('UI_SECURITYVIOLATIONS_LOAD_VIOLATION_LOG')}
             </button>
           </div>
         </div>
@@ -186,9 +187,9 @@ export default function SecurityViolations() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-red-500 text-lg">🛡</span>
-              <h1 className={`text-lg font-semibold ${th.heading}`}>Security Violation Log</h1>
+              <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_SECURITYVIOLATIONS_SECURITY_VIOLATION_LOG')}</h1>
             </div>
-            <p className={`text-xs ${th.muted}`}>{bankName} · bank_it_admin access only</p>
+            <p className={`text-xs ${th.muted}`}>{msg('UI_SECURITYVIOLATIONS_BANK_IT_ADMIN_ACCESS_ONLY', { bankName })}</p>
           </div>
           <button
             onClick={load}
@@ -202,9 +203,9 @@ export default function SecurityViolations() {
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3 mb-5">
           {[
-            { label: 'Total incidents', value: data?.total ?? 0, accent: isDark ? 'text-white' : 'text-slate-900' },
-            { label: 'Accounts suspended', value: suspendedCount, accent: 'text-red-500' },
-            { label: 'Requires action', value: violations.filter(v => v.suspended).length, accent: 'text-amber-500' },
+            { label: msg('UI_SECURITYVIOLATIONS_TOTAL_INCIDENTS'), value: data?.total ?? 0, accent: isDark ? 'text-white' : 'text-slate-900' },
+            { label: msg('UI_SECURITYVIOLATIONS_ACCOUNTS_SUSPENDED'), value: suspendedCount, accent: 'text-red-500' },
+            { label: msg('UI_SECURITYVIOLATIONS_REQUIRES_ACTION'), value: violations.filter(v => v.suspended).length, accent: 'text-amber-500' },
           ].map(s => (
             <div key={s.label} className={`rounded-xl border p-4 ${th.card}`}>
               <div className={`text-2xl font-bold tabular-nums ${s.accent}`}>{s.value}</div>
@@ -216,12 +217,12 @@ export default function SecurityViolations() {
         {/* Violation list */}
         <div className={`rounded-xl border overflow-hidden ${th.card}`}>
           <div className={`px-4 py-3 border-b flex items-center justify-between ${th.divider}`}>
-            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Incidents</span>
-            {error && <span className="text-xs text-amber-400">⚠ API unavailable — showing demo data</span>}
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_SECURITYVIOLATIONS_INCIDENTS')}</span>
+            {error && <span className="text-xs text-amber-400">{msg('UI_SECURITYVIOLATIONS_API_UNAVAILABLE_SHOWING_DEMO_DATA')}</span>}
           </div>
 
           {violations.length === 0 && !loading && (
-            <div className={`px-4 py-10 text-center text-sm ${th.muted}`}>No security violations recorded.</div>
+            <div className={`px-4 py-10 text-center text-sm ${th.muted}`}>{msg('UI_SECURITYVIOLATIONS_NO_SECURITY_VIOLATIONS_RECORDED')}</div>
           )}
 
           {violations.map((v) => {
@@ -248,8 +249,8 @@ export default function SecurityViolations() {
                       {v.method} {v.endpoint}
                     </div>
                     <div className={`text-[10px] mt-1 ${th.muted}`}>
-                      IP {v.client_ip} · {relTime(v.timestamp_iso)}
-                      {v.request_id && <span className="ml-2 opacity-50">req:{v.request_id.slice(-8)}</span>}
+                     {msg('UI_SECURITYVIOLATIONS_IP', { client_ip: v.client_ip, relTime: relTime(v.timestamp_iso) })}
+                      {v.request_id && <span className="ml-2 opacity-50">{msg('UI_SECURITYVIOLATIONS_REQ', { request_id: v.request_id.slice(-8) })}</span>}
                     </div>
                   </div>
 
@@ -257,11 +258,11 @@ export default function SecurityViolations() {
                   <div className="shrink-0 flex flex-col items-end gap-1.5">
                     {v.suspended ? (
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${th.badge}`}>
-                        SUSPENDED
+                       {msg('UI_SECURITYVIOLATIONS_SUSPENDED')}
                       </span>
                     ) : (
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${th.ok}`}>
-                        ACTIVE
+                       {msg('UI_SECURITYVIOLATIONS_ACTIVE')}
                       </span>
                     )}
                     {v.suspended && (
@@ -286,8 +287,7 @@ export default function SecurityViolations() {
 
         {/* Policy note */}
         <p className={`text-[10px] mt-4 text-center ${th.muted}`}>
-          Cross-bank access attempts trigger immediate account suspension per ASTRA security policy.
-          Reinstatement requires bank_it_admin authority and is logged to the immutable audit trail.
+         {msg('UI_SECURITYVIOLATIONS_CROSS_BANK_ACCESS_ATTEMPTS_TRIGGER')}
         </p>
 
       </div>

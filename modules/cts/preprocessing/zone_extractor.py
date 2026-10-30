@@ -19,6 +19,7 @@ import io
 from typing import Literal
 
 from PIL import Image
+from shared.messages import get_message
 
 # ── CTS-2010 field zone coordinates ───────────────────────────────────────────
 # Format: (x1_frac, y1_frac, x2_frac, y2_frac) — top-left origin
@@ -86,7 +87,7 @@ def extract_zone(img: Image.Image, field: str) -> Image.Image:
     """Crop the specified CTS-2010 field zone from a full cheque image."""
     if field not in CTS_ZONES:
         raise ValueError(
-            f"Unknown CTS field '{field}'. Valid fields: {sorted(CTS_ZONES)}"
+            get_message("CTS_UNKNOWN_CTS_FIELD_VALID_FIELDS", field=field, sorted=sorted(CTS_ZONES))
         )
     iw, ih = img.size
     x1f, y1f, x2f, y2f = CTS_ZONES[field]

@@ -17,7 +17,6 @@ kafka:
     kafka-broker-1.kafka-broker-headless.astra-platform-example-bank.svc.cluster.local:9092,
     kafka-broker-2.kafka-broker-headless.astra-platform-example-bank.svc.cluster.local:9092
 
-clearing_zones: [MUMBAI]          # NGCH zones this bank processes
 max_agent_swarm_size: 100         # max parallel cheque-processing pods (pilot sizing)
 gpu_profile: pilot                # 4×RTX4090
 

@@ -13,6 +13,7 @@ Routes:
   GET  /v1/cts/inward/live-flow
   GET  /v1/cts/inward/sessions
 """
+import inspect
 import time
 from typing import List, Literal, Optional
 
@@ -32,6 +33,7 @@ from apps.api.routers.cts_deps import (
 )
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
+from shared.messages import get_message
 from shared.auth.rbac import RBACPolicy, Role, UserContext
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -108,7 +110,10 @@ async def _apply_buckets(request, ctx, lock_svc, items, cts_config, bank_id, buc
                     log.warning("cts.queue.overflow_error", instrument_id=i.instrument_id, error=str(exc))
     metas = await lock_svc.get_item_metas(bank_id, [i.instrument_id for i in items])
     items = [i.model_copy(update={"bucket": metas[i.instrument_id].get("bucket"),
-                                  "origin_bucket": metas[i.instrument_id].get("origin_bucket")}) for i in items]
+                                  "origin_bucket": metas[i.instrument_id].get("origin_bucket"),
+                                  "stage": metas[i.instrument_id].get("stage"),
+                                  "maker_id": metas[i.instrument_id].get("maker_id"),
+                                  "maker_decision": metas[i.instrument_id].get("maker_decision")}) for i in items]
     if routing and ctx.role.value == "ops_reviewer":
         mine = await subs.get_reviewer_buckets(bank_id, ctx.user_id)
         items = [i for i in items if bucket_allows(i.bucket, mine)]
@@ -125,7 +130,7 @@ class QueueItem(BaseModel):
     account_display: str
     payee_display: str
     amount_range: str
-    clearing_zone: str
+    pu_id: Optional[str] = None
     received_at: float
     iet_deadline: float
     reason: str
@@ -136,8 +141,12 @@ class QueueItem(BaseModel):
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
     drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
     assigned_to: Optional[str] = None     # reviewer currently holding the claim, if any (allocation lock)
+    assigned_to_me: Optional[bool] = None  # True when the caller holds the claim (so a screen can mark it theirs)
     bucket: Optional[str] = None          # HVC | CA | IP | LVC | FCC | SIP_SUCCESS | SIP_REJECT | HR | MISC
     origin_bucket: Optional[str] = None   # for MISC items: the bucket they came from
+    stage: Optional[str] = None           # "VALIDATION" once a maker has decided and a checker is needed
+    maker_id: Optional[str] = None        # who made the first decision (VAL items)
+    maker_decision: Optional[str] = None  # CONFIRM | RETURN: what the checker is being asked to confirm or overrule
 
 
 class QueueResponse(BaseModel):
@@ -207,7 +216,7 @@ class ChequeSearchResult(BaseModel):
     payee_display: str
     amount_range: str
     status: str
-    clearing_zone: str
+    pu_id: Optional[str] = None
     received_at: float
     fraud_score: Optional[float] = None
     ocr_confidence: Optional[float] = None
@@ -360,7 +369,7 @@ async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSear
     rows = await db.fetch(
         """
         SELECT instrument_id, cheque_number, account_display, payee_display,
-               amount_range, status, clearing_zone, received_at::text,
+               amount_range, status, pu_id, received_at::text,
                fraud_score, ocr_confidence
         FROM cts.cheque_instruments
         WHERE bank_id = $1
@@ -378,7 +387,7 @@ async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSear
             payee_display=r["payee_display"] or "",
             amount_range=r["amount_range"] or "",
             status=r["status"],
-            clearing_zone=r["clearing_zone"],
+            pu_id=r["pu_id"],
             received_at=r["received_at"],
             fraud_score=r["fraud_score"],
             ocr_confidence=r["ocr_confidence"],
@@ -474,7 +483,7 @@ async def submit_inward_cheque(
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to start workflow",
+                detail=get_message("API_FAILED_TO_START_WORKFLOW"),
             ) from exc
 
     log.info(
@@ -567,6 +576,74 @@ async def get_decision(
     )
 
 
+_REVIEW_ROLES = ("ops_reviewer", "ops_manager")
+
+
+async def _review_state(request, ctx, bank_id: str, instrument_id: str):
+    """(lock_svc, cts_config, meta) for the review endpoints; lock_svc/meta are None/{} without Redis."""
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(bank_id)
+        except Exception:  # noqa: BLE001 - fall back to defaults
+            pass
+    redis = getattr(request.app.state, "redis_cts", None)
+    if redis is None:
+        return None, cts_config, {}
+    lock_svc = _lock_service(redis)
+    return lock_svc, cts_config, await lock_svc.get_item_meta(bank_id, instrument_id)
+
+
+async def _take_or_check_claim(lock_svc, instrument_id: str, reviewer_id: str, cts_config: dict) -> None:
+    """Whoever decides must hold the claim: if it is free they take it, if another reviewer holds it the decision is
+    refused (409) without saying who."""
+    if lock_svc is None:
+        return
+    holder = await lock_svc.get_lock_holder(instrument_id)
+    if holder is not None and holder != reviewer_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_REVIEW_HELD_BY_ANOTHER"))
+    if holder is None and not await lock_svc.acquire_lock(instrument_id, reviewer_id, cts_config):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_REVIEW_HELD_BY_ANOTHER"))
+
+
+async def _signal_review(request, workflow_id: str, signal_name: str, decision, instrument_id: str, bank_id: str) -> bool:
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is None:
+        return False
+    try:
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        handle = temporal_client.get_workflow_handle(workflow_id)
+        await handle.signal(getattr(HumanReviewWorkflow, signal_name), decision)
+        return True
+    except Exception as exc:
+        log.error("cts.review_signal_error", instrument_id=instrument_id, bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("CTS_WF_REVIEW_SIGNAL_FAILED")) from exc
+
+
+async def _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision) -> None:
+    _db = getattr(request.app.state, "db_pool_cts", None)
+    if _db is None:
+        return
+    try:
+        async with _db.acquire() as _conn:
+            await decide_by_instrument(_conn, bank_id=bank_id, direction="INWARD", instrument_ref=instrument_id,
+                                       decision=decision.action, reviewer_id=reviewer_id, notes=decision.reason)
+    except Exception as exc:  # noqa: BLE001 - the workflow signal is the authoritative action
+        log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+
+
+async def _finish_allocation(lock_svc, bank_id: str, instrument_id: str, reviewer_id: str) -> None:
+    """The cheque has its final decision: drop the claim and every allocation record for it."""
+    if lock_svc is None:
+        return
+    try:
+        await lock_svc.release_lock(instrument_id, reviewer_id, bank_id=bank_id)
+        await lock_svc.forget_item(bank_id, instrument_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("cts.review.allocation_cleanup_failed", instrument_id=instrument_id, error=str(exc))
+
+
 @router_v1.post(
     "/review/{instrument_id}/decide",
     response_model=ReviewDecisionResponse,
@@ -578,65 +655,90 @@ async def submit_review_decision(
     request: Request,
     bank_id: str = Depends(get_current_bank_id),
     reviewer_id: str = Depends(get_current_user_id),
+    ctx: UserContext = Depends(get_current_user_context),
 ) -> ReviewDecisionResponse:
+    """A reviewer's decision (the maker's, when maker-checker is on)."""
+    if ctx.role.value not in _REVIEW_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     if not body.reason or not body.reason.strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="reason is required for review decisions",
-        )
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("CTS_WF_REVIEW_REASON_REQUIRED"))
+
+    lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
+    if lock_svc is not None and not meta:
+        # Every queued item has an allocation record until its final decision is filed; none means it is not waiting.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_REVIEW_NOT_PENDING"))
+    if meta.get("stage") == "VALIDATION":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=get_message("CTS_WF_REVIEW_USE_VALIDATE"))
+    await _take_or_check_claim(lock_svc, instrument_id, reviewer_id, cts_config)
 
     workflow_id = f"cts-humanreview-{bank_id}-{instrument_id}"
-    decision = ReviewDecision(
-        action=body.action,
-        reason=body.reason.strip(),
-        reviewer_id=reviewer_id,
-        decided_at=time.time(),
-    )
+    decision = ReviewDecision(action=body.action, reason=body.reason.strip(), reviewer_id=reviewer_id, decided_at=time.time())
+    signal_sent = await _signal_review(request, workflow_id, "receive_decision", decision, instrument_id, bank_id)
 
-    temporal_client = getattr(request.app.state, "temporal_client", None)
-    signal_sent = False
+    # Maker-checker: this decision is the maker's, not final. It is not recorded as DECIDED and the allocation records stay
+    # so the checker stage can find the item. A system-decided (SIP) item is checked by the reviewer already: final.
+    maker_checker = bool(cts_config.get("maker_checker_enabled")) and not meta.get("system_decision")
+    if maker_checker:
+        if lock_svc is not None:
+            await lock_svc.update_item_meta(bank_id, instrument_id, maker_id=reviewer_id, maker_decision=body.action)
+    else:
+        await _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision)
+        await _finish_allocation(lock_svc, bank_id, instrument_id, reviewer_id)
 
-    if temporal_client is not None:
-        try:
-            from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+    log.info("cts.review_decision_submitted", instrument_id=instrument_id, bank_id=bank_id, action=body.action,
+             reviewer_id=reviewer_id, maker_checker=maker_checker)
+    return ReviewDecisionResponse(instrument_id=instrument_id, workflow_id=workflow_id, signal_sent=signal_sent)
 
-            handle = temporal_client.get_workflow_handle(workflow_id)
-            await handle.signal(HumanReviewWorkflow.receive_decision, decision)
-            signal_sent = True
-        except Exception as exc:
-            log.error(
-                "cts.review_signal_error",
-                instrument_id=instrument_id,
-                bank_id=bank_id,
-                error=str(exc),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to send review signal",
-            ) from exc
 
-    _db = getattr(request.app.state, "db_pool_cts", None)
-    if _db is not None:
-        try:
-            async with _db.acquire() as _conn:
-                await decide_by_instrument(_conn, bank_id=bank_id, direction="INWARD", instrument_ref=instrument_id,
-                                           decision=body.action, reviewer_id=reviewer_id, notes=decision.reason)
-        except Exception as exc:  # noqa: BLE001 - the workflow signal above is the authoritative action
-            log.warning("cts.review_queue.decision_record_failed", instrument_id=instrument_id, error=str(exc))
+@router_v1.post(
+    "/review/{instrument_id}/validate",
+    response_model=ReviewDecisionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_review_decision(
+    instrument_id: str,
+    body: ReviewDecisionRequest,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    reviewer_id: str = Depends(get_current_user_id),
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ReviewDecisionResponse:
+    """The checker's decision on a cheque a maker has decided: confirm it or overrule it. Never the maker."""
+    if ctx.role.value not in _REVIEW_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
+    if not body.reason or not body.reason.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("CTS_WF_VALIDATE_REASON_REQUIRED"))
 
-    log.info(
-        "cts.review_decision_submitted",
-        instrument_id=instrument_id,
-        bank_id=bank_id,
-        action=body.action,
-        reviewer_id=reviewer_id,
-    )
+    lock_svc, cts_config, meta = await _review_state(request, ctx, bank_id, instrument_id)
+    if not cts_config.get("maker_checker_enabled"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_MAKER_CHECKER_OFF"))
+    if meta.get("stage") != "VALIDATION":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("CTS_WF_VALIDATE_NOT_PENDING"))
+    if meta.get("maker_id") == reviewer_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail=get_message("CTS_WF_REVIEW_MAKER_CANNOT_CHECK"))
+    await _take_or_check_claim(lock_svc, instrument_id, reviewer_id, cts_config)
 
-    return ReviewDecisionResponse(
-        instrument_id=instrument_id,
-        workflow_id=workflow_id,
-        signal_sent=signal_sent,
-    )
+    workflow_id = f"cts-humanreview-{bank_id}-{instrument_id}"
+    decision = ReviewDecision(action=body.action, reason=body.reason.strip(), reviewer_id=reviewer_id, decided_at=time.time())
+    signal_sent = await _signal_review(request, workflow_id, "receive_checker_decision", decision, instrument_id, bank_id)
+    await _record_final_decision(request, bank_id, instrument_id, reviewer_id, decision)
+    await _finish_allocation(lock_svc, bank_id, instrument_id, reviewer_id)
+
+    log.info("cts.review_validated", instrument_id=instrument_id, bank_id=bank_id, action=body.action,
+             checker_id=reviewer_id, maker_id=meta.get("maker_id"), overrode=body.action != meta.get("maker_decision"))
+    return ReviewDecisionResponse(instrument_id=instrument_id, workflow_id=workflow_id, signal_sent=signal_sent)
+
+
+async def _workflow_memo(wf) -> dict:
+    """The memo of a listed workflow. In temporalio it is an async method (a plain dict in older fakes)."""
+    memo = wf.memo
+    if callable(memo):
+        memo = memo()
+    if inspect.isawaitable(memo):
+        memo = await memo
+    return dict(memo or {})
 
 
 @router_v1.get(
@@ -661,17 +763,23 @@ async def get_human_review_queue(
     if temporal_client is not None:
         try:
             safe_bank = _safe_temporal_param(eff_bank_id, "bank_id")
-            query = (
-                f"WorkflowType = 'HumanReviewWorkflow' "
-                f"AND ExecutionStatus = 'Running' "
-                f"AND BankId = '{safe_bank}'"
-            )
+            # The bank is in the workflow id (cts-humanreview-{bank}-{instrument}); no custom search attribute is needed
+            # (none was ever registered or set, which left this queue empty against a real Temporal).
+            query = "WorkflowType = 'HumanReviewWorkflow' AND ExecutionStatus = 'Running'"
+            id_prefix = f"cts-humanreview-{safe_bank}-"
             if smb_id_filter:
-                safe_smb = _safe_temporal_param(smb_id_filter, "smb_id")
-                query += f" AND SmbId = '{safe_smb}'"
+                _safe_temporal_param(smb_id_filter, "smb_id")
 
-            async for wf in temporal_client.list_workflows(query=query, page_size=limit):
-                memo = wf.memo or {}
+            async for wf in temporal_client.list_workflows(query=query, page_size=500):
+                if not wf.id.startswith(id_prefix):
+                    continue
+                memo = await _workflow_memo(wf)
+                if memo.get("bank_id", eff_bank_id) != eff_bank_id:
+                    continue
+                if smb_id_filter and memo.get("smb_id") != smb_id_filter:
+                    continue
+                if len(items) >= limit:
+                    break
                 items.append(QueueItem(
                     instrument_id=memo.get("instrument_id", wf.id.split("-")[-1]),
                     workflow_id=wf.id,
@@ -679,7 +787,7 @@ async def get_human_review_queue(
                     account_display=memo.get("account_display", "****????"),
                     payee_display=memo.get("payee_display", "?***"),
                     amount_range=memo.get("amount_range", "₹[unknown]"),
-                    clearing_zone=memo.get("clearing_zone", "UNKNOWN"),
+                    pu_id=memo.get("pu_id"),
                     received_at=memo.get("received_at", wf.start_time.timestamp() if wf.start_time else 0.0),
                     iet_deadline=memo.get("iet_deadline", 0.0),
                     reason=memo.get("reason", "UNKNOWN"),
@@ -700,7 +808,7 @@ async def get_human_review_queue(
     log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
     # --- Reviewer heartbeat, deferred assignment, rebalancing -------------------------------------------------
-    # Every queue poll registers the reviewer as active (5-minute heartbeat in Redis), with their clearing zones.
+    # Every queue poll registers the reviewer as active (5-minute heartbeat in Redis), with the processing units they are scoped to.
     # In AUTO and HYBRID modes the poll also (a) assigns items whose wait or retry has come due and (b) rebalances
     # unopened auto-assigned work when someone new has logged in (or at most once per interval).
     redis = getattr(request.app.state, "redis_cts", None)
@@ -720,7 +828,7 @@ async def get_human_review_queue(
         joined = False
         try:
             joined = await lock_svc.heartbeat_reviewer(
-                eff_bank_id, ctx.user_id, zones=list(getattr(ctx, "clearing_zones", None) or []))
+                eff_bank_id, ctx.user_id, pu_ids=list(getattr(ctx, "pu_ids", None) or []))
         except Exception as exc:
             log.warning("cts.queue.heartbeat_failed", user_id=ctx.user_id, error=str(exc))
 
@@ -760,15 +868,16 @@ async def get_human_review_queue(
                 log.warning("cts.queue.rebalance_error", bank_id=eff_bank_id, error=str(exc))
 
     # --- Zone scoping and ownership -------------------------------------------------------------------------
-    zones = list(getattr(ctx, "clearing_zones", None) or [])
-    if ctx.role.value == "ops_reviewer" and zones and "ALL" not in zones:
-        # A reviewer scoped to a clearing zone sees only that zone (and items whose zone is not known).
-        items = [i for i in items if i.clearing_zone in zones or i.clearing_zone in ("", "UNKNOWN")]
+    scope = list(getattr(ctx, "pu_ids", None) or [])
+    if ctx.role.value == "ops_reviewer" and scope and "ALL" not in scope:
+        # A reviewer scoped to processing units sees only those (and items whose PU is not known).
+        items = [i for i in items if i.pu_id in scope or not i.pu_id]
     if redis is not None and items:
         try:
             svc = lock_svc or _lock_service(redis)
             holders = await svc.get_lock_holders([i.instrument_id for i in items])
-            items = [i.model_copy(update={"assigned_to": holders.get(i.instrument_id)}) for i in items]
+            items = [i.model_copy(update={"assigned_to": holders.get(i.instrument_id),
+                                         "assigned_to_me": holders.get(i.instrument_id) == ctx.user_id}) for i in items]
             items = await _apply_buckets(request, ctx, svc, items, cts_config, eff_bank_id, bucket)
         except Exception as exc:
             log.warning("cts.queue.holders_fetch_failed", bank_id=eff_bank_id, error=str(exc))
@@ -961,7 +1070,7 @@ async def search_instruments(
     if len(q.strip()) < 3:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Search query must be at least 3 characters",
+            detail=get_message("API_SEARCH_QUERY_MUST_BE_AT"),
         )
     if limit > 20:
         limit = 20
@@ -986,11 +1095,11 @@ async def get_inward_analytics(
 ):
     bank_id = ctx.bank_id
     if ctx.role not in _INWARD_ANALYTICS_READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     if pool is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     days = max(1, min(days, 30))
 

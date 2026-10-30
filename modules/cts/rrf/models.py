@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from shared.messages import get_message
 
 
 @dataclass(frozen=True)
@@ -148,12 +149,11 @@ class ReturnItem:
             c = self.return_reason_comment
             if not c or not c.strip():
                 raise ValueError(
-                    "ReturnReasonComment is mandatory when ReturnReasonCode is 88 (Other Reason). "
-                    "Provide a non-empty description of the return reason."
+                    get_message("CTS_RETURNREASONCOMMENT_IS_MANDATORY_WHE")
                 )
             if c[0].isspace() or c[0].isdigit():
                 raise ValueError(
-                    "ReturnReasonComment for code 88 must not start with a digit or a space (CHI spec Rev 3.0)."
+                    get_message("CTS_RETURNREASONCOMMENT_FOR_CODE_88_MUST")
                 )
 
     @property
@@ -166,7 +166,6 @@ class RRFDocument:
     bank_ifsc: str
     bank_id: str
     session_id: str
-    clearing_zone: str
     generated_at: datetime
     returns: list[ReturnItem]
 

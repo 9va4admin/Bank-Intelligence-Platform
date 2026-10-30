@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -231,7 +232,7 @@ async def _fetch_dashboard_panels(
             iet_row = await conn.fetchrow(
                 """
                 SELECT
-                  COUNT(*) FILTER (WHERE iet_deadline < NOW() + INTERVAL '30 seconds') AS near_breach,
+                  COUNT(*) FILTER (WHERE iet_deadline < EXTRACT(EPOCH FROM NOW() + INTERVAL '30 seconds')) AS near_breach,
                   COUNT(*) AS in_processing
                 FROM cts.cheque_instruments
                 WHERE bank_id = $1
@@ -287,9 +288,9 @@ async def _fetch_vault_coverage(
                 bank_id,
             )
         yugabyte_accounts = int(row["accounts"] or 0)
-        redis_sig_keys = sum(
-            1 for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000)
-        )
+        redis_sig_keys = 0
+        async for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000):
+            redis_sig_keys += 1
         if yugabyte_accounts > 0:
             coverage_pct = min(100.0, redis_sig_keys / yugabyte_accounts * 100)
         else:
@@ -622,7 +623,7 @@ async def get_dashboard(
     role = user["role"] if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _OPS_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     redis_cts = getattr(request.app.state, "redis_cts", None)
@@ -649,7 +650,7 @@ async def get_model_health(
     role = user["role"] if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _OPS_AND_ML_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     models, degraded = await _fetch_model_health(bank_id, db_pool)
@@ -672,7 +673,7 @@ async def get_alerts(
     role = user["role"] if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _OPS_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     alerts, total, degraded = await _fetch_alerts(bank_id, db_pool, limit)
@@ -694,7 +695,7 @@ async def get_ocr_feedback(
     role = user["role"] if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _OPS_AND_ML_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     redis_cts = getattr(request.app.state, "redis_cts", None)
@@ -721,7 +722,7 @@ async def get_system_health(
     role = user["role"] if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _OPS_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool        = getattr(request.app.state, "db_pool_cts",   None)
     redis_cts      = getattr(request.app.state, "redis_cts",     None)

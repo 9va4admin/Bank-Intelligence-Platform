@@ -21,6 +21,7 @@ import '@xyflow/react/dist/style.css'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg as uiMsg } from '../../../shared/messages'
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -35,13 +36,13 @@ const CHQ_GAP  = 12
 // ── Stage config ─────────────────────────────────────────────────────────────
 
 export const STAGES = [
-  { id: 'SCANNED',      label: 'Scanned',       icon: '📄', x: 0            },
+  { id: 'SCANNED',      label: uiMsg('UI_OUTWARDPIPELINEMONITOR_SCANNED'),       icon: '📄', x: 0            },
   { id: 'IQA',          label: 'IQA',           icon: '🔬', x: LANE_W       },
-  { id: 'AI_EXTRACTED', label: 'AI Extracted',  icon: '🤖', x: LANE_W * 2   },
-  { id: 'PKI_SIGNED',   label: 'PKI Signed',    icon: '🔐', x: LANE_W * 3   },
-  { id: 'LOT',          label: 'Lot Assembled', icon: '📦', x: LANE_W * 4   },
-  { id: 'ENDORSED',     label: 'Endorsed',      icon: '✅', x: LANE_W * 5   },
-  { id: 'NGCH',         label: 'NGCH Filed',    icon: '📤', x: LANE_W * 6   },
+  { id: 'AI_EXTRACTED', label: uiMsg('UI_COMMON_AI_EXTRACTED'),  icon: '🤖', x: LANE_W * 2   },
+  { id: 'PKI_SIGNED',   label: uiMsg('UI_COMMON_PKI_SIGNED'),    icon: '🔐', x: LANE_W * 3   },
+  { id: 'LOT',          label: uiMsg('UI_OUTWARDPIPELINEMONITOR_LOT_ASSEMBLED'), icon: '📦', x: LANE_W * 4   },
+  { id: 'ENDORSED',     label: uiMsg('UI_ENDORSEMENT_ENDORSED'),      icon: '✅', x: LANE_W * 5   },
+  { id: 'NGCH',         label: uiMsg('UI_COMMON_NGCH_FILED'),    icon: '📤', x: LANE_W * 6   },
 ]
 
 // ── Session deadline urgency (outward equivalent of IET urgency) ──────────────
@@ -156,7 +157,7 @@ function StageHeaderNode({ data }) {
       {data.count > 0 && (
         <span className={`text-[9px] font-mono mt-0.5
           ${data.hasCrit ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          {data.count} instrument{data.count > 1 ? 's' : ''}
+          {uiMsg('UI_OUTWARDPIPELINEMONITOR_INSTRUMENT', { count: data.count, value: data.count > 1 ? 's' : '' })}
         </span>
       )}
     </div>
@@ -231,17 +232,17 @@ function OutwardChequeNode({ data, selected }) {
 
       {/* Stage-specific indicator */}
       {data.iqa_fail && (
-        <div className="text-[10px] font-bold text-red-400 truncate mb-1">⚠ IQA FAIL — Rescan</div>
+        <div className="text-[10px] font-bold text-red-400 truncate mb-1">{uiMsg('UI_OUTWARDPIPELINEMONITOR_IQA_FAIL_RESCAN')}</div>
       )}
       {data.cts_violation && !data.iqa_fail && (
-        <div className="text-[10px] font-bold text-red-400 truncate mb-1">⚠ CTS-2010 Fail</div>
+        <div className="text-[10px] font-bold text-red-400 truncate mb-1">{uiMsg('UI_OUTWARDPIPELINEMONITOR_CTS_2010_FAIL')}</div>
       )}
       {data.amount_mismatch && !data.iqa_fail && !data.cts_violation && (
-        <div className="text-[10px] font-bold text-amber-400 truncate mb-1">⚠ Amount Mismatch</div>
+        <div className="text-[10px] font-bold text-amber-400 truncate mb-1">{uiMsg('UI_OUTWARDPIPELINEMONITOR_AMOUNT_MISMATCH')}</div>
       )}
       {data.ocr_conf != null && !data.iqa_fail && !data.cts_violation && !data.amount_mismatch && (
         <div className={`text-[10px] font-mono mb-1 ${data.ocr_conf >= 0.95 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-amber-400'}`}>
-          OCR {Math.round(data.ocr_conf * 100)}%
+         {uiMsg('UI_OUTWARDPIPELINEMONITOR_OCR', { Math: Math.round(data.ocr_conf * 100) })}
         </div>
       )}
       {data.ngch_status && (
@@ -252,7 +253,7 @@ function OutwardChequeNode({ data, selected }) {
 
       {/* Session countdown */}
       <div className={`text-[10px] font-mono mt-auto ${urgent ? 'text-red-400 font-bold' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-        Window: {minsLeft}m {urgent ? '⚠' : ''}
+       {uiMsg('UI_OUTWARDPIPELINEMONITOR_WINDOW_M', { minsLeft, value: urgent ? '⚠' : '' })}
       </div>
     </div>
   )
@@ -283,14 +284,14 @@ function DetailPanel({ instr, onClose, isDark }) {
   const urgentColor = { urgent: 'text-red-400', critical: 'text-red-400', warning: 'text-amber-400', caution: 'text-yellow-400', safe: 'text-emerald-400' }[u]
 
   const rows = [
-    { label: 'Instrument',   value: `****${instr.id.slice(-4)}` },
-    { label: 'Stage',        value: instr.stage },
-    { label: 'Drawee Bank',  value: instr.drawee },
-    { label: 'Amount',       value: instr.amount },
-    { label: 'Lot',          value: instr.lot ?? '—' },
-    { label: 'Scanner',      value: instr.scanner ?? '—' },
-    { label: 'OCR Confidence', value: instr.ocr_conf != null ? `${Math.round(instr.ocr_conf * 100)}%` : '—' },
-    { label: 'NGCH Status',  value: instr.ngch_status ?? '—' },
+    { label: uiMsg('CTS_OUT_CUSTODY_COL_INSTRUMENT'),   value: `****${instr.id.slice(-4)}` },
+    { label: uiMsg('UI_INWARDMONITOR_STAGE'),        value: instr.stage },
+    { label: uiMsg('UI_COMMON_DRAWEE_BANK'),  value: instr.drawee },
+    { label: uiMsg('CTS_OUT_CUSTODY_COL_AMOUNT'),       value: instr.amount },
+    { label: uiMsg('UI_COMMON_LOT'),          value: instr.lot ?? '—' },
+    { label: uiMsg('UI_COMMON_SCANNER'),      value: instr.scanner ?? '—' },
+    { label: uiMsg('UI_COMMON_OCR_CONFIDENCE'), value: instr.ocr_conf != null ? `${Math.round(instr.ocr_conf * 100)}%` : '—' },
+    { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_NGCH_STATUS'),  value: instr.ngch_status ?? '—' },
   ].filter(r => r.value !== '—')
 
   const alerts = [
@@ -303,14 +304,14 @@ function DetailPanel({ instr, onClose, isDark }) {
   return (
     <div className={`w-72 border-l flex flex-col gap-4 p-5 overflow-y-auto ${th.surface}`}>
       <div className="flex items-center justify-between">
-        <span className={`text-sm font-semibold ${th.heading}`}>Outward Detail</span>
+        <span className={`text-sm font-semibold ${th.heading}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_OUTWARD_DETAIL')}</span>
         <button onClick={onClose} className={`text-lg leading-none ${th.muted} hover:opacity-70`}>×</button>
       </div>
 
       {/* Session window countdown */}
       <div className={`rounded-xl border px-4 py-3 ${th.stat}`}>
-        <div className={`text-[10px] uppercase tracking-wide font-semibold ${th.lbl}`}>Session Window</div>
-        <div className={`text-2xl font-mono font-bold mt-1 ${urgentColor}`}>{minsLeft}m</div>
+        <div className={`text-[10px] uppercase tracking-wide font-semibold ${th.lbl}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_SESSION_WINDOW')}</div>
+        <div className={`text-2xl font-mono font-bold mt-1 ${urgentColor}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_M', { minsLeft })}</div>
         <div className={`text-[11px] mt-0.5 ${th.muted}`}>
           {minsLeft < 20 ? 'URGENT — submit before NGCH closes' : 'Until next NGCH submission close'}
         </div>
@@ -417,19 +418,19 @@ export default function CTSOutwardPipelineMonitor() {
         {/* Page header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${th.divider} ${th.surface}`}>
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Outward Pipeline Monitor</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_OUTWARD_PIPELINE_MONITOR')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {bankName} · {total} instruments in outward clearing pipeline — current session
+              {uiMsg('UI_OUTWARDPIPELINEMONITOR_INSTRUMENTS_IN_OUTWARD_CLEARING_PIPE', { bankName, total })}
             </p>
           </div>
           <div className={`flex items-center gap-2`}>
             {(iqaFails + ctsViolations + amtMismatch) > 0 && (
               <div className={`text-[10px] font-mono px-3 py-1.5 rounded-full border ${isDark ? 'bg-red-900/30 border-red-700/40 text-red-300' : 'bg-red-50 border-red-300 text-red-700'}`}>
-                {iqaFails + ctsViolations + amtMismatch} flagged
+                {uiMsg('UI_OUTWARDPIPELINEMONITOR_FLAGGED', { value: iqaFails + ctsViolations + amtMismatch })}
               </div>
             )}
             <div className={`text-[10px] font-mono px-3 py-1.5 rounded-full border ${th.stat} ${th.muted}`}>
-              LIVE · outward session
+             {uiMsg('UI_OUTWARDPIPELINEMONITOR_LIVE_OUTWARD_SESSION')}
             </div>
           </div>
         </div>
@@ -437,11 +438,11 @@ export default function CTSOutwardPipelineMonitor() {
         {/* Stats bar */}
         <div className={`flex items-center gap-3 px-6 py-3 border-b ${th.divider}`}>
           {[
-            { label: 'In Pipeline',    value: total,         color: th.heading },
-            { label: 'IQA Fails',      value: iqaFails,      color: iqaFails      > 0 ? 'text-red-400'     : th.muted },
-            { label: 'CTS Violations', value: ctsViolations, color: ctsViolations > 0 ? 'text-red-400'     : th.muted },
-            { label: 'Amt Mismatch',   value: amtMismatch,   color: amtMismatch   > 0 ? 'text-amber-400'   : th.muted },
-            { label: 'NGCH Filed',     value: ngchFiled,     color: 'text-emerald-400' },
+            { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_IN_PIPELINE'),    value: total,         color: th.heading },
+            { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_IQA_FAILS'),      value: iqaFails,      color: iqaFails      > 0 ? 'text-red-400'     : th.muted },
+            { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_CTS_VIOLATIONS'), value: ctsViolations, color: ctsViolations > 0 ? 'text-red-400'     : th.muted },
+            { label: uiMsg('UI_COMMON_AMT_MISMATCH'),   value: amtMismatch,   color: amtMismatch   > 0 ? 'text-amber-400'   : th.muted },
+            { label: uiMsg('UI_COMMON_NGCH_FILED'),     value: ngchFiled,     color: 'text-emerald-400' },
           ].map(s => (
             <div key={s.label} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${th.stat}`}>
               <span className={`text-xl font-mono font-bold tabular-nums leading-none ${s.color}`}>{s.value}</span>
@@ -498,13 +499,13 @@ export default function CTSOutwardPipelineMonitor() {
               />
               <Panel position="bottom-left">
                 <div className={`flex items-center gap-3 text-[10px] font-mono px-3 py-2 rounded-lg border ${th.stat} ${th.muted}`}>
-                  <span>Status:</span>
+                  <span>{uiMsg('UI_OUTWARDPIPELINEMONITOR_STATUS')}</span>
                   {[
                     { label: 'OK',      color: 'bg-emerald-500' },
-                    { label: 'Watch',   color: 'bg-yellow-400'  },
-                    { label: 'Warning', color: 'bg-amber-400'   },
-                    { label: 'Action',  color: 'bg-red-400'     },
-                    { label: 'URGENT',  color: 'bg-red-500 animate-pulse' },
+                    { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_WATCH'),   color: 'bg-yellow-400'  },
+                    { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_WARNING'), color: 'bg-amber-400'   },
+                    { label: uiMsg('UI_COMMON_ACTION'),  color: 'bg-red-400'     },
+                    { label: uiMsg('UI_OUTWARDPIPELINEMONITOR_URGENT'),  color: 'bg-red-500 animate-pulse' },
                   ].map(l => (
                     <span key={l.label} className="flex items-center gap-1">
                       <span className={`inline-block w-2 h-2 rounded-full ${l.color}`} />

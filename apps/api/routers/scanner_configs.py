@@ -34,6 +34,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
+from shared.messages import get_message
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
 log = structlog.get_logger()
@@ -61,7 +62,7 @@ def get_current_user(request: Request) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_NOT_AUTHENTICATED"))
 
 
 # ── DB / infra helpers ────────────────────────────────────────────────────────
@@ -194,7 +195,7 @@ async def list_configs(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigListResponse:
     if current_user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.list") as span:
         bank_id = current_user["bank_id"]
@@ -214,7 +215,7 @@ async def list_configs(
                     )
             except Exception as exc:
                 log.error("scanner_configs.list.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             configs = [_to_response(dict(r)) for r in rows]
         else:
             configs = [
@@ -231,7 +232,7 @@ async def create_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.create") as span:
         bank_id = current_user["bank_id"]
@@ -248,7 +249,7 @@ async def create_config(
                         bank_id, body.branch_id or "",
                     )
                     if existing:
-                        raise HTTPException(status_code=409, detail="An active config already exists for this branch.")
+                        raise HTTPException(status_code=409, detail=get_message("API_AN_ACTIVE_CONFIG_ALREADY_EXISTS"))
                     config_id = str(uuid.uuid4())
                     now = datetime.now(timezone.utc)
                     await conn.execute(
@@ -274,7 +275,7 @@ async def create_config(
                 raise
             except Exception as exc:
                 log.error("scanner_configs.create.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             result = _to_response(dict(row))
         else:
             active_exists = any(
@@ -282,7 +283,7 @@ async def create_config(
                 for c in _CONFIG_STORE.values()
             )
             if active_exists:
-                raise HTTPException(status_code=409, detail="An active config already exists for this branch.")
+                raise HTTPException(status_code=409, detail=get_message("API_AN_ACTIVE_CONFIG_ALREADY_EXISTS"))
             config_id = str(uuid.uuid4())
             now = datetime.now(timezone.utc).isoformat()
             record = {
@@ -325,7 +326,7 @@ async def get_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = current_user["bank_id"]
     db_pool = _get_db_pool(request)
@@ -343,14 +344,14 @@ async def get_config(
                 )
         except Exception as exc:
             log.error("scanner_configs.get.db_error", error=str(exc))
-            raise HTTPException(status_code=500, detail="Database error")
+            raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
         if not row:
-            raise HTTPException(status_code=404, detail="Scanner config not found")
+            raise HTTPException(status_code=404, detail=get_message("API_SCANNER_CONFIG_NOT_FOUND"))
         return _to_response(dict(row))
     else:
         c = _CONFIG_STORE.get(config_id)
         if not c or c["bank_id"] != bank_id:
-            raise HTTPException(status_code=404, detail="Scanner config not found")
+            raise HTTPException(status_code=404, detail=get_message("API_SCANNER_CONFIG_NOT_FOUND"))
         return _to_response(c)
 
 
@@ -362,7 +363,7 @@ async def update_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.update") as span:
         bank_id = current_user["bank_id"]
@@ -381,7 +382,7 @@ async def update_config(
                         config_id, bank_id,
                     )
                     if not existing:
-                        raise HTTPException(status_code=404, detail="Scanner config not found")
+                        raise HTTPException(status_code=404, detail=get_message("API_SCANNER_CONFIG_NOT_FOUND"))
                     old_path = existing["drop_folder_path"]
                     branch_ifsc = existing["branch_ifsc"]
 
@@ -406,12 +407,12 @@ async def update_config(
                 raise
             except Exception as exc:
                 log.error("scanner_configs.update.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             result = _to_response(dict(row))
         else:
             c = _CONFIG_STORE.get(config_id)
             if not c or c["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail="Scanner config not found")
+                raise HTTPException(status_code=404, detail=get_message("API_SCANNER_CONFIG_NOT_FOUND"))
             old_path = c["drop_folder_path"]
             branch_ifsc = c.get("branch_ifsc", "")
             c.update(updates)
@@ -441,7 +442,7 @@ async def delete_config(
     current_user: dict = Depends(get_current_user),
 ) -> ScannerConfigResponse:
     if current_user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=403, detail="Insufficient role")
+        raise HTTPException(status_code=403, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     with tracer.start_as_current_span("scanner_configs.delete") as span:
         bank_id = current_user["bank_id"]
@@ -459,7 +460,7 @@ async def delete_config(
                         config_id, bank_id,
                     )
                     if not existing:
-                        raise HTTPException(status_code=404, detail="Scanner config not found")
+                        raise HTTPException(status_code=404, detail=get_message("API_SCANNER_CONFIG_NOT_FOUND"))
                     branch_ifsc = existing["branch_ifsc"]
                     await conn.execute(
                         "UPDATE cts.scanner_configs SET is_active = false, updated_at = $2 "
@@ -476,12 +477,12 @@ async def delete_config(
                 raise
             except Exception as exc:
                 log.error("scanner_configs.delete.db_error", error=str(exc))
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             result = _to_response(dict(row))
         else:
             c = _CONFIG_STORE.get(config_id)
             if not c or c["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail="Scanner config not found")
+                raise HTTPException(status_code=404, detail=get_message("API_SCANNER_CONFIG_NOT_FOUND"))
             branch_ifsc = c.get("branch_ifsc", "")
             c["is_active"] = False
             c["updated_at"] = datetime.now(timezone.utc).isoformat()

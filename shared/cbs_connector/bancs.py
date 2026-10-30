@@ -18,6 +18,7 @@ from shared.cbs_connector.base import (
     CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -63,7 +64,7 @@ class BaNCSCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.bancs.get_account_info.failed",
                       account_last4=account_number[-4:], error=str(exc))
-            raise CBSUnavailableError(f"BaNCS get_account_info failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_GET_ACCOUNT_INFO_FAILED", exc=exc)) from exc
 
         raw_status = data.get("acctSts", "A")
         status = _STATUS_MAP.get(raw_status, AccountStatus.ACTIVE)
@@ -90,7 +91,7 @@ class BaNCSCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.bancs.get_signatures.failed",
                       account_last4=account_number[-4:], error=str(exc))
-            raise CBSUnavailableError(f"BaNCS get_signature_specimens failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_GET_SIGNATURE_SPECIMENS_FAILED", exc=exc)) from exc
 
         specimens = []
         for item in data.get("sigImages", []):
@@ -114,7 +115,7 @@ class BaNCSCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.bancs.check_stop_payment.failed",
                       account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
-            raise CBSUnavailableError(f"BaNCS check_stop_payment failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_CHECK_STOP_PAYMENT_FAILED", exc=exc)) from exc
 
         return StopPaymentResult(
             is_stopped=bool(data.get("spActive", False)),
@@ -132,7 +133,7 @@ class BaNCSCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.bancs.get_pps_entries.failed",
                       account_last4=account_number[-4:], error=str(exc))
-            raise CBSUnavailableError(f"BaNCS get_pps_entries failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_GET_PPS_ENTRIES_FAILED", exc=exc)) from exc
 
         entries = []
         for raw in data.get("ppsList", []):
@@ -159,7 +160,7 @@ class BaNCSCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.bancs.get_cheque_status.failed",
                       account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
-            raise CBSUnavailableError(f"BaNCS get_cheque_status failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_GET_CHEQUE_STATUS_FAILED", exc=exc)) from exc
 
         return str(data.get("chqSts", "ACTIVE"))
 
@@ -250,7 +251,7 @@ class BaNCSCBSConnector(CBSConnector):
                 bank_id=bank_id,
                 error=str(exc),
             )
-            raise CBSUnavailableError(f"BaNCS get_signatory_data failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_GET_SIGNATORY_DATA_FAILED", exc=exc)) from exc
 
         result: list[CBSSignatoryData] = []
         for sig in data.get("signatories", []):
@@ -282,7 +283,7 @@ class BaNCSCBSConnector(CBSConnector):
         except Exception as exc:
             log.error("cbs.bancs.get_branch_contacts.failed",
                       branch_code=branch_code, bank_id=bank_id, error=str(exc))
-            raise CBSUnavailableError(f"BaNCS get_branch_contacts failed: {exc}") from exc
+            raise CBSUnavailableError(get_message("PLATFORM_BANCS_GET_BRANCH_CONTACTS_FAILED", exc=exc)) from exc
 
         return BranchContactProfile(
             branch_code=branch_code,
@@ -298,6 +299,5 @@ class BaNCSCBSConnector(CBSConnector):
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "BaNCSCBSConnector.connect() has not been called. "
-                "Call it in the service startup before querying CBS."
+                get_message("PLATFORM_BANCSCBSCONNECTOR_CONNECT_HAS_NOT_BE")
             )

@@ -1,4 +1,4 @@
-"""Claim, release and admin assign/reassign endpoints (zone scoping, pinning, audit)."""
+"""Claim, release and admin assign/reassign endpoints (processing-unit scoping, pinning, audit)."""
 import asyncio
 from unittest.mock import AsyncMock
 
@@ -14,9 +14,9 @@ BANK = "kbl"
 CFG = {"allocation_mode": "AUTO", "allocation_lock_ttl_minutes": 10}
 
 
-def _ctx(user="alice", role=Role.OPS_REVIEWER, zones=("ALL",)):
+def _ctx(user="alice", role=Role.OPS_REVIEWER, pu_ids=("ALL",)):
     return UserContext(user_id=user, bank_id=BANK, bank_type=BankType.SB, role=role,
-                       permission_level=PermissionLevel.EDIT, session_id="s", clearing_zones=list(zones))
+                       permission_level=PermissionLevel.EDIT, session_id="s", pu_ids=list(pu_ids))
 
 
 def _app(ctx, redis, audit=None, db=None, cfg=None):
@@ -39,17 +39,17 @@ def run(coro):
 
 # --- claim --------------------------------------------------------------------------------------------------
 
-def test_claim_inside_the_reviewers_zone_succeeds():
+def test_claim_inside_the_reviewers_pu_succeeds():
     redis = FakeRedis(); lock = LockService(redis)
-    run(lock.set_item_meta(BANK, "I-1", zone="WEST"))
-    r = _app(_ctx(zones=("WEST",)), redis).post("/v1/cts/review/I-1/claim")
+    run(lock.set_item_meta(BANK, "I-1", pu_id="WEST"))
+    r = _app(_ctx(pu_ids=("WEST",)), redis).post("/v1/cts/review/I-1/claim")
     assert r.status_code == 200 and r.json()["claimed"] is True
 
 
-def test_claim_outside_the_reviewers_zone_is_forbidden():
+def test_claim_outside_the_reviewers_pu_is_forbidden():
     redis = FakeRedis(); lock = LockService(redis)
-    run(lock.set_item_meta(BANK, "I-1", zone="EAST"))
-    r = _app(_ctx(zones=("WEST",)), redis).post("/v1/cts/review/I-1/claim")
+    run(lock.set_item_meta(BANK, "I-1", pu_id="EAST"))
+    r = _app(_ctx(pu_ids=("WEST",)), redis).post("/v1/cts/review/I-1/claim")
     assert r.status_code == 403
     assert run(lock.get_lock_holder("I-1")) is None
 
@@ -95,7 +95,7 @@ def _assign(client, iid="I-1", reviewer="bob"):
 
 def test_admin_can_assign_an_unclaimed_item_to_an_active_reviewer():
     redis = FakeRedis(); lock = LockService(redis)
-    run(lock.heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    run(lock.heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"]))
     audit = AsyncMock()
     r = _assign(_app(_ctx("boss", Role.OPS_MANAGER), redis, audit))
     assert r.status_code == 200 and r.json()["reviewer_id"] == "bob" and r.json()["previous_holder"] is None
@@ -108,7 +108,7 @@ def test_admin_reassign_reports_the_previous_holder_and_pins_the_item():
     redis = FakeRedis(); lock = LockService(redis)
 
     async def seed():
-        await lock.heartbeat_reviewer(BANK, "bob", zones=["ALL"])
+        await lock.heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"])
         await lock.acquire_lock("I-1", "alice", CFG); await lock.mark_auto(BANK, "I-1")
     run(seed())
     r = _assign(_app(_ctx("boss", Role.BANK_IT_ADMIN), redis))
@@ -126,12 +126,12 @@ def test_assigning_to_someone_who_is_not_a_known_reviewer_is_not_found():
     assert _assign(_app(_ctx("boss", Role.OPS_MANAGER), redis), reviewer="ghost").status_code == 404
 
 
-def test_admin_cannot_assign_across_a_clearing_zone_restriction():
+def test_admin_cannot_assign_across_a_processing_unit_restriction():
     redis = FakeRedis(); lock = LockService(redis)
 
     async def seed():
-        await lock.heartbeat_reviewer(BANK, "bob", zones=["EAST"])
-        await lock.set_item_meta(BANK, "I-1", zone="WEST")
+        await lock.heartbeat_reviewer(BANK, "bob", pu_ids=["EAST"])
+        await lock.set_item_meta(BANK, "I-1", pu_id="WEST")
     run(seed())
     r = _assign(_app(_ctx("boss", Role.OPS_MANAGER), redis))
     assert r.status_code == 409 and run(lock.get_lock_holder("I-1")) is None
@@ -139,17 +139,17 @@ def test_admin_cannot_assign_across_a_clearing_zone_restriction():
 
 # --- admin visibility ---------------------------------------------------------------------------------------
 
-def test_active_reviewers_show_zones_and_current_load():
+def test_active_reviewers_show_pus_and_current_load():
     redis = FakeRedis(); lock = LockService(redis)
 
     async def seed():
-        await lock.heartbeat_reviewer(BANK, "alice", zones=["WEST"])
-        await lock.heartbeat_reviewer(BANK, "bob", zones=["ALL"])
+        await lock.heartbeat_reviewer(BANK, "alice", pu_ids=["WEST"])
+        await lock.heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"])
         await lock.acquire_lock("I-1", "alice", CFG); await lock.acquire_lock("I-2", "alice", CFG)
     run(seed())
     body = _app(_ctx("boss", Role.OPS_MANAGER), redis).get("/v1/cts/allocation/reviewers").json()
     rows = {r["reviewer_id"]: r for r in body["active_reviewers"]}
-    assert rows["alice"]["zones"] == ["WEST"] and rows["alice"]["load"] == 2 and rows["bob"]["load"] == 0
+    assert rows["alice"]["pu_ids"] == ["WEST"] and rows["alice"]["load"] == 2 and rows["bob"]["load"] == 0
 
 
 def test_allocation_status_reports_the_active_mode_and_limits():
@@ -228,7 +228,7 @@ def test_admin_force_release_moves_the_item_to_misc():
 def test_admin_cannot_assign_to_a_reviewer_who_is_not_connected_to_the_items_bucket():
     redis, pool = FakeRedis(), FakeSubsPool()
     _item(redis, "I-1", "HVC"); _subscribe(pool, "bob", ["LVC"])
-    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"]))
     r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/admin/review/I-1/assign", json={"reviewer_id": "bob"})
     assert r.status_code == 409 and "bucket" in r.json()["detail"].lower()
 
@@ -236,7 +236,7 @@ def test_admin_cannot_assign_to_a_reviewer_who_is_not_connected_to_the_items_buc
 def test_admin_can_assign_a_misc_item_to_anyone():
     redis, pool = FakeRedis(), FakeSubsPool()
     _item(redis, "I-1", "MISC")
-    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"]))
     r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/admin/review/I-1/assign", json={"reviewer_id": "bob"})
     assert r.status_code == 200
 
@@ -245,7 +245,7 @@ def test_admin_can_assign_a_misc_item_to_anyone():
 
 def test_admin_connects_a_reviewer_to_buckets_and_it_is_audited():
     redis, pool = FakeRedis(), FakeSubsPool(); audit = AsyncMock()
-    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"]))
     c = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool, audit)
     r = c.put("/v1/cts/admin/reviewers/bob/buckets", json={"buckets": ["HVC", "CA"]})
     assert r.status_code == 200 and sorted(r.json()["buckets"]) == ["CA", "HVC"]
@@ -263,7 +263,7 @@ def test_a_reviewer_cannot_change_subscriptions():
 
 def test_subscribing_to_an_unknown_bucket_or_misc_is_rejected():
     redis, pool = FakeRedis(), FakeSubsPool()
-    run(LockService(redis).heartbeat_reviewer(BANK, "bob", zones=["ALL"]))
+    run(LockService(redis).heartbeat_reviewer(BANK, "bob", pu_ids=["ALL"]))
     c = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool)
     assert c.put("/v1/cts/admin/reviewers/bob/buckets", json={"buckets": ["NOPE"]}).status_code == 422
     assert c.put("/v1/cts/admin/reviewers/bob/buckets", json={"buckets": ["MISC"]}).status_code == 422
@@ -278,7 +278,7 @@ def test_subscribing_an_unknown_reviewer_is_not_found():
 def test_bucket_overview_lists_subscribers_and_who_is_online():
     redis, pool = FakeRedis(), FakeSubsPool()
     _subscribe(pool, "alice", ["HVC"]); _subscribe(pool, "bob", ["HVC", "LVC"])
-    run(LockService(redis).heartbeat_reviewer(BANK, "alice", zones=["ALL"]))
+    run(LockService(redis).heartbeat_reviewer(BANK, "alice", pu_ids=["ALL"]))
     body = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).get("/v1/cts/admin/buckets").json()
     assert body["routing_enabled"] is True
     hv = {b["bucket"]: b for b in body["buckets"]}["HVC"]
@@ -291,3 +291,26 @@ def test_a_reviewer_can_see_their_own_buckets():
     redis, pool = FakeRedis(), FakeSubsPool()
     _subscribe(pool, "alice", ["FCC", "HR"])
     assert _bapp(_ctx("alice"), redis, pool).get("/v1/cts/me/buckets").json()["buckets"] == ["FCC", "HR"]
+
+
+# --- maker-checker four-eyes on claim and assign -------------------------------------------------------------------
+
+def test_the_maker_cannot_claim_the_cheque_waiting_for_a_checker():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "VAL")
+    run(LockService(redis).update_item_meta(BANK, "I-1", maker_id="alice", stage="VALIDATION"))
+    _subscribe(pool, "alice", ["VAL"])
+    _subscribe(pool, "bob", ["VAL"])
+    r = _bapp(_ctx("alice"), redis, pool).post("/v1/cts/review/I-1/claim")
+    assert r.status_code == 403 and "different person" in r.json()["detail"]
+    assert _bapp(_ctx("bob"), redis, pool).post("/v1/cts/review/I-1/claim").json()["claimed"] is True
+
+
+def test_admin_cannot_assign_the_cheque_to_the_person_who_made_the_decision():
+    redis, pool = FakeRedis(), FakeSubsPool()
+    _item(redis, "I-1", "VAL")
+    run(LockService(redis).update_item_meta(BANK, "I-1", maker_id="alice", stage="VALIDATION"))
+    _subscribe(pool, "alice", ["VAL"])
+    run(LockService(redis).heartbeat_reviewer(BANK, "alice", pu_ids=["ALL"]))
+    r = _bapp(_ctx("boss", Role.OPS_MANAGER), redis, pool).post("/v1/cts/admin/review/I-1/assign", json={"reviewer_id": "alice"})
+    assert r.status_code == 409 and "made the first decision" in r.json()["detail"]

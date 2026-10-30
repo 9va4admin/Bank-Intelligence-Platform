@@ -20,6 +20,7 @@ from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 from starlette.middleware.base import BaseHTTPMiddleware
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.rate_limit")
@@ -34,7 +35,7 @@ _ENDPOINT_LIMITS: dict[str, tuple[int, bool]] = {
     "cts_queue_get": (60, True),
     # CTS — live-status read paths (polled every 10–30s by UI)
     "cts_status_get":     (120, True),   # exceptions, inward/live-flow, inward/sessions, compliance
-    "cts_ops_get":        (60,  True),   # outward/sessions, smb/reports, rpc/zones, outward/clearing-window
+    "cts_ops_get":        (60,  True),   # outward/sessions, smb/reports, outward/clearing-window
     "cts_scanner_write":  (600, True),   # scanner agent: scan/submit, scan/event, scan/upload-url (fires every 500ms during paper jams)
     "cts_workstation_get":(120, True),   # endorsement-queue, iqa-results (polled every 30s)
     # CTS — admin/config read paths (polled every 5 min)
@@ -74,7 +75,6 @@ _PATH_TO_SLUG: dict[str, str] = {
     "/v1/cts/outward":                   "cts_ops_get",
     "/v1/cts/exceptions":                "cts_status_get",
     "/v1/cts/smb/reports":               "cts_ops_get",
-    "/v1/cts/rpc/zones":                 "cts_ops_get",
     "/v1/cts/admin/login-log":           "cts_admin_read",
     "/v1/cts/admin/ngch-routing":        "cts_admin_read",
     "/v1/cts/admin/micr-prefixes":       "cts_admin_read",
@@ -151,7 +151,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={
                     "error_code": "RATE_LIMIT_UNAVAILABLE",
-                    "message": "Service temporarily unavailable — rate limit infrastructure down",
+                    "message": get_message("API_SERVICE_TEMPORARILY_UNAVAILABLE_RATE"),
                 },
             )
 
@@ -189,7 +189,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={
                         "error_code": "RATE_LIMIT_EXCEEDED",
-                        "message": f"Too many requests. Limit: {limit}/min for {slug}.",
+                        "message": get_message("API_TOO_MANY_REQUESTS_LIMIT_MIN", limit=limit, slug=slug),
                         "limit": limit,
                         "window": "60s",
                     },

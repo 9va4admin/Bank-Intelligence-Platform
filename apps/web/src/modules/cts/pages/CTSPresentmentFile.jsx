@@ -5,6 +5,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
+import { msg } from '../../../shared/messages'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -14,15 +15,15 @@ const DATE_STR = `${_today.getFullYear()}${String(_today.getMonth()+1).padStart(
 
 // DBC check failure reasons (maps to which AI check failed)
 const FAIL_REASONS = [
-  { code: 'UV_FAIL',       label: 'UV watermark not detected',           category: 'Fraud' },
-  { code: 'DATE_STALE',    label: 'Cheque date > 3 months old',          category: 'Date'  },
-  { code: 'DATE_FUTURE',   label: 'Post-dated beyond permissible limit',  category: 'Date'  },
-  { code: 'AMT_MISMATCH',  label: 'Amount figures ≠ amount in words',    category: 'Amount'},
-  { code: 'ALTERATION',    label: 'Alteration / overwriting detected',    category: 'Fraud' },
-  { code: 'NO_SIGNATURE',  label: 'Signature absent or not detectable',  category: 'Sign'  },
-  { code: 'MICR_UNREAD',   label: 'MICR line unreadable',                category: 'MICR'  },
-  { code: 'CTS_NON_COMP',  label: 'Non-CTS-2010 compliant cheque',       category: 'Comp'  },
-  { code: 'DUPLICATE',     label: 'Duplicate instrument already presented',category: 'Dup'  },
+  { code: 'UV_FAIL',       label: msg('UI_PRESENTMENTFILE_UV_WATERMARK_NOT_DETECTED'),           category: 'Fraud' },
+  { code: 'DATE_STALE',    label: msg('UI_PRESENTMENTFILE_CHEQUE_DATE_3_MONTHS_OLD'),          category: 'Date'  },
+  { code: 'DATE_FUTURE',   label: msg('UI_PRESENTMENTFILE_POST_DATED_BEYOND_PERMISSIBLE_LIMIT'),  category: 'Date'  },
+  { code: 'AMT_MISMATCH',  label: msg('UI_PRESENTMENTFILE_AMOUNT_FIGURES_AMOUNT_IN_WORDS'),    category: 'Amount'},
+  { code: 'ALTERATION',    label: msg('UI_PRESENTMENTFILE_ALTERATION_OVERWRITING_DETECTED'),    category: 'Fraud' },
+  { code: 'NO_SIGNATURE',  label: msg('UI_PRESENTMENTFILE_SIGNATURE_ABSENT_OR_NOT_DETECTABLE'),  category: 'Sign'  },
+  { code: 'MICR_UNREAD',   label: msg('UI_PRESENTMENTFILE_MICR_LINE_UNREADABLE'),                category: 'MICR'  },
+  { code: 'CTS_NON_COMP',  label: msg('UI_PRESENTMENTFILE_NON_CTS_2010_COMPLIANT_CHEQUE'),       category: 'Comp'  },
+  { code: 'DUPLICATE',     label: msg('UI_PRESENTMENTFILE_DUPLICATE_INSTRUMENT_ALREADY_PRESENT'),category: 'Dup'  },
 ]
 
 function pickFailReason(seed) {
@@ -90,7 +91,7 @@ function BatchHeader({ batch, onClose, isDark, sessionId }) {
   return (
     <div className={`shrink-0 border-b ${th.bar} px-5 py-3 flex items-center gap-4 flex-wrap`}>
       <div>
-        <div className={`text-[10px] uppercase tracking-widest ${th.label} mb-0.5`}>Current Batch</div>
+        <div className={`text-[10px] uppercase tracking-widest ${th.label} mb-0.5`}>{msg('UI_PRESENTMENTFILE_CURRENT_BATCH')}</div>
         <div className="flex items-center gap-2">
           <span className={`text-[13px] font-mono font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
             {batch.batchId}
@@ -107,19 +108,19 @@ function BatchHeader({ batch, onClose, isDark, sessionId }) {
 
       <div className="flex items-center gap-6 ml-2">
         <div>
-          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>Total</div>
+          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>{msg('UI_COMMON_TOTAL')}</div>
           <div className={`text-lg font-bold font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>{batch.items.length}</div>
         </div>
         <div>
-          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>Passed</div>
+          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>{msg('UI_COMPLIANCE_PASSED')}</div>
           <div className={`text-lg font-bold font-mono ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{passed}</div>
         </div>
         <div>
-          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>Rejected</div>
+          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>{msg('UI_COMMON_REJECTED')}</div>
           <div className={`text-lg font-bold font-mono ${failed > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>{failed}</div>
         </div>
         <div>
-          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>Session</div>
+          <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>{msg('UI_COMMON_SESSION')}</div>
           <div className={`text-[11px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{sessionId}</div>
         </div>
       </div>
@@ -131,12 +132,12 @@ function BatchHeader({ batch, onClose, isDark, sessionId }) {
               ? 'border-amber-500/40 bg-amber-900/20 text-amber-400 hover:bg-amber-900/30 hover:border-amber-400/60'
               : 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100'
             }`}>
-          <span>■</span> Close Batch
+          <span>■</span> {msg('UI_PRESENTMENTFILE_CLOSE_BATCH')}
         </button>
       )}
       {!isOpen && (
         <div className={`ml-auto text-[10px] font-mono ${th.muted}`}>
-          Closed {new Date(batch.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+         {msg('UI_PRESENTMENTFILE_CLOSED', { value: new Date(batch.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
         </div>
       )}
     </div>
@@ -152,7 +153,7 @@ function DownloadBtn({ label, icon, filename, disabled, isDark }) {
         `/v1/cts/outward/files/${encodeURIComponent(filename)}/download-url`,
         { credentials: 'include' }
       )
-      if (!res.ok) throw new Error('File not available')
+      if (!res.ok) throw new Error(msg('UI_PRESENTMENTFILE_FILE_NOT_AVAILABLE'))
       return res.json()
     },
     onSuccess: ({ download_url }) => {
@@ -184,13 +185,13 @@ function DownloadBtn({ label, icon, filename, disabled, isDark }) {
   if (state === 'busy') return (
     <div className={`${base} ${isDark ? 'border-amber-600/30 text-amber-400 bg-amber-900/10' : 'border-amber-300 text-amber-600 bg-amber-50'}`}>
       <span className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
-      Preparing…
+     {msg('UI_PRESENTMENTFILE_PREPARING')}
     </div>
   )
   if (state === 'done') return (
     <div title={filename}
       className={`${base} ${isDark ? 'border-emerald-600/40 text-emerald-400 bg-emerald-900/10' : 'border-emerald-300 text-emerald-600 bg-emerald-50'}`}>
-      ✓ Ready — {filename}
+     {msg('UI_PRESENTMENTFILE_READY', { filename })}
     </div>
   )
   return (
@@ -214,7 +215,7 @@ function CxfPreview({ items, filename, isDark, type, sessionId, sbName, sbIfsc }
   return (
     <div>
       <div className={`text-[9px] font-semibold uppercase tracking-widest mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        CXF Preview — {filename}
+       {msg('UI_PRESENTMENTFILE_CXF_PREVIEW', { filename })}
       </div>
       <div className={`rounded-lg border font-mono text-[9px] overflow-x-auto p-3 leading-relaxed
         ${isDark ? 'bg-black/40 border-white/8 text-slate-400' : 'bg-slate-900 border-slate-700 text-slate-300'}`}>
@@ -254,15 +255,15 @@ function ImageManifest({ items, isDark, type }) {
   return (
     <div>
       <div className={`text-[9px] font-semibold uppercase tracking-widest mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        Image Folder — {rows.length} file{rows.length !== 1 ? 's' : ''}
-        {type === 'success' && <span className={`ml-2 ${th.faint}`}>(front face B&W only)</span>}
-        {type === 'rejected' && <span className={`ml-2 ${th.faint}`}>(all images — front/back/UV)</span>}
+       {msg('UI_PRESENTMENTFILE_IMAGE_FOLDER_FILE', { count: rows.length, value: rows.length !== 1 ? 's' : '' })}
+        {type === 'success' && <span className={`ml-2 ${th.faint}`}>{msg('UI_PRESENTMENTFILE_FRONT_FACE_B_W_ONLY')}</span>}
+        {type === 'rejected' && <span className={`ml-2 ${th.faint}`}>{msg('UI_PRESENTMENTFILE_ALL_IMAGES_FRONT_BACK_UV')}</span>}
       </div>
       <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-white/2 border-white/6' : 'bg-white border-slate-200'}`}>
         <div className={`grid grid-cols-3 px-3 py-1.5 border-b ${th.head}`}>
-          <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>Filename</span>
-          <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>Spec</span>
-          <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>Size</span>
+          <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>{msg('UI_PRESENTMENTFILE_FILENAME')}</span>
+          <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>{msg('UI_PRESENTMENTFILE_SPEC')}</span>
+          <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>{msg('UI_PRESENTMENTFILE_SIZE')}</span>
         </div>
         {rows.slice(0, 6).map((r, i) => (
           <div key={i} className={`grid grid-cols-3 px-3 py-1.5 border-b ${th.row} text-[9px]`}>
@@ -272,10 +273,10 @@ function ImageManifest({ items, isDark, type }) {
           </div>
         ))}
         {rows.length > 6 && (
-          <div className={`px-3 py-1.5 text-[9px] ${th.faint}`}>+ {rows.length - 6} more files</div>
+          <div className={`px-3 py-1.5 text-[9px] ${th.faint}`}>{msg('UI_PRESENTMENTFILE_MORE_FILES', { value: rows.length - 6 })}</div>
         )}
         {rows.length === 0 && (
-          <div className={`px-3 py-3 text-[9px] text-center ${th.faint}`}>No images yet</div>
+          <div className={`px-3 py-3 text-[9px] text-center ${th.faint}`}>{msg('UI_PRESENTMENTFILE_NO_IMAGES_YET')}</div>
         )}
       </div>
     </div>
@@ -301,7 +302,7 @@ function RejectBreakdown({ items, isDark }) {
 
   return (
     <div className={`rounded-xl border px-4 py-3 ${th.card}`}>
-      <div className={`text-[9px] uppercase tracking-widest font-semibold mb-2 ${th.lbl}`}>Rejection Breakdown</div>
+      <div className={`text-[9px] uppercase tracking-widest font-semibold mb-2 ${th.lbl}`}>{msg('UI_PRESENTMENTFILE_REJECTION_BREAKDOWN')}</div>
       <div className="flex flex-wrap gap-3">
         {Object.entries(byCat).map(([cat, count]) => (
           <div key={cat} className="flex items-center gap-1.5">
@@ -311,7 +312,7 @@ function RejectBreakdown({ items, isDark }) {
         ))}
       </div>
       <div className={`mt-2 text-[9px] ${th.faint}`}>
-        Not sent to NGCH · Available for operator review · Download for records
+       {msg('UI_PRESENTMENTFILE_NOT_SENT_TO_NGCH_AVAILABLE')}
       </div>
     </div>
   )
@@ -333,14 +334,14 @@ function HistoryRow({ batch, isDark }) {
       <div className="min-w-0 flex-1">
         <div className={`text-[11px] font-mono font-semibold ${th.mono}`}>{batch.batchId}</div>
         <div className={`text-[9px] ${th.faint} mt-0.5`}>
-          {passed} passed · {failed} rejected · Closed {new Date(batch.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {msg('UI_PRESENTMENTFILE_PASSED_REJECTED_CLOSED', { passed, failed, value: new Date(batch.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
         </div>
       </div>
       <div className="flex items-center gap-1.5">
-        <DownloadBtn label="Success CXF"  icon="📄" filename={batch.cxfFile} disabled={passed === 0} isDark={isDark} />
-        <DownloadBtn label="Success Images" icon="🗂" filename={batch.folder}  disabled={passed === 0} isDark={isDark} />
-        <DownloadBtn label="Reject CXF"   icon="📋" filename={batch.rejFile} disabled={failed === 0} isDark={isDark} />
-        <DownloadBtn label="Reject Images" icon="🗂" filename={batch.rejFolder} disabled={failed === 0} isDark={isDark} />
+        <DownloadBtn label={msg('UI_PRESENTMENTFILE_SUCCESS_CXF')}  icon="📄" filename={batch.cxfFile} disabled={passed === 0} isDark={isDark} />
+        <DownloadBtn label={msg('UI_PRESENTMENTFILE_SUCCESS_IMAGES')} icon="🗂" filename={batch.folder}  disabled={passed === 0} isDark={isDark} />
+        <DownloadBtn label={msg('UI_PRESENTMENTFILE_REJECT_CXF')}   icon="📋" filename={batch.rejFile} disabled={failed === 0} isDark={isDark} />
+        <DownloadBtn label={msg('UI_PRESENTMENTFILE_REJECT_IMAGES')} icon="🗂" filename={batch.rejFolder} disabled={failed === 0} isDark={isDark} />
       </div>
     </div>
   )
@@ -490,10 +491,10 @@ export default function CTSPresentmentFile() {
         {/* Format spec strip */}
         <div className={`shrink-0 border-b ${th.divider} px-5 py-2 flex items-center gap-5 flex-wrap`}>
           {[
-            { tag: 'CXF',  desc: 'Cheque eXchange File · NPCI CTS-2010 fixed-width format' },
-            { tag: 'TIFF', desc: 'Front face · 200 DPI · 1-bit B&W · Group 4 · ≤100 KB' },
-            { tag: 'PKI',  desc: 'HSM SHA-256 .sig · FIPS 140-2 Level 3' },
-            { tag: 'MinIO',desc: 'All images archived to object store on arrival' },
+            { tag: 'CXF',  desc: msg('UI_PRESENTMENTFILE_CHEQUE_EXCHANGE_FILE_NPCI_CTS') },
+            { tag: 'TIFF', desc: msg('UI_PRESENTMENTFILE_FRONT_FACE_200_DPI_1') },
+            { tag: 'PKI',  desc: msg('UI_PRESENTMENTFILE_HSM_SHA_256_SIG_FIPS') },
+            { tag: 'MinIO',desc: msg('UI_PRESENTMENTFILE_ALL_IMAGES_ARCHIVED_TO_OBJECT') },
           ].map(f => (
             <div key={f.tag} className="flex items-baseline gap-1.5">
               <span className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded ${isDark ? 'bg-white/8 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{f.tag}</span>
@@ -521,7 +522,7 @@ export default function CTSPresentmentFile() {
               <span className={`text-[10px] transition-transform ${expandSuccess ? 'rotate-90' : ''} ${th.lbl}`}>▶</span>
               <div className="flex-1">
                 <div className={`text-[10px] uppercase tracking-widest font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                  ✓ Success File
+                 {msg('UI_PRESENTMENTFILE_SUCCESS_FILE')}
                 </div>
                 <div className={`text-[9px] ${th.lbl} mt-0.5`}>{currentBatch.cxfFile}</div>
               </div>
@@ -536,14 +537,14 @@ export default function CTSPresentmentFile() {
                 {/* Download buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <DownloadBtn
-                    label="Download CXF"
+                    label={msg('UI_PRESENTMENTFILE_DOWNLOAD_CXF')}
                     icon="📄"
                     filename={currentBatch.cxfFile}
                     disabled={passed.length === 0}
                     isDark={isDark}
                   />
                   <DownloadBtn
-                    label="Download Image Folder"
+                    label={msg('UI_PRESENTMENTFILE_DOWNLOAD_IMAGE_FOLDER')}
                     icon="🗂"
                     filename={currentBatch.folder}
                     disabled={passed.length === 0}
@@ -565,13 +566,13 @@ export default function CTSPresentmentFile() {
                 {/* Live instrument list */}
                 <div>
                   <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>
-                    Instruments in file ({passed.length})
-                    {isOpen && <span className={`ml-2 font-normal ${isDark ? 'text-emerald-400/70' : 'text-emerald-600/70'}`}>live</span>}
+                   {msg('UI_PRESENTMENTFILE_INSTRUMENTS_IN_FILE', { count: passed.length })}
+                    {isOpen && <span className={`ml-2 font-normal ${isDark ? 'text-emerald-400/70' : 'text-emerald-600/70'}`}>{msg('UI_PRESENTMENTFILE_LIVE')}</span>}
                   </div>
                   <div className={`rounded-xl border overflow-hidden ${th.card}`}>
                     {passed.length === 0 && (
                       <div className={`px-4 py-6 text-center text-[11px] ${th.lbl}`}>
-                        Waiting for instruments to pass AI pipeline…
+                       {msg('UI_PRESENTMENTFILE_WAITING_FOR_INSTRUMENTS_TO_PASS')}
                       </div>
                     )}
                     {passed.slice(-8).reverse().map((item, i) => (
@@ -590,7 +591,7 @@ export default function CTSPresentmentFile() {
                     ))}
                     {passed.length > 8 && (
                       <div className={`px-4 py-2 text-[9px] ${th.lbl}`}>
-                        + {passed.length - 8} earlier instruments in file
+                       {msg('UI_PRESENTMENTFILE_EARLIER_INSTRUMENTS_IN_FILE', { value: passed.length - 8 })}
                       </div>
                     )}
                   </div>
@@ -620,7 +621,7 @@ export default function CTSPresentmentFile() {
               <span className={`text-[10px] transition-transform ${expandReject ? 'rotate-90' : ''} ${th.lbl}`}>▶</span>
               <div className="flex-1">
                 <div className={`text-[10px] uppercase tracking-widest font-semibold ${failed.length > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-                  ✕ Rejected File
+                 {msg('UI_PRESENTMENTFILE_REJECTED_FILE')}
                 </div>
                 <div className={`text-[9px] ${th.lbl} mt-0.5`}>{currentBatch.rejFile}</div>
               </div>
@@ -638,14 +639,14 @@ export default function CTSPresentmentFile() {
                 {/* Download buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <DownloadBtn
-                    label="Download Rejected CXF"
+                    label={msg('UI_PRESENTMENTFILE_DOWNLOAD_REJECTED_CXF')}
                     icon="📋"
                     filename={currentBatch.rejFile}
                     disabled={failed.length === 0}
                     isDark={isDark}
                   />
                   <DownloadBtn
-                    label="Download All Images"
+                    label={msg('UI_PRESENTMENTFILE_DOWNLOAD_ALL_IMAGES')}
                     icon="🗂"
                     filename={currentBatch.rejFolder}
                     disabled={failed.length === 0}
@@ -656,11 +657,11 @@ export default function CTSPresentmentFile() {
                 {/* Rejected instrument list */}
                 <div>
                   <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>
-                    Rejected instruments ({failed.length})
+                   {msg('UI_PRESENTMENTFILE_REJECTED_INSTRUMENTS', { count: failed.length })}
                   </div>
                   <div className={`rounded-xl border overflow-hidden ${th.card}`}>
                     {failed.length === 0 && (
-                      <div className={`px-4 py-6 text-center text-[11px] ${th.lbl}`}>No rejections in this batch</div>
+                      <div className={`px-4 py-6 text-center text-[11px] ${th.lbl}`}>{msg('UI_PRESENTMENTFILE_NO_REJECTIONS_IN_THIS_BATCH')}</div>
                     )}
                     {failed.map(item => (
                       <div key={item.instrument_id}
@@ -679,7 +680,7 @@ export default function CTSPresentmentFile() {
                             {item.fail_label}
                           </div>
                           <div className={`text-[9px] mt-0.5 ${th.lbl}`}>
-                            {item.payee} · ₹{parseInt(item.amount).toLocaleString()} · {item.images_all.length} images
+                            {msg('UI_PRESENTMENTFILE_IMAGES', { payee: item.payee, parseInt: parseInt(item.amount).toLocaleString(), count: item.images_all.length })}
                           </div>
                         </div>
                       </div>
@@ -706,7 +707,7 @@ export default function CTSPresentmentFile() {
           <div className={`shrink-0 border-t ${th.divider}`}>
             <div className={`px-5 py-2 border-b ${th.divider}`}>
               <span className={`text-[10px] uppercase tracking-widest ${th.lbl}`}>
-                Closed Batches — {history.length}
+               {msg('UI_PRESENTMENTFILE_CLOSED_BATCHES', { count: history.length })}
               </span>
             </div>
             <div className="max-h-40 overflow-y-auto">

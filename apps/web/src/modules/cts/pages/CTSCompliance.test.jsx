@@ -1,71 +1,22 @@
-// @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { ThemeProvider } from '../../../shared/theme/ThemeContext'
-
-vi.mock('../../../shared/layout/AppShell', () => ({
-  default: ({ children }) => <div data-testid="appshell">{children}</div>,
-}))
-
-let captured = {}
-vi.mock('../../../shared/layout/PageHeaderContext', () => ({
-  usePageHeader: (opts = {}) => { captured = opts },
-  PageHeaderCtx: {},
-  PageHeaderProvider: ({ children }) => <>{children}</>,
-}))
-
 import CTSCompliance from './CTSCompliance'
 
-const renderPage = () => render(
-  <MemoryRouter><ThemeProvider><CTSCompliance /></ThemeProvider></MemoryRouter>
-)
+vi.mock('../../../shared/theme/ThemeContext', () => ({ useTheme: () => ({ isDark: false, toggle: vi.fn() }) }))
+vi.mock('../../../shared/layout/AppShell', () => ({ default: ({ children }) => <div>{children}</div> }))
+vi.mock('../../../shared/layout/PageHeaderContext', () => ({ usePageHeader: () => ({ setHeader: vi.fn() }) }))
+vi.mock('../../../shared/context/BankContext', () => ({
+  useBankContext: () => ({ bankId: 'kbl', bankName: 'Central Bank of India', bankIfsc: 'CBIN0000001', bankType: 'SB', isSB: true, isSMB: false, isDemo: false }),
+}))
 
-describe('CTSCompliance', () => {
-  it('renders without crashing', () => {
-    renderPage()
-    expect(screen.getByTestId('appshell')).toBeInTheDocument()
-  })
+beforeEach(() => {
+  globalThis.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ items: [] }) }))
+})
 
-  it('passes subtitle to page header', () => {
-    renderPage()
-    expect(typeof captured.subtitle).toBe('string')
-    expect(captured.subtitle).toMatch(/RBI|CTS|Standard/i)
-  })
-
-  it('passes Download Certificate button to page header actions', () => {
-    renderPage()
-    render(<div>{captured.actions}</div>, { wrapper: ({ children }) => <MemoryRouter><ThemeProvider>{children}</ThemeProvider></MemoryRouter> })
-    expect(screen.getByText(/Download Certificate/)).toBeInTheDocument()
-  })
-
-  it('renders KPI strip with Instruments label', () => {
-    renderPage()
-    expect(screen.getByText('Instruments')).toBeInTheDocument()
-  })
-
-  it('renders standard thresholds section', () => {
-    renderPage()
-    expect(screen.getByText('CTS-2010 Standard Thresholds (RBI Mandate)')).toBeInTheDocument()
-  })
-
-  it('shows 200 dpi threshold', () => {
-    renderPage()
-    expect(screen.getByText('200 dpi')).toBeInTheDocument()
-  })
-
-  it('filter FAIL shows fewer rows than ALL', () => {
-    renderPage()
-    const allCount = screen.queryAllByText(/CHQ-OUT-/).length
-    fireEvent.click(screen.getByRole('button', { name: 'FAIL' }))
-    const failCount = screen.queryAllByText(/CHQ-OUT-/).length
-    expect(failCount).toBeLessThan(allCount)
-  })
-
-  it('lot selector changes displayed instruments', () => {
-    renderPage()
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: screen.getAllByRole('option')[1]?.value } })
-    expect(screen.getByText('Instruments')).toBeInTheDocument()
+describe('CTSCompliance with live data', () => {
+  it('renders (instead of crashing the whole app) when there are no compliance lots yet', async () => {
+    render(<MemoryRouter><CTSCompliance /></MemoryRouter>)
+    expect(await screen.findByText(/CTS-2010/i)).toBeTruthy()
   })
 })

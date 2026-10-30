@@ -25,7 +25,6 @@ def test_to_xml_with_workflow_id():
         bank_ifsc="HDFC0001234",
         bank_id="test-bank",
         session_id="sess-001",
-        clearing_zone="MUMBAI",
         generated_at=datetime(2026, 6, 24, 12, 0, 0, tzinfo=timezone.utc),
         returns=[item],
     )

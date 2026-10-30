@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
@@ -129,7 +130,7 @@ async def _check_branches(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
             check_id="branches_loaded", label="Branch Master loaded",
-            status="WARN", detail="DB unavailable — connect YugabyteDB first",
+            status="WARN", detail=get_message("API_DB_UNAVAILABLE_CONNECT_YUGABYTEDB_FI"),
             action_url="/cts/admin/branches",
         )
     try:
@@ -144,24 +145,24 @@ async def _check_branches(bank_id: str, db_pool: Any) -> ReadinessItem:
         if count == 0:
             return ReadinessItem(
                 check_id="branches_loaded", label="Branch Master loaded",
-                status="FAIL", detail="No branches loaded — import CSV before go-live",
+                status="FAIL", detail=get_message("API_NO_BRANCHES_LOADED_IMPORT_CSV"),
                 action_url="/cts/admin/branches",
             )
         if count < 3:
             return ReadinessItem(
                 check_id="branches_loaded", label="Branch Master loaded",
-                status="WARN", detail=f"Only {count} branch{'es' if count > 1 else ''} loaded — verify completeness",
+                status="WARN", detail=get_message("API_ONLY_BRANCH_LOADED_VERIFY_COMPLETENE", count=count, value='es' if count > 1 else ''),
                 action_url="/cts/admin/branches",
             )
         return ReadinessItem(
             check_id="branches_loaded", label="Branch Master loaded",
-            status="PASS", detail=f"{count} active branches ({ms}ms)",
+            status="PASS", detail=get_message("API_ACTIVE_BRANCHES_MS", count=count, ms=ms),
         )
     except Exception as exc:
         log.warning("platform.readiness.branches_error", bank_id=bank_id, error=str(exc))
         return ReadinessItem(
             check_id="branches_loaded", label="Branch Master loaded",
-            status="WARN", detail=f"Query failed: {str(exc)[:80]}",
+            status="WARN", detail=get_message("API_QUERY_FAILED", str=str(exc)[:80]),
             action_url="/cts/admin/branches",
         )
 
@@ -170,7 +171,7 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
     if redis_cts is None or db_pool is None:
         return ReadinessItem(
             check_id="sig_vault_seeded", label="Signature Vault seeded",
-            status="WARN", detail="Redis CTS or DB unavailable",
+            status="WARN", detail=get_message("API_REDIS_CTS_OR_DB_UNAVAILABLE"),
             action_url="/cts/vaults",
         )
     try:
@@ -184,7 +185,7 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
         if db_total == 0:
             return ReadinessItem(
                 check_id="sig_vault_seeded", label="Signature Vault seeded",
-                status="FAIL", detail="No signatures in DB — run vault sync before go-live",
+                status="FAIL", detail=get_message("API_NO_SIGNATURES_IN_DB_RUN"),
                 action_url="/cts/vaults",
             )
         pct = min(100.0, redis_count / db_total * 100) if db_total > 0 else 100.0
@@ -202,7 +203,7 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
         log.warning("platform.readiness.sig_vault_error", bank_id=bank_id, error=str(exc))
         return ReadinessItem(
             check_id="sig_vault_seeded", label="Signature Vault seeded",
-            status="WARN", detail=f"Check failed: {str(exc)[:80]}",
+            status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
             action_url="/cts/vaults",
         )
 
@@ -211,23 +212,23 @@ async def _check_pps_vault(bank_id: str, redis_cts: Any) -> ReadinessItem:
     if redis_cts is None:
         return ReadinessItem(
             check_id="pps_vault_seeded", label="PPS Vault seeded",
-            status="WARN", detail="Redis CTS unavailable",
+            status="WARN", detail=get_message("API_REDIS_CTS_UNAVAILABLE"),
         )
     try:
         count = sum(1 for _ in redis_cts.scan_iter(match=f"pps:{bank_id}:*", count=1000))
         if count == 0:
             return ReadinessItem(
                 check_id="pps_vault_seeded", label="PPS Vault seeded",
-                status="WARN", detail="No PPS entries — seed if bank issues cheque books",
+                status="WARN", detail=get_message("API_NO_PPS_ENTRIES_SEED_IF"),
             )
         return ReadinessItem(
             check_id="pps_vault_seeded", label="PPS Vault seeded",
-            status="PASS", detail=f"{count} PPS entries in Redis",
+            status="PASS", detail=get_message("API_PPS_ENTRIES_IN_REDIS", count=count),
         )
     except Exception as exc:
         return ReadinessItem(
             check_id="pps_vault_seeded", label="PPS Vault seeded",
-            status="WARN", detail=f"Check failed: {str(exc)[:80]}",
+            status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
         )
 
 
@@ -235,7 +236,7 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
             check_id="micr_prefixes", label="MICR Prefixes configured",
-            status="WARN", detail="DB unavailable",
+            status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"),
             action_url="/cts/config/micr-prefixes",
         )
     try:
@@ -248,17 +249,17 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
         if count == 0:
             return ReadinessItem(
                 check_id="micr_prefixes", label="MICR Prefixes configured",
-                status="FAIL", detail="No MICR prefixes — configure before processing cheques",
+                status="FAIL", detail=get_message("API_NO_MICR_PREFIXES_CONFIGURE_BEFORE"),
                 action_url="/cts/config/micr-prefixes",
             )
         return ReadinessItem(
             check_id="micr_prefixes", label="MICR Prefixes configured",
-            status="PASS", detail=f"{count} prefix{'es' if count > 1 else ''} configured",
+            status="PASS", detail=get_message("API_PREFIX_CONFIGURED", count=count, value='es' if count > 1 else ''),
         )
     except Exception as exc:
         return ReadinessItem(
             check_id="micr_prefixes", label="MICR Prefixes configured",
-            status="WARN", detail=f"Check failed: {str(exc)[:80]}",
+            status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
             action_url="/cts/config/micr-prefixes",
         )
 
@@ -267,7 +268,7 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
     if db_pool is None:
         return ReadinessItem(
             check_id="ops_users", label="Ops reviewers configured",
-            status="WARN", detail="DB unavailable",
+            status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"),
             action_url="/admin/users",
         )
     try:
@@ -287,17 +288,17 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
         if reviewers == 0:
             return ReadinessItem(
                 check_id="ops_users", label="Ops reviewers configured",
-                status="FAIL", detail="No ops_reviewer users — human review queue will be unmanned",
+                status="FAIL", detail=get_message("API_NO_OPS_REVIEWER_USERS_HUMAN"),
                 action_url="/admin/users",
             )
         return ReadinessItem(
             check_id="ops_users", label="Ops reviewers configured",
-            status="PASS", detail=f"{reviewers} reviewer{'s' if reviewers > 1 else ''}, {managers} manager{'s' if managers > 1 else ''}",
+            status="PASS", detail=get_message("API_REVIEWER_MANAGER", reviewers=reviewers, value='s' if reviewers > 1 else '', managers=managers, value2='s' if managers > 1 else ''),
         )
     except Exception as exc:
         return ReadinessItem(
             check_id="ops_users", label="Ops reviewers configured",
-            status="WARN", detail=f"Check failed: {str(exc)[:80]}",
+            status="WARN", detail=get_message("API_CHECK_FAILED", str=str(exc)[:80]),
             action_url="/admin/users",
         )
 
@@ -311,14 +312,14 @@ def _check_inward_folder() -> ReadinessItem:
     if not folder:
         return ReadinessItem(
             check_id="inward_folder", label="Inward watch folder (POC)",
-            status="FAIL", detail="cts.inward.folder_path not configured",
+            status="FAIL", detail=get_message("API_CTS_INWARD_FOLDER_PATH_NOT"),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
     if not os.path.isdir(folder):
         return ReadinessItem(
             check_id="inward_folder", label="Inward watch folder (POC)",
-            status="FAIL", detail=f"{folder} — directory not found",
+            status="FAIL", detail=get_message("API_DIRECTORY_NOT_FOUND", folder=folder),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
@@ -340,14 +341,14 @@ def _check_outward_folder() -> ReadinessItem:
     if not folder:
         return ReadinessItem(
             check_id="outward_folder", label="Outward output folder (POC)",
-            status="FAIL", detail="cts.outward.folder_path not configured",
+            status="FAIL", detail=get_message("API_CTS_OUTWARD_FOLDER_PATH_NOT"),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
     if not os.path.isdir(folder):
         return ReadinessItem(
             check_id="outward_folder", label="Outward output folder (POC)",
-            status="FAIL", detail=f"{folder} — directory not found",
+            status="FAIL", detail=get_message("API_DIRECTORY_NOT_FOUND", folder=folder),
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
@@ -369,7 +370,7 @@ async def _run_test_kafka(state: Any, bank_id: str) -> SmokeTestResult:
     producer = getattr(state, "kafka_producer", None)
     if producer is None:
         return SmokeTestResult(test_id="test_kafka", status="SKIP",
-                               message="No Kafka producer in app.state — start Kafka first")
+                               message=get_message("API_NO_KAFKA_PRODUCER_IN_APP"))
     try:
         topic = f"cts.inward.{bank_id}"
         await asyncio.wait_for(
@@ -382,10 +383,10 @@ async def _run_test_kafka(state: Any, bank_id: str) -> SmokeTestResult:
         return SmokeTestResult(test_id="test_kafka", status=status, message=msg, latency_ms=ms)
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id="test_kafka", status="FAIL",
-                               message="Kafka produce timed out (>10s) — check broker connectivity")
+                               message=get_message("API_KAFKA_PRODUCE_TIMED_OUT_10S"))
     except Exception as exc:
         return SmokeTestResult(test_id="test_kafka", status="FAIL",
-                               message=f"Kafka error: {str(exc)[:120]}")
+                               message=get_message("API_KAFKA_ERROR", str=str(exc)[:120]))
 
 
 async def _run_test_immudb(state: Any, bank_id: str) -> SmokeTestResult:
@@ -393,7 +394,7 @@ async def _run_test_immudb(state: Any, bank_id: str) -> SmokeTestResult:
     immudb = getattr(state, "immudb_client", None)
     if immudb is None:
         return SmokeTestResult(test_id="test_immudb", status="SKIP",
-                               message="Immudb client not configured — audit trail unavailable")
+                               message=get_message("API_IMMUDB_CLIENT_NOT_CONFIGURED_AUDIT"))
     try:
         from shared.audit.audit_event import AuditEvent, AuditEventType
         evt = AuditEvent(
@@ -407,13 +408,13 @@ async def _run_test_immudb(state: Any, bank_id: str) -> SmokeTestResult:
         await asyncio.wait_for(immudb.write(evt), timeout=10)
         ms = int((time.monotonic() - t0) * 1000)
         return SmokeTestResult(test_id="test_immudb", status="PASS",
-                               message=f"AuditEvent written + verified in {ms}ms", latency_ms=ms)
+                               message=get_message("API_AUDITEVENT_WRITTEN_VERIFIED_IN_MS", ms=ms), latency_ms=ms)
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id="test_immudb", status="FAIL",
-                               message="Immudb write timed out (>10s)")
+                               message=get_message("API_IMMUDB_WRITE_TIMED_OUT_10S"))
     except Exception as exc:
         return SmokeTestResult(test_id="test_immudb", status="FAIL",
-                               message=f"Immudb error: {str(exc)[:120]}")
+                               message=get_message("API_IMMUDB_ERROR", str=str(exc)[:120]))
 
 
 async def _run_test_signature_vault(state: Any, bank_id: str) -> SmokeTestResult:
@@ -421,7 +422,7 @@ async def _run_test_signature_vault(state: Any, bank_id: str) -> SmokeTestResult
     redis = getattr(state, "redis_cts", None)
     if redis is None:
         return SmokeTestResult(test_id="test_signature_vault", status="FAIL",
-                               message="Redis CTS not connected")
+                               message=get_message("API_REDIS_CTS_NOT_CONNECTED"))
     try:
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
@@ -429,16 +430,16 @@ async def _run_test_signature_vault(state: Any, bank_id: str) -> SmokeTestResult
         sample = next(redis.scan_iter(match=f"sig:{bank_id}:*", count=1), None)
         if sample is None:
             return SmokeTestResult(test_id="test_signature_vault", status="WARN",
-                                   message=f"Redis ping OK ({ms}ms) but no vault keys found — seed before go-live",
+                                   message=get_message("API_REDIS_PING_OK_MS_BUT", ms=ms),
                                    latency_ms=ms)
         return SmokeTestResult(test_id="test_signature_vault", status="PASS",
-                               message=f"Redis CTS ping {ms}ms · vault keys present", latency_ms=ms)
+                               message=get_message("API_REDIS_CTS_PING_MS_VAULT", ms=ms), latency_ms=ms)
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id="test_signature_vault", status="FAIL",
-                               message="Redis ping timed out (>5s)")
+                               message=get_message("API_REDIS_PING_TIMED_OUT_5S"))
     except Exception as exc:
         return SmokeTestResult(test_id="test_signature_vault", status="FAIL",
-                               message=f"Redis error: {str(exc)[:120]}")
+                               message=get_message("API_REDIS_ERROR", str=str(exc)[:120]))
 
 
 async def _run_test_pps_vault(state: Any, bank_id: str) -> SmokeTestResult:
@@ -446,7 +447,7 @@ async def _run_test_pps_vault(state: Any, bank_id: str) -> SmokeTestResult:
     redis = getattr(state, "redis_cts", None)
     if redis is None:
         return SmokeTestResult(test_id="test_pps_vault", status="FAIL",
-                               message="Redis CTS not connected")
+                               message=get_message("API_REDIS_CTS_NOT_CONNECTED"))
     try:
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
@@ -454,10 +455,10 @@ async def _run_test_pps_vault(state: Any, bank_id: str) -> SmokeTestResult:
         detail = f"{count} PPS entries seeded" if count > 0 else "No PPS entries seeded — seed if bank issues cheque books"
         st = "PASS" if count > 0 else "WARN"
         return SmokeTestResult(test_id="test_pps_vault", status=st,
-                               message=f"PPS vault ping OK ({ms}ms) · {detail}", latency_ms=ms)
+                               message=get_message("API_PPS_VAULT_PING_OK_MS", ms=ms, detail=detail), latency_ms=ms)
     except Exception as exc:
         return SmokeTestResult(test_id="test_pps_vault", status="FAIL",
-                               message=f"Redis error: {str(exc)[:120]}")
+                               message=get_message("API_REDIS_ERROR", str=str(exc)[:120]))
 
 
 async def _run_test_cbs(state: Any, bank_id: str) -> SmokeTestResult:
@@ -469,18 +470,18 @@ async def _run_test_cbs(state: Any, bank_id: str) -> SmokeTestResult:
         ms = int((time.monotonic() - t0) * 1000)
         if reachable:
             return SmokeTestResult(test_id="test_cbs", status="PASS",
-                                   message=f"CBS ping OK in {ms}ms", latency_ms=ms)
+                                   message=get_message("API_CBS_PING_OK_IN_MS", ms=ms), latency_ms=ms)
         return SmokeTestResult(test_id="test_cbs", status="FAIL",
-                               message="CBS ping returned False — check CBS config in Vault")
+                               message=get_message("API_CBS_PING_RETURNED_FALSE_CHECK"))
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id="test_cbs", status="FAIL",
-                               message="CBS unreachable (>10s timeout) — check network / CBS config")
+                               message=get_message("API_CBS_UNREACHABLE_10S_TIMEOUT_CHECK"))
     except ImportError:
         return SmokeTestResult(test_id="test_cbs", status="SKIP",
-                               message="CBS connector not installed in this environment")
+                               message=get_message("API_CBS_CONNECTOR_NOT_INSTALLED_IN"))
     except Exception as exc:
         return SmokeTestResult(test_id="test_cbs", status="FAIL",
-                               message=f"CBS error: {str(exc)[:120]}")
+                               message=get_message("API_CBS_ERROR", str=str(exc)[:120]))
 
 
 async def _run_test_temporal(state: Any, bank_id: str) -> SmokeTestResult:
@@ -488,19 +489,19 @@ async def _run_test_temporal(state: Any, bank_id: str) -> SmokeTestResult:
     client = getattr(state, "temporal_client", None)
     if client is None:
         return SmokeTestResult(test_id="test_iet_watchdog", status="SKIP",
-                               message="Temporal client not connected — start Temporal first")
+                               message=get_message("API_TEMPORAL_CLIENT_NOT_CONNECTED_START"))
     try:
         await asyncio.wait_for(client.describe_namespace("default"), timeout=10)
         ms = int((time.monotonic() - t0) * 1000)
         return SmokeTestResult(test_id="test_iet_watchdog", status="PASS",
-                               message=f"Temporal namespace reachable in {ms}ms · IET workers assumed active",
+                               message=get_message("API_TEMPORAL_NAMESPACE_REACHABLE_IN_MS", ms=ms),
                                latency_ms=ms)
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id="test_iet_watchdog", status="FAIL",
-                               message="Temporal unreachable (>10s) — check Temporal server")
+                               message=get_message("API_TEMPORAL_UNREACHABLE_10S_CHECK_TEMPO"))
     except Exception as exc:
         return SmokeTestResult(test_id="test_iet_watchdog", status="FAIL",
-                               message=f"Temporal error: {str(exc)[:120]}")
+                               message=get_message("API_TEMPORAL_ERROR", str=str(exc)[:120]))
 
 
 async def _run_test_vault_seeded(state: Any, bank_id: str) -> SmokeTestResult:
@@ -508,17 +509,17 @@ async def _run_test_vault_seeded(state: Any, bank_id: str) -> SmokeTestResult:
     redis = getattr(state, "redis_cts", None)
     if redis is None:
         return SmokeTestResult(test_id="test_vault_seeded", status="FAIL",
-                               message="Redis CTS not connected")
+                               message=get_message("API_REDIS_CTS_NOT_CONNECTED"))
     try:
         count = sum(1 for _ in redis.scan_iter(match=f"sig:{bank_id}:*", count=2000))
         if count == 0:
             return SmokeTestResult(test_id="test_vault_seeded", status="WARN",
-                                   message="No signature keys found for this bank — seed before go-live")
+                                   message=get_message("API_NO_SIGNATURE_KEYS_FOUND_FOR"))
         return SmokeTestResult(test_id="test_vault_seeded", status="PASS",
-                               message=f"{count} signature keys present in Redis vault")
+                               message=get_message("API_SIGNATURE_KEYS_PRESENT_IN_REDIS", count=count))
     except Exception as exc:
         return SmokeTestResult(test_id="test_vault_seeded", status="FAIL",
-                               message=f"Redis error: {str(exc)[:120]}")
+                               message=get_message("API_REDIS_ERROR", str=str(exc)[:120]))
 
 
 def _run_test_scanner_folder() -> SmokeTestResult:
@@ -528,15 +529,15 @@ def _run_test_scanner_folder() -> SmokeTestResult:
         folder = ""
     if not folder:
         return SmokeTestResult(test_id="test_scanner_folder", status="WARN",
-                               message="cts.inward.folder_path not configured — set in Helm values")
+                               message=get_message("API_CTS_INWARD_FOLDER_PATH_NOT_2"))
     if not os.path.isdir(folder):
         return SmokeTestResult(test_id="test_scanner_folder", status="FAIL",
-                               message=f"Folder not found: {folder}")
+                               message=get_message("API_FOLDER_NOT_FOUND", folder=folder))
     if not os.access(folder, os.W_OK):
         return SmokeTestResult(test_id="test_scanner_folder", status="WARN",
-                               message=f"{folder} exists but not writable — check ASTRA service user ACL")
+                               message=get_message("API_EXISTS_BUT_NOT_WRITABLE_CHECK", folder=folder))
     return SmokeTestResult(test_id="test_scanner_folder", status="PASS",
-                           message=f"{folder} — exists and writable")
+                           message=get_message("API_EXISTS_AND_WRITABLE", folder=folder))
 
 
 async def _run_test_auth_local(state: Any) -> SmokeTestResult:
@@ -546,16 +547,16 @@ async def _run_test_auth_local(state: Any) -> SmokeTestResult:
         connector = getattr(state, "auth_connector", None)
         if connector is None:
             return SmokeTestResult(test_id="test_auth_smb", status="SKIP",
-                                   message="Auth connector not initialised — check startup logs")
+                                   message=get_message("API_AUTH_CONNECTOR_NOT_INITIALISED_CHECK"))
         # Call a lightweight health check if available, else treat as PASS
         if hasattr(connector, "ping"):
             await asyncio.wait_for(connector.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
         return SmokeTestResult(test_id="test_auth_smb", status="PASS",
-                               message=f"Local auth DB reachable in {ms}ms · argon2 verify OK", latency_ms=ms)
+                               message=get_message("API_LOCAL_AUTH_DB_REACHABLE_IN", ms=ms), latency_ms=ms)
     except Exception as exc:
         return SmokeTestResult(test_id="test_auth_smb", status="FAIL",
-                               message=f"Auth error: {str(exc)[:120]}")
+                               message=get_message("API_AUTH_ERROR", str=str(exc)[:120]))
 
 
 # Map test_id → runner coroutine
@@ -575,15 +576,15 @@ async def _dispatch_test(test_id: str, state: Any, bank_id: str) -> SmokeTestRes
     if runner is None:
         # tests not yet wired (SFTP, LDAP, gRPC) — return SKIP
         return SmokeTestResult(test_id=test_id, status="SKIP",
-                               message="Test not implemented for this environment — check manually")
+                               message=get_message("API_TEST_NOT_IMPLEMENTED_FOR_THIS"))
     try:
         return await asyncio.wait_for(runner(), timeout=30)
     except asyncio.TimeoutError:
         return SmokeTestResult(test_id=test_id, status="FAIL",
-                               message="Test timed out (>30s)")
+                               message=get_message("API_TEST_TIMED_OUT_30S"))
     except Exception as exc:
         return SmokeTestResult(test_id=test_id, status="FAIL",
-                               message=f"Unexpected error: {str(exc)[:120]}")
+                               message=get_message("API_UNEXPECTED_ERROR", str=str(exc)[:120]))
 
 
 # Entity → test_id lists (mirrors ENTITY_SECTIONS on the frontend)
@@ -660,7 +661,7 @@ async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
         if proc.returncode == 0:
             return ServiceStartResponse(service=container, success=True,
-                                        message=f"docker compose up -d {container}: OK")
+                                        message=get_message("API_DOCKER_COMPOSE_UP_D_OK", container=container))
         raw = stderr.decode(errors="replace")
         # Filter docker-compose warning/info lines so the real error is visible
         error_lines = [
@@ -672,11 +673,11 @@ async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
     except FileNotFoundError:
         return ServiceStartResponse(
             service=container, success=False,
-            message=f"docker not found on PATH — run manually: docker compose up -d {container}",
+            message=get_message("API_DOCKER_NOT_FOUND_ON_PATH", container=container),
         )
     except asyncio.TimeoutError:
         return ServiceStartResponse(service=container, success=False,
-                                    message="docker compose start timed out (>60s)")
+                                    message=get_message("API_DOCKER_COMPOSE_START_TIMED_OUT"))
     except Exception as exc:
         return ServiceStartResponse(service=container, success=False, message=str(exc)[:200])
 
@@ -687,12 +688,12 @@ async def _start_single(service_id: str) -> ServiceStartResponse:
         log.info("platform.service.hf_skip", service=service_id)
         return ServiceStartResponse(
             service=service_id, success=True, skipped=True,
-            message="Routed to Hugging Face Inference API in POC mode — no local container needed",
+            message=get_message("API_ROUTED_TO_HUGGING_FACE_INFERENCE"),
         )
     container = _DOCKER_SERVICE_MAP.get(service_id)
     if container is None:
         return ServiceStartResponse(service=service_id, success=False,
-                                    message=f"Unknown service: {service_id}")
+                                    message=get_message("API_UNKNOWN_SERVICE", service_id=service_id))
     log.info("platform.service.start_requested", service=service_id, container=container)
     result = await _start_via_docker_compose(container)
     log.info("platform.service.start_result", service=service_id,
@@ -712,7 +713,7 @@ async def get_readiness(
     role    = user["role"]    if isinstance(user, dict) else user.role
     bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
     if role not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     db_pool  = getattr(request.app.state, "db_pool_cts", None)
     redis_cts = getattr(request.app.state, "redis_cts", None)
@@ -756,7 +757,7 @@ async def run_smoke_tests(
 ) -> SmokeTestRunResponse:
     role = user["role"] if isinstance(user, dict) else user.role
     if role not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = body.bank_id
     entity  = body.entity
@@ -797,7 +798,7 @@ async def get_services_status(
     role = user["role"] if isinstance(user, dict) else user.role
     if role not in _READ_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="ops_manager or bank_it_admin required")
+                            detail=get_message("API_OPS_MANAGER_OR_BANK_IT"))
 
     # Run all docker inspect calls concurrently
     svc_ids = list(_DOCKER_SERVICE_MAP.keys())
@@ -828,7 +829,7 @@ async def start_all_services(
     """
     role = user["role"] if isinstance(user, dict) else user.role
     if role not in _ADMIN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_REQUIRED"))
 
     tier_results: list[TierStartResult] = []
     total_started = total_failed = total_skipped = 0
@@ -870,9 +871,9 @@ async def start_service(
 ) -> ServiceStartResponse:
     role = user["role"] if isinstance(user, dict) else user.role
     if role not in _ADMIN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_REQUIRED"))
     if service_id not in _DOCKER_SERVICE_MAP and service_id not in _HF_HOSTED_SERVICES:
-        raise HTTPException(status_code=400, detail=f"Unknown service: {service_id}")
+        raise HTTPException(status_code=400, detail=get_message("API_UNKNOWN_SERVICE", service_id=service_id))
     return await _start_single(service_id)
 
 
@@ -896,7 +897,7 @@ class BankOnboardRequest(BaseModel):
     @classmethod
     def _valid_type(cls, v: str) -> str:
         if v not in _BANK_TYPES:
-            raise ValueError(f"bank_type must be one of {list(_BANK_TYPES)}")
+            raise ValueError(get_message("API_BANK_TYPE_MUST_BE_ONE", list=list(_BANK_TYPES)))
         return v
 
 
@@ -923,7 +924,7 @@ _BANK_COLS = "bank_id, bank_name, bank_code, ifsc_prefix, bank_type, ngch_member
 def _require_platform_admin(ctx: UserContext) -> None:
     from shared.auth.rbac import Role
     if ctx.role != Role.PLATFORM_ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_PLATFORM_ADMIN_ROLE_REQUIRED"))
 
 
 def _bank_response(row) -> BankResponse:
@@ -940,7 +941,7 @@ async def onboard_bank(
     _require_platform_admin(ctx)
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
     async with db.acquire() as conn:
         row = await conn.fetchrow(
             f"INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type, ngch_member_code) "
@@ -948,7 +949,7 @@ async def onboard_bank(
             body.bank_id, body.bank_name, body.bank_code, body.ifsc_prefix, body.bank_type, body.ngch_member_code,
         )
     if row is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"bank {body.bank_id} already exists")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("API_BANK_ALREADY_EXISTS", bank_id=body.bank_id))
     try:
         immudb = getattr(request.app.state, "immudb_client", None)
         if immudb:
@@ -971,7 +972,7 @@ async def list_banks(
     _require_platform_admin(ctx)
     db = getattr(request.app.state, "db_pool_cts", None)
     if db is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
     async with db.acquire() as conn:
         rows = await conn.fetch(f"SELECT {_BANK_COLS} FROM platform.banks ORDER BY bank_id LIMIT 100")
     return BankListResponse(banks=[_bank_response(r) for r in rows])

@@ -12,6 +12,7 @@ from typing import Any
 import structlog
 
 from shared.notifications.exceptions import NotificationDeliveryError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -63,7 +64,7 @@ class EmailChannel:
         try:
             self._smtp = smtplib.SMTP(self._smtp_host, self._smtp_port)
         except Exception as exc:
-            raise RuntimeError(f"Postal SMTP connect failed: {exc}") from exc
+            raise RuntimeError(get_message("PLATFORM_POSTAL_SMTP_CONNECT_FAILED", exc=exc)) from exc
         self._ready = True
 
     async def send(self, request) -> dict[str, Any]:
@@ -80,7 +81,7 @@ class EmailChannel:
             self._smtp.sendmail(self._from_address, request.recipient, msg.as_string())
         except Exception as exc:
             log.error("email.send_failed", recipient=request.recipient, error=str(exc))
-            raise NotificationDeliveryError(f"Email send failed: {exc}") from exc
+            raise NotificationDeliveryError(get_message("PLATFORM_EMAIL_SEND_FAILED", exc=exc)) from exc
 
         log.info("email.sent", recipient=request.recipient, template_id=request.template_id)
         return {"message_id": f"postal-{request.notification_id}", "status": "sent"}
@@ -100,6 +101,5 @@ class EmailChannel:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "EmailChannel.connect() has not been called. "
-                "Call it in the service startup before sending emails."
+                get_message("PLATFORM_EMAILCHANNEL_CONNECT_HAS_NOT_BEEN")
             )

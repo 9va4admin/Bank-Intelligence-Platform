@@ -16,7 +16,6 @@ Routes:
   GET  /v1/cts/admin/login-log
   GET  /v1/cts/admin/ngch-routing
   GET  /v1/cts/admin/micr-prefixes
-  GET  /v1/cts/rpc/zones
 """
 from __future__ import annotations
 
@@ -35,6 +34,7 @@ from apps.api.routers.cts_deps import (
 )
 from modules.cts.ifsc.models import IFSCCreateRequest, IFSCEntry, IFSCListResponse
 from modules.cts.ifsc.repository import IFSCDuplicateError
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -81,7 +81,7 @@ async def get_instrument_digest(
 ) -> InstrumentDigestResponse:
     db_pool = getattr(request.app.state, "db_pool", None)
     if db_pool is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -99,7 +99,7 @@ async def get_instrument_digest(
         )
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Instrument not found or not yet processed")
+        raise HTTPException(status_code=404, detail=get_message("API_INSTRUMENT_NOT_FOUND_OR_NOT"))
 
     digest_payload = row["steps_digest"] or {}
     steps_raw = digest_payload.get("steps", [])
@@ -250,7 +250,7 @@ class ScheduleUpdateResponse(BaseModel):
 _CTS_SCHEDULE_REGISTRY = [
     {
         "schedule_id_tpl": "cts-vaultsync-schedule-{bank_id}",
-        "label": "PPS & Stop Cheque Vault Sync",
+        "label": get_message("UI_SCHEDULES_PPS_STOP_CHEQUE_VAULT_SYNC"),
         "workflow": "VaultSyncWorkflow",
         "module": "CTS",
         "cron": "0 7 * * *",
@@ -320,7 +320,7 @@ async def update_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SCHEDULE_NOT_FOUND"))
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -337,7 +337,7 @@ async def update_schedule(
             log.error("cts.schedule_update_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to update Temporal Schedule",
+                detail=get_message("API_FAILED_TO_UPDATE_TEMPORAL_SCHEDULE"),
             ) from exc
 
     log.info("cts.schedule_updated", bank_id=bank_id, schedule_id=schedule_id, cron=body.cron)
@@ -345,7 +345,7 @@ async def update_schedule(
         schedule_id=schedule_id,
         cron=body.cron,
         status="UPDATED",
-        message=f"Schedule {schedule_id} updated to cron: {body.cron}",
+        message=get_message("API_SCHEDULE_UPDATED_TO_CRON", schedule_id=schedule_id, cron=body.cron),
     )
 
 
@@ -356,7 +356,7 @@ async def pause_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SCHEDULE_NOT_FOUND"))
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -366,7 +366,7 @@ async def pause_schedule(
             log.error("cts.schedule_pause_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to pause Temporal Schedule",
+                detail=get_message("API_FAILED_TO_PAUSE_TEMPORAL_SCHEDULE"),
             ) from exc
 
     log.info("cts.schedule_paused", bank_id=bank_id, schedule_id=schedule_id)
@@ -374,7 +374,7 @@ async def pause_schedule(
         schedule_id=schedule_id,
         cron="",
         status="UPDATED",
-        message=f"Schedule {schedule_id} paused.",
+        message=get_message("API_SCHEDULE_PAUSED", schedule_id=schedule_id),
     )
 
 
@@ -385,7 +385,7 @@ async def resume_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_SCHEDULE_NOT_FOUND"))
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -395,7 +395,7 @@ async def resume_schedule(
             log.error("cts.schedule_resume_error", schedule_id=schedule_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to resume Temporal Schedule",
+                detail=get_message("API_FAILED_TO_RESUME_TEMPORAL_SCHEDULE"),
             ) from exc
 
     log.info("cts.schedule_resumed", bank_id=bank_id, schedule_id=schedule_id)
@@ -403,7 +403,7 @@ async def resume_schedule(
         schedule_id=schedule_id,
         cron="",
         status="UPDATED",
-        message=f"Schedule {schedule_id} resumed.",
+        message=get_message("API_SCHEDULE_RESUMED", schedule_id=schedule_id),
     )
 
 
@@ -416,7 +416,7 @@ def _get_ifsc_repo(request: Request):
     if repo is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="IFSC registry unavailable",
+            detail=get_message("API_IFSC_REGISTRY_UNAVAILABLE"),
         )
     return repo
 
@@ -450,7 +450,7 @@ async def get_ifsc_by_id(
     repo = _get_ifsc_repo(request)
     entry = await repo.get_ifsc_by_id(entry_id)
     if entry is None or entry.bank_id != ctx.bank_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_IFSC_ENTRY_NOT_FOUND"))
     return entry
 
 
@@ -461,7 +461,7 @@ async def create_ifsc(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> IFSCEntry:
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_OPS_MANAGER_ROLE_REQUIRED"))
     repo = _get_ifsc_repo(request)
     try:
         entry = await repo.create_ifsc(ctx.bank_id, body, created_by=ctx.user_id)
@@ -478,11 +478,11 @@ async def approve_ifsc(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> IFSCEntry:
     if ctx.role.value != "bank_it_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_ROLE_REQUIRED"))
     repo = _get_ifsc_repo(request)
     entry = await repo.approve_ifsc(entry_id, approved_by=ctx.user_id)
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_IFSC_ENTRY_NOT_FOUND"))
     log.info("ifsc_registry.approved", entry_id=entry_id, bank_id=ctx.bank_id, approved_by=ctx.user_id)
     return entry
 
@@ -494,11 +494,11 @@ async def deactivate_ifsc(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> IFSCEntry:
     if ctx.role.value != "bank_it_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_ROLE_REQUIRED"))
     repo = _get_ifsc_repo(request)
     entry = await repo.deactivate_ifsc(entry_id, updated_by=ctx.user_id)
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_IFSC_ENTRY_NOT_FOUND"))
     log.info("ifsc_registry.deactivated", entry_id=entry_id, bank_id=ctx.bank_id, updated_by=ctx.user_id)
     return entry
 
@@ -540,7 +540,7 @@ async def get_auth_login_log(
     limit: int = Query(200, ge=1, le=500),
 ) -> AuthLogResponse:
     if ctx.role.value not in _AUTH_LOG_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)
@@ -603,7 +603,6 @@ class NGCHRoutingRule(BaseModel):
     model_config = ConfigDict(frozen=True)
     rule_id: str
     micr_prefix: str
-    clearing_zone: str
     destination: str
     priority: int
     active: bool
@@ -630,7 +629,7 @@ async def get_ngch_routing(
     try:
         rows = await db.fetch(
             f"""
-            SELECT rule_id, micr_prefix, clearing_zone, destination,
+            SELECT rule_id, micr_prefix, destination,
                    priority, active, updated_at::text
             FROM cts.ngch_routing_rules
             WHERE bank_id = $1
@@ -647,7 +646,6 @@ async def get_ngch_routing(
         NGCHRoutingRule(
             rule_id=r["rule_id"],
             micr_prefix=r["micr_prefix"],
-            clearing_zone=r["clearing_zone"],
             destination=r["destination"],
             priority=r["priority"],
             active=bool(r["active"]),
@@ -668,7 +666,6 @@ class MICRPrefixItem(BaseModel):
     micr_prefix: str
     bank_name: str
     bank_ifsc: str
-    clearing_zone: str
     active: bool
     updated_at: IsoTimestamp
 
@@ -699,7 +696,7 @@ async def get_micr_prefixes(
         rows = await db.fetch(
             f"""
             SELECT prefix_id, micr_prefix, bank_name, bank_ifsc,
-                   clearing_zone, active, updated_at::text
+                   active, updated_at::text
             FROM cts.micr_prefix_routing
             WHERE bank_id = $1
               {search_clause}
@@ -718,86 +715,9 @@ async def get_micr_prefixes(
             micr_prefix=r["micr_prefix"],
             bank_name=r["bank_name"],
             bank_ifsc=r["bank_ifsc"] or "",
-            clearing_zone=r["clearing_zone"] or "",
             active=bool(r["active"]),
             updated_at=r["updated_at"] or "",
         )
         for r in rows
     ]
     return MICRPrefixesResponse(bank_id=bank_id, items=items, total=len(items))
-
-
-# ---------------------------------------------------------------------------
-# RPC Zones
-# ---------------------------------------------------------------------------
-
-class RPCZoneItem(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    zone_id: str
-    zone_name: str
-    ngch_node: str
-    instrument_count_today: int
-    settled_count: int
-    pending_count: int
-    status: str
-    last_sync_at: OptIsoTimestamp = None
-
-
-class RPCZonesResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    bank_id: str
-    zones: list[RPCZoneItem]
-    total: int
-
-
-@router_v1.get("/rpc/zones", response_model=RPCZonesResponse)
-async def get_rpc_zones(
-    request: Request,
-    ctx: UserContext = Depends(get_current_user_context),
-) -> RPCZonesResponse:
-    bank_id = ctx.bank_id
-    db = getattr(request.app.state, "db_pool_cts", None)
-    if db is None:
-        return RPCZonesResponse(bank_id=bank_id, zones=[], total=0)
-
-    try:
-        rows = await db.fetch(
-            """
-            SELECT
-                z.zone_id,
-                z.zone_name,
-                z.ngch_node,
-                z.status,
-                z.last_sync_at::text,
-                COUNT(l.lot_id)::int                                             AS instrument_count_today,
-                COUNT(l.lot_id) FILTER (WHERE l.status = 'SETTLED')::int        AS settled_count,
-                COUNT(l.lot_id) FILTER (WHERE l.status NOT IN ('SETTLED','PARTIAL_FAIL'))::int AS pending_count
-            FROM cts.rpc_zones z
-            LEFT JOIN cts.lots l
-                   ON l.zone_id = z.zone_id
-                  AND l.bank_id = $1
-                  AND l.created_at::date = CURRENT_DATE
-            WHERE z.bank_id = $1
-            GROUP BY z.zone_id, z.zone_name, z.ngch_node, z.status, z.last_sync_at
-            ORDER BY z.zone_name
-            """,
-            bank_id,
-        )
-    except Exception as exc:
-        log.warning("cts.rpc_zones.query_failed", bank_id=bank_id, error=str(exc))
-        return RPCZonesResponse(bank_id=bank_id, zones=[], total=0)
-
-    zones = [
-        RPCZoneItem(
-            zone_id=r["zone_id"],
-            zone_name=r["zone_name"],
-            ngch_node=r["ngch_node"] or "",
-            instrument_count_today=r["instrument_count_today"],
-            settled_count=r["settled_count"],
-            pending_count=r["pending_count"],
-            status=r["status"] or "ACTIVE",
-            last_sync_at=r["last_sync_at"],
-        )
-        for r in rows
-    ]
-    return RPCZonesResponse(bank_id=bank_id, zones=zones, total=len(zones))

@@ -28,7 +28,6 @@ kafka:
     kafka-broker-2.kafka-broker-headless.astra-platform-saraswat-coop.svc.cluster.local:9092
 
 # ── Clearing ─────────────────────────────────────────────────────────────────
-clearing_zones: [MUMBAI]
 
 # Saraswat pilot volumes: ~8,000 inward cheques/day across 3 clearing sessions
 # Conservative swarm sizing — scale up after 30-day pilot baseline

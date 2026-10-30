@@ -7,6 +7,7 @@ import structlog
 
 from shared.auth.connectors.base import AuthConnector
 from shared.auth.exceptions import AuthConnectorConfigError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -37,7 +38,7 @@ class AuthConnectorFactory:
     def get_connector(self, entity_type: str, entity_id: str) -> AuthConnector:
         if entity_type not in _VALID_ENTITY_TYPES:
             raise AuthConnectorConfigError(
-                f"unknown entity_type '{entity_type}'. Valid: {sorted(_VALID_ENTITY_TYPES)}"
+                get_message("PLATFORM_UNKNOWN_ENTITY_TYPE_VALID", entity_type=entity_type, sorted=sorted(_VALID_ENTITY_TYPES))
             )
 
         cache_key = (entity_type, entity_id)
@@ -64,7 +65,7 @@ class AuthConnectorFactory:
         if not full_config or "auth" not in full_config:
             # a config WAS supplied but has no 'auth' block: refuse rather than silently downgrade to
             # password login (None = no config at all = dev/POC, handled above)
-            raise AuthConnectorConfigError("auth config missing the 'auth' block")
+            raise AuthConnectorConfigError(get_message("PLATFORM_AUTH_CONFIG_MISSING_THE_AUTH"))
 
         auth_root: dict = full_config["auth"]
 
@@ -78,19 +79,19 @@ class AuthConnectorFactory:
 
         integration_enabled: bool = entity_cfg.get("integration_enabled", False)
         integration_type: str = entity_cfg.get("integration_type", "local")
-        clearing_zones: list[str] = entity_cfg.get("clearing_zones", [])
+        pu_ids: list[str] = entity_cfg.get("pu_ids", [])
 
         if not integration_enabled or integration_type == "local":
             return self._build_local(entity_type, entity_id)
 
         if integration_type == "saml":
-            return self._build_saml(entity_type, entity_id, entity_cfg, clearing_zones)
+            return self._build_saml(entity_type, entity_id, entity_cfg, pu_ids)
 
         if integration_type == "ldap_ad":
-            return self._build_ldap_ad(entity_type, entity_id, entity_cfg, clearing_zones)
+            return self._build_ldap_ad(entity_type, entity_id, entity_cfg, pu_ids)
 
         raise AuthConnectorConfigError(
-            f"Unknown integration_type '{integration_type}' for entity_type='{entity_type}'."
+            get_message("PLATFORM_UNKNOWN_INTEGRATION_TYPE_FOR_ENTITY", integration_type=integration_type, entity_type=entity_type)
         )
 
     def _resolve_smb_config(self, auth_root: dict, entity_id: str) -> dict:
@@ -126,7 +127,7 @@ class AuthConnectorFactory:
         entity_type: str,
         entity_id: str,
         entity_cfg: dict,
-        clearing_zones: list[str],
+        pu_ids: list[str],
     ) -> AuthConnector:
         from shared.auth.connectors.saml import SAMLConnector, SAMLConnectorConfig
         saml_cfg_raw: dict = entity_cfg.get("saml", {})
@@ -142,7 +143,7 @@ class AuthConnectorFactory:
             entity_type=entity_type,
             entity_id=entity_id,
             bank_id=self.bank_id,
-            clearing_zones=clearing_zones,
+            pu_ids=pu_ids,
         )
 
     def _build_ldap_ad(
@@ -150,7 +151,7 @@ class AuthConnectorFactory:
         entity_type: str,
         entity_id: str,
         entity_cfg: dict,
-        clearing_zones: list[str],
+        pu_ids: list[str],
     ) -> AuthConnector:
         from shared.auth.connectors.ldap_ad import LDAPADConnector, LDAPADConnectorConfig
         ldap_cfg_raw: dict = entity_cfg.get("ldap_ad", {})
@@ -169,5 +170,5 @@ class AuthConnectorFactory:
             entity_type=entity_type,
             entity_id=entity_id,
             bank_id=self.bank_id,
-            clearing_zones=clearing_zones,
+            pu_ids=pu_ids,
         )

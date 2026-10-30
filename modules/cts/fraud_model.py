@@ -17,6 +17,7 @@ from typing import Optional
 
 import numpy as np
 import structlog
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -74,7 +75,7 @@ def train_standin_model(path: str, seed: int = 7, n: int = 6000) -> None:
     clf.save_model(path)
     Path(path + ".meta.json").write_text(json.dumps({
         "feature_names": FEATURE_NAMES, "synthetic": True, "source": SOURCE_SYNTHETIC,
-        "note": "trained on rule-labelled synthetic data; plumbing proof only, not real fraud detection",
+        "note": get_message("CTS_TRAINED_ON_RULE_LABELLED_SYNTHETIC"),
     }), encoding="utf-8")
 
 

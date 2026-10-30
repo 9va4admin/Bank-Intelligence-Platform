@@ -1,11 +1,8 @@
 /**
  * Processing Unit Master — CRUD
  *
- * A Processing Unit (PU) is the clearing-zone level grouping for CTS.
- * Each PU maps to one NGCH grid zone, runs its own Temporal task queue,
- * and has its own Kafka inward topic.
- *
- * Constraint: exactly one PU per clearing zone per bank.
+ * A Processing Unit (PU) is a group of branches handled together: it runs its own Temporal task queue and has its
+ * own Kafka inward topic. A bank has one or more PUs and every branch belongs to one of them. There are no zones.
  *
  * Routes: /cts/admin/processing-units
  */
@@ -16,37 +13,35 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
+import { msg as uiMsg } from '../../../shared/messages'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
-const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
+const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO' && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
 
-// NGCH geographic zones (Federal Bank, large private banks)
-// + MICR city zones (co-operative banks, regional banks)
-const VALID_ZONES = ['SOUTH', 'WEST', 'NORTH', 'EAST', 'MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'HYDERABAD', 'AHMEDABAD', 'BENGALURU']
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_PU_DB = {
   'karnataka-bank': [
-    { pu_id: 'MUMBAI-PU-01',    bank_id: 'karnataka-bank', pu_name: 'Mumbai Processing Unit',    clearing_zone: 'MUMBAI',    ngch_participant_code: 'MUMBAI-KARB-001',    temporal_task_queue: 'cts-processing-karnataka-bank-MUMBAI-PU-01',    kafka_inward_topic: 'cts.inward.karnataka-bank.MUMBAI-PU-01',    max_agent_swarm_size: 200, is_active: true,  created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
-    { pu_id: 'CHENNAI-PU-01',   bank_id: 'karnataka-bank', pu_name: 'Chennai Processing Unit',   clearing_zone: 'CHENNAI',   ngch_participant_code: 'CHENNAI-KARB-001',   temporal_task_queue: 'cts-processing-karnataka-bank-CHENNAI-PU-01',   kafka_inward_topic: 'cts.inward.karnataka-bank.CHENNAI-PU-01',   max_agent_swarm_size: 150, is_active: true,  created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
-    { pu_id: 'DELHI-PU-01',     bank_id: 'karnataka-bank', pu_name: 'Delhi Processing Unit',     clearing_zone: 'DELHI',     ngch_participant_code: 'DELHI-KARB-001',     temporal_task_queue: 'cts-processing-karnataka-bank-DELHI-PU-01',     kafka_inward_topic: 'cts.inward.karnataka-bank.DELHI-PU-01',     max_agent_swarm_size: 100, is_active: true,  created_at: '2026-07-01T09:10:00Z', created_by: 'admin' },
-    { pu_id: 'HYDERABAD-PU-01', bank_id: 'karnataka-bank', pu_name: 'Hyderabad Processing Unit', clearing_zone: 'HYDERABAD', ngch_participant_code: 'HYDERABAD-KARB-001', temporal_task_queue: 'cts-processing-karnataka-bank-HYDERABAD-PU-01', kafka_inward_topic: 'cts.inward.karnataka-bank.HYDERABAD-PU-01', max_agent_swarm_size: 100, is_active: false, created_at: '2026-07-01T09:15:00Z', created_by: 'admin' },
+    { pu_id: 'MUMBAI-PU-01',    bank_id: 'karnataka-bank', pu_name: 'Mumbai Processing Unit',    ngch_participant_code: 'MUMBAI-KARB-001',    temporal_task_queue: 'cts-processing-karnataka-bank-MUMBAI-PU-01',    kafka_inward_topic: 'cts.inward.karnataka-bank.MUMBAI-PU-01',    max_agent_swarm_size: 200, is_active: true,  created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
+    { pu_id: 'CHENNAI-PU-01',   bank_id: 'karnataka-bank', pu_name: 'Chennai Processing Unit',   ngch_participant_code: 'CHENNAI-KARB-001',   temporal_task_queue: 'cts-processing-karnataka-bank-CHENNAI-PU-01',   kafka_inward_topic: 'cts.inward.karnataka-bank.CHENNAI-PU-01',   max_agent_swarm_size: 150, is_active: true,  created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
+    { pu_id: 'DELHI-PU-01',     bank_id: 'karnataka-bank', pu_name: 'Delhi Processing Unit',     ngch_participant_code: 'DELHI-KARB-001',     temporal_task_queue: 'cts-processing-karnataka-bank-DELHI-PU-01',     kafka_inward_topic: 'cts.inward.karnataka-bank.DELHI-PU-01',     max_agent_swarm_size: 100, is_active: true,  created_at: '2026-07-01T09:10:00Z', created_by: 'admin' },
+    { pu_id: 'HYDERABAD-PU-01', bank_id: 'karnataka-bank', pu_name: 'Hyderabad Processing Unit', ngch_participant_code: 'HYDERABAD-KARB-001', temporal_task_queue: 'cts-processing-karnataka-bank-HYDERABAD-PU-01', kafka_inward_topic: 'cts.inward.karnataka-bank.HYDERABAD-PU-01', max_agent_swarm_size: 100, is_active: false, created_at: '2026-07-01T09:15:00Z', created_by: 'admin' },
   ],
   'saraswat-coop': [
-    { pu_id: 'MUMBAI-PU-01',  bank_id: 'saraswat-coop', pu_name: 'Mumbai PU',  clearing_zone: 'MUMBAI', ngch_participant_code: 'MUMBAI-SRCB-001',  temporal_task_queue: 'cts-processing-saraswat-coop-MUMBAI-PU-01',  kafka_inward_topic: 'cts.inward.saraswat-coop.MUMBAI-PU-01',  max_agent_swarm_size: 500, is_active: true, created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
-    { pu_id: 'PUNE-PU-01',   bank_id: 'saraswat-coop', pu_name: 'Pune PU',   clearing_zone: 'MUMBAI', ngch_participant_code: 'MUMBAI-SRCB-002',  temporal_task_queue: 'cts-processing-saraswat-coop-PUNE-PU-01',   kafka_inward_topic: 'cts.inward.saraswat-coop.PUNE-PU-01',   max_agent_swarm_size: 200, is_active: true, created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
+    { pu_id: 'MUMBAI-PU-01',  bank_id: 'saraswat-coop', pu_name: 'Mumbai PU', ngch_participant_code: 'MUMBAI-SRCB-001',  temporal_task_queue: 'cts-processing-saraswat-coop-MUMBAI-PU-01',  kafka_inward_topic: 'cts.inward.saraswat-coop.MUMBAI-PU-01',  max_agent_swarm_size: 500, is_active: true, created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
+    { pu_id: 'PUNE-PU-01',   bank_id: 'saraswat-coop', pu_name: 'Pune PU', ngch_participant_code: 'MUMBAI-SRCB-002',  temporal_task_queue: 'cts-processing-saraswat-coop-PUNE-PU-01',   kafka_inward_topic: 'cts.inward.saraswat-coop.PUNE-PU-01',   max_agent_swarm_size: 200, is_active: true, created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
   ],
   'federal-bank': [
-    { pu_id: 'SOUTH-MAIN', bank_id: 'federal-bank', pu_name: 'South Zone PU — Chennai NGCH', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-SOUTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.SOUTH-MAIN', max_agent_swarm_size: 500, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'WEST-MAIN',  bank_id: 'federal-bank', pu_name: 'West Zone PU — Mumbai NGCH',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-WEST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.WEST-MAIN',  max_agent_swarm_size: 300, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'NORTH-MAIN', bank_id: 'federal-bank', pu_name: 'North Zone PU — Delhi NGCH',  clearing_zone: 'NORTH', ngch_participant_code: 'NORTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-NORTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.NORTH-MAIN', max_agent_swarm_size: 200, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'EAST-MAIN',  bank_id: 'federal-bank', pu_name: 'East Zone PU — Kolkata NGCH', clearing_zone: 'EAST',  ngch_participant_code: 'EAST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-EAST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.EAST-MAIN',  max_agent_swarm_size: 100, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'SOUTH-MAIN', bank_id: 'federal-bank', pu_name: 'South PU', ngch_participant_code: 'SOUTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-SOUTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.SOUTH-MAIN', max_agent_swarm_size: 500, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'WEST-MAIN',  bank_id: 'federal-bank', pu_name: 'West PU',  ngch_participant_code: 'WEST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-WEST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.WEST-MAIN',  max_agent_swarm_size: 300, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'NORTH-MAIN', bank_id: 'federal-bank', pu_name: 'North PU', ngch_participant_code: 'NORTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-NORTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.NORTH-MAIN', max_agent_swarm_size: 200, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'EAST-MAIN',  bank_id: 'federal-bank', pu_name: 'East PU',  ngch_participant_code: 'EAST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-EAST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.EAST-MAIN',  max_agent_swarm_size: 100, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
   ],
   'union-bank': [
-    { pu_id: 'UBIN-PU-WEST',  bank_id: 'union-bank', pu_name: 'Union Bank Western PU',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-UBIN-001',  temporal_task_queue: 'cts-processing-union-bank-west',  kafka_inward_topic: 'cts.inward.union-bank.west',  max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
-    { pu_id: 'UBIN-PU-SOUTH', bank_id: 'union-bank', pu_name: 'Union Bank Southern PU', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-UBIN-001', temporal_task_queue: 'cts-processing-union-bank-south', kafka_inward_topic: 'cts.inward.union-bank.south', max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'UBIN-PU-WEST',  bank_id: 'union-bank', pu_name: 'Union Bank Western PU',  ngch_participant_code: 'WEST-UBIN-001',  temporal_task_queue: 'cts-processing-union-bank-west',  kafka_inward_topic: 'cts.inward.union-bank.west',  max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'UBIN-PU-SOUTH', bank_id: 'union-bank', pu_name: 'Union Bank Southern PU', ngch_participant_code: 'SOUTH-UBIN-001', temporal_task_queue: 'cts-processing-union-bank-south', kafka_inward_topic: 'cts.inward.union-bank.south', max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
   ],
 }
 
@@ -76,12 +71,8 @@ let _mockStore = ACTIVE_MOCK.map(p => ({ ...p }))
 function getMockPUs() { return [..._mockStore] }
 
 function createMockPU(data, bankId) {
-  const usedZones = _mockStore.map(p => p.clearing_zone)
-  if (usedZones.includes(data.clearing_zone)) {
-    throw new Error(`A Processing Unit already exists for zone ${data.clearing_zone}`)
-  }
   if (_mockStore.find(p => p.pu_id === data.pu_id)) {
-    throw new Error(`Processing Unit ${data.pu_id} already exists`)
+    throw new Error(uiMsg('UI_PROCESSINGUNITS_PROCESSING_UNIT_ALREADY_EXISTS', { pu_id: data.pu_id }))
   }
   const pu = {
     ...data,
@@ -99,7 +90,7 @@ function createMockPU(data, bankId) {
 
 function updateMockPU(puId, data) {
   const idx = _mockStore.findIndex(p => p.pu_id === puId)
-  if (idx === -1) throw new Error(`PU ${puId} not found`)
+  if (idx === -1) throw new Error(uiMsg('UI_PROCESSINGUNITS_PU_NOT_FOUND', { puId }))
   _mockStore[idx] = { ..._mockStore[idx], ...data, updated_at: new Date().toISOString() }
   return _mockStore[idx]
 }
@@ -128,36 +119,15 @@ async function apiFetch(path, opts = {}) {
 
 function Badge({ active, isDark }) {
   return active
-    ? <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Active</span>
-    : <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'bg-white/5 text-slate-500 border-white/10' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>Inactive</span>
-}
-
-function ZonePill({ zone }) {
-  const COLORS = {
-    SOUTH:     'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    WEST:      'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    NORTH:     'bg-violet-500/15 text-violet-400 border-violet-500/30',
-    EAST:      'bg-teal-500/15 text-teal-400 border-teal-500/30',
-    MUMBAI:    'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    DELHI:     'bg-violet-500/15 text-violet-400 border-violet-500/30',
-    CHENNAI:   'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    KOLKATA:   'bg-teal-500/15 text-teal-400 border-teal-500/30',
-    HYDERABAD: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-    AHMEDABAD: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
-    BENGALURU: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  }
-  return (
-    <span className={`inline-flex items-center text-[10px] px-2 py-0.5 rounded border font-medium ${COLORS[zone] ?? 'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
-      {zone}
-    </span>
-  )
+    ? <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">{uiMsg('UI_COMMON_ACTIVE')}</span>
+    : <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'bg-white/5 text-slate-500 border-white/10' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>{uiMsg('UI_PROCESSINGUNITS_INACTIVE')}</span>
 }
 
 // ── PU form modal ────────────────────────────────────────────────────────────
 
-function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) {
+function PUFormModal({ mode, initial, onSave, onClose, isDark }) {
   const isEdit = mode === 'edit'
-  const empty = { pu_id: '', pu_name: '', clearing_zone: '', ngch_participant_code: '', max_agent_swarm_size: 200 }
+  const empty = { pu_id: '', pu_name: '', ngch_participant_code: '', max_agent_swarm_size: 200 }
   const [form, setForm] = useState(isEdit ? { ...initial } : empty)
   const [error, setError] = useState('')
 
@@ -174,22 +144,16 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
     hint:     isDark ? 'text-slate-600 text-[10px] mt-0.5' : 'text-slate-400 text-[10px] mt-0.5',
   }
 
-  const availableZones = isEdit
-    ? VALID_ZONES
-    : VALID_ZONES.filter(z => !existingZones.includes(z) || z === form.clearing_zone)
-
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.pu_name.trim()) return setError('PU Name is required.')
+    if (!form.pu_name.trim()) return setError(uiMsg('UI_PROCESSINGUNITS_PU_NAME_IS_REQUIRED'))
     if (!isEdit) {
-      if (!form.pu_id.trim()) return setError('PU ID is required.')
-      if (!form.clearing_zone) return setError('Clearing Zone is required.')
-      if (!form.ngch_participant_code.trim()) return setError('NGCH Participant Code is required.')
+      if (!form.pu_id.trim()) return setError(uiMsg('UI_PROCESSINGUNITS_PU_ID_IS_REQUIRED'))
     }
-    if (form.max_agent_swarm_size < 1) return setError('Max swarm size must be ≥ 1.')
+    if (form.max_agent_swarm_size < 1) return setError(uiMsg('UI_PROCESSINGUNITS_MAX_SWARM_SIZE_MUST_BE'))
     onSave(form)
   }
 
@@ -204,23 +168,23 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isEdit && (
             <div>
-              <div className={th.label}>PU ID *</div>
+              <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_PU_ID')}</div>
               <input
                 className={th.input}
-                placeholder="MUMBAI-PU-01"
+                placeholder={uiMsg('UI_PROCESSINGUNITS_MUMBAI_PU_01')}
                 value={form.pu_id}
                 onChange={e => set('pu_id', e.target.value.toUpperCase())}
                 required
               />
-              <div className={th.hint}>Immutable after creation. E.g. MUMBAI-PU-01</div>
+              <div className={th.hint}>{uiMsg('UI_PROCESSINGUNITS_IMMUTABLE_AFTER_CREATION_E_G')}</div>
             </div>
           )}
 
           <div>
-            <div className={th.label}>PU Name *</div>
+            <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_PU_NAME')}</div>
             <input
               className={th.input}
-              placeholder="Mumbai Processing Unit"
+              placeholder={uiMsg('UI_BRANCHMASTER_MUMBAI_PROCESSING_UNIT')}
               value={form.pu_name}
               onChange={e => set('pu_name', e.target.value)}
               required
@@ -230,37 +194,20 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
           {!isEdit && (
             <>
               <div>
-                <div className={th.label}>Clearing Zone *</div>
-                <select
-                  className={th.select}
-                  value={form.clearing_zone}
-                  onChange={e => set('clearing_zone', e.target.value)}
-                  required
-                >
-                  <option value="">Select zone…</option>
-                  {availableZones.map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </select>
-                <div className={th.hint}>One PU per zone per bank — immutable after creation.</div>
-              </div>
-
-              <div>
-                <div className={th.label}>NGCH Participant Code *</div>
+                <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_NGCH_PARTICIPANT_CODE_OPTIONAL')}</div>
                 <input
                   className={th.input}
-                  placeholder="MUMBAI-KARB-001"
+                  placeholder={uiMsg('UI_PROCESSINGUNITS_ONLY_IF_THIS_PU_FILES')}
                   value={form.ngch_participant_code}
                   onChange={e => set('ngch_participant_code', e.target.value.toUpperCase())}
-                  required
                 />
-                <div className={th.hint}>Immutable after creation. Issued by NPCI / NGCH grid.</div>
+                <div className={th.hint}>{uiMsg('UI_PROCESSINGUNITS_IMMUTABLE_AFTER_CREATION_LEAVE_EMPTY')}</div>
               </div>
             </>
           )}
 
           <div>
-            <div className={th.label}>Max Agent Swarm Size</div>
+            <div className={th.label}>{uiMsg('UI_PROCESSINGUNITS_MAX_AGENT_SWARM_SIZE')}</div>
             <input
               type="number"
               min={1}
@@ -269,12 +216,12 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
               value={form.max_agent_swarm_size}
               onChange={e => set('max_agent_swarm_size', parseInt(e.target.value) || 1)}
             />
-            <div className={th.hint}>Max parallel agents for this PU during a clearing session (1–1000).</div>
+            <div className={th.hint}>{uiMsg('UI_PROCESSINGUNITS_MAX_PARALLEL_AGENTS_FOR_THIS')}</div>
           </div>
 
           {isEdit && (
             <div className="flex items-center gap-3">
-              <label className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Active</label>
+              <label className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{uiMsg('UI_COMMON_ACTIVE')}</label>
               <button
                 type="button"
                 onClick={() => set('is_active', !form.is_active)}
@@ -299,7 +246,7 @@ function PUFormModal({ mode, initial, existingZones, onSave, onClose, isDark }) 
               onClick={onClose}
               className={`px-4 text-sm rounded-lg py-2 transition-colors border ${isDark ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
             >
-              Cancel
+             {uiMsg('UI_COMMON_CANCEL')}
             </button>
           </div>
         </form>
@@ -326,7 +273,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
     muted: isDark ? 'text-slate-400' : 'text-slate-500',
   }
 
-  if (isLoading) return <div className={`px-6 py-3 text-xs ${th.muted}`}>Loading branches…</div>
+  if (isLoading) return <div className={`px-6 py-3 text-xs ${th.muted}`}>{uiMsg('UI_PROCESSINGUNITS_LOADING_BRANCHES')}</div>
 
   if (branches.length === 0) {
     return (
@@ -341,7 +288,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
       <table className="w-full text-xs">
         <thead>
           <tr>
-            {['IFSC', 'Branch Name', 'City', 'Scanning', 'Status'].map(h => (
+            {[uiMsg('UI_COMMON_IFSC'), uiMsg('UI_BRANCHMASTER_BRANCH_NAME_2'), uiMsg('UI_BRANCHMASTER_CITY'), uiMsg('UI_PROCESSINGUNITS_SCANNING'), uiMsg('UI_COMMON_STATUS')].map(h => (
               <th key={h} className={`text-left py-1 pr-4 font-medium uppercase tracking-wide text-[10px] ${th.muted}`}>{h}</th>
             ))}
           </tr>
@@ -382,9 +329,8 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
     <>
       <tr className={`border-b transition-colors ${th.row}`}>
         <td className={`py-2.5 px-3 ${th.mono}`}>{pu.pu_id}</td>
-        <td className="py-2.5 px-3"><ZonePill zone={pu.clearing_zone} /></td>
         <td className={`py-2.5 px-3 text-sm ${th.body}`}>{pu.pu_name}</td>
-        <td className={`py-2.5 px-3 ${th.mono} text-[10px]`}>{pu.ngch_participant_code}</td>
+        <td className={`py-2.5 px-3 ${th.mono} text-[10px]`}>{pu.ngch_participant_code || '—'}</td>
         <td className={`py-2.5 px-3 tabular-nums text-sm ${th.muted}`}>{pu.max_agent_swarm_size}</td>
         <td className="py-2.5 px-3"><Badge active={pu.is_active} isDark={isDark} /></td>
         <td className="py-2.5 px-3">
@@ -395,13 +341,13 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
             >
               {expanded ? '▲ Branches' : `▼ Branches${(DEMO_BRANCHES_BY_PU[pu.pu_id]?.length ?? 0) > 0 ? ` (${DEMO_BRANCHES_BY_PU[pu.pu_id].length})` : ''}`}
             </button>
-            <button onClick={() => onEdit(pu)} className={th.btnGhost}>Edit</button>
+            <button onClick={() => onEdit(pu)} className={th.btnGhost}>{uiMsg('UI_COMMON_EDIT')}</button>
             {pu.is_active && (
               <button
                 onClick={() => onDeactivate(pu.pu_id)}
                 className="text-xs px-2 py-0.5 border border-red-500/30 rounded text-red-400 hover:border-red-400/60 hover:text-red-300 transition-colors"
               >
-                Deactivate
+               {uiMsg('UI_COMMON_DEACTIVATE')}
               </button>
             )}
           </div>
@@ -422,7 +368,9 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
 
 export default function CTSProcessingUnits() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_BRANCH_MASTER_LIVE=true: show and edit the real processing-unit table even in a DEMO build (same switch as Branch Master).
+  const isDemo = isDemoBuild && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
   const qc = useQueryClient()
 
   const [showForm, setShowForm] = useState(false)
@@ -451,7 +399,6 @@ export default function CTSProcessingUnits() {
   })
 
   const puList = isDemo ? getMockPUs() : (data?.processing_units ?? [])
-  const usedZones = puList.map(p => p.clearing_zone)
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -488,7 +435,6 @@ export default function CTSProcessingUnits() {
     createMut.mutate({
       pu_id:                form.pu_id,
       pu_name:              form.pu_name,
-      clearing_zone:        form.clearing_zone,
       ngch_participant_code: form.ngch_participant_code,
       max_agent_swarm_size: form.max_agent_swarm_size,
     })
@@ -511,16 +457,16 @@ export default function CTSProcessingUnits() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Processing Unit Master</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_PROCESSINGUNITS_PROCESSING_UNIT_MASTER')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              One PU per clearing zone per bank · each PU has its own Temporal queue and Kafka inward topic
+             {uiMsg('UI_PROCESSINGUNITS_A_GROUP_OF_BRANCHES_HANDLED')}
             </p>
           </div>
           <button
             onClick={() => setShowForm(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
           >
-            + Add PU
+           {uiMsg('UI_PROCESSINGUNITS_ADD_PU')}
           </button>
         </div>
 
@@ -535,26 +481,13 @@ export default function CTSProcessingUnits() {
           </div>
         )}
 
-        {/* Info callout — used zones */}
-        {puList.length > 0 && (
-          <div className={`mb-4 text-xs px-4 py-2.5 rounded-lg border flex items-center gap-3 flex-wrap ${isDark ? 'bg-white/3 border-white/8 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
-            <span className="shrink-0 font-medium">Zones in use:</span>
-            {usedZones.map(z => <ZonePill key={z} zone={z} />)}
-            {VALID_ZONES.filter(z => !usedZones.includes(z)).length > 0 && (
-              <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>
-                Available: {VALID_ZONES.filter(z => !usedZones.includes(z)).join(', ')}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Table */}
         <div className={`rounded-lg border overflow-hidden ${th.card}`}>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {['PU ID', 'Zone', 'Name', 'NGCH Code', 'Max Swarm', 'Status', 'Actions'].map(h => (
+                  {[uiMsg('UI_PROCESSINGUNITS_PU_ID_2'), uiMsg('UI_CHEQUEIMAGEVIEWER_NAME'), uiMsg('UI_PROCESSINGUNITS_NGCH_CODE'), uiMsg('UI_PROCESSINGUNITS_MAX_SWARM'), uiMsg('UI_COMMON_STATUS'), uiMsg('UI_COMMON_ACTIONS')].map(h => (
                     <th key={h} className={`px-3 py-2.5 text-left border-b ${th.divider} ${th.thCell}`}>{h}</th>
                   ))}
                 </tr>
@@ -562,20 +495,20 @@ export default function CTSProcessingUnits() {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={7} className={`px-3 py-8 text-center text-xs ${th.muted}`}>Loading…</td>
+                    <td colSpan={7} className={`px-3 py-8 text-center text-xs ${th.muted}`}>{uiMsg('CTS_WF_BUCKETCFG_LOADING')}</td>
                   </tr>
                 )}
                 {isError && !isDemo && (
                   <tr>
                     <td colSpan={7} className="px-3 py-8 text-center text-xs text-red-400">
-                      Failed to load. No backend running in POC mode.
+                     {uiMsg('UI_PROCESSINGUNITS_FAILED_TO_LOAD_NO_BACKEND')}
                     </td>
                   </tr>
                 )}
                 {!isLoading && puList.length === 0 && (
                   <tr>
                     <td colSpan={7} className={`px-3 py-10 text-center text-xs ${th.muted}`}>
-                      No Processing Units configured yet. Click <strong>+ Add PU</strong> to create the first one.
+                     {uiMsg('UI_PROCESSINGUNITS_NO_PROCESSING_UNITS_CONFIGURED_YET')} <strong>{uiMsg('UI_PROCESSINGUNITS_ADD_PU')}</strong> {uiMsg('UI_PROCESSINGUNITS_TO_CREATE_THE_FIRST_ONE')}
                     </td>
                   </tr>
                 )}
@@ -598,16 +531,16 @@ export default function CTSProcessingUnits() {
         {/* Tech detail card */}
         {puList.length > 0 && (
           <div className={`mt-4 rounded-lg border p-4 ${th.card}`}>
-            <p className={`text-[10px] font-medium uppercase tracking-wider mb-3 ${th.muted}`}>Computed Infrastructure Keys (read-only)</p>
+            <p className={`text-[10px] font-medium uppercase tracking-wider mb-3 ${th.muted}`}>{uiMsg('UI_PROCESSINGUNITS_COMPUTED_INFRASTRUCTURE_KEYS_READ_ON')}</p>
             <div className="space-y-2">
               {puList.filter(p => p.is_active).map(pu => (
                 <div key={pu.pu_id} className="flex flex-wrap gap-x-6 gap-y-1 text-[10px]">
                   <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{pu.pu_id}</span>
                   <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>
-                    Queue: <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.temporal_task_queue}</code>
+                   {uiMsg('UI_PROCESSINGUNITS_QUEUE')} <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.temporal_task_queue}</code>
                   </span>
                   <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>
-                    Topic: <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.kafka_inward_topic}</code>
+                   {uiMsg('UI_PROCESSINGUNITS_TOPIC')} <code className={isDark ? 'text-slate-300' : 'text-slate-600'}>{pu.kafka_inward_topic}</code>
                   </span>
                 </div>
               ))}
@@ -620,7 +553,6 @@ export default function CTSProcessingUnits() {
       {showForm && (
         <PUFormModal
           mode="create"
-          existingZones={usedZones}
           onSave={handleSaveCreate}
           onClose={() => setShowForm(false)}
           isDark={isDark}
@@ -632,7 +564,6 @@ export default function CTSProcessingUnits() {
         <PUFormModal
           mode="edit"
           initial={editTarget}
-          existingZones={usedZones}
           onSave={handleSaveEdit}
           onClose={() => setEditTarget(null)}
           isDark={isDark}

@@ -25,9 +25,14 @@ from fastapi.testclient import TestClient
 
 
 def _make_app(role="bank_it_admin"):
-    from apps.api.routers.admin import router_v1, get_current_user
+    from apps.api.routers.admin import router_v1, get_current_user, get_audit_stream_writer
+
+    async def _audit_ok(**kwargs):         # a real audit buffer is not part of these route tests; without one the writer refuses
+        return None
+
     app = FastAPI()
     app.include_router(router_v1)
+    app.dependency_overrides[get_audit_stream_writer] = lambda: _audit_ok
     app.dependency_overrides[get_current_user] = lambda: {
         "bank_id": "test-bank",
         "user_id": "user-001",

@@ -24,6 +24,7 @@ from apps.api.routers.cts_deps import (
     get_current_user_context,
     _SMB_REPORTS_MAX_ROWS,
 )
+from shared.messages import get_message
 from shared.auth.rbac import BankType, UserContext
 
 log = structlog.get_logger()
@@ -326,7 +327,7 @@ async def list_sub_members(
 ) -> SMBListResponse:
     """List all Sub-Member Banks registered under this Sponsor Bank. SB-only."""
     if ctx.bank_type != BankType.SB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB management is an SB-only operation")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SMB_MANAGEMENT_IS_AN_SB"))
     bank_id = ctx.bank_id
     log.info("smb.list", bank_id=bank_id, active_only=active_only)
     db = getattr(request.app.state, "db_pool_cts", None)
@@ -347,12 +348,12 @@ async def register_sub_member(
 ) -> SMBRegistrationResponse:
     """Register a new Sub-Member Bank. SB-only."""
     if ctx.bank_type != BankType.SB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB registration is an SB-only operation")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SMB_REGISTRATION_IS_AN_SB"))
     bank_id = ctx.bank_id
     if body.return_rate_threshold >= body.soft_hold_threshold:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="soft_hold_threshold must be greater than return_rate_threshold",
+            detail=get_message("API_SOFT_HOLD_THRESHOLD_MUST_BE"),
         )
     log.info("smb.register", bank_id=bank_id, sub_member_id=body.sub_member_id, micr_prefix=body.micr_prefix)
     db = getattr(request.app.state, "db_pool_cts", None)
@@ -386,14 +387,12 @@ async def register_sub_member(
                 )
         except Exception as exc:
             log.error("smb.register.db_failed", bank_id=bank_id, error=str(exc))
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE")) from exc
     return SMBRegistrationResponse(
         sub_member_id=body.sub_member_id,
         status="REGISTERED",
         message=(
-            f"Sub-Member Bank '{body.sub_member_id}' registered under sponsor '{bank_id}'. "
-            f"MICR prefix '{body.micr_prefix}' active from today. "
-            f"Vault sync required before first clearing session."
+            get_message("API_SUB_MEMBER_BANK_REGISTERED_UNDER", sub_member_id=body.sub_member_id, bank_id=bank_id, micr_prefix=body.micr_prefix)
         ),
     )
 
@@ -407,7 +406,7 @@ async def get_smb_session_ledger(
 ) -> SMBLedgerResponse:
     """Return batch ledger for a Sub-Member Bank."""
     if ctx.bank_type == BankType.SMB and ctx.bank_id != sub_member_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB users can only view their own ledger")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SMB_USERS_CAN_ONLY_VIEW"))
     bank_id = ctx.bank_id
     import datetime as _dt
     date_str = session_date or _dt.date.today().isoformat()
@@ -431,7 +430,7 @@ async def get_smb_forwarding_log(
 ) -> SMBForwardingLogResponse:
     """Return recent forwarding log entries for a Sub-Member Bank."""
     if ctx.bank_type == BankType.SMB and ctx.bank_id != sub_member_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB users can only view their own forwarding log")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SMB_USERS_CAN_ONLY_VIEW_2"))
     if limit > 100:
         limit = 100
     bank_id = ctx.bank_id
@@ -458,7 +457,7 @@ async def trigger_smb_vault_sync(
 ) -> SMBVaultSyncTriggerResponse:
     """Trigger VaultSyncWorkflow scoped to a specific Sub-Member Bank. SB-only."""
     if ctx.bank_type != BankType.SB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Vault sync trigger is an SB-only operation")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_VAULT_SYNC_TRIGGER_IS_AN"))
     bank_id = ctx.bank_id
     ts = int(_time.time())
     workflow_id = f"cts-smb-vaultsync-{bank_id}-{sub_member_id}-{ts}"
@@ -489,7 +488,7 @@ async def trigger_smb_vault_sync(
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to trigger SMB vault sync workflow",
+                detail=get_message("API_FAILED_TO_TRIGGER_SMB_VAULT"),
             ) from exc
 
     log.info("smb.vault_sync_triggered", bank_id=bank_id, sub_member_id=sub_member_id, workflow_id=workflow_id)
@@ -498,9 +497,7 @@ async def trigger_smb_vault_sync(
         workflow_id=workflow_id,
         status="TRIGGERED",
         message=(
-            f"Vault sync started for Sub-Member '{sub_member_id}'. "
-            f"Signature specimens and PPS entries will be loaded into vault namespace "
-            f"sig:{sub_member_id}:* within ~60 seconds."
+            get_message("API_VAULT_SYNC_STARTED_FOR_SUB", sub_member_id=sub_member_id, sub_member_id2=sub_member_id)
         ),
     )
 
@@ -513,9 +510,9 @@ async def get_all_smb_ledgers(
 ) -> SMBAllLedgersResponse:
     """Returns batch ledger for ALL sub-members under this SB bank. SB-only, restricted roles."""
     if ctx.bank_type != BankType.SB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SB_ONLY_ENDPOINT"))
     if ctx.role.value not in _SMB_LEDGERS_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
     date_str = session_date or date.today().isoformat()
@@ -581,7 +578,7 @@ async def get_smb_forwarding_log_all(
 ) -> SBForwardingLogResponse:
     """Returns forwarding log entries for ALL sub-members under this SB for today. SB-only."""
     if ctx.bank_type != BankType.SB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SB_ONLY_ENDPOINT"))
 
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)
@@ -647,7 +644,7 @@ async def get_smb_reports(
 ) -> SMBReportsResponse:
     """Returns per-SMB performance aggregates for the past N days. SB-only."""
     if ctx.bank_type != BankType.SB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_SB_ONLY_ENDPOINT"))
 
     bank_id = ctx.bank_id
     db = getattr(request.app.state, "db_pool_cts", None)

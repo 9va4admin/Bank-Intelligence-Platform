@@ -18,8 +18,14 @@ def human(**kw):
     return BucketFacts(needs_human=True, **kw)
 
 
-def test_the_nine_buckets_exist():
-    assert set(ALL_BUCKETS) == {"HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR", "MISC"}
+def test_the_buckets_exist_ten_for_inward_and_four_for_held_outward_items():
+    assert set(ALL_BUCKETS) == {"HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR", "VAL", "MISC",
+                                "OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"}
+
+
+def test_val_is_the_checker_queue_so_the_resolver_never_assigns_it_to_a_new_cheque():
+    for facts in (BucketFacts(needs_human=True, amount=900_000), BucketFacts(needs_human=True), BucketFacts(needs_human=False, system_decision="CONFIRM")):
+        assert resolve_bucket(facts, CFG) != "VAL"
 
 
 # --- system-decided -----------------------------------------------------------------------------------------

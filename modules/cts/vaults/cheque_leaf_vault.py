@@ -35,6 +35,7 @@ from typing import Optional
 import structlog
 
 from shared.utils.pii_crypto import hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -75,8 +76,7 @@ class ChequeLeafVault:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "ChequeLeafVault.connect() has not been called. "
-                "Call it during service startup before querying the vault."
+                get_message("CTS_CHEQUELEAFVAULT_CONNECT_HAS_NOT_BEEN")
             )
 
     # ------------------------------------------------------------------
@@ -613,8 +613,7 @@ class ChequeLeafVault:
                         return
                     if raise_on_disallow:
                         raise DuplicatePresentmentError(
-                            f"Cheque {cheque_number} is already {prev_status} — "
-                            "duplicate presentment detected."
+                            get_message("CTS_CHEQUE_IS_ALREADY_DUPLICATE_PRESENTM", cheque_number=cheque_number, prev_status=prev_status)
                         )
                     log.warning(
                         "cheque_leaf_vault.astra_transition_blocked",

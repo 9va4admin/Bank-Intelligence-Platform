@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
+import { msg } from '../../../../shared/messages'
 
 // ─── Mock state (replaced by SSE + REST hooks in production) ─────────────────
 // Set SESSION_MOCK to null to simulate the no-session / pre-first-scan state.
@@ -84,7 +85,7 @@ function LotProgress({ filled, target, isDark }) {
         <div className={`h-full rounded-full transition-all ${fill}`} style={{ width: `${pct}%` }} />
       </div>
       <p className={`mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        {filled} / {target} instruments — {pct}% full
+        {msg('UI_BRANCHDASHBOARD_INSTRUMENTS_FULL', { filled, target, pct })}
       </p>
     </div>
   )
@@ -163,23 +164,23 @@ export default function BranchDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Branch Portal</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_BRANCHDASHBOARD_BRANCH_PORTAL')}</h1>
             <p className={`text-sm ${th.muted}`}>{branchLabel}</p>
           </div>
           <div className={`flex items-center gap-3 text-sm ${th.muted}`}>
             <span className="flex items-center">
               <StatusDot status={eehHealth.status} />
-              EEH {eehHealth.status} · {eehHealth.latency_ms}ms
+             {msg('UI_BRANCHDASHBOARD_EEH_MS', { status: eehHealth.status, latency_ms: eehHealth.latency_ms })}
             </span>
             <span className={`flex items-center ${scannerStatus?.state === 'OFFLINE' ? 'text-red-400' : ''}`}>
               <ScannerDot state={scannerStatus?.state} />
-              Scanner · {scannerLabel(scannerStatus?.state, scannerStatus?.last_seen_seconds_ago)}
+             {msg('UI_BRANCHDASHBOARD_SCANNER', { scannerLabel: scannerLabel(scannerStatus?.state, scannerStatus?.last_seen_seconds_ago) })}
             </span>
             <Link
               to="/branch/scan"
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors"
             >
-              Open Scanner
+             {msg('UI_BRANCHDASHBOARD_OPEN_SCANNER')}
             </Link>
           </div>
         </div>
@@ -188,13 +189,12 @@ export default function BranchDashboard() {
         {!hasSession && (
           <div className={`rounded-lg border px-5 py-8 mb-5 ${th.card} text-center`}>
             <div className="text-3xl mb-3">📡</div>
-            <p className={`text-sm font-semibold ${th.heading} mb-1`}>Waiting for first scan</p>
+            <p className={`text-sm font-semibold ${th.heading} mb-1`}>{msg('UI_BRANCHDASHBOARD_WAITING_FOR_FIRST_SCAN')}</p>
             <p className={`text-xs ${th.muted}`}>
-              Scan your first cheque to automatically start today's clearing session.
-              No manual action needed.
+             {msg('UI_BRANCHDASHBOARD_SCAN_YOUR_FIRST_CHEQUE_TO')}
             </p>
             <p className={`text-xs mt-3 ${th.muted}`}>
-              EEH is <span className="text-emerald-400 font-medium">{eehHealth.status}</span> · {eehHealth.latency_ms}ms
+             {msg('UI_BRANCHDASHBOARD_EEH_IS')} <span className="text-emerald-400 font-medium">{eehHealth.status}</span> {msg('UI_BRANCHDASHBOARD_MS', { latency_ms: eehHealth.latency_ms })}
             </p>
           </div>
         )}
@@ -205,18 +205,18 @@ export default function BranchDashboard() {
             <div className="flex items-center gap-4">
               <span className="flex items-center text-sm font-medium">
                 <StatusDot status="ACTIVE" />
-                <span className={th.heading}>Session Active</span>
+                <span className={th.heading}>{msg('UI_BRANCHDASHBOARD_SESSION_ACTIVE')}</span>
               </span>
-              <span className={`text-xs ${th.muted}`}>ID: {session.session_id.slice(-8)}</span>
-              <span className={`text-xs ${th.muted}`}>Hub: {session.hub_type}</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_BRANCHDASHBOARD_ID', { session_id: session.session_id.slice(-8) })}</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_BRANCHDASHBOARD_HUB', { hub_type: session.hub_type })}</span>
               {session.session_opened_at && (
                 <span className={`text-xs ${th.muted}`}>
-                  Started {session.session_opened_at.slice(11, 16)} · auto
+                 {msg('UI_BRANCHDASHBOARD_STARTED_AUTO', { session_opened_at: session.session_opened_at.slice(11, 16) })}
                 </span>
               )}
             </div>
             <span className={`text-xs ${th.muted}`}>
-              Closes at clearing window end
+             {msg('UI_BRANCHDASHBOARD_CLOSES_AT_CLEARING_WINDOW_END')}
             </span>
           </div>
         )}
@@ -224,15 +224,15 @@ export default function BranchDashboard() {
         {/* Stat cards — shown only when session is active */}
         {hasSession && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            <StatCard label="Uploaded" value={session.total_uploaded} sub="today" isDark={isDark} />
-            <StatCard label="Accepted" value={session.total_accepted}
+            <StatCard label={msg('UI_BRANCHDASHBOARD_UPLOADED')} value={session.total_uploaded} sub="today" isDark={isDark} />
+            <StatCard label={msg('UI_COMMON_ACCEPTED')} value={session.total_accepted}
               accent="text-emerald-400"
               sub={session.total_uploaded > 0 ? `${((session.total_accepted / session.total_uploaded) * 100).toFixed(1)}%` : '—'}
               isDark={isDark} />
-            <StatCard label="Rejected" value={session.total_rejected}
+            <StatCard label={msg('UI_COMMON_REJECTED')} value={session.total_rejected}
               accent={session.total_rejected > 0 ? 'text-red-400' : undefined}
               sub={`${rejectRate}% reject rate`} isDark={isDark} />
-            <StatCard label="On Hold" value={session.total_held}
+            <StatCard label={msg('UI_COMMON_ON_HOLD')} value={session.total_held}
               accent={session.total_held > 0 ? 'text-amber-400' : undefined}
               sub="pending review" isDark={isDark} />
           </div>
@@ -242,13 +242,13 @@ export default function BranchDashboard() {
         {hasSession && (
           <div className={`rounded-lg border p-4 mb-5 ${th.card}`}>
             <div className="flex items-center justify-between mb-2">
-              <h2 className={`text-sm font-semibold ${th.heading}`}>Current Lot</h2>
+              <h2 className={`text-sm font-semibold ${th.heading}`}>{msg('UI_HUBDASHBOARD_CURRENT_LOT')}</h2>
               <span className={`text-xs font-mono ${th.muted}`}>{session.current_lot_id}</span>
             </div>
             <LotProgress filled={session.lot_instrument_count} target={session.lot_target} isDark={isDark} />
             <div className="mt-3 flex gap-2">
               <button className={`text-xs px-3 py-1.5 border rounded ${th.divider} ${th.muted} transition-colors hover:text-white`}>
-                View Lot Detail
+               {msg('UI_BRANCHDASHBOARD_VIEW_LOT_DETAIL')}
               </button>
             </div>
           </div>
@@ -257,28 +257,28 @@ export default function BranchDashboard() {
         {/* Quick links */}
         <div className="grid grid-cols-2 gap-3">
           <Link to="/branch/scan" className={`rounded-lg border p-4 ${th.card} hover:border-blue-500/50 transition-colors group`}>
-            <p className={`text-sm font-medium ${th.heading} group-hover:text-blue-400`}>Scanner Monitor</p>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Live cheque upload feed + per-item status</p>
+            <p className={`text-sm font-medium ${th.heading} group-hover:text-blue-400`}>{msg('UI_COMMON_SCANNER_MONITOR')}</p>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_BRANCHDASHBOARD_LIVE_CHEQUE_UPLOAD_FEED_PER')}</p>
           </Link>
           <Link to="/branch/mismatch" className={`rounded-lg border p-4 ${th.card} hover:border-amber-500/50 transition-colors group`}>
             <p className={`text-sm font-medium ${th.heading} group-hover:text-amber-400`}>
-              Mismatch Queue
+             {msg('UI_COMMON_MISMATCH_QUEUE')}
               {hasSession && session.total_held > 0 && (
                 <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1.5 py-0.5">
                   {session.total_held}
                 </span>
               )}
             </p>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Resolve held items</p>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_BRANCHDASHBOARD_RESOLVE_HELD_ITEMS')}</p>
           </Link>
           <Link to="/branch/history" className={`rounded-lg border p-4 ${th.card} hover:border-slate-500/50 transition-colors group`}>
-            <p className={`text-sm font-medium ${th.heading} group-hover:text-slate-300`}>Session History</p>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Past sessions, lots, and downloads</p>
+            <p className={`text-sm font-medium ${th.heading} group-hover:text-slate-300`}>{msg('UI_COMMON_SESSION_HISTORY')}</p>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_BRANCHDASHBOARD_PAST_SESSIONS_LOTS_AND_DOWNLOADS')}</p>
           </Link>
           <div className={`rounded-lg border p-4 ${th.card}`}>
-            <p className={`text-sm font-medium ${th.heading}`}>EEH Status</p>
+            <p className={`text-sm font-medium ${th.heading}`}>{msg('UI_BRANCHDASHBOARD_EEH_STATUS')}</p>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {eehHealth.status} · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping?.slice(11, 16) ?? '—'}
+              {msg('UI_BRANCHDASHBOARD_MS_LAST_PING', { status: eehHealth.status, latency_ms: eehHealth.latency_ms, value: eehHealth.last_ping?.slice(11, 16) ?? '—' })}
             </p>
           </div>
         </div>

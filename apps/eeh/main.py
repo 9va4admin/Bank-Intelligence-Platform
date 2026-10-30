@@ -29,6 +29,7 @@ from apps.eeh.session import (
 )
 from apps.eeh.sse import SSEPublisher, branch_sse_stream
 from apps.eeh.mismatch_bridge import MismatchKafkaBridge
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -202,7 +203,7 @@ class CloseSessionResponse(BaseModel):
 @app.post("/v1/eeh/session/open", response_model=OpenSessionResponse, status_code=201)
 async def open_session(body: OpenSessionRequest):
     if session_manager is None:
-        raise HTTPException(status_code=503, detail="Session manager not initialised")
+        raise HTTPException(status_code=503, detail=get_message("EEH_SESSION_MANAGER_NOT_INITIALISED"))
     try:
         sess: EEHSession = await session_manager.open_session(
             bank_id=body.bank_id,
@@ -230,7 +231,7 @@ async def open_session(body: OpenSessionRequest):
 @app.post("/v1/eeh/session/{session_id}/close", response_model=CloseSessionResponse)
 async def close_session(session_id: str):
     if session_manager is None:
-        raise HTTPException(status_code=503, detail="Session manager not initialised")
+        raise HTTPException(status_code=503, detail=get_message("EEH_SESSION_MANAGER_NOT_INITIALISED"))
     await session_manager.close_session(session_id, status="CLOSED")
     return CloseSessionResponse(session_id=session_id, status="CLOSED")
 
@@ -240,11 +241,11 @@ async def close_session(session_id: str):
 @app.get("/v1/eeh/stream/{branch_id}/{clearing_date_str}")
 async def sse_stream(branch_id: str, clearing_date_str: str):
     if _redis is None:
-        raise HTTPException(status_code=503, detail="Redis not available")
+        raise HTTPException(status_code=503, detail=get_message("EEH_REDIS_NOT_AVAILABLE"))
     try:
         clearing_date = date.fromisoformat(clearing_date_str)
     except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid date format (expected YYYY-MM-DD)")
+        raise HTTPException(status_code=422, detail=get_message("EEH_INVALID_DATE_FORMAT_EXPECTED_YYYY"))
 
     return StreamingResponse(
         branch_sse_stream(_redis, branch_id, clearing_date),

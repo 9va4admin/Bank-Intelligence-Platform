@@ -208,6 +208,7 @@ from modules.cts.workflows.vault_file_drop_workflow import (
     process_vault_csv,
     archive_drop_file,
 )
+from shared.messages import get_message
 
 # MSV (Multi-Signature Validation) — workflow + activities registered here
 # alongside CTS so a single worker pod handles both. MSV uses its own task
@@ -438,8 +439,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     if not _TEMPORAL_AVAILABLE:
         log.error("worker.temporal_not_installed", bank_id=bank_id)
         raise RuntimeError(
-            "temporalio package not installed. "
-            "Run: pip install temporalio"
+            get_message("CTS_TEMPORALIO_PACKAGE_NOT_INSTALLED_RUN")
         )
 
     if config_service is None:
@@ -794,7 +794,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
 def main() -> None:
     import argparse
     import sys
-    parser = argparse.ArgumentParser(description="ASTRA CTS Temporal Worker")
+    parser = argparse.ArgumentParser(description=get_message("CTS_ASTRA_CTS_TEMPORAL_WORKER"))
     parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
     args = parser.parse_args()
 

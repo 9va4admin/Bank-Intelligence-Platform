@@ -29,6 +29,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
+from shared.messages import get_message
 from shared.audit.audit_event import AuditEvent, AuditEventType
 
 log = structlog.get_logger()
@@ -68,13 +69,13 @@ def get_current_user(request: Request) -> dict[str, Any]:
 
 def _require_read(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] not in _READ_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     return user
 
 
 def _require_write(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] not in _WRITE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     return user
 
 
@@ -100,14 +101,14 @@ class BranchCreateRequest(BaseModel):
     @classmethod
     def ifsc_format(cls, v: str) -> str:
         if not v.isalnum() or " " in v:
-            raise ValueError("IFSC must be 11 alphanumeric characters with no spaces")
+            raise ValueError(get_message("API_IFSC_MUST_BE_11_ALPHANUMERIC"))
         return v.upper()
 
     @field_validator("scanner_input_mode")
     @classmethod
     def validate_scanner_mode(cls, v: str) -> str:
         if v not in _VALID_SCANNER_MODES:
-            raise ValueError(f"scanner_input_mode must be one of {sorted(_VALID_SCANNER_MODES)}")
+            raise ValueError(get_message("API_SCANNER_INPUT_MODE_MUST_BE", sorted=sorted(_VALID_SCANNER_MODES)))
         return v
 
 
@@ -137,14 +138,14 @@ class BranchUpdateRequest(BaseModel):
     @classmethod
     def forbid_ifsc_update(cls, data: Any) -> Any:
         if isinstance(data, dict) and "branch_ifsc" in data and data["branch_ifsc"] is not None:
-            raise ValueError("branch_ifsc cannot be updated — it is the immutable identity key")
+            raise ValueError(get_message("API_BRANCH_IFSC_CANNOT_BE_UPDATED"))
         return data
 
     @field_validator("scanner_input_mode")
     @classmethod
     def validate_scanner_mode(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in _VALID_SCANNER_MODES:
-            raise ValueError(f"scanner_input_mode must be one of {sorted(_VALID_SCANNER_MODES)}")
+            raise ValueError(get_message("API_SCANNER_INPUT_MODE_MUST_BE", sorted=sorted(_VALID_SCANNER_MODES)))
         return v
 
 
@@ -238,14 +239,14 @@ def _validate_csv_row(row: dict, row_num: int) -> Optional[dict]:
     """Return an error dict if the row is invalid, else None."""
     ifsc = (row.get("IFSC Code") or "").strip().upper()
     if not ifsc:
-        return {"row": row_num, "ifsc": ifsc, "error": "IFSC Code is empty"}
+        return {"row": row_num, "ifsc": ifsc, "error": get_message("API_IFSC_CODE_IS_EMPTY")}
     if len(ifsc) != 11:
-        return {"row": row_num, "ifsc": ifsc, "error": f"IFSC must be 11 chars, got {len(ifsc)}"}
+        return {"row": row_num, "ifsc": ifsc, "error": get_message("API_IFSC_MUST_BE_11_CHARS", len=len(ifsc))}
     if not ifsc.isalnum():
-        return {"row": row_num, "ifsc": ifsc, "error": "IFSC must be alphanumeric"}
+        return {"row": row_num, "ifsc": ifsc, "error": get_message("API_IFSC_MUST_BE_ALPHANUMERIC")}
     branch_name = (row.get("Branch Name") or "").strip()
     if not branch_name:
-        return {"row": row_num, "ifsc": ifsc, "error": "Branch Name is empty"}
+        return {"row": row_num, "ifsc": ifsc, "error": get_message("UI_BRANCHMASTER_BRANCH_NAME_IS_EMPTY")}
     return None
 
 
@@ -259,14 +260,14 @@ def _parse_csv(content: bytes) -> tuple[list[dict], list[dict]]:
     except UnicodeDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV file must be UTF-8 encoded",
+            detail=get_message("API_CSV_FILE_MUST_BE_UTF"),
         )
 
     reader = csv.DictReader(io.StringIO(text))
     if reader.fieldnames is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV file appears to be empty",
+            detail=get_message("API_CSV_FILE_APPEARS_TO_BE"),
         )
 
     actual_cols = set(f.strip() for f in reader.fieldnames)
@@ -274,7 +275,7 @@ def _parse_csv(content: bytes) -> tuple[list[dict], list[dict]]:
     if missing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"CSV missing required columns: {sorted(missing)}",
+            detail=get_message("API_CSV_MISSING_REQUIRED_COLUMNS", sorted=sorted(missing)),
         )
 
     valid_rows: list[dict] = []
@@ -303,7 +304,7 @@ def _row_to_branch(row: dict, bank_id: str) -> dict:
         "address": (row.get("Complete Address") or "").strip() or None,
         "pin_code": (row.get("PIN Code") or "").strip() or None,
         "phone_number": (row.get("Phone Number") or "").strip() or None,
-        "pu_id": None,
+        "pu_id": (row.get("PU ID") or "").strip() or None,     # optional column: the processing unit this branch maps to
         "smb_id": None,
         "scanner_input_mode": "UI_UPLOAD",
         "is_scanning_enabled": True,
@@ -325,6 +326,7 @@ async def list_branches(
     is_active: Optional[bool] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
     cursor: Optional[str] = Query(default=None),
+    offset: int = Query(default=0, ge=0, description="Rows to skip (the branch master pages with limit + offset)"),
     user: dict = Depends(_require_read),
 ):
     with tracer.start_as_current_span("branches.list") as span:
@@ -367,20 +369,21 @@ async def list_branches(
                         f"scanner_input_mode, "
                         f"is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         f"FROM cts.branches WHERE {where} "
-                        f"ORDER BY branch_name LIMIT ${idx}",
+                        f"ORDER BY branch_name, branch_ifsc LIMIT ${idx} OFFSET ${idx + 1}",
                         *params,
                         limit,
+                        offset,
                     )
                     total_row = await conn.fetchrow(
                         f"SELECT COUNT(*) as cnt FROM cts.branches WHERE {where}",
-                        *params[:-1] if q else params,
+                        *params,
                     )
                     total = total_row["cnt"] if total_row else 0
                     branches = [_branch_to_response(dict(r)) for r in rows]
                     return BranchListResponse(branches=branches, total=total, cursor=None)
             except Exception as exc:
                 log.error("branches.list.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
         else:
             # Test / in-memory path
             all_branches = [
@@ -432,7 +435,7 @@ async def create_branch(
                     if existing:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
-                            detail=f"Branch IFSC {ifsc} already exists",
+                            detail=get_message("API_BRANCH_IFSC_ALREADY_EXISTS", ifsc=ifsc),
                         )
                     branch_id = str(uuid.uuid4())
                     now = datetime.now(timezone.utc)
@@ -462,7 +465,7 @@ async def create_branch(
                 raise
             except Exception as exc:
                 log.error("branches.create.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             _write_audit(request, AuditEventType.BRANCH_CREATED, bank_id, {
                 "branch_ifsc": ifsc,
@@ -475,7 +478,7 @@ async def create_branch(
             if ifsc in _BRANCH_STORE:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Branch IFSC {ifsc} already exists",
+                    detail=get_message("API_BRANCH_IFSC_ALREADY_EXISTS", ifsc=ifsc),
                 )
             now = datetime.now(timezone.utc).isoformat()
             branch = {
@@ -529,14 +532,14 @@ async def get_branch(
                     )
             except Exception as exc:
                 log.error("branches.get.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
             if not row:
-                raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_BRANCH_NOT_FOUND", ifsc=ifsc))
             return _branch_to_response(dict(row))
         else:
             branch = _BRANCH_STORE.get(ifsc)
             if not branch or branch["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_BRANCH_NOT_FOUND", ifsc=ifsc))
             return _branch_to_response(branch)
 
 
@@ -565,7 +568,7 @@ async def update_branch(
                         ifsc, bank_id,
                     )
                     if not existing:
-                        raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+                        raise HTTPException(status_code=404, detail=get_message("API_BRANCH_NOT_FOUND", ifsc=ifsc))
 
                     if updates:
                         set_clauses = ", ".join(
@@ -591,7 +594,7 @@ async def update_branch(
                 raise
             except Exception as exc:
                 log.error("branches.update.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             _write_audit(request, AuditEventType.BRANCH_UPDATED, bank_id, {
                 "branch_ifsc": ifsc,
@@ -602,7 +605,7 @@ async def update_branch(
         else:
             branch = _BRANCH_STORE.get(ifsc)
             if not branch or branch["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_BRANCH_NOT_FOUND", ifsc=ifsc))
             old_pu_id = branch.get("pu_id")
             now = datetime.now(timezone.utc).isoformat()
             branch.update(updates)
@@ -647,7 +650,7 @@ async def delete_branch(
                         ifsc, bank_id,
                     )
                     if not existing:
-                        raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+                        raise HTTPException(status_code=404, detail=get_message("API_BRANCH_NOT_FOUND", ifsc=ifsc))
                     now = datetime.now(timezone.utc)
                     await conn.execute(
                         "UPDATE cts.branches SET is_active = false, updated_at = $2 "
@@ -666,7 +669,7 @@ async def delete_branch(
                 raise
             except Exception as exc:
                 log.error("branches.delete.db_error", error=str(exc), bank_id=bank_id)
-                raise HTTPException(status_code=500, detail="Database error")
+                raise HTTPException(status_code=500, detail=get_message("API_DATABASE_ERROR"))
 
             _write_audit(request, AuditEventType.BRANCH_DELETED, bank_id, {
                 "branch_ifsc": ifsc,
@@ -676,7 +679,7 @@ async def delete_branch(
         else:
             branch = _BRANCH_STORE.get(ifsc)
             if not branch or branch["bank_id"] != bank_id:
-                raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+                raise HTTPException(status_code=404, detail=get_message("API_BRANCH_NOT_FOUND", ifsc=ifsc))
             branch["is_active"] = False
             branch["updated_at"] = datetime.now(timezone.utc).isoformat()
             return _branch_to_response(branch)
@@ -750,12 +753,13 @@ async def bulk_import(
                                     "address = EXCLUDED.address, "
                                     "pin_code = EXCLUDED.pin_code, "
                                     "phone_number = EXCLUDED.phone_number, "
+                                    "pu_id = COALESCE(EXCLUDED.pu_id, cts.branches.pu_id), "
                                     "updated_at = NOW()",
                                     branch["branch_id"], branch["bank_id"],
                                     branch["branch_name"], branch["branch_ifsc"],
                                     branch["city"], branch["district"], branch["state"],
                                     branch["address"], branch["pin_code"], branch["phone_number"],
-                                    None, None, "UI_UPLOAD", True, True,
+                                    branch["pu_id"], None, "UI_UPLOAD", True, True,
                                     datetime.now(timezone.utc), "bulk-import",
                                 )
                                 # asyncpg returns "INSERT 0 1" or "UPDATE 1"
@@ -811,7 +815,7 @@ def _check_csv_content_type(file: UploadFile) -> None:
     if file.content_type not in allowed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File must be a CSV. Got content-type: {file.content_type}",
+            detail=get_message("API_FILE_MUST_BE_A_CSV", content_type=file.content_type),
         )
 
 

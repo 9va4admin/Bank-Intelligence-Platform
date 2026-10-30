@@ -12,6 +12,7 @@ import structlog
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
@@ -28,8 +29,7 @@ def _safe_temporal_param(value: str, field: str) -> str:
     """Reject bank_id / smb_id values that could inject into a Temporal visibility query."""
     if not _TEMPORAL_PARAM_RE.match(value):
         raise ValueError(
-            f"Invalid {field} for Temporal query: "
-            "must be alphanumeric + hyphens/underscores, max 64 chars"
+            get_message("API_INVALID_FOR_TEMPORAL_QUERY_MUST", field=field)
         )
     return value
 
@@ -52,14 +52,41 @@ _MICR_PREFIX_MAX_ROWS  = 1000   # MICR prefix routing table
 # ---------------------------------------------------------------------------
 
 async def get_current_user_context(
+    request: Request,
     ctx: UserContext = Depends(require_user_context),
 ) -> UserContext:
     """
-    Delegates to the central auth chokepoint (apps.api.dependencies).
-    Thin re-export so existing Depends(get_current_user_context) call sites
-    in every router don't need to change. No token parsing here. ASTRA-01.
+    The central auth chokepoint (apps.api.dependencies) plus the user's CURRENT access.
+
+    The session carries the processing units and branches the user had at sign-in. An admin who narrows them, or disables the
+    account, must take effect on the very next request, not when the session refreshes, so for locally managed accounts the
+    scope and the active flag are read from the database here. Users who sign in through an identity provider have no local
+    row and keep the scope their provider gave them. If the lookup itself fails the session's scope is used (a database
+    blip must not lock every reviewer out) and a warning is logged. No token parsing here. ASTRA-01.
     """
-    return ctx
+    state = request.app.state
+    pool = getattr(state, "db_pool_platform", None) or getattr(state, "db_pool_cts", None)
+    if pool is None:
+        return ctx
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT pu_ids, branch_ids, is_active FROM platform.local_auth_accounts WHERE user_id = $1 AND bank_id = $2",
+                ctx.user_id, ctx.bank_id,
+            )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("cts.live_scope.lookup_failed", user_id=ctx.user_id, error=str(exc))
+        return ctx
+    if row is None:
+        return ctx
+    try:
+        active, pu_ids, branch_ids = row["is_active"], list(row["pu_ids"] or []), list(row["branch_ids"] or [])
+    except (KeyError, IndexError, TypeError):      # not an account row: treat as a failed lookup, never as a reason to fail the request
+        log.warning("cts.live_scope.unexpected_row", user_id=ctx.user_id)
+        return ctx
+    if not active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_ACCOUNT_DISABLED"))
+    return ctx.model_copy(update={"pu_ids": pu_ids, "branch_ids": branch_ids})
 
 
 async def get_current_bank_id(
@@ -119,7 +146,7 @@ def get_temporal_client(request: Request):
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Workflow engine unavailable",
+            detail=get_message("API_WORKFLOW_ENGINE_UNAVAILABLE"),
         )
     return client
 

@@ -7,6 +7,7 @@
  *   data: { bank_id, as_of, models: ModelEntry[], degraded } | null
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 5 * 60_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -20,7 +21,7 @@ export default function useModelHealth({ pollEnabled = true } = {}) {
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/v1/ops/model-health`, { credentials: 'include' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setData(json)
       setError(null)

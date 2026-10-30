@@ -37,6 +37,7 @@ from shared.auth.exceptions import (
     SessionExpiredError,
 )
 from shared.auth.session_token import IssuedSession, SessionClaims, SessionTokenService
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -52,14 +53,14 @@ _COOKIE = "astra_session"
 def get_session_service(request: Request) -> SessionTokenService:
     svc = getattr(request.app.state, "session_service", None)
     if svc is None:
-        raise HTTPException(status_code=503, detail="Authentication not configured")
+        raise HTTPException(status_code=503, detail=get_message("API_AUTHENTICATION_NOT_CONFIGURED"))
     return svc
 
 
 def get_auth_service(request: Request) -> AuthService:
     svc = getattr(request.app.state, "auth_service", None)
     if svc is None:
-        raise HTTPException(status_code=503, detail="Authentication not configured")
+        raise HTTPException(status_code=503, detail=get_message("API_AUTHENTICATION_NOT_CONFIGURED"))
     return svc
 
 
@@ -117,7 +118,7 @@ class SessionResponse(BaseModel):
     bank_type: str
     role: str
     permission_level: str
-    clearing_zones: list[str]
+    pu_ids: list[str]
     mfa_authenticated: bool
 
 
@@ -153,15 +154,15 @@ def _claims_from_cookie(
 ) -> SessionClaims:
     token = request.cookies.get(_COOKIE)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_NOT_AUTHENTICATED"))
     try:
         claims = session_service.validate(token)
     except SessionExpiredError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_SESSION_EXPIRED"))
     except InvalidSessionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_SESSION"))
     if require_mfa and not claims.mfa_authenticated:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="MFA required")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_MFA_REQUIRED"))
     return claims
 
 
@@ -184,13 +185,13 @@ async def login(
     except AccountLockedError:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail="Account locked due to repeated failed attempts. Contact your administrator.",
+            detail=get_message("API_ACCOUNT_LOCKED_DUE_TO_REPEATED"),
         )
     except AuthenticationError:
         # Uniform message — never reveal whether the username exists
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password.",
+            detail=get_message("UI_LOGINPAGE_INVALID_USERNAME_OR_PASSWORD"),
         )
 
     _set_session_cookie(response, result.interim_session)
@@ -221,9 +222,9 @@ async def mfa_verify(
     try:
         full = await auth_service.verify_mfa(claims, body.code)
     except (AuthenticationError, MFANotEnrolledError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid code")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_CODE"))
     except InvalidSessionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session state")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_SESSION_STATE"))
     _set_session_cookie(response, full)
     return AuthOkResponse(status="OK", csrf_token=full.csrf_token)
 
@@ -238,7 +239,7 @@ async def mfa_enrol_begin(
     try:
         challenge = await auth_service.begin_enrollment(claims)
     except InvalidSessionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session state")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_SESSION_STATE"))
     return EnrollBeginResponse(secret=challenge.secret, otpauth_uri=challenge.otpauth_uri)
 
 
@@ -254,9 +255,9 @@ async def mfa_enrol_confirm(
     try:
         full = await auth_service.confirm_enrollment(claims, body.code)
     except (AuthenticationError, MFANotEnrolledError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid code")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_CODE"))
     except InvalidSessionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session state")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_SESSION_STATE"))
     _set_session_cookie(response, full)
     return AuthOkResponse(status="OK", csrf_token=full.csrf_token)
 
@@ -272,7 +273,7 @@ async def refresh(
     try:
         new = await auth_service.refresh(claims)
     except InvalidSessionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session state")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=get_message("API_INVALID_SESSION_STATE"))
     _set_session_cookie(response, new)
     return AuthOkResponse(status="OK", csrf_token=new.csrf_token)
 
@@ -345,6 +346,6 @@ async def whoami(
         bank_type=claims.bank_type,
         role=claims.role,
         permission_level=claims.permission_level,
-        clearing_zones=claims.clearing_zones,
+        pu_ids=claims.pu_ids,
         mfa_authenticated=claims.mfa_authenticated,
     )

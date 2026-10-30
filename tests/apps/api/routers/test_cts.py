@@ -420,11 +420,15 @@ class TestCTSReviewDecision:
 
     def _make_app(self, temporal_client=None):
         from apps.api.routers.cts_inward import router_v1
-        from apps.api.routers.cts_deps import get_current_bank_id, get_current_user_id
+        from apps.api.routers.cts_deps import get_current_bank_id, get_current_user_id, get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
         app.dependency_overrides[get_current_user_id] = lambda: "reviewer-001"
+        # the decide endpoint checks the caller's role (ops_reviewer or ops_manager)
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="reviewer-001", bank_id="test-bank", bank_type=BankType.SB, role=Role.OPS_REVIEWER,
+            permission_level=PermissionLevel.EDIT, session_id="s")
         if temporal_client:
             app.state.temporal_client = temporal_client
         return app
@@ -809,7 +813,7 @@ class TestCTSQueueRoute:
             "account_display": "****1234",
             "payee_display": "N***",
             "amount_range": "₹[1L-5L]",
-            "clearing_zone": "MUMBAI",
+            "pu_id": "MUMBAI",
             "received_at": 1_699_990_000.0,
             "iet_deadline": 1_700_010_800.0,
             "reason": "FRAUD_SCORE_HIGH",
@@ -841,7 +845,7 @@ class TestCTSQueueRoute:
         assert item["instrument_id"] == "INST001"
         assert item["reason"] == "FRAUD_SCORE_HIGH"
         assert item["fraud_score"] == 0.82
-        assert item["clearing_zone"] == "MUMBAI"
+        assert item["pu_id"] == "MUMBAI"
 
     def test_queue_temporal_error_returns_empty(self):
         """Temporal list_workflows error → empty queue (not 503)."""
@@ -885,7 +889,7 @@ class TestCTSQueueRoute:
                 "account_display": "****1234",
                 "payee_display": "N***",
                 "amount_range": "₹[1L-5L]",
-                "clearing_zone": "MUMBAI",
+                "pu_id": "MUMBAI",
                 "received_at": 1_699_990_000.0,
                 "iet_deadline": iet_deadline,
                 "reason": "OCR_LOW_CONFIDENCE",

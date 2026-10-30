@@ -38,7 +38,6 @@ auth:
         "federal-ops-manager":    ops_manager
         "federal-it-admin":       bank_it_admin
         "federal-compliance":     compliance_officer
-    clearing_zones: [SOUTH, WEST, NORTH, EAST]
 
   branch:
     integration_enabled: true
@@ -89,7 +88,6 @@ datacenters:
 
 # ── NGCH Clearing Zone ───────────────────────────────────────────────────────
 # Federal Bank clears in all four NGCH zones
-clearing_zones: [SOUTH, WEST, NORTH, EAST]
 
 # ── Notifications ────────────────────────────────────────────────────────────
 notifications:

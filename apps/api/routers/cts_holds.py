@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.routers.cts_deps import get_current_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -178,7 +179,7 @@ class ActiveReviewerItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     reviewer_id: str
     expires_at: float  # Unix timestamp — heartbeat TTL expiry
-    zones: list[str] = []   # clearing zones the reviewer is scoped to ([] or ['ALL'] = any)
+    pu_ids: list[str] = []   # processing units the reviewer is scoped to ([] or ['ALL'] = any)
     load: int = 0           # claims held right now
 
 
@@ -218,7 +219,7 @@ async def place_hold(
     bank_id = ctx.bank_id
     reviewer_id = ctx.user_id
     if ctx.role.value not in ("ops_reviewer", "ops_manager"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     dispatcher = getattr(request.app.state, "notification_dispatcher", None)
@@ -347,7 +348,7 @@ async def list_holds(
     bank_id = ctx.bank_id
     allowed_roles = ("ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager")
     if ctx.role.value not in allowed_roles:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     items: list[HoldItem] = []
@@ -414,7 +415,7 @@ async def release_hold(
     reviewer_id = ctx.user_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="ops_manager or ops_reviewer role required")
+                            detail=get_message("API_OPS_MANAGER_OR_OPS_REVIEWER"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     hold_id: Optional[str] = None
@@ -441,7 +442,7 @@ async def release_hold(
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Active hold not found for this instrument",
+                detail=get_message("API_ACTIVE_HOLD_NOT_FOUND_FOR"),
             )
         hold_id = row["hold_id"]
 
@@ -499,7 +500,7 @@ async def submit_hold_recommendation(
 ) -> HoldRecommendationResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer", "branch_manager"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     hold_id: Optional[str] = None
@@ -522,7 +523,7 @@ async def submit_hold_recommendation(
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Active hold not found for this instrument",
+                detail=get_message("API_ACTIVE_HOLD_NOT_FOUND_FOR"),
             )
         hold_id = row["hold_id"]
 
@@ -561,7 +562,7 @@ async def list_mismatches(
     bank_id = ctx.bank_id
     allowed_roles = ("ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager")
     if ctx.role.value not in allowed_roles:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     items: list[MismatchItem] = []
@@ -629,7 +630,7 @@ async def resolve_mismatch(
     bank_id = ctx.bank_id
     user_id = ctx.user_id
     if ctx.role.value not in ("ops_manager", "ops_reviewer", "branch_manager"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     pool = getattr(request.app.state, "db_pool_cts", None)
     signal_sent = False
@@ -647,7 +648,7 @@ async def resolve_mismatch(
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mismatch not found or already resolved",
+                detail=get_message("API_MISMATCH_NOT_FOUND_OR_ALREADY"),
             )
 
         branch_id_val = row["branch_id"]
@@ -734,7 +735,7 @@ async def claim_instrument(
     bank_id = ctx.bank_id
     reviewer_id = ctx.user_id
     if ctx.role.value not in ("ops_reviewer", "ops_manager"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     redis = getattr(request.app.state, "redis_cts", None)
 
@@ -773,15 +774,18 @@ async def claim_instrument(
             reviewer_buckets = await subs.get_reviewer_buckets(bank_id, reviewer_id)
         result = await alloc_svc.claim(
             instrument_id, reviewer_id, cts_config, bank_id=bank_id,
-            reviewer_zones=list(getattr(ctx, "clearing_zones", None) or []),
+            reviewer_pus=list(getattr(ctx, "pu_ids", None) or []),
             reviewer_buckets=reviewer_buckets,
         )
-        if result.reason == "ZONE_RESTRICTED":
+        if result.reason == "PU_RESTRICTED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail="This cheque belongs to a clearing zone you are not scoped to")
+                                detail=get_message("CTS_WF_REVIEW_PU_NOT_SCOPED"))
         if result.reason == "NOT_SUBSCRIBED":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail="This cheque is in a bucket you are not connected to")
+                                detail=get_message("API_THIS_CHEQUE_IS_IN_A"))
+        if result.reason == "FOUR_EYES":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=get_message("CTS_WF_REVIEW_MAKER_CANNOT_CHECK"))
     else:
         result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
 
@@ -807,14 +811,14 @@ async def claim_instrument(
                  reviewer_id=reviewer_id, bank_id=bank_id)
         return ClaimResponse(
             instrument_id=instrument_id, claimed=True,
-            reviewer_id=reviewer_id, message="Claimed successfully",
+            reviewer_id=reviewer_id, message=get_message("API_CLAIMED_SUCCESSFULLY"),
         )
 
     log.info("cts.alloc.claim_rejected", instrument_id=instrument_id,
              reviewer_id=reviewer_id, held_by=result.held_by)
     return ClaimResponse(
         instrument_id=instrument_id, claimed=False,
-        held_by=result.held_by, message="Already claimed by another reviewer",
+        held_by=result.held_by, message=get_message("API_ALREADY_CLAIMED_BY_ANOTHER_REVIEWER"),
     )
 
 
@@ -835,7 +839,7 @@ async def unclaim_instrument(
     bank_id = ctx.bank_id
     reviewer_id = ctx.user_id
     if ctx.role.value not in ("ops_reviewer", "ops_manager"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     redis = getattr(request.app.state, "redis_cts", None)
 
@@ -868,7 +872,7 @@ async def unclaim_instrument(
 
     log.info("cts.alloc.unclaimed", instrument_id=instrument_id,
              reviewer_id=reviewer_id, bank_id=bank_id)
-    return ClaimResponse(instrument_id=instrument_id, claimed=False, message="Released successfully")
+    return ClaimResponse(instrument_id=instrument_id, claimed=False, message=get_message("API_RELEASED_SUCCESSFULLY"))
 
 
 # ---------------------------------------------------------------------------
@@ -886,7 +890,7 @@ async def get_allocation_status(
 ) -> AllocationStatusResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     redis = getattr(request.app.state, "redis_cts", None)
     claims: list[AllocationStatusItem] = []
@@ -949,7 +953,7 @@ async def get_active_reviewers(
 ) -> ActiveReviewersResponse:
     bank_id = ctx.bank_id
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     redis = getattr(request.app.state, "redis_cts", None)
     reviewers: list[ActiveReviewerItem] = []
@@ -965,12 +969,12 @@ async def get_active_reviewers(
         # Return remaining with their expiry scores
         raw = await redis.zrange(key, 0, -1, withscores=True)
         ids = [m.decode() if isinstance(m, bytes) else m for m, _ in raw]
-        zones_by = await lock_svc.get_reviewer_zones(bank_id)
+        pus_by = await lock_svc.get_reviewer_pus(bank_id)
         loads = await lock_svc.reviewer_loads(ids)
         for reviewer_id_val, (_, score) in zip(ids, raw):
             reviewers.append(ActiveReviewerItem(
                 reviewer_id=reviewer_id_val, expires_at=score,
-                zones=zones_by.get(reviewer_id_val, []), load=loads.get(reviewer_id_val, 0)))
+                pu_ids=pus_by.get(reviewer_id_val, []), load=loads.get(reviewer_id_val, 0)))
 
     log.info("cts.alloc.reviewers", bank_id=bank_id, online=len(reviewers))
     return ActiveReviewersResponse(bank_id=bank_id, active_reviewers=reviewers, total=len(reviewers))
@@ -999,7 +1003,7 @@ async def admin_force_release_claim(
     bank_id = ctx.bank_id
     admin_id = ctx.user_id
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     redis = getattr(request.app.state, "redis_cts", None)
 
@@ -1052,7 +1056,7 @@ async def admin_force_release_claim(
     return ClaimResponse(
         instrument_id=instrument_id,
         claimed=False,
-        message=f"Force-released (was held by {previous_holder or 'nobody'})",
+        message=get_message("API_FORCE_RELEASED_WAS_HELD_BY", value=previous_holder or 'nobody'),
     )
 
 
@@ -1060,7 +1064,7 @@ async def admin_force_release_claim(
 # POST /admin/review/{instrument_id}/assign   (admin assign / reassign)
 # ---------------------------------------------------------------------------
 # Only ops_manager and bank_it_admin. The target must be a known reviewer of this bank (currently logged in, or a
-# registered ops_reviewer / ops_manager account) and must be allowed to work the cheque's clearing zone. The item is
+# registered ops_reviewer / ops_manager account) and must be allowed to work the cheque's processing unit. The item is
 # pinned (never moved by the rebalancer) and the assignment is audited with the admin, the assignee and the previous holder.
 
 class AssignRequest(BaseModel):
@@ -1090,14 +1094,14 @@ async def admin_assign_review(
     bank_id = ctx.bank_id
     admin_id = ctx.user_id
     if ctx.role.value not in ("ops_manager", "bank_it_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
 
     redis = getattr(request.app.state, "redis_cts", None)
     if redis is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Allocation store unavailable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("API_ALLOCATION_STORE_UNAVAILABLE"))
 
     from modules.cts.allocation.lock_service import LockService
-    from modules.cts.allocation.allocation_service import AllocationService, zone_allows
+    from modules.cts.allocation.allocation_service import AllocationService, pu_allows
     lock_svc = LockService(redis_client=redis)
     alloc_svc = AllocationService(lock_service=lock_svc)
 
@@ -1115,19 +1119,23 @@ async def admin_assign_review(
             except Exception:  # noqa: BLE001 - an unreachable directory means we cannot vouch for the target
                 known = False
     if not known:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_REVIEWER_NOT_FOUND_FOR_THIS"))
 
-    zones = (await lock_svc.get_reviewer_zones(bank_id)).get(target)
+    pus = (await lock_svc.get_reviewer_pus(bank_id)).get(target)
     meta = await lock_svc.get_item_meta(bank_id, instrument_id)
-    if zones is not None and not zone_allows(meta.get("zone"), zones):
+    if pus is not None and not pu_allows(meta.get("pu_id"), pus):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="That reviewer is not scoped to this cheque's clearing zone")
+                            detail=get_message("CTS_WF_ASSIGN_REVIEWER_PU_NOT_SCOPED"))
 
     cts_config = await _cts_config(request, bank_id)
     alloc_svc = AllocationService(lock_service=lock_svc, subscriptions=_subscriptions(request, redis))
     if not await alloc_svc.can_take(bank_id, instrument_id, target, cts_config):
+        maker = (await lock_svc.get_item_meta(bank_id, instrument_id)).get("maker_id")
+        if maker == target:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=get_message("CTS_WF_ASSIGN_REVIEWER_WAS_MAKER"))
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="That reviewer is not connected to this cheque's bucket; connect them first")
+                            detail=get_message("API_THAT_REVIEWER_IS_NOT_CONNECTED"))
 
     previous_holder = await alloc_svc.assign(instrument_id, target, cts_config, bank_id=bank_id)
 
@@ -1151,7 +1159,7 @@ async def admin_assign_review(
              admin_id=admin_id, previous_holder=previous_holder, bank_id=bank_id)
     return AssignResponse(
         instrument_id=instrument_id, reviewer_id=target, previous_holder=previous_holder,
-        message=f"Assigned to {target} (was held by {previous_holder or 'nobody'})",
+        message=get_message("API_ASSIGNED_TO_WAS_HELD_BY", target=target, value=previous_holder or 'nobody'),
     )
 
 
@@ -1198,7 +1206,7 @@ async def admin_bucket_overview(
     request: Request, ctx: UserContext = Depends(get_current_user_context),
 ) -> BucketOverviewResponse:
     if ctx.role.value not in _BUCKET_ADMIN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     redis = getattr(request.app.state, "redis_cts", None)
     cts_config = await _cts_config(request, ctx.bank_id)
     from modules.cts.allocation.lock_service import LockService
@@ -1219,7 +1227,7 @@ async def admin_get_reviewer_buckets(
     reviewer_id: str, request: Request, ctx: UserContext = Depends(get_current_user_context),
 ) -> BucketsResponse:
     if ctx.role.value not in _BUCKET_ADMIN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     redis = getattr(request.app.state, "redis_cts", None)
     return BucketsResponse(reviewer_id=reviewer_id,
                            buckets=await _subscriptions(request, redis).get_reviewer_buckets(ctx.bank_id, reviewer_id))
@@ -1232,7 +1240,7 @@ async def admin_set_reviewer_buckets(
 ) -> BucketsResponse:
     """Replace the set of buckets a reviewer works. Only ops_manager and bank_it_admin; audited."""
     if ctx.role.value not in _BUCKET_ADMIN_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_PERMISSIONS"))
     bank_id = ctx.bank_id
     redis = getattr(request.app.state, "redis_cts", None)
     from modules.cts.allocation.subscriptions import InvalidBucketError
@@ -1252,7 +1260,7 @@ async def admin_set_reviewer_buckets(
             except Exception:  # noqa: BLE001
                 known = False
     if not known:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reviewer not found for this bank")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_REVIEWER_NOT_FOUND_FOR_THIS"))
 
     store = _subscriptions(request, redis)
     try:

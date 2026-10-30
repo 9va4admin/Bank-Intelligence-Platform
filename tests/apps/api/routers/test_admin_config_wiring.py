@@ -21,8 +21,12 @@ def _make_wired_app(role="ops_manager"):
         router_v1, get_current_user,
         get_event_publisher, get_audit_stream_writer,
     )
+    async def _audit_ok(**kwargs):         # no real audit buffer here; without one the writer refuses
+        return None
+
     app = FastAPI()
     app.include_router(router_v1)
+    app.dependency_overrides[get_audit_stream_writer] = lambda: _audit_ok
     app.dependency_overrides[get_current_user] = lambda: {
         "bank_id": "test-bank",
         "user_id": "user-001",

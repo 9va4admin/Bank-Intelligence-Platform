@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 2 * 60_000  // vault misses update during clearing hours
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -23,7 +24,7 @@ export default function useVaultMisses({ date = null, pollEnabled = true } = {})
       const res = await fetch(`${API_BASE}/v1/cts/vault/misses?${params}`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setMisses(json.misses ?? [])
       setTotal(json.total_count ?? 0)

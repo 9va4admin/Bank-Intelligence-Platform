@@ -27,9 +27,19 @@ ALLOCATION_KEYS = {
     "cts.bucket_corporate_account_types": ["CORPORATE"],
     "cts.bucket_institution_account_types": ["INSTITUTION", "GOVERNMENT"],
     "cts.bucket_overflow_after_minutes": 10,
+    "cts.outward_session_cutoffs": ["14:30"],          # outward clearing session cut-off(s), local time - configurable per bank
+    "cts.outward_session_timezone": "Asia/Kolkata",
+    "cts.outward_high_value_ranges": ["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"],
+    "cts.outward_bucket_priority": ["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"],
+    "cts.outward_maker_scope": "CENTRAL",
+    "cts.outward_branch_first_fallback_minutes": 10,
+    "cts.outward_checker_scope": "ANY",
+    "cts.outward_cutoff_guard_minutes": 10,
     "cts.sip_review_timeout_minutes": 15,
     "cts.bucket_routing_enabled": False,
     "cts.sip_iet_guard_minutes": 10,
+    "cts.maker_checker_enabled": False,
+    "cts.checker_review_timeout_minutes": 15,
 }
 
 
@@ -63,3 +73,11 @@ async def test_workflow_thresholds_carry_the_bucket_and_sip_settings_under_bare_
                 "bucket_institution_account_types", "sip_review_timeout_minutes", "sip_iet_guard_minutes"):
         assert key in cfg, key
     assert cfg["sip_iet_guard_minutes"] == 10 and cfg["bucket_routing_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_workflow_thresholds_carry_the_maker_checker_settings():
+    svc = ConfigService.__new__(ConfigService)
+    svc._bank_id, svc._ready, svc._redis, svc._db_pool = "kbl", True, None, None
+    cfg = await svc.get_workflow_thresholds("kbl")
+    assert cfg["maker_checker_enabled"] is False and cfg["checker_review_timeout_minutes"] == 15

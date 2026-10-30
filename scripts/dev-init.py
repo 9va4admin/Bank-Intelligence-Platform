@@ -248,7 +248,7 @@ async def seed_users(bank_id: str):
                 """
                 INSERT INTO platform.local_auth_accounts
                   (user_id, bank_id, entity_type, entity_id, username, display_name,
-                   password_hash, role, permission_level, bank_type, clearing_zones,
+                   password_hash, role, permission_level, bank_type, pu_ids,
                    email, is_active)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
                 ON CONFLICT (user_id) DO UPDATE SET

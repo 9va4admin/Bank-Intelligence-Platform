@@ -20,6 +20,7 @@ from temporalio import activity
 from shared.event_bus.topics import CTS_SB_RELAY_OUTWARD
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -95,7 +96,7 @@ async def resolve_crl_batch(
                         {
                             "instrument_id": ins["instrument_id"],
                             "success": False,
-                            "error": f"NO_CRL_ENTRY:{ins['drawee_ifsc']}",
+                            "error": get_message("CTS_NO_CRL_ENTRY", ins=ins['drawee_ifsc']),
                         }
                     )
 

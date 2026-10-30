@@ -14,6 +14,7 @@ import structlog
 
 from shared.config.exceptions import VaultUnavailableError
 from shared.config.secret_backends.base import SecretBackend
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -28,14 +29,12 @@ class VaultSecretBackend(SecretBackend):
         vault_token = os.environ.get("VAULT_TOKEN", "")
         if not vault_addr or not vault_token:
             raise RuntimeError(
-                "VAULT_ADDR / VAULT_TOKEN not set — Vault agent sidecar not running. "
-                "For local dev/CI use ASTRA_SECRETS_BACKEND=env; "
-                "for K8s smallest-tier use ASTRA_SECRETS_BACKEND=k8s_secrets."
+                get_message("PLATFORM_VAULT_ADDR_VAULT_TOKEN_NOT")
             )
         self._bank_id = bank_id
         self._vault = hvac.Client(url=vault_addr, token=vault_token)
         if not self._vault.is_authenticated():
-            raise VaultUnavailableError(f"Vault auth failed at {vault_addr}")
+            raise VaultUnavailableError(get_message("PLATFORM_VAULT_AUTH_FAILED_AT", vault_addr=vault_addr))
 
     async def get(self, key: str) -> str:
         vault_path = f"secret/astra/{self._bank_id}/{key.replace('.', '/')}"
@@ -46,4 +45,4 @@ class VaultSecretBackend(SecretBackend):
             return response["data"]["data"]["value"]
         except Exception as exc:
             log.error("config.vault.fetch_failed", key=key, error=str(exc))
-            raise VaultUnavailableError(f"Vault fetch failed for key '{key}': {exc}") from exc
+            raise VaultUnavailableError(get_message("PLATFORM_VAULT_FETCH_FAILED_FOR_KEY", key_value=key, exc=exc)) from exc

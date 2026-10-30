@@ -37,11 +37,12 @@ from apps.api.routers import msv
 from apps.api.routers import cts_ops
 from apps.api.routers import cts_dashboard
 from apps.api.routers import cts_smb
-from apps.api.routers import cts_holds
+from apps.api.routers import cts_holds, cts_bucket_lists
 from apps.api.routers import cts_scanner
 from apps.api.routers import cts_vault_ops
 from apps.api.routers import cts_admin_ops
 from apps.api.routers import cts_outward_data
+from apps.api.routers import cts_custody
 from apps.api.routers import cts_outward_core
 from apps.api.routers import cts_inward
 from shared.config.config_service import config_service
@@ -49,6 +50,7 @@ from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
 from shared.auth.session_token import SessionTokenService
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -247,7 +249,7 @@ async def lifespan(app: FastAPI):
             _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
         else:
             # DB pool unavailable — auth service cannot be built
-            raise RuntimeError("db_pool_cts not available; cannot build AuthService")
+            raise RuntimeError(get_message("API_DB_POOL_CTS_NOT_AVAILABLE"))
 
         # TOTP secrets go to Vault — reuse config_service's shared hvac client
         # so we don't open a second Vault connection from the same env vars.
@@ -310,6 +312,20 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.warning("api_gateway.cache_invalidator_failed", error=str(exc))
 
+    # Outward maker-checker has no workflow to time out a staged decision, so a timer files the overdue ones.
+    outward_sweep_task = None
+    try:
+        from apps.api.routers.cts_outward_data import sweep_overdue_outward
+
+        async def _outward_sweep_loop() -> None:
+            while True:
+                await asyncio.sleep(60)
+                await sweep_overdue_outward(app, config_service.bank_id)
+
+        outward_sweep_task = asyncio.create_task(_outward_sweep_loop())
+    except Exception as exc:  # noqa: BLE001
+        log.warning("api_gateway.outward_sweep_failed_to_start", error=str(exc))
+
     # --- Mount microservice sub-applications --------------------------------
     # Each microservice is a standalone FastAPI app with its own lifespan.
     # Mounted here so the API gateway is the single public entry point (per
@@ -365,6 +381,13 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     log.info("api_gateway.shutting_down")
+
+    if outward_sweep_task:
+        outward_sweep_task.cancel()
+        try:
+            await asyncio.wait_for(outward_sweep_task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
 
     if cache_invalidator_task:
         cache_invalidator_task.cancel()
@@ -469,10 +492,12 @@ app.include_router(cts_ops.router_v1)
 app.include_router(cts_dashboard.router_v1)
 app.include_router(cts_smb.router_v1)
 app.include_router(cts_holds.router_v1)
+app.include_router(cts_bucket_lists.router_v1)
 app.include_router(cts_scanner.router_v1)
 app.include_router(cts_vault_ops.router_v1)
 app.include_router(cts_admin_ops.router_v1)
 app.include_router(cts_outward_data.router_v1)
+app.include_router(cts_custody.router_v1)
 app.include_router(cts_outward_core.router_v1)
 app.include_router(cts_inward.router_v1)
 if _env in ("development", "staging"):
@@ -487,12 +512,12 @@ async def _validation_handler(request: Request, exc: RequestValidationError) -> 
     from opentelemetry import trace
     span = trace.get_current_span()
     ctx = span.get_span_context() if span else None
-    request_id = format(ctx.trace_id, "032x") if ctx and ctx.is_valid() else "unknown"
+    request_id = format(ctx.trace_id, "032x") if ctx and ctx.is_valid else "unknown"
     return JSONResponse(
         status_code=422,
         content={
             "error_code": "INVALID_REQUEST",
-            "message": "Request validation failed. Check required fields and data types.",
+            "message": get_message("API_REQUEST_VALIDATION_FAILED_CHECK_REQU"),
             "request_id": request_id,
         },
     )

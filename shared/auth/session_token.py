@@ -31,6 +31,7 @@ from shared.auth.exceptions import (
     InvalidSessionError,
     SessionExpiredError,
 )
+from shared.messages import get_message
 
 _ALGORITHM = "RS256"
 _CSRF_BYTES = 32
@@ -51,7 +52,8 @@ class SessionClaims(BaseModel):
     role: str
     entity_type: str          # "sb" | "smb" | "branch" | "pu"
     entity_id: str
-    clearing_zones: list[str] = Field(default_factory=list)
+    pu_ids: list[str] = Field(default_factory=list)
+    branch_ids: list[str] = Field(default_factory=list)   # branches this user works at ([] = central staff)
     session_id: str           # JWT jti — Redis revocation key
     mfa_authenticated: bool
     issued_at: float
@@ -97,16 +99,17 @@ class SessionTokenService:
         entity_type: str,
         entity_id: str,
         mfa_authenticated: bool,
-        clearing_zones: Optional[list[str]] = None,
+        pu_ids: Optional[list[str]] = None,
+        branch_ids: Optional[list[str]] = None,
     ) -> IssuedSession:
         if self._priv is None:
-            raise RuntimeError("SessionTokenService has no private key — cannot issue")
+            raise RuntimeError(get_message("PLATFORM_SESSIONTOKENSERVICE_HAS_NO_PRIVATE_K"))
 
         now = int(time.time())
         exp = now + self._ttl
         session_id = secrets.token_urlsafe(_SESSION_ID_BYTES)
         csrf = secrets.token_urlsafe(_CSRF_BYTES)
-        zones = list(clearing_zones or [])
+        zones = list(pu_ids or [])
 
         payload = {
             "sub": user_id,
@@ -121,7 +124,8 @@ class SessionTokenService:
             "role": role,
             "entity_type": entity_type,
             "entity_id": entity_id,
-            "clearing_zones": zones,
+            "pu_ids": zones,
+            "branch_ids": list(branch_ids or []),
             "mfa_authenticated": bool(mfa_authenticated),
             "csrf": csrf,
         }
@@ -136,7 +140,8 @@ class SessionTokenService:
             role=role,
             entity_type=entity_type,
             entity_id=entity_id,
-            clearing_zones=zones,
+            pu_ids=zones,
+            branch_ids=list(branch_ids or []),
             session_id=session_id,
             mfa_authenticated=bool(mfa_authenticated),
             issued_at=float(now),
@@ -165,9 +170,9 @@ class SessionTokenService:
                 options={"require": ["exp", "iat", "iss", "jti", "sub"]},
             )
         except jwt.ExpiredSignatureError as exc:
-            raise SessionExpiredError("session token expired") from exc
+            raise SessionExpiredError(get_message("PLATFORM_SESSION_TOKEN_EXPIRED")) from exc
         except jwt.PyJWTError as exc:
-            raise InvalidSessionError(f"invalid session token: {exc}") from exc
+            raise InvalidSessionError(get_message("PLATFORM_INVALID_SESSION_TOKEN", exc=exc)) from exc
 
         try:
             return SessionClaims(
@@ -179,7 +184,8 @@ class SessionTokenService:
                 role=decoded["role"],
                 entity_type=decoded["entity_type"],
                 entity_id=decoded["entity_id"],
-                clearing_zones=list(decoded.get("clearing_zones", [])),
+                pu_ids=list(decoded.get("pu_ids", [])),
+                branch_ids=list(decoded.get("branch_ids", [])),
                 session_id=decoded["jti"],
                 mfa_authenticated=bool(decoded["mfa_authenticated"]),
                 issued_at=float(decoded["iat"]),
@@ -187,9 +193,9 @@ class SessionTokenService:
                 csrf_token=decoded["csrf"],
             )
         except KeyError as exc:
-            raise InvalidSessionError(f"session token missing claim: {exc}") from exc
+            raise InvalidSessionError(get_message("PLATFORM_SESSION_TOKEN_MISSING_CLAIM", exc=exc)) from exc
 
     def validate_csrf(self, claims: SessionClaims, presented: Optional[str]) -> None:
         """Constant-time compare the presented CSRF token to the bound claim."""
         if not presented or not hmac.compare_digest(str(claims.csrf_token), str(presented)):
-            raise CSRFValidationError("CSRF token mismatch")
+            raise CSRFValidationError(get_message("PLATFORM_CSRF_TOKEN_MISMATCH"))

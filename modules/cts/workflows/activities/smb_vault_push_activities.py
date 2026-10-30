@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -91,7 +92,7 @@ async def parse_and_validate_smb_push(
 
             path = pathlib.Path(inp.file_path)
             if not path.exists():
-                raise FileNotFoundError(f"SMB push file not found: {inp.file_path}")
+                raise FileNotFoundError(get_message("CTS_SMB_PUSH_FILE_NOT_FOUND", file_path=inp.file_path))
 
             from modules.cts.smb_ingest.parser import SMBPushParser
 

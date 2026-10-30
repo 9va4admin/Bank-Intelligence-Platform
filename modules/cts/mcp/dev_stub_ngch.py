@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from modules.cts.mcp.ngch_adapter import DuplicateFilingError
+from shared.messages import get_message
 
 _VALID_DECISIONS = ("CONFIRM", "RETURN")
 
@@ -52,13 +53,13 @@ class DevStubNGCHAdapter:
 
     def connect(self) -> None:
         if os.environ.get("ASTRA_ENV", "").lower() != "development":
-            raise RuntimeError("DevStubNGCHAdapter may only run with ASTRA_ENV=development")
+            raise RuntimeError(get_message("CTS_DEVSTUBNGCHADAPTER_MAY_ONLY_RUN_WITH"))
 
     async def file_decision(self, instrument_id: str, decision: str, workflow_id: str) -> dict:
         if decision not in _VALID_DECISIONS:
-            raise ValueError(f"Invalid decision '{decision}'. Must be one of: {_VALID_DECISIONS}")
+            raise ValueError(get_message("CTS_INVALID_DECISION_MUST_BE_ONE", decision=decision, VALID_DECISIONS=_VALID_DECISIONS))
         if workflow_id in self._filed:
-            raise DuplicateFilingError(f"duplicate filing for {instrument_id} (idempotency_key={workflow_id})")
+            raise DuplicateFilingError(get_message("CTS_DUPLICATE_FILING_FOR_IDEMPOTENCY_KEY", instrument_id=instrument_id, workflow_id=workflow_id))
         rec = {"acknowledgement_id": f"DEVSTUB-{uuid.uuid4().hex[:12].upper()}", "status": "ACCEPTED",
                "instrument_id": instrument_id, "decision": decision, "bank_id": self._bank_id}
         self._filed[workflow_id] = rec

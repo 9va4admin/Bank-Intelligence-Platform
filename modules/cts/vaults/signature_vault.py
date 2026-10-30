@@ -41,6 +41,7 @@ import structlog
 
 from shared.ai.signature_embedding import pack_embedding, unpack_embedding
 from shared.utils.pii_crypto import hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -89,8 +90,7 @@ class SignatureVault:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "SignatureVault.connect() has not been called. "
-                "Call it during service startup before querying the vault."
+                get_message("CTS_SIGNATUREVAULT_CONNECT_HAS_NOT_BEEN")
             )
 
     # ------------------------------------------------------------------

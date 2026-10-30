@@ -28,6 +28,7 @@ from shared.auth.connectors.local import LocalCredentials
 from shared.auth.exceptions import AuthenticationError, InvalidSessionError
 from shared.auth.mfa import EnrollmentChallenge, TOTPMFAService
 from shared.auth.session_token import IssuedSession, SessionClaims, SessionTokenService
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -76,7 +77,7 @@ class AuthService:
         db_pool=None,              # asyncpg Pool — optional; absent → no DB writes (test mode)
     ) -> None:
         if connector is None and connector_factory is None:
-            raise ValueError("either connector or connector_factory must be provided")
+            raise ValueError(get_message("PLATFORM_EITHER_CONNECTOR_OR_CONNECTOR_FACTOR"))
         self._connector = connector
         self._connector_factory = connector_factory
         self._mfa = mfa
@@ -214,7 +215,7 @@ class AuthService:
                 user_id=interim.user_id, event_type="TOTP_FAILED",
                 failure_reason="TOTP_MISMATCH",
             )
-            raise AuthenticationError("invalid MFA code")
+            raise AuthenticationError(get_message("PLATFORM_INVALID_MFA_CODE"))
         log.info("auth.mfa.verified", user_id=interim.user_id)
         session = self._issue_from_claims(interim, mfa_authenticated=True)
         await self._persist_session(session)
@@ -241,7 +242,7 @@ class AuthService:
                 user_id=interim.user_id, event_type="TOTP_FAILED",
                 failure_reason="TOTP_MISMATCH",
             )
-            raise AuthenticationError("invalid enrolment code")
+            raise AuthenticationError(get_message("PLATFORM_INVALID_ENROLMENT_CODE"))
         await self._accounts.set_totp_enrolled(interim.user_id, True)
         log.info("auth.mfa.enrolled", user_id=interim.user_id)
         session = self._issue_from_claims(interim, mfa_authenticated=True)
@@ -257,7 +258,7 @@ class AuthService:
 
     async def refresh(self, claims: SessionClaims) -> IssuedSession:
         if not claims.mfa_authenticated:
-            raise InvalidSessionError("cannot refresh a pre-MFA session")
+            raise InvalidSessionError(get_message("PLATFORM_CANNOT_REFRESH_A_PRE_MFA"))
         return self._issue_from_claims(claims, mfa_authenticated=True)
 
     # -- internals ---------------------------------------------------------- #
@@ -265,7 +266,7 @@ class AuthService:
     @staticmethod
     def _require_half_session(claims: SessionClaims) -> None:
         if claims.mfa_authenticated:
-            raise InvalidSessionError("session is already MFA-authenticated")
+            raise InvalidSessionError(get_message("PLATFORM_SESSION_IS_ALREADY_MFA_AUTHENTICATED"))
 
     def _issue_from_identity(self, identity: ASTRAIdentity, *, mfa_authenticated: bool) -> IssuedSession:
         return self._session.issue(
@@ -277,7 +278,8 @@ class AuthService:
             role=identity.role,
             entity_type=identity.entity_type,
             entity_id=identity.entity_id,
-            clearing_zones=identity.clearing_zones,
+            pu_ids=identity.pu_ids,
+            branch_ids=identity.branch_ids,
             mfa_authenticated=mfa_authenticated,
         )
 
@@ -291,6 +293,7 @@ class AuthService:
             role=c.role,
             entity_type=c.entity_type,
             entity_id=c.entity_id,
-            clearing_zones=c.clearing_zones,
+            pu_ids=c.pu_ids,
+            branch_ids=c.branch_ids,
             mfa_authenticated=mfa_authenticated,
         )

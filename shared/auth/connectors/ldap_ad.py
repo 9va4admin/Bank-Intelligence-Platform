@@ -12,6 +12,7 @@ from shared.auth.exceptions import (
     AuthorizationError,
     LDAPServerUnreachableError,
 )
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -37,7 +38,7 @@ class LDAPADConnectorConfig(BaseModel):
     @classmethod
     def require_ldaps(cls, v: str) -> str:
         if not v.startswith("ldaps://"):
-            raise ValueError("LDAPS required — use ldaps:// (port 636). Plain ldap:// rejected.")
+            raise ValueError(get_message("PLATFORM_LDAPS_REQUIRED_USE_LDAPS_PORT"))
         return v
 
 
@@ -60,13 +61,13 @@ class LDAPADConnector(AuthConnector):
         entity_type: str,
         entity_id: str,
         bank_id: str,
-        clearing_zones: Optional[list[str]] = None,
+        pu_ids: Optional[list[str]] = None,
     ) -> None:
         self.config = config
         self.entity_type = entity_type
         self.entity_id = entity_id
         self.bank_id = bank_id
-        self.clearing_zones = clearing_zones or []
+        self.pu_ids = pu_ids or []
 
     @property
     def connector_type(self) -> str:
@@ -80,13 +81,13 @@ class LDAPADConnector(AuthConnector):
             entry = await self._ldap_bind_and_search(credentials.username, credentials.password)
         except ldap_exc.LDAPBindError as exc:
             log.warn("auth.ldap.bind_failed", bank_id=self.bank_id, username=credentials.username)
-            raise AuthenticationError("invalid credentials") from exc
+            raise AuthenticationError(get_message("API_INVALID_CREDENTIALS")) from exc
         except ldap_exc.LDAPSocketOpenError as exc:
             log.error("auth.ldap.server_unreachable", bank_id=self.bank_id, server=self.config.server_url)
             raise LDAPServerUnreachableError(str(exc)) from exc
 
         if entry is None:
-            raise AuthenticationError(f"user '{credentials.username}' not found in directory")
+            raise AuthenticationError(get_message("PLATFORM_USER_NOT_FOUND_IN_DIRECTORY", username=credentials.username))
 
         # Map AD groups to ASTRA role
         member_of: list[str] = getattr(entry.memberOf, "values", []) or []
@@ -99,8 +100,7 @@ class LDAPADConnector(AuthConnector):
         if role is None:
             log.warn("auth.ldap.no_role_mapping", bank_id=self.bank_id, username=credentials.username, groups=member_of)
             raise AuthorizationError(
-                f"user '{credentials.username}' authenticated but has no ASTRA role mapping. "
-                f"Add their AD group to group_role_map."
+                get_message("PLATFORM_USER_AUTHENTICATED_BUT_HAS_NO", username=credentials.username)
             )
 
         display_name: str = getattr(entry.displayName, "value", credentials.username) or credentials.username
@@ -115,7 +115,7 @@ class LDAPADConnector(AuthConnector):
             entity_id=self.entity_id,
             bank_id=self.bank_id,
             role=role,
-            clearing_zones=self.clearing_zones,
+            pu_ids=self.pu_ids,
             connector_used="ldap_ad",
         )
 

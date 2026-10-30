@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from shared.auth.connectors.base import ASTRAIdentity
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -171,8 +172,7 @@ async def run_single_test(
     allowed = _ENTITY_TESTS.get(entity_type, [])
     if test_id not in allowed:
         raise EntityScopeMismatchError(
-            f"test '{test_id}' is not in scope for entity_type='{entity_type}'. "
-            f"Allowed: {allowed}"
+            get_message("API_TEST_IS_NOT_IN_SCOPE", test_id=test_id, entity_type=entity_type, allowed=allowed)
         )
 
     runner = _TEST_RUNNERS.get(test_id)
@@ -183,7 +183,7 @@ async def run_single_test(
             entity_scope=entity_type,
             status=SmokeTestStatus.SKIP,
             latency_ms=None,
-            message="Test runner not yet implemented for this environment.",
+            message=get_message("API_TEST_RUNNER_NOT_YET_IMPLEMENTED"),
         )
 
     t0 = time.monotonic()

@@ -4,6 +4,12 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from apps.api.routers.cts_inward import ReviewDecisionRequest, submit_review_decision
+from shared.auth.rbac import Role
+
+
+def _reviewer():
+    c = MagicMock(); c.role = Role.OPS_REVIEWER
+    return c
 
 
 def _pool(conn):
@@ -20,9 +26,9 @@ async def test_inward_decision_is_recorded(monkeypatch):
     async def fake_decide(conn, **kw):
         seen.update(kw); return True
     monkeypatch.setattr("apps.api.routers.cts_inward.decide_by_instrument", fake_decide)
-    req = MagicMock(); req.app.state.temporal_client = None; req.app.state.db_pool_cts = _pool(AsyncMock())
+    req = MagicMock(); req.app.state.temporal_client = None; req.app.state.redis_cts = None; req.app.state.config_service = None; req.app.state.db_pool_cts = _pool(AsyncMock())
     await submit_review_decision(instrument_id="INST-9", body=ReviewDecisionRequest(action="RETURN", reason="tampered"),
-                                 request=req, bank_id="kbl", reviewer_id="usr-rev-1")
+                                 request=req, bank_id="kbl", reviewer_id="usr-rev-1", ctx=_reviewer())
     assert seen["direction"] == "INWARD" and seen["instrument_ref"] == "INST-9"
     assert seen["decision"] == "RETURN" and seen["reviewer_id"] == "usr-rev-1" and seen["notes"] == "tampered"
 
@@ -32,7 +38,7 @@ async def test_inward_decision_still_succeeds_if_the_queue_write_fails(monkeypat
     async def boom(conn, **kw):
         raise RuntimeError("db down")
     monkeypatch.setattr("apps.api.routers.cts_inward.decide_by_instrument", boom)
-    req = MagicMock(); req.app.state.temporal_client = None; req.app.state.db_pool_cts = _pool(AsyncMock())
+    req = MagicMock(); req.app.state.temporal_client = None; req.app.state.redis_cts = None; req.app.state.config_service = None; req.app.state.db_pool_cts = _pool(AsyncMock())
     res = await submit_review_decision(instrument_id="INST-9", body=ReviewDecisionRequest(action="CONFIRM", reason="ok"),
-                                       request=req, bank_id="kbl", reviewer_id="u")
+                                       request=req, bank_id="kbl", reviewer_id="u", ctx=_reviewer())
     assert res.instrument_id == "INST-9"

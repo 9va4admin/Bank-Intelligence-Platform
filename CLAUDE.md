@@ -144,6 +144,29 @@ activity result (Temporal history). A failed lookup degrades to "no name" and ne
 Surfaced as `drawee_name` on the inward queue and decision-log API rows and in the review UI. Outward Payee
 Name (front OCR + back endorsement + deposit-slip account → vault) is separate and not yet built.
 
+### 2.12 No Zone Concept - Branch Maps to a Processing Unit (2026-10-29, bank owner)
+
+A bank files to a **single NGCH grid** today, and a bank may have **one or more processing units (PUs)**. A branch maps to exactly one PU
+(`branches.pu_id`) - that is the whole model; there are **no clearing zones**. A PU is a group of branches handled together (its own Temporal
+queue and Kafka inward topic), not a grid. Done: the one-PU-per-zone index is gone and `clearing_zone` / `ngch_participant_code` are optional
+on a PU (migration `20261029_034`); reviewers are scoped to PUs (`UserContext.pu_ids`, JWT claim `pu_ids`, `local_auth_accounts.pu_ids`) and
+allocation scopes by `pu_id` (`pu_allows`, item meta `pu_id`, `reviewer-pus:` Redis key); the RRF and CRL no longer carry a zone (NPCI's
+specifications in `docs/npci/source/` define no zone element - checked); day-end sealing files every PU's lots under the one bank-default
+centre; MICR routing rules and the NGCH routing screen have no zone; no screen shows a zone (a test fails the build if one does). **Retired (2026-10-29):** the RPC consolidation page, its route and nav entry, and `GET /v1/cts/rpc/zones` (a removal agreed with the bank
+owner; the API was never released to a bank, so no `/v2` was needed). **Dropped from the schema** (cts migration `20261029_037`, platform
+`20261029_drop_clearing_zones`): the tables `cts.clearing_zones` / `processing_centers` / `rpc_zones`, every `center_id` column
+(`clearing_sessions`, `cheque_instruments`, `branches_master`) and the zone columns (`processing_units.clearing_zone`,
+`human_review_items.assigned_zone`, `local_auth_accounts.clearing_zones`). A clearing session now carries no centre. The migration drops
+columns in one step, an explicit exception to the rename-keep-drop rule in the database rules, because the owner asked and nothing read them.
+The Helm `clearing_zones` values keys are gone too; the IdP attribute for reviewer scope is now `pu_ids` (optional `branch_ids`).
+
+**Outward (2026-10-29):** the session cut-off is bank configuration (`cts.outward_session_cutoffs`, a list of local "HH:MM", default 14:30;
+`outward_session_timezone`; `modules/cts/outward_sessions.py`) and drives allocation urgency, filing of staged decisions
+`outward_cutoff_guard_minutes` before the cut-off, and the checker timeout. Outward items carry their branch's PU in the allocation record.
+Who may make a decision is `cts.outward_maker_scope` = CENTRAL (default) | BRANCH | BRANCH_FIRST (+ `outward_branch_first_fallback_minutes`),
+and who may check is `outward_checker_scope` = ANY | CENTRAL (`modules/cts/outward_scope.py`); a user is branch staff when assigned branches
+(`branch_ids`, set in User Management) and central staff when not. Outward buckets, the Allocation panel rows and the original-instrument custody register (branch first, then central storage) are built.
+
 ### 2.11 Inward Safety Gates Added After Real-Image Testing (2026-10-13)
 
 Found by running 70 real KBL instruments (Lots 1, 2, 3) end to end; each has tests and, where stated, a live check.
@@ -208,6 +231,38 @@ Evidence: [docs/evaluation/inward_evaluation.md](docs/evaluation/inward_evaluati
   to the IET (`sip_iet_guard_minutes`), for sub-member cheques, or on any failure. Everything is off until `cts.bucket_routing_enabled`.
   Open: real CBS adapters do not yet fill `AccountInfo.account_type`, so CA/IP rely on the bank's account lists
   (`cts.bucket_account_lists`) until each adapter maps its scheme codes; an admin screen for those lists is not built.
+- **Maker-checker (2026-10-28).** `cts.maker_checker_enabled` (off by default): a reviewer's first decision (the maker's) is not filed; the item moves to
+  the `VAL` bucket and a different person confirms or overrules it (`POST /v1/cts/review/{id}/validate`; the maker is refused at claim, assign and
+  validate). No checker within `checker_review_timeout_minutes` files the maker's decision (never past the IET guard). Outward held items use
+  `cts.outward_review_stage` and `/outward/review/{id}/validate`. Outward held items share the inward allocation locks and heartbeat pool
+  (no buckets): a reviewer holds an item while deciding, AUTO mode assigns on queue poll (HYBRID does not), the maker's decision releases it for a
+  checker (never the maker), and a staged decision no checker takes within `checker_review_timeout_minutes` is filed on the maker's word when the
+  validation queue is next read (outward has no workflow to time out). Found by the first live 4-user run
+  ([report](docs/reports/ASTRA_4User_MakerChecker_E2E_2026-10-28.md), kept untracked): approved admin settings had never been applied, and the reviewer
+  queue had always been empty on a real Temporal (it used a search attribute nothing set) - both fixed.
+- **Custody of original instruments (2026-10-29).** Accepted outward originals stay at the branch, are handed over in a batch (courier
+  reference), are received at central storage by a *different* person (items not in the box become MISSING and the batch a DISCREPANCY),
+  are kept to `cts.custody_retention_years`, then disposed of by a manager only after retention ends. `cts.custody_branch_hold_days` flags
+  late handovers. Tables `cts.instrument_custody`, `cts.custody_handovers`, append-only `cts.custody_events` (migration `20261029_036`);
+  rows are registered lazily from accepted `outward_scan_events`, no workflow hook. Router `cts_custody.py`, screen `CTSCustody.jsx`
+  (`/cts/outward/custody`). Open: the 10-year default is a placeholder to confirm with the bank; no per-SMB scoping yet.
+- **Outward timers and HYBRID (2026-10-29).** The API runs a 60-second sweep (`sweep_overdue_outward`) that files staged outward decisions no checker took
+  within `checker_review_timeout_minutes` or that are inside `outward_cutoff_guard_minutes` of the cut-off; it no longer depends on someone opening
+  the validation queue. Outward HYBRID leaves an item for self-claim until it has waited `hybrid_auto_assign_timeout_minutes`, then assigns it like AUTO.
+  A reviewer's access is read from the database on every CTS request (`get_current_user_context`): PUs and branches for locally managed accounts, and
+  the active flag, so an admin narrowing access or disabling an account takes effect on the very next request, not at session refresh. Bucket
+  subscriptions were already read per request. Users who sign in through an identity provider have no local row and keep the scope the provider gave
+  them. If the lookup fails the session's scope is used (a database blip must not lock every reviewer out). Items already locked by a reviewer
+  keep their lock until it expires (10 minutes), but every decision re-checks scope. Still open: real CBS adapters do not map `account_type` (needs each CBS's real
+  scheme-code field), and the custody retention default (10 years) is a placeholder to confirm with the bank.
+- **All wording is in the message taxonomy (2026-10-30).** Every piece of text a person reads, in the web app and in Python code, is a message in
+  `shared/messages/locales/messages.yaml` (4,100+ keys) and is asked for with `msg('KEY', {vars})` (web) or `get_message("KEY", name=value)` (Python).
+  Tools: `apps/web/scripts/i18n/` (`wording.mjs` detector, `convert.mjs` converter, `scan.mjs`) and `scripts/i18n_convert_py.py`; after a conversion run
+  `python -m shared.messages.build` and commit the YAML, the web bundles and `docs/CTS_Msg_Taxonomy.html` together. Guards fail the build on new
+  literal wording: `apps/web/src/shared/noLiteralWording.test.js` and `tests/shared/messages/test_python_wording_guard.py` (plus the key-exists checks in
+  `test_message_usage_guard.py`). The web app loads the bundle before importing any screen (`main.jsx`), because converted constants call `msg()` at
+  import time; `screens.smoke.test.jsx` renders every page and fails on a crash or a raw key. Placeholders may not be named `key` or `locale`.
+  Not covered: `apps/web-sb-only` (a separate copy of the app), `bank.config.js` (bank identity configuration), and the Hindi texts (stubs until translated).
 - **Never `git add` a whole directory under `docs/`.** Real customer instruments live untracked under
   `docs/cheques/KBL/` and are now ignored; a broad add once pushed 221 of them (history rewritten).
 
@@ -361,7 +416,7 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 
 | Role | Module Access | Data Access | Config Access |
 |---|---|---|---|
-| ops_reviewer | CTS human queue | Own zone only | None |
+| ops_reviewer | CTS human queue | Own processing unit(s) only | None |
 | fraud_analyst | CTS analytics | Scores + SHAP, no PII | None |
 | ops_manager | CTS full | Cross-zone reports | Layer 3 |
 | bank_it_admin | Admin console | Infrastructure only | Layer 2 (maker-checker) |
@@ -369,7 +424,7 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 | rbi_examiner | Audit only (time-scoped) | Read-only, date-scoped | None |
 | ml_engineer | AI server + MLflow | Inference logs, no customer data | None |
 
-ABAC on top: `ops_reviewer` scoped to `clearing_zone`; all roles scoped to `bank_id`.
+ABAC on top: `ops_reviewer` scoped to processing units (`pu_ids`); all roles scoped to `bank_id`.
 
 ---
 

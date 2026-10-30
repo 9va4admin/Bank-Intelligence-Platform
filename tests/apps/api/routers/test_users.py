@@ -79,7 +79,7 @@ class TestCreateUser:
             "email": "newuser@bank.com",
             "display_name": "New User",
             "role": "ops_reviewer",
-            "clearing_zone": "MUMBAI",
+            "pu_id": "MUMBAI",
         })
         assert resp.status_code == 201
         data = resp.json()
@@ -369,3 +369,25 @@ class TestSMBRolesAcceptedInValidRoleSet:
             "permission_level": "READ_ONLY",
         })
         assert resp.status_code == 201
+
+
+class TestBranchAssignment:
+    """A user may be assigned to branches (a branch maker); no branches means central staff."""
+
+    def test_a_user_is_created_with_branches_and_they_come_back(self, client):
+        resp = client.post("/v1/admin/users", headers=_AUTH, json={
+            "email": "branchmaker@bank.com", "display_name": "Branch Maker", "role": "ops_reviewer",
+            "pu_id": "ALL", "branch_ids": ["BR-001", "BR-002"]})
+        assert resp.status_code == 201 and resp.json()["branch_ids"] == ["BR-001", "BR-002"]
+
+    def test_a_user_without_branches_is_central_staff(self, client):
+        resp = client.post("/v1/admin/users", headers=_AUTH, json={
+            "email": "central@bank.com", "display_name": "Central Person", "role": "ops_reviewer", "pu_id": "ALL"})
+        assert resp.status_code == 201 and resp.json()["branch_ids"] == []
+
+    def test_branches_can_be_changed(self, client):
+        made = client.post("/v1/admin/users", headers=_AUTH, json={
+            "email": "move@bank.com", "display_name": "Move Me", "role": "ops_reviewer", "pu_id": "ALL",
+            "branch_ids": ["BR-001"]}).json()
+        resp = client.put(f"/v1/admin/users/{made['user_id']}", headers=_AUTH, json={"branch_ids": []})
+        assert resp.status_code == 200 and resp.json()["branch_ids"] == []

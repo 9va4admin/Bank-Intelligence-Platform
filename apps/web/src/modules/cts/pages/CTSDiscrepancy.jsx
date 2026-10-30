@@ -3,43 +3,44 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import useMismatches from '../hooks/useMismatches'
+import { msg } from '../../../shared/messages'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const DISC_TYPES_D = {
-  AMOUNT_MISMATCH:   { label: 'Amount Mismatch',        color: 'text-red-400',    bg: 'bg-red-900/30 border-red-700/40',       icon: '₹' },
-  MICR_ERROR:        { label: 'MICR Read Error',         color: 'text-orange-400', bg: 'bg-orange-900/30 border-orange-700/40', icon: '⊟' },
-  LOT_COUNT_DIFF:    { label: 'Lot Count Mismatch',      color: 'text-amber-400',  bg: 'bg-amber-900/30 border-amber-700/40',   icon: '≠' },
-  STALE_DATE:        { label: 'Stale Dated',             color: 'text-violet-400', bg: 'bg-violet-900/30 border-violet-700/40', icon: '📅' },
-  POST_DATE:         { label: 'Post Dated',              color: 'text-blue-400',   bg: 'bg-blue-900/30 border-blue-700/40',     icon: '📅' },
-  WORDS_FIGURES:     { label: 'Words/Figures Diff',      color: 'text-rose-400',   bg: 'bg-rose-900/30 border-rose-700/40',     icon: 'Ξ' },
-  DUPLICATE:         { label: 'Duplicate Instrument',    color: 'text-red-400',    bg: 'bg-red-900/30 border-red-700/40',       icon: '⊕' },
-  UNPROCESSED:       { label: 'Unprocessed Item',        color: 'text-slate-400',  bg: 'bg-slate-800/60 border-slate-600/40',   icon: '⌛' },
-  EXTENSION_FILE:    { label: 'Extension File Item',     color: 'text-cyan-400',   bg: 'bg-cyan-900/30 border-cyan-700/40',     icon: '↗' },
+  AMOUNT_MISMATCH:   { label: msg('UI_DEMOLIVE_AMOUNT_MISMATCH'),        color: 'text-red-400',    bg: 'bg-red-900/30 border-red-700/40',       icon: '₹' },
+  MICR_ERROR:        { label: msg('UI_DISCREPANCY_MICR_READ_ERROR'),         color: 'text-orange-400', bg: 'bg-orange-900/30 border-orange-700/40', icon: '⊟' },
+  LOT_COUNT_DIFF:    { label: msg('UI_DISCREPANCY_LOT_COUNT_MISMATCH'),      color: 'text-amber-400',  bg: 'bg-amber-900/30 border-amber-700/40',   icon: '≠' },
+  STALE_DATE:        { label: msg('UI_DISCREPANCY_STALE_DATED'),             color: 'text-violet-400', bg: 'bg-violet-900/30 border-violet-700/40', icon: '📅' },
+  POST_DATE:         { label: msg('UI_DISCREPANCY_POST_DATED'),              color: 'text-blue-400',   bg: 'bg-blue-900/30 border-blue-700/40',     icon: '📅' },
+  WORDS_FIGURES:     { label: msg('UI_DISCREPANCY_WORDS_FIGURES_DIFF'),      color: 'text-rose-400',   bg: 'bg-rose-900/30 border-rose-700/40',     icon: 'Ξ' },
+  DUPLICATE:         { label: msg('UI_DISCREPANCY_DUPLICATE_INSTRUMENT'),    color: 'text-red-400',    bg: 'bg-red-900/30 border-red-700/40',       icon: '⊕' },
+  UNPROCESSED:       { label: msg('UI_DISCREPANCY_UNPROCESSED_ITEM'),        color: 'text-slate-400',  bg: 'bg-slate-800/60 border-slate-600/40',   icon: '⌛' },
+  EXTENSION_FILE:    { label: msg('UI_DISCREPANCY_EXTENSION_FILE_ITEM'),     color: 'text-cyan-400',   bg: 'bg-cyan-900/30 border-cyan-700/40',     icon: '↗' },
 }
 const DISC_TYPES_L = {
-  AMOUNT_MISMATCH:   { label: 'Amount Mismatch',        color: 'text-red-700',    bg: 'bg-red-50 border-red-200',              icon: '₹' },
-  MICR_ERROR:        { label: 'MICR Read Error',         color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200',        icon: '⊟' },
-  LOT_COUNT_DIFF:    { label: 'Lot Count Mismatch',      color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',          icon: '≠' },
-  STALE_DATE:        { label: 'Stale Dated',             color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200',        icon: '📅' },
-  POST_DATE:         { label: 'Post Dated',              color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',            icon: '📅' },
-  WORDS_FIGURES:     { label: 'Words/Figures Diff',      color: 'text-rose-700',   bg: 'bg-rose-50 border-rose-200',            icon: 'Ξ' },
-  DUPLICATE:         { label: 'Duplicate Instrument',    color: 'text-red-700',    bg: 'bg-red-50 border-red-200',              icon: '⊕' },
-  UNPROCESSED:       { label: 'Unprocessed Item',        color: 'text-slate-600',  bg: 'bg-slate-100 border-slate-300',         icon: '⌛' },
-  EXTENSION_FILE:    { label: 'Extension File Item',     color: 'text-cyan-700',   bg: 'bg-cyan-50 border-cyan-200',            icon: '↗' },
+  AMOUNT_MISMATCH:   { label: msg('UI_DEMOLIVE_AMOUNT_MISMATCH'),        color: 'text-red-700',    bg: 'bg-red-50 border-red-200',              icon: '₹' },
+  MICR_ERROR:        { label: msg('UI_DISCREPANCY_MICR_READ_ERROR'),         color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200',        icon: '⊟' },
+  LOT_COUNT_DIFF:    { label: msg('UI_DISCREPANCY_LOT_COUNT_MISMATCH'),      color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',          icon: '≠' },
+  STALE_DATE:        { label: msg('UI_DISCREPANCY_STALE_DATED'),             color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200',        icon: '📅' },
+  POST_DATE:         { label: msg('UI_DISCREPANCY_POST_DATED'),              color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',            icon: '📅' },
+  WORDS_FIGURES:     { label: msg('UI_DISCREPANCY_WORDS_FIGURES_DIFF'),      color: 'text-rose-700',   bg: 'bg-rose-50 border-rose-200',            icon: 'Ξ' },
+  DUPLICATE:         { label: msg('UI_DISCREPANCY_DUPLICATE_INSTRUMENT'),    color: 'text-red-700',    bg: 'bg-red-50 border-red-200',              icon: '⊕' },
+  UNPROCESSED:       { label: msg('UI_DISCREPANCY_UNPROCESSED_ITEM'),        color: 'text-slate-600',  bg: 'bg-slate-100 border-slate-300',         icon: '⌛' },
+  EXTENSION_FILE:    { label: msg('UI_DISCREPANCY_EXTENSION_FILE_ITEM'),     color: 'text-cyan-700',   bg: 'bg-cyan-50 border-cyan-200',            icon: '↗' },
 }
 
 const STATUS_D = {
-  OPEN:       { label: 'Open',       cls: 'text-amber-300   bg-amber-900/40   border-amber-700/40'   },
-  ESCALATED:  { label: 'Escalated',  cls: 'text-red-300     bg-red-900/40     border-red-700/40'     },
-  RESOLVED:   { label: 'Resolved',   cls: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/40' },
-  RETURNED:   { label: 'Returned',   cls: 'text-slate-300   bg-slate-800/60   border-slate-600/40'   },
+  OPEN:       { label: msg('UI_DISCREPANCY_OPEN'),       cls: 'text-amber-300   bg-amber-900/40   border-amber-700/40'   },
+  ESCALATED:  { label: msg('UI_DISCREPANCY_ESCALATED'),  cls: 'text-red-300     bg-red-900/40     border-red-700/40'     },
+  RESOLVED:   { label: msg('UI_DISCREPANCY_RESOLVED'),   cls: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/40' },
+  RETURNED:   { label: msg('UI_COMMON_RETURNED'),   cls: 'text-slate-300   bg-slate-800/60   border-slate-600/40'   },
 }
 const STATUS_L = {
-  OPEN:       { label: 'Open',       cls: 'text-amber-700   bg-amber-50   border-amber-200'   },
-  ESCALATED:  { label: 'Escalated',  cls: 'text-red-700     bg-red-50     border-red-200'     },
-  RESOLVED:   { label: 'Resolved',   cls: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-  RETURNED:   { label: 'Returned',   cls: 'text-slate-600   bg-slate-100  border-slate-300'   },
+  OPEN:       { label: msg('UI_DISCREPANCY_OPEN'),       cls: 'text-amber-700   bg-amber-50   border-amber-200'   },
+  ESCALATED:  { label: msg('UI_DISCREPANCY_ESCALATED'),  cls: 'text-red-700     bg-red-50     border-red-200'     },
+  RESOLVED:   { label: msg('UI_DISCREPANCY_RESOLVED'),   cls: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+  RETURNED:   { label: msg('UI_COMMON_RETURNED'),   cls: 'text-slate-600   bg-slate-100  border-slate-300'   },
 }
 
 const SB_BRANCHES_DISC  = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi']
@@ -163,15 +164,15 @@ export default function CTSDiscrepancy() {
         <div className={`shrink-0 border-b px-6 py-4 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className={`text-lg font-semibold ${th.h1}`}>Discrepancy Register</h1>
-              <p className={`text-xs mt-0.5 ${th.sub}`}>Unprocessed items · Amount mismatches · Lot count differences · Extension file items</p>
+              <h1 className={`text-lg font-semibold ${th.h1}`}>{msg('UI_DISCREPANCY_DISCREPANCY_REGISTER')}</h1>
+              <p className={`text-xs mt-0.5 ${th.sub}`}>{msg('UI_DISCREPANCY_UNPROCESSED_ITEMS_AMOUNT_MISMATCHES')}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-xs px-2 py-1 rounded border ${isDark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
-                Session: 19-Jun-2026
+               {msg('UI_DISCREPANCY_SESSION_19_JUN_2026')}
               </span>
               <button className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-600/30' : 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'}`}>
-                Export Register
+               {msg('UI_DISCREPANCY_EXPORT_REGISTER')}
               </button>
             </div>
           </div>
@@ -179,11 +180,11 @@ export default function CTSDiscrepancy() {
           {/* KPI Strip */}
           <div className="grid grid-cols-5 gap-3 mt-4">
             {[
-              { label: 'Total Items',  val: SUMMARY.total,     color: th.val },
-              { label: 'Open',         val: SUMMARY.open,      color: isDark ? 'text-amber-400' : 'text-amber-600' },
-              { label: 'Escalated',    val: SUMMARY.escalated, color: isDark ? 'text-red-400' : 'text-red-600' },
-              { label: 'Resolved',     val: SUMMARY.resolved,  color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-              { label: 'Returned',     val: SUMMARY.returned,  color: isDark ? 'text-slate-400' : 'text-slate-500' },
+              { label: msg('UI_DISCREPANCY_TOTAL_ITEMS'),  val: SUMMARY.total,     color: th.val },
+              { label: msg('UI_DISCREPANCY_OPEN'),         val: SUMMARY.open,      color: isDark ? 'text-amber-400' : 'text-amber-600' },
+              { label: msg('UI_DISCREPANCY_ESCALATED'),    val: SUMMARY.escalated, color: isDark ? 'text-red-400' : 'text-red-600' },
+              { label: msg('UI_DISCREPANCY_RESOLVED'),     val: SUMMARY.resolved,  color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+              { label: msg('UI_COMMON_RETURNED'),     val: SUMMARY.returned,  color: isDark ? 'text-slate-400' : 'text-slate-500' },
             ].map(k => (
               <div key={k.label} className={`rounded-lg border px-4 py-3 ${th.card}`}>
                 <div className={`text-2xl font-bold font-mono ${k.color}`}>{k.val}</div>
@@ -198,12 +199,12 @@ export default function CTSDiscrepancy() {
 
           {/* Left: type breakdown sidebar */}
           <div className={`w-52 shrink-0 border-r p-3 overflow-y-auto ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
-            <p className={`text-[10px] uppercase tracking-widest font-semibold mb-2 ${th.label}`}>By Type</p>
+            <p className={`text-[10px] uppercase tracking-widest font-semibold mb-2 ${th.label}`}>{msg('UI_DISCREPANCY_BY_TYPE')}</p>
             <button
               onClick={() => setTypeFilter('ALL')}
               className={`w-full text-left px-2 py-1.5 rounded text-xs mb-1 flex justify-between items-center ${typeFilter === 'ALL' ? (isDark ? 'bg-cyan-600/20 text-cyan-300' : 'bg-cyan-50 text-cyan-700') : `${th.sub} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}`}
             >
-              <span>All Types</span>
+              <span>{msg('UI_DISCREPANCY_ALL_TYPES')}</span>
               <span className={`font-mono text-[10px] ${th.badge} px-1.5 py-0.5 rounded`}>{ALL_DISCS.length}</span>
             </button>
             {TYPE_COUNTS.map(({ key, count }) => {
@@ -230,18 +231,18 @@ export default function CTSDiscrepancy() {
             <div className={`shrink-0 px-4 py-2 border-b flex items-center gap-2 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
               <input
                 className={`text-xs px-3 py-1.5 rounded-lg border flex-1 min-w-0 ${th.inp}`}
-                placeholder="Search instrument, lot, detail…"
+                placeholder={msg('UI_DISCREPANCY_SEARCH_INSTRUMENT_LOT_DETAIL')}
                 value={search} onChange={e => setSearch(e.target.value)}
               />
               <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="ALL">All Status</option>
+                <option value="ALL">{msg('UI_BATCHES_ALL_STATUS')}</option>
                 {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
-                <option value="ALL">All Branches</option>
+                <option value="ALL">{msg('UI_BATCHES_ALL_BRANCHES')}</option>
                 {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
-              <span className={`text-xs shrink-0 ${th.sub}`}>{filtered.length} items</span>
+              <span className={`text-xs shrink-0 ${th.sub}`}>{msg('UI_DISCREPANCY_ITEMS', { count: filtered.length })}</span>
             </div>
 
             {/* Table */}
@@ -249,7 +250,7 @@ export default function CTSDiscrepancy() {
               <table className="w-full text-xs">
                 <thead className={`sticky top-0 ${isDark ? 'bg-[#020817]' : 'bg-slate-50'}`}>
                   <tr className={`border-b ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
-                    {['ID', 'Instrument', 'Type', 'Branch', 'Detail', 'Raised', 'Status'].map(h => (
+                    {['ID', msg('CTS_OUT_CUSTODY_COL_INSTRUMENT'), msg('UI_DISCREPANCY_TYPE'), msg('CTS_OUT_CUSTODY_COL_BRANCH'), msg('UI_DISCREPANCY_DETAIL'), msg('UI_DISCREPANCY_RAISED'), msg('UI_COMMON_STATUS')].map(h => (
                       <th key={h} className={`text-left px-3 py-2 font-medium ${th.label}`}>{h}</th>
                     ))}
                   </tr>
@@ -304,18 +305,18 @@ export default function CTSDiscrepancy() {
                 </div>
 
                 {[
-                  { label: 'Branch',    val: sel.branch },
-                  { label: 'Session',   val: sel.session },
-                  { label: 'Lot',       val: sel.lot.split('_').slice(-1)[0] },
-                  { label: 'MICR Amt',  val: sel.micr_amount },
-                  ...(sel.type === 'AMOUNT_MISMATCH' ? [{ label: 'OCR Amt', val: sel.actual_amount }] : []),
-                  ...(sel.type === 'WORDS_FIGURES'   ? [{ label: 'Words Amt', val: sel.words_amount }] : []),
+                  { label: msg('CTS_OUT_CUSTODY_COL_BRANCH'),    val: sel.branch },
+                  { label: msg('UI_COMMON_SESSION'),   val: sel.session },
+                  { label: msg('UI_COMMON_LOT'),       val: sel.lot.split('_').slice(-1)[0] },
+                  { label: msg('UI_DISCREPANCY_MICR_AMT'),  val: sel.micr_amount },
+                  ...(sel.type === 'AMOUNT_MISMATCH' ? [{ label: msg('UI_DISCREPANCY_OCR_AMT'), val: sel.actual_amount }] : []),
+                  ...(sel.type === 'WORDS_FIGURES'   ? [{ label: msg('UI_DISCREPANCY_WORDS_AMT'), val: sel.words_amount }] : []),
                   ...(sel.type === 'LOT_COUNT_DIFF'  ? [
-                    { label: 'Physical Count',    val: String(sel.physical_count) },
-                    { label: 'Electronic Count',  val: String(sel.electronic_count) },
+                    { label: msg('UI_BATCHES_PHYSICAL_COUNT'),    val: String(sel.physical_count) },
+                    { label: msg('UI_DISCREPANCY_ELECTRONIC_COUNT'),  val: String(sel.electronic_count) },
                   ] : []),
-                  { label: 'Raised At', val: new Date(sel.raised_at).toLocaleString('en-IN') },
-                  ...(sel.assigned_to ? [{ label: 'Assigned To', val: sel.assigned_to }] : []),
+                  { label: msg('UI_DISCREPANCY_RAISED_AT'), val: new Date(sel.raised_at).toLocaleString('en-IN') },
+                  ...(sel.assigned_to ? [{ label: msg('UI_DISCREPANCY_ASSIGNED_TO'), val: sel.assigned_to }] : []),
                 ].map(({ label, val }) => (
                   <div key={label} className={`flex justify-between text-xs border-b pb-2 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     <span className={th.label}>{label}</span>
@@ -327,13 +328,13 @@ export default function CTSDiscrepancy() {
                 {sel.status === 'OPEN' && (
                   <div className="space-y-2 pt-1">
                     <button className={`w-full text-xs py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-amber-600/20 text-amber-300 border-amber-500/30 hover:bg-amber-600/30' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
-                      Escalate to Manager
+                     {msg('UI_DISCREPANCY_ESCALATE_TO_MANAGER')}
                     </button>
                     <button className={`w-full text-xs py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
-                      Mark as Return
+                     {msg('UI_DISCREPANCY_MARK_AS_RETURN')}
                     </button>
                     <button className={`w-full text-xs py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}>
-                      Mark Resolved
+                     {msg('UI_DISCREPANCY_MARK_RESOLVED')}
                     </button>
                   </div>
                 )}

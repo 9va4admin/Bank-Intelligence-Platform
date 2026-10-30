@@ -10,17 +10,18 @@ import CTSVaultGapReport from './modules/cts/pages/CTSVaultGapReport'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
 import CTSAllocationAdmin from './modules/cts/pages/CTSAllocationAdmin'
+import CTSBucketConfig from './modules/cts/pages/CTSBucketConfig'
 import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
 import CTSValidationQueue from './modules/cts/pages/CTSValidationQueue'
+import CTSCustody from './modules/cts/pages/CTSCustody'
 import CTSSubmissionQueue from './modules/cts/pages/CTSSubmissionQueue'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
 import CTSCompliance from './modules/cts/pages/CTSCompliance'
 import CTSScanner from './modules/cts/pages/CTSScanner'
 import CTSEndorsement from './modules/cts/pages/CTSEndorsement'
-import CTSRPCConsolidation from './modules/cts/pages/CTSRPCConsolidation'
 import CTSSubMember from './modules/cts/pages/CTSSubMember'
 import CTSImageQuality from './modules/cts/pages/CTSImageQuality'
 import CTSPipelineVisualizer from './modules/cts/pages/CTSPipelineVisualizer'
@@ -106,6 +107,7 @@ export default function App() {
         <Route path="/cts/outward/verification" element={<CTSOutwardQueue />} />
         <Route path="/cts/outward/queue"        element={<CTSValidationQueue mode="outward" />} />
         <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
+        <Route path="/cts/outward/custody"      element={<CTSCustody />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/vault/upload" element={<CTSVaultUpload />} />
         <Route path="/cts/vault-gaps" element={<CTSVaultGapReport />} />
@@ -116,7 +118,6 @@ export default function App() {
         <Route path="/cts/iqa" element={<CTSImageQuality />} />
         <Route path="/cts/scanner" element={<CTSScanner />} />
         <Route path="/cts/endorsement" element={<CTSEndorsement />} />
-        <Route path="/cts/rpc" element={<CTSRPCConsolidation />} />
         <Route path="/cts/sub-member" element={<CTSSubMember />} />
         <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
@@ -173,6 +174,7 @@ export default function App() {
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
+        <Route path="/admin/config/buckets" element={<CTSBucketConfig />} />
         {/* ASTRA Ops Dashboard — ops_manager + bank_it_admin (analytics) */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />

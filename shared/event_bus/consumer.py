@@ -23,6 +23,7 @@ import structlog
 
 from shared.event_bus.exceptions import EventBusUnavailableError, UnknownSchemaVersionError
 from shared.event_bus.schemas import KafkaEventEnvelope
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -61,7 +62,7 @@ class EventConsumer:
                 value_deserializer=lambda v: v, # we deserialise manually
             )
         except Exception as exc:
-            raise EventBusUnavailableError(f"Kafka consumer connect failed: {exc}") from exc
+            raise EventBusUnavailableError(get_message("PLATFORM_KAFKA_CONSUMER_CONNECT_FAILED", exc=exc)) from exc
         self._ready = True
         log.info("event_bus.consumer.connected",
                  group_id=self._group_id, topics=self._topics, bank_id=self._bank_id)
@@ -115,7 +116,7 @@ class EventConsumer:
             data = json.loads(message.value)
             return KafkaEventEnvelope.model_validate(data)
         except Exception as exc:
-            raise ValueError(f"corrupt Kafka message at offset {message.offset}: {exc}") from exc
+            raise ValueError(get_message("PLATFORM_CORRUPT_KAFKA_MESSAGE_AT_OFFSET", offset=message.offset, exc=exc)) from exc
 
     def _should_process(self, envelope: KafkaEventEnvelope) -> bool:
         return envelope.bank_id == self._bank_id
@@ -125,8 +126,7 @@ class EventConsumer:
     ) -> None:
         if envelope.schema_version not in supported_versions:
             raise UnknownSchemaVersionError(
-                f"Unknown schema_version '{envelope.schema_version}' for event "
-                f"'{envelope.event_type}'. Supported: {supported_versions}"
+                get_message("PLATFORM_UNKNOWN_SCHEMA_VERSION_FOR_EVENT", schema_version=envelope.schema_version, event_type=envelope.event_type, supported_versions=supported_versions)
             )
 
     async def _dispatch(self, envelope: KafkaEventEnvelope) -> None:
@@ -140,8 +140,7 @@ class EventConsumer:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "EventConsumer.connect() has not been called. "
-                "Call it in the service startup before running the consumer."
+                get_message("PLATFORM_EVENTCONSUMER_CONNECT_HAS_NOT_BEEN")
             )
 
 
@@ -177,7 +176,7 @@ class KafkaEventConsumer:
                         value_deserializer=lambda v: v,
                     )
                 except Exception as exc:
-                    raise EventBusUnavailableError(f"Kafka consumer connect failed: {exc}") from exc
+                    raise EventBusUnavailableError(get_message("PLATFORM_KAFKA_CONSUMER_CONNECT_FAILED", exc=exc)) from exc
             self._consumer.subscribe(self._topics)
         return self._consumer
 

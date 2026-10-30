@@ -19,14 +19,14 @@ CFG = {"allocation_mode": "AUTO", "allocation_lock_ttl_minutes": 10, "hybrid_aut
        "allocation_rebalance_max_moves": 20, "allocation_retry_seconds": 60}
 
 
-def _ctx(user="alice", role="ops_reviewer", zones=("ALL",)):
+def _ctx(user="alice", role="ops_reviewer", pu_ids=("ALL",)):
     c = MagicMock()
     c.role = Role[role.upper()]
     c.bank_id = BANK
     c.user_id = user
     c.bank_type = BankType.SB
     c.smb_id = None
-    c.clearing_zones = list(zones)
+    c.pu_ids = list(pu_ids)
     return c
 
 
@@ -38,7 +38,7 @@ class _Temporal:
         async def gen():
             for iid, zone, deadline in self._items:
                 yield SimpleNamespace(id=f"cts-humanreview-{BANK}-{iid}", start_time=None,
-                                      memo={"instrument_id": iid, "clearing_zone": zone, "iet_deadline": deadline})
+                                      memo={"instrument_id": iid, "pu_id": zone, "iet_deadline": deadline})
         return gen()
 
 
@@ -77,25 +77,25 @@ def test_each_item_shows_who_holds_it():
     assert held == {"I-1": "bob"}
 
 
-def test_polling_registers_the_reviewer_with_their_zones():
+def test_polling_registers_the_reviewer_with_their_pus():
     import asyncio
     redis = FakeRedis()
-    _get(_app(_ctx("alice", zones=("WEST",)), [], redis))
+    _get(_app(_ctx("alice", pu_ids=("WEST",)), [], redis))
     lock = LockService(redis)
     assert asyncio.run(lock.get_active_reviewers(BANK)) == ["alice"]
-    assert asyncio.run(lock.get_reviewer_zones(BANK)) == {"alice": ["WEST"]}
+    assert asyncio.run(lock.get_reviewer_pus(BANK)) == {"alice": ["WEST"]}
 
 
-def test_a_reviewer_scoped_to_a_zone_only_sees_that_zone_and_unzoned_items():
+def test_a_reviewer_scoped_to_a_pu_only_sees_that_pu_and_items_without_one():
     redis = FakeRedis()
-    items = [("W", "WEST", NOW + 1), ("E", "EAST", NOW + 2), ("U", "UNKNOWN", NOW + 3)]
-    seen = {i["instrument_id"] for i in _get(_app(_ctx("w", zones=("WEST",)), items, redis)).json()["items"]}
+    items = [("W", "WEST", NOW + 1), ("E", "EAST", NOW + 2), ("U", None, NOW + 3)]
+    seen = {i["instrument_id"] for i in _get(_app(_ctx("w", pu_ids=("WEST",)), items, redis)).json()["items"]}
     assert seen == {"W", "U"}
 
 
 def test_a_manager_and_an_all_zone_reviewer_see_everything():
     items = [("W", "WEST", NOW + 1), ("E", "EAST", NOW + 2)]
-    for ctx in (_ctx("m", role="ops_manager", zones=("WEST",)), _ctx("a", zones=("ALL",))):
+    for ctx in (_ctx("m", role="ops_manager", pu_ids=("WEST",)), _ctx("a", pu_ids=("ALL",))):
         assert {i["instrument_id"] for i in _get(_app(ctx, items, FakeRedis())).json()["items"]} == {"W", "E"}
 
 

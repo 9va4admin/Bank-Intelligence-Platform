@@ -14,6 +14,7 @@
  *   title    string    — e.g. instrument_id shown in lightbox
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 // ── SVG placeholder generator ─────────────────────────────────────────────────
 
@@ -342,7 +343,7 @@ function IQABadge({ score, isDark }) {
     : 'bg-red-500/80 text-white'
   return (
     <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${color}`}>
-      IQA {pct}%
+     {msg('UI_CHEQUEIMAGEVIEWER_IQA', { pct })}
     </span>
   )
 }
@@ -428,10 +429,10 @@ function Lightbox({ src, label, title, onClose, isDark }) {
           <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="text-slate-300 hover:text-white w-7 h-7 rounded border border-white/20 hover:border-white/40 flex items-center justify-center text-base">+</button>
           <span className="text-xs text-slate-400 font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
           <button onClick={() => { setZoom(z => Math.max(1, z - 0.25)); if (zoom <= 1.25) { setPanX(0); setPanY(0) } }} className="text-slate-300 hover:text-white w-7 h-7 rounded border border-white/20 hover:border-white/40 flex items-center justify-center text-base">−</button>
-          <button onClick={resetView} title="Reset view" className="text-[11px] text-slate-400 hover:text-white px-2 h-7 rounded border border-white/20 hover:border-white/40">Reset</button>
+          <button onClick={resetView} title={msg('UI_CHEQUEIMAGEVIEWER_RESET_VIEW')} className="text-[11px] text-slate-400 hover:text-white px-2 h-7 rounded border border-white/20 hover:border-white/40">{msg('UI_CHEQUEIMAGEVIEWER_RESET')}</button>
           {/* Adjustments */}
-          <button onClick={() => setShowControls(v => !v)} className={`text-[11px] px-2 h-7 rounded border transition-colors ${showControls ? 'border-amber-400/60 text-amber-300' : 'border-white/20 text-slate-400 hover:text-white hover:border-white/40'}`}>Adjust</button>
-          <a href={src} download onClick={e => e.stopPropagation()} className="text-[11px] text-slate-400 hover:text-white px-3 h-7 rounded border border-white/20 hover:border-white/40 flex items-center">↓ Save</a>
+          <button onClick={() => setShowControls(v => !v)} className={`text-[11px] px-2 h-7 rounded border transition-colors ${showControls ? 'border-amber-400/60 text-amber-300' : 'border-white/20 text-slate-400 hover:text-white hover:border-white/40'}`}>{msg('UI_CHEQUEIMAGEVIEWER_ADJUST')}</button>
+          <a href={src} download onClick={e => e.stopPropagation()} className="text-[11px] text-slate-400 hover:text-white px-3 h-7 rounded border border-white/20 hover:border-white/40 flex items-center">{msg('UI_CHEQUEIMAGEVIEWER_SAVE')}</a>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-lg w-7 h-7 flex items-center justify-center">✕</button>
         </div>
       </div>
@@ -440,18 +441,18 @@ function Lightbox({ src, label, title, onClose, isDark }) {
       {showControls && (
         <div className="flex items-center gap-6 px-5 py-2.5 bg-black/50 border-b border-white/8 shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400 w-16">Contrast</span>
+            <span className="text-[11px] text-slate-400 w-16">{msg('UI_CHEQUEIMAGEVIEWER_CONTRAST')}</span>
             <input type="range" min={50} max={200} value={contrast} onChange={e => setContrast(Number(e.target.value))}
               className="w-32 h-1 accent-amber-400" />
             <span className="text-[11px] text-slate-400 font-mono w-8">{contrast}%</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400 w-16">Brightness</span>
+            <span className="text-[11px] text-slate-400 w-16">{msg('UI_CHEQUEIMAGEVIEWER_BRIGHTNESS')}</span>
             <input type="range" min={50} max={200} value={brightness} onChange={e => setBrightness(Number(e.target.value))}
               className="w-32 h-1 accent-amber-400" />
             <span className="text-[11px] text-slate-400 font-mono w-8">{brightness}%</span>
           </div>
-          <button onClick={() => { setContrast(100); setBrightness(100) }} className="text-[11px] text-slate-500 hover:text-white">Reset filters</button>
+          <button onClick={() => { setContrast(100); setBrightness(100) }} className="text-[11px] text-slate-500 hover:text-white">{msg('UI_CHEQUEIMAGEVIEWER_RESET_FILTERS')}</button>
         </div>
       )}
 
@@ -471,11 +472,11 @@ function Lightbox({ src, label, title, onClose, isDark }) {
 
       {/* Bottom hint */}
       <div className="flex items-center justify-center gap-4 py-2 text-[10px] text-slate-600 shrink-0">
-        <span>Scroll to zoom</span>
+        <span>{msg('UI_CHEQUEIMAGEVIEWER_SCROLL_TO_ZOOM')}</span>
         <span>·</span>
-        <span>Drag to pan when zoomed</span>
+        <span>{msg('UI_CHEQUEIMAGEVIEWER_DRAG_TO_PAN_WHEN_ZOOMED')}</span>
         <span>·</span>
-        <span>Click background or Esc to close</span>
+        <span>{msg('UI_CHEQUEIMAGEVIEWER_CLICK_BACKGROUND_OR_ESC_TO')}</span>
       </div>
     </div>
   )
@@ -484,9 +485,9 @@ function Lightbox({ src, label, title, onClose, isDark }) {
 // ── Deposit info panel ────────────────────────────────────────────────────────
 
 const CHANNEL_META = {
-  PAY_IN_SLIP:     { icon: '🧾', label: 'Pay-in Slip',   clrD: 'text-emerald-400', bgD: 'bg-emerald-500/8 border-emerald-500/20',  clrL: 'text-emerald-700', bgL: 'bg-emerald-50 border-emerald-200'  },
-  BACK_ANNOTATION: { icon: '✍️',  label: 'Back — OCR',    clrD: 'text-sky-400',     bgD: 'bg-sky-500/8 border-sky-500/20',           clrL: 'text-sky-700',     bgL: 'bg-sky-50 border-sky-200'          },
-  KIOSK:           { icon: '🏧',  label: 'Kiosk / CDM',  clrD: 'text-violet-400',  bgD: 'bg-violet-500/8 border-violet-500/20',     clrL: 'text-violet-700',  bgL: 'bg-violet-50 border-violet-200'    },
+  PAY_IN_SLIP:     { icon: '🧾', label: msg('UI_COMMON_PAY_IN_SLIP'),   clrD: 'text-emerald-400', bgD: 'bg-emerald-500/8 border-emerald-500/20',  clrL: 'text-emerald-700', bgL: 'bg-emerald-50 border-emerald-200'  },
+  BACK_ANNOTATION: { icon: '✍️',  label: msg('UI_CHEQUEIMAGEVIEWER_BACK_OCR'),    clrD: 'text-sky-400',     bgD: 'bg-sky-500/8 border-sky-500/20',           clrL: 'text-sky-700',     bgL: 'bg-sky-50 border-sky-200'          },
+  KIOSK:           { icon: '🏧',  label: msg('UI_COMMON_KIOSK_CDM'),  clrD: 'text-violet-400',  bgD: 'bg-violet-500/8 border-violet-500/20',     clrL: 'text-violet-700',  bgL: 'bg-violet-50 border-violet-200'    },
 }
 
 function DepRow({ label, value, isDark }) {
@@ -518,27 +519,27 @@ function DepositInfoPanel({ depositInfo, isDark }) {
       <div className="flex-1 overflow-y-auto px-3 py-1">
         {depositInfo.channel === 'PAY_IN_SLIP' && (
           <>
-            <DepRow label="Depositor Name"  value={data.depositor_name    || '—'} isDark={isDark} />
-            <DepRow label="Account"         value={data.depositor_account || '—'} isDark={isDark} />
-            <DepRow label="Amount on Slip"  value={data.deposit_amount    || '—'} isDark={isDark} />
-            <DepRow label="Counter Token"   value={data.counter_token     || '—'} isDark={isDark} />
-            <DepRow label="Date"            value={data.date              || '—'} isDark={isDark} />
-            <DepRow label="Branch"          value={data.branch            || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_DEPOSITOR_NAME')}  value={data.depositor_name    || '—'} isDark={isDark} />
+            <DepRow label={msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}         value={data.depositor_account || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_AMOUNT_ON_SLIP')}  value={data.deposit_amount    || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_COUNTER_TOKEN')}   value={data.counter_token     || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_DATE')}            value={data.date              || '—'} isDark={isDark} />
+            <DepRow label={msg('CTS_OUT_CUSTODY_COL_BRANCH')}          value={data.branch            || '—'} isDark={isDark} />
           </>
         )}
         {depositInfo.channel === 'BACK_ANNOTATION' && (
           <>
-            <DepRow label="A/c Extracted"   value={data.extracted_account || '—'} isDark={isDark} />
-            <DepRow label="Mobile"          value={data.extracted_mobile  || '—'} isDark={isDark} />
-            <DepRow label="OCR Confidence"  value={data.ocr_confidence != null ? `${Math.round(data.ocr_confidence * 100)}%` : '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_A_C_EXTRACTED')}   value={data.extracted_account || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_MOBILE')}          value={data.extracted_mobile  || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_OCR_CONFIDENCE')}  value={data.ocr_confidence != null ? `${Math.round(data.ocr_confidence * 100)}%` : '—'} isDark={isDark} />
           </>
         )}
         {depositInfo.channel === 'KIOSK' && (
           <>
-            <DepRow label="Name"            value={data.name      || '—'} isDark={isDark} />
-            <DepRow label="Account"         value={data.account   || '—'} isDark={isDark} />
-            <DepRow label="Txn ID"          value={data.txn_id    || '—'} isDark={isDark} />
-            <DepRow label="Timestamp"       value={data.timestamp || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_NAME')}            value={data.name      || '—'} isDark={isDark} />
+            <DepRow label={msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}         value={data.account   || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_TXN_ID')}          value={data.txn_id    || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_TIMESTAMP')}       value={data.timestamp || '—'} isDark={isDark} />
           </>
         )}
       </div>
@@ -619,7 +620,7 @@ export default function ChequeImageViewer({
               : (isDark ? 'text-red-400 border-red-400/30' : 'text-red-600 border-red-300')
             return (
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${cls}`}>
-                IQA {pct}%
+               {msg('UI_CHEQUEIMAGEVIEWER_IQA', { pct })}
               </span>
             )
           })()}
@@ -627,7 +628,7 @@ export default function ChequeImageViewer({
           {!noRear && (
             <button
               onClick={openLightbox}
-              title="View full screen"
+              title={msg('UI_CHEQUEIMAGEVIEWER_VIEW_FULL_SCREEN')}
               className={`ml-1 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
             >
               ⤢
@@ -639,7 +640,7 @@ export default function ChequeImageViewer({
               href={src}
               download={`${title ? title + '_' : ''}${activeView?.key ?? 'cheque'}.${isPlaceholder ? 'svg' : 'jpg'}`}
               className={`ml-0.5 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
-              title="Download image"
+              title={msg('UI_CHEQUEIMAGEVIEWER_DOWNLOAD_IMAGE')}
             >
               ↓
             </a>
@@ -652,7 +653,7 @@ export default function ChequeImageViewer({
           {noRear ? (
             <div className={`relative flex-1 overflow-hidden flex flex-col items-center justify-center gap-2 ${th.imgWrap}`}>
               <span className={`text-3xl font-bold tracking-widest ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>N/A</span>
-              <span className={`text-[11px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>No back image captured for this instrument</span>
+              <span className={`text-[11px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{msg('UI_CHEQUEIMAGEVIEWER_NO_BACK_IMAGE_CAPTURED_FOR')}</span>
             </div>
           ) : (
             <div
@@ -668,7 +669,7 @@ export default function ChequeImageViewer({
               />
               {isPlaceholder && (
                 <div className={`absolute bottom-1 left-2 text-[9px] italic ${th.mock} pointer-events-none`}>
-                  preview — real image from scanner/MinIO
+                 {msg('UI_CHEQUEIMAGEVIEWER_PREVIEW_REAL_IMAGE_FROM_SCANNER')}
                 </div>
               )}
             </div>
@@ -686,7 +687,7 @@ export default function ChequeImageViewer({
             {activeView?.iqaScore != null && (
               <>
                 <span>·</span>
-                <span>IQA {Math.round(activeView.iqaScore * 100)}%</span>
+                <span>{msg('UI_CHEQUEIMAGEVIEWER_IQA_2', { Math: Math.round(activeView.iqaScore * 100) })}</span>
               </>
             )}
             <span className="flex-1" />

@@ -29,6 +29,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -69,7 +70,7 @@ async def get_current_role(
 
 def require_ops_role(role: str = Depends(get_current_role)) -> str:
     if role not in _ALLOWED_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
     return role
 
 

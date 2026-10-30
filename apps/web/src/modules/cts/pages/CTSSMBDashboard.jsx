@@ -16,11 +16,7 @@ import SMBDashboardContent from '../components/SMBDashboardContent'
 export default function CTSSMBDashboard() {
   const { bankName } = useBankContext()
   const { isDark } = useTheme()
-  const { setHeader } = usePageHeader()
-
-  useEffect(() => {
-    setHeader({ title: 'SMB Dashboard', subtitle: bankName })
-  }, [setHeader, bankName])
+  usePageHeader({ subtitle: bankName })
 
   return (
     <AppShell>

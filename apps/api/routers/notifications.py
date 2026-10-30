@@ -23,6 +23,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
 from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -48,7 +49,7 @@ def require_read_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _READ_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot access notification routes",
+            detail=get_message("API_ROLE_CANNOT_ACCESS_NOTIFICATION_ROUT", user=user.get('role')),
         )
     return user
 
@@ -57,7 +58,7 @@ def require_write_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _WRITE_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot send or retry notifications",
+            detail=get_message("API_ROLE_CANNOT_SEND_OR_RETRY", user=user.get('role')),
         )
     return user
 
@@ -301,7 +302,7 @@ async def get_notification(
         except Exception:
             log.warning("notifications.get.db_error", bank_id=bank_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
 
 
 @router_v1.post("/{notification_id}/retry", response_model=NotificationRetryResponse, status_code=202)
@@ -330,11 +331,11 @@ async def retry_notification(
                     notification_id, bank_id,
                 )
             if not row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
             if row["delivery_status"] not in ("FAILED", "RETRYING"):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Cannot retry notification in status '{row['delivery_status']}'",
+                    detail=get_message("API_CANNOT_RETRY_NOTIFICATION_IN_STATUS", row=row['delivery_status']),
                 )
             # Re-publish to Kafka for retry handling
             if producer is not None:
@@ -364,4 +365,4 @@ async def retry_notification(
         except Exception:
             log.warning("notifications.retry.db_error", bank_id=bank_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))

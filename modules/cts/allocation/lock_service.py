@@ -38,9 +38,10 @@ _HEARTBEAT_KEY_PREFIX = "active-reviewers:"
 _HYBRID_PENDING_KEY_PREFIX = "hybrid-pending:"
 
 _DEFAULT_TTL_MINUTES = 10
-_ZONES_KEY_PREFIX = "reviewer-zones:"
+_PUS_KEY_PREFIX = "reviewer-pus:"
+_BRANCHES_KEY_PREFIX = "reviewer-branches:"
 _AUTO_KEY_PREFIX = "alloc-auto:"          # unopened, auto-assigned items: the only ones the rebalancer may move
-_ITEM_META_KEY_PREFIX = "alloc-item:"      # per-bank hash: instrument_id -> {"zone", "iet_deadline"}
+_ITEM_META_KEY_PREFIX = "alloc-item:"      # per-bank hash: instrument_id -> {"pu_id", "iet_deadline"}
 _REBALANCE_GATE_PREFIX = "alloc-rebalance-gate:"
 _META_TTL_SECONDS = 24 * 3600
 _DEFAULT_HEARTBEAT_TTL_SECONDS = 300  # 5 minutes — refreshed on every queue poll
@@ -151,7 +152,8 @@ class LockService:
         bank_id: str,
         reviewer_id: str,
         ttl_seconds: int = _DEFAULT_HEARTBEAT_TTL_SECONDS,
-        zones: list[str] | None = None,
+        pu_ids: list[str] | None = None,
+        branch_ids: list[str] | None = None,
     ) -> bool:
         """Register reviewer as active. Returns True when they were not in the pool before (a new login). Score = expiry timestamp.
 
@@ -165,10 +167,14 @@ class LockService:
         added = await self._redis.zadd(key, {reviewer_id: expiry_ts})
         # Safety-net TTL on the whole set (2x max member TTL)
         await self._redis.expire(key, ttl_seconds * 2)
-        if zones is not None:
-            zkey = f"{_ZONES_KEY_PREFIX}{bank_id}"
-            await self._redis.hset(zkey, reviewer_id, json.dumps(list(zones)))
+        if pu_ids is not None:
+            zkey = f"{_PUS_KEY_PREFIX}{bank_id}"
+            await self._redis.hset(zkey, reviewer_id, json.dumps(list(pu_ids)))
             await self._redis.expire(zkey, ttl_seconds * 2)
+        if branch_ids is not None:
+            bkey = f"{_BRANCHES_KEY_PREFIX}{bank_id}"
+            await self._redis.hset(bkey, reviewer_id, json.dumps(list(branch_ids)))
+            await self._redis.expire(bkey, ttl_seconds * 2)
         log.debug("allocation.reviewer_heartbeat", bank_id=bank_id, reviewer_id=reviewer_id)
         return bool(added)
 
@@ -224,9 +230,14 @@ class LockService:
     def _text(v):
         return v.decode() if isinstance(v, bytes) else v
 
-    async def get_reviewer_zones(self, bank_id: str) -> dict[str, list[str]]:
-        """reviewer_id -> clearing zones they are scoped to ([] or ["ALL"] means any zone)."""
-        raw = await self._redis.hgetall(f"{_ZONES_KEY_PREFIX}{bank_id}")
+    async def get_reviewer_pus(self, bank_id: str) -> dict[str, list[str]]:
+        """reviewer_id -> processing units they are scoped to ([] or ["ALL"] means any PU)."""
+        raw = await self._redis.hgetall(f"{_PUS_KEY_PREFIX}{bank_id}")
+        return {self._text(k): json.loads(self._text(v)) for k, v in (raw or {}).items()}
+
+    async def get_reviewer_branches(self, bank_id: str) -> dict[str, list[str]]:
+        """reviewer_id -> branches they work at ([] = central staff)."""
+        raw = await self._redis.hgetall(f"{_BRANCHES_KEY_PREFIX}{bank_id}")
         return {self._text(k): json.loads(self._text(v)) for k, v in (raw or {}).items()}
 
     async def reviewer_loads(self, reviewer_ids: list[str]) -> dict[str, int]:
@@ -246,12 +257,12 @@ class LockService:
                     loads[holder] += 1
         return loads
 
-    async def set_item_meta(self, bank_id: str, instrument_id: str, *, zone: str | None = None,
+    async def set_item_meta(self, bank_id: str, instrument_id: str, *, pu_id: str | None = None,
                             iet_deadline: float | None = None, bucket: str | None = None,
                             origin_bucket: str | None = None, queued_at: float | None = None) -> None:
         """Remember what allocation needs to know about an item. bucket / origin_bucket / queued_at are stored only
         when given, so older callers keep exactly the old record."""
-        record = {"zone": zone, "iet_deadline": iet_deadline}
+        record = {"pu_id": pu_id, "iet_deadline": iet_deadline}
         for key, value in (("bucket", bucket), ("origin_bucket", origin_bucket), ("queued_at", queued_at)):
             if value is not None:
                 record[key] = value

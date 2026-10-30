@@ -18,6 +18,7 @@ from shared.cbs_connector.base import (
     PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError
+from shared.messages import get_message
 
 
 class DevStubCBSConnector(CBSConnector):
@@ -29,7 +30,7 @@ class DevStubCBSConnector(CBSConnector):
 
     def connect(self) -> None:
         if os.environ.get("ASTRA_ENV", "").lower() != "development":
-            raise RuntimeError("DevStubCBSConnector may only run with ASTRA_ENV=development")
+            raise RuntimeError(get_message("PLATFORM_DEVSTUBCBSCONNECTOR_MAY_ONLY_RUN_WIT"))
         with open(self._path, encoding="utf-8") as f:
             self._data = json.load(f)
 

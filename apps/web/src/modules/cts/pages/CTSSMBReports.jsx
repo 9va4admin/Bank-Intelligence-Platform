@@ -8,11 +8,13 @@
  *
  * smbOnly: SB users see their own aggregated reports elsewhere.
  */
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -78,7 +80,7 @@ const MOCK_RRF = [
 
 const MOCK_SETTLEMENT = {
   date: '2026-07-05',
-  sponsor_bank: 'Saraswat Co-operative Bank',
+  sponsor_bank: BANK_CONFIG.bank_name,
   sponsor_ifsc: 'SRCB0000001',
   inward_count: 318,
   inward_value_L: 84.5,
@@ -158,21 +160,21 @@ function SummaryTab({ sessions, bankId, isDark }) {
             isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Download CSV
+         {msg('UI_RECONCILIATION_DOWNLOAD_CSV')}
         </button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className={`text-xs uppercase tracking-wide border-b ${th.header}`}>
-              <th className="text-left py-2 pr-3 font-medium">Session</th>
-              <th className="text-left py-2 pr-3 font-medium">Slot</th>
-              <th className="text-left py-2 pr-3 font-medium">Status</th>
-              <th className="text-right py-2 pr-3 font-medium">Total</th>
-              <th className="text-right py-2 pr-3 font-medium">STP ✓</th>
-              <th className="text-right py-2 pr-3 font-medium">Returns</th>
-              <th className="text-right py-2 pr-3 font-medium">Value (₹L)</th>
-              <th className="text-right py-2 font-medium">Return %</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_SESSION')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_SLOT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_STATUS')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_COMMON_TOTAL')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_SMBDASHBOARDCONTENT_STP')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_ANALYTICS_RETURNS')}</th>
+              <th className="text-right py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_VALUE_L')}</th>
+              <th className="text-right py-2 font-medium">{msg('UI_COMMON_RETURN')}</th>
             </tr>
           </thead>
           <tbody>
@@ -196,7 +198,7 @@ function SummaryTab({ sessions, bankId, isDark }) {
             ))}
             {/* Totals row */}
             <tr className={`border-t-2 ${isDark ? 'border-white/20' : 'border-slate-300'}`}>
-              <td colSpan={3} className={`py-2.5 pr-3 text-xs font-semibold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Day Total</td>
+              <td colSpan={3} className={`py-2.5 pr-3 text-xs font-semibold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_SMBREPORTS_DAY_TOTAL')}</td>
               <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${th.cell}`}>{totals.total}</td>
               <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${th.good}`}>{totals.stp_confirmed}</td>
               <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${isDark ? 'text-red-400' : 'text-red-600'}`}>
@@ -247,7 +249,7 @@ function RRFTab({ items, bankId, isDark }) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {items.length} returned instruments · today
+          {msg('UI_SMBREPORTS_RETURNED_INSTRUMENTS_TODAY', { count: items.length })}
         </p>
         <button
           onClick={handleDownload}
@@ -255,19 +257,19 @@ function RRFTab({ items, bankId, isDark }) {
             isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Download RRF CSV
+         {msg('UI_SMBREPORTS_DOWNLOAD_RRF_CSV')}
         </button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className={`text-xs uppercase tracking-wide border-b ${th.header}`}>
-              <th className="text-left py-2 pr-3 font-medium">Instrument</th>
-              <th className="text-left py-2 pr-3 font-medium">Account</th>
-              <th className="text-left py-2 pr-3 font-medium">Amount</th>
-              <th className="text-left py-2 pr-3 font-medium">Code</th>
-              <th className="text-left py-2 pr-3 font-medium">Reason</th>
-              <th className="text-left py-2 font-medium">Filed</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('CTS_OUT_CUSTODY_COL_INSTRUMENT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('CTS_OUT_CUSTODY_COL_AMOUNT')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_SMBREPORTS_CODE')}</th>
+              <th className="text-left py-2 pr-3 font-medium">{msg('UI_COMMON_REASON')}</th>
+              <th className="text-left py-2 font-medium">{msg('UI_COMMON_FILED')}</th>
             </tr>
           </thead>
           <tbody>
@@ -319,7 +321,7 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
       <div className={`rounded-xl border p-5 ${th.card}`}>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <div className={`text-xs uppercase tracking-wide font-semibold ${th.label}`}>Settlement Statement</div>
+            <div className={`text-xs uppercase tracking-wide font-semibold ${th.label}`}>{msg('UI_SMBREPORTS_SETTLEMENT_STATEMENT')}</div>
             <div className={`text-sm font-semibold mt-0.5 ${th.value}`}>{data.date}</div>
           </div>
           <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
@@ -329,29 +331,29 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
           }`}>{data.status}</span>
         </div>
 
-        <div className={`text-xs ${th.label} mb-1`}>Sponsor Bank</div>
+        <div className={`text-xs ${th.label} mb-1`}>{msg('UI_AGENCYCC_SPONSOR_BANK')}</div>
         <div className={`text-sm font-medium mb-4 ${th.value}`}>{data.sponsor_bank}</div>
 
         <div className={`border-t ${th.divider} pt-4 grid grid-cols-2 gap-4`}>
           <div>
-            <div className={`text-xs ${th.label}`}>Inward instruments</div>
+            <div className={`text-xs ${th.label}`}>{msg('UI_SMBREPORTS_INWARD_INSTRUMENTS')}</div>
             <div className={`text-2xl font-bold tabular-nums ${th.value}`}>{data.inward_count}</div>
-            <div className={`text-xs ${th.muted}`}>₹{data.inward_value_L}L total value</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_SMBREPORTS_L_TOTAL_VALUE', { inward_value_L: data.inward_value_L })}</div>
           </div>
           <div>
-            <div className={`text-xs ${th.label}`}>Returns</div>
+            <div className={`text-xs ${th.label}`}>{msg('UI_ANALYTICS_RETURNS')}</div>
             <div className={`text-2xl font-bold tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>{data.return_count}</div>
-            <div className={`text-xs ${th.muted}`}>₹{data.return_value_L}L returned value</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_SMBREPORTS_L_RETURNED_VALUE', { return_value_L: data.return_value_L })}</div>
           </div>
         </div>
 
         <div className={`border-t ${th.divider} mt-4 pt-4 flex items-center justify-between`}>
           <div>
-            <div className={`text-xs ${th.label}`}>Net position</div>
+            <div className={`text-xs ${th.label}`}>{msg('UI_SMBREPORTS_NET_POSITION')}</div>
             <div className={`text-3xl font-bold tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-              ₹{data.net_receivable_L}L
+             {msg('UI_SMBREPORTS_L', { net_receivable_L: data.net_receivable_L })}
             </div>
-            <div className={`text-xs ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>{data.net_direction} from sponsor</div>
+            <div className={`text-xs ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>{msg('UI_SMBREPORTS_FROM_SPONSOR', { net_direction: data.net_direction })}</div>
           </div>
         </div>
       </div>
@@ -362,7 +364,7 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
           isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
         }`}
       >
-        Download Settlement Statement
+       {msg('UI_SMBREPORTS_DOWNLOAD_SETTLEMENT_STATEMENT')}
       </button>
     </div>
   )
@@ -373,7 +375,7 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
 export default function CTSSMBReports() {
   const { bankName, bankId, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const { setHeader } = usePageHeader()
+  usePageHeader({ subtitle: bankName })
   const [activeTab, setActiveTab] = useState(0)
 
   const liveReports = useSMBReports({ pollEnabled: !isDemo })
@@ -406,10 +408,6 @@ export default function CTSSMBReports() {
   const SESSIONS_SRC = (!isDemo && liveSessions && liveSessions.length > 0) ? liveSessions : MOCK_SESSIONS
   const RRF_SRC = MOCK_RRF  // RRF from live instrument data requires additional endpoint; keep mock as fallback
   const settlementData = isDemo || !liveSettlement ? MOCK_SETTLEMENT : liveSettlement
-
-  useEffect(() => {
-    setHeader({ title: 'SMB Reports', subtitle: bankName })
-  }, [setHeader, bankName])
 
   const th = {
     page:    isDark ? 'bg-navy-950'             : 'bg-slate-50',

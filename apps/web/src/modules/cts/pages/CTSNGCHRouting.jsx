@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -47,43 +48,19 @@ function useNGCHStatus({ pollEnabled }) {
 const ROUTING_RULES = [
   {
     id: 'R001',
-    name: 'Default Mumbai Zone',
-    condition: 'MICR prefix 4xxxxx',
-    destination: 'CTS-MUMBAI Grid',
-    grid: 'MUMBAI',
+    name: 'Default NGCH Route',
+    condition: 'Any MICR prefix',
+    destination: 'NGCH',
     priority: 10,
-    type: 'ZONE',
+    type: 'DEFAULT',
     status: 'ACTIVE',
-    filings_today: 1842,
-  },
-  {
-    id: 'R002',
-    name: 'Default Delhi Zone',
-    condition: 'MICR prefix 1xxxxx',
-    destination: 'CTS-DELHI Grid',
-    grid: 'DELHI',
-    priority: 10,
-    type: 'ZONE',
-    status: 'ACTIVE',
-    filings_today: 934,
-  },
-  {
-    id: 'R003',
-    name: 'Default Chennai Zone',
-    condition: 'MICR prefix 5xxxxx or 6xxxxx',
-    destination: 'CTS-CHENNAI Grid',
-    grid: 'CHENNAI',
-    priority: 10,
-    type: 'ZONE',
-    status: 'ACTIVE',
-    filings_today: 612,
+    filings_today: 3388,
   },
   {
     id: 'R004',
     name: 'High-Value Override',
-    condition: 'Amount > ₹5,00,000 (any zone)',
-    destination: 'CTS-MUMBAI Priority Lane',
-    grid: 'MUMBAI',
+    condition: 'Amount > ₹5,00,000',
+    destination: 'NGCH Priority Lane',
     priority: 5,
     type: 'OVERRIDE',
     status: 'ACTIVE',
@@ -93,8 +70,7 @@ const ROUTING_RULES = [
     id: 'R005',
     name: 'Government Cheque Route',
     condition: "Payee name contains 'GOVT OF' or 'INCOME TAX'",
-    destination: 'CTS-MUMBAI Govt Lane',
-    grid: 'MUMBAI',
+    destination: 'NGCH Govt Lane',
     priority: 3,
     type: 'SPECIAL',
     status: 'ACTIVE',
@@ -105,7 +81,6 @@ const ROUTING_RULES = [
     name: 'Sub-Member Sponsor Route',
     condition: 'Drawee bank is sponsored sub-member',
     destination: 'Sponsor Bank Clearing Account',
-    grid: 'SPONSOR',
     priority: 4,
     type: 'SUB_MEMBER',
     status: 'ACTIVE',
@@ -114,9 +89,8 @@ const ROUTING_RULES = [
   {
     id: 'R007',
     name: 'IET Emergency Fallback',
-    condition: 'T-30s watchdog trigger (any zone)',
-    destination: 'Emergency NGCH Queue (any available grid)',
-    grid: 'ANY',
+    condition: 'T-30s watchdog trigger',
+    destination: 'Emergency NGCH Queue',
     priority: 1,
     type: 'EMERGENCY',
     status: 'ACTIVE',
@@ -135,14 +109,14 @@ const NGCH_STATUS = {
 }
 
 const TYPE_COLORS_D = {
-  ZONE: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
+  DEFAULT: 'bg-blue-900/40 text-blue-300 border-blue-700/50',
   OVERRIDE: 'bg-violet-900/40 text-violet-300 border-violet-700/50',
   SPECIAL: 'bg-amber-900/40 text-amber-300 border-amber-700/50',
   SUB_MEMBER: 'bg-cyan-900/40 text-cyan-300 border-cyan-700/50',
   EMERGENCY: 'bg-red-900/40 text-red-300 border-red-700/50',
 }
 const TYPE_COLORS_L = {
-  ZONE: 'bg-blue-100 text-blue-700 border-blue-300',
+  DEFAULT: 'bg-blue-100 text-blue-700 border-blue-300',
   OVERRIDE: 'bg-violet-100 text-violet-700 border-violet-300',
   SPECIAL: 'bg-amber-100 text-amber-700 border-amber-300',
   SUB_MEMBER: 'bg-cyan-100 text-cyan-700 border-cyan-300',
@@ -164,9 +138,8 @@ export default function CTSNGCHRouting() {
       name: r.destination,
       condition: `MICR prefix ${r.micr_prefix}`,
       destination: r.destination,
-      grid: r.clearing_zone,
       priority: r.priority,
-      type: 'ZONE',
+      type: 'DEFAULT',
       status: r.active ? 'ACTIVE' : 'INACTIVE',
     }))
   }, [isDemo, liveRules])
@@ -190,15 +163,15 @@ export default function CTSNGCHRouting() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>NGCH Routing</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Routing rules that determine how filed decisions are dispatched to NPCI's clearing grids</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_NGCHROUTING_NGCH_ROUTING')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_NGCHROUTING_ROUTING_RULES_THAT_DETERMINE_HOW')}</p>
           </div>
         </div>
 
         {/* NGCH Connection Status */}
         <div className={`rounded-xl border p-4 mb-5 ${th.card}`}>
           <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-semibold ${th.muted}`}>NGCH CONNECTIVITY</span>
+            <span className={`text-xs font-semibold ${th.muted}`}>{msg('UI_NGCHROUTING_NGCH_CONNECTIVITY')}</span>
             <span className={`flex items-center gap-1.5 text-xs font-medium ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               {ngchStatus.connectivity}
@@ -219,19 +192,19 @@ export default function CTSNGCHRouting() {
             ))}
           </div>
           <div className={`mt-3 pt-3 border-t text-xs ${th.divider} ${th.muted}`}>
-            Last batch filed: <span className={`font-mono ${th.body}`}>{ngchStatus.last_batch_filed}</span>
+           {msg('UI_NGCHROUTING_LAST_BATCH_FILED')} <span className={`font-mono ${th.body}`}>{ngchStatus.last_batch_filed}</span>
           </div>
         </div>
 
         {/* Routing rules */}
         <div className={`rounded-xl border overflow-hidden ${th.card}`}>
           <div className={`px-4 py-3 border-b flex items-center justify-between ${th.divider}`}>
-            <span className={`text-xs font-semibold ${th.muted}`}>ROUTING RULES — evaluated in priority order (lower = higher priority)</span>
+            <span className={`text-xs font-semibold ${th.muted}`}>{msg('UI_NGCHROUTING_ROUTING_RULES_EVALUATED_IN_PRIORITY')}</span>
           </div>
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Priority', 'Rule Name', 'Condition', 'Destination Grid', 'Type', 'Filed Today', 'Status', ''].map(h => (
+                {[msg('UI_NGCHROUTING_PRIORITY'), msg('UI_NGCHROUTING_RULE_NAME'), msg('UI_NGCHROUTING_CONDITION'), msg('UI_NGCHROUTING_DESTINATION'), msg('UI_DISCREPANCY_TYPE'), msg('UI_NGCHROUTING_FILED_TODAY'), msg('UI_COMMON_STATUS'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -240,7 +213,7 @@ export default function CTSNGCHRouting() {
               {DISPLAY_RULES.sort((a, b) => a.priority - b.priority).map(r => (
                 <tr key={r.id} className={`border-b transition-colors ${th.row}`} onClick={() => setSelected(r)}>
                   <td className={`px-4 py-3 font-mono font-bold ${r.priority <= 3 ? (isDark ? 'text-red-300' : 'text-red-600') : th.heading}`}>
-                    P{r.priority}
+                   {msg('UI_NGCHROUTING_P', { priority: r.priority })}
                   </td>
                   <td className={`px-4 py-3 font-medium ${th.heading}`}>{r.name}</td>
                   <td className={`px-4 py-3 font-mono text-[11px] max-w-[200px] truncate ${th.muted}`} title={r.condition}>{r.condition}</td>
@@ -255,7 +228,7 @@ export default function CTSNGCHRouting() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>Detail →</button>
+                    <button className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}>{msg('UI_COMMON_DETAIL')}</button>
                   </td>
                 </tr>
               ))}
@@ -271,29 +244,29 @@ export default function CTSNGCHRouting() {
                 <h2 className={`font-semibold ${th.heading}`}>{selected.name}</h2>
                 <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${TYPE[selected.type]}`}>{selected.type}</span>
               </div>
-              <button onClick={() => setSelected(null)} className={th.muted}>✕ Close</button>
+              <button onClick={() => setSelected(null)} className={th.muted}>{msg('UI_COMMON_CLOSE')}</button>
             </div>
             <div className="grid grid-cols-2 gap-4 text-xs mb-4">
               <div>
-                <div className={th.muted}>Condition</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_CONDITION')}</div>
                 <div className={`font-mono mt-0.5 ${th.body}`}>{selected.condition}</div>
               </div>
               <div>
-                <div className={th.muted}>Destination</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_DESTINATION')}</div>
                 <div className={`font-medium mt-0.5 ${th.heading}`}>{selected.destination}</div>
               </div>
               <div>
-                <div className={th.muted}>Priority</div>
-                <div className={`font-bold text-lg mt-0.5 ${th.heading}`}>P{selected.priority}</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_PRIORITY')}</div>
+                <div className={`font-bold text-lg mt-0.5 ${th.heading}`}>{msg('UI_NGCHROUTING_P', { priority: selected.priority })}</div>
               </div>
               <div>
-                <div className={th.muted}>Filings Today</div>
+                <div className={th.muted}>{msg('UI_NGCHROUTING_FILINGS_TODAY')}</div>
                 <div className={`font-bold text-lg mt-0.5 ${th.heading}`}>{selected.filings_today.toLocaleString()}</div>
               </div>
             </div>
             {selected.type === 'EMERGENCY' && (
               <div className={`p-3 rounded-lg text-xs ${isDark ? 'bg-red-900/20 border border-red-700/40 text-red-300' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-                🔒 Emergency routing rule — cannot be edited. Managed by IETWatchdogWorkflow. Fires automatically at T-30s before IET deadline.
+               {msg('UI_NGCHROUTING_EMERGENCY_ROUTING_RULE_CANNOT_BE')}
               </div>
             )}
           </div>

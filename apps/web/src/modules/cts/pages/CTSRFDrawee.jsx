@@ -1,6 +1,7 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 export default function CTSRFDrawee() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
@@ -21,16 +22,14 @@ export default function CTSRFDrawee() {
         <div className="max-w-2xl mx-auto">
           <div className={`rounded-xl border p-8 text-center ${th.card}`}>
             <div className="text-4xl mb-4">📥</div>
-            <h1 className={`text-xl font-semibold mb-2 ${th.heading}`}>RF — Drawee Bank</h1>
+            <h1 className={`text-xl font-semibold mb-2 ${th.heading}`}>{msg('UI_RFDRAWEE_RF_DRAWEE_BANK')}</h1>
             <p className={`text-sm mb-6 ${th.body}`}>
-              Rejection File received from NGCH on behalf of the Drawee Bank.
-              NGCH places the RF in a designated bucket after the Drawee Bank files returns.
-              The Presenting Bank pulls this file to identify returned instruments and take action.
+             {msg('UI_RFDRAWEE_REJECTION_FILE_RECEIVED_FROM_NGCH')}
             </p>
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium
               ${isDark ? 'border-amber-500/30 bg-amber-900/15 text-amber-400' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
               <span className="w-2 h-2 rounded-full bg-amber-400" />
-              Coming soon — Drawee Process to be defined
+             {msg('UI_RFDRAWEE_COMING_SOON_DRAWEE_PROCESS_TO')}
             </div>
           </div>
         </div>

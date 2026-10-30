@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const REFRESH_MS = 30_000
@@ -22,7 +23,7 @@ async function triggerVaultWarm() {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
   return res.json()
 }
 
@@ -40,7 +41,7 @@ function useOpsDashboard(bankId, { enabled = true } = {}) {
       const res = await fetch(`${API_BASE}/v1/ops/dashboard`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setData(json)
       setLastFetch(new Date())
@@ -109,9 +110,9 @@ function VaultCoverageWidget({ panel, isDark }) {
     setWarmMsg(null)
     try {
       const data = await triggerVaultWarm()
-      setWarmMsg({ ok: true, text: `Warm triggered — workflow ${data.workflow_id ?? '…'}` })
+      setWarmMsg({ ok: true, text: msg('UI_OPSDASHBOARD_WARM_TRIGGERED_WORKFLOW', { value: data.workflow_id ?? '…' }) })
     } catch (e) {
-      setWarmMsg({ ok: false, text: `Failed: ${e.message}` })
+      setWarmMsg({ ok: false, text: msg('UI_OPSDASHBOARD_FAILED', { message: e.message }) })
     } finally {
       setWarming(false)
     }
@@ -120,17 +121,17 @@ function VaultCoverageWidget({ panel, isDark }) {
   return (
     <div className={`rounded-xl border px-5 py-4 ${th.card} ${coverageRing}`}>
       <p className={`text-[11px] uppercase tracking-widest font-semibold mb-3 ${th.label}`}>
-        Signature Vault — Redis Coverage
+       {msg('UI_OPSDASHBOARD_SIGNATURE_VAULT_REDIS_COVERAGE')}
       </p>
 
       {cov.degraded ? (
-        <p className={`text-sm ${th.muted}`}>Unavailable (DB or Redis unreachable)</p>
+        <p className={`text-sm ${th.muted}`}>{msg('UI_OPSDASHBOARD_UNAVAILABLE_DB_OR_REDIS_UNREACHABLE')}</p>
       ) : (
         <>
           {/* Coverage bar */}
           <div className="mb-3">
             <div className="flex justify-between mb-1">
-              <span className={`text-xs ${th.muted}`}>Redis / YugabyteDB</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_OPSDASHBOARD_REDIS_YUGABYTEDB')}</span>
               <span className={`text-xs font-semibold tabular-nums ${th.heading}`}>{coveragePct.toFixed(1)}%</span>
             </div>
             <div className={`h-2 rounded-full overflow-hidden ${th.bar}`}>
@@ -144,15 +145,15 @@ function VaultCoverageWidget({ panel, isDark }) {
           {/* Counts row */}
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
-              <p className={`text-[10px] uppercase ${th.muted}`}>YugabyteDB</p>
+              <p className={`text-[10px] uppercase ${th.muted}`}>{msg('UI_SMOKETEST_YUGABYTEDB')}</p>
               <p className={`text-lg font-bold tabular-nums ${th.heading}`}>{cov.yugabyte_accounts.toLocaleString()}</p>
             </div>
             <div>
-              <p className={`text-[10px] uppercase ${th.muted}`}>Redis keys</p>
+              <p className={`text-[10px] uppercase ${th.muted}`}>{msg('UI_OPSDASHBOARD_REDIS_KEYS')}</p>
               <p className={`text-lg font-bold tabular-nums ${th.heading}`}>{cov.redis_sig_keys.toLocaleString()}</p>
             </div>
             <div>
-              <p className={`text-[10px] uppercase ${th.muted}`}>Gap</p>
+              <p className={`text-[10px] uppercase ${th.muted}`}>{msg('UI_OPSDASHBOARD_GAP')}</p>
               <p className={`text-lg font-bold tabular-nums ${isCold ? 'text-amber-400' : th.heading}`}>
                 {cov.gap_accounts.toLocaleString()}
               </p>
@@ -192,7 +193,7 @@ function IETRiskBanner({ panel, isDark }) {
       ${isDark ? 'bg-red-900/20 border-red-700/40' : 'bg-red-50 border-red-200'}`}>
       <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
       <p className={`text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-        IET Alert: {panel.near_breach_count} cheque{panel.near_breach_count !== 1 ? 's' : ''} within 30 seconds of IET deadline
+       {msg('UI_OPSDASHBOARD_IET_ALERT_CHEQUE_WITHIN_30', { near_breach_count: panel.near_breach_count, value: panel.near_breach_count !== 1 ? 's' : '' })}
       </p>
     </div>
   )
@@ -200,7 +201,9 @@ function IETRiskBanner({ panel, isDark }) {
 
 export default function OpsDashboard() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_BRANCH_MASTER_LIVE=true: read the real backend even in a DEMO build (otherwise this page stays on its placeholder).
+  const isDemo = isDemoBuild && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
   const { data, loading, error, lastFetch, reload } = useOpsDashboard(bankId, { enabled: !isDemo })
 
   const th = {
@@ -225,16 +228,16 @@ export default function OpsDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>ASTRA Ops Dashboard</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_OPSDASHBOARD_ASTRA_OPS_DASHBOARD')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…'}&nbsp;·&nbsp;Auto-refresh 30s
+              {msg('UI_OPSDASHBOARD_AUTO_REFRESH_30S', { value: lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…' })}
             </p>
           </div>
           <div className="flex items-center gap-3">
             {deg && (
               <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium
                 ${isDark ? 'bg-amber-900/20 border-amber-700/40 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-                Degraded
+               {msg('UI_OPSDASHBOARD_DEGRADED')}
               </span>
             )}
             <button
@@ -255,33 +258,33 @@ export default function OpsDashboard() {
         {error && (
           <div className={`text-sm px-4 py-3 rounded-xl mb-4 border
             ${isDark ? 'bg-red-900/10 border-red-700/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700'}`}>
-            Could not reach API: {error}. Showing last known state.
+           {msg('UI_OPSDASHBOARD_COULD_NOT_REACH_API_SHOWING', { error })}
           </div>
         )}
 
         {/* KPI grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <MetricCard
-            label="IET Near-Breach"
+            label={msg('UI_OPSDASHBOARD_IET_NEAR_BREACH')}
             value={iet.near_breach_count}
             sub="cheques within 30s of deadline"
             alert={ietAlert}
             isDark={isDark}
           />
           <MetricCard
-            label="In Processing"
+            label={msg('UI_OPSDASHBOARD_IN_PROCESSING')}
             value={iet.in_processing_count}
             sub="cheques active now"
             isDark={isDark}
           />
           <MetricCard
-            label="Review Queue"
+            label={msg('UI_SMBDASHBOARDCONTENT_REVIEW_QUEUE')}
             value={hr.queue_depth}
             sub="awaiting ops_reviewer"
             isDark={isDark}
           />
           <MetricCard
-            label="Avg Wait"
+            label={msg('UI_OPSDASHBOARD_AVG_WAIT')}
             value={hr.avg_wait_minutes > 0 ? `${hr.avg_wait_minutes.toFixed(1)} min` : '—'}
             sub="time in human review"
             alert={hr.avg_wait_minutes > 45 ? 'warn' : undefined}
@@ -295,12 +298,12 @@ export default function OpsDashboard() {
         </div>
 
         {/* Quick-nav cards */}
-        <p className={`text-[11px] uppercase tracking-widest font-semibold mb-3 ${th.muted}`}>Platform Health</p>
+        <p className={`text-[11px] uppercase tracking-widest font-semibold mb-3 ${th.muted}`}>{msg('UI_OPSDASHBOARD_PLATFORM_HEALTH')}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { to: '/ops/model-health', title: 'Model Health',   desc: 'OCR + fraud score drift over 7 days',          icon: '🤖' },
-            { to: '/ops/alerts',       title: 'Alert Log',      desc: 'Recent CRITICAL/ERROR events (last 24h)',       icon: '🔔' },
-            { to: '/ops/system',       title: 'System Health',  desc: 'Redis, YugabyteDB, Vault connectivity',        icon: '🖥️' },
+            { to: '/ops/model-health', title: msg('UI_COMMON_MODEL_HEALTH'),   desc: msg('UI_OPSDASHBOARD_OCR_FRAUD_SCORE_DRIFT_OVER'),          icon: '🤖' },
+            { to: '/ops/alerts',       title: msg('UI_COMMON_ALERT_LOG'),      desc: msg('UI_OPSDASHBOARD_RECENT_CRITICAL_ERROR_EVENTS_LAST'),       icon: '🔔' },
+            { to: '/ops/system',       title: msg('UI_COMMON_SYSTEM_HEALTH'),  desc: msg('UI_OPSDASHBOARD_REDIS_YUGABYTEDB_VAULT_CONNECTIVITY'),        icon: '🖥️' },
           ].map(({ to, title, desc, icon }) => (
             <Link
               key={to}

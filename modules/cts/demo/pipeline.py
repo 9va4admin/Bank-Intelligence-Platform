@@ -27,6 +27,7 @@ from modules.cts.demo.models import (
     StepResult,
     StepStatus,
 )
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -79,13 +80,13 @@ def _presentment_failure(index: int) -> Optional[dict]:
         return {
             "step": PresentmentStep.VISION_LLM.value,
             "reason": "ALTERATION_DETECTED",
-            "detail": "Qwen2-VL reports overwriting in amount field (tamper confidence 0.91). Instrument rejected per CTS-2010 §5.2.",
+            "detail": get_message("CTS_QWEN2_VL_REPORTS_OVERWRITING_IN"),
         }
     if index % 19 == 18:
         return {
             "step": PresentmentStep.CTS_COMPLIANCE.value,
             "reason": "CTS_IMAGE_QUALITY",
-            "detail": "Image DPI below CTS-2010 minimum (96 DPI required, detected 68 DPI). Re-scan required.",
+            "detail": get_message("UI_DEMOPIPELINE_IMAGE_DPI_BELOW_CTS_2010"),
         }
     return None
 
@@ -96,19 +97,19 @@ def _drawee_failure(index: int) -> Optional[dict]:
         return {
             "step": DraweeStep.STOP_PAYMENT.value,
             "reason": "STOP_PAYMENT_ACTIVE",
-            "detail": "CBS confirms stop-payment instruction active. Instruction filed: 2026-06-29 14:32. Instrument returned.",
+            "detail": get_message("CTS_CBS_CONFIRMS_STOP_PAYMENT_INSTRUCTIO"),
         }
     if index % 17 == 16:
         return {
             "step": DraweeStep.SIGNATURE_VAULT.value,
             "reason": "SIGNATURE_MISMATCH",
-            "detail": "Siamese SNN match score 0.42 (threshold 0.85). 2 registered specimens on record. Human review required.",
+            "detail": get_message("CTS_SIAMESE_SNN_MATCH_SCORE_0"),
         }
     if index % 23 == 22:
         return {
             "step": DraweeStep.ACCOUNT_STATUS.value,
             "reason": "ACCOUNT_FROZEN",
-            "detail": "CBS: account status FROZEN (court order ref CO-2026-MUM-4421). Instrument returned immediately.",
+            "detail": get_message("CTS_CBS_ACCOUNT_STATUS_FROZEN_COURT"),
         }
     return None
 

@@ -14,7 +14,7 @@ def test_astra_identity_valid():
         entity_id="saraswat-coop",
         bank_id="saraswat-coop",
         role="ops_reviewer",
-        clearing_zones=["MUMBAI"],
+        pu_ids=["MUMBAI"],
         connector_used="ldap_ad",
         authenticated_at=time.time(),
     )
@@ -80,7 +80,7 @@ def test_astra_identity_default_clearing_zones():
         connector_used="local",
         authenticated_at=time.time(),
     )
-    assert identity.clearing_zones == []
+    assert identity.pu_ids == []
 
 
 def test_astra_identity_pu_entity_type():
@@ -107,7 +107,7 @@ def test_astra_identity_branch_entity_type():
         entity_id="branch-dadar-001",
         bank_id="saraswat-coop",
         role="ops_reviewer",
-        clearing_zones=["MUMBAI"],
+        pu_ids=["MUMBAI"],
         connector_used="ldap_ad",
         authenticated_at=time.time(),
     )

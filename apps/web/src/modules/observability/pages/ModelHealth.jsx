@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -26,7 +27,7 @@ function useModelHealth(bankId, { enabled = true } = {}) {
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/v1/ops/model-health`, { credentials: 'include' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       setData(await res.json())
     } catch (e) {
       setError(e.message)
@@ -101,13 +102,13 @@ export default function ModelHealth() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <Link to="/ops/dashboard" className={`text-xs ${th.muted} hover:underline`}>
-                Ops Dashboard
+               {msg('UI_COMMON_OPS_DASHBOARD')}
               </Link>
               <span className={`text-xs ${th.muted}`}>/</span>
-              <span className={`text-xs ${th.muted}`}>Model Health</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_MODEL_HEALTH')}</span>
             </div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>AI Model Health</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>7-day rolling drift — WARN at 2%, CRITICAL at 5%</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_MODELHEALTH_AI_MODEL_HEALTH')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_MODELHEALTH_7_DAY_ROLLING_DRIFT_WARN')}</p>
           </div>
           <button
             onClick={reload}
@@ -129,23 +130,23 @@ export default function ModelHealth() {
         {degraded && (
           <div className={`text-sm px-4 py-3 rounded-xl mb-4 border
             ${isDark ? 'bg-amber-900/10 border-amber-700/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-            Inference log DB unavailable — model metrics not computable.
+           {msg('UI_MODELHEALTH_INFERENCE_LOG_DB_UNAVAILABLE_MODEL')}
           </div>
         )}
 
         <div className={`rounded-xl border overflow-hidden ${th.card}`}>
           {/* Table header */}
           <div className={`grid grid-cols-5 gap-4 px-5 py-3 border-b ${th.muted} text-[11px] uppercase tracking-widest font-semibold ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
-            <span className="col-span-1">Model</span>
-            <span className="col-span-1">Metric</span>
-            <span className="text-right">Current (1d)</span>
-            <span className="text-right">Baseline (7d)</span>
-            <span className="text-right">Status</span>
+            <span className="col-span-1">{msg('UI_ANALYTICS_MODEL')}</span>
+            <span className="col-span-1">{msg('UI_ANALYTICS_METRIC')}</span>
+            <span className="text-right">{msg('UI_MODELHEALTH_CURRENT_1D')}</span>
+            <span className="text-right">{msg('UI_MODELHEALTH_BASELINE_7D')}</span>
+            <span className="text-right">{msg('UI_COMMON_STATUS')}</span>
           </div>
 
           {models.length === 0 && !loading && (
             <div className={`px-5 py-8 text-center text-sm ${th.muted}`}>
-              No model data available.
+             {msg('UI_MODELHEALTH_NO_MODEL_DATA_AVAILABLE')}
             </div>
           )}
 
@@ -186,8 +187,7 @@ export default function ModelHealth() {
         </div>
 
         <p className={`text-xs mt-4 ${th.muted}`}>
-          Drift = (current_1d_avg − baseline_7d_avg) / baseline_7d_avg × 100.
-          Alert engine triggers WhatsApp + email when CRITICAL.
+         {msg('UI_MODELHEALTH_DRIFT_CURRENT_1D_AVG_BASELINE')}
         </p>
       </div>
     </AppShell>

@@ -11,6 +11,7 @@
  * Returns: { branches, totalBranches, activeSessions, clearingDate, loading, error, refetch }
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 30_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -68,7 +69,7 @@ export default function useHubSummary({ pollEnabled = true } = {}) {
       const res = await fetch(`${API_BASE}/v1/cts/outward/hub-summary`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const data = await res.json()
       setBranches((data.branches ?? []).map(normaliseBranch))
       setTotalBranches(data.total_branches ?? 0)

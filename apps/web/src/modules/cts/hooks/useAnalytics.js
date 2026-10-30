@@ -8,6 +8,7 @@
  * which matches the mock SB_DAILY / SMB_DAILY shape in CTSAnalytics.jsx.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 5 * 60_000   // 5 min — analytics aggregates don't change by the second
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -40,7 +41,7 @@ export default function useAnalytics({ days = 7, pollEnabled = true, instrumentC
         `${API_BASE}/v1/cts/outward/analytics/daily?${params}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const data = await res.json()
       setDaily((data.daily ?? []).map(normaliseRow))
       setError(null)

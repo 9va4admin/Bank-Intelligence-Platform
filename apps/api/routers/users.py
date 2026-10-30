@@ -33,6 +33,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.dependencies import require_user_context
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -45,7 +46,19 @@ _SB_ROLES = {
 }
 _SMB_ROLES = {"smb_admin", "smb_editor", "smb_viewer"}
 _VALID_ROLES = _SB_ROLES | _SMB_ROLES
-_VALID_ZONES = {"MUMBAI", "DELHI", "CHENNAI", "KOLKATA", "HYDERABAD", "BANGALORE", "ALL"}
+async def _pu_is_valid(pool, bank_id: str, pu_id: str) -> bool:
+    """'ALL' or a processing unit of this bank. Without a database (tests, dev) any non-empty id is accepted."""
+    if pu_id == "ALL":
+        return True
+    if pool is None:
+        return bool(pu_id)
+    try:
+        async with pool.acquire() as conn:
+            return bool(await conn.fetchval(
+                "SELECT 1 FROM cts.processing_units WHERE bank_id = $1 AND pu_id = $2 AND is_active", bank_id, pu_id))
+    except Exception:  # noqa: BLE001 - never block user admin on a lookup problem
+        return True
+
 _VALID_BANK_TYPES = {"SB", "SMB"}
 _VALID_PERMISSION_LEVELS = {"ADMIN", "EDIT", "READ_ONLY"}
 
@@ -68,7 +81,7 @@ async def get_admin_user(
 
 def require_it_admin(user: dict = Depends(get_admin_user)) -> dict:
     if user["role"] != "bank_it_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("API_BANK_IT_ADMIN_REQUIRED"))
     return user
 
 
@@ -83,7 +96,8 @@ class UserCreateRequest(BaseModel):
     role: str = Field(..., description="One of the ASTRA roles")
     bank_type: str = Field("SB", description="SB or SMB — immutable after creation")
     permission_level: str = Field("EDIT", description="ADMIN, EDIT, or READ_ONLY")
-    clearing_zone: str = Field("ALL", description="Zone scope for ops_reviewer")
+    pu_id: str = Field("ALL", description="Processing unit scope for ops_reviewer (ALL = every PU)")
+    branch_ids: list[str] = Field(default_factory=list, description="Branches the user works at; empty = central staff")
     employee_id: Optional[str] = None
     branch_code: Optional[str] = None
 
@@ -92,7 +106,8 @@ class UserUpdateRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     role: Optional[str] = None
     permission_level: Optional[str] = None
-    clearing_zone: Optional[str] = None
+    pu_id: Optional[str] = None
+    branch_ids: Optional[list[str]] = None
     is_active: Optional[bool] = None
     display_name: Optional[str] = None
     # bank_type intentionally absent — immutable after user creation; extra="forbid" rejects it
@@ -106,7 +121,8 @@ class UserResponse(BaseModel):
     role: str
     bank_type: str
     permission_level: str
-    clearing_zone: str
+    pu_id: str
+    branch_ids: list[str] = []
     bank_id: str
     is_active: bool
     totp_enabled: bool
@@ -202,7 +218,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-001": {
         "user_id": "usr-001", "email": "ops1@bank.com", "display_name": "Ramesh Kumar",
         "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "MUMBAI", "bank_id": "hdfc-bank",
+        "pu_id": "MUMBAI", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1001",
         "branch_code": "BOM001", "created_at": datetime(2026, 1, 15, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 25, 9, 12, tzinfo=timezone.utc),
@@ -210,7 +226,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-002": {
         "user_id": "usr-002", "email": "fraud@bank.com", "display_name": "Priya Sharma",
         "role": "fraud_analyst", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": False, "employee_id": "EMP-1002",
         "branch_code": None, "created_at": datetime(2026, 2, 3, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 24, 16, 45, tzinfo=timezone.utc),
@@ -218,7 +234,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-003": {
         "user_id": "usr-003", "email": "mgr@bank.com", "display_name": "Sunil Mehta",
         "role": "ops_manager", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1003",
         "branch_code": None, "created_at": datetime(2026, 1, 10, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 25, 8, 55, tzinfo=timezone.utc),
@@ -226,7 +242,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-004": {
         "user_id": "usr-004", "email": "compliance@bank.com", "display_name": "Anita Desai",
         "role": "compliance_officer", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "pu_id": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1004",
         "branch_code": None, "created_at": datetime(2026, 1, 10, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 23, 14, 20, tzinfo=timezone.utc),
@@ -234,7 +250,7 @@ _MOCK_USERS: dict[str, dict] = {
     "usr-005": {
         "user_id": "usr-005", "email": "ops2@bank.com", "display_name": "Vikram Singh",
         "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
-        "clearing_zone": "DELHI", "bank_id": "hdfc-bank",
+        "pu_id": "DELHI", "bank_id": "hdfc-bank",
         "is_active": False, "totp_enabled": False, "employee_id": "EMP-1005",
         "branch_code": "DEL002", "created_at": datetime(2026, 3, 20, tzinfo=timezone.utc),
         "last_login_at": None,
@@ -246,7 +262,9 @@ _TOTP_SECRETS: dict[str, str] = {}
 
 
 def _to_response(u: dict) -> UserResponse:
-    return UserResponse(**{k: u[k] for k in UserResponse.model_fields})
+    data = {k: u[k] for k in UserResponse.model_fields if k != "branch_ids"}
+    data["branch_ids"] = list(u.get("branch_ids") or [])          # older records have none: central staff
+    return UserResponse(**data)
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +274,7 @@ def _to_response(u: dict) -> UserResponse:
 def _row_to_user_dict(row: dict) -> dict:
     """Map a local_auth_accounts DB row to a UserResponse-compatible dict."""
     entity_type = row.get("entity_type") or "sb"
-    clearing_zones = row.get("clearing_zones") or []
+    pu_ids = row.get("pu_ids") or []
     email = row.get("email") or row.get("username", "")
     return {
         "user_id": str(row["user_id"]),
@@ -265,7 +283,8 @@ def _row_to_user_dict(row: dict) -> dict:
         "role": row["role"],
         "bank_type": "SMB" if entity_type == "smb" else "SB",
         "permission_level": "EDIT",   # not stored in this schema
-        "clearing_zone": clearing_zones[0] if clearing_zones else "ALL",
+        "pu_id": pu_ids[0] if pu_ids else "ALL",
+        "branch_ids": list(row.get("branch_ids") or []),
         "bank_id": row["bank_id"],
         "is_active": bool(row.get("is_active", True)),
         "totp_enabled": bool(row.get("totp_enrolled", False)),
@@ -281,7 +300,7 @@ async def _db_fetch_user(pool: Any, user_id: str, bank_id: str) -> Optional[dict
         row = await conn.fetchrow(
             """
             SELECT user_id, bank_id, entity_type, entity_id, username, display_name,
-                   role, clearing_zones, is_active, totp_enrolled,
+                   role, pu_ids, branch_ids, is_active, totp_enrolled,
                    created_at, last_login_at, email
             FROM platform.local_auth_accounts
             WHERE user_id = $1 AND bank_id = $2
@@ -319,7 +338,7 @@ async def _db_fetch_users(
         rows = await conn.fetch(
             f"""
             SELECT user_id, bank_id, entity_type, entity_id, username, display_name,
-                   role, clearing_zones, is_active, totp_enrolled,
+                   role, pu_ids, branch_ids, is_active, totp_enrolled,
                    created_at, last_login_at, email
             FROM platform.local_auth_accounts
             WHERE {where}
@@ -345,8 +364,8 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
     """Insert a new local_auth_accounts row. Uses sentinel password_hash for SAML-managed users."""
     import secrets as _secrets
     entity_type = "smb" if user_data["bank_type"] == "SMB" else "sb"
-    clearing_zones = (
-        [user_data["clearing_zone"]] if user_data["clearing_zone"] != "ALL" else []
+    pu_ids = (
+        [user_data["pu_id"]] if user_data["pu_id"] != "ALL" else []
     )
     # Sentinel hash — this user authenticates via SAML, not local password
     password_hash = f"SAML_MANAGED:{_secrets.token_hex(16)}"
@@ -355,8 +374,8 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
             """
             INSERT INTO platform.local_auth_accounts
             (user_id, bank_id, entity_type, entity_id, username, display_name,
-             password_hash, role, clearing_zones, is_active, email, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             password_hash, role, pu_ids, branch_ids, is_active, email, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             """,
             user_data["user_id"],
             user_data["bank_id"],
@@ -366,7 +385,8 @@ async def _db_create_user(pool: Any, user_data: dict) -> dict:
             user_data["display_name"],
             password_hash,
             user_data["role"],
-            clearing_zones,
+            pu_ids,
+            list(user_data.get("branch_ids") or []),
             True,
             user_data["email"],
             user_data["created_at"],
@@ -381,16 +401,17 @@ async def _db_update_user(pool: Any, user_id: str, bank_id: str, updates: dict) 
     idx = 1
     field_map = {
         "role": "role",
-        "clearing_zone": None,      # special: convert to clearing_zones array
+        "pu_id": None,      # special: convert to pu_ids array
+        "branch_ids": "branch_ids",
         "is_active": "is_active",
         "display_name": "display_name",
     }
-    if "clearing_zone" in updates and updates["clearing_zone"] is not None:
-        zone = updates["clearing_zone"]
-        set_clauses.append(f"clearing_zones = ${idx}")
+    if "pu_id" in updates and updates["pu_id"] is not None:
+        zone = updates["pu_id"]
+        set_clauses.append(f"pu_ids = ${idx}")
         params.append([zone] if zone != "ALL" else [])
         idx += 1
-    for key in ("role", "is_active", "display_name"):
+    for key in ("role", "is_active", "display_name", "branch_ids"):
         if key in updates and updates[key] is not None:
             set_clauses.append(f"{key} = ${idx}")
             params.append(updates[key])
@@ -468,26 +489,25 @@ async def create_user(
     admin: dict = Depends(require_it_admin),
 ) -> UserResponse:
     if body.bank_type not in _VALID_BANK_TYPES:
-        raise HTTPException(status_code=422, detail="Invalid bank_type. Must be SB or SMB.")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_BANK_TYPE_MUST_BE"))
     if body.permission_level not in _VALID_PERMISSION_LEVELS:
-        raise HTTPException(status_code=422, detail="Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_PERMISSION_LEVEL_MUST_BE"))
     if body.role not in _VALID_ROLES:
-        raise HTTPException(status_code=422, detail=f"Invalid role. Must be one of: {sorted(_VALID_ROLES)}")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_ROLE_MUST_BE_ONE", sorted=sorted(_VALID_ROLES)))
     if body.bank_type == "SB" and body.role in _SMB_ROLES:
-        raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users (bank_type=SMB).")
+        raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR", role=body.role))
     if body.bank_type == "SMB" and body.role in _SB_ROLES:
-        raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users (bank_type=SB).")
-    if body.clearing_zone not in _VALID_ZONES:
-        raise HTTPException(status_code=422, detail=f"Invalid zone. Must be one of: {sorted(_VALID_ZONES)}")
-
+        raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR_2", role=body.role))
     pool = getattr(request.app.state, "db_pool_cts", None)
+    if not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
+        raise HTTPException(status_code=422, detail=get_message("PLATFORM_PU_UNKNOWN_OR_ALL"))
     import uuid
     user_id = f"usr-{str(uuid.uuid4())[:8]}"
     now = datetime.now(timezone.utc)
 
     if pool is not None:
         if await _db_email_exists(pool, admin["bank_id"], body.email):
-            raise HTTPException(status_code=409, detail="User with this email already exists")
+            raise HTTPException(status_code=409, detail=get_message("API_USER_WITH_THIS_EMAIL_ALREADY"))
         new_user = {
             "user_id": user_id,
             "email": body.email,
@@ -495,7 +515,8 @@ async def create_user(
             "role": body.role,
             "bank_type": body.bank_type,
             "permission_level": body.permission_level,
-            "clearing_zone": body.clearing_zone,
+            "pu_id": body.pu_id,
+            "branch_ids": list(body.branch_ids),
             "bank_id": admin["bank_id"],
             "is_active": True,
             "totp_enabled": False,
@@ -507,7 +528,7 @@ async def create_user(
         await _db_create_user(pool, new_user)
     else:
         if any(u["email"] == body.email for u in _MOCK_USERS.values()):
-            raise HTTPException(status_code=409, detail="User with this email already exists")
+            raise HTTPException(status_code=409, detail=get_message("API_USER_WITH_THIS_EMAIL_ALREADY"))
         new_user = {
             "user_id": user_id,
             "email": body.email,
@@ -515,7 +536,8 @@ async def create_user(
             "role": body.role,
             "bank_type": body.bank_type,
             "permission_level": body.permission_level,
-            "clearing_zone": body.clearing_zone,
+            "pu_id": body.pu_id,
+            "branch_ids": list(body.branch_ids),
             "bank_id": admin["bank_id"],
             "is_active": True,
             "totp_enabled": False,
@@ -543,7 +565,7 @@ async def get_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     return _to_response(u)
 
 
@@ -558,10 +580,10 @@ async def update_user(
 
     # Validate before any write
     if body.permission_level is not None and body.permission_level not in _VALID_PERMISSION_LEVELS:
-        raise HTTPException(status_code=422, detail="Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.")
+        raise HTTPException(status_code=422, detail=get_message("API_INVALID_PERMISSION_LEVEL_MUST_BE"))
     if body.role is not None:
         if body.role not in _VALID_ROLES:
-            raise HTTPException(status_code=422, detail="Invalid role")
+            raise HTTPException(status_code=422, detail=get_message("API_INVALID_ROLE"))
         # Need existing bank_type to validate role↔bank_type compatibility
         if pool is not None:
             existing = await _db_fetch_user(pool, user_id, admin["bank_id"])
@@ -569,21 +591,22 @@ async def update_user(
             raw = _MOCK_USERS.get(user_id)
             existing = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
         if existing is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
         if existing["bank_type"] == "SB" and body.role in _SMB_ROLES:
-            raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users.")
+            raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR_3", role=body.role))
         if existing["bank_type"] == "SMB" and body.role in _SB_ROLES:
-            raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users.")
-    if body.clearing_zone is not None and body.clearing_zone not in _VALID_ZONES:
-        raise HTTPException(status_code=422, detail="Invalid zone")
+            raise HTTPException(status_code=422, detail=get_message("API_ROLE_IS_ONLY_VALID_FOR_4", role=body.role))
+    if body.pu_id is not None and not await _pu_is_valid(pool, admin["bank_id"], body.pu_id):
+        raise HTTPException(status_code=422, detail=get_message("PLATFORM_PU_UNKNOWN"))
 
     if pool is not None:
         updates = {
             k: v for k, v in {
                 "role": body.role,
-                "clearing_zone": body.clearing_zone,
+                "pu_id": body.pu_id,
                 "is_active": body.is_active,
                 "display_name": body.display_name,
+                "branch_ids": body.branch_ids,
             }.items() if v is not None
         }
         u = await _db_update_user(pool, user_id, admin["bank_id"], updates)
@@ -591,20 +614,22 @@ async def update_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
         if u is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
         if body.permission_level is not None:
             u["permission_level"] = body.permission_level
         if body.role is not None:
             u["role"] = body.role
-        if body.clearing_zone is not None:
-            u["clearing_zone"] = body.clearing_zone
+        if body.pu_id is not None:
+            u["pu_id"] = body.pu_id
+        if body.branch_ids is not None:
+            u["branch_ids"] = list(body.branch_ids)
         if body.is_active is not None:
             u["is_active"] = body.is_active
         if body.display_name is not None:
             u["display_name"] = body.display_name
 
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     log.info("user.updated", user_id=user_id, bank_id=admin["bank_id"])
     return _to_response(u)
 
@@ -622,9 +647,9 @@ async def deactivate_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     if user_id == admin["user_id"]:
-        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        raise HTTPException(status_code=400, detail=get_message("API_CANNOT_DEACTIVATE_YOUR_OWN_ACCOUNT"))
     if pool is not None:
         await _db_deactivate_user(pool, user_id, admin["bank_id"])
     else:
@@ -649,7 +674,7 @@ async def totp_setup(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     secret = _generate_totp_secret()
     _TOTP_SECRETS[user_id] = secret
     email_encoded = u["email"].replace("@", "%40")
@@ -681,18 +706,18 @@ async def totp_confirm(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     secret = _TOTP_SECRETS.get(user_id)
     if not secret:
-        raise HTTPException(status_code=400, detail="TOTP setup not initiated. Call /totp/setup first.")
+        raise HTTPException(status_code=400, detail=get_message("API_TOTP_SETUP_NOT_INITIATED_CALL"))
     if not _verify_totp(secret, body.totp_code):
-        return TOTPVerifyResponse(valid=False, message="Invalid code. Please try again.")
+        return TOTPVerifyResponse(valid=False, message=get_message("API_INVALID_CODE_PLEASE_TRY_AGAIN"))
     if pool is not None:
         await _db_set_totp_enrolled(pool, user_id, admin["bank_id"], True)
     else:
         _MOCK_USERS[user_id]["totp_enabled"] = True
     log.info("totp.activated", user_id=user_id, bank_id=admin["bank_id"])
-    return TOTPVerifyResponse(valid=True, message="TOTP activated. MFA is now required at login.")
+    return TOTPVerifyResponse(valid=True, message=get_message("API_TOTP_ACTIVATED_MFA_IS_NOW"))
 
 
 @router_v1.delete("/v1/admin/users/{user_id}/totp", status_code=204)
@@ -708,7 +733,7 @@ async def totp_reset(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     if pool is not None:
         await _db_set_totp_enrolled(pool, user_id, admin["bank_id"], False)
     else:
@@ -733,12 +758,12 @@ async def totp_verify_login(
         raw = _MOCK_USERS.get(body.user_id)
         u = raw if (raw and raw["bank_id"] == body.bank_id) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     if not u["totp_enabled"]:
-        raise HTTPException(status_code=400, detail="TOTP not enabled for this user")
+        raise HTTPException(status_code=400, detail=get_message("API_TOTP_NOT_ENABLED_FOR_THIS"))
     secret = _TOTP_SECRETS.get(body.user_id)
     if not secret:
-        raise HTTPException(status_code=500, detail="TOTP secret not found. Contact IT admin.")
+        raise HTTPException(status_code=500, detail=get_message("API_TOTP_SECRET_NOT_FOUND_CONTACT"))
     valid = _verify_totp(secret, body.totp_code)
     if not valid:
         log.warning("totp.verify.failed", user_id=body.user_id, bank_id=body.bank_id)
@@ -765,7 +790,7 @@ async def list_user_sessions(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     # platform.user_sessions is the durable store; Redis is a 60s read-cache.
     # Cache key: sessions:{bank_id}:{user_id} (JSON list)
     import json as _json
@@ -851,7 +876,7 @@ async def force_logout_user(
         raw = _MOCK_USERS.get(user_id)
         u = raw if (raw and raw["bank_id"] == admin["bank_id"]) else None
     if u is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=get_message("API_USER_NOT_FOUND"))
     # Revoke in DB first — this is what makes the token actually dead.
     # Redis key cleared after so the cache reflects the revocation immediately.
     pool = getattr(request.app.state, "db_pool_cts", None)

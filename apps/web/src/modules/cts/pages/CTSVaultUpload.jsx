@@ -2,56 +2,57 @@ import { useState, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { msg } from '../../../shared/messages'
 
 // ── Vault type catalogue ───────────────────────────────────────────────────
 
 const VAULT_TYPES = [
   {
     id: 'CHEQUE_BOOK',
-    label: 'Cheque Book',
+    label: msg('UI_VAULTUPLOAD_CHEQUE_BOOK'),
     icon: '📒',
     shortDesc: 'Register issued cheque books',
-    desc: 'Register issued cheque books. Each row auto-expands all leaves in the series to ACTIVE.',
+    desc: msg('UI_VAULTUPLOAD_REGISTER_ISSUED_CHEQUE_BOOKS_EACH'),
     filename: 'cheque_book_upload.csv',
     minRole: 'bank_it_admin',
     accent: '#10b981',
   },
   {
     id: 'LEAF_STATUS',
-    label: 'Leaf Status',
+    label: msg('UI_VAULTUPLOAD_LEAF_STATUS'),
     icon: '🚫',
     shortDesc: 'Report STOPPED, LOST, STOLEN, CANCELLED',
-    desc: 'Report exception events — STOPPED, LOST, STOLEN, CANCELLED. ASTRA writes clearing events automatically.',
+    desc: msg('UI_VAULTUPLOAD_REPORT_EXCEPTION_EVENTS_STOPPED_LOST'),
     filename: 'cheque_leaf_status_upload.csv',
     minRole: 'ops_manager',
     accent: '#f59e0b',
   },
   {
     id: 'ACCOUNT_DETAIL',
-    label: 'Account Holders',
+    label: msg('UI_VAULTUPLOAD_ACCOUNT_HOLDERS'),
     icon: '👤',
     shortDesc: 'Holder names for joint / corporate accounts',
-    desc: 'Account holder names and roles for joint/corporate accounts. One row per holder per account.',
+    desc: msg('UI_VAULTUPLOAD_ACCOUNT_HOLDER_NAMES_AND_ROLES'),
     filename: 'account_vault_detail_upload.csv',
     minRole: 'bank_it_admin',
     accent: '#6366f1',
   },
   {
     id: 'SIGNATURE',
-    label: 'Mandate Rules',
+    label: msg('UI_VAULTUPLOAD_MANDATE_RULES'),
     icon: '✍️',
     shortDesc: 'Signatory mandate rules per account',
-    desc: 'Signatory mandate rules (ANY_ONE / ALL_REQUIRED / QUORUM_N) per account. Specimen images uploaded separately.',
+    desc: msg('UI_VAULTUPLOAD_SIGNATORY_MANDATE_RULES_ANY_ONE'),
     filename: 'signatory_upload.csv',
     minRole: 'bank_it_admin',
     accent: '#8b5cf6',
   },
   {
     id: 'PPS',
-    label: 'Positive Pay',
+    label: msg('UI_VAULTUPLOAD_POSITIVE_PAY'),
     icon: '✅',
     shortDesc: 'Pre-register cheques for PPS',
-    desc: 'Pre-register cheques for Positive Pay System (RBI mandate). One row per cheque: account, cheque number, date, amount, payee.',
+    desc: msg('UI_VAULTUPLOAD_PRE_REGISTER_CHEQUES_FOR_POSITIVE'),
     filename: 'pps_upload.csv',
     minRole: 'ops_manager',
     accent: '#0ea5e9',
@@ -59,23 +60,23 @@ const VAULT_TYPES = [
 ]
 
 const STATUS_STYLES = {
-  COMPLETE:   { dot: 'bg-emerald-400', label: 'Complete'   },
-  PARTIAL:    { dot: 'bg-amber-400',   label: 'Partial'    },
-  FAILED:     { dot: 'bg-red-400',     label: 'Failed'     },
-  PROCESSING: { dot: 'bg-violet-400',  label: 'Processing' },
-  PENDING:    { dot: 'bg-slate-400',   label: 'Pending'    },
+  COMPLETE:   { dot: 'bg-emerald-400', label: msg('UI_VAULTUPLOAD_COMPLETE')   },
+  PARTIAL:    { dot: 'bg-amber-400',   label: msg('UI_VAULTUPLOAD_PARTIAL')    },
+  FAILED:     { dot: 'bg-red-400',     label: msg('UI_COMMON_FAILED')     },
+  PROCESSING: { dot: 'bg-violet-400',  label: msg('UI_COMMON_PROCESSING') },
+  PENDING:    { dot: 'bg-slate-400',   label: msg('UI_COMMON_PENDING')    },
 }
 
 const LEAF_LIFECYCLE = [
-  { s: 'ACTIVE',    who: 'ASTRA', note: 'auto-expanded from book upload',  color: 'text-emerald-400' },
-  { s: 'PRESENTED', who: 'ASTRA', note: 'workflow start',                  color: 'text-violet-400' },
-  { s: 'PAID',      who: 'ASTRA', note: 'ngch_filer → CONFIRM',            color: 'text-emerald-400' },
-  { s: 'RETURNED',  who: 'ASTRA', note: 'ngch_filer → RETURN',             color: 'text-amber-400' },
-  { s: 'EXPIRED',   who: 'ASTRA', note: 'daily sweep > 3 months',          color: 'text-slate-400' },
-  { s: 'STOPPED',   who: 'Bank',  note: 'stop payment instruction',        color: 'text-amber-400' },
-  { s: 'LOST',      who: 'Bank',  note: 'customer reports loss',           color: 'text-red-400' },
-  { s: 'STOLEN',    who: 'Bank',  note: 'customer/police report',          color: 'text-red-400' },
-  { s: 'CANCELLED', who: 'Bank',  note: 'customer cancels unused leaf',    color: 'text-red-400' },
+  { s: 'ACTIVE',    who: 'ASTRA', note: msg('UI_VAULTUPLOAD_AUTO_EXPANDED_FROM_BOOK_UPLOAD'),  color: 'text-emerald-400' },
+  { s: 'PRESENTED', who: 'ASTRA', note: msg('UI_VAULTUPLOAD_WORKFLOW_START'),                  color: 'text-violet-400' },
+  { s: 'PAID',      who: 'ASTRA', note: msg('UI_VAULTUPLOAD_NGCH_FILER_CONFIRM'),            color: 'text-emerald-400' },
+  { s: 'RETURNED',  who: 'ASTRA', note: msg('UI_VAULTUPLOAD_NGCH_FILER_RETURN'),             color: 'text-amber-400' },
+  { s: 'EXPIRED',   who: 'ASTRA', note: msg('UI_VAULTUPLOAD_DAILY_SWEEP_3_MONTHS'),          color: 'text-slate-400' },
+  { s: 'STOPPED',   who: 'Bank',  note: msg('UI_VAULTUPLOAD_STOP_PAYMENT_INSTRUCTION'),        color: 'text-amber-400' },
+  { s: 'LOST',      who: 'Bank',  note: msg('UI_VAULTUPLOAD_CUSTOMER_REPORTS_LOSS'),           color: 'text-red-400' },
+  { s: 'STOLEN',    who: 'Bank',  note: msg('UI_VAULTUPLOAD_CUSTOMER_POLICE_REPORT'),          color: 'text-red-400' },
+  { s: 'CANCELLED', who: 'Bank',  note: msg('UI_VAULTUPLOAD_CUSTOMER_CANCELS_UNUSED_LEAF'),    color: 'text-red-400' },
 ]
 
 // ── API helpers ────────────────────────────────────────────────────────────
@@ -125,9 +126,9 @@ export default function CTSVaultUpload() {
 
   const uploadComplete = uploadResult?.status === 'COMPLETE'
   const steps = [
-    { n: 1, label: 'Select type', done: true },
-    { n: 2, label: 'Drop file',   done: !!selectedFile },
-    { n: 3, label: 'Upload',      done: uploadComplete },
+    { n: 1, label: msg('UI_VAULTUPLOAD_SELECT_TYPE'), done: true },
+    { n: 2, label: msg('UI_VAULTUPLOAD_DROP_FILE'),   done: !!selectedFile },
+    { n: 3, label: msg('UI_VAULTUPLOAD_UPLOAD'),      done: uploadComplete },
   ]
 
   const { data: batchData } = useQuery({
@@ -200,9 +201,9 @@ export default function CTSVaultUpload() {
 
         {/* ── Page header ── */}
         <div className="mb-5">
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Vault Upload</h1>
+          <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_VAULT_UPLOAD')}</h1>
           <p className={`text-sm mt-0.5 ${th.muted}`}>
-            Seed or update vault data via CSV. ASTRA audits every change with history snapshots.
+           {msg('UI_VAULTUPLOAD_SEED_OR_UPDATE_VAULT_DATA')}
           </p>
         </div>
 
@@ -242,8 +243,8 @@ export default function CTSVaultUpload() {
             <div className={`text-sm font-semibold ${th.heading} mb-1`}>{vt.label}</div>
             <div className={`text-sm ${th.body}`}>{vt.desc}</div>
             <div className={`text-xs mt-2 ${th.faint}`}>
-              Min. role: <span className="font-medium">{vt.minRole}</span>
-              {' · '}Template: <code className="font-mono">{vt.filename}</code>
+             {msg('UI_VAULTUPLOAD_MIN_ROLE')} <span className="font-medium">{vt.minRole}</span>
+              {msg('UI_VAULTUPLOAD_TEMPLATE')} <code className="font-mono">{vt.filename}</code>
             </div>
           </div>
           <button
@@ -257,7 +258,7 @@ export default function CTSVaultUpload() {
             <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
               <path d="M8 1a.75.75 0 0 1 .75.75v6.19l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 1 1 1.06-1.06l1.72 1.72V1.75A.75.75 0 0 1 8 1zm-4 9a.75.75 0 0 1 .75.75v1.5c0 .138.112.25.25.25h6a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 11 13.5H5A1.75 1.75 0 0 1 3.25 11.75v-1.5A.75.75 0 0 1 4 10z" />
             </svg>
-            Download template
+           {msg('UI_VAULTUPLOAD_DOWNLOAD_TEMPLATE')}
           </button>
         </div>
 
@@ -311,7 +312,7 @@ export default function CTSVaultUpload() {
                     </div>
                     <div className={`text-sm font-semibold ${th.heading}`}>{selectedFile.name}</div>
                     <div className={`text-xs mt-1 ${th.muted}`}>
-                      {(selectedFile.size / 1024).toFixed(1)} KB · Click to replace
+                      {msg('UI_VAULTUPLOAD_KB_CLICK_TO_REPLACE', { value: (selectedFile.size / 1024).toFixed(1) })}
                     </div>
                   </>
                 ) : (
@@ -324,8 +325,8 @@ export default function CTSVaultUpload() {
                         <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
-                    <div className={`text-sm font-medium ${th.body}`}>Drop CSV here or click to browse</div>
-                    <div className={`text-xs mt-1 ${th.faint}`}>Max 20 MB · UTF-8 CSV only</div>
+                    <div className={`text-sm font-medium ${th.body}`}>{msg('UI_VAULTUPLOAD_DROP_CSV_HERE_OR_CLICK')}</div>
+                    <div className={`text-xs mt-1 ${th.faint}`}>{msg('UI_VAULTUPLOAD_MAX_20_MB_UTF_8')}</div>
                   </>
                 )}
               </div>
@@ -356,17 +357,17 @@ export default function CTSVaultUpload() {
                 </div>
                 <p className={`text-sm ${th.body}`}>{uploadResult.message}</p>
                 {uploadResult.batch_id && (
-                  <p className={`text-xs mt-1 font-mono ${th.faint}`}>Batch: {uploadResult.batch_id}</p>
+                  <p className={`text-xs mt-1 font-mono ${th.faint}`}>{msg('UI_VAULTUPLOAD_BATCH', { batch_id: uploadResult.batch_id })}</p>
                 )}
                 {uploadResult.errors?.length > 0 && (
                   <div className="mt-3">
-                    <div className={`text-xs font-medium mb-1.5 ${th.muted}`}>Row errors</div>
+                    <div className={`text-xs font-medium mb-1.5 ${th.muted}`}>{msg('UI_VAULTUPLOAD_ROW_ERRORS')}</div>
                     <div className="space-y-1 max-h-36 overflow-y-auto">
                       {uploadResult.errors.map((e, i) => (
                         <div key={i} className={`text-xs px-2.5 py-1.5 rounded ${
                           isDark ? 'bg-red-900/30 text-red-300' : 'bg-red-50 text-red-700'
                         }`}>
-                          Row {e.row}: {e.error}
+                         {msg('UI_BRANCHMASTER_ROW', { row: e.row, error: e.error })}
                         </div>
                       ))}
                     </div>
@@ -379,12 +380,12 @@ export default function CTSVaultUpload() {
           {/* ── Right: batch history ── */}
           <div className={`rounded-xl border ${th.card}`}>
             <div className={`px-4 py-3 border-b ${th.divider} flex items-center justify-between`}>
-              <span className={`text-sm font-semibold ${th.heading}`}>Upload History</span>
-              <span className={`text-xs ${th.faint}`}>{vt.label} · last 20</span>
+              <span className={`text-sm font-semibold ${th.heading}`}>{msg('UI_VAULTUPLOAD_UPLOAD_HISTORY')}</span>
+              <span className={`text-xs ${th.faint}`}>{msg('UI_VAULTUPLOAD_LAST_20', { label: vt.label })}</span>
             </div>
             {batches.length === 0 ? (
               <div className={`px-4 py-10 text-center text-sm ${th.faint}`}>
-                No uploads yet for {vt.label}
+               {msg('UI_VAULTUPLOAD_NO_UPLOADS_YET_FOR', { label: vt.label })}
               </div>
             ) : (
               <div className="divide-y divide-white/4">
@@ -404,10 +405,10 @@ export default function CTSVaultUpload() {
                         <span className="text-emerald-400 font-medium">{b.rows_processed ?? 0}</span>
                         {' / '}
                         <span>{b.rows_total ?? '?'}</span>
-                        {' rows'}
+                        {msg('UI_VAULTUPLOAD_ROWS')}
                       </span>
                       {(b.rows_failed ?? 0) > 0 && (
-                        <span className="text-red-400 font-medium">{b.rows_failed} failed</span>
+                        <span className="text-red-400 font-medium">{msg('UI_VAULTUPLOAD_FAILED', { rows_failed: b.rows_failed })}</span>
                       )}
                       {b.has_error_file && (
                         <button
@@ -432,7 +433,7 @@ export default function CTSVaultUpload() {
         {/* ── Leaf lifecycle reference ── */}
         <div className={`mt-5 rounded-xl border p-4 ${th.card}`}>
           <div className={`text-sm font-semibold mb-3 ${th.heading}`}>
-            Cheque leaf lifecycle — ASTRA writes these automatically
+           {msg('UI_VAULTUPLOAD_CHEQUE_LEAF_LIFECYCLE_ASTRA_WRITES')}
           </div>
           <div className="flex flex-wrap gap-2">
             {LEAF_LIFECYCLE.map(item => (

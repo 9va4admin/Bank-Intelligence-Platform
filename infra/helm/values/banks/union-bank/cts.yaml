@@ -18,7 +18,6 @@ kafka:
 
 # ── Clearing ─────────────────────────────────────────────────────────────────
 # Union Bank of India is pan-India — all four NGCH clearing zones
-clearing_zones: [WEST, SOUTH, NORTH, EAST]
 
 # Union Bank own volumes: ~50,000 outward + ~50,000 inward cheques/day (PSB scale)
 # SMB (Navi Mumbai Co-op): ~200 outward + ~200 inward cheques/day

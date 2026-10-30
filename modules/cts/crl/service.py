@@ -56,7 +56,6 @@ class BranchResolution:
     pu_id:                str
     ifsc_code:            str
     micr_code:            str
-    clearing_zone:        str
     temporal_task_queue:  str   # cts-processing-{bank_id}-{pu_id}
     kafka_inward_topic:   str   # cts.inward.{bank_id}.{pu_id}
 
@@ -71,7 +70,6 @@ class BranchResolution:
             pu_id=d["pu_id"],
             ifsc_code=d["ifsc_code"],
             micr_code=d["micr_code"],
-            clearing_zone=d["clearing_zone"],
             temporal_task_queue=d["temporal_task_queue"],
             kafka_inward_topic=d["kafka_inward_topic"],
         )
@@ -87,7 +85,6 @@ class BranchResolution:
             pu_id=pu_id,
             ifsc_code=row["branch_ifsc"],
             micr_code=row.get("micr_code", ""),
-            clearing_zone=row["clearing_zone"],
             temporal_task_queue=row.get(
                 "temporal_task_queue",
                 f"cts-processing-{bank_id}-{pu_id}",
@@ -114,7 +111,6 @@ SELECT
     b.branch_ifsc,
     b.micr_code,
     p.pu_id,
-    p.clearing_zone,
     p.temporal_task_queue,
     p.kafka_inward_topic
 FROM cts.branches b

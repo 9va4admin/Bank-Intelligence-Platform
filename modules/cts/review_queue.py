@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from shared.utils.instrument_uuid import to_instrument_uuid
+from shared.messages import get_message
 
 DIRECTIONS = ("INWARD", "OUTWARD")
 STAGES = ("PENDING", "ASSIGNED", "IN_REVIEW", "DECIDED")
@@ -41,7 +42,7 @@ async def open_item(conn: Any, *, bank_id: str, direction: str, instrument_id: s
                     decision_id: Optional[uuid.UUID] = None, queue_tier: str = "standard",
                     review_level: int = 1) -> uuid.UUID:
     if direction not in DIRECTIONS:
-        raise ValueError(f"direction must be one of {DIRECTIONS}")
+        raise ValueError(get_message("CTS_DIRECTION_MUST_BE_ONE_OF", DIRECTIONS=DIRECTIONS))
     async with conn.transaction():
         review_id = await conn.fetchval(
             _UPSERT, bank_id, direction, to_instrument_uuid(bank_id, instrument_id), instrument_id, decision_id,
@@ -69,7 +70,7 @@ async def list_open(conn: Any, bank_id: str, direction: Optional[str] = None, li
     """Open items only (PENDING/ASSIGNED). Explicit columns, bounded limit — never SELECT *."""
     limit = max(1, min(int(limit), 100))
     cols = ("review_id, bank_id, direction, instrument_ref, workflow_id, escalation_reason, status, "
-            "queue_tier, review_level, assigned_zone, assigned_reviewer_id, review_deadline_at, iet_deadline_at, created_at")
+            "queue_tier, review_level, assigned_pu_id, assigned_reviewer_id, review_deadline_at, iet_deadline_at, created_at")
     if direction:
         return await conn.fetch(
             f"SELECT {cols} FROM cts.human_review_items WHERE bank_id=$1 AND direction=$2 "
@@ -79,16 +80,16 @@ async def list_open(conn: Any, bank_id: str, direction: Optional[str] = None, li
         f"AND status IN ('PENDING','ASSIGNED','IN_REVIEW') ORDER BY review_level DESC, created_at LIMIT $2", bank_id, limit)
 
 
-async def assign(conn: Any, *, bank_id: str, workflow_id: str, reviewer_id: str, zone: Optional[str] = None) -> bool:
+async def assign(conn: Any, *, bank_id: str, workflow_id: str, reviewer_id: str, pu_id: Optional[str] = None) -> bool:
     async with conn.transaction():
         row = await conn.fetchrow(
-            "UPDATE cts.human_review_items SET status='ASSIGNED', assigned_reviewer_id=$3, assigned_zone=$4, "
+            "UPDATE cts.human_review_items SET status='ASSIGNED', assigned_reviewer_id=$3, assigned_pu_id=$4, "
             "assigned_at=now(), updated_at=now() WHERE bank_id=$1 AND workflow_id=$2 "
-            "AND status IN ('PENDING','ASSIGNED') RETURNING review_id", bank_id, workflow_id, reviewer_id, zone)
+            "AND status IN ('PENDING','ASSIGNED') RETURNING review_id", bank_id, workflow_id, reviewer_id, pu_id)
         if row is None:
             return False
         await conn.execute(_HISTORY, row["review_id"], bank_id, "ASSIGNED", reviewer_id,
-                           json.dumps({"zone": zone}))
+                           json.dumps({"pu_id": pu_id}))
     return True
 
 
@@ -124,7 +125,7 @@ async def decide_by_instrument(conn: Any, *, bank_id: str, direction: str, instr
     """Decide the open item for an instrument (used by the API decide endpoints, which know the
     instrument id, not the review workflow id). True if an open item was decided."""
     if direction not in DIRECTIONS:
-        raise ValueError(f"direction must be one of {DIRECTIONS}")
+        raise ValueError(get_message("CTS_DIRECTION_MUST_BE_ONE_OF", DIRECTIONS=DIRECTIONS))
     async with conn.transaction():
         row = await conn.fetchrow(
             "UPDATE cts.human_review_items SET status='DECIDED', reviewer_decision=$4, reviewer_notes=$5, "

@@ -12,6 +12,8 @@
  *
  * Click any card to expand: cheque image + full AI analysis panel
  */
+import { csrfHeader } from '../../../shared/api/csrf'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
@@ -19,13 +21,15 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import ChequeImageViewer from '../components/ChequeImageViewer'
+import { msg } from '../../../shared/messages'
+import { INWARD_BUCKETS, bucketLabel } from '../bucketLabels'
 
 function _viewerProps(item) {
   return {
     views: [
-      { key: 'BFB', label: 'Front (B&W)',  url: null, iqaScore: 0.94 },
-      { key: 'BBB', label: 'Back (B&W)',   url: null, iqaScore: 0.91 },
-      { key: 'BFG', label: 'Front (Gray)', url: null, iqaScore: 0.89 },
+      { key: 'BFB', label: msg('UI_INWARDREVIEWQUEUE_FRONT_B_W'),  url: null, iqaScore: 0.94 },
+      { key: 'BBB', label: msg('UI_INWARDREVIEWQUEUE_BACK_B_W'),   url: null, iqaScore: 0.91 },
+      { key: 'BFG', label: msg('UI_INWARDREVIEWQUEUE_FRONT_GRAY'), url: null, iqaScore: 0.89 },
     ],
     fields: {
       payee:           item.payee_name,
@@ -53,11 +57,7 @@ const CATEGORY_LABEL = { all: 'All Instruments', CHEQUE: 'Cheques', DEMAND_DRAFT
 
 // Review buckets: HVC high value, CA corporate, IP institution, LVC low value, FCC frequent customer,
 // SIP system-processed (success / reject, held for a reviewer), HR general human review, MISC unallocated.
-const BUCKET_LABEL = {
-  HVC: 'High value', CA: 'Corporate', IP: 'Institution', LVC: 'Low value', FCC: 'Frequent customer',
-  SIP_SUCCESS: 'SIP success', SIP_REJECT: 'SIP reject', HR: 'Human review', MISC: 'Miscellaneous',
-}
-const BUCKETS = ['all', ...Object.keys(BUCKET_LABEL)]
+const BUCKETS = ['all', ...INWARD_BUCKETS]
 
 const _T = (offsetMins) => Math.floor(Date.now() / 1000) + offsetMins * 60
 
@@ -73,7 +73,7 @@ const MOCK_REVIEW_ITEMS = [
     cheque_number: '000142', micr_code: '400026001',
     cheque_date: '10-Aug-2026', branch_ifsc: 'UBIN0530001',
     branch_name: 'Fort Branch, Mumbai',
-    drawee_bank: 'Union Bank of India', drawee_branch: 'Fort Branch, Mumbai',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Fort Branch, Mumbai',
     date: '10-Aug-2026', payee: 'Mahesh Kumar Sharma',
     amount_figures: '2,50,000', micr: '400026001',
     risk_flags: ['HIGH_VALUE', 'ALTERATION_SUSPECTED'],
@@ -103,7 +103,7 @@ const MOCK_REVIEW_ITEMS = [
     cheque_number: '000143', micr_code: '400026001',
     cheque_date: '11-Aug-2026', branch_ifsc: 'UBIN0530001',
     branch_name: 'Fort Branch, Mumbai',
-    drawee_bank: 'Union Bank of India', drawee_branch: 'Fort Branch, Mumbai',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Fort Branch, Mumbai',
     date: '11-Aug-2026', payee: 'Priya Nair',
     amount_figures: '45,000', micr: '400026001',
     risk_flags: [],
@@ -132,7 +132,7 @@ const MOCK_REVIEW_ITEMS = [
     cheque_number: '000144', micr_code: '110026001',
     cheque_date: '08-Aug-2026', branch_ifsc: 'UBIN0530002',
     branch_name: 'Connaught Place Branch, New Delhi',
-    drawee_bank: 'Union Bank of India', drawee_branch: 'Connaught Place Branch, Delhi',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Connaught Place Branch, Delhi',
     date: '08-Aug-2026', payee: 'Apex Infrastructure Ltd.',
     amount_figures: '1,25,00,000', micr: '110026001',
     risk_flags: ['VERY_HIGH_VALUE', 'STOP_PAYMENT'],
@@ -162,7 +162,7 @@ const MOCK_REVIEW_ITEMS = [
     cheque_number: '000145', micr_code: '500026001',
     cheque_date: '12-Aug-2026', branch_ifsc: 'UBIN0530006',
     branch_name: 'Abids Branch, Hyderabad',
-    drawee_bank: 'Union Bank of India', drawee_branch: 'Abids Branch, Hyderabad',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'Abids Branch, Hyderabad',
     date: '12-Aug-2026', payee: 'Kavitha Reddy',
     amount_figures: '12,500', micr: '500026001',
     risk_flags: [],
@@ -190,7 +190,7 @@ const MOCK_REVIEW_ITEMS = [
     cheque_number: '000146', micr_code: '560026001',
     cheque_date: '09-Aug-2026', branch_ifsc: 'UBIN0530005',
     branch_name: 'MG Road Branch, Bengaluru',
-    drawee_bank: 'Union Bank of India', drawee_branch: 'MG Road Branch, Bengaluru',
+    drawee_bank: BANK_CONFIG.bank_name, drawee_branch: 'MG Road Branch, Bengaluru',
     date: '09-Aug-2026', payee: 'Anand Exports Pvt. Ltd.',
     amount_figures: '8,75,000', micr: '560026001',
     risk_flags: ['DORMANT_ACCOUNT'],
@@ -212,15 +212,15 @@ const MOCK_REVIEW_ITEMS = [
 ]
 
 const RETURN_REASONS = [
-  { code: 'FUNDS_INSUFFICIENT', label: 'Insufficient Funds' },
-  { code: 'ACCOUNT_CLOSED',    label: 'Account Closed' },
-  { code: 'STOP_PAYMENT',      label: 'Stop Payment Issued' },
-  { code: 'SIGNATURE_DIFFER',  label: 'Signature Mismatch' },
-  { code: 'ALTERATION',        label: 'Alteration Detected' },
-  { code: 'ACCOUNT_FROZEN',    label: 'Account Frozen' },
-  { code: 'STALE_CHEQUE',      label: 'Stale Cheque (> 3 months)' },
-  { code: 'AMOUNT_MISMATCH',   label: 'Amount in Words / Figures Mismatch' },
-  { code: 'DORMANT_ACCOUNT',   label: 'Dormant Account' },
+  { code: 'FUNDS_INSUFFICIENT', label: msg('UI_INWARDREVIEWQUEUE_INSUFFICIENT_FUNDS') },
+  { code: 'ACCOUNT_CLOSED',    label: msg('UI_INWARDREVIEWQUEUE_ACCOUNT_CLOSED') },
+  { code: 'STOP_PAYMENT',      label: msg('UI_INWARDREVIEWQUEUE_STOP_PAYMENT_ISSUED') },
+  { code: 'SIGNATURE_DIFFER',  label: msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MISMATCH') },
+  { code: 'ALTERATION',        label: msg('UI_INWARDREVIEWQUEUE_ALTERATION_DETECTED') },
+  { code: 'ACCOUNT_FROZEN',    label: msg('UI_INWARDREVIEWQUEUE_ACCOUNT_FROZEN') },
+  { code: 'STALE_CHEQUE',      label: msg('UI_INWARDREVIEWQUEUE_STALE_CHEQUE_3_MONTHS') },
+  { code: 'AMOUNT_MISMATCH',   label: msg('UI_INWARDREVIEWQUEUE_AMOUNT_IN_WORDS_FIGURES_MISMATCH') },
+  { code: 'DORMANT_ACCOUNT',   label: msg('UI_INWARDREVIEWQUEUE_DORMANT_ACCOUNT') },
 ]
 
 // ─── IET countdown ────────────────────────────────────────────────────────────
@@ -276,8 +276,8 @@ function BucketBadge({ bucket, origin, isDark }) {
   const cls = isDark ? 'border-sky-700/50 bg-sky-900/30 text-sky-300' : 'border-sky-200 bg-sky-50 text-sky-700'
   return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${cls}`}
-          title={origin ? `Moved to Miscellaneous from ${BUCKET_LABEL[origin] ?? origin}` : undefined}>
-      {BUCKET_LABEL[bucket] ?? bucket}{bucket === 'MISC' && origin ? ` (from ${BUCKET_LABEL[origin] ?? origin})` : ''}
+          title={origin ? msg('CTS_WF_BUCKET_MOVED_TO_MISC', { origin: bucketLabel(origin) }) : undefined}>
+      {bucket === 'MISC' && origin ? msg('CTS_WF_BUCKET_MISC_FROM', { bucket: bucketLabel(bucket), origin: bucketLabel(origin) }) : bucketLabel(bucket)}
     </span>
   )
 }
@@ -293,27 +293,27 @@ function TierBadge({ tier, isDark }) {
 function StatusBadge({ status, claimedBy, isDark }) {
   if (status === 'CLAIMED') return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-violet-900/40 text-violet-300 border-violet-700/40' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>
-      Claimed · {(claimedBy ?? '').split('@')[0]}
+     {msg('UI_INWARDREVIEWQUEUE_CLAIMED', { value: (claimedBy ?? '').split('@')[0] })}
     </span>
   )
   if (status === 'CONFIRMED') return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-      Confirmed (PAY)
+     {msg('UI_INWARDREVIEWQUEUE_CONFIRMED_PAY')}
     </span>
   )
   if (status === 'RETURNED') return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200'}`}>
-      Returned
+     {msg('UI_COMMON_RETURNED')}
     </span>
   )
   if (status === 'ON_HOLD') return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-      On Hold
+     {msg('UI_COMMON_ON_HOLD')}
     </span>
   )
   return (
     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${isDark ? 'bg-blue-900/40 text-blue-300 border-blue-700/40' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
-      Pending
+     {msg('UI_COMMON_PENDING')}
     </span>
   )
 }
@@ -381,7 +381,7 @@ function ExpandedPanel({ item, isDark }) {
 
         {/* Left: cheque image */}
         <div className="flex-shrink-0" style={{ minWidth: 420, maxWidth: 580 }}>
-          <div className={`${th.sec}`}>Cheque Image</div>
+          <div className={`${th.sec}`}>{msg('UI_INWARDREVIEWQUEUE_CHEQUE_IMAGE')}</div>
           <ChequeImageViewer {..._viewerProps(item)} isDark={isDark} title={item.instrument_id} />
         </div>
 
@@ -390,22 +390,22 @@ function ExpandedPanel({ item, isDark }) {
 
           {/* AI scores */}
           <div>
-            <div className={th.sec}>AI Analysis</div>
+            <div className={th.sec}>{msg('UI_INWARDREVIEWQUEUE_AI_ANALYSIS')}</div>
             <div className="space-y-2">
-              <ScoreBar label={`OCR Confidence (${ai.ocr_model ?? 'OCR'})`} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
-              <ScoreBar label={`Signature Match (${ai.signature_model ?? 'SigNet'})`} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
-              <ScoreBar label={`Fraud Score (${ai.fraud_model ?? 'XGBoost'})`} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
-              <ScoreBar label="Alteration Risk" value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? 'OCR' })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? 'SigNet' })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? 'XGBoost' })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_ALTERATION_RISK')} value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
             </div>
           </div>
 
           {/* SHAP */}
           {(ai.shap ?? []).length > 0 && (
             <div>
-              <div className={th.sec}>SHAP — Key Factors</div>
+              <div className={th.sec}>{msg('UI_INWARDREVIEWQUEUE_SHAP_KEY_FACTORS')}</div>
               <div className={`text-[9px] mb-2 flex justify-center gap-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                <span className="text-emerald-500">◀ lowers risk</span>
-                <span className="text-red-400">raises risk ▶</span>
+                <span className="text-emerald-500">{msg('UI_INWARDREVIEWQUEUE_LOWERS_RISK')}</span>
+                <span className="text-red-400">{msg('UI_INWARDREVIEWQUEUE_RAISES_RISK')}</span>
               </div>
               <div className="space-y-1.5">
                 {ai.shap.map((s, i) => <ShapRow key={i} {...s} isDark={isDark} />)}
@@ -416,7 +416,7 @@ function ExpandedPanel({ item, isDark }) {
           {/* AI narrative */}
           {item.ai_summary && (
             <div className={`text-xs rounded-lg px-3 py-2 border-l-2 border-violet-500 ${isDark ? 'bg-violet-900/20 text-slate-300' : 'bg-violet-50 text-slate-700'}`}>
-              <span className={`font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>AI Observation: </span>
+              <span className={`font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{msg('UI_INWARDREVIEWQUEUE_AI_OBSERVATION')} </span>
               {item.ai_summary}
             </div>
           )}
@@ -437,19 +437,18 @@ function UnclaimModal({ instrument, onConfirm, onCancel, isDark }) {
   return (
     <div className={th.overlay}>
       <div className={th.modal}>
-        <h2 className={th.heading}>Release Claim?</h2>
+        <h2 className={th.heading}>{msg('UI_INWARDREVIEWQUEUE_RELEASE_CLAIM')}</h2>
         <p className={`text-sm mt-2 mb-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          {instrument.instrument_id} will return to the unclaimed pool. Any other reviewer
-          can pick it up. Your work so far is not lost — the AI analysis remains.
+          {msg('UI_INWARDREVIEWQUEUE_WILL_RETURN_TO_THE_UNCLAIMED', { instrument_id: instrument.instrument_id })}
         </p>
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel}
             className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-            Keep Claim
+           {msg('UI_INWARDREVIEWQUEUE_KEEP_CLAIM')}
           </button>
           <button onClick={onConfirm}
             className="text-sm px-4 py-1.5 rounded-lg font-medium bg-slate-600 hover:bg-slate-500 text-white">
-            Release
+           {msg('UI_INWARDREVIEWQUEUE_RELEASE')}
           </button>
         </div>
       </div>
@@ -471,32 +470,32 @@ function HoldModal({ instrument, onConfirm, onCancel, isDark }) {
   return (
     <div className={th.overlay}>
       <div className={th.modal}>
-        <h2 className={th.heading}>Place Hold</h2>
+        <h2 className={th.heading}>{msg('UI_INWARDREVIEWQUEUE_PLACE_HOLD')}</h2>
         <p className={`text-xs mt-1 mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          {instrument.instrument_id} — <span className="text-amber-400">IET clock continues running.</span>
+          {instrument.instrument_id} — <span className="text-amber-400">{msg('UI_INWARDREVIEWQUEUE_IET_CLOCK_CONTINUES_RUNNING')}</span>
         </p>
         <div className="space-y-3">
           <div>
-            <label className={th.label}>Hold Reason *</label>
+            <label className={th.label}>{msg('UI_INWARDREVIEWQUEUE_HOLD_REASON')}</label>
             <textarea rows={3} value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="Describe why branch consultation is needed…" className={th.input} />
+              placeholder={msg('UI_INWARDREVIEWQUEUE_DESCRIBE_WHY_BRANCH_CONSULTATION_IS')} className={th.input} />
           </div>
           <div>
-            <label className={th.label}>Branch Email *</label>
+            <label className={th.label}>{msg('UI_INWARDREVIEWQUEUE_BRANCH_EMAIL')}</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="mgr@branch.unionbank.in" className={th.input} />
           </div>
           <div>
-            <label className={th.label}>Branch WhatsApp (optional)</label>
+            <label className={th.label}>{msg('UI_INWARDREVIEWQUEUE_BRANCH_WHATSAPP_OPTIONAL')}</label>
             <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
               placeholder="+919876543210" className={th.input} />
           </div>
         </div>
         <div className="flex gap-2 mt-5 justify-end">
-          <button onClick={onCancel} className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancel</button>
+          <button onClick={onCancel} className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{msg('UI_COMMON_CANCEL')}</button>
           <button disabled={!reason.trim() || !email.trim()} onClick={() => onConfirm({ reason, email, phone })}
             className="text-sm px-4 py-1.5 rounded-lg font-medium bg-amber-500 hover:bg-amber-400 text-white disabled:opacity-40">
-            Place Hold
+           {msg('UI_INWARDREVIEWQUEUE_PLACE_HOLD')}
           </button>
         </div>
       </div>
@@ -516,22 +515,22 @@ function ReturnModal({ instrument, onConfirm, onCancel, isDark }) {
   return (
     <div className={th.overlay}>
       <div className={th.modal}>
-        <h2 className={th.heading}>Return Instrument</h2>
+        <h2 className={th.heading}>{msg('UI_INWARDREVIEWQUEUE_RETURN_INSTRUMENT')}</h2>
         <p className={`text-xs mt-1 mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          {instrument.instrument_id} will be returned to drawer.
+          {msg('UI_INWARDREVIEWQUEUE_WILL_BE_RETURNED_TO_DRAWER', { instrument_id: instrument.instrument_id })}
         </p>
         <div>
-          <label className={th.label}>Return Reason *</label>
+          <label className={th.label}>{msg('UI_INWARDREVIEWQUEUE_RETURN_REASON')}</label>
           <select value={reason} onChange={e => setReason(e.target.value)} className={th.select}>
-            <option value="">— Select reason —</option>
+            <option value="">{msg('UI_INWARDREVIEWQUEUE_SELECT_REASON')}</option>
             {RETURN_REASONS.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
           </select>
         </div>
         <div className="flex gap-2 mt-5 justify-end">
-          <button onClick={onCancel} className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancel</button>
+          <button onClick={onCancel} className={`text-sm px-4 py-1.5 rounded-lg border font-medium ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{msg('UI_COMMON_CANCEL')}</button>
           <button disabled={!reason} onClick={() => onConfirm(reason)}
             className="text-sm px-4 py-1.5 rounded-lg font-medium bg-red-600 hover:bg-red-500 text-white disabled:opacity-40">
-            Confirm Return
+           {msg('UI_INWARDREVIEWQUEUE_CONFIRM_RETURN')}
           </button>
         </div>
       </div>
@@ -543,7 +542,9 @@ function ReturnModal({ instrument, onConfirm, onCancel, isDark }) {
 
 export default function CTSInwardReviewQueue() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_INWARD_LIVE=true: this screen reads the live queue/allocation even in a DEMO build (default: sample data).
+  const isDemo = isDemoBuild && import.meta.env.VITE_INWARD_LIVE !== 'true'
   const { setHeader } = usePageHeader?.() ?? {}
   const queryClient = useQueryClient()
 
@@ -563,8 +564,8 @@ export default function CTSInwardReviewQueue() {
 
   useEffect(() => {
     setHeader?.({
-      title: 'Inward Human Review Queue',
-      subtitle: 'Claim an instrument to review, then Confirm (PAY) or Return — IET countdown active',
+      title: msg('UI_INWARDREVIEWQUEUE_INWARD_HUMAN_REVIEW_QUEUE'),
+      subtitle: msg('UI_INWARDREVIEWQUEUE_CLAIM_AN_INSTRUMENT_TO_REVIEW'),
     })
   }, [])
 
@@ -595,7 +596,7 @@ export default function CTSInwardReviewQueue() {
         ? `/v1/cts/queue?bank_id=${bankId}`
         : `/v1/cts/queue?bank_id=${bankId}&tier=${tierFilter}`
       const res = await fetch(url, { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load review queue')
+      if (!res.ok) throw new Error(msg('UI_INWARDREVIEWQUEUE_FAILED_TO_LOAD_REVIEW_QUEUE'))
       return res.json()
     },
     refetchInterval: 15_000,
@@ -603,7 +604,16 @@ export default function CTSInwardReviewQueue() {
     retry: false,
   })
 
-  const rawItems = isDemo ? demoItems : (data?.items ?? [])
+  // The live queue names things differently from the sample rows this screen was built on: map them once here.
+  const liveItems = useMemo(() => (data?.items ?? []).map(i => ({
+    ...i,
+    claimed_by: i.assigned_to ?? null,
+    claimed_by_me: !!i.assigned_to_me,
+    amount_display: i.amount_display ?? i.amount_range ?? '',
+    queue_tier: i.queue_tier ?? (i.bucket === 'HVC' ? 'high_value' : 'standard'),
+    status: i.assigned_to ? 'CLAIMED' : (i.status ?? 'PENDING'),   // the screen reads 'CLAIMED' as held
+  })), [data])
+  const rawItems = isDemo ? demoItems : liveItems
   const items = useMemo(() => {
     let out = tierFilter === 'all' ? rawItems : rawItems.filter(it => it.queue_tier === tierFilter)
     if (categoryFilter !== 'all') {
@@ -626,7 +636,7 @@ export default function CTSInwardReviewQueue() {
 
   async function apiPost(url, body) {
     const res = await fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeader() },
       credentials: 'include', body: JSON.stringify(body ?? {}),
     })
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message ?? `HTTP ${res.status}`) }
@@ -637,13 +647,13 @@ export default function CTSInwardReviewQueue() {
     if (isDemo) {
       updateDemoItem(item.instrument_id, { status: 'CLAIMED', claimed_by: 'preethi.menon@unionbank.in', claimed_by_me: true })
       setExpandedId(item.instrument_id)
-      showToast(`Claimed ${item.instrument_id} — cheque image and AI analysis loaded`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_CLAIMED_CHEQUE_IMAGE_AND_AI', { instrument_id: item.instrument_id }))
       return
     }
     try {
       await apiPost(`/v1/cts/review/${item.instrument_id}/claim`)
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
-      showToast(`Claimed ${item.instrument_id}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_CLAIMED_2', { instrument_id: item.instrument_id }))
     } catch (e) { showToast(e.message, 'error') }
   }
 
@@ -651,13 +661,13 @@ export default function CTSInwardReviewQueue() {
     const item = holdTarget; setHoldTarget(null)
     if (isDemo) {
       updateDemoItem(item.instrument_id, { status: 'ON_HOLD' })
-      showToast(`Hold placed — branch notified at ${email}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_HOLD_PLACED_BRANCH_NOTIFIED_AT', { email }))
       return
     }
     try {
       await apiPost(`/v1/cts/holds/${item.instrument_id}`, { hold_reason: reason, iet_deadline: item.iet_deadline, branch_email: email, branch_phone: phone || undefined })
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
-      showToast(`Hold placed on ${item.instrument_id}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_HOLD_PLACED_ON', { instrument_id: item.instrument_id }))
     } catch (e) { showToast(e.message, 'error') }
   }
 
@@ -665,16 +675,16 @@ export default function CTSInwardReviewQueue() {
     setUnclaimTarget(null)
     if (isDemo) {
       updateDemoItem(item.instrument_id, { status: 'PENDING', claimed_by: null, claimed_by_me: false })
-      showToast(`Released claim on ${item.instrument_id} — back to pool`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_RELEASED_CLAIM_ON_BACK_TO', { instrument_id: item.instrument_id }))
       return
     }
     try {
       const res = await fetch(`/v1/cts/review/${item.instrument_id}/claim`, {
-        method: 'DELETE', credentials: 'include',
+        method: 'DELETE', credentials: 'include', headers: csrfHeader(),
       })
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message ?? `HTTP ${res.status}`) }
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
-      showToast(`Released claim on ${item.instrument_id}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_RELEASED_CLAIM_ON', { instrument_id: item.instrument_id }))
     } catch (e) { showToast(e.message, 'error') }
   }
 
@@ -682,13 +692,13 @@ export default function CTSInwardReviewQueue() {
     if (isDemo) {
       updateDemoItem(item.instrument_id, { status: 'CONFIRMED' })
       setExpandedId(null)
-      showToast(`Confirmed (PAY) — ${item.instrument_id} filed to NGCH`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_CONFIRMED_PAY_FILED_TO_NGCH', { instrument_id: item.instrument_id }))
       return
     }
     try {
-      await apiPost(`/v1/cts/review/${item.instrument_id}/confirm`)
+      await apiPost(`/v1/cts/review/${item.instrument_id}/decide`, { action: 'CONFIRM', reason: msg('CTS_WF_REVIEW_CONFIRMED_REASON') })
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
-      showToast(`Confirmed (PAY) ${item.instrument_id}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_CONFIRMED_PAY_2', { instrument_id: item.instrument_id }))
     } catch (e) { showToast(e.message, 'error') }
   }
 
@@ -697,13 +707,13 @@ export default function CTSInwardReviewQueue() {
     if (isDemo) {
       updateDemoItem(item.instrument_id, { status: 'RETURNED' })
       setExpandedId(null)
-      showToast(`Returned ${item.instrument_id} — ${returnReason}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_RETURNED', { instrument_id: item.instrument_id, returnReason }))
       return
     }
     try {
-      await apiPost(`/v1/cts/review/${item.instrument_id}/return`, { return_reason: returnReason })
+      await apiPost(`/v1/cts/review/${item.instrument_id}/decide`, { action: 'RETURN', reason: returnReason })
       queryClient.invalidateQueries({ queryKey: ['cts-review-queue', bankId] })
-      showToast(`Returned ${item.instrument_id} — ${returnReason}`)
+      showToast(msg('UI_INWARDREVIEWQUEUE_RETURNED', { instrument_id: item.instrument_id, returnReason }))
     } catch (e) { showToast(e.message, 'error') }
   }
 
@@ -762,17 +772,17 @@ export default function CTSInwardReviewQueue() {
             <div className="flex items-center gap-4">
               <button onClick={() => setFocusMode(false)}
                 className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <span>←</span> Exit Focus
+                <span>←</span> {msg('UI_INWARDREVIEWQUEUE_EXIT_FOCUS')}
               </button>
               <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                {focusIdx + 1} / {sorted.length} instruments
+                {msg('UI_INWARDREVIEWQUEUE_INSTRUMENTS', { value: focusIdx + 1, count: sorted.length })}
               </div>
             </div>
             <div className="flex items-center gap-3">
               {/* IET */}
               {item && !isDone && (
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDark ? 'bg-navy-950 border-white/8' : 'bg-slate-50 border-slate-200'}`}>
-                  <span className={`text-[10px] uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>IET</span>
+                  <span className={`text-[10px] uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_COMMON_IET')}</span>
                   <span className={`font-mono text-sm font-semibold tabular-nums ${ietColor(secs, isDark)}`}>{fmtCountdown(secs)}</span>
                 </div>
               )}
@@ -791,7 +801,7 @@ export default function CTSInwardReviewQueue() {
           </div>
 
           {!item ? (
-            <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>No instruments in queue</div>
+            <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_INWARDREVIEWQUEUE_NO_INSTRUMENTS_IN_QUEUE')}</div>
           ) : (
             <div className="flex-1 flex overflow-hidden">
               {/* Left: cheque image + meta */}
@@ -802,7 +812,7 @@ export default function CTSInwardReviewQueue() {
                     <span className={`font-mono text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.instrument_id}</span>
                     <TierBadge tier={item.queue_tier} isDark={isDark} />
                     {item.instrument_category === 'DEMAND_DRAFT' && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${isDark ? 'bg-violet-900/30 text-violet-300 border-violet-700/40' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>DD</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${isDark ? 'bg-violet-900/30 text-violet-300 border-violet-700/40' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>{msg('UI_INWARDREVIEWQUEUE_DD')}</span>
                     )}
                     <StatusBadge status={item.status} claimedBy={item.claimed_by} isDark={isDark} />
                     {(item.risk_flags ?? []).map(f => (
@@ -838,22 +848,22 @@ export default function CTSInwardReviewQueue() {
                 <div className="flex-1 p-5 space-y-5">
                   {/* AI scores */}
                   <div>
-                    <div className={`text-[10px] font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AI Analysis</div>
+                    <div className={`text-[10px] font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_INWARDREVIEWQUEUE_AI_ANALYSIS')}</div>
                     <div className="space-y-2.5">
-                      <ScoreBar label={`OCR Confidence (${ai.ocr_model ?? 'OCR'})`} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
-                      <ScoreBar label={`Signature Match (${ai.signature_model ?? 'SigNet'})`} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
-                      <ScoreBar label={`Fraud Score (${ai.fraud_model ?? 'XGBoost'})`} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
-                      <ScoreBar label="Alteration Risk" value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? 'OCR' })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? 'SigNet' })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? 'XGBoost' })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_ALTERATION_RISK')} value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
                     </div>
                   </div>
 
                   {/* SHAP */}
                   {(ai.shap ?? []).length > 0 && (
                     <div>
-                      <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>SHAP — Key Factors</div>
+                      <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_INWARDREVIEWQUEUE_SHAP_KEY_FACTORS')}</div>
                       <div className={`text-[9px] mb-2 flex gap-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        <span className="text-emerald-500">◀ lowers risk</span>
-                        <span className="text-red-400">raises risk ▶</span>
+                        <span className="text-emerald-500">{msg('UI_INWARDREVIEWQUEUE_LOWERS_RISK')}</span>
+                        <span className="text-red-400">{msg('UI_INWARDREVIEWQUEUE_RAISES_RISK')}</span>
                       </div>
                       <div className="space-y-1.5">
                         {ai.shap.map((s, i) => <ShapRow key={i} {...s} isDark={isDark} />)}
@@ -864,7 +874,7 @@ export default function CTSInwardReviewQueue() {
                   {/* AI narrative */}
                   {item.ai_summary && (
                     <div className={`text-xs rounded-lg px-3 py-2.5 border-l-2 border-violet-500 ${isDark ? 'bg-violet-900/20 text-slate-300' : 'bg-violet-50 text-slate-700'}`}>
-                      <span className={`font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>AI Observation: </span>
+                      <span className={`font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{msg('UI_INWARDREVIEWQUEUE_AI_OBSERVATION')} </span>
                       {item.ai_summary}
                     </div>
                   )}
@@ -876,7 +886,7 @@ export default function CTSInwardReviewQueue() {
                     <div className="space-y-2">
                       <button onClick={() => handleClaim(item)}
                         className="w-full py-2.5 rounded-xl font-semibold text-sm bg-violet-600 hover:bg-violet-500 text-white transition-colors">
-                        Claim &amp; Review
+                       {msg('UI_INWARDREVIEWQUEUE_CLAIM_REVIEW')}
                       </button>
                     </div>
                   )}
@@ -884,39 +894,39 @@ export default function CTSInwardReviewQueue() {
                     <div className="space-y-2">
                       <button onClick={() => handleConfirm(item)}
                         className="w-full py-2.5 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center justify-center gap-2">
-                        <span>Confirm (PAY)</span>
+                        <span>{msg('UI_INWARDREVIEWQUEUE_CONFIRM_PAY')}</span>
                         <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1.5 py-0.5 rounded">A</kbd>
                       </button>
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setHoldTarget(item)}
                           className="py-2 rounded-xl font-semibold text-sm bg-amber-600 hover:bg-amber-500 text-white transition-colors flex items-center justify-center gap-1.5">
-                          Hold
+                         {msg('UI_INWARDREVIEWQUEUE_HOLD')}
                           <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1 rounded">H</kbd>
                         </button>
                         <button onClick={() => setReturnTarget(item)}
                           className="py-2 rounded-xl font-semibold text-sm bg-red-700 hover:bg-red-600 text-white transition-colors flex items-center justify-center gap-1.5">
-                          Return
+                         {msg('UI_COMMON_RETURN_2')}
                           <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1 rounded">R</kbd>
                         </button>
                       </div>
                       <button onClick={() => setUnclaimTarget(item)}
                         className={`w-full py-1.5 rounded-xl text-xs font-medium border transition-colors ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
-                        Release Claim (return to pool)
+                       {msg('UI_INWARDREVIEWQUEUE_RELEASE_CLAIM_RETURN_TO_POOL')}
                       </button>
                       <p className={`text-center text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                        Keyboard: A = Confirm · R = Return · H = Hold · ←→ = Navigate
+                       {msg('UI_INWARDREVIEWQUEUE_KEYBOARD_A_CONFIRM_R_RETURN')}
                       </p>
                     </div>
                   )}
                   {isClaimed && !isMine && (
-                    <p className={`text-center text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Locked by another reviewer</p>
+                    <p className={`text-center text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_INWARDREVIEWQUEUE_LOCKED_BY_ANOTHER_REVIEWER')}</p>
                   )}
                   {isDone && (
                     <div className="flex items-center justify-between">
-                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Decision recorded</span>
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_INWARDREVIEWQUEUE_DECISION_RECORDED')}</span>
                       <button onClick={() => setFocusIdx(i => Math.min(i + 1, sorted.length - 1))}
                         className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium">
-                        Next →
+                       {msg('UI_BRANCHMASTER_NEXT')}
                       </button>
                     </div>
                   )}
@@ -947,7 +957,7 @@ export default function CTSInwardReviewQueue() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Inward Human Review Queue</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_INWARDREVIEWQUEUE_INWARD_HUMAN_REVIEW_QUEUE_2', { bank_name: BANK_CONFIG.bank_name })}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
               {isLoading ? 'Loading…' : `${items.length} instrument${items.length !== 1 ? 's' : ''} · click any row to view cheque image and AI analysis`}
             </p>
@@ -958,11 +968,11 @@ export default function CTSInwardReviewQueue() {
                 onClick={() => { setFocusIdx(0); setFocusMode(true) }}
                 className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-violet-700/50 bg-violet-900/20 text-violet-300 hover:bg-violet-900/40' : 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
               >
-                ⬛ Focus Mode
+               {msg('UI_INWARDREVIEWQUEUE_FOCUS_MODE')}
               </button>
             )}
             <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-              IET breach rate must be 0.000%
+             {msg('UI_INWARDREVIEWQUEUE_IET_BREACH_RATE_MUST_BE')}
             </div>
           </div>
         </div>
@@ -996,16 +1006,16 @@ export default function CTSInwardReviewQueue() {
                   bucketFilter === b
                     ? (isDark ? 'border-sky-500 text-sky-300 bg-sky-900/30' : 'border-sky-500 text-sky-700 bg-sky-50')
                     : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
-                {b === 'all' ? 'All buckets' : BUCKET_LABEL[b]}
+                {b === 'all' ? msg('CTS_WF_BUCKET_ALL') : bucketLabel(b)}
               </button>
             ))}
           </div>
         )}
 
-        {isLoading && <div className={`text-center py-16 ${th.muted}`}>Loading queue…</div>}
-        {isError && <div className="text-center py-16 text-amber-400/70">Backend not reachable — retrying every 15s.</div>}
+        {isLoading && <div className={`text-center py-16 ${th.muted}`}>{msg('UI_INWARDREVIEWQUEUE_LOADING_QUEUE')}</div>}
+        {isError && <div className="text-center py-16 text-amber-400/70">{msg('UI_COMMON_BACKEND_NOT_REACHABLE_RETRYING_EVERY')}</div>}
         {!isLoading && !isError && items.length === 0 && (
-          <div className={`text-center py-16 ${th.muted}`}>No instruments in this tier.</div>
+          <div className={`text-center py-16 ${th.muted}`}>{msg('UI_INWARDREVIEWQUEUE_NO_INSTRUMENTS_IN_THIS_TIER')}</div>
         )}
 
         {/* Instrument rows */}
@@ -1037,7 +1047,7 @@ export default function CTSInwardReviewQueue() {
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-xs ${th.muted}`}>IET</span>
+                          <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_IET')}</span>
                           <span className={`font-mono text-sm tabular-nums ${isDone ? th.muted : ietColor(secs, isDark)}`}>
                             {isDone ? '—' : fmtCountdown(secs)}
                           </span>
@@ -1049,23 +1059,23 @@ export default function CTSInwardReviewQueue() {
                     {/* Summary details */}
                     <div className={`mt-3 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs ${th.muted}`}>
                       <div>
-                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Account No.</div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_INWARDREVIEWQUEUE_ACCOUNT_NO')}</div>
                         <div className={`font-mono ${th.body}`}>{item.account_display}</div>
                       </div>
                       <div>
-                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Drawee (per CBS)</div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_INWARDREVIEWQUEUE_DRAWEE_PER_CBS')}</div>
                         <div className={th.body}>{item.drawee_name ?? '—'}</div>
                       </div>
                       <div>
-                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Payee</div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('CTS_OUT_CUSTODY_COL_PAYEE')}</div>
                         <div className={th.body}>{item.payee_display}</div>
                       </div>
                       <div>
-                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Amount</div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('CTS_OUT_CUSTODY_COL_AMOUNT')}</div>
                         <div className={`font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{item.amount_display}</div>
                       </div>
                       <div>
-                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>Branch · Cheque No.</div>
+                        <div className={`uppercase tracking-wide text-[10px] mb-0.5 ${th.faint}`}>{msg('UI_INWARDREVIEWQUEUE_BRANCH_CHEQUE_NO')}</div>
                         <div className={th.body}>{item.branch_name} · #{item.cheque_number}</div>
                       </div>
                     </div>
@@ -1085,34 +1095,34 @@ export default function CTSInwardReviewQueue() {
                         {!isClaimed && (
                           <button onClick={() => handleClaim(item)}
                             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white'}`}>
-                            Claim &amp; Review
+                           {msg('UI_INWARDREVIEWQUEUE_CLAIM_REVIEW')}
                           </button>
                         )}
                         {isClaimed && item.claimed_by_me && (
                           <>
                             <button onClick={() => setHoldTarget(item)}
                               className="text-xs px-3 py-1.5 rounded-lg font-medium bg-amber-600 hover:bg-amber-500 text-white">
-                              Hold
+                             {msg('UI_INWARDREVIEWQUEUE_HOLD')}
                             </button>
                             <button onClick={() => handleConfirm(item)}
                               className="text-xs px-3 py-1.5 rounded-lg font-medium bg-emerald-600 hover:bg-emerald-500 text-white">
-                              Confirm (PAY)
+                             {msg('UI_INWARDREVIEWQUEUE_CONFIRM_PAY')}
                             </button>
                             <button onClick={() => setReturnTarget(item)}
                               className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">
-                              Return
+                             {msg('UI_COMMON_RETURN_2')}
                             </button>
                             <button onClick={() => setUnclaimTarget(item)}
                               className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-600'}`}>
-                              Release
+                             {msg('UI_INWARDREVIEWQUEUE_RELEASE')}
                             </button>
                           </>
                         )}
                         {isClaimed && !item.claimed_by_me && (
-                          <span className={`text-xs ${th.muted}`}>Locked by another reviewer</span>
+                          <span className={`text-xs ${th.muted}`}>{msg('UI_INWARDREVIEWQUEUE_LOCKED_BY_ANOTHER_REVIEWER')}</span>
                         )}
                         {item.status === 'ON_HOLD' && (
-                          <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>On hold — release from Hold Queue to resume</span>
+                          <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{msg('UI_INWARDREVIEWQUEUE_ON_HOLD_RELEASE_FROM_HOLD')}</span>
                         )}
                       </div>
                     )}

@@ -36,6 +36,7 @@ from modules.cts.ngch.cxf_builder import CXFBuilder, CXFItem
 from modules.cts.ngch.filenames import make_cxf_filename, make_cibf_filename
 from modules.cts.ngch.iqa_engine import IQAEngine, IQAInput
 from modules.cts.ngch.signer import NGCHSigner
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.activities")
@@ -109,8 +110,7 @@ def build_ngch_file(inp: BuildNGCHFileInput, *, hsm: Any) -> BuildNGCHFileResult
 
         if not inp.instruments:
             raise ValueError(
-                "build_ngch_file: instruments list is empty — "
-                "CXF requires at least one instrument per submission."
+                get_message("CTS_BUILD_NGCH_FILE_INSTRUMENTS_LIST")
             )
 
         signer = NGCHSigner(hsm=hsm)

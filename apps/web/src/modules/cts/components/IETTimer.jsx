@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { msg } from '../../../shared/messages'
 
 function getTimeLeft(deadline) {
   const diff = new Date(deadline) - Date.now()
@@ -35,18 +36,18 @@ export default function IETTimer({ deadline, compact = false, bright = false }) 
   if (compact) {
     return (
       <span className={`inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded border ${cls} ${pulse ? 'animate-pulse' : ''}`}>
-        ⏱ {left.mins}m {String(left.secs).padStart(2, '0')}s
+       {msg('UI_IETTIMER_M_S', { mins: left.mins, String: String(left.secs).padStart(2, '0') })}
       </span>
     )
   }
 
   return (
     <div className={`rounded-xl border px-4 py-3 ${cls} ${pulse ? 'animate-pulse' : ''}`}>
-      <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">IET Remaining</div>
+      <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">{msg('UI_IETTIMER_IET_REMAINING')}</div>
       <div className="font-mono text-2xl font-bold tabular-nums">
         {String(left.mins).padStart(2, '0')}:{String(left.secs).padStart(2, '0')}
       </div>
-      <div className="text-[10px] opacity-60 mt-0.5">T+3h deadline</div>
+      <div className="text-[10px] opacity-60 mt-0.5">{msg('UI_IETTIMER_T_3H_DEADLINE')}</div>
     </div>
   )
 }

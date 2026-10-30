@@ -40,39 +40,97 @@ router_v1 = APIRouter(prefix="/v1/admin", tags=["Admin v1"])
 # The list_thresholds route returns these with current_value from config_service.
 
 _LAYER3_SCHEMA = [
-    {"config_key": "stp_mode",                     "layer": "LAYER_3", "default": "FULL_MANUAL",
-     "description": "STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP"},
-    {"config_key": "stp_auto_confirm_threshold",   "layer": "LAYER_3", "default": "0.92",
-     "description": "Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)"},
-    {"config_key": "human_review_fraud_threshold", "layer": "LAYER_3", "default": "0.72",
-     "description": "Fraud score above this routes to human review"},
-    {"config_key": "queue_tier_high_value_threshold",  "layer": "LAYER_3", "default": "100000",
-     "description": "Cheques above this go to high_value Kafka topic and task queue"},
-    {"config_key": "queue_tier_very_high_threshold",   "layer": "LAYER_3", "default": "1000000",
-     "description": "Cheques above this go to very_high Kafka topic and task queue"},
-    {"config_key": "allocation_mode",              "layer": "LAYER_3", "default": "HYBRID",
-     "description": "Reviewer allocation: SELF | HYBRID | AUTO"},
-    {"config_key": "allocation_lock_ttl_minutes",  "layer": "LAYER_3", "default": "10",
-     "description": "Redis lock TTL for reviewer-claimed instruments (minutes)"},
-    {"config_key": "iet_minutes",                  "layer": "LAYER_3", "default": "180",
-     "description": "IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless."},
-    {"config_key": "ocr_min_confidence",           "layer": "LAYER_3", "default": "0.90",
-     "description": "GOT-OCR2.0 confidence below this → human review"},
-    {"config_key": "signature_min_match_score",    "layer": "LAYER_3", "default": "0.87",
-     "description": "Siamese network score below this → human review"},
-    {"config_key": "high_value_amount_threshold",  "layer": "LAYER_3", "default": "500000",
-     "description": "Dual-approval threshold for high-value cheques (₹)"},
-    {"config_key": "vault_miss_action",            "layer": "LAYER_1", "default": "HUMAN_REVIEW",
-     "description": "LOCKED — vault miss always routes to human review (Layer 1 constraint)"},
-    {"config_key": "outward_frozen_payee_action",  "layer": "LAYER_3", "default": "HUMAN_REVIEW",
-     "description": "Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold) — default sends to mismatch queue for ops review."},
-    {"config_key": "outward_dormant_payee_action", "layer": "LAYER_3", "default": "HUMAN_REVIEW",
-     "description": "Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. Account may be reactivatable — human review avoids rejecting a recoverable instrument."},
-    {"config_key": "outward_npa_payee_action",     "layer": "LAYER_3", "default": "HUMAN_REVIEW",
-     "description": "Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. NPA is a credit classification — a deposit to the account may still be valid. Ops_manager must confirm return."},
-    {"config_key": "rear_image_required",          "layer": "LAYER_3", "default": "false",
-     "description": "Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false — blank reverse is standard practice. Set true only if bank endorses/stamps the reverse and wants quality enforcement."},
+    {'config_key': 'stp_mode', 'layer': 'LAYER_3', 'default': 'FULL_MANUAL', 'value_type': 'string', 'description': get_message("API_STP_MODE_FULL_MANUAL_SUPERVISED"), 'allowed': ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP']},
+    {'config_key': 'stp_auto_confirm_threshold', 'layer': 'LAYER_3', 'default': '0.92', 'value_type': 'float', 'description': get_message("API_FRAUD_SCORE_BELOW_THIS_AUTO")},
+    {'config_key': 'human_review_fraud_threshold', 'layer': 'LAYER_3', 'default': '0.72', 'value_type': 'float', 'description': get_message("API_FRAUD_SCORE_ABOVE_THIS_ROUTES")},
+    {'config_key': 'queue_tier_high_value_threshold', 'layer': 'LAYER_3', 'default': '100000', 'value_type': 'float', 'description': get_message("API_CHEQUES_ABOVE_THIS_GO_TO")},
+    {'config_key': 'queue_tier_very_high_threshold', 'layer': 'LAYER_3', 'default': '1000000', 'value_type': 'float', 'description': get_message("API_CHEQUES_ABOVE_THIS_GO_TO_2")},
+    {'config_key': 'allocation_mode', 'layer': 'LAYER_3', 'default': 'SELF', 'value_type': 'string', 'description': get_message("API_REVIEWER_ALLOCATION_SELF_HYBRID_AUTO"), 'allowed': ['SELF', 'HYBRID', 'AUTO']},
+    {'config_key': 'allocation_lock_ttl_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_REDIS_LOCK_TTL_FOR_REVIEWER")},
+    {'config_key': 'allocation_strategy', 'layer': 'LAYER_3', 'default': 'LEAST_LOADED', 'value_type': 'string', 'description': get_message("API_WHO_AN_AUTO_ASSIGNED_ITEM"), 'allowed': ['LEAST_LOADED', 'RANDOM']},
+    {'config_key': 'allocation_max_per_reviewer', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_AUTO_ASSIGN_CAP_PER_REVIEWER")},
+    {'config_key': 'allocation_urgent_margin_minutes', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': get_message("API_ITEMS_THIS_CLOSE_TO_THEIR")},
+    {'config_key': 'allocation_rebalance_enabled', 'layer': 'LAYER_3', 'default': 'true', 'value_type': 'bool', 'description': get_message("API_SPREAD_UNOPENED_AUTO_ASSIGNED_WORK")},
+    {'config_key': 'allocation_rebalance_interval_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': get_message("API_AT_MOST_ONE_REBALANCE_PER")},
+    {'config_key': 'allocation_rebalance_max_moves', 'layer': 'LAYER_3', 'default': '20', 'value_type': 'int', 'description': get_message("API_CAP_ON_ITEMS_MOVED_IN")},
+    {'config_key': 'allocation_retry_seconds', 'layer': 'LAYER_3', 'default': '60', 'value_type': 'int', 'description': get_message("API_RETRY_DELAY_WHEN_NO_ELIGIBLE")},
+    {'config_key': 'hybrid_auto_assign_timeout_minutes', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': get_message("API_HYBRID_MODE_AUTO_ASSIGN_AN")},
+    {'config_key': 'bucket_routing_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': get_message("API_ON_REVIEWERS_WORK_ONLY_THE")},
+    {'config_key': 'bucket_priority', 'layer': 'LAYER_3', 'default': '["HVC", "CA", "IP", "FCC", "LVC"]', 'value_type': 'json', 'description': get_message("API_WHICH_CLASS_BUCKET_WINS_WHEN")},
+    {'config_key': 'bucket_hvc_min_amount', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'int', 'description': get_message("API_HVC_PRESENTED_AMOUNT_AT_OR")},
+    {'config_key': 'bucket_lvc_max_amount', 'layer': 'LAYER_3', 'default': '50000', 'value_type': 'int', 'description': get_message("API_LVC_PRESENTED_AMOUNT_BELOW_THIS")},
+    {'config_key': 'bucket_frequent_min_cheques', 'layer': 'LAYER_3', 'default': '5', 'value_type': 'int', 'description': get_message("API_FCC_AT_LEAST_THIS_MANY")},
+    {'config_key': 'bucket_frequent_window_days', 'layer': 'LAYER_3', 'default': '30', 'value_type': 'int', 'description': get_message("API_FCC_WINDOW_DAYS")},
+    {'config_key': 'bucket_corporate_account_types', 'layer': 'LAYER_3', 'default': '["CORPORATE"]', 'value_type': 'json', 'description': get_message("API_CA_CBS_ACCOUNT_TYPES_THAT")},
+    {'config_key': 'bucket_institution_account_types', 'layer': 'LAYER_3', 'default': '["INSTITUTION", "GOVERNMENT"]', 'value_type': 'json', 'description': get_message("API_IP_CBS_ACCOUNT_TYPES_THAT")},
+    {'config_key': 'bucket_overflow_after_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_AN_ITEM_NOBODY_LOGGED_IN")},
+    {'config_key': 'sip_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': get_message("API_SIP_HOLD_BANK_WIDE_THE")},
+    {'config_key': 'sip_iet_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_NEVER_HOLD_A_SYSTEM_DECISION")},
+    {'config_key': 'outward_session_cutoffs', 'layer': 'LAYER_3', 'default': '["14:30"]', 'value_type': 'json', 'description': get_message("API_OUTWARD_CLEARING_SESSION_CUT_OFF")},
+    {'config_key': 'outward_high_value_ranges', 'layer': 'LAYER_3', 'default': '["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"]', 'value_type': 'json', 'description': get_message("API_OUTWARD_ITEMS_IN_THESE_MASKED")},
+    {'config_key': 'outward_bucket_priority', 'layer': 'LAYER_3', 'default': '["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"]', 'value_type': 'json', 'description': get_message("API_WHICH_OUTWARD_BUCKET_WINS_WHEN")},
+    {'config_key': 'outward_maker_scope', 'layer': 'LAYER_3', 'default': 'CENTRAL', 'value_type': 'string', 'description': get_message("API_WHO_MAKES_OUTWARD_DECISIONS_CENTRAL"), 'allowed': ['CENTRAL', 'BRANCH', 'BRANCH_FIRST']},
+    {'config_key': 'outward_branch_first_fallback_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_BRANCH_FIRST_CENTRAL_STAFF_MAY")},
+    {'config_key': 'outward_checker_scope', 'layer': 'LAYER_3', 'default': 'ANY', 'value_type': 'string', 'description': get_message("API_WHO_CHECKS_OUTWARD_DECISIONS_ANY"), 'allowed': ['ANY', 'CENTRAL']},
+    {'config_key': 'outward_session_timezone', 'layer': 'LAYER_3', 'default': 'Asia/Kolkata', 'value_type': 'string', 'description': get_message("API_TIME_ZONE_THE_CUT_OFF")},
+    {'config_key': 'custody_branch_hold_days', 'layer': 'LAYER_3', 'default': '7', 'value_type': 'int', 'description': get_message("API_AN_ORIGINAL_KEPT_AT_ITS")},
+    {'config_key': 'custody_retention_years', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_YEARS_CENTRAL_STORAGE_KEEPS_AN")},
+    {'config_key': 'outward_cutoff_guard_minutes', 'layer': 'LAYER_3', 'default': '10', 'value_type': 'int', 'description': get_message("API_A_STAGED_OUTWARD_DECISION_NO")},
+    {'config_key': 'maker_checker_enabled', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': get_message("API_ON_A_REVIEWER_S_DECISION")},
+    {'config_key': 'checker_review_timeout_minutes', 'layer': 'LAYER_3', 'default': '15', 'value_type': 'int', 'description': get_message("API_MAKER_CHECKER_IF_NO_CHECKER")},
+    {'config_key': 'iet_minutes', 'layer': 'LAYER_3', 'default': '180', 'value_type': 'int', 'description': get_message("API_IET_WINDOW_IN_MINUTES_RBI")},
+    {'config_key': 'ocr_min_confidence', 'layer': 'LAYER_3', 'default': '0.90', 'value_type': 'float', 'description': get_message("API_GOT_OCR2_0_CONFIDENCE_BELOW")},
+    {'config_key': 'signature_min_match_score', 'layer': 'LAYER_3', 'default': '0.85', 'value_type': 'float', 'description': get_message("API_SIAMESE_NETWORK_SCORE_BELOW_THIS")},
+    {'config_key': 'high_value_amount_threshold', 'layer': 'LAYER_3', 'default': '500000', 'value_type': 'float', 'description': get_message("API_DUAL_APPROVAL_THRESHOLD_FOR_HIGH")},
+    {'config_key': 'vault_miss_action', 'layer': 'LAYER_1', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_LOCKED_VAULT_MISS_ALWAYS_ROUTES")},
+    {'config_key': 'outward_frozen_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_FROZEN_ON_OUTWARD"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'outward_dormant_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_DORMANT_NO_TXNS"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'outward_npa_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_NPA_ON_OUTWARD"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
+    {'config_key': 'rear_image_required', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'string', 'description': get_message("API_REQUIRE_REAR_BACK_CHEQUE_IMAGE"), 'allowed': ['true', 'false']},
 ]
+
+_SCHEMA_BY_KEY = {e["config_key"]: e for e in _LAYER3_SCHEMA}
+_CLASS_BUCKETS = ("HVC", "CA", "IP", "FCC", "LVC")
+
+
+def _validate_config_value(entry: dict, raw: str) -> None:
+    """Refuse a value that could not be read back as the setting's type (or is outside its allowed set).
+    Raises HTTP 422. Layer-3 values are stored as text; the config reader parses them by value_type."""
+    import json as _json
+
+    def bad(rule_key: str, **vars_):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=get_message("PLATFORM_CONFIG_VALUE_INVALID", config_key=entry["config_key"],
+                               reason=get_message(rule_key, **vars_)))
+
+    vtype = entry.get("value_type", "string")
+    value = raw.strip()
+    if vtype == "int":
+        if not value.lstrip("-").isdigit() or int(value) < 0:
+            bad("PLATFORM_CONFIG_RULE_WHOLE_NUMBER")
+    elif vtype == "float":
+        try:
+            if float(value) < 0:
+                raise ValueError
+        except ValueError:
+            bad("PLATFORM_CONFIG_RULE_NUMBER")
+    elif vtype == "bool":
+        if value not in ("true", "false"):
+            bad("PLATFORM_CONFIG_RULE_BOOL")
+    elif vtype == "json":
+        try:
+            parsed = _json.loads(value)
+        except ValueError:
+            bad("PLATFORM_CONFIG_RULE_JSON")
+        if not isinstance(parsed, list) or not parsed or not all(isinstance(x, str) and x.strip() for x in parsed):
+            bad("PLATFORM_CONFIG_RULE_JSON_LIST")
+        if entry["config_key"] == "bucket_priority" and not set(parsed) <= set(_CLASS_BUCKETS):
+            bad("PLATFORM_CONFIG_RULE_BUCKETS_ONLY", allowed=str(list(_CLASS_BUCKETS)))
+    allowed = entry.get("allowed")
+    if allowed and value not in allowed:
+        bad("PLATFORM_CONFIG_RULE_ONE_OF", allowed=str(allowed))
+
 
 _ADMIN_ROLES = {"bank_it_admin", "ops_manager"}
 _CHECKER_ONLY = {"bank_it_admin"}
@@ -105,7 +163,7 @@ def require_admin_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot access admin routes",
+            detail=get_message("API_ROLE_CANNOT_ACCESS_ADMIN_ROUTES", user=user.get('role')),
         )
     return user
 
@@ -114,7 +172,7 @@ def require_checker_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _CHECKER_ONLY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot perform checker actions",
+            detail=get_message("API_ROLE_CANNOT_PERFORM_CHECKER_ACTIONS", user=user.get('role')),
         )
     return user
 
@@ -123,7 +181,7 @@ def require_maker_role(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in _MAKER_ONLY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.get('role')}' cannot submit threshold changes",
+            detail=get_message("API_ROLE_CANNOT_SUBMIT_THRESHOLD_CHANGES", user=user.get('role')),
         )
     return user
 
@@ -158,8 +216,18 @@ def get_event_publisher(request: Request) -> Callable:
     return _real
 
 
+_AUDIT_ACTOR_KEYS = ("approved_by", "rejected_by", "submitted_by", "attempted_by", "requested_by", "changed_by")
+
+
+def _audit_unavailable() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                         detail=get_message("PLATFORM_AUDIT_UNAVAILABLE"))
+
+
 async def _default_audit_stream_writer(**kwargs: Any) -> None:
-    log.info("admin.audit_stream_stub", event_type=kwargs.get("event_type"))
+    """No audit buffer is configured. A configuration change that cannot be audited must not happen, so refuse."""
+    log.error("admin.audit_buffer_missing", event_type=kwargs.get("event_type"))
+    raise _audit_unavailable()
 
 
 def get_audit_stream_writer(request: Request) -> Callable:
@@ -168,11 +236,25 @@ def get_audit_stream_writer(request: Request) -> Callable:
         return _default_audit_stream_writer
 
     async def _real(**kwargs: Any) -> None:
+        """Buffer the event for the audit service, which writes it to Immudb. The buffer needs an entity and an actor, so they
+        are derived from the payload. A failure raises 503 rather than being logged away: an unaudited change must not stand."""
+        payload = kwargs.get("payload") or {}
+        actor = next((payload[k] for k in _AUDIT_ACTOR_KEYS if payload.get(k)), "unknown")
+        entity = payload.get("config_key") or payload.get("request_id") or payload.get("change_id") or "config"
         try:
             from shared.audit.stream_buffer import buffer_audit_event
-            await buffer_audit_event(redis=redis_cts, **kwargs)
-        except Exception as exc:
+            message_id = await buffer_audit_event(
+                redis=redis_cts, bank_id=kwargs["bank_id"], event_type=kwargs["event_type"],
+                entity_type="config", entity_id=str(entity), actor_id=str(actor), payload=payload,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
             log.error("admin.audit_stream_failed", event_type=kwargs.get("event_type"), error=str(exc))
+            raise _audit_unavailable() from exc
+        if message_id is None:
+            log.error("admin.audit_stream_not_buffered", event_type=kwargs.get("event_type"))
+            raise _audit_unavailable()
 
     return _real
 
@@ -276,7 +358,7 @@ class UserSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
     user_id: str
     role: str
-    clearing_zone: Optional[str] = None
+    pu_id: Optional[str] = None
     active: bool
 
 
@@ -383,10 +465,12 @@ async def submit_threshold_change(
     _editable_keys = {s["config_key"] for s in _LAYER3_SCHEMA if s["layer"] == "LAYER_3"}
     if body.config_key not in _known_keys:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Unknown config_key: {body.config_key}")
+                            detail=get_message("API_UNKNOWN_CONFIG_KEY", config_key=body.config_key))
     if body.config_key not in _editable_keys:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail=f"{body.config_key} is a Layer 1 platform constraint and cannot be changed")
+                            detail=get_message("API_IS_A_LAYER_1_PLATFORM", config_key=body.config_key))
+
+    _validate_config_value(_SCHEMA_BY_KEY[body.config_key], body.new_value)
 
     log.info("admin.submit_threshold_change",
              bank_id=bank_id, config_key=body.config_key, submitted_by=user_id)
@@ -481,58 +565,95 @@ async def approve_threshold_change(
 
     # 1. DB update — always attempt, 404 if missing
     actioned_at = now
+    audited = False
     pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
         request.app.state, "db_pool_cts", None
     )
     if pool is not None:
         try:
             async with pool.acquire() as conn:
-                result = await conn.fetchrow(
-                    """
-                    UPDATE platform.config_pending_changes
-                    SET status = 'APPROVED', actioned_by = $1, actioned_at = NOW()
-                    WHERE change_id = $2 AND bank_id = $3
-                      AND status = 'PENDING_APPROVAL'
-                      AND submitted_by != $1
-                    RETURNING change_id, config_key, new_value, submitted_by, actioned_at
-                    """,
-                    user_id, change_id, bank_id,
-                )
-            if result is None:
-                # Distinguish self-approval block from not-found — both audited
-                conflict = await conn.fetchrow(
-                    "SELECT submitted_by FROM platform.config_pending_changes "
-                    "WHERE change_id = $1 AND bank_id = $2 AND status = 'PENDING_APPROVAL'",
-                    change_id, bank_id,
-                )
-                if conflict and conflict["submitted_by"] == user_id:
+                async with conn.transaction():
+                    result = await conn.fetchrow(
+                        """
+                        UPDATE platform.config_pending_changes
+                        SET status = 'APPROVED', actioned_by = $1, actioned_at = NOW()
+                        WHERE change_id = $2 AND bank_id = $3
+                          AND status = 'PENDING_APPROVAL'
+                          AND submitted_by != $1
+                        RETURNING change_id, config_key, new_value, submitted_by, actioned_at
+                        """,
+                        user_id, change_id, bank_id,
+                    )
+                    if result is None:
+                        # Distinguish self-approval block from not-found — both audited
+                        conflict = await conn.fetchrow(
+                            "SELECT submitted_by FROM platform.config_pending_changes "
+                            "WHERE change_id = $1 AND bank_id = $2 AND status = 'PENDING_APPROVAL'",
+                            change_id, bank_id,
+                        )
+                        if conflict and conflict["submitted_by"] == user_id:
+                            await audit_stream_writer(
+                                event_type=AuditEventType.CONFIG_CHANGE.value,
+                                bank_id=bank_id,
+                                payload={"action": "SELF_APPROVAL_BLOCKED", "change_id": change_id,
+                                         "attempted_by": user_id},
+                            )
+                            raise HTTPException(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                detail=get_message("PLATFORM_CONFIG_SELF_APPROVAL"),
+                            )
+                        await audit_stream_writer(
+                            event_type=AuditEventType.CONFIG_CHANGE.value,
+                            bank_id=bank_id,
+                            payload={"action": "APPROVE_NOT_FOUND", "change_id": change_id,
+                                     "approved_by": user_id},
+                        )
+                        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                            detail=get_message("PLATFORM_CONFIG_CHANGE_NOT_FOUND"))
+                    config_key = result["config_key"]
+                    new_value = result["new_value"]
+                    submitted_by = result["submitted_by"]
+                    actioned_at = str(result["actioned_at"])
+                    old_row = await conn.fetchrow(
+                        "SELECT config_value FROM platform.config_values WHERE bank_id = $1 AND module = 'cts' AND config_key = $2",
+                        bank_id, config_key,
+                    )
+                    old_value = old_row["config_value"] if old_row else _SCHEMA_BY_KEY.get(config_key, {}).get("default")   # no row: the default was in force
+                    # Apply the approved value where the services read it. Until now approval only marked the pending row and
+                    # published an event, so no approved setting ever changed.
+                    await conn.execute(
+                        """
+                        INSERT INTO platform.config_values
+                            (config_id, bank_id, module, config_key, config_value, value_type, updated_by)
+                        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6)
+                        ON CONFLICT (bank_id, module, config_key) DO UPDATE
+                           SET config_value = EXCLUDED.config_value, value_type = EXCLUDED.value_type,
+                               updated_by = EXCLUDED.updated_by, updated_at = now()
+                        """,
+                        bank_id, "cts", config_key, new_value,
+                        _SCHEMA_BY_KEY.get(config_key, {}).get("value_type", "string"), user_id,
+                    )
+                    # Audited inside the transaction: if the audit trail cannot take it, the change is rolled back.
                     await audit_stream_writer(
                         event_type=AuditEventType.CONFIG_CHANGE.value,
                         bank_id=bank_id,
-                        payload={"action": "SELF_APPROVAL_BLOCKED", "change_id": change_id,
-                                 "attempted_by": user_id},
+                        payload={
+                            "action": "APPROVED",
+                            "change_id": change_id,
+                            "config_key": config_key,
+                            "old_value": old_value,
+                            "new_value": new_value,
+                            "submitted_by": submitted_by,
+                            "approved_by": user_id,
+                            "actioned_at": actioned_at,
+                        },
                     )
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Maker cannot approve their own change — four-eyes principle",
-                    )
-                await audit_stream_writer(
-                    event_type=AuditEventType.CONFIG_CHANGE.value,
-                    bank_id=bank_id,
-                    payload={"action": "APPROVE_NOT_FOUND", "change_id": change_id,
-                             "approved_by": user_id},
-                )
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="Change not found or already actioned")
-            config_key = result["config_key"]
-            new_value = result["new_value"]
-            submitted_by = result["submitted_by"]
-            actioned_at = str(result["actioned_at"])
+                    audited = True
         except HTTPException:
             raise
         except Exception:
             log.warning("admin.approve_threshold_change.db_error",
-                        bank_id=bank_id, change_id=change_id)
+                        bank_id=bank_id, change_id=change_id, exc_info=True)
             config_key = "unknown"
             new_value = "unknown"
             submitted_by = "unknown"
@@ -541,19 +662,20 @@ async def approve_threshold_change(
         new_value = "unknown"
         submitted_by = "unknown"
 
-    # 2. Immudb audit
-    await audit_stream_writer(
-        event_type=AuditEventType.CONFIG_CHANGE.value,
-        bank_id=bank_id,
-        payload={
-            "action": "APPROVED",
-            "change_id": change_id,
-            "config_key": config_key,
-            "new_value": new_value,
-            "approved_by": user_id,
-            "actioned_at": actioned_at,
-        },
-    )
+    # 2. Immudb audit (already written inside the transaction whenever the database was reachable)
+    if not audited:
+        await audit_stream_writer(
+            event_type=AuditEventType.CONFIG_CHANGE.value,
+            bank_id=bank_id,
+            payload={
+                "action": "APPROVED",
+                "change_id": change_id,
+                "config_key": config_key,
+                "new_value": new_value,
+                "approved_by": user_id,
+                "actioned_at": actioned_at,
+            },
+        )
 
     # 3. Kafka platform.config.changed → config_service Redis invalidation → 30s hot-reload
     await event_publisher(
@@ -644,7 +766,7 @@ async def reject_threshold_change(
                              "rejected_by": user_id},
                 )
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="Change not found or already actioned")
+                                    detail=get_message("PLATFORM_CONFIG_CHANGE_NOT_FOUND"))
             config_key = result["config_key"]
             submitted_by = result["submitted_by"]
             actioned_at = str(result["actioned_at"])
@@ -947,7 +1069,7 @@ async def list_users(
             async with pool.acquire() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT user_id, role, clearing_zones, is_active
+                    SELECT user_id, role, pu_ids, is_active
                     FROM platform.local_auth_accounts
                     WHERE bank_id = $1
                     ORDER BY created_at DESC
@@ -959,7 +1081,7 @@ async def list_users(
                 UserSummary(
                     user_id=str(r["user_id"]),
                     role=r["role"],
-                    clearing_zone=(r["clearing_zones"] or [])[0] if r["clearing_zones"] else None,
+                    pu_id=(r["pu_ids"] or [])[0] if r["pu_ids"] else None,
                     active=bool(r["is_active"]),
                 )
                 for r in rows
@@ -1006,7 +1128,7 @@ async def assign_user_role(
         except Exception:
             log.warning("admin.assign_role.db_error", bank_id=bank_id, user_id=user_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_USER_NOT_FOUND"))
 
 
 async def _probe_service(name: str, probe_fn: Any) -> ServiceHealthEntry:

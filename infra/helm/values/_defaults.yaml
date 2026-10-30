@@ -78,9 +78,12 @@ layer2:
     minio:
       secure: false                            # mTLS via Istio; MinIO endpoint is internal
 
-    audit_service:    replicas: 2
-    notification_service: replicas: 2
-    api_gateway:      replicas: 2
+    audit_service:
+      replicas: 2
+    notification_service:
+      replicas: 2
+    api_gateway:
+      replicas: 2
 
   cts:
     max_agent_swarm_size: 500
@@ -217,6 +220,21 @@ layer3:
     bucket_overflow_after_minutes: 10           # an item nobody logged in can take moves to MISC after this
     sip_review_timeout_minutes: 15              # SIP hold (bank-wide): the system decision is filed if nobody acts
     sip_iet_guard_minutes: 10                   # never hold a system decision within this many minutes of its IET
+    # Maker-checker: a reviewer's decision (the maker) is confirmed by a different person (the checker) before it is filed
+    maker_checker_enabled: false                # true: decisions go to the VAL bucket for a second person
+    checker_review_timeout_minutes: 15          # no checker in this time: the maker's decision is filed (never past the IET guard)
+    # Outward: session cut-off, who decides, outward buckets
+    outward_session_cutoffs: ["14:30"]          # local HH:MM, one or more sessions - set per bank
+    outward_session_timezone: "Asia/Kolkata"
+    outward_cutoff_guard_minutes: 10            # a staged decision is filed this many minutes before the cut-off
+    outward_maker_scope: "CENTRAL"              # CENTRAL | BRANCH | BRANCH_FIRST
+    outward_branch_first_fallback_minutes: 10   # BRANCH_FIRST: central staff may take an item after it has waited this long
+    outward_checker_scope: "ANY"                # ANY (not the maker) | CENTRAL
+    outward_high_value_ranges: ["₹[5L-10L]", "₹[10L-1Cr]", "₹[>1Cr]"]   # masked amount ranges that make an outward item OUT_HV
+    outward_bucket_priority: ["OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW"]
+    # Custody of original instruments
+    custody_branch_hold_days: 7                 # an original held at its branch longer than this is flagged overdue
+    custody_retention_years: 10                 # placeholder: confirm the period with the bank before go-live
 
   vault:
     error_files:

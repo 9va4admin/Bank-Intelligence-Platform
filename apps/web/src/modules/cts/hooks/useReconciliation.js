@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 5 * 60_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -23,7 +24,7 @@ export default function useReconciliation({ recon_date = null, pollEnabled = tru
       const res = await fetch(`${API_BASE}/v1/cts/outward/reconciliation?${params}`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setData(json)
       setError(null)

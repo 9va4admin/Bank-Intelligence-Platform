@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from shared.auth.connectors.base import ASTRAIdentity, AuthConnector
 from shared.auth.exceptions import AuthenticationError, AuthorizationError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -52,13 +53,13 @@ class SAMLConnector(AuthConnector):
         entity_type: str,
         entity_id: str,
         bank_id: str,
-        clearing_zones: Optional[list[str]] = None,
+        pu_ids: Optional[list[str]] = None,
     ) -> None:
         self.config = config
         self.entity_type = entity_type
         self.entity_id = entity_id
         self.bank_id = bank_id
-        self.clearing_zones = clearing_zones or []
+        self.pu_ids = pu_ids or []
 
     @property
     def connector_type(self) -> str:
@@ -69,7 +70,7 @@ class SAMLConnector(AuthConnector):
 
         username: str = attributes.get(self.config.name_id_attribute, "")
         if not username:
-            raise AuthenticationError("SAML assertion missing NameID")
+            raise AuthenticationError(get_message("PLATFORM_SAML_ASSERTION_MISSING_NAMEID"))
 
         groups: list[str] = attributes.get(self.config.role_attribute, [])
         if isinstance(groups, str):
@@ -84,8 +85,7 @@ class SAMLConnector(AuthConnector):
         if role is None:
             log.warn("auth.saml.no_role_mapping", bank_id=self.bank_id, username=username, groups=groups)
             raise AuthorizationError(
-                f"user '{username}' authenticated via SAML but has no ASTRA role mapping. "
-                f"Add their IdP group to group_role_map."
+                get_message("PLATFORM_USER_AUTHENTICATED_VIA_SAML_BUT", username=username)
             )
 
         display_name: str = attributes.get(
@@ -101,7 +101,7 @@ class SAMLConnector(AuthConnector):
             entity_id=self.entity_id,
             bank_id=self.bank_id,
             role=role,
-            clearing_zones=self.clearing_zones,
+            pu_ids=self.pu_ids,
             connector_used="saml",
         )
 
@@ -117,8 +117,7 @@ class SAMLConnector(AuthConnector):
     async def _parse_and_validate_assertion(self, saml_response: str) -> dict[str, Any]:
         """Validate signature, timestamps, audience. Return attribute dict."""
         raise AuthenticationError(
-            "SAML authentication is not yet configured for this deployment. "
-            "Contact bank IT admin to complete IdP integration."
+            get_message("PLATFORM_SAML_AUTHENTICATION_IS_NOT_YET")
         )
 
     async def _ping_idp_metadata(self) -> bool:

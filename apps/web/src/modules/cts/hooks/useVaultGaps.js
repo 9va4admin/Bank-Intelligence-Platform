@@ -6,6 +6,7 @@
  * this list to trigger overnight enrollment before the next clearing session.
  */
 import { useState, useEffect, useCallback } from 'react'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -22,7 +23,7 @@ export default function useVaultGaps({ date = null, enabled = true } = {}) {
         `${API_BASE}/v1/cts/vault-gaps${params}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       const json = await res.json()
       setData(json)
       setError(null)

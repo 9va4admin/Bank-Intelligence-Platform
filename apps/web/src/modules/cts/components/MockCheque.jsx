@@ -1,3 +1,4 @@
+import { msg } from '../../../shared/messages'
 /**
  * Realistic CTS-2010 cheque mock components.
  *
@@ -119,7 +120,7 @@ function SigBlock({ drawerName, seed = 0 }) {
         </div>
       )}
       <div style={{ fontSize: '5.5px', color: '#777', whiteSpace: 'nowrap' }}>
-        Please sign above / {'कृपया ऊपर हस्ताक्षर करें'}
+       {msg('UI_MOCKCHEQUE_PLEASE_SIGN_ABOVE')}
       </div>
     </div>
   )
@@ -181,7 +182,7 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
               display: 'inline-block', border: '1px solid #555',
               padding: '1px 5px', fontSize: '5px', fontWeight: 900,
               letterSpacing: '0.6px', color: '#444', marginBottom: '4px',
-            }}>A/C PAYEE ONLY</div>
+            }}>{msg('UI_MOCKCHEQUE_A_C_PAYEE_ONLY')}</div>
             <div style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               background: '#000', color: '#fff', padding: '3px 8px 3px 5px', marginBottom: '3px',
@@ -198,13 +199,13 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
             </div>
             <div style={{ fontSize: '6.5px', color: '#222', lineHeight: 1.5 }}>{branch}</div>
             <div style={{ fontSize: '6px', color: '#333' }}>
-              RTGS/NEFT IFSC : {bank.replace(/\s/g,'').slice(0,4).toUpperCase()}0{micr.slice(0,7)}
+             {msg('UI_MOCKCHEQUE_RTGS_NEFT_IFSC_0', { bank: bank.replace(/\s/g,'').slice(0,4).toUpperCase(), micr: micr.slice(0,7) })}
             </div>
           </div>
 
           {/* Date — large loose digits */}
           <div style={{ textAlign: 'right', minWidth: '160px' }}>
-            <div style={{ fontSize: '5.5px', color: '#999', marginBottom: '3px' }}>Weekly Holiday on SUNDAY</div>
+            <div style={{ fontSize: '5.5px', color: '#999', marginBottom: '3px' }}>{msg('UI_MOCKCHEQUE_WEEKLY_HOLIDAY_ON_SUNDAY')}</div>
             <div style={{
               fontFamily: "'Courier New',monospace", fontSize: '23px', fontWeight: 700,
               letterSpacing: '5px', color: '#111', lineHeight: 1,
@@ -214,7 +215,7 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
             <div style={{ fontSize: '6px', color: '#888', letterSpacing: '4px', marginTop: '2px' }}>
               D D&nbsp;&nbsp;M M&nbsp;&nbsp;Y Y Y Y
             </div>
-            <div style={{ fontSize: '5.5px', color: '#aaa', marginTop: '2px' }}>Valid for 3 months only</div>
+            <div style={{ fontSize: '5.5px', color: '#aaa', marginTop: '2px' }}>{msg('UI_MOCKCHEQUE_VALID_FOR_3_MONTHS_ONLY')}</div>
           </div>
         </div>
 
@@ -223,14 +224,14 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
           display: 'flex', alignItems: 'flex-end', gap: '6px',
           borderBottom: '0.8px solid #111', paddingBottom: '2px', marginBottom: '2px',
         }}>
-          <span style={{ fontSize: '9px', fontWeight: 900, minWidth: '24px', whiteSpace: 'nowrap', lineHeight: 1 }}>Pay</span>
+          <span style={{ fontSize: '9px', fontWeight: 900, minWidth: '24px', whiteSpace: 'nowrap', lineHeight: 1 }}>{msg('UI_CHEQUEMOCKIMAGE_PAY')}</span>
           <span style={{
             flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontWeight: 700,
             fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             lineHeight: 1.1, textDecoration: 'underline',
           }}>{payee}</span>
           <div style={{ textAlign: 'right', lineHeight: 1.3, flexShrink: 0 }}>
-            <div style={{ fontSize: '8.5px', fontWeight: 'bold' }}>Or Bearer</div>
+            <div style={{ fontSize: '8.5px', fontWeight: 'bold' }}>{msg('UI_MOCKCHEQUE_OR_BEARER')}</div>
             <div style={{ fontSize: '7px', color: '#444' }}>{'या धारक को'}</div>
           </div>
         </div>
@@ -241,7 +242,7 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
             flex: 1, display: 'flex', alignItems: 'flex-end', gap: '5px',
             borderBottom: '0.8px solid #111', paddingBottom: '2px',
           }}>
-            <span style={{ fontSize: '8px', fontWeight: 900, whiteSpace: 'nowrap', lineHeight: 1 }}>Rupees {'रुपये'}</span>
+            <span style={{ fontSize: '8px', fontWeight: 900, whiteSpace: 'nowrap', lineHeight: 1 }}>{msg('UI_MOCKCHEQUE_RUPEES')}</span>
             <span style={{
               flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '13px',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.1,
@@ -272,7 +273,7 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
               padding: '2px 5px', borderRight: '1px solid #aaa',
               background: '#f5f5ee', display: 'flex', flexDirection: 'column', justifyContent: 'center',
             }}>
-              <div style={{ fontSize: '5.5px', color: '#555', lineHeight: 1.3 }}>A/c No.</div>
+              <div style={{ fontSize: '5.5px', color: '#555', lineHeight: 1.3 }}>{msg('UI_MOCKCHEQUE_A_C_NO')}</div>
               <div style={{ fontSize: '5.5px', color: '#555', lineHeight: 1.3 }}>{'खाता सं.'}</div>
             </div>
             <div style={{ padding: '3px 10px', display: 'flex', alignItems: 'center' }}>
@@ -282,15 +283,15 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
             </div>
           </div>
           <div style={{ fontSize: '6px', color: '#666', lineHeight: 1.6 }}>
-            <div>Brn: {micr.slice(0,4)}&nbsp;&nbsp;Pdt: 100</div>
-            <div>SB A/C</div>
+            <div>{msg('UI_MOCKCHEQUE_BRN_PDT_100', { micr: micr.slice(0,4) })}</div>
+            <div>{msg('UI_MOCKCHEQUE_SB_A_C')}</div>
           </div>
         </div>
 
         {/* Row 5 — Payable at par + Signature */}
         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ fontSize: '5.8px', color: '#777', maxWidth: '54%', lineHeight: 1.5 }}>
-            Payable at par through clearing / transfer at all branches of {bank.toUpperCase()}
+           {msg('UI_MOCKCHEQUE_PAYABLE_AT_PAR_THROUGH_CLEARING', { bank: bank.toUpperCase() })}
           </div>
           <SigBlock drawerName={drawerName} seed={sigSeed} />
         </div>
@@ -338,7 +339,7 @@ function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accoun
           fontSize: '4px', color: '#ccc', letterSpacing: '0.5px',
           fontFamily: 'Arial,sans-serif', whiteSpace: 'nowrap',
         }}>
-          National Technologies Limited • Navi Mumbai / CTS-2010
+         {msg('UI_MOCKCHEQUE_NATIONAL_TECHNOLOGIES_LIMITED_NAVI_M')}
         </span>
       </div>
 
@@ -356,22 +357,22 @@ function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accoun
               display: 'inline-block', border: '1px solid #555',
               padding: '1px 4px', fontSize: '5px', fontWeight: 900,
               letterSpacing: '0.5px', color: '#444', marginBottom: '3px',
-            }}>A/C PAYEE ONLY</div>
+            }}>{msg('UI_MOCKCHEQUE_A_C_PAYEE_ONLY')}</div>
             <div style={{ fontWeight: 900, fontSize: '12px', color: '#1a3a6e', lineHeight: 1 }}>{bank}</div>
             <div style={{ fontSize: '6.5px', color: '#333', marginTop: '2px', lineHeight: 1.5 }}>{branch}</div>
             <div style={{ fontSize: '6px', color: '#555' }}>
-              IFSC : {bank.replace(/[^A-Za-z0-9]/g,'').slice(0,4).toUpperCase()}0{micr.slice(0,6)}
+             {msg('UI_MOCKCHEQUE_IFSC_0', { bank: bank.replace(/[^A-Za-z0-9]/g,'').slice(0,4).toUpperCase(), micr: micr.slice(0,6) })}
             </div>
           </div>
 
           {/* Individual bordered date digit boxes */}
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '5.5px', color: '#888', marginBottom: '3px' }}>
-              VALID FOR THREE MONTHS FROM DATE OF ISSUE
+             {msg('UI_MOCKCHEQUE_VALID_FOR_THREE_MONTHS_FROM')}
             </div>
             <div style={{ display: 'flex', gap: '1.5px', justifyContent: 'flex-end', alignItems: 'center' }}>
               <span style={{ fontSize: '6.5px', color: '#555', marginRight: '3px', lineHeight: 1.3, textAlign: 'right' }}>
-                {'दिनांक'}<br />Date
+                {'दिनांक'}<br />{msg('UI_COMMON_DATE')}
               </span>
               {dDigits.map((d, i) => (
                 <div key={i} style={{
@@ -398,14 +399,14 @@ function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accoun
           display: 'flex', alignItems: 'flex-end', gap: '5px',
           borderBottom: '0.8px solid #111', paddingBottom: '2px', marginBottom: '2px',
         }}>
-          <span style={{ fontSize: '9px', fontWeight: 900, minWidth: '24px', lineHeight: 1 }}>Pay</span>
+          <span style={{ fontSize: '9px', fontWeight: 900, minWidth: '24px', lineHeight: 1 }}>{msg('UI_CHEQUEMOCKIMAGE_PAY')}</span>
           <span style={{
             flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontWeight: 700,
             fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             lineHeight: 1.1, textDecoration: 'underline',
           }}>{payee}</span>
           <span style={{ fontSize: '7.5px', color: '#111', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {'या धारक को'} / Or Bearer
+            {msg('UI_MOCKCHEQUE_OR_BEARER_2')}
           </span>
         </div>
 
@@ -415,7 +416,7 @@ function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accoun
             flex: 1, display: 'flex', alignItems: 'flex-end', gap: '4px',
             borderBottom: '0.8px solid #111', paddingBottom: '2px',
           }}>
-            <span style={{ fontSize: '8px', fontWeight: 900, whiteSpace: 'nowrap', lineHeight: 1 }}>{'रुपये'} Rupees</span>
+            <span style={{ fontSize: '8px', fontWeight: 900, whiteSpace: 'nowrap', lineHeight: 1 }}>{msg('UI_MOCKCHEQUE_RUPEES_2')}</span>
             <span style={{
               flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '13px',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.1,
@@ -446,7 +447,7 @@ function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accoun
             background: '#f4f4ef', display: 'flex', flexDirection: 'column', justifyContent: 'center',
           }}>
             <span style={{ fontSize: '5.5px', color: '#555', lineHeight: 1.4 }}>{'खाता सं.'}</span>
-            <span style={{ fontSize: '5.5px', color: '#555', lineHeight: 1.4 }}>A/c No.</span>
+            <span style={{ fontSize: '5.5px', color: '#555', lineHeight: 1.4 }}>{msg('UI_MOCKCHEQUE_A_C_NO')}</span>
           </div>
           <div style={{ padding: '3px 10px', display: 'flex', alignItems: 'center' }}>
             <span style={{ fontFamily: "'Courier New',monospace", fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px' }}>
@@ -459,7 +460,7 @@ function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accoun
         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <div style={{ fontSize: '5.8px', color: '#777', lineHeight: 1.5 }}>
-              Payable at par at all branches
+             {msg('UI_MOCKCHEQUE_PAYABLE_AT_PAR_AT_ALL')}
             </div>
             <div style={{ fontSize: '7px', fontFamily: "'Courier New',monospace", color: '#555' }}>
               {micr.slice(0,6)}
@@ -532,38 +533,38 @@ export function MockChequeBack({ depositChannel, item, inst }) {
   return (
     <div style={{ width: '100%', maxWidth: '580px', aspectRatio: '2.55/1', background: '#f8f8f5', border: '1px solid #999', borderRadius: '2px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontFamily: 'Arial,sans-serif', position: 'relative', overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px' }}>
-        <div style={{ fontSize: '7px', color: '#aaa', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Endorsement / {'पृष्ठांकन'}</div>
+        <div style={{ fontSize: '7px', color: '#aaa', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>{msg('UI_MOCKCHEQUE_ENDORSEMENT')}</div>
 
         {depositChannel === 'BACK_ANNOTATION' && (
           <div style={{ marginBottom: '8px', padding: '6px 8px', background: 'rgba(255,255,200,0.5)', border: '0.5px solid #bbb', borderRadius: '2px' }}>
             <div style={{ fontFamily: 'cursive', fontSize: '11px', color: '#222', lineHeight: 1.8 }}>
-              A/c No: {acctBA}<br />
-              {payee && <span>Name: {payee}<br /></span>}
-              Mob: {mobileBA}
+             {msg('UI_MOCKCHEQUE_A_C_NO_2', { acctBA })}<br />
+              {payee && <span>{msg('UI_MOCKCHEQUE_NAME', { payee })}<br /></span>}
+             {msg('UI_MOCKCHEQUE_MOB', { mobileBA })}
             </div>
           </div>
         )}
 
         {depositChannel === 'KIOSK' && (
           <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#fff', border: '1px dashed #888', borderRadius: '2px', display: 'inline-block' }}>
-            <div style={{ fontSize: '6px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '3px' }}>CDM DEPOSIT LABEL</div>
+            <div style={{ fontSize: '6px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '3px' }}>{msg('UI_MOCKCHEQUE_CDM_DEPOSIT_LABEL')}</div>
             <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#111', lineHeight: 1.7 }}>
-              A/C: {acctKiosk}<br />
-              {nameKiosk && <span>NAME: {nameKiosk.toUpperCase()}<br /></span>}
-              TXN: {txnKiosk}
+             {msg('UI_MOCKCHEQUE_A_C', { acctKiosk })}<br />
+              {nameKiosk && <span>{msg('UI_MOCKCHEQUE_NAME_2', { nameKiosk: nameKiosk.toUpperCase() })}<br /></span>}
+             {msg('UI_MOCKCHEQUE_TXN', { txnKiosk })}
             </div>
-            <div style={{ fontSize: '5.5px', color: '#aaa', marginTop: '3px' }}>Kiosk-captured · System-verified</div>
+            <div style={{ fontSize: '5.5px', color: '#aaa', marginTop: '3px' }}>{msg('UI_MOCKCHEQUE_KIOSK_CAPTURED_SYSTEM_VERIFIED')}</div>
           </div>
         )}
 
         {[0, 1, 2].map(i => (
           <div key={i} style={{ borderBottom: '0.5px solid #ccc', marginBottom: i < 2 ? '22px' : 0 }} />
         ))}
-        <div style={{ marginTop: '14px', fontSize: '7px', color: '#ddd' }}>For account payee only</div>
+        <div style={{ marginTop: '14px', fontSize: '7px', color: '#ddd' }}>{msg('UI_MOCKCHEQUE_FOR_ACCOUNT_PAYEE_ONLY')}</div>
         <div style={{ marginTop: '6px', borderBottom: '0.5px solid #ccc', width: '130px' }} />
-        <div style={{ fontSize: '6.5px', color: '#ddd', marginTop: '2px' }}>Authorised Signatory</div>
+        <div style={{ fontSize: '6.5px', color: '#ddd', marginTop: '2px' }}>{msg('UI_MOCKCHEQUE_AUTHORISED_SIGNATORY')}</div>
       </div>
-      <div style={{ position: 'absolute', bottom: '8px', right: '16px', fontSize: '6.5px', color: '#ccc', fontFamily: 'monospace' }}>CTS-2010 Compliant</div>
+      <div style={{ position: 'absolute', bottom: '8px', right: '16px', fontSize: '6.5px', color: '#ccc', fontFamily: 'monospace' }}>{msg('UI_CHEQUEMOCKIMAGE_CTS_2010_COMPLIANT')}</div>
     </div>
   )
 }
@@ -597,12 +598,12 @@ export function MockPayinSlip({ inst, item }) {
     <div style={{ width: '100%', maxWidth: '380px', aspectRatio: '1.6/1', background: '#fff', border: '1.5px solid #3a6eaf', borderRadius: '2px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', overflow: 'hidden', fontFamily: 'Arial,sans-serif' }}>
       <div style={{ background: '#1a5faf', color: '#fff', padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.5px' }}>PAY-IN SLIP / {'जमा पर्ची'}</div>
-          <div style={{ fontSize: '6px', marginTop: '1px' }}>{bank} — {branch} Branch</div>
+          <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{msg('UI_MOCKCHEQUE_PAY_IN_SLIP')}</div>
+          <div style={{ fontSize: '6px', marginTop: '1px' }}>{msg('UI_MOCKCHEQUE_BRANCH', { bank, branch })}</div>
         </div>
         <div style={{ fontSize: '6.5px', textAlign: 'right' }}>
-          <div>Date: {date}</div>
-          <div style={{ marginTop: '1px' }}>Token: {(item?.deposit_data || inst?.deposit_data)?.counter_token || 'T-0001'}</div>
+          <div>{msg('UI_MOCKCHEQUE_DATE', { date })}</div>
+          <div style={{ marginTop: '1px' }}>{msg('UI_MOCKCHEQUE_TOKEN', { value: (item?.deposit_data || inst?.deposit_data)?.counter_token || 'T-0001' })}</div>
         </div>
       </div>
       <div style={{ padding: '6px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
@@ -620,12 +621,12 @@ export function MockPayinSlip({ inst, item }) {
       </div>
       <div style={{ padding: '4px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <div style={{ fontSize: '5.5px', color: '#aaa' }}>TELLER STAMP</div>
+          <div style={{ fontSize: '5.5px', color: '#aaa' }}>{msg('UI_MOCKCHEQUE_TELLER_STAMP')}</div>
           <div style={{ width: '56px', height: '18px', border: '0.5px dashed #ddd', borderRadius: '2px' }} />
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ width: '80px', borderTop: '0.5px solid #555', marginBottom: '1px' }} />
-          <div style={{ fontSize: '6px', color: '#888' }}>Depositor's Signature</div>
+          <div style={{ fontSize: '6px', color: '#888' }}>{msg('UI_MOCKCHEQUE_DEPOSITOR_S_SIGNATURE')}</div>
         </div>
       </div>
     </div>

@@ -19,47 +19,45 @@ import AppShell from '../../../shared/layout/AppShell'
 import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
 import useOpsDashboard from '../hooks/useOpsDashboard'
+import { msg } from '../../../shared/messages'
 
-// RPC zones — each is a live, independent connection to NGCH for its clearing
-// zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
-// Shown first on My Bank: an RPC going DEGRADED is an NPCI-connectivity risk,
-// not a routine stat — it belongs above the fold, not three clicks deep.
-const ZONE_STATUS = [
-  { zone: 'MUMBAI',    status: 'ACTIVE',   pending: 14, iet_risk: 2 },
-  { zone: 'DELHI',     status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
-  { zone: 'CHENNAI',   status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
-  { zone: 'KOLKATA',   status: 'ACTIVE',   pending: 3,  iet_risk: 0 },
-  { zone: 'HYDERABAD', status: 'DEGRADED', pending: 21, iet_risk: 5 },
+// The bank files to one NGCH grid through one gateway, and its work is organised in processing units (PUs). The gateway going
+// DEGRADED is an NPCI-connectivity risk, not a routine stat, so it is shown first on My Bank; the PUs show where work is queued.
+const PU_STATUS = [
+  { pu: 'PU-1', status: 'ACTIVE',   pending: 14, iet_risk: 2 },
+  { pu: 'PU-2', status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
+  { pu: 'PU-3', status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
+  { pu: 'PU-4', status: 'DEGRADED', pending: 21, iet_risk: 5 },
 ]
 
-function ZoneGatewayStrip({ isDark }) {
+function GatewayStrip({ isDark }) {
   const th = {
     card: isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
     label: isDark ? 'text-slate-400' : 'text-slate-500',
   }
-  const degraded = ZONE_STATUS.filter(z => z.status !== 'ACTIVE')
+  const degraded = PU_STATUS.filter(z => z.status !== 'ACTIVE')
   return (
-    <Link to="/cts/rpc" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
+    <Link to="/cts/admin/processing-units" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>RPC — NGCH Gateway Status</span>
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>{msg('CTS_OUT_GATEWAY_TITLE')}</span>
         {degraded.length > 0 && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
-            {degraded.length} zone{degraded.length > 1 ? 's' : ''} degraded
+            {degraded.length === 1 ? msg('CTS_OUT_GATEWAY_DEGRADED_ONE') : msg('CTS_OUT_GATEWAY_DEGRADED_MANY', { count: degraded.length })}
           </span>
         )}
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        {ZONE_STATUS.map(z => {
+        {PU_STATUS.map(z => {
           const ok = z.status === 'ACTIVE'
           return (
-            <div key={z.zone} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
+            <div key={z.pu} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
               ok
                 ? (isDark ? 'border-emerald-700/30 bg-emerald-900/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700')
                 : (isDark ? 'border-red-700/40 bg-red-900/20 text-red-300' : 'border-red-200 bg-red-50 text-red-700')
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
-              <span className="font-medium">{z.zone}</span>
-              {!ok && <span className="font-mono opacity-80">· {z.iet_risk} IET risk</span>}
+              <span className="font-medium">{z.pu}</span>
+              {!ok && <span className="font-mono opacity-80">{msg('CTS_OUT_GATEWAY_IET_RISK', { count: z.iet_risk })}</span>}
             </div>
           )
         })}
@@ -341,7 +339,7 @@ export default function CTSOpsDashboard() {
         `/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error('Download URL request failed')
+      if (!res.ok) throw new Error(msg('UI_OPSDASHBOARD_DOWNLOAD_URL_REQUEST_FAILED'))
       return res.json()
     },
     onSuccess: (data, { sessionId, path }) => {
@@ -439,12 +437,11 @@ export default function CTSOpsDashboard() {
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_OPSDASHBOARD_CLEARING_OPERATIONS_DASHBOARD')}</h1>
               <p className={`text-[11px] ${th.muted}`}>
-                {dashTab === 'mybank'
+                {msg('UI_OPSDASHBOARD_SESSIONS_SETTLED', { value: dashTab === 'mybank'
                   ? (bankMode !== 'SB_ONLY' && includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
-                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs')}
-                {' · '}{active.TODAY.clearing_date} · {totalSessions} sessions · {settledSessions} settled
+                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs'), clearing_date: active.TODAY.clearing_date, totalSessions, settledSessions })}
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -458,27 +455,27 @@ export default function CTSOpsDashboard() {
                   <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includeSMB ? 'bg-[#f5c842]' : (isDark ? 'bg-white/15' : 'bg-slate-300')}`}>
                     <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includeSMB ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                   </span>
-                  + SMB
+                 {msg('UI_OPSDASHBOARD_SMB')}
                 </button>
               )}
               <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} bankMode={bankMode} />
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                Live
+               {msg('UI_COMMON_LIVE')}
               </span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
                 className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors
                   ${isDark ? 'border-white/15 text-slate-300 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
               >
-                ↓ Today's MIS
+               {msg('UI_OPSDASHBOARD_TODAY_S_MIS')}
               </button>
             </div>
           </div>
         </div>
 
         <div className="px-6 py-5 max-w-7xl">
-          {dashTab === 'mybank' && <ZoneGatewayStrip isDark={isDark} />}
+          {dashTab === 'mybank' && <GatewayStrip isDark={isDark} />}
           {dashTab === 'smb' && (
             <SMBFilterBar smbs={smbs} selectedSmbId={selectedSmbId} onSelect={setSelectedSmbId} isDark={isDark} />
           )}
@@ -486,8 +483,8 @@ export default function CTSOpsDashboard() {
             <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
               <span className="text-lg">📂</span>
               <div>
-                <div className="text-xs font-semibold">No clearing data yet — POC mode</div>
-                <div className="text-[11px] opacity-70 mt-0.5">Drop TIF/JPG files into the inward folder to trigger the pipeline. Stats will update as instruments are processed.</div>
+                <div className="text-xs font-semibold">{msg('UI_OPSDASHBOARD_NO_CLEARING_DATA_YET_POC')}</div>
+                <div className="text-[11px] opacity-70 mt-0.5">{msg('UI_OPSDASHBOARD_DROP_TIF_JPG_FILES_INTO')}</div>
               </div>
             </div>
           )}

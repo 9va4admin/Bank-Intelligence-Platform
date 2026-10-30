@@ -4,27 +4,27 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDecisions from '../hooks/useDecisions'
+import { msg } from '../../../shared/messages'
 
 // RBI return reason code mapping — mirrors modules/cts/rrf/models.py RBIReturnCode
 const RBI_CODE_MAP = {
-  'Signature mismatch confirmed':       { code: '06', desc: 'Drawer Signature Differs' },
-  'Amount alteration detected':         { code: '07', desc: 'Alterations Require Authentication' },
-  'Insufficient funds':                 { code: '01', desc: 'Funds Insufficient' },
-  'Account dormant / frozen':           { code: '13', desc: 'Account Closed / Transferred / Not Traceable' },
-  'Post-dated cheque':                  { code: '14', desc: 'Cheque Post-Dated' },
-  'Mutilated / damaged cheque':         { code: '15', desc: 'Cheque Stale / Mutilated / Torn' },
-  'Words and figures differ':           { code: '16', desc: 'Amount in Words and Figures Differs' },
-  'No specimen on file — cannot verify':{ code: '04', desc: 'Refer to Drawer' },
-  'Payee name discrepancy':             { code: '09', desc: "Payee's Endorsement Required" },
-  'SIG_MISMATCH':                       { code: '06', desc: 'Drawer Signature Differs' },
-  'FRAUD_RISK':                         { code: '04', desc: 'Refer to Drawer' },
-  'ALTERATION':                         { code: '07', desc: 'Alterations Require Authentication' },
-  'DEFAULT':                            { code: '04', desc: 'Refer to Drawer' },
+  'Signature mismatch confirmed':       { code: '06', desc: msg('UI_DECISIONSLOG_DRAWER_SIGNATURE_DIFFERS') },
+  'Amount alteration detected':         { code: '07', desc: msg('UI_DECISIONSLOG_ALTERATIONS_REQUIRE_AUTHENTICATION') },
+  'Insufficient funds':                 { code: '01', desc: msg('UI_DECISIONSLOG_FUNDS_INSUFFICIENT') },
+  'Account dormant / frozen':           { code: '13', desc: msg('UI_DECISIONSLOG_ACCOUNT_CLOSED_TRANSFERRED_NOT_TRACE') },
+  'Post-dated cheque':                  { code: '14', desc: msg('UI_DECISIONSLOG_CHEQUE_POST_DATED') },
+  'Mutilated / damaged cheque':         { code: '15', desc: msg('UI_DECISIONSLOG_CHEQUE_STALE_MUTILATED_TORN') },
+  'Words and figures differ':           { code: '16', desc: msg('UI_DECISIONSLOG_AMOUNT_IN_WORDS_AND_FIGURES') },
+  'No specimen on file — cannot verify':{ code: '04', desc: msg('UI_DECISIONSLOG_REFER_TO_DRAWER') },
+  'Payee name discrepancy':             { code: '09', desc: msg('UI_DECISIONSLOG_PAYEE_S_ENDORSEMENT_REQUIRED') },
+  'SIG_MISMATCH':                       { code: '06', desc: msg('UI_DECISIONSLOG_DRAWER_SIGNATURE_DIFFERS') },
+  'FRAUD_RISK':                         { code: '04', desc: msg('UI_DECISIONSLOG_REFER_TO_DRAWER') },
+  'ALTERATION':                         { code: '07', desc: msg('UI_DECISIONSLOG_ALTERATIONS_REQUIRE_AUTHENTICATION') },
+  'DEFAULT':                            { code: '04', desc: msg('UI_DECISIONSLOG_REFER_TO_DRAWER') },
 }
 function getRbiCode(reason) { return RBI_CODE_MAP[reason] || RBI_CODE_MAP['DEFAULT'] }
 
 // SESSION_ID built dynamically inside component using bankIfsc
-const CLEARING_ZONE = 'MUMBAI'
 
 // SHAP feature contributions — positive = raises fraud score, negative = lowers it
 // Values in [-1, +1] range — XGBoost TreeExplainer output
@@ -43,14 +43,14 @@ const DECISIONS = [
     shap: {
       score: 0.91,
       features: [
-        { name: 'sig_mismatch_delta',  value: +0.38, label: 'Signature deviation vs specimen' },
-        { name: 'ink_anomaly_score',   value: +0.21, label: 'Ink-physics anomaly detected' },
-        { name: 'prev_returns_90d',    value: +0.14, label: 'Account: 2 returns in 90 days' },
-        { name: 'amount_risk_tier',    value: +0.11, label: 'Amount in elevated-risk bracket' },
-        { name: 'micr_check_digit',    value: +0.07, label: 'MICR check-digit inconsistency' },
-        { name: 'account_age_days',    value: -0.04, label: 'Account age (mature = lower risk)' },
-        { name: 'payee_match_score',   value: -0.02, label: 'Payee name — low-risk pattern' },
-        { name: 'vault_hit',           value: -0.03, label: 'Signature vault hit (specimen present)' },
+        { name: 'sig_mismatch_delta',  value: +0.38, label: msg('UI_DECISIONSLOG_SIGNATURE_DEVIATION_VS_SPECIMEN') },
+        { name: 'ink_anomaly_score',   value: +0.21, label: msg('UI_DECISIONSLOG_INK_PHYSICS_ANOMALY_DETECTED') },
+        { name: 'prev_returns_90d',    value: +0.14, label: msg('UI_DECISIONSLOG_ACCOUNT_2_RETURNS_IN_90') },
+        { name: 'amount_risk_tier',    value: +0.11, label: msg('UI_DECISIONSLOG_AMOUNT_IN_ELEVATED_RISK_BRACKET') },
+        { name: 'micr_check_digit',    value: +0.07, label: msg('UI_DECISIONSLOG_MICR_CHECK_DIGIT_INCONSISTENCY') },
+        { name: 'account_age_days',    value: -0.04, label: msg('UI_DECISIONSLOG_ACCOUNT_AGE_MATURE_LOWER_RISK') },
+        { name: 'payee_match_score',   value: -0.02, label: msg('UI_DECISIONSLOG_PAYEE_NAME_LOW_RISK_PATTERN') },
+        { name: 'vault_hit',           value: -0.03, label: msg('UI_DECISIONSLOG_SIGNATURE_VAULT_HIT_SPECIMEN_PRESENT') },
       ],
     },
   },
@@ -67,14 +67,14 @@ const DECISIONS = [
     shap: {
       score: 0.08,
       features: [
-        { name: 'sig_mismatch_delta',  value: -0.31, label: 'Signature closely matches specimen' },
-        { name: 'vault_hit',           value: -0.22, label: 'Vault hit — specimen retrieved' },
-        { name: 'account_age_days',    value: -0.15, label: 'Mature account (9 years)' },
-        { name: 'payee_match_score',   value: -0.10, label: 'Payee pattern consistent' },
-        { name: 'ocr_confidence',      value: -0.09, label: 'OCR confidence high (0.97)' },
-        { name: 'prev_returns_90d',    value: +0.01, label: 'No prior returns' },
-        { name: 'amount_risk_tier',    value: +0.04, label: 'Low-value bracket' },
-        { name: 'ink_anomaly_score',   value: +0.02, label: 'No ink anomaly detected' },
+        { name: 'sig_mismatch_delta',  value: -0.31, label: msg('UI_DECISIONSLOG_SIGNATURE_CLOSELY_MATCHES_SPECIMEN') },
+        { name: 'vault_hit',           value: -0.22, label: msg('UI_DECISIONSLOG_VAULT_HIT_SPECIMEN_RETRIEVED') },
+        { name: 'account_age_days',    value: -0.15, label: msg('UI_DECISIONSLOG_MATURE_ACCOUNT_9_YEARS') },
+        { name: 'payee_match_score',   value: -0.10, label: msg('UI_DECISIONSLOG_PAYEE_PATTERN_CONSISTENT') },
+        { name: 'ocr_confidence',      value: -0.09, label: msg('UI_DECISIONSLOG_OCR_CONFIDENCE_HIGH_0_97') },
+        { name: 'prev_returns_90d',    value: +0.01, label: msg('UI_DECISIONSLOG_NO_PRIOR_RETURNS') },
+        { name: 'amount_risk_tier',    value: +0.04, label: msg('UI_DECISIONSLOG_LOW_VALUE_BRACKET') },
+        { name: 'ink_anomaly_score',   value: +0.02, label: msg('UI_DECISIONSLOG_NO_INK_ANOMALY_DETECTED') },
       ],
     },
   },
@@ -104,14 +104,14 @@ const DECISIONS = [
     shap: {
       score: 0.87,
       features: [
-        { name: 'ink_anomaly_score',   value: +0.44, label: 'Ink-physics anomaly — correction fluid detected' },
-        { name: 'paper_fibre_dist',    value: +0.22, label: 'Paper fibre distortion at amount field' },
-        { name: 'amount_risk_tier',    value: +0.09, label: 'Amount range inconsistency' },
-        { name: 'ocr_confidence',      value: +0.07, label: 'OCR confidence drop at altered field' },
-        { name: 'sig_mismatch_delta',  value: +0.05, label: 'Minor signature deviation' },
-        { name: 'vault_hit',           value: -0.05, label: 'Vault hit — specimen present' },
-        { name: 'account_age_days',    value: -0.03, label: 'Account age (moderate)' },
-        { name: 'payee_match_score',   value: -0.02, label: 'Payee name consistent' },
+        { name: 'ink_anomaly_score',   value: +0.44, label: msg('UI_DECISIONSLOG_INK_PHYSICS_ANOMALY_CORRECTION_FLUID') },
+        { name: 'paper_fibre_dist',    value: +0.22, label: msg('UI_DECISIONSLOG_PAPER_FIBRE_DISTORTION_AT_AMOUNT') },
+        { name: 'amount_risk_tier',    value: +0.09, label: msg('UI_DECISIONSLOG_AMOUNT_RANGE_INCONSISTENCY') },
+        { name: 'ocr_confidence',      value: +0.07, label: msg('UI_DECISIONSLOG_OCR_CONFIDENCE_DROP_AT_ALTERED') },
+        { name: 'sig_mismatch_delta',  value: +0.05, label: msg('UI_DECISIONSLOG_MINOR_SIGNATURE_DEVIATION') },
+        { name: 'vault_hit',           value: -0.05, label: msg('UI_DECISIONSLOG_VAULT_HIT_SPECIMEN_PRESENT') },
+        { name: 'account_age_days',    value: -0.03, label: msg('UI_DECISIONSLOG_ACCOUNT_AGE_MODERATE') },
+        { name: 'payee_match_score',   value: -0.02, label: msg('UI_DECISIONSLOG_PAYEE_NAME_CONSISTENT') },
       ],
     },
   },
@@ -128,14 +128,14 @@ const DECISIONS = [
     shap: {
       score: 0.12,
       features: [
-        { name: 'sig_mismatch_delta',  value: -0.28, label: 'Signature well within tolerance' },
-        { name: 'vault_hit',           value: -0.20, label: 'Vault hit — specimen retrieved' },
-        { name: 'ocr_confidence',      value: -0.14, label: 'OCR confidence 0.99' },
-        { name: 'ink_anomaly_score',   value: -0.08, label: 'No ink anomaly' },
-        { name: 'account_age_days',    value: -0.06, label: 'Long-standing account' },
-        { name: 'amount_risk_tier',    value: +0.08, label: 'Amount bracket — minor flag' },
-        { name: 'prev_returns_90d',    value: +0.04, label: 'One return in 90 days' },
-        { name: 'payee_match_score',   value: -0.03, label: 'Payee consistent' },
+        { name: 'sig_mismatch_delta',  value: -0.28, label: msg('UI_DECISIONSLOG_SIGNATURE_WELL_WITHIN_TOLERANCE') },
+        { name: 'vault_hit',           value: -0.20, label: msg('UI_DECISIONSLOG_VAULT_HIT_SPECIMEN_RETRIEVED') },
+        { name: 'ocr_confidence',      value: -0.14, label: msg('UI_DECISIONSLOG_OCR_CONFIDENCE_0_99') },
+        { name: 'ink_anomaly_score',   value: -0.08, label: msg('UI_DECISIONSLOG_NO_INK_ANOMALY') },
+        { name: 'account_age_days',    value: -0.06, label: msg('UI_DECISIONSLOG_LONG_STANDING_ACCOUNT') },
+        { name: 'amount_risk_tier',    value: +0.08, label: msg('UI_DECISIONSLOG_AMOUNT_BRACKET_MINOR_FLAG') },
+        { name: 'prev_returns_90d',    value: +0.04, label: msg('UI_DECISIONSLOG_ONE_RETURN_IN_90_DAYS') },
+        { name: 'payee_match_score',   value: -0.03, label: msg('UI_DECISIONSLOG_PAYEE_CONSISTENT') },
       ],
     },
   },
@@ -152,14 +152,14 @@ const DECISIONS = [
     shap: {
       score: 0.44,
       features: [
-        { name: 'amount_risk_tier',    value: +0.29, label: 'Very-high-value: mandatory review' },
-        { name: 'sig_mismatch_delta',  value: +0.08, label: 'Mild signature deviation' },
-        { name: 'prev_returns_90d',    value: +0.05, label: 'One prior return' },
-        { name: 'micr_check_digit',    value: +0.02, label: 'MICR nominal' },
-        { name: 'vault_hit',           value: -0.09, label: 'Vault hit' },
-        { name: 'ocr_confidence',      value: -0.08, label: 'OCR high confidence' },
-        { name: 'ink_anomaly_score',   value: -0.05, label: 'No ink anomaly' },
-        { name: 'account_age_days',    value: -0.04, label: 'Established account' },
+        { name: 'amount_risk_tier',    value: +0.29, label: msg('UI_DECISIONSLOG_VERY_HIGH_VALUE_MANDATORY_REVIEW') },
+        { name: 'sig_mismatch_delta',  value: +0.08, label: msg('UI_DECISIONSLOG_MILD_SIGNATURE_DEVIATION') },
+        { name: 'prev_returns_90d',    value: +0.05, label: msg('UI_DECISIONSLOG_ONE_PRIOR_RETURN') },
+        { name: 'micr_check_digit',    value: +0.02, label: msg('UI_DECISIONSLOG_MICR_NOMINAL') },
+        { name: 'vault_hit',           value: -0.09, label: msg('UI_DECISIONSLOG_VAULT_HIT') },
+        { name: 'ocr_confidence',      value: -0.08, label: msg('UI_DECISIONSLOG_OCR_HIGH_CONFIDENCE') },
+        { name: 'ink_anomaly_score',   value: -0.05, label: msg('UI_DECISIONSLOG_NO_INK_ANOMALY') },
+        { name: 'account_age_days',    value: -0.04, label: msg('UI_DECISIONSLOG_ESTABLISHED_ACCOUNT') },
       ],
     },
   },
@@ -176,14 +176,14 @@ const DECISIONS = [
     shap: {
       score: 0.05,
       features: [
-        { name: 'sig_mismatch_delta',  value: -0.35, label: 'Signature exact match' },
-        { name: 'vault_hit',           value: -0.25, label: 'Vault hit' },
-        { name: 'ink_anomaly_score',   value: -0.12, label: 'Clean ink patterns' },
-        { name: 'ocr_confidence',      value: -0.10, label: 'OCR confidence 0.98' },
-        { name: 'account_age_days',    value: -0.07, label: 'Long-standing account' },
-        { name: 'amount_risk_tier',    value: +0.02, label: 'Low-value bracket' },
-        { name: 'prev_returns_90d',    value: +0.01, label: 'No prior returns' },
-        { name: 'payee_match_score',   value: -0.01, label: 'Payee consistent' },
+        { name: 'sig_mismatch_delta',  value: -0.35, label: msg('UI_DECISIONSLOG_SIGNATURE_EXACT_MATCH') },
+        { name: 'vault_hit',           value: -0.25, label: msg('UI_DECISIONSLOG_VAULT_HIT') },
+        { name: 'ink_anomaly_score',   value: -0.12, label: msg('UI_DECISIONSLOG_CLEAN_INK_PATTERNS') },
+        { name: 'ocr_confidence',      value: -0.10, label: msg('UI_DECISIONSLOG_OCR_CONFIDENCE_0_98') },
+        { name: 'account_age_days',    value: -0.07, label: msg('UI_DECISIONSLOG_LONG_STANDING_ACCOUNT') },
+        { name: 'amount_risk_tier',    value: +0.02, label: msg('UI_DECISIONSLOG_LOW_VALUE_BRACKET') },
+        { name: 'prev_returns_90d',    value: +0.01, label: msg('UI_DECISIONSLOG_NO_PRIOR_RETURNS') },
+        { name: 'payee_match_score',   value: -0.01, label: msg('UI_DECISIONSLOG_PAYEE_CONSISTENT') },
       ],
     },
   },
@@ -201,14 +201,14 @@ const DECISIONS = [
     shap: {
       score: 0.79,
       features: [
-        { name: 'sig_mismatch_delta',  value: +0.48, label: 'High signature deviation (0.61 vs threshold 0.87)' },
-        { name: 'prev_returns_90d',    value: +0.12, label: '1 prior signature-related return' },
-        { name: 'ink_anomaly_score',   value: +0.08, label: 'Minor pen-pressure inconsistency' },
-        { name: 'amount_risk_tier',    value: +0.06, label: 'Mid-value bracket' },
-        { name: 'vault_hit',           value: -0.04, label: 'Vault hit — specimen used for comparison' },
-        { name: 'ocr_confidence',      value: -0.03, label: 'OCR high confidence' },
-        { name: 'account_age_days',    value: -0.02, label: 'Established account' },
-        { name: 'payee_match_score',   value: -0.01, label: 'Payee consistent' },
+        { name: 'sig_mismatch_delta',  value: +0.48, label: msg('UI_DECISIONSLOG_HIGH_SIGNATURE_DEVIATION_0_61') },
+        { name: 'prev_returns_90d',    value: +0.12, label: msg('UI_DECISIONSLOG_1_PRIOR_SIGNATURE_RELATED_RETURN') },
+        { name: 'ink_anomaly_score',   value: +0.08, label: msg('UI_DECISIONSLOG_MINOR_PEN_PRESSURE_INCONSISTENCY') },
+        { name: 'amount_risk_tier',    value: +0.06, label: msg('UI_DECISIONSLOG_MID_VALUE_BRACKET') },
+        { name: 'vault_hit',           value: -0.04, label: msg('UI_DECISIONSLOG_VAULT_HIT_SPECIMEN_USED_FOR') },
+        { name: 'ocr_confidence',      value: -0.03, label: msg('UI_DECISIONSLOG_OCR_HIGH_CONFIDENCE') },
+        { name: 'account_age_days',    value: -0.02, label: msg('UI_DECISIONSLOG_ESTABLISHED_ACCOUNT') },
+        { name: 'payee_match_score',   value: -0.01, label: msg('UI_DECISIONSLOG_PAYEE_CONSISTENT') },
       ],
     },
   },
@@ -219,7 +219,7 @@ const SORT_COLS = ['fraud', 'agent_ms', 'filed', 'immudb_seq']
 
 // ── CSV export ─────────────────────────────────────────────────────────────────
 function buildCsv(rows) {
-  const header = ['Instrument ID','Account','Amount','Reason','Outcome','Agent ms','Fraud Score','NGCH Ref','Filed','Reviewer','Immudb Seq','Audit Hash']
+  const header = [msg('UI_COMMON_INSTRUMENT_ID'),msg('CTS_WF_BUCKETCFG_COL_ACCOUNT'),msg('CTS_OUT_CUSTODY_COL_AMOUNT'),msg('UI_COMMON_REASON'),msg('UI_COMMON_OUTCOME'),msg('UI_DECISIONSLOG_AGENT_MS'),msg('UI_COMMON_FRAUD_SCORE'),msg('UI_DECISIONSLOG_NGCH_REF'),msg('UI_COMMON_FILED'),msg('UI_ALLOCATIONADMIN_REVIEWER'),msg('UI_DECISIONSLOG_IMMUDB_SEQ'),msg('UI_DECISIONSLOG_AUDIT_HASH')]
   const lines = rows.map(d => [
     d.id, d.account, d.amount, d.reason, d.outcome,
     d.agent_ms, d.fraud ?? '', d.ngch, d.filed,
@@ -265,7 +265,6 @@ function buildRrfXml(returns, sessionMeta) {
   <Header>
     <BankIFSC>${sessionMeta.bank_ifsc}</BankIFSC>
     <SessionID>${sessionMeta.session_id}</SessionID>
-    <ClearingZone>${sessionMeta.clearing_zone}</ClearingZone>
     <GeneratedAt>${now}</GeneratedAt>
     <TotalReturns>${returns.length}</TotalReturns>
     <FiledWithinIETCount>${filedCount}</FiledWithinIETCount>
@@ -332,7 +331,7 @@ function ShapPanel({ decision, onClose, isDark }) {
         {/* Header */}
         <div className={`flex items-center justify-between px-5 py-3.5 border-b ${th.head}`}>
           <div>
-            <div className="text-sm font-semibold">AI Explainability — SHAP Breakdown</div>
+            <div className="text-sm font-semibold">{msg('UI_DECISIONSLOG_AI_EXPLAINABILITY_SHAP_BREAKDOWN')}</div>
             <div className={`text-[11px] font-mono ${th.muted}`}>{decision.id}</div>
           </div>
           <button onClick={onClose}
@@ -344,7 +343,7 @@ function ShapPanel({ decision, onClose, isDark }) {
           {/* Fraud score */}
           {shap ? (
             <div>
-              <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>XGBoost Fraud Score</div>
+              <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>{msg('UI_DECISIONSLOG_XGBOOST_FRAUD_SCORE')}</div>
               <div className="flex items-center gap-3">
                 <span className={`text-3xl font-bold font-mono ${
                   fraudPct > 70 ? (isDark ? 'text-red-400' : 'text-red-600')
@@ -358,7 +357,7 @@ function ShapPanel({ decision, onClose, isDark }) {
             </div>
           ) : (
             <div className={`text-sm ${th.muted}`}>
-              Vault miss — fraud scoring not attempted. Routed to human review per policy.
+             {msg('UI_DECISIONSLOG_VAULT_MISS_FRAUD_SCORING_NOT')}
             </div>
           )}
 
@@ -366,8 +365,8 @@ function ShapPanel({ decision, onClose, isDark }) {
           {shap && (
             <div>
               <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-3`}>
-                SHAP Feature Contributions
-                <span className={`ml-2 normal-case ${th.muted}`}>— red raises score · green lowers score</span>
+               {msg('UI_DECISIONSLOG_SHAP_FEATURE_CONTRIBUTIONS')}
+                <span className={`ml-2 normal-case ${th.muted}`}>{msg('UI_DECISIONSLOG_RED_RAISES_SCORE_GREEN_LOWERS')}</span>
               </div>
               <div className="space-y-2">
                 {[...shap.features].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).map(f => (
@@ -384,12 +383,10 @@ function ShapPanel({ decision, onClose, isDark }) {
           {shap && shap.features.find(f => f.name === 'ink_anomaly_score' && f.value > 0.15) && (
             <div className={`rounded-xl border px-4 py-3 ${isDark ? 'bg-orange-500/8 border-orange-500/25' : 'bg-orange-50 border-orange-200'}`}>
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-orange-400' : 'text-orange-700'}`}>
-                Physical Anomaly Detected
+               {msg('UI_DECISIONSLOG_PHYSICAL_ANOMALY_DETECTED')}
               </div>
               <p className={`text-[11px] ${isDark ? 'text-orange-300' : 'text-orange-800'}`}>
-                Ink-physics analysis (Qwen2-VL) flagged this cheque. Possible correction fluid,
-                paper-fibre distortion, or pen-pressure inconsistency at altered field.
-                See alteration activity output for per-field bounding boxes.
+               {msg('UI_DECISIONSLOG_INK_PHYSICS_ANALYSIS_QWEN2_VL')}
               </p>
             </div>
           )}
@@ -397,15 +394,15 @@ function ShapPanel({ decision, onClose, isDark }) {
           {/* OCR Engines Used */}
           <div>
             <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>
-              OCR Engines Used
+             {msg('UI_DECISIONSLOG_OCR_ENGINES_USED')}
               {indic_ocr_kill_switch_active && (
                 <span className={`ml-2 normal-case px-1.5 py-0.5 rounded border text-[9px] font-semibold ${
                   isDark ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-300 text-amber-700'
-                }`}>IndicOCR · Kill Switch KC</span>
+                }`}>{msg('UI_DECISIONSLOG_INDICOCR_KILL_SWITCH_KC')}</span>
               )}
             </div>
             {ocr_engines_used.length === 0 ? (
-              <span className={`text-xs ${th.muted}`}>Not recorded (inward path — NGCH provides field data)</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_DECISIONSLOG_NOT_RECORDED_INWARD_PATH_NGCH')}</span>
             ) : (
               <div className="space-y-1.5">
                 {ocr_engines_used.map((eng, i) => {
@@ -426,7 +423,7 @@ function ShapPanel({ decision, onClose, isDark }) {
                         }`}>{detail}</span>
                       )}
                       {isCascade2 && (
-                        <span className={`text-[9px] ${th.muted}`}>(fallback tier)</span>
+                        <span className={`text-[9px] ${th.muted}`}>{msg('UI_DECISIONSLOG_FALLBACK_TIER')}</span>
                       )}
                     </div>
                   )
@@ -437,7 +434,7 @@ function ShapPanel({ decision, onClose, isDark }) {
 
           {/* Decision outcome */}
           <div>
-            <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>Decision</div>
+            <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>{msg('UI_COMMON_DECISION')}</div>
             <div className="flex items-center gap-2">
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                 decision.outcome === 'STP_CONFIRM' ? (isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700')
@@ -446,7 +443,7 @@ function ShapPanel({ decision, onClose, isDark }) {
               }`}>{decision.outcome.replace(/_/g, ' ')}</span>
               <span className={`text-xs ${th.muted}`}>{decision.reason.replace(/_/g, ' ')}</span>
               {decision.reviewer && (
-                <span className={`text-xs ${th.muted}`}>· reviewed by <strong>{decision.reviewer}</strong></span>
+                <span className={`text-xs ${th.muted}`}>{msg('UI_DECISIONSLOG_REVIEWED_BY')} <strong>{decision.reviewer}</strong></span>
               )}
             </div>
           </div>
@@ -454,25 +451,25 @@ function ShapPanel({ decision, onClose, isDark }) {
           {/* Immutable audit record */}
           <div>
             <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>
-              Immutable Audit Record (Immudb)
+             {msg('UI_DECISIONSLOG_IMMUTABLE_AUDIT_RECORD_IMMUDB')}
             </div>
             <div className={`rounded-lg border p-3 text-[10px] font-mono space-y-1 ${th.mono}`}>
-              <div><span className={th.muted}>seq:</span> {immudb_seq}</div>
-              <div className="break-all"><span className={th.muted}>hash:</span> {audit_hash}</div>
+              <div><span className={th.muted}>{msg('UI_DECISIONSLOG_SEQ')}</span> {immudb_seq}</div>
+              <div className="break-all"><span className={th.muted}>{msg('UI_DECISIONSLOG_HASH')}</span> {audit_hash}</div>
               <div className={`mt-1 text-[9px] ${th.hash}`}>
-                HSM-signed · Merkle-verified · Tamper-evident · Cannot be modified or deleted
+               {msg('UI_DECISIONSLOG_HSM_SIGNED_MERKLE_VERIFIED_TAMPER')}
               </div>
             </div>
           </div>
 
           {/* NGCH filing */}
           <div>
-            <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>NGCH Filing</div>
+            <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>{msg('UI_DECISIONSLOG_NGCH_FILING')}</div>
             <div className="flex items-center gap-3 text-xs">
               <span className={`font-mono ${th.label}`}>{decision.ngch}</span>
-              <span className={th.muted}>Filed at {decision.filed}</span>
+              <span className={th.muted}>{msg('UI_DECISIONSLOG_FILED_AT', { filed: decision.filed })}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-emerald-700 border-emerald-300 bg-emerald-50'}`}>
-                ACK
+               {msg('UI_DECISIONSLOG_ACK')}
               </span>
             </div>
           </div>
@@ -505,22 +502,21 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
         onClick={e => e.stopPropagation()}>
         <div className={`flex items-center justify-between px-5 py-3 border-b ${th.divider}`}>
           <div>
-            <div className="text-sm font-semibold">Return Reason File (RRF)</div>
+            <div className="text-sm font-semibold">{msg('UI_DECISIONSLOG_RETURN_REASON_FILE_RRF')}</div>
             <div className={`text-[10px] font-mono ${th.muted}`}>{filename}</div>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`text-[10px] px-2 py-0.5 rounded border ${th.badge}`}>{returns.length} returns · CTS-2010 XML</div>
+            <div className={`text-[10px] px-2 py-0.5 rounded border ${th.badge}`}>{msg('UI_DECISIONSLOG_RETURNS_CTS_2010_XML', { count: returns.length })}</div>
             <button onClick={() => downloadText(xml, filename, 'application/xml')}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.btn}`}>↓ Download XML</button>
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.btn}`}>{msg('UI_DECISIONSLOG_DOWNLOAD_XML')}</button>
             <button onClick={onClose}
               className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${th.closeBtn}`}>✕</button>
           </div>
         </div>
         <div className={`shrink-0 px-5 py-2 border-b ${th.divider} flex gap-6 text-[11px] ${th.muted}`}>
-          <span>Bank: <span className="font-mono font-semibold">{sessionMeta.bank_ifsc}</span></span>
-          <span>Session: <span className="font-mono">{sessionMeta.session_id}</span></span>
-          <span>Zone: <span className="font-mono">{sessionMeta.clearing_zone}</span></span>
-          <span className={th.ngchReady}>✓ NGCH-ready · HSM sign pending (backend)</span>
+          <span>{msg('UI_DECISIONSLOG_BANK')} <span className="font-mono font-semibold">{sessionMeta.bank_ifsc}</span></span>
+          <span>{msg('UI_DECISIONSLOG_SESSION')} <span className="font-mono">{sessionMeta.session_id}</span></span>
+          <span className={th.ngchReady}>{msg('UI_DECISIONSLOG_NGCH_READY_HSM_SIGN_PENDING')}</span>
         </div>
         <pre className={`flex-1 overflow-auto text-[10px] font-mono p-4 rounded-b-2xl border-t ${th.code} leading-relaxed`}>{xml}</pre>
       </div>
@@ -538,7 +534,6 @@ export default function CTSDecisionsLog() {
     bank_ifsc:     bankIfsc,
     bank_name:     bankName,
     session_id:    sessionId,
-    clearing_zone: CLEARING_ZONE,
     generated_at:  new Date().toISOString(),
   }
   const [filter,   setFilter]   = useState('All')
@@ -612,18 +607,18 @@ export default function CTSDecisionsLog() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
 
   usePageHeader({
-    subtitle: `Session: ${sessionMeta.session_id} · ${sessionMeta.bank_name} · ${sessionMeta.clearing_zone}`,
+    subtitle: msg('UI_DECISIONSLOG_SESSION_2', { session_id: sessionMeta.session_id, bank_name: sessionMeta.bank_name }),
     actions: (
       <div className="flex items-center gap-2">
         {returned.length > 0 && (
           <button onClick={() => setRrfModal('session')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.sessionRrf}`}>
-            <span>📄</span><span>RRF ({returned.length} returns)</span>
+            <span>📄</span><span>{msg('UI_DECISIONSLOG_RRF_RETURNS', { count: returned.length })}</span>
           </button>
         )}
         <button onClick={() => downloadText(buildCsv(rows), `decisions_${sessionMeta.session_id}_${date}.csv`, 'text/csv')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.csvBtn}`}>
-          ↓ CSV
+         {msg('UI_DECISIONSLOG_CSV')}
         </button>
       </div>
     ),
@@ -634,17 +629,17 @@ export default function CTSDecisionsLog() {
       <div className={`${th.page} px-6 py-5`}>
 
         {/* Page heading — visible for tests + accessibility */}
-        <h1 className={`text-lg font-semibold ${th.heading} mb-4`}>Decisions Log</h1>
+        <h1 className={`text-lg font-semibold ${th.heading} mb-4`}>{msg('UI_DECISIONSLOG_DECISIONS_LOG')}</h1>
 
         {/* Live data status — shown only in non-demo mode */}
         {!isDemo && decisionsLoading && (
           <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-            Loading decisions…
+           {msg('UI_DECISIONSLOG_LOADING_DECISIONS')}
           </div>
         )}
         {!isDemo && decisionsError && !decisionsLoading && (
           <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-            Unable to load live decisions: {decisionsError}. Showing last known data.
+           {msg('UI_DECISIONSLOG_UNABLE_TO_LOAD_LIVE_DECISIONS', { decisionsError })}
           </div>
         )}
 
@@ -661,11 +656,11 @@ export default function CTSDecisionsLog() {
         {/* Summary strip */}
         <div className="grid grid-cols-5 gap-3 mb-4">
           {[
-            { label: 'Total Filed',   value: ALL_DECISIONS.length,                                          color: th.heading },
-            { label: 'STP Confirmed', value: ALL_DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length, color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'STP Returned',  value: returned.length,                                               color: isDark ? 'text-red-400' : 'text-red-600' },
-            { label: 'Human Review',  value: ALL_DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,color: isDark ? 'text-amber-400' : 'text-amber-600' },
-            { label: 'RRF Generated', value: returned.length > 0 ? '✓' : '—',                          color: returned.length > 0 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : th.faint },
+            { label: msg('UI_DECISIONSLOG_TOTAL_FILED'),   value: ALL_DECISIONS.length,                                          color: th.heading },
+            { label: msg('UI_COMMON_STP_CONFIRMED'), value: ALL_DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length, color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: msg('UI_COMMON_STP_RETURNED'),  value: returned.length,                                               color: isDark ? 'text-red-400' : 'text-red-600' },
+            { label: msg('UI_COMMON_HUMAN_REVIEW'),  value: ALL_DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,color: isDark ? 'text-amber-400' : 'text-amber-600' },
+            { label: msg('UI_DECISIONSLOG_RRF_GENERATED'), value: returned.length > 0 ? '✓' : '—',                          color: returned.length > 0 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : th.faint },
           ].map(s => (
             <div key={s.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{s.label}</div>
@@ -678,7 +673,7 @@ export default function CTSDecisionsLog() {
         <div className="mb-3">
           <input
             type="text"
-            placeholder="Search by instrument ID, account, NGCH ref, or reason…"
+            placeholder={msg('UI_DECISIONSLOG_SEARCH_BY_INSTRUMENT_ID_ACCOUNT')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className={`w-full rounded-xl border px-4 py-2 text-xs outline-none transition-colors ${th.input}`}
@@ -690,23 +685,23 @@ export default function CTSDecisionsLog() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`${th.thead} border-b`}>
-                <th className="text-left px-4 py-3 font-normal">Instrument</th>
-                <th className="text-left px-4 py-3 font-normal">Account</th>
-                <th className="text-left px-4 py-3 font-normal">Amount</th>
-                <th className="text-left px-4 py-3 font-normal">Reason</th>
-                <th className="text-left px-4 py-3 font-normal">Outcome</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('CTS_OUT_CUSTODY_COL_INSTRUMENT')}</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('CTS_OUT_CUSTODY_COL_AMOUNT')}</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('UI_COMMON_REASON')}</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('UI_COMMON_OUTCOME')}</th>
                 <th className={`px-4 py-3 font-normal text-right ${th.sortTh}`} onClick={() => toggleSort('agent_ms')}>
-                  Agent ms{sortIcon('agent_ms')}
+                 {msg('UI_DECISIONSLOG_AGENT_MS_2', { sortIcon: sortIcon('agent_ms') })}
                 </th>
                 <th className={`px-4 py-3 font-normal text-right ${th.sortTh}`} onClick={() => toggleSort('fraud')}>
-                  Fraud{sortIcon('fraud')}
+                 {msg('UI_DECISIONSLOG_FRAUD', { sortIcon: sortIcon('fraud') })}
                 </th>
-                <th className="text-left px-4 py-3 font-normal">NGCH Ref</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('UI_DECISIONSLOG_NGCH_REF')}</th>
                 <th className={`px-4 py-3 font-normal text-left ${th.sortTh}`} onClick={() => toggleSort('filed')}>
-                  Filed{sortIcon('filed')}
+                 {msg('UI_DECISIONSLOG_FILED', { sortIcon: sortIcon('filed') })}
                 </th>
-                <th className="text-left px-4 py-3 font-normal">Reviewer</th>
-                <th className="text-left px-4 py-3 font-normal">RRF</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('UI_ALLOCATIONADMIN_REVIEWER')}</th>
+                <th className="text-left px-4 py-3 font-normal">{msg('UI_DECISIONSLOG_RRF')}</th>
               </tr>
             </thead>
             <tbody>
@@ -754,13 +749,13 @@ export default function CTSDecisionsLog() {
 
         {/* Hint */}
         <p className={`mt-2 text-[10px] ${th.faint}`}>
-          Click any row to view SHAP explainability breakdown and immutable audit hash.
+         {msg('UI_DECISIONSLOG_CLICK_ANY_ROW_TO_VIEW')}
         </p>
 
         {/* RBI code legend */}
         {returned.length > 0 && (
           <div className={`mt-4 border rounded-xl px-5 py-3 ${th.card}`}>
-            <div className={`text-[10px] uppercase tracking-widest ${th.faint} mb-2`}>RBI Return Reason Codes — This Session</div>
+            <div className={`text-[10px] uppercase tracking-widest ${th.faint} mb-2`}>{msg('UI_DECISIONSLOG_RBI_RETURN_REASON_CODES_THIS')}</div>
             <div className="flex flex-wrap gap-3">
               {[...new Set(returned.map(r => {
                 const rbi = getRbiCode(r.return_reason || r.reason)

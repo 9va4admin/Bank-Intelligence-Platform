@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from shared.messages import get_message
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,5 @@ class EndorsementRecord:
     def __post_init__(self) -> None:
         if len(self.account_suffix) > 4:
             raise ValueError(
-                f"account_suffix must be ≤ 4 characters (PII rule); "
-                f"got {len(self.account_suffix)} chars"
+                get_message("CTS_ACCOUNT_SUFFIX_MUST_BE_4", len=len(self.account_suffix))
             )

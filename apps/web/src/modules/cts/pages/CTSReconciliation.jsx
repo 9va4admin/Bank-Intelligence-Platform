@@ -1,3 +1,4 @@
+import { sampleSmb } from '../../../shared/config/bank.config'
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
@@ -6,12 +7,13 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useSMBLedgers from '../hooks/useSMBLedgers'
 import useReconciliation from '../hooks/useReconciliation'
+import { msg } from '../../../shared/messages'
 
 // ── Sub-member ledger mock data ───────────────────────────────────────────────
 const SMB_LEDGERS = [
   {
     sub_member_id: 'SMB-MH-001',
-    bank_name: 'Vasavi Co-op Bank',
+    bank_name: sampleSmb(0).name,
     sponsor_bank_id: 'SVCB-DIRECT-001',
     total_received: 42,
     stp_pass: 28,
@@ -149,11 +151,11 @@ function makeReconData(sessions, isSMB) {
 }
 
 const STATUS_META = {
-  MATCHED:         { label: 'Matched',      icon: '✓' },
-  PENDING:         { label: 'Pending',      icon: '⏳' },
-  AMOUNT_MISMATCH: { label: 'Amt Mismatch', icon: '≠' },
-  NGCH_ONLY:       { label: 'NGCH Only',    icon: '!' },
-  CBS_ONLY:        { label: 'CBS Only',     icon: '!' },
+  MATCHED:         { label: msg('UI_RECONCILIATION_MATCHED'),      icon: '✓' },
+  PENDING:         { label: msg('UI_COMMON_PENDING'),      icon: '⏳' },
+  AMOUNT_MISMATCH: { label: msg('UI_COMMON_AMT_MISMATCH'), icon: '≠' },
+  NGCH_ONLY:       { label: msg('UI_RECONCILIATION_NGCH_ONLY'),    icon: '!' },
+  CBS_ONLY:        { label: msg('UI_RECONCILIATION_CBS_ONLY'),     icon: '!' },
 }
 
 const EXCEPTION_STATUSES = new Set(['AMOUNT_MISMATCH', 'NGCH_ONLY', 'CBS_ONLY'])
@@ -388,7 +390,7 @@ export default function CTSReconciliation() {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Download CSV
+         {msg('UI_RECONCILIATION_DOWNLOAD_CSV')}
         </button>
       </div>
     ),
@@ -400,40 +402,40 @@ export default function CTSReconciliation() {
 
         {!session && (
           <div className={`text-center py-24 ${th.muted}`}>
-            No reconciliation sessions — backend not connected.
+           {msg('UI_RECONCILIATION_NO_RECONCILIATION_SESSIONS_BACKEND_N')}
           </div>
         )}
 
         {/* Reconciliation Summary Bar */}
         <div className={`border rounded-xl px-5 py-3 mb-5 ${th.card} flex items-center gap-6 flex-wrap`}>
           <div className="flex items-center gap-2">
-            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Session</span>
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>{msg('UI_COMMON_SESSION')}</span>
             <span className={`text-xs font-semibold ${th.heading}`}>{session?.id ?? '—'}</span>
           </div>
           <div className={`w-px h-5 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
           <div className="flex items-center gap-1.5">
-            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Total</span>
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>{msg('UI_COMMON_TOTAL')}</span>
             <span className={`text-sm font-bold ${th.heading}`}>{total}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full bg-emerald-400 shrink-0`} />
-            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Matched</span>
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>{msg('UI_RECONCILIATION_MATCHED')}</span>
             <span className={`text-sm font-bold text-emerald-500`}>{matched}</span>
             <span className={`text-[10px] ${th.faint}`}>({matchRate}%)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full bg-amber-400 shrink-0`} />
-            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Pending</span>
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>{msg('UI_COMMON_PENDING')}</span>
             <span className={`text-sm font-bold text-amber-400`}>{pending}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${exceptions > 0 ? 'bg-red-400' : 'bg-slate-300'} shrink-0`} />
-            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Exceptions</span>
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>{msg('UI_COMMON_EXCEPTIONS')}</span>
             <span className={`text-sm font-bold ${exceptions > 0 ? 'text-red-400' : th.faint}`}>{exceptions}</span>
           </div>
           {exceptions > 0 && (
             <div className={`ml-auto text-[10px] px-2.5 py-1 rounded-full border ${isDark ? 'bg-red-900/30 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200'}`}>
-              {exceptions} exception{exceptions > 1 ? 's' : ''} require attention
+              {msg('UI_RECONCILIATION_EXCEPTION_REQUIRE_ATTENTION', { exceptions, value: exceptions > 1 ? 's' : '' })}
             </div>
           )}
         </div>
@@ -441,14 +443,14 @@ export default function CTSReconciliation() {
         {/* Live-mode banner: exceptions only */}
         {!isDemo && reconSession && (
           <div className={`mb-4 px-4 py-2 rounded-lg border text-xs ${isDark ? 'bg-sky-900/20 border-sky-700/40 text-sky-300' : 'bg-sky-50 border-sky-200 text-sky-700'}`}>
-            Live data · Showing {exceptions} exception{exceptions !== 1 ? 's' : ''} — {matched.toLocaleString()} of {total.toLocaleString()} instruments reconciled successfully.
+           {msg('UI_RECONCILIATION_LIVE_DATA_SHOWING_EXCEPTION_OF', { exceptions, value: exceptions !== 1 ? 's' : '', matched: matched.toLocaleString(), total: total.toLocaleString() })}
           </div>
         )}
 
         {/* Filter bar */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span className={`text-xs ${th.muted}`}>Filter:</span>
-          {['ALL', 'MATCHED', 'PENDING', 'AMOUNT_MISMATCH', 'NGCH_ONLY', 'CBS_ONLY'].map(s => (
+          <span className={`text-xs ${th.muted}`}>{msg('UI_COMPLIANCE_FILTER')}</span>
+          {['ALL', msg('UI_RECONCILIATION_MATCHED_2'), msg('UI_RECONCILIATION_PENDING'), 'AMOUNT_MISMATCH', 'NGCH_ONLY', 'CBS_ONLY'].map(s => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -465,8 +467,8 @@ export default function CTSReconciliation() {
 
         {/* Instrument category filter */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span className={`text-xs ${th.muted}`}>Instrument type:</span>
-          {['ALL', 'CHEQUE', 'DEMAND_DRAFT'].map(c => (
+          <span className={`text-xs ${th.muted}`}>{msg('UI_ANALYTICS_INSTRUMENT_TYPE')}</span>
+          {['ALL', msg('UI_ANALYTICS_CHEQUE'), 'DEMAND_DRAFT'].map(c => (
             <button
               key={c}
               onClick={() => setFilterCategory(c)}
@@ -485,17 +487,17 @@ export default function CTSReconciliation() {
         <div className={`border rounded-xl overflow-hidden ${th.card}`}>
           {/* Table header */}
           <div className={`grid grid-cols-12 gap-2 px-4 py-2 border-b ${th.divider} text-[10px] ${th.faint} font-medium uppercase tracking-wider`}>
-            <div className="col-span-3">Instrument ID</div>
-            <div className="col-span-1">Cheque #</div>
-            <div className="col-span-2">Account</div>
-            <div className="col-span-1">NGCH</div>
-            <div className="col-span-1">CBS</div>
-            <div className="col-span-2">Amount Range</div>
-            <div className="col-span-2">Status / Action</div>
+            <div className="col-span-3">{msg('UI_COMMON_INSTRUMENT_ID')}</div>
+            <div className="col-span-1">{msg('UI_RECONCILIATION_CHEQUE')}</div>
+            <div className="col-span-2">{msg('CTS_WF_BUCKETCFG_COL_ACCOUNT')}</div>
+            <div className="col-span-1">{msg('UI_COMMON_NGCH')}</div>
+            <div className="col-span-1">{msg('UI_RECONCILIATION_CBS')}</div>
+            <div className="col-span-2">{msg('UI_COMMON_AMOUNT_RANGE')}</div>
+            <div className="col-span-2">{msg('UI_RECONCILIATION_STATUS_ACTION')}</div>
           </div>
 
           {visible.length === 0 && (
-            <div className={`px-4 py-8 text-center text-sm ${th.muted}`}>No items for this filter.</div>
+            <div className={`px-4 py-8 text-center text-sm ${th.muted}`}>{msg('UI_RECONCILIATION_NO_ITEMS_FOR_THIS_FILTER')}</div>
           )}
 
           {visible.map(item => (
@@ -539,7 +541,7 @@ export default function CTSReconciliation() {
                   {EXCEPTION_STATUSES.has(item.status) && (
                     raisedExceptions[item.id] ? (
                       <span className={`text-[10px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                        Exception raised ✓
+                       {msg('UI_RECONCILIATION_EXCEPTION_RAISED')}
                       </span>
                     ) : (
                       <button
@@ -550,7 +552,7 @@ export default function CTSReconciliation() {
                             : 'border-orange-300 text-orange-700 hover:bg-orange-50'
                         }`}
                       >
-                        Raise Exception
+                       {msg('UI_RECONCILIATION_RAISE_EXCEPTION')}
                       </button>
                     )
                   )}
@@ -562,7 +564,7 @@ export default function CTSReconciliation() {
 
         {/* Legend */}
         <div className={`mt-4 border rounded-xl p-4 ${th.card}`}>
-          <div className={`text-xs font-medium ${th.heading} mb-3`}>Status Reference</div>
+          <div className={`text-xs font-medium ${th.heading} mb-3`}>{msg('UI_RECONCILIATION_STATUS_REFERENCE')}</div>
           <div className="grid grid-cols-5 gap-3">
             {Object.entries(STATUS_META).map(([key, meta]) => (
               <div key={key} className="flex items-start gap-2">
@@ -573,11 +575,11 @@ export default function CTSReconciliation() {
             ))}
           </div>
           <div className={`mt-3 text-[10px] ${th.faint} space-y-0.5`}>
-            <div><strong className={th.muted}>Matched</strong> — NGCH confirmed + CBS posted, amounts agree</div>
-            <div><strong className={th.muted}>Pending</strong> — Filed to NGCH, CBS settlement in progress</div>
-            <div><strong className={th.muted}>Amt Mismatch</strong> — Both records present but amount ranges differ</div>
-            <div><strong className={th.muted}>NGCH Only</strong> — Filed to NGCH, no corresponding CBS posting found</div>
-            <div><strong className={th.muted}>CBS Only</strong> — CBS posting found, no corresponding NGCH record</div>
+            <div><strong className={th.muted}>{msg('UI_RECONCILIATION_MATCHED')}</strong> {msg('UI_RECONCILIATION_NGCH_CONFIRMED_CBS_POSTED_AMOUNTS')}</div>
+            <div><strong className={th.muted}>{msg('UI_COMMON_PENDING')}</strong> {msg('UI_RECONCILIATION_FILED_TO_NGCH_CBS_SETTLEMENT')}</div>
+            <div><strong className={th.muted}>{msg('UI_COMMON_AMT_MISMATCH')}</strong> {msg('UI_RECONCILIATION_BOTH_RECORDS_PRESENT_BUT_AMOUNT')}</div>
+            <div><strong className={th.muted}>{msg('UI_RECONCILIATION_NGCH_ONLY')}</strong> {msg('UI_RECONCILIATION_FILED_TO_NGCH_NO_CORRESPONDING')}</div>
+            <div><strong className={th.muted}>{msg('UI_RECONCILIATION_CBS_ONLY')}</strong> {msg('UI_RECONCILIATION_CBS_POSTING_FOUND_NO_CORRESPONDING')}</div>
           </div>
         </div>
 
@@ -585,8 +587,8 @@ export default function CTSReconciliation() {
         {isSB && <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className={`text-sm font-semibold ${th.heading}`}>Sub-Member Ledger</h2>
-              <p className={`text-[11px] ${th.muted} mt-0.5`}>Per-session clearing breakdown for sub-member banks routed through this sponsor</p>
+              <h2 className={`text-sm font-semibold ${th.heading}`}>{msg('UI_RECONCILIATION_SUB_MEMBER_LEDGER')}</h2>
+              <p className={`text-[11px] ${th.muted} mt-0.5`}>{msg('UI_RECONCILIATION_PER_SESSION_CLEARING_BREAKDOWN_FOR')}</p>
             </div>
           </div>
 
@@ -618,7 +620,7 @@ export default function CTSReconciliation() {
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        CSV
+                       {msg('UI_RECONCILIATION_CSV')}
                       </button>
                     </div>
                   </div>
@@ -626,12 +628,12 @@ export default function CTSReconciliation() {
                   {/* Row 2: Bucket grid */}
                   <div className="grid grid-cols-6 gap-2 mb-3">
                     {[
-                      { label: 'Total',     value: smb.total_received, color: th.heading },
-                      { label: 'STP Pass',  value: smb.stp_pass,       color: 'text-emerald-500' },
-                      { label: 'Return',    value: smb.stp_return,     color: 'text-red-400' },
-                      { label: 'Eyeball',   value: smb.eyeball,        color: 'text-amber-400' },
-                      { label: 'Fraud Hld', value: smb.fraud_hold,     color: 'text-orange-400' },
-                      { label: 'IET Emrg',  value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
+                      { label: msg('UI_COMMON_TOTAL'),     value: smb.total_received, color: th.heading },
+                      { label: msg('UI_RECONCILIATION_STP_PASS'),  value: smb.stp_pass,       color: 'text-emerald-500' },
+                      { label: msg('UI_COMMON_RETURN_2'),    value: smb.stp_return,     color: 'text-red-400' },
+                      { label: msg('UI_RECONCILIATION_EYEBALL'),   value: smb.eyeball,        color: 'text-amber-400' },
+                      { label: msg('UI_RECONCILIATION_FRAUD_HLD'), value: smb.fraud_hold,     color: 'text-orange-400' },
+                      { label: msg('UI_RECONCILIATION_IET_EMRG'),  value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
                     ].map(b => (
                       <div key={b.label} className={`rounded-lg px-3 py-2 ${th.bucket}`}>
                         <div className={`text-[9px] ${th.faint} mb-1`}>{b.label}</div>
@@ -644,9 +646,9 @@ export default function CTSReconciliation() {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`text-[10px] ${th.faint}`}>Return rate</span>
+                        <span className={`text-[10px] ${th.faint}`}>{msg('UI_RECONCILIATION_RETURN_RATE')}</span>
                         <span className={`text-[10px] font-semibold ${smb.shield_status !== 'SAFE' ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>
-                          {smb.return_rate_pct.toFixed(1)}% / {smb.return_rate_threshold_pct.toFixed(1)}% threshold
+                          {msg('UI_RECONCILIATION_THRESHOLD', { return_rate_pct: smb.return_rate_pct.toFixed(1), return_rate_threshold_pct: smb.return_rate_threshold_pct.toFixed(1) })}
                         </span>
                       </div>
                       <div className={`h-1.5 rounded-full ${th.bar}`}>
@@ -655,11 +657,11 @@ export default function CTSReconciliation() {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className={`text-[10px] ${th.faint}`}>
-                        Tier 1 notif:
-                        <span className={`ml-1 font-semibold ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{smb.tier1_sent} sent</span>
+                       {msg('UI_RECONCILIATION_TIER_1_NOTIF')}
+                        <span className={`ml-1 font-semibold ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{msg('UI_RECONCILIATION_SENT', { tier1_sent: smb.tier1_sent })}</span>
                       </div>
                       <div className={`text-[10px] ${th.faint}`}>
-                        Tier 2 batch:
+                       {msg('UI_RECONCILIATION_TIER_2_BATCH')}
                         <span className={`ml-1 font-semibold ${smb.tier2_sent ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : th.faint}`}>
                           {smb.tier2_sent ? 'sent' : 'pending (session active)'}
                         </span>

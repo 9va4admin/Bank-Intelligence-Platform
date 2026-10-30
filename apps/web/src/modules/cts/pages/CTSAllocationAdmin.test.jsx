@@ -10,6 +10,12 @@ vi.mock('../../../shared/context/BankContext', () => ({ useBankContext: () => ({
 
 const NOW = Date.now() / 1000
 const ROUTES = {
+  '/v1/cts/outward/human-review-queue': {
+    items: [
+      { instrument_id: 'OUT-FREE-1', assigned_to: null, bucket: 'OUT_MISMATCH', pu_id: 'PU-9', due_at: NOW + 1200 },
+      { instrument_id: 'OUT-HELD-1', assigned_to: 'bob', bucket: 'OUT_HV', pu_id: 'PU-9', due_at: NOW + 1200 },
+    ],
+  },
   '/v1/cts/allocation/status': {
     bank_id: 'kbl', total: 1, allocation_mode: 'AUTO', allocation_strategy: 'LEAST_LOADED', max_per_reviewer: 5,
     active_claims: [{ instrument_id: 'HELD-1', reviewer_id: 'alice' }],
@@ -17,8 +23,8 @@ const ROUTES = {
   '/v1/cts/allocation/reviewers': {
     bank_id: 'kbl', total: 2,
     active_reviewers: [
-      { reviewer_id: 'alice', expires_at: NOW + 200, load: 3, zones: ['WEST'] },
-      { reviewer_id: 'bob', expires_at: NOW + 200, load: 0, zones: ['ALL'] },
+      { reviewer_id: 'alice', expires_at: NOW + 200, load: 3, pu_ids: ['WEST'] },
+      { reviewer_id: 'bob', expires_at: NOW + 200, load: 0, pu_ids: ['ALL'] },
     ],
   },
   '/v1/cts/admin/buckets': {
@@ -117,5 +123,22 @@ describe('CTSAllocationAdmin', () => {
     fireEvent.click(await screen.findByLabelText('alice High value'))
     await waitFor(() => expect(calls.some(c => c.opts.method === 'PUT')).toBe(true))
     expect(JSON.parse(calls.find(c => c.opts.method === 'PUT').opts.body)).toEqual({ buckets: [] })
+  })
+
+  it('lists the outward items waiting for an owner, with their bucket and when the session closes', async () => {
+    renderPage()
+    expect(await screen.findByText(/Outward items waiting for an owner \(1 of 2 held\)/)).toBeTruthy()
+    expect(screen.getByText('OUT-FREE-1')).toBeTruthy()
+    expect(screen.getByText('Out · mismatch', { selector: 'td' })).toBeTruthy()
+    expect(screen.queryByText('OUT-HELD-1')).toBeNull()
+    expect(screen.getByText(/Session closes in/)).toBeTruthy()
+  })
+
+  it('offers the checker and outward buckets in the reviewer grid', async () => {
+    renderPage()
+    await screen.findByText(/Outward items waiting/)
+    for (const label of ['Checker', 'Out · high value', 'Out · compliance', 'Out · review']) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+    }
   })
 })

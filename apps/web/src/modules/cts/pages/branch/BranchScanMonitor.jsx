@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
+import { msg } from '../../../../shared/messages'
 
 // ─── Mock SSE feed (simulates ChequeAck events arriving over time) ───────────
 
@@ -39,24 +40,24 @@ const MOCK_INSTRUMENTS = [
 
 // stripe: left-border class applied to <tr> for actionable statuses (double-feed, fault)
 const STATUS_CFG = {
-  ACCEPTED:             { label: 'Accepted',     bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', stripe: null },
-  REJECTED:             { label: 'Rejected',     bg: 'bg-red-500/15 text-red-400 border-red-500/30',            stripe: null },
-  HELD:                 { label: 'On Hold',      bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',      stripe: null },
-  DUPLICATE:            { label: 'Duplicate',    bg: 'bg-slate-500/15 text-slate-400 border-slate-500/30',      stripe: null },
-  PENDING:              { label: 'Sending…',     bg: 'bg-blue-500/15 text-blue-400 border-blue-500/30',         stripe: null },
+  ACCEPTED:             { label: msg('UI_COMMON_ACCEPTED'),     bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', stripe: null },
+  REJECTED:             { label: msg('UI_COMMON_REJECTED'),     bg: 'bg-red-500/15 text-red-400 border-red-500/30',            stripe: null },
+  HELD:                 { label: msg('UI_COMMON_ON_HOLD'),      bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',      stripe: null },
+  DUPLICATE:            { label: msg('UI_DEMOLIVE_DUPLICATE'),    bg: 'bg-slate-500/15 text-slate-400 border-slate-500/30',      stripe: null },
+  PENDING:              { label: msg('UI_BRANCHSCANMONITOR_SENDING'),     bg: 'bg-blue-500/15 text-blue-400 border-blue-500/30',         stripe: null },
   // Double-feed: two cheques passed together; images unusable; NOT sent to central.
   // Teller must physically separate and re-feed each individually.
-  DOUBLE_FEED_DETECTED: { label: 'Double Feed',  bg: 'bg-red-600/20 text-red-300 border-red-500/40',            stripe: 'border-l-4 border-l-red-500' },
+  DOUBLE_FEED_DETECTED: { label: msg('UI_BRANCHSCANMONITOR_DOUBLE_FEED'),  bg: 'bg-red-600/20 text-red-300 border-red-500/40',            stripe: 'border-l-4 border-l-red-500' },
   // Imprinter fault: cheque WAS submitted to central but physical stamp failed.
   // Teller must re-stamp manually before returning the cheque to the customer.
-  IMPRINTER_FAULT:      { label: 'Stamp Fault',  bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',      stripe: 'border-l-4 border-l-amber-500' },
-  UPLOAD_FAILED:        { label: 'Upload Failed', bg: 'bg-red-500/15 text-red-400 border-red-500/30',            stripe: 'border-l-4 border-l-red-400' },
+  IMPRINTER_FAULT:      { label: msg('UI_BRANCHSCANMONITOR_STAMP_FAULT'),  bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',      stripe: 'border-l-4 border-l-amber-500' },
+  UPLOAD_FAILED:        { label: msg('UI_BRANCHSCANMONITOR_UPLOAD_FAILED'), bg: 'bg-red-500/15 text-red-400 border-red-500/30',            stripe: 'border-l-4 border-l-red-400' },
   // Paper jam / cover open: scanner halted; operator must clear before resuming.
-  PAPER_JAM:            { label: 'Paper Jam',    bg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   stripe: 'border-l-4 border-l-orange-500' },
-  COVER_OPEN:           { label: 'Cover Open',   bg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   stripe: 'border-l-4 border-l-orange-500' },
+  PAPER_JAM:            { label: msg('UI_BRANCHSCANMONITOR_PAPER_JAM'),    bg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   stripe: 'border-l-4 border-l-orange-500' },
+  COVER_OPEN:           { label: msg('UI_BRANCHSCANMONITOR_COVER_OPEN'),   bg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   stripe: 'border-l-4 border-l-orange-500' },
   // IQA rejected: hardware brightness check failed; cheque ejected back to operator tray.
   // Re-feed with better lighting or clean the scanner glass.
-  IQA_REJECTED:         { label: 'IQA Fail',     bg: 'bg-purple-500/15 text-purple-400 border-purple-500/30',   stripe: 'border-l-4 border-l-purple-400' },
+  IQA_REJECTED:         { label: msg('UI_COMMON_IQA_FAIL'),     bg: 'bg-purple-500/15 text-purple-400 border-purple-500/30',   stripe: 'border-l-4 border-l-purple-400' },
 }
 
 function StatusPill({ status }) {
@@ -129,19 +130,19 @@ function EventRow({ item, isDark }) {
       </td>
       <td className={`py-2 px-3 ${th.muted}`}>
         {isDoubleFeed && (
-          <span className="text-red-400 text-xs font-medium">Separate &amp; re-feed individually</span>
+          <span className="text-red-400 text-xs font-medium">{msg('UI_BRANCHSCANMONITOR_SEPARATE_RE_FEED_INDIVIDUALLY')}</span>
         )}
         {isImprinterFault && (
-          <span className="text-amber-400 text-xs font-medium">Manual re-stamp required</span>
+          <span className="text-amber-400 text-xs font-medium">{msg('UI_BRANCHSCANMONITOR_MANUAL_RE_STAMP_REQUIRED')}</span>
         )}
         {isPaperJam && (
-          <span className="text-orange-400 text-xs font-medium">Clear jam, then resume session</span>
+          <span className="text-orange-400 text-xs font-medium">{msg('UI_BRANCHSCANMONITOR_CLEAR_JAM_THEN_RESUME_SESSION')}</span>
         )}
         {isCoverOpen && (
-          <span className="text-orange-400 text-xs font-medium">Close scanner cover, then re-feed</span>
+          <span className="text-orange-400 text-xs font-medium">{msg('UI_BRANCHSCANMONITOR_CLOSE_SCANNER_COVER_THEN_RE')}</span>
         )}
         {isIQAFail && (
-          <span className="text-purple-400 text-xs font-medium">Cheque ejected — re-feed or clean glass</span>
+          <span className="text-purple-400 text-xs font-medium">{msg('UI_BRANCHSCANMONITOR_CHEQUE_EJECTED_RE_FEED_OR')}</span>
         )}
         {item.mismatch_id && (
           <Link to="/branch/mismatch" className="text-amber-400 hover:underline text-xs">
@@ -214,7 +215,7 @@ export default function BranchScanMonitor() {
     queryKey: ['scan-monitor', bankId],
     queryFn: async () => {
       const res = await fetch(`/v1/cts/scan-monitor/recent?limit=50&bank_id=${bankId}`, { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load scan events')
+      if (!res.ok) throw new Error(msg('UI_BRANCHSCANMONITOR_FAILED_TO_LOAD_SCAN_EVENTS'))
       return res.json()
     },
     enabled: !isDemo,
@@ -294,9 +295,9 @@ export default function BranchScanMonitor() {
         <div className={`flex items-center justify-between px-6 py-3 border-b ${th.divider}`}>
           <div className="flex items-center gap-4">
             <Link to="/branch" className={`text-sm ${th.muted} hover:text-blue-400 transition-colors`}>
-              ← Dashboard
+             {msg('UI_COMMON_DASHBOARD')}
             </Link>
-            <h1 className={`text-base font-semibold ${th.heading}`}>Scanner Monitor</h1>
+            <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_COMMON_SCANNER_MONITOR')}</h1>
           </div>
           <div className="flex items-center gap-4 text-xs">
             <span className={`flex items-center gap-1.5 ${th.muted}`}>
@@ -307,7 +308,7 @@ export default function BranchScanMonitor() {
               }`} />
               {sseStatus}
             </span>
-            <span className={th.muted}>{rateCps} c/s</span>
+            <span className={th.muted}>{msg('UI_BRANCHSCANMONITOR_C_S', { rateCps })}</span>
             <label className={`flex items-center gap-1.5 ${th.muted} cursor-pointer`}>
               <input
                 type="checkbox"
@@ -315,7 +316,7 @@ export default function BranchScanMonitor() {
                 onChange={e => setAutoScroll(e.target.checked)}
                 className="accent-blue-500"
               />
-              Auto-scroll
+             {msg('UI_BRANCHSCANMONITOR_AUTO_SCROLL')}
             </label>
           </div>
         </div>
@@ -332,11 +333,10 @@ export default function BranchScanMonitor() {
             </svg>
             <div className="text-sm">
               <span className="font-semibold">
-                {doubleFeed} cheque{doubleFeed > 1 ? 's' : ''} double-fed
+                {msg('UI_BRANCHSCANMONITOR_CHEQUE_DOUBLE_FED', { doubleFeed, value: doubleFeed > 1 ? 's' : '' })}
               </span>
-              {' '}— scanner ejected the overlapping documents. These have{' '}
-              <span className="font-semibold">not</span> been sent to central processing.
-              Separate and re-feed each cheque individually.
+              {msg('UI_BRANCHSCANMONITOR_SCANNER_EJECTED_THE_OVERLAPPING_DOCU')}
+              <span className="font-semibold">{msg('UI_BRANCHSCANMONITOR_NOT')}</span> {msg('UI_BRANCHSCANMONITOR_BEEN_SENT_TO_CENTRAL_PROCESSING')}
             </div>
           </div>
         )}
@@ -351,10 +351,9 @@ export default function BranchScanMonitor() {
             </svg>
             <div className="text-sm">
               <span className="font-semibold">
-                {impFault} cheque{impFault > 1 ? 's' : ''} not physically stamped
+                {msg('UI_BRANCHSCANMONITOR_CHEQUE_NOT_PHYSICALLY_STAMPED', { impFault, value: impFault > 1 ? 's' : '' })}
               </span>
-              {' '}— submitted to central processing but endorsement print failed.
-              Apply manual branch stamp before returning to customer.
+              {msg('UI_BRANCHSCANMONITOR_SUBMITTED_TO_CENTRAL_PROCESSING_BUT')}
             </div>
           </div>
         )}
@@ -369,12 +368,12 @@ export default function BranchScanMonitor() {
             </svg>
             <div className="text-sm">
               {paperJam > 0 && (
-                <span className="font-semibold">{paperJam} paper jam{paperJam > 1 ? 's' : ''}{coverOpen > 0 ? ' · ' : ''}</span>
+                <span className="font-semibold">{msg('UI_BRANCHSCANMONITOR_PAPER_JAM_2', { paperJam, value: paperJam > 1 ? 's' : '', value2: coverOpen > 0 ? ' · ' : '' })}</span>
               )}
               {coverOpen > 0 && (
-                <span className="font-semibold">{coverOpen} cover open{coverOpen > 1 ? 's' : ''}</span>
+                <span className="font-semibold">{msg('UI_BRANCHSCANMONITOR_COVER_OPEN_2', { coverOpen, value: coverOpen > 1 ? 's' : '' })}</span>
               )}
-              {' '}— scanner halted. Clear the jam or close the cover, then resume the session.
+              {msg('UI_BRANCHSCANMONITOR_SCANNER_HALTED_CLEAR_THE_JAM')}
             </div>
           </div>
         )}
@@ -390,10 +389,9 @@ export default function BranchScanMonitor() {
             </svg>
             <div className="text-sm">
               <span className="font-semibold">
-                {iqaFail} cheque{iqaFail > 1 ? 's' : ''} rejected by hardware IQA
+                {msg('UI_BRANCHSCANMONITOR_CHEQUE_REJECTED_BY_HARDWARE_IQA', { iqaFail, value: iqaFail > 1 ? 's' : '' })}
               </span>
-              {' '}— image brightness check failed. Cheque{iqaFail > 1 ? 's' : ''} ejected to operator tray.
-              Re-feed, or clean the scanner glass if this repeats.
+              {msg('UI_BRANCHSCANMONITOR_IMAGE_BRIGHTNESS_CHECK_FAILED_CHEQUE', { value: iqaFail > 1 ? 's' : '' })}
             </div>
           </div>
         )}
@@ -401,35 +399,35 @@ export default function BranchScanMonitor() {
         {/* Summary strip */}
         <div className={`flex items-center gap-6 px-6 py-2 border-b ${th.divider} text-xs`}>
           <span className={th.muted}>
-            <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>{instruments.length}</span> total
+            <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>{instruments.length}</span> {msg('UI_BRANCHSCANMONITOR_TOTAL')}
           </span>
-          <span className="text-emerald-400 font-medium">{accepted} accepted</span>
+          <span className="text-emerald-400 font-medium">{msg('UI_BRANCHSCANMONITOR_ACCEPTED', { accepted })}</span>
           <span className={rejected > 0 ? 'text-red-400 font-medium' : th.muted}>
-            {rejected} rejected
+            {msg('UI_BRANCHSCANMONITOR_REJECTED', { rejected })}
           </span>
           <span className={held > 0 ? 'text-amber-400 font-medium' : th.muted}>
-            {held} held
+            {msg('UI_BRANCHSCANMONITOR_HELD', { held })}
           </span>
           {doubleFeed > 0 && (
             <span className="text-red-400 font-semibold flex items-center gap-1">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
-              {doubleFeed} double-feed — re-scan needed
+              {msg('UI_BRANCHSCANMONITOR_DOUBLE_FEED_RE_SCAN_NEEDED', { doubleFeed })}
             </span>
           )}
           {impFault > 0 && (
-            <span className="text-amber-400 font-medium">{impFault} stamp fault</span>
+            <span className="text-amber-400 font-medium">{msg('UI_BRANCHSCANMONITOR_STAMP_FAULT_2', { impFault })}</span>
           )}
           {hwFaults > 0 && (
-            <span className="text-orange-400 font-semibold">{hwFaults} hardware fault</span>
+            <span className="text-orange-400 font-semibold">{msg('UI_BRANCHSCANMONITOR_HARDWARE_FAULT', { hwFaults })}</span>
           )}
           {iqaFail > 0 && (
-            <span className="text-purple-400 font-medium">{iqaFail} IQA fail — re-feed</span>
+            <span className="text-purple-400 font-medium">{msg('UI_BRANCHSCANMONITOR_IQA_FAIL_RE_FEED', { iqaFail })}</span>
           )}
           {held > 0 && (
             <Link to="/branch/mismatch" className="text-amber-400 hover:underline">
-              Review held items →
+             {msg('UI_BRANCHSCANMONITOR_REVIEW_HELD_ITEMS')}
             </Link>
           )}
         </div>
@@ -439,7 +437,7 @@ export default function BranchScanMonitor() {
           <table className="w-full border-collapse">
             <thead className="sticky top-0 z-10">
               <tr>
-                {['Time', 'Scan ID', 'MICR (last 4)', 'Payee', 'Amount', 'Status', 'Lot', 'Notes'].map(h => (
+                {[msg('UI_COMMON_TIME'), msg('UI_SCANNER_SCAN_ID'), msg('UI_BRANCHSCANMONITOR_MICR_LAST_4'), msg('CTS_OUT_CUSTODY_COL_PAYEE'), msg('CTS_OUT_CUSTODY_COL_AMOUNT'), msg('UI_COMMON_STATUS'), msg('UI_COMMON_LOT'), msg('UI_BRANCHSCANMONITOR_NOTES')].map(h => (
                   <th key={h} className={`px-3 py-2 text-left border-b ${th.divider} ${th.th}`}>{h}</th>
                 ))}
               </tr>

@@ -64,6 +64,22 @@ const BANK_PRESETS = {
       { id: 'smb-mh-nmcb', ifsc: 'NMCB0000001', name: 'Navi Mumbai Co-operative Bank Ltd.', shortName: 'NM Co-op Bank', city: 'Navi Mumbai', state: 'MH', daily_avg: 200 },
     ],
   },
+  'central-bank-of-india': {
+    bank_id:         'central-bank-of-india',
+    bank_name:       'Central Bank of India',
+    bank_short_name: 'Central Bank',
+    tagline:         'Central to You Since 1911.',
+    bank_logo:       'central-bank-of-india-logo.png',
+    primary_hex:     '#C8102E',
+    ifsc_prefix:     'CBIN',
+    clearing_zone:   'WEST',
+    // Sample sub-members shown on the sub-member screens in demo builds. Edit this list to change them everywhere.
+    smbs: [
+      { id: 'smb-demo-1', ifsc: 'SMBA0000001', name: 'Sample Sub-Member Bank 1', shortName: 'Sub-Member 1', city: 'Mumbai', state: 'MH', daily_avg: 120 },
+      { id: 'smb-demo-2', ifsc: 'SMBB0000001', name: 'Sample Sub-Member Bank 2', shortName: 'Sub-Member 2', city: 'Pune',   state: 'MH', daily_avg: 90  },
+      { id: 'smb-demo-3', ifsc: 'SMBC0000001', name: 'Sample Sub-Member Bank 3', shortName: 'Sub-Member 3', city: 'Nagpur', state: 'MH', daily_avg: 60  },
+    ],
+  },
   'federal-bank': {
     bank_id:         'federal-bank',
     bank_name:       'Federal Bank Limited',
@@ -130,4 +146,10 @@ export const BANK_CONFIG = {
   deployment_mode:  deploymentMode,
   api_base:         import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',
   astra_logo:       `${base}logos/astra-logo.png`,
+}
+
+// The i-th sample sub-member of the configured bank (for sample rows on the sub-member screens). Falls back to a neutral one.
+export function sampleSmb(i = 0) {
+  const list = BANK_CONFIG.smbs ?? []
+  return list[i] ?? list[0] ?? { id: 'smb-demo', ifsc: 'SMBX0000001', name: 'Sub-Member Bank', shortName: 'Sub-Member', city: 'Mumbai', state: 'MH', daily_avg: 100 }
 }

@@ -32,10 +32,11 @@ from shared.auth.exceptions import (
     AccessDeniedError,
     BankIsolationError,
     EngagementExpiredError,
-    InsufficientZoneScopeError,
+    InsufficientScopeError,
     PermissionLevelError,
     TenantIsolationError,
 )
+from shared.messages import get_message
 
 
 class BankType(str, Enum):
@@ -231,7 +232,8 @@ class UserContext(BaseModel):
     bank_id: str
     bank_type: BankType                          # required — must be explicit in every JWT
     permission_level: PermissionLevel = PermissionLevel.READ_ONLY  # least-privilege default
-    clearing_zones: list[str] = Field(default_factory=list)
+    pu_ids: list[str] = Field(default_factory=list)
+    branch_ids: list[str] = Field(default_factory=list)   # branches the user works at ([] = central staff)
     engagement_expires_at: Optional[float] = None
     engagement_date_from: Optional[str] = None
     engagement_date_to: Optional[str] = None
@@ -251,23 +253,20 @@ class RBACPolicy:
       1. assert_tenant_access   — am I even allowed to see this tenant's data?
       2. assert_permission_level — do I have the right level (ADMIN/EDIT/READ_ONLY)?
       3. assert_permission       — does my role grant this specific permission?
-      4. assert_zone_access      — (ops_reviewer only) am I in the right zone?
+      4. assert_pu_access      — (ops_reviewer only) am I scoped to this processing unit?
       5. assert_engagement_active — (rbi_examiner only) is my engagement live?
     """
 
     def assert_permission(self, user: UserContext, permission: Permission) -> None:
         if not has_permission(user, permission):
             raise AccessDeniedError(
-                f"Role '{user.role.value}' does not have permission '{permission.value}' "
-                f"(user_id={user.user_id}, bank_id={user.bank_id}). "
-                f"Required: {permission.name} [{permission.value}]"
+                get_message("PLATFORM_ROLE_DOES_NOT_HAVE_PERMISSION", value=user.role.value, value2=permission.value, user_id=user.user_id, bank_id=user.bank_id, name=permission.name, value3=permission.value)
             )
 
     def assert_bank_access(self, user: UserContext, requested_bank_id: str) -> None:
         if user.bank_id != requested_bank_id:
             raise BankIsolationError(
-                f"User '{user.user_id}' (bank={user.bank_id}) attempted to access "
-                f"bank '{requested_bank_id}' — cross-bank access is forbidden."
+                get_message("PLATFORM_USER_BANK_ATTEMPTED_TO_ACCESS", user_id=user.user_id, bank_id=user.bank_id, requested_bank_id=requested_bank_id)
             )
 
     def assert_tenant_access(
@@ -292,21 +291,18 @@ class RBACPolicy:
         if user.bank_type == BankType.SB:
             if target_bank_type == BankType.SB and user.bank_id != target_bank_id:
                 raise BankIsolationError(
-                    f"SB user '{user.user_id}' (bank={user.bank_id}) cannot access "
-                    f"SB data for bank '{target_bank_id}'."
+                    get_message("PLATFORM_SB_USER_BANK_CANNOT_ACCESS", user_id=user.user_id, bank_id=user.bank_id, target_bank_id=target_bank_id)
                 )
             # SB → any SMB: allowed (view from SB context)
         else:
             # SMB user: zero tolerance for crossing tenant boundary
             if target_bank_type == BankType.SB:
                 raise TenantIsolationError(
-                    f"SMB user '{user.user_id}' (bank={user.bank_id}, type=SMB) "
-                    f"attempted to access SB-level data — tenant boundary violation."
+                    get_message("PLATFORM_SMB_USER_BANK_TYPE_SMB", user_id=user.user_id, bank_id=user.bank_id)
                 )
             if user.bank_id != target_bank_id:
                 raise TenantIsolationError(
-                    f"SMB user '{user.user_id}' (bank={user.bank_id}) attempted to access "
-                    f"SMB '{target_bank_id}' — cross-SMB access is forbidden."
+                    get_message("PLATFORM_SMB_USER_BANK_ATTEMPTED_TO", user_id=user.user_id, bank_id=user.bank_id, target_bank_id=target_bank_id)
                 )
 
     def assert_permission_level(
@@ -321,17 +317,15 @@ class RBACPolicy:
         """
         if _LEVEL_RANK[user.permission_level] < _LEVEL_RANK[required]:
             raise PermissionLevelError(
-                f"User '{user.user_id}' has permission level '{user.permission_level.value}' "
-                f"but operation requires '{required.value}'."
+                get_message("PLATFORM_USER_HAS_PERMISSION_LEVEL_BUT", user_id=user.user_id, value=user.permission_level.value, value2=required.value)
             )
 
-    def assert_zone_access(self, user: UserContext, requested_zone: str) -> None:
+    def assert_pu_access(self, user: UserContext, requested_pu: str) -> None:
         if user.role != Role.OPS_REVIEWER:
             return
-        if requested_zone not in user.clearing_zones:
-            raise InsufficientZoneScopeError(
-                f"ops_reviewer '{user.user_id}' is scoped to zones {user.clearing_zones} "
-                f"but requested zone '{requested_zone}'."
+        if requested_pu not in user.pu_ids:
+            raise InsufficientScopeError(
+                get_message("PLATFORM_OPS_REVIEWER_IS_SCOPED_TO", user_id=user.user_id, pu_ids=user.pu_ids, requested_pu=requested_pu)
             )
 
     def assert_engagement_active(self, user: UserContext) -> None:
@@ -339,8 +333,7 @@ class RBACPolicy:
             return
         if user.engagement_expires_at is None or time.time() > user.engagement_expires_at:
             raise EngagementExpiredError(
-                f"RBI examiner '{user.user_id}' engagement has expired or was never provisioned. "
-                f"A new time-limited engagement token is required."
+                get_message("PLATFORM_RBI_EXAMINER_ENGAGEMENT_HAS_EXPIRED", user_id=user.user_id)
             )
 
     def assert_branch_access(self, user: UserContext, branch_code: str) -> None:
@@ -355,9 +348,8 @@ class RBACPolicy:
         if user.role != Role.BRANCH_MANAGER:
             return
         if user.branch_code is None or user.branch_code != branch_code:
-            raise InsufficientZoneScopeError(
-                f"branch_manager '{user.user_id}' is scoped to branch '{user.branch_code}' "
-                f"but requested branch '{branch_code}'."
+            raise InsufficientScopeError(
+                get_message("PLATFORM_BRANCH_MANAGER_IS_SCOPED_TO", user_id=user.user_id, branch_code=user.branch_code, branch_code2=branch_code)
             )
 
     def login_log_bank_scope(self, user: UserContext) -> Optional[str]:

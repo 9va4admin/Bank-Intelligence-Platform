@@ -9,6 +9,8 @@ Two questions decide a cheque's bucket:
                      (HVC high value, CA corporate, IP institution, FCC frequent customer, LVC low value),
                      otherwise HR (general human review)
   system decided  -> SIP_SUCCESS (system confirmed) or SIP_REJECT (system returned)
+  VAL             -> the Validation (checker) queue; never produced here: an item moves to it after a maker decides
+                     (maker-checker), and checkers are connected to it like any other bucket
   MISC            -> never produced here: it is where an item lands when it is de-allocated or no reviewer is
                      connected to its bucket (see AllocationService)
 
@@ -20,7 +22,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 CLASS_BUCKETS = ("HVC", "CA", "IP", "FCC", "LVC")
-ALL_BUCKETS = ("HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR", "MISC")
+# OUT_* are the buckets of held outward items (see modules/cts/outward_buckets.py); VAL (checker) and MISC are shared.
+ALL_BUCKETS = ("HVC", "CA", "IP", "LVC", "FCC", "SIP_SUCCESS", "SIP_REJECT", "HR", "VAL", "MISC",
+               "OUT_HV", "OUT_MISMATCH", "OUT_COMPLIANCE", "OUT_REVIEW")
 
 # Safe defaults when a key is absent (the Layer 3 defaults in config_service carry the same values).
 _DEFAULT_PRIORITY = ["HVC", "CA", "IP", "FCC", "LVC"]

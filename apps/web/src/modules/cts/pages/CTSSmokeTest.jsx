@@ -5,6 +5,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { msg as uiMsg } from '../../../shared/messages'
 
 const API = import.meta.env.VITE_API_BASE || ''
 
@@ -15,50 +16,50 @@ const ENTITY_SECTIONS = {
     label: 'SB', fullName: 'Sponsor Bank',
     sections: {
       'Core Infrastructure': [
-        { id: 'test_cbs',             name: 'CBS Connectivity',                desc: 'Finacle/BaNCS/FlexCube API ping' },
-        { id: 'test_ngch',            name: 'NGCH Adapter',                    desc: 'SFTP/REST transport to NGCH' },
-        { id: 'test_kafka',           name: 'Kafka Topics',                    desc: 'Produce + consume cts.inward test event' },
-        { id: 'test_immudb',          name: 'Immudb Audit Trail',              desc: 'Write + Merkle verify a test AuditEvent' },
+        { id: 'test_cbs',             name: 'CBS Connectivity',                desc: uiMsg('UI_SMOKETEST_FINACLE_BANCS_FLEXCUBE_API_PING') },
+        { id: 'test_ngch',            name: 'NGCH Adapter',                    desc: uiMsg('UI_SMOKETEST_SFTP_REST_TRANSPORT_TO_NGCH') },
+        { id: 'test_kafka',           name: 'Kafka Topics',                    desc: uiMsg('UI_SMOKETEST_PRODUCE_CONSUME_CTS_INWARD_TEST') },
+        { id: 'test_immudb',          name: 'Immudb Audit Trail',              desc: uiMsg('UI_SMOKETEST_WRITE_MERKLE_VERIFY_A_TEST') },
       ],
       'Vaults': [
-        { id: 'test_signature_vault', name: 'Signature Vault (Redis CTS)',     desc: 'Ping Redis + sample signature lookup' },
-        { id: 'test_pps_vault',       name: 'PPS Vault (Redis CTS)',           desc: 'PPS vault ping + seeding count check' },
+        { id: 'test_signature_vault', name: 'Signature Vault (Redis CTS)',     desc: uiMsg('UI_SMOKETEST_PING_REDIS_SAMPLE_SIGNATURE_LOOKUP') },
+        { id: 'test_pps_vault',       name: 'PPS Vault (Redis CTS)',           desc: uiMsg('UI_SMOKETEST_PPS_VAULT_PING_SEEDING_COUNT') },
       ],
       'Authentication': [
-        { id: 'test_auth_sb',         name: 'SB Auth — SAML / LDAP IdP',      desc: 'IdP metadata fetch + XML validation' },
+        { id: 'test_auth_sb',         name: 'SB Auth — SAML / LDAP IdP',      desc: uiMsg('UI_SMOKETEST_IDP_METADATA_FETCH_XML_VALIDATION') },
       ],
       'End-to-End': [
-        { id: 'test_iet_watchdog',    name: 'IET Watchdog (Synthetic Cheque)', desc: 'Temporal namespace reachable · IET workers assumed active' },
+        { id: 'test_iet_watchdog',    name: 'IET Watchdog (Synthetic Cheque)', desc: uiMsg('UI_SMOKETEST_TEMPORAL_NAMESPACE_REACHABLE_IET_WOR') },
       ],
     },
   },
   smb: {
     label: 'SMB', fullName: 'Sub-Member Bank',
     sections: {
-      'Authentication': [{ id: 'test_auth_smb',     name: 'SMB Auth Connector',      desc: 'Local argon2 DB reachable + verify test' }],
-      'Connectivity':   [{ id: 'test_sftp_push',    name: 'Agency SFTP Push',         desc: 'Write test file to Agency SFTP drop path' }],
+      'Authentication': [{ id: 'test_auth_smb',     name: 'SMB Auth Connector',      desc: uiMsg('UI_SMOKETEST_LOCAL_ARGON2_DB_REACHABLE_VERIFY') }],
+      'Connectivity':   [{ id: 'test_sftp_push',    name: 'Agency SFTP Push',         desc: uiMsg('UI_SMOKETEST_WRITE_TEST_FILE_TO_AGENCY') }],
       'Vault Seeding':  [
-        { id: 'test_vault_seeded', name: 'Signature Vault Seeding', desc: 'Count seeded signatures for SMB accounts' },
-        { id: 'test_smb_cbs',     name: 'SMB CBS Connectivity',     desc: 'SMB CBS ping (skips if no SMB_CBS configured)' },
+        { id: 'test_vault_seeded', name: 'Signature Vault Seeding', desc: uiMsg('UI_SMOKETEST_COUNT_SEEDED_SIGNATURES_FOR_SMB') },
+        { id: 'test_smb_cbs',     name: 'SMB CBS Connectivity',     desc: uiMsg('UI_SMOKETEST_SMB_CBS_PING_SKIPS_IF') },
       ],
     },
   },
   branch: {
-    label: 'Branch', fullName: 'Branch / Scanner',
+    label: uiMsg('CTS_OUT_CUSTODY_COL_BRANCH'), fullName: 'Branch / Scanner',
     sections: {
-      'Authentication': [{ id: 'test_auth_branch',      name: 'Branch Auth — LDAP-AD',      desc: 'LDAPS bind + group resolution' }],
-      'Scanner':        [{ id: 'test_scanner_folder',   name: 'Scanner Drop Folder',         desc: 'Path exists + write permission check' }],
-      'Session':        [{ id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',      desc: 'gRPC ping to eeh-service' }],
+      'Authentication': [{ id: 'test_auth_branch',      name: 'Branch Auth — LDAP-AD',      desc: uiMsg('UI_SMOKETEST_LDAPS_BIND_GROUP_RESOLUTION') }],
+      'Scanner':        [{ id: 'test_scanner_folder',   name: 'Scanner Drop Folder',         desc: uiMsg('UI_SMOKETEST_PATH_EXISTS_WRITE_PERMISSION_CHECK') }],
+      'Session':        [{ id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',      desc: uiMsg('UI_SMOKETEST_GRPC_PING_TO_EEH_SERVICE') }],
     },
   },
   pu: {
     label: 'PU', fullName: 'Processing Unit',
     sections: {
-      'Authentication':   [{ id: 'test_auth_pu',         name: 'PU Auth — LDAP-AD',      desc: 'LDAPS bind + group resolution' }],
-      'SB Connectivity':  [{ id: 'test_sb_connector',    name: 'Agency → SB Connector',  desc: 'SFTP write to SB lots path' }],
+      'Authentication':   [{ id: 'test_auth_pu',         name: 'PU Auth — LDAP-AD',      desc: uiMsg('UI_SMOKETEST_LDAPS_BIND_GROUP_RESOLUTION') }],
+      'SB Connectivity':  [{ id: 'test_sb_connector',    name: 'Agency → SB Connector',  desc: uiMsg('UI_SMOKETEST_SFTP_WRITE_TO_SB_LOTS') }],
       'Scanner & Session':[
-        { id: 'test_scanner_folder',   name: 'Scanner Drop Folder',   desc: 'Path exists + write permission check' },
-        { id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',desc: 'gRPC ping to eeh-service' },
+        { id: 'test_scanner_folder',   name: 'Scanner Drop Folder',   desc: uiMsg('UI_SMOKETEST_PATH_EXISTS_WRITE_PERMISSION_CHECK') },
+        { id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',desc: uiMsg('UI_SMOKETEST_GRPC_PING_TO_EEH_SERVICE') },
       ],
     },
   },
@@ -67,24 +68,24 @@ const ENTITY_SECTIONS = {
 // ── Infrastructure services (maps to /v1/ops/system response keys) ────────
 
 const SERVICES = [
-  { id: 'yugabyte',  label: 'YugabyteDB', stateKey: 'yugabyte',  connKey: 'connected', critical: true  },
-  { id: 'kafka',     label: 'Kafka',       stateKey: 'kafka',     connKey: 'connected', critical: true  },
-  { id: 'redis-cts', label: 'Redis CTS',   stateKey: 'redis_cts', connKey: 'connected', critical: true  },
-  { id: 'temporal',  label: 'Temporal',    stateKey: 'temporal',  connKey: 'connected', critical: true  },
-  { id: 'vault',     label: 'Vault',       stateKey: 'vault',     connKey: 'connected', critical: true  },
-  { id: 'minio',     label: 'MinIO',       stateKey: null,        connKey: null,         critical: false },
-  { id: 'immudb',    label: 'Immudb',      stateKey: null,        connKey: null,         critical: true  },
-  { id: 'vllm',      label: 'vLLM (AI)',   stateKey: null,        connKey: null,         critical: false },
+  { id: 'yugabyte',  label: uiMsg('UI_SMOKETEST_YUGABYTEDB'), stateKey: 'yugabyte',  connKey: 'connected', critical: true  },
+  { id: 'kafka',     label: uiMsg('UI_SMOKETEST_KAFKA'),       stateKey: 'kafka',     connKey: 'connected', critical: true  },
+  { id: 'redis-cts', label: uiMsg('UI_SMOKETEST_REDIS_CTS'),   stateKey: 'redis_cts', connKey: 'connected', critical: true  },
+  { id: 'temporal',  label: uiMsg('UI_SMOKETEST_TEMPORAL'),    stateKey: 'temporal',  connKey: 'connected', critical: true  },
+  { id: 'vault',     label: uiMsg('UI_COMMON_VAULT'),       stateKey: 'vault',     connKey: 'connected', critical: true  },
+  { id: 'minio',     label: uiMsg('UI_SMOKETEST_MINIO'),       stateKey: null,        connKey: null,         critical: false },
+  { id: 'immudb',    label: uiMsg('UI_SMOKETEST_IMMUDB'),      stateKey: null,        connKey: null,         critical: true  },
+  { id: 'vllm',      label: uiMsg('UI_SMOKETEST_VLLM_AI'),   stateKey: null,        connKey: null,         critical: false },
 ]
 
 // ── Startup sequence (mirrors _STARTUP_SEQUENCE in platform.py) ──────────
 // afterMs = wait before advancing the visual progress indicator to the next tier.
 // These match the _INTER_TIER_SLEEP on the backend (15s) plus startup buffer.
 const STARTUP_TIERS = [
-  { tier: 1, label: 'Foundation',    ids: ['vault', 'redis-cts', 'minio', 'immudb'], afterMs: 18_000 },
-  { tier: 2, label: 'Data Layer',    ids: ['yugabyte', 'kafka'],                      afterMs: 20_000 },
-  { tier: 3, label: 'Orchestration', ids: ['temporal'],                               afterMs: 5_000  },
-  { tier: 4, label: 'AI Inference',  ids: ['vllm'],                                   afterMs: 0      },
+  { tier: 1, label: uiMsg('UI_SMOKETEST_FOUNDATION'),    ids: ['vault', 'redis-cts', 'minio', 'immudb'], afterMs: 18_000 },
+  { tier: 2, label: uiMsg('UI_SMOKETEST_DATA_LAYER'),    ids: ['yugabyte', 'kafka'],                      afterMs: 20_000 },
+  { tier: 3, label: uiMsg('UI_SMOKETEST_ORCHESTRATION'), ids: ['temporal'],                               afterMs: 5_000  },
+  { tier: 4, label: uiMsg('UI_SMOKETEST_AI_INFERENCE'),  ids: ['vllm'],                                   afterMs: 0      },
 ]
 // In POC mode these services run on HuggingFace — no local container, never Down.
 const POC_HF_IDS = new Set(['vllm'])
@@ -100,13 +101,13 @@ const DEMO_SYSTEM_HEALTH = {
 }
 
 const DEMO_READINESS_ITEMS = [
-  { check_id: 'branches_loaded',  label: 'Branch Master loaded',      status: 'PASS', detail: '12 active branches' },
-  { check_id: 'sig_vault_seeded', label: 'Signature Vault seeded',    status: 'WARN', detail: '847/1200 accounts (71%) — seed remaining before go-live', action_url: '/cts/vaults' },
-  { check_id: 'pps_vault_seeded', label: 'PPS Vault seeded',          status: 'PASS', detail: '4 PPS entries in Redis' },
-  { check_id: 'micr_prefixes',    label: 'MICR Prefixes configured',  status: 'PASS', detail: '3 prefixes configured' },
-  { check_id: 'ops_users',        label: 'Ops reviewers configured',  status: 'PASS', detail: '2 reviewers, 1 manager' },
-  { check_id: 'inward_folder',    label: 'Inward watch folder (POC)', status: 'PASS', detail: '/opt/astra/inward — writable', deployment_modes: ['POC'] },
-  { check_id: 'outward_folder',   label: 'Outward output folder (POC)',status:'PASS', detail: '/opt/astra/outward — writable', deployment_modes: ['POC'] },
+  { check_id: 'branches_loaded',  label: uiMsg('UI_SMOKETEST_BRANCH_MASTER_LOADED'),      status: 'PASS', detail: uiMsg('UI_SMOKETEST_12_ACTIVE_BRANCHES') },
+  { check_id: 'sig_vault_seeded', label: uiMsg('UI_SMOKETEST_SIGNATURE_VAULT_SEEDED'),    status: 'WARN', detail: uiMsg('UI_SMOKETEST_847_1200_ACCOUNTS_71_SEED'), action_url: '/cts/vaults' },
+  { check_id: 'pps_vault_seeded', label: uiMsg('UI_SMOKETEST_PPS_VAULT_SEEDED'),          status: 'PASS', detail: uiMsg('UI_SMOKETEST_4_PPS_ENTRIES_IN_REDIS') },
+  { check_id: 'micr_prefixes',    label: uiMsg('UI_SMOKETEST_MICR_PREFIXES_CONFIGURED'),  status: 'PASS', detail: uiMsg('UI_SMOKETEST_3_PREFIXES_CONFIGURED') },
+  { check_id: 'ops_users',        label: uiMsg('UI_SMOKETEST_OPS_REVIEWERS_CONFIGURED'),  status: 'PASS', detail: uiMsg('UI_SMOKETEST_2_REVIEWERS_1_MANAGER') },
+  { check_id: 'inward_folder',    label: uiMsg('UI_SMOKETEST_INWARD_WATCH_FOLDER_POC'), status: 'PASS', detail: '/opt/astra/inward — writable', deployment_modes: ['POC'] },
+  { check_id: 'outward_folder',   label: uiMsg('UI_SMOKETEST_OUTWARD_OUTPUT_FOLDER_POC'),status:'PASS', detail: '/opt/astra/outward — writable', deployment_modes: ['POC'] },
 ]
 
 const DEMO_OUTCOMES = [
@@ -295,7 +296,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
     // Pre-populate HF entries so they show immediately in the sequence panel
     const initResults = {}
     if (isPOC) POC_HF_IDS.forEach(id => {
-      initResults[id] = { service: id, success: true, skipped: true, message: 'HF Inference API' }
+      initResults[id] = { service: id, success: true, skipped: true, message: uiMsg('UI_SMOKETEST_HF_INFERENCE_API') }
     })
     setSeqState({ running: true, activeTier: 1, elapsed: 0, results: initResults })
     try {
@@ -307,7 +308,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
       }
       setSeqState(s => ({ ...s, running: false, results: { ...s.results, ...flatResults } }))
     } catch (err) {
-      setSeqState(s => ({ ...s, running: false, error: err.message || 'Backend unreachable' }))
+      setSeqState(s => ({ ...s, running: false, error: err.message || uiMsg('UI_SMOKETEST_BACKEND_UNREACHABLE') }))
     }
     setTimeout(() => {
       qc.invalidateQueries(['system-health', bankId])
@@ -328,12 +329,12 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
 
   function svcStatus(svc) {
     // vLLM is HF-hosted in POC — never shown as DOWN
-    if (isPOC && POC_HF_IDS.has(svc.id)) return { up: true, detail: 'Hugging Face API', hf: true }
+    if (isPOC && POC_HF_IDS.has(svc.id)) return { up: true, detail: uiMsg('UI_SMOKETEST_HUGGING_FACE_API'), hf: true }
 
     // Docker container state — authoritative source (works even when app.state has no connections)
     if (dockerStatus) {
       const running = dockerStatus[svc.id]
-      if (running === false) return { up: false, detail: 'container stopped', hf: false }
+      if (running === false) return { up: false, detail: uiMsg('UI_SMOKETEST_CONTAINER_STOPPED'), hf: false }
       if (running === true) {
         // Overlay real health details if the backend is also connected
         if (effectiveHealth && svc.stateKey) {
@@ -350,7 +351,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
     // Fall back to health check (PROD: app.state connections are real)
     if (!effectiveHealth || !svc.stateKey) return { up: isDemo, detail: isDemo ? 'OK' : '—' }
     const panel = effectiveHealth[svc.stateKey]
-    if (!panel) return { up: false, detail: 'not in response' }
+    if (!panel) return { up: false, detail: uiMsg('UI_SMOKETEST_NOT_IN_RESPONSE') }
     const up = Boolean(panel[svc.connKey])
     return { up, detail: up ? _healthDetail(svc, panel) : 'DOWN', hf: false }
   }
@@ -370,7 +371,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-3">
         <div className={`text-[10px] font-bold uppercase tracking-widest ${th.secLabel}`}>
-          Infrastructure Services
+         {uiMsg('UI_SMOKETEST_INFRASTRUCTURE_SERVICES')}
         </div>
         <div className="flex items-center gap-3">
           {!isDemo && (
@@ -380,7 +381,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
           )}
           {isDemo && (
             <span className={`text-[10px] px-2 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`}>
-              DEMO — simulated
+             {uiMsg('UI_SMOKETEST_DEMO_SIMULATED')}
             </span>
           )}
           {/* Start All — bank_it_admin only; ops_manager can view status but not start */}
@@ -388,7 +389,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
             <button
               onClick={handleStartAll}
               disabled={seqState?.running}
-              title="Start all infra services in dependency order via docker compose"
+              title={uiMsg('UI_SMOKETEST_START_ALL_INFRA_SERVICES_IN')}
               className={`text-[10px] px-2.5 py-1 rounded font-semibold border transition-all ${
                 seqState?.running
                   ? (isDark ? 'bg-violet-500/10 border-violet-500/20 text-violet-400 cursor-default' : 'bg-violet-50 border-violet-200 text-violet-500 cursor-default')
@@ -417,7 +418,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                 {/* HF badge — for POC-hosted services */}
                 {hf && (
                   <span className={`shrink-0 text-[8px] px-1.5 py-0.5 rounded font-bold border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-                    HF
+                   {uiMsg('UI_SMOKETEST_HF')}
                   </span>
                 )}
                 {/* Start button — bank_it_admin only */}
@@ -464,9 +465,9 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
         <div className={`mt-3 rounded-lg border px-4 py-3 ${th.seqCard}`}>
           <div className="flex items-center justify-between mb-2.5">
             <div className={`text-[10px] font-bold uppercase tracking-widest ${th.secLabel}`}>
-              Startup Sequence
-              {seqState.running && <span className={`ml-2 font-normal normal-case ${th.faint}`}>— waiting for backend ({seqState.elapsed ?? 0}s)</span>}
-              {!seqState.running && !seqState.error && <span className={`ml-2 font-normal normal-case ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>— complete</span>}
+             {uiMsg('UI_SMOKETEST_STARTUP_SEQUENCE')}
+              {seqState.running && <span className={`ml-2 font-normal normal-case ${th.faint}`}>{uiMsg('UI_SMOKETEST_WAITING_FOR_BACKEND_S', { value: seqState.elapsed ?? 0 })}</span>}
+              {!seqState.running && !seqState.error && <span className={`ml-2 font-normal normal-case ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>{uiMsg('UI_SMOKETEST_COMPLETE')}</span>}
               {seqState.error && <span className={`ml-2 font-normal normal-case text-red-400`}>— {seqState.error}</span>}
             </div>
             {!seqState.running && (
@@ -474,7 +475,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                 onClick={() => setSeqState(null)}
                 className={`text-[9px] ${th.faint} hover:${th.muted} transition-colors`}
               >
-                dismiss
+               {uiMsg('UI_SMOKETEST_DISMISS')}
               </button>
             )}
           </div>
@@ -493,13 +494,13 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                     isPast   ? (isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700') :
                                (isDark ? 'bg-slate-700/60 text-slate-500' : 'bg-slate-100 text-slate-400')
                   }`}>
-                    T{tier}
+                   {uiMsg('UI_SMOKETEST_T', { tier })}
                   </span>
 
                   <div className="flex-1 min-w-0">
                     <div className={`text-[10px] font-semibold mb-1 ${isActive ? (isDark ? 'text-violet-300' : 'text-violet-700') : th.heading}`}>
                       {label}
-                      {isActive && <span className={`ml-1.5 font-normal ${th.faint}`}>starting…</span>}
+                      {isActive && <span className={`ml-1.5 font-normal ${th.faint}`}>{uiMsg('UI_SMOKETEST_STARTING')}</span>}
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {ids.map(id => {
@@ -518,7 +519,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
                             className={`text-[9px] px-1.5 py-0.5 rounded border font-mono ${chip.cls}`}
                           >
                             {chip.prefix}{id}
-                            {r?.skipped && <span className={`ml-1 text-[8px] ${isDark ? 'text-amber-500/60' : 'text-amber-600/60'}`}>HF</span>}
+                            {r?.skipped && <span className={`ml-1 text-[8px] ${isDark ? 'text-amber-500/60' : 'text-amber-600/60'}`}>{uiMsg('UI_SMOKETEST_HF')}</span>}
                           </span>
                         )
                       })}
@@ -542,7 +543,7 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
           {/* Compose file hint */}
           {!seqState.running && (
             <div className={`mt-2.5 pt-2 border-t ${th.divider} text-[9px] font-mono ${th.faint}`}>
-              docker compose -f infra/docker-compose.dev.yml up -d
+             {uiMsg('UI_SMOKETEST_DOCKER_COMPOSE_F_INFRA_DOCKER')}
             </div>
           )}
         </div>
@@ -591,23 +592,23 @@ function ReadinessPanel({ isDark, isDemo, bankId, deploymentMode }) {
     <div className={`px-6 pt-4 pb-4 border-b ${th.divider}`}>
       <div className="flex items-center justify-between mb-3">
         <div className={`text-[10px] font-bold uppercase tracking-widest ${th.secLabel}`}>
-          Master Data Readiness
+         {uiMsg('UI_SMOKETEST_MASTER_DATA_READINESS')}
         </div>
         <div className="flex items-center gap-2">
-          {!isDemo && isLoading && <span className={`text-[10px] ${th.detail}`}>checking…</span>}
+          {!isDemo && isLoading && <span className={`text-[10px] ${th.detail}`}>{uiMsg('UI_SMOKETEST_CHECKING')}</span>}
           {!isDemo && !isLoading && dataUpdatedAt && (
             <span className={`text-[10px] ${th.detail}`}>
-              updated {new Date(dataUpdatedAt).toLocaleTimeString()} · auto 60s
+             {uiMsg('UI_SMOKETEST_UPDATED_AUTO_60S', { value: new Date(dataUpdatedAt).toLocaleTimeString() })}
             </span>
           )}
           {allReady && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isDark ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-              READY
+             {uiMsg('UI_SMOKETEST_READY')}
             </span>
           )}
           {failCount > 0 && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isDark ? 'bg-red-500/15 text-red-400 border-red-500/30' : 'bg-red-50 text-red-700 border-red-200'}`}>
-              {failCount} FAIL{failCount > 1 ? 'S' : ''}
+              {uiMsg('UI_SMOKETEST_FAIL', { failCount, value: failCount > 1 ? 'S' : '' })}
             </span>
           )}
         </div>
@@ -639,7 +640,7 @@ function ReadinessPanel({ isDark, isDemo, bankId, deploymentMode }) {
                 onClick={() => navigate(item.action_url)}
                 className={`shrink-0 ml-2 text-[9px] px-1.5 py-0.5 rounded border font-semibold ${isDark ? 'border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20' : 'border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100'}`}
               >
-                → Fix
+               {uiMsg('UI_SMOKETEST_FIX')}
               </button>
             )}
           </div>
@@ -710,7 +711,7 @@ export default function CTSSmokeTest() {
       // DEMO mode: animate through canned outcomes
       const outcomes = DEMO_OUTCOMES[scenarioRef.current % DEMO_OUTCOMES.length]
       for (const t of tests) {
-        setTestStates(prev => ({ ...prev, [t.id]: { status: 'RUNNING', message: 'Checking…', latency: null } }))
+        setTestStates(prev => ({ ...prev, [t.id]: { status: 'RUNNING', message: uiMsg('UI_SMOKETEST_CHECKING_2'), latency: null } }))
         await sleep(280 + Math.random() * 220)
         const [sts, msg] = outcomes[t.id] || ['PASS', 'OK']
         const base = BASE_LATENCY[t.id]
@@ -722,7 +723,7 @@ export default function CTSSmokeTest() {
       // POC / PROD: call real backend
       // Mark all RUNNING first for visual feedback
       const initial = {}
-      tests.forEach(t => { initial[t.id] = { status: 'RUNNING', message: 'Checking…', latency: null } })
+      tests.forEach(t => { initial[t.id] = { status: 'RUNNING', message: uiMsg('UI_SMOKETEST_CHECKING_2'), latency: null } })
       setTestStates(initial)
 
       try {
@@ -732,7 +733,7 @@ export default function CTSSmokeTest() {
           newState[r.test_id] = { status: r.status, message: r.message, latency: r.latency_ms }
         }
         // Any test the backend didn't return → mark SKIP
-        tests.forEach(t => { if (!newState[t.id]) newState[t.id] = { status: 'SKIP', message: 'No result returned', latency: null } })
+        tests.forEach(t => { if (!newState[t.id]) newState[t.id] = { status: 'SKIP', message: uiMsg('UI_SMOKETEST_NO_RESULT_RETURNED'), latency: null } })
         setTestStates(newState)
       } catch (err) {
         const errState = {}
@@ -761,7 +762,7 @@ export default function CTSSmokeTest() {
       bank_id: bankId,
       run_at: new Date().toISOString(),
       results: tests.map(t => {
-        const r = testStates[t.id] || { status: 'SKIP', message: 'Not run', latency: null }
+        const r = testStates[t.id] || { status: 'SKIP', message: uiMsg('UI_SMOKETEST_NOT_RUN'), latency: null }
         return { test_id: t.id, name: t.name, status: r.status, latency_ms: r.latency, message: r.message }
       }),
       summary: buildSummary(),
@@ -790,14 +791,13 @@ export default function CTSSmokeTest() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <h1 className={`text-base font-semibold ${th.heading}`}>Go-Live Readiness</h1>
+                <h1 className={`text-base font-semibold ${th.heading}`}>{uiMsg('UI_SMOKETEST_GO_LIVE_READINESS')}</h1>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${deployPill}`}>
                   {deploymentMode}
                 </span>
               </div>
               <p className={`text-xs ${th.muted}`}>
-                Infrastructure status · master data completeness · connectivity smoke tests.
-                {isDemo ? ' Running in DEMO mode — simulated results.' : ` Running in ${deploymentMode} mode — real connectivity checks.`}
+               {uiMsg('UI_SMOKETEST_INFRASTRUCTURE_STATUS_MASTER_DATA_CO', { value: isDemo ? ' Running in DEMO mode — simulated results.' : ` Running in ${deploymentMode} mode — real connectivity checks.` })}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -809,7 +809,7 @@ export default function CTSSmokeTest() {
                     ? (isDark ? 'border-white/15 text-slate-300 hover:text-white hover:border-white/30' : 'border-slate-200 text-slate-600 hover:border-slate-400')
                     : 'opacity-30 cursor-default border-transparent ' + th.muted}`}
               >
-                ↓ Download Report
+               {uiMsg('UI_SMOKETEST_DOWNLOAD_REPORT')}
               </button>
               <button
                 onClick={runAll}
@@ -825,16 +825,16 @@ export default function CTSSmokeTest() {
           {/* Summary strip */}
           {(ran || running) && (
             <div className="flex items-center gap-3 mt-3 flex-wrap">
-              <span className={`text-xs font-mono ${th.faint}`}>{summary.done}/{summary.total} tests</span>
+              <span className={`text-xs font-mono ${th.faint}`}>{uiMsg('UI_SMOKETEST_TESTS', { done: summary.done, total: summary.total })}</span>
               {summary.pass > 0 && <span className={`text-xs font-mono font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ {summary.pass}</span>}
               {summary.fail > 0 && <span className={`text-xs font-mono font-semibold ${isDark ? 'text-red-400' : 'text-red-600'}`}>✗ {summary.fail}</span>}
               {summary.warn > 0 && <span className={`text-xs font-mono font-semibold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>△ {summary.warn}</span>}
-              {summary.skip > 0 && <span className={`text-xs font-mono ${th.faint}`}>○ {summary.skip} skip</span>}
+              {summary.skip > 0 && <span className={`text-xs font-mono ${th.faint}`}>{uiMsg('UI_SMOKETEST_SKIP', { skip: summary.skip })}</span>}
               {ran && summary.done === summary.total && (
                 summary.fail === 0
-                  ? <span className={`ml-auto text-xs font-mono font-bold px-2.5 py-0.5 rounded ${isDark ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>ALL CLEAR</span>
+                  ? <span className={`ml-auto text-xs font-mono font-bold px-2.5 py-0.5 rounded ${isDark ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>{uiMsg('UI_SMOKETEST_ALL_CLEAR')}</span>
                   : <span className={`ml-auto text-xs font-mono font-bold px-2.5 py-0.5 rounded ${isDark ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                      {summary.fail} FAILURE{summary.fail > 1 ? 'S' : ''} — RESOLVE BEFORE GO-LIVE
+                      {uiMsg('UI_SMOKETEST_FAILURE_RESOLVE_BEFORE_GO_LIVE', { fail: summary.fail, value: summary.fail > 1 ? 'S' : '' })}
                     </span>
               )}
             </div>
@@ -900,9 +900,9 @@ export default function CTSSmokeTest() {
                         {res?.latency != null && sts !== 'RUNNING' ? (
                           <>
                             <span className={`text-xs font-mono font-semibold tabular-nums ${res.latency < 200 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : res.latency > 600 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
-                              {res.latency}ms
+                              {uiMsg('UI_SMOKETEST_MS', { latency: res.latency })}
                             </span>
-                            <span className={`text-[10px] ${th.faint} font-mono uppercase tracking-wider`}>latency</span>
+                            <span className={`text-[10px] ${th.faint} font-mono uppercase tracking-wider`}>{uiMsg('UI_SMOKETEST_LATENCY')}</span>
                           </>
                         ) : isRunning ? (
                           <span className={`text-xs font-mono ${isDark ? 'text-violet-400' : 'text-violet-600'} animate-pulse`}>···</span>
@@ -919,8 +919,7 @@ export default function CTSSmokeTest() {
           ))}
 
           <p className={`text-[11px] ${th.faint} pt-2 pb-4`}>
-            WARN is advisory and does not block go-live. FAIL must be resolved. SKIP means the test
-            is not applicable or the integration is not configured for this deployment mode.
+           {uiMsg('UI_SMOKETEST_WARN_IS_ADVISORY_AND_DOES')}
           </p>
         </div>
       </div>

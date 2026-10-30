@@ -16,7 +16,6 @@ Routes tested:
   GET  /v1/cts/admin/login-log
   GET  /v1/cts/admin/ngch-routing
   GET  /v1/cts/admin/micr-prefixes
-  GET  /v1/cts/rpc/zones
 """
 from __future__ import annotations
 
@@ -539,7 +538,6 @@ class TestAdminNGCHRouting:
         row = {
             "rule_id": "R-001",
             "micr_prefix": "400002",
-            "clearing_zone": "MUMBAI",
             "destination": "NGCH-MUM-1",
             "priority": 1,
             "active": True,
@@ -595,7 +593,6 @@ class TestAdminMICRPrefixes:
             "micr_prefix": "400002",
             "bank_name": "SBI Mumbai",
             "bank_ifsc": "SBIN0001234",
-            "clearing_zone": "MUMBAI",
             "active": True,
             "updated_at": "2026-09-09T00:00:00",
         }
@@ -609,50 +606,3 @@ class TestAdminMICRPrefixes:
         body = resp.json()
         assert body["total"] == 1
         assert body["items"][0]["micr_prefix"] == "400002"
-
-
-# ── 15. GET /rpc/zones ────────────────────────────────────────────────────────
-
-class TestRPCZones:
-    def test_no_db_returns_empty(self):
-        app = _make_app()
-        with TestClient(app) as c:
-            resp = c.get("/v1/cts/rpc/zones")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["bank_id"] == "testbank"
-        assert body["zones"] == []
-        assert body["total"] == 0
-
-    def test_with_rows(self):
-        row = {
-            "zone_id": "Z-001",
-            "zone_name": "MUMBAI",
-            "ngch_node": "NGCH-MUM-1",
-            "status": "ACTIVE",
-            "last_sync_at": "2026-09-09T06:00:00",
-            "instrument_count_today": 150,
-            "settled_count": 120,
-            "pending_count": 30,
-        }
-        mock_pool = MagicMock()
-        mock_pool.fetch = AsyncMock(return_value=[row])
-
-        app = _make_app()
-        app.state.db_pool_cts = mock_pool
-        with TestClient(app) as c:
-            resp = c.get("/v1/cts/rpc/zones")
-        body = resp.json()
-        assert body["total"] == 1
-        assert body["zones"][0]["zone_name"] == "MUMBAI"
-        assert body["zones"][0]["instrument_count_today"] == 150
-
-    def test_db_error_returns_empty(self):
-        mock_pool = MagicMock()
-        mock_pool.fetch = AsyncMock(side_effect=Exception("DB error"))
-
-        app = _make_app()
-        app.state.db_pool_cts = mock_pool
-        with TestClient(app) as c:
-            resp = c.get("/v1/cts/rpc/zones")
-        assert resp.json()["zones"] == []

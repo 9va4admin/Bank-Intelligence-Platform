@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from typing import Optional
+from shared.messages import get_message
 
 
 class PrincipalTag(Enum):
@@ -75,6 +76,5 @@ class SubMemberReturn:
     def __post_init__(self):
         if len(self.cheque_number_suffix) > 4:
             raise ValueError(
-                f"cheque_number_suffix must be ≤ 4 characters (PII rule): "
-                f"got {len(self.cheque_number_suffix)} chars"
+                get_message("CTS_CHEQUE_NUMBER_SUFFIX_MUST_BE_2", len=len(self.cheque_number_suffix))
             )

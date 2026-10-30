@@ -24,7 +24,7 @@ NOW = time.time()
 def _ctx(user, role="ops_reviewer"):
     c = MagicMock()
     c.role = Role[role.upper()]; c.bank_id = BANK; c.user_id = user; c.bank_type = BankType.SB
-    c.smb_id = None; c.clearing_zones = ["ALL"]
+    c.smb_id = None; c.pu_ids = ["ALL"]
     return c
 
 
@@ -36,7 +36,7 @@ class _Temporal:
         async def gen():
             for i in self._ids:
                 yield SimpleNamespace(id=f"cts-humanreview-{BANK}-{i}", start_time=None,
-                                      memo={"instrument_id": i, "clearing_zone": "UNKNOWN", "iet_deadline": NOW + 3600})
+                                      memo={"instrument_id": i, "pu_id": "UNKNOWN", "iet_deadline": NOW + 3600})
         return gen()
 
 

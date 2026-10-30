@@ -36,6 +36,7 @@ from typing import Any, Optional
 import structlog
 
 from shared.utils.pii_crypto import encrypt_pii, hash_account_number
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -132,7 +133,7 @@ class VaultUploadProcessor:
             reader = csv.DictReader(io.StringIO(csv_content.decode("utf-8")))
             rows = list(reader)
         except Exception as exc:
-            raise ValueError(f"CSV parse error: {exc}") from exc
+            raise ValueError(get_message("CTS_CSV_PARSE_ERROR", exc=exc)) from exc
 
         # Rows the caller already rejected (e.g. a CIIF record that failed the specification's rules).
         pre_errors = pre_errors or []
@@ -153,7 +154,7 @@ class VaultUploadProcessor:
             missing = required - header
             if missing:
                 await self._fail_batch(batch_id, f"Missing required columns: {missing}")
-                raise ValueError(f"CSV missing required columns for {vault_type}: {missing}")
+                raise ValueError(get_message("CTS_CSV_MISSING_REQUIRED_COLUMNS_FOR", vault_type=vault_type, missing=missing))
 
         # Referential integrity: bulk-check all accounts exist in cts.account_vault.
         # One DB round-trip for the whole batch — cheap for any realistic CSV size.
@@ -194,8 +195,7 @@ class VaultUploadProcessor:
                         result.errors.append({
                             "row": idx,
                             "error": (
-                                f"Account ****{raw_acct[-4:]} not found in cts.account_vault"
-                                f" — upload ACCOUNT_DETAIL first"
+                                get_message("CTS_ACCOUNT_NOT_FOUND_IN_CTS", raw_acct=raw_acct[-4:])
                             ),
                             "error_code": "ACCOUNT_NOT_FOUND_IN_VAULT",
                         })
@@ -245,22 +245,22 @@ class VaultUploadProcessor:
 
         unit = (amount_unit or "").strip().upper()
         if unit not in ("RUPEES", "PAISE"):
-            raise ValueError("CIIF amount unit must be set to RUPEES or PAISE (cts.ciif_amount_unit); it is not guessed")
+            raise ValueError(get_message("CTS_CIIF_AMOUNT_UNIT_MUST_BE"))
         today = today or date.today()
         try:
             text = content.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
-            raise ValueError("CIIF file is not valid UTF-8") from exc
+            raise ValueError(get_message("CTS_CIIF_FILE_IS_NOT_VALID")) from exc
 
         if text.lstrip().startswith("<"):
             records, errs, meta = parse_ciif_xml(text, today)
             if meta.get("test_file"):
-                raise ValueError("CIIF test file (Testfileindicator T): nothing was loaded")
+                raise ValueError(get_message("CTS_CIIF_TEST_FILE_TESTFILEINDICATOR_T"))
         else:
             records, errs = parse_ciif_csv(text, today)
         file_level = [e for e in errs if e.line <= 1 and e.field in ("header", "file")]
         if file_level:
-            raise ValueError(f"CIIF file rejected: {file_level[0].message}")
+            raise ValueError(get_message("CTS_CIIF_FILE_REJECTED", message=file_level[0].message))
 
         pre_errors = [
             {"row": e.line, "error": f"{e.field}: {e.message}", "error_code": "CIIF_SPEC_REJECT"} for e in errs
@@ -270,7 +270,7 @@ class VaultUploadProcessor:
         w.writerow(["account_number", "cheque_number", "cheque_date", "amount", "payee_name", "registration_channel"])
         for n, r in enumerate(records, start=1):
             if not r.serial_no:
-                pre_errors.append({"row": n, "error": "SerialNumber: required to key the PPS vault by cheque number",
+                pre_errors.append({"row": n, "error": get_message("CTS_SERIALNUMBER_REQUIRED_TO_KEY_THE"),
                                    "error_code": "CIIF_NO_SERIAL"})
                 continue
             rupees = Decimal(r.amount) if unit == "RUPEES" else Decimal(r.amount) / 100
@@ -340,11 +340,11 @@ class VaultUploadProcessor:
 
         if int(series_start) > int(series_end):
             raise ValueError(
-                f"series_start ({series_start}) must be ≤ series_end ({series_end})"
+                get_message("CTS_SERIES_START_MUST_BE_SERIES", series_start=series_start, series_end=series_end)
             )
 
         if self._cheque_leaf_vault is None:
-            raise RuntimeError("ChequeLeafVault not configured in processor")
+            raise RuntimeError(get_message("CTS_CHEQUELEAFVAULT_NOT_CONFIGURED_IN_PR"))
 
         await self._cheque_leaf_vault.store_book(
             account_number=acct,
@@ -369,7 +369,7 @@ class VaultUploadProcessor:
         effective_date = date.fromisoformat(effective_date_raw) if effective_date_raw else None
 
         if self._cheque_leaf_vault is None:
-            raise RuntimeError("ChequeLeafVault not configured in processor")
+            raise RuntimeError(get_message("CTS_CHEQUELEAFVAULT_NOT_CONFIGURED_IN_PR"))
 
         ok = await self._cheque_leaf_vault.set_leaf_status(
             account_number=acct,
@@ -409,12 +409,12 @@ class VaultUploadProcessor:
 
         from modules.cts.vaults.account_vault import AccountVault
         if not isinstance(self._account_vault, AccountVault):
-            raise RuntimeError("AccountVault not configured in processor")
+            raise RuntimeError(get_message("CTS_ACCOUNTVAULT_NOT_CONFIGURED_IN_PROCE"))
 
         account_hash = hash_account_number(acct, self._bank_id, self._account_vault._pepper)
 
         if self._db_pool is None:
-            raise RuntimeError("DB pool not configured in processor")
+            raise RuntimeError(get_message("CTS_DB_POOL_NOT_CONFIGURED_IN"))
 
         async with self._db_pool.acquire() as conn:
             async with conn.transaction():
@@ -519,7 +519,7 @@ class VaultUploadProcessor:
         store_action = "CANCEL" if action == "DEACTIVATE" else action
 
         if self._pps_vault is None:
-            raise RuntimeError("PPSVault not configured in processor")
+            raise RuntimeError(get_message("CTS_PPSVAULT_NOT_CONFIGURED_IN_PROCESSOR"))
 
         await self._pps_vault.store_pps(
             account_number=acct,
@@ -546,14 +546,14 @@ class VaultUploadProcessor:
         quorum_n = int(quorum_n_raw) if quorum_n_raw else None
 
         if self._signature_vault is None:
-            raise RuntimeError("SignatureVault not configured in processor")
+            raise RuntimeError(get_message("CTS_SIGNATUREVAULT_NOT_CONFIGURED_IN_PRO"))
 
         account_hash = hash_account_number(acct, self._bank_id, self._signature_vault._pepper)
 
         is_active = action != "DEACTIVATE"
 
         if self._db_pool is None:
-            raise RuntimeError("DB pool not configured in processor")
+            raise RuntimeError(get_message("CTS_DB_POOL_NOT_CONFIGURED_IN"))
 
         async with self._db_pool.acquire() as conn:
             await conn.execute(

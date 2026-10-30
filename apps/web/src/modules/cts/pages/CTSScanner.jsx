@@ -7,6 +7,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+import { msg as uiMsg } from '../../../shared/messages'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -14,23 +15,23 @@ const SCANNER_AGENT_DEFAULT_URL = 'http://localhost:9201'
 
 // Message taxonomy — mirrors shared/messages/locales/messages.yaml CTS_OUT_* entries
 const MSG_TAXONOMY = [
-  { key: 'CTS_OUT_CTS2010_FAIL',         sev: 'ERROR',    surface: ['AUDIT','NOTIFICATION'],        text: 'CTS-2010 validation failed for instrument {instrument_id}: {failure_reason}.' },
-  { key: 'CTS_OUT_MISMATCH_HELD',        sev: 'WARN',     surface: ['UI','AUDIT','NOTIFICATION'],   text: 'Amount mismatch detected — instrument {instrument_id} held for manual resolution.' },
-  { key: 'CTS_OUT_HUMAN_REVIEW',         sev: 'WARN',     surface: ['UI','AUDIT','NOTIFICATION'],   text: 'Instrument {instrument_id} routed to human review: {review_reason}.' },
-  { key: 'CTS_OUT_LOT_INSTRUMENT_ADDED', sev: 'INFO',     surface: ['UI','AUDIT'],                  text: 'Instrument {instrument_id} added to lot {lot_id}.' },
-  { key: 'CTS_OUT_LOT_SEALED',           sev: 'INFO',     surface: ['UI','AUDIT'],                  text: 'Lot {lot_id} sealed with {instrument_count} instruments — ready for endorsement.' },
-  { key: 'CTS_OUT_LOT_ENDORSED',         sev: 'INFO',     surface: ['UI','AUDIT'],                  text: 'Lot {lot_id} endorsed and submitted to NGCH.' },
-  { key: 'CTS_OUT_SCAN_ACCEPTED',        sev: 'INFO',     surface: ['UI'],                           text: 'Scan {scan_id} accepted via {path} path — workflow {workflow_id} started.' },
-  { key: 'CTS_OUT_DOUBLE_FEED',          sev: 'WARN',     surface: ['UI','NOTIFICATION'],            text: 'Double feed detected in session {session_id} — cheque ejected, rescan required.' },
-  { key: 'CTS_OUT_MICR_FAIL',            sev: 'ERROR',    surface: ['UI','AUDIT','NOTIFICATION'],   text: 'Hardware MICR read failed for scan {scan_id} — operator intervention required.' },
-  { key: 'CTS_OUT_SCANNER_OFFLINE',      sev: 'CRITICAL', surface: ['UI','NOTIFICATION'],            text: 'Scanner agent at {agent_url} is unreachable — outward scanning paused.' },
+  { key: 'CTS_OUT_CTS2010_FAIL',         sev: 'ERROR',    surface: ['AUDIT','NOTIFICATION'],        text: uiMsg('UI_SCANNER_CTS_2010_VALIDATION_FAILED_FOR', { instrument_id: '{instrument_id}', failure_reason: '{failure_reason}' }) },
+  { key: 'CTS_OUT_MISMATCH_HELD',        sev: 'WARN',     surface: ['UI','AUDIT','NOTIFICATION'],   text: uiMsg('UI_SCANNER_AMOUNT_MISMATCH_DETECTED_INSTRUMENT', { instrument_id: '{instrument_id}' }) },
+  { key: 'CTS_OUT_HUMAN_REVIEW',         sev: 'WARN',     surface: ['UI','AUDIT','NOTIFICATION'],   text: uiMsg('UI_SCANNER_INSTRUMENT_ROUTED_TO_HUMAN_REVIEW', { instrument_id: '{instrument_id}', review_reason: '{review_reason}' }) },
+  { key: 'CTS_OUT_LOT_INSTRUMENT_ADDED', sev: 'INFO',     surface: ['UI','AUDIT'],                  text: uiMsg('UI_SCANNER_INSTRUMENT_ADDED_TO_LOT', { instrument_id: '{instrument_id}', lot_id: '{lot_id}' }) },
+  { key: 'CTS_OUT_LOT_SEALED',           sev: 'INFO',     surface: ['UI','AUDIT'],                  text: uiMsg('UI_SCANNER_LOT_SEALED_WITH_INSTRUMENTS_READY', { lot_id: '{lot_id}', instrument_count: '{instrument_count}' }) },
+  { key: 'CTS_OUT_LOT_ENDORSED',         sev: 'INFO',     surface: ['UI','AUDIT'],                  text: uiMsg('UI_SCANNER_LOT_ENDORSED_AND_SUBMITTED_TO', { lot_id: '{lot_id}' }) },
+  { key: 'CTS_OUT_SCAN_ACCEPTED',        sev: 'INFO',     surface: ['UI'],                           text: uiMsg('UI_SCANNER_SCAN_ACCEPTED_VIA_PATH_WORKFLOW', { scan_id: '{scan_id}', path: '{path}', workflow_id: '{workflow_id}' }) },
+  { key: 'CTS_OUT_DOUBLE_FEED',          sev: 'WARN',     surface: ['UI','NOTIFICATION'],            text: uiMsg('UI_SCANNER_DOUBLE_FEED_DETECTED_IN_SESSION', { session_id: '{session_id}' }) },
+  { key: 'CTS_OUT_MICR_FAIL',            sev: 'ERROR',    surface: ['UI','AUDIT','NOTIFICATION'],   text: uiMsg('UI_SCANNER_HARDWARE_MICR_READ_FAILED_FOR', { scan_id: '{scan_id}' }) },
+  { key: 'CTS_OUT_SCANNER_OFFLINE',      sev: 'CRITICAL', surface: ['UI','NOTIFICATION'],            text: uiMsg('UI_SCANNER_SCANNER_AGENT_AT_IS_UNREACHABLE', { agent_url: '{agent_url}' }) },
 ]
 
 // Kafka topics for outward clearing
 const KAFKA_TOPICS = (bankId) => [
-  { topic: `cts.outward.scanned.${bankId}`,    label: 'scanned',   display: 'Scanned',    desc: 'Scanner → OutwardScanWorkflow',      color: 'violet' },
-  { topic: `cts.outward.lot.sealed.${bankId}`, label: 'sealed',    display: 'Lot Sealed', desc: 'Lot Manager → EndorsementWorkflow',  color: 'amber'  },
-  { topic: `cts.outward.submitted.${bankId}`,  label: 'submitted', display: 'Submitted',  desc: 'NGCHSubmission → Audit + Analytics', color: 'emerald'},
+  { topic: `cts.outward.scanned.${bankId}`,    label: 'scanned',   display: 'Scanned',    desc: uiMsg('UI_SCANNER_SCANNER_OUTWARDSCANWORKFLOW'),      color: 'violet' },
+  { topic: `cts.outward.lot.sealed.${bankId}`, label: 'sealed',    display: 'Lot Sealed', desc: uiMsg('UI_SCANNER_LOT_MANAGER_ENDORSEMENTWORKFLOW'),  color: 'amber'  },
+  { topic: `cts.outward.submitted.${bankId}`,  label: 'submitted', display: 'Submitted',  desc: uiMsg('UI_SCANNER_NGCHSUBMISSION_AUDIT_ANALYTICS'), color: 'emerald'},
 ]
 
 // ── Mock scanner registry (kept for SDK reference section) ────────────────────
@@ -172,7 +173,7 @@ function ScanImagePanel({ scan, isDark, onClose }) {
     <div className={`flex flex-col border rounded-xl overflow-hidden ${th.panel}`} style={{ width: 400, minWidth: 400 }}>
       <div className={`flex items-center justify-between px-4 py-2.5 border-b shrink-0 ${th.head}`}>
         <div>
-          <div className={`text-[10px] ${th.label} uppercase tracking-widest`}>Scan Images · CTS-2010</div>
+          <div className={`text-[10px] ${th.label} uppercase tracking-widest`}>{uiMsg('UI_SCANNER_SCAN_IMAGES_CTS_2010')}</div>
           <div className={`text-xs font-mono font-medium ${th.val} mt-0.5`}>{scan.scan_id}</div>
         </div>
         <button onClick={onClose} className={`text-lg leading-none ${th.label} hover:opacity-60`}>✕</button>
@@ -180,9 +181,9 @@ function ScanImagePanel({ scan, isDark, onClose }) {
       <div className="flex-1 overflow-y-auto p-3">
         <ChequeImageViewer
           views={[
-            { key: 'BFB', label: 'Front B/W',  url: scan.front_bw_url  ?? null, iqaScore: iqaFront },
-            { key: 'BBB', label: 'Back B/W',   url: scan.back_bw_url   ?? null, iqaScore: iqaBack  },
-            { key: 'BFG', label: 'Front Gray', url: scan.front_gray_url ?? null, iqaScore: +(iqaFront * 0.98).toFixed(3) },
+            { key: 'BFB', label: uiMsg('UI_COMMON_FRONT_B_W'),  url: scan.front_bw_url  ?? null, iqaScore: iqaFront },
+            { key: 'BBB', label: uiMsg('UI_COMMON_BACK_B_W'),   url: scan.back_bw_url   ?? null, iqaScore: iqaBack  },
+            { key: 'BFG', label: uiMsg('UI_COMMON_FRONT_GRAY'), url: scan.front_gray_url ?? null, iqaScore: +(iqaFront * 0.98).toFixed(3) },
           ]}
           fields={{ micr: micrStr, date: new Date().toLocaleDateString('en-IN') }}
           isDark={isDark} compact={false} title={scan.scan_id}
@@ -434,14 +435,14 @@ export default function CTSScanner() {
   const avgIqa   = scans.length ? (scans.reduce((a, s) => a + s.iqa, 0) / scans.length).toFixed(3) : '—'
 
   usePageHeader({
-    subtitle: 'CR-120 · Ranger API bridge — configure, monitor, and audit outward scan sessions',
+    subtitle: uiMsg('UI_SCANNER_CR_120_RANGER_API_BRIDGE'),
     actions: (
       <div className="flex items-center gap-3">
         <button
           onClick={() => { setEditingConfig(v => !v); setCfgDraft(d => ({ ...d, agentUrl })) }}
           className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/12 text-slate-300 hover:bg-white/5' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
         >
-          Configure
+         {uiMsg('UI_SCANNER_CONFIGURE')}
         </button>
         <button
           onClick={sessionActive ? stopSession : startSession}
@@ -465,7 +466,7 @@ export default function CTSScanner() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${agentConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-              <span className={`text-xs font-medium ${th.heading}`}>Scanner Agent</span>
+              <span className={`text-xs font-medium ${th.heading}`}>{uiMsg('UI_SCANNER_SCANNER_AGENT')}</span>
               <span className={`text-[11px] font-mono ${th.muted}`}>{agentUrl}</span>
               <span className={`text-[10px] font-medium ${agentConnected ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
                 {agentConnected ? 'CONNECTED' : 'OFFLINE'}
@@ -474,35 +475,35 @@ export default function CTSScanner() {
             {sessionActive && (
               <div className="flex items-center gap-4 border-l pl-6" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }}>
                 <div>
-                  <span className={`text-[10px] ${th.faint}`}>Session</span>
+                  <span className={`text-[10px] ${th.faint}`}>{uiMsg('UI_COMMON_SESSION')}</span>
                   <span className={`ml-2 text-[11px] font-mono font-medium ${th.body}`}>{sessionId}</span>
                 </div>
                 <div>
-                  <span className={`text-[10px] ${th.faint}`}>Scanned</span>
+                  <span className={`text-[10px] ${th.faint}`}>{uiMsg('UI_OUTWARDPIPELINEMONITOR_SCANNED')}</span>
                   <span className={`ml-2 text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{sessionCount}</span>
                 </div>
                 <span className="flex items-center gap-1 text-[10px] text-emerald-400">
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                  LIVE
+                 {uiMsg('UI_PRESENTMENT_LIVE')}
                 </span>
               </div>
             )}
           </div>
           <span className={`text-[10px] ${th.faint}`}>
-            GET {agentUrl}/health · POST {agentUrl}/session/start|stop
+           {uiMsg('UI_SCANNER_GET_HEALTH_POST_SESSION_START', { agentUrl, agentUrl2: agentUrl })}
           </span>
         </div>
 
         {/* ── Config panel (collapsible) ─────────────────────────────────── */}
         {editingConfig && (
           <div className={`border rounded-xl p-4 ${th.card}`}>
-            <div className={`text-sm font-semibold ${th.heading} mb-4`}>Scanner Agent Configuration</div>
+            <div className={`text-sm font-semibold ${th.heading} mb-4`}>{uiMsg('UI_SCANNER_SCANNER_AGENT_CONFIGURATION')}</div>
             <div className="grid grid-cols-3 gap-4 mb-4">
               {[
-                { label: 'Agent URL',        key: 'agentUrl',        placeholder: 'http://localhost:9201' },
-                { label: 'Bank IFSC',        key: 'bankIfsc',        placeholder: 'SVCB0000001' },
-                { label: 'Session Prefix',   key: 'sessionPrefix',   placeholder: 'MUM' },
-                { label: 'Endorsement Text', key: 'endorsementText', placeholder: 'ASTRA/CTS/OUTWARD' },
+                { label: uiMsg('UI_SCANNER_AGENT_URL'),        key: 'agentUrl',        placeholder: 'http://localhost:9201' },
+                { label: uiMsg('UI_SCANNER_BANK_IFSC'),        key: 'bankIfsc',        placeholder: uiMsg('UI_SCANNER_SVCB0000001') },
+                { label: uiMsg('UI_SCANNER_SESSION_PREFIX'),   key: 'sessionPrefix',   placeholder: 'MUM' },
+                { label: uiMsg('UI_SCANNER_ENDORSEMENT_TEXT'), key: 'endorsementText', placeholder: uiMsg('UI_SCANNER_ASTRA_CTS_OUTWARD') },
               ].map(f => (
                 <div key={f.key}>
                   <label className={`text-[10px] uppercase tracking-wider ${th.faint} mb-1 block`}>{f.label}</label>
@@ -516,15 +517,15 @@ export default function CTSScanner() {
                 </div>
               ))}
               <div>
-                <label className={`text-[10px] uppercase tracking-wider ${th.faint} mb-1 block`}>API Token (Vault-managed)</label>
+                <label className={`text-[10px] uppercase tracking-wider ${th.faint} mb-1 block`}>{uiMsg('UI_SCANNER_API_TOKEN_VAULT_MANAGED')}</label>
                 <input type="password" value="••••••••••••••••" readOnly
                   className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${th.input} opacity-60 cursor-not-allowed`} />
               </div>
             </div>
             <div className="flex items-center gap-6 mb-4">
               {[
-                { key: 'enableImprinter', label: 'Enable Imprinter (endorsement stamp)' },
-                { key: 'enableUV',        label: 'Enable UV Scan (CR-120 UV model only)' },
+                { key: 'enableImprinter', label: uiMsg('UI_SCANNER_ENABLE_IMPRINTER_ENDORSEMENT_STAMP') },
+                { key: 'enableUV',        label: uiMsg('UI_SCANNER_ENABLE_UV_SCAN_CR_120') },
               ].map(f => (
                 <label key={f.key} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={cfgDraft[f.key]}
@@ -537,14 +538,14 @@ export default function CTSScanner() {
             <div className="flex items-center gap-2">
               <button onClick={saveConfig}
                 className="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium">
-                Save &amp; Apply
+               {uiMsg('UI_SCANNER_SAVE_APPLY')}
               </button>
               <button onClick={() => setEditingConfig(false)}
                 className={`text-xs px-4 py-2 rounded-lg border font-medium ${isDark ? 'border-white/12 text-slate-400 hover:bg-white/5' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
-                Cancel
+               {uiMsg('UI_COMMON_CANCEL')}
               </button>
               <span className={`text-[10px] ${th.faint} ml-2`}>
-                Token is Vault-managed — change via Admin UI (Layer 5). Other settings take effect at next session start.
+               {uiMsg('UI_SCANNER_TOKEN_IS_VAULT_MANAGED_CHANGE')}
               </span>
             </div>
           </div>
@@ -553,14 +554,14 @@ export default function CTSScanner() {
         {/* ── Pipeline KPI strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-8 gap-3">
           {[
-            { label: 'Accepted',      value: kpis.accepted,      color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'CTS Rejected',  value: kpis.cts_rejected,  color: isDark ? 'text-red-400'     : 'text-red-600'     },
-            { label: 'Mismatch Held', value: kpis.mismatch,      color: isDark ? 'text-amber-400'   : 'text-amber-600'   },
-            { label: 'Human Review',  value: kpis.human_review,  color: isDark ? 'text-blue-400'    : 'text-blue-600'    },
-            { label: 'MICR OK',       value: micrOk,             color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'MICR Fail',     value: micrFail,           color: micrFail > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-slate-400' : 'text-slate-500') },
-            { label: 'Avg IQA',       value: avgIqa,             color: isDark ? 'text-violet-400'  : 'text-violet-600'  },
-            { label: 'Lots Active',   value: lots.filter(l => l.status === 'OPEN').length, color: isDark ? 'text-amber-400' : 'text-amber-600' },
+            { label: uiMsg('UI_COMMON_ACCEPTED'),      value: kpis.accepted,      color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: uiMsg('UI_SCANNER_CTS_REJECTED'),  value: kpis.cts_rejected,  color: isDark ? 'text-red-400'     : 'text-red-600'     },
+            { label: uiMsg('UI_SCANNER_MISMATCH_HELD'), value: kpis.mismatch,      color: isDark ? 'text-amber-400'   : 'text-amber-600'   },
+            { label: uiMsg('UI_COMMON_HUMAN_REVIEW'),  value: kpis.human_review,  color: isDark ? 'text-blue-400'    : 'text-blue-600'    },
+            { label: uiMsg('UI_SCANNER_MICR_OK'),       value: micrOk,             color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: uiMsg('UI_SCANNER_MICR_FAIL'),     value: micrFail,           color: micrFail > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-slate-400' : 'text-slate-500') },
+            { label: uiMsg('UI_SCANNER_AVG_IQA'),       value: avgIqa,             color: isDark ? 'text-violet-400'  : 'text-violet-600'  },
+            { label: uiMsg('UI_SCANNER_LOTS_ACTIVE'),   value: lots.filter(l => l.status === 'OPEN').length, color: isDark ? 'text-amber-400' : 'text-amber-600' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-3 py-2.5 ${th.card}`}>
               <div className={`text-[9px] ${th.faint} mb-1 uppercase tracking-wider`}>{k.label}</div>
@@ -572,8 +573,8 @@ export default function CTSScanner() {
         {/* ── Kafka Topics ───────────────────────────────────────────────────── */}
         <div className={`border rounded-xl overflow-hidden ${th.card}`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
-            <span className={`text-sm font-medium ${th.heading}`}>Kafka Topics — Outward Clearing</span>
-            <span className={`text-[10px] ${th.faint}`}>bank_id: {bankId ?? 'demo-bank'} · redis-cts cluster</span>
+            <span className={`text-sm font-medium ${th.heading}`}>{uiMsg('UI_SCANNER_KAFKA_TOPICS_OUTWARD_CLEARING')}</span>
+            <span className={`text-[10px] ${th.faint}`}>{uiMsg('UI_SCANNER_BANK_ID_REDIS_CTS_CLUSTER', { value: bankId ?? 'demo-bank' })}</span>
           </div>
           <div className="grid grid-cols-3 divide-x" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }}>
             {KAFKA_TOPICS(bankId ?? 'demo-bank').map(t => {
@@ -594,11 +595,11 @@ export default function CTSScanner() {
                   <div className={`text-[10px] font-mono ${th.faint} mb-2 truncate`}>{t.topic}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className={`text-[9px] ${th.faint}`}>Consumer Lag</div>
+                      <div className={`text-[9px] ${th.faint}`}>{uiMsg('UI_SCANNER_CONSUMER_LAG')}</div>
                       <div className={`text-sm font-bold ${lagColor}`}>{stat?.lag ?? 0}</div>
                     </div>
                     <div>
-                      <div className={`text-[9px] ${th.faint}`}>msg/s</div>
+                      <div className={`text-[9px] ${th.faint}`}>{uiMsg('UI_SCANNER_MSG_S')}</div>
                       <div className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{stat?.rate ?? 0}</div>
                     </div>
                   </div>
@@ -615,15 +616,15 @@ export default function CTSScanner() {
           {/* Scan Feed */}
           <div className={`flex-1 min-w-0 border rounded-xl overflow-hidden ${th.card}`}>
             <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
-              <span className={`text-sm font-medium ${th.heading}`}>Live Scan Feed</span>
+              <span className={`text-sm font-medium ${th.heading}`}>{uiMsg('UI_SCANNER_LIVE_SCAN_FEED')}</span>
               <div className="flex items-center gap-3">
                 {selectedScan && (
-                  <span className={`text-[10px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>← click row to view images</span>
+                  <span className={`text-[10px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{uiMsg('UI_SCANNER_CLICK_ROW_TO_VIEW_IMAGES')}</span>
                 )}
                 {sessionActive && (
                   <span className="flex items-center gap-1 text-[10px] text-emerald-400">
                     <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                    LIVE
+                   {uiMsg('UI_PRESENTMENT_LIVE')}
                   </span>
                 )}
               </div>
@@ -631,19 +632,19 @@ export default function CTSScanner() {
 
             {/* Column headers */}
             <div className={`grid grid-cols-12 gap-1 px-4 py-2 border-b ${th.divider} text-[9px] ${th.faint} font-medium uppercase tracking-wider`}>
-              <div className="col-span-3">Scan ID</div>
-              <div className="col-span-2">Cheque / Acct</div>
-              <div className="col-span-1 text-center">MICR</div>
-              <div className="col-span-1 text-center">IQA</div>
-              <div className="col-span-1 text-center">Path</div>
-              <div className="col-span-2">Outcome</div>
-              <div className="col-span-1">Lot</div>
-              <div className="col-span-1 text-right">Time</div>
+              <div className="col-span-3">{uiMsg('UI_SCANNER_SCAN_ID')}</div>
+              <div className="col-span-2">{uiMsg('UI_SCANNER_CHEQUE_ACCT')}</div>
+              <div className="col-span-1 text-center">{uiMsg('UI_COMMON_MICR')}</div>
+              <div className="col-span-1 text-center">{uiMsg('UI_SCANNER_IQA')}</div>
+              <div className="col-span-1 text-center">{uiMsg('UI_SCANNER_PATH')}</div>
+              <div className="col-span-2">{uiMsg('UI_COMMON_OUTCOME')}</div>
+              <div className="col-span-1">{uiMsg('UI_COMMON_LOT')}</div>
+              <div className="col-span-1 text-right">{uiMsg('UI_COMMON_TIME')}</div>
             </div>
 
             {scans.length === 0 && (
               <div className={`px-4 py-10 text-center text-sm ${th.muted}`}>
-                Press <strong>Start Session</strong> to begin live scanning.
+               {uiMsg('UI_SCANNER_PRESS')} <strong>{uiMsg('UI_SCANNER_START_SESSION')}</strong> {uiMsg('UI_SCANNER_TO_BEGIN_LIVE_SCANNING')}
               </div>
             )}
 
@@ -679,9 +680,9 @@ export default function CTSScanner() {
             <div className={`border rounded-xl overflow-hidden ${th.card}`} style={{ width: 380, minWidth: 380 }}>
               <div className={`flex border-b ${th.divider}`}>
                 {[
-                  { id: 'audit',    label: 'Audit Events' },
-                  { id: 'lots',     label: 'Lots' },
-                  { id: 'taxonomy', label: 'Msg Taxonomy' },
+                  { id: 'audit',    label: uiMsg('UI_SCANNER_AUDIT_EVENTS') },
+                  { id: 'lots',     label: uiMsg('UI_SCANNER_LOTS') },
+                  { id: 'taxonomy', label: uiMsg('UI_SCANNER_MSG_TAXONOMY') },
                 ].map(t => (
                   <button key={t.id} onClick={() => setRightTab(t.id)}
                     className={`flex-1 text-xs py-2.5 font-medium transition-colors ${th.tab(rightTab === t.id)}`}>
@@ -703,11 +704,11 @@ export default function CTSScanner() {
                         </div>
                       </div>
                       <div className={`text-[10px] ${th.body} leading-relaxed`}>{e.msg}</div>
-                      <div className={`text-[9px] ${th.faint} mt-0.5`}>→ Immudb collection: cts_events · platform.audit.events</div>
+                      <div className={`text-[9px] ${th.faint} mt-0.5`}>{uiMsg('UI_SCANNER_IMMUDB_COLLECTION_CTS_EVENTS_PLATFOR')}</div>
                     </div>
                   ))}
                   {auditEvents.length === 0 && (
-                    <div className={`py-8 text-center text-sm ${th.muted}`}>No audit events yet</div>
+                    <div className={`py-8 text-center text-sm ${th.muted}`}>{uiMsg('UI_SCANNER_NO_AUDIT_EVENTS_YET')}</div>
                   )}
                 </div>
               )}
@@ -716,10 +717,10 @@ export default function CTSScanner() {
               {rightTab === 'lots' && (
                 <div className="overflow-y-auto" style={{ maxHeight: 440 }}>
                   <div className={`px-3 py-1.5 border-b ${th.divider} grid grid-cols-5 gap-1 text-[9px] ${th.faint} uppercase tracking-wider font-medium`}>
-                    <div className="col-span-2">Lot ID</div>
-                    <div className="col-span-1 text-center">Items</div>
-                    <div className="col-span-1">Status</div>
-                    <div className="col-span-1 text-right">Opened</div>
+                    <div className="col-span-2">{uiMsg('UI_SCANNER_LOT_ID')}</div>
+                    <div className="col-span-1 text-center">{uiMsg('CTS_OUT_CUSTODY_COL_ITEMS')}</div>
+                    <div className="col-span-1">{uiMsg('UI_COMMON_STATUS')}</div>
+                    <div className="col-span-1 text-right">{uiMsg('UI_SCANNER_OPENED')}</div>
                   </div>
                   {lots.map(l => {
                     const pct = Math.min(100, Math.round((l.count / l.max) * 100))
@@ -745,7 +746,7 @@ export default function CTSScanner() {
                     )
                   })}
                   <div className={`px-3 py-2 text-[9px] ${th.faint}`}>
-                    Redis key: lot:{bankId ?? 'demo-bank'}:* · Lot max: 25 (Layer 3 config, hot-reload)
+                   {uiMsg('UI_SCANNER_REDIS_KEY_LOT_LOT_MAX', { value: bankId ?? 'demo-bank' })}
                   </div>
                 </div>
               )}
@@ -764,7 +765,7 @@ export default function CTSScanner() {
                     </div>
                   ))}
                   <div className={`px-3 py-2 text-[9px] ${th.faint}`}>
-                    Source: shared/messages/locales/messages.yaml · build: python -m shared.messages.build
+                   {uiMsg('UI_SCANNER_SOURCE_SHARED_MESSAGES_LOCALES_MESSA')}
                   </div>
                 </div>
               )}
@@ -779,13 +780,13 @@ export default function CTSScanner() {
 
         {/* ── SDK / Integration Reference ────────────────────────────────────── */}
         <div className={`border rounded-xl p-4 ${th.card}`}>
-          <div className={`text-xs font-semibold ${th.heading} mb-3`}>SDK Integration Reference</div>
+          <div className={`text-xs font-semibold ${th.heading} mb-3`}>{uiMsg('UI_SCANNER_SDK_INTEGRATION_REFERENCE')}</div>
           <div className="grid grid-cols-4 gap-4 mb-3">
             {[
-              { label: 'Canon CR-120',     detail: 'Ranger Transport API · C SDK via cgo bridge',               path: 'edge/cts-scanner-agent/ranger_windows.go',          note: 'Hardware MICR + duplex TIFF · triggers CR120 path' },
-              { label: 'Scanner Agent',    detail: 'Go binary · Windows service · localhost:9201',               path: 'edge/cts-scanner-agent/',                           note: 'GET /health · POST /session/start|stop · GET /session/status' },
-              { label: 'MinIO Upload',     detail: 'Pre-signed URL · PUT image/tiff from agent',                 path: 'POST /v1/cts/outward/scan/upload-url',              note: 'Agent never holds MinIO credentials — ASTRA issues per-scan URL' },
-              { label: 'Outward Workflow', detail: 'OutwardScanWorkflow forks on micr_hardware_raw presence',    path: 'modules/cts/workflows/outward_scan_workflow.py',    note: 'GOT-OCR2 skipped on CR120 path · single Qwen2-VL call' },
+              { label: uiMsg('UI_SCANNER_CANON_CR_120'),     detail: uiMsg('UI_SCANNER_RANGER_TRANSPORT_API_C_SDK'),               path: 'edge/cts-scanner-agent/ranger_windows.go',          note: uiMsg('UI_SCANNER_HARDWARE_MICR_DUPLEX_TIFF_TRIGGERS') },
+              { label: uiMsg('UI_SCANNER_SCANNER_AGENT'),    detail: uiMsg('UI_SCANNER_GO_BINARY_WINDOWS_SERVICE_LOCALHOST'),               path: 'edge/cts-scanner-agent/',                           note: uiMsg('UI_SCANNER_GET_HEALTH_POST_SESSION_START_2') },
+              { label: uiMsg('UI_SCANNER_MINIO_UPLOAD'),     detail: uiMsg('UI_SCANNER_PRE_SIGNED_URL_PUT_IMAGE'),                 path: 'POST /v1/cts/outward/scan/upload-url',              note: uiMsg('UI_SCANNER_AGENT_NEVER_HOLDS_MINIO_CREDENTIALS') },
+              { label: uiMsg('UI_SCANNER_OUTWARD_WORKFLOW'), detail: uiMsg('UI_SCANNER_OUTWARDSCANWORKFLOW_FORKS_ON_MICR_HA'),    path: 'modules/cts/workflows/outward_scan_workflow.py',    note: uiMsg('UI_SCANNER_GOT_OCR2_SKIPPED_ON_CR120') },
             ].map(s => (
               <div key={s.label}>
                 <div className={`text-xs font-semibold ${th.heading}`}>{s.label}</div>
@@ -796,16 +797,15 @@ export default function CTSScanner() {
             ))}
           </div>
           <div className={`pt-3 border-t ${th.divider} text-[10px] ${th.faint}`}>
-            <span className="font-mono">cts.outward.scanned.{bankId ?? '{bank_id}'}</span>
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_SCANNED', { value: bankId ?? '{bank_id}' })}</span>
             {' → '}
-            <span className="font-mono">cts.outward.lot.sealed.{bankId ?? '{bank_id}'}</span>
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_LOT_SEALED', { value: bankId ?? '{bank_id}' })}</span>
             {' → '}
-            <span className="font-mono">cts.outward.submitted.{bankId ?? '{bank_id}'}</span>
-            {' · Redis: '}
-            <span className="font-mono">redis-cts</span>
-            {' (blast-isolated CTS cluster)'}
-            {' · Audit → Immudb collection: '}
-            <span className="font-mono">cts_events</span>
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_OUTWARD_SUBMITTED', { value: bankId ?? '{bank_id}' })}</span>
+            {uiMsg('UI_SCANNER_REDIS')}
+            <span className="font-mono">{uiMsg('UI_SCANNER_REDIS_CTS')}</span>
+            {uiMsg('UI_SCANNER_BLAST_ISOLATED_CTS_CLUSTER_AUDIT')}
+            <span className="font-mono">{uiMsg('UI_SCANNER_CTS_EVENTS')}</span>
           </div>
         </div>
 

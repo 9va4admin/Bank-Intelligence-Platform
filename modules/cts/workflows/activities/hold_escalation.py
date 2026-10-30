@@ -12,6 +12,7 @@ import structlog
 from temporalio import activity
 
 from shared.observability.otel_setup import get_tracer
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = get_tracer(__name__)
@@ -183,7 +184,7 @@ async def send_hold_p0_alert(params: dict[str, Any]) -> None:
                         "instrument_id": instrument_id,
                         "iet_deadline": iet_deadline,
                         "severity": "P0",
-                        "message": "IET breach in 5 minutes. Release hold and decide immediately.",
+                        "message": get_message("CTS_IET_BREACH_IN_5_MINUTES"),
                     },
                 })
 

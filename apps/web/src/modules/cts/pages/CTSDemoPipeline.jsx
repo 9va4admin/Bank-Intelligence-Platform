@@ -17,33 +17,34 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg as uiMsg } from '../../../shared/messages'
 
 // ── Pipeline configuration ────────────────────────────────────────────────────
 
 const MAX_CONCURRENT = 5
 
 const PRESENTMENT_STAGES = [
-  { id: 'file_detected',   label: 'File Detected',     icon: '📁', color: 'sky',     minMs:  40, maxMs:  150 },
-  { id: 'image_load',      label: 'Image Load',        icon: '🖼',  color: 'violet',  minMs:  80, maxMs:  250 },
-  { id: 'ocr_micr',        label: 'OCR · MICR',        icon: '🔤', color: 'blue',    minMs: 350, maxMs:  750 },
-  { id: 'cts_compliance',  label: 'CTS-2010',          icon: '✅', color: 'indigo',  minMs: 120, maxMs:  350 },
-  { id: 'vision_llm',      label: 'Vision LLM',        icon: '🧠', color: 'purple',  minMs: 500, maxMs: 1100 },
-  { id: 'data_extraction', label: 'Data Check',        icon: '📊', color: 'cyan',    minMs: 150, maxMs:  400 },
-  { id: 'lot_assignment',  label: 'Lot Assign',        icon: '📦', color: 'teal',    minMs:  60, maxMs:  160 },
-  { id: 'decision',        label: 'Decision',          icon: '⚡', color: 'emerald', minMs:  40, maxMs:  120 },
+  { id: 'file_detected',   label: uiMsg('UI_DEMOPIPELINE_FILE_DETECTED'),     icon: '📁', color: 'sky',     minMs:  40, maxMs:  150 },
+  { id: 'image_load',      label: uiMsg('UI_DEMOPIPELINE_IMAGE_LOAD'),        icon: '🖼',  color: 'violet',  minMs:  80, maxMs:  250 },
+  { id: 'ocr_micr',        label: uiMsg('UI_DEMOPIPELINE_OCR_MICR'),        icon: '🔤', color: 'blue',    minMs: 350, maxMs:  750 },
+  { id: 'cts_compliance',  label: uiMsg('UI_DEMOPIPELINE_CTS_2010'),          icon: '✅', color: 'indigo',  minMs: 120, maxMs:  350 },
+  { id: 'vision_llm',      label: uiMsg('UI_DEMOPIPELINE_VISION_LLM'),        icon: '🧠', color: 'purple',  minMs: 500, maxMs: 1100 },
+  { id: 'data_extraction', label: uiMsg('UI_DEMOPIPELINE_DATA_CHECK'),        icon: '📊', color: 'cyan',    minMs: 150, maxMs:  400 },
+  { id: 'lot_assignment',  label: uiMsg('UI_DEMOPIPELINE_LOT_ASSIGN'),        icon: '📦', color: 'teal',    minMs:  60, maxMs:  160 },
+  { id: 'decision',        label: uiMsg('UI_COMMON_DECISION'),          icon: '⚡', color: 'emerald', minMs:  40, maxMs:  120 },
 ]
 
 const DRAWEE_STAGES = [
-  { id: 'file_receipt',    label: 'File Receipt',      icon: '📥', color: 'sky',     minMs:  60, maxMs:  180 },
-  { id: 'ocr_reextract',   label: 'OCR Re-extract',   icon: '🔤', color: 'violet',  minMs: 300, maxMs:  650 },
-  { id: 'rbi_checklist',   label: 'RBI Checklist',    icon: '📋', color: 'blue',    minMs: 180, maxMs:  420 },
-  { id: 'signature_vault', label: 'Sig Vault',         icon: '✍',  color: 'indigo',  minMs: 280, maxMs:  600 },
-  { id: 'account_status',  label: 'Account CBS',       icon: '🏦', color: 'cyan',    minMs: 180, maxMs:  380 },
-  { id: 'stop_payment',    label: 'Stop Payment',      icon: '🚫', color: 'orange',  minMs: 220, maxMs:  450 },
-  { id: 'pps_check',       label: 'PPS Check',         icon: '📋', color: 'teal',    minMs: 130, maxMs:  300 },
-  { id: 'fraud_score',     label: 'Fraud Score',       icon: '🛡',  color: 'amber',   minMs: 280, maxMs:  580 },
-  { id: 'vision_llm',      label: 'Vision LLM',        icon: '🧠', color: 'purple',  minMs: 480, maxMs: 1000 },
-  { id: 'decision',        label: 'NGCH Filed',        icon: '📤', color: 'emerald', minMs:  50, maxMs:  140 },
+  { id: 'file_receipt',    label: uiMsg('UI_DEMOPIPELINE_FILE_RECEIPT'),      icon: '📥', color: 'sky',     minMs:  60, maxMs:  180 },
+  { id: 'ocr_reextract',   label: uiMsg('UI_DEMOPIPELINE_OCR_RE_EXTRACT'),   icon: '🔤', color: 'violet',  minMs: 300, maxMs:  650 },
+  { id: 'rbi_checklist',   label: uiMsg('UI_DEMOPIPELINE_RBI_CHECKLIST'),    icon: '📋', color: 'blue',    minMs: 180, maxMs:  420 },
+  { id: 'signature_vault', label: uiMsg('UI_DEMOPIPELINE_SIG_VAULT'),         icon: '✍',  color: 'indigo',  minMs: 280, maxMs:  600 },
+  { id: 'account_status',  label: uiMsg('UI_DEMOPIPELINE_ACCOUNT_CBS'),       icon: '🏦', color: 'cyan',    minMs: 180, maxMs:  380 },
+  { id: 'stop_payment',    label: uiMsg('UI_COMMON_STOP_PAYMENT'),      icon: '🚫', color: 'orange',  minMs: 220, maxMs:  450 },
+  { id: 'pps_check',       label: uiMsg('UI_DEMOPIPELINE_PPS_CHECK'),         icon: '📋', color: 'teal',    minMs: 130, maxMs:  300 },
+  { id: 'fraud_score',     label: uiMsg('UI_COMMON_FRAUD_SCORE'),       icon: '🛡',  color: 'amber',   minMs: 280, maxMs:  580 },
+  { id: 'vision_llm',      label: uiMsg('UI_DEMOPIPELINE_VISION_LLM'),        icon: '🧠', color: 'purple',  minMs: 480, maxMs: 1000 },
+  { id: 'decision',        label: uiMsg('UI_COMMON_NGCH_FILED'),        icon: '📤', color: 'emerald', minMs:  50, maxMs:  140 },
 ]
 
 const DRAWEE_BANKS = [
@@ -64,16 +65,16 @@ const PAYEES   = ['M/s Sunshine Traders','ABC Enterprises Pvt Ltd','R.K. Constru
 // ── Deterministic failure injection ──────────────────────────────────────────
 
 function presentmentFailure(idx) {
-  if (idx % 7 === 6)  return { step: 'data_extraction', reason: 'AMOUNT_MISMATCH',    detail: `Amount figures ₹${((idx % 5 + 1) * 10000).toLocaleString('en-IN')} do not match words — discrepancy detected.` }
-  if (idx % 13 === 12) return { step: 'vision_llm',      reason: 'ALTERATION_DETECTED', detail: 'Qwen2-VL reports overwriting in amount field (tamper confidence 0.91). Rejected per CTS-2010 §5.2.' }
-  if (idx % 19 === 18) return { step: 'cts_compliance',  reason: 'CTS_IMAGE_QUALITY',   detail: 'Image DPI below CTS-2010 minimum (96 DPI required, detected 68 DPI). Re-scan required.' }
+  if (idx % 7 === 6)  return { step: 'data_extraction', reason: 'AMOUNT_MISMATCH',    detail: uiMsg('UI_DEMOPIPELINE_AMOUNT_FIGURES_DO_NOT_MATCH', { value: ((idx % 5 + 1) * 10000).toLocaleString('en-IN') }) }
+  if (idx % 13 === 12) return { step: 'vision_llm',      reason: 'ALTERATION_DETECTED', detail: uiMsg('UI_DEMOPIPELINE_QWEN2_VL_REPORTS_OVERWRITING_IN') }
+  if (idx % 19 === 18) return { step: 'cts_compliance',  reason: 'CTS_IMAGE_QUALITY',   detail: uiMsg('UI_DEMOPIPELINE_IMAGE_DPI_BELOW_CTS_2010') }
   return null
 }
 
 function draweeFailure(idx) {
-  if (idx % 11 === 10) return { step: 'stop_payment',    reason: 'STOP_PAYMENT_ACTIVE', detail: 'CBS confirms stop-payment instruction active (filed 2026-06-29 14:32). Instrument returned.' }
-  if (idx % 17 === 16) return { step: 'signature_vault', reason: 'SIGNATURE_MISMATCH',  detail: 'Siamese SNN match score 0.42 (threshold 0.85). 2 registered specimens. Human review required.' }
-  if (idx % 23 === 22) return { step: 'account_status',  reason: 'ACCOUNT_FROZEN',      detail: 'CBS: account FROZEN (court order CO-2026-MUM-4421). Instrument returned immediately.' }
+  if (idx % 11 === 10) return { step: 'stop_payment',    reason: 'STOP_PAYMENT_ACTIVE', detail: uiMsg('UI_DEMOPIPELINE_CBS_CONFIRMS_STOP_PAYMENT_INSTRUCTIO') }
+  if (idx % 17 === 16) return { step: 'signature_vault', reason: 'SIGNATURE_MISMATCH',  detail: uiMsg('UI_DEMOPIPELINE_SIAMESE_SNN_MATCH_SCORE_0') }
+  if (idx % 23 === 22) return { step: 'account_status',  reason: 'ACCOUNT_FROZEN',      detail: uiMsg('UI_DEMOPIPELINE_CBS_ACCOUNT_FROZEN_COURT_ORDER') }
   return null
 }
 
@@ -256,24 +257,24 @@ function UploadZone({ files, onFiles, onLoadSamples, onStart, isDark }) {
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}>
         <div className="text-4xl mb-3">🗂</div>
-        <div className={`text-sm font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Drop cheque images here</div>
-        <div className={`text-xs ${th.muted}`}>JPG · PNG · TIF · TIFF accepted</div>
+        <div className={`text-sm font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{uiMsg('UI_DEMOPIPELINE_DROP_CHEQUE_IMAGES_HERE')}</div>
+        <div className={`text-xs ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_JPG_PNG_TIF_TIFF_ACCEPTED')}</div>
         <input ref={inputRef} type="file" multiple accept="image/*,.tif,.tiff" className="hidden"
           onChange={e => onFiles(Array.from(e.target.files))} />
       </div>
       <div className={`flex items-center gap-3 ${th.muted} text-xs`}>
         <div className={`flex-1 h-px ${isDark ? 'bg-white/8' : 'bg-slate-200'}`} />
-        <span>or</span>
+        <span>{uiMsg('UI_DEMOPIPELINE_OR')}</span>
         <div className={`flex-1 h-px ${isDark ? 'bg-white/8' : 'bg-slate-200'}`} />
       </div>
       <button onClick={onLoadSamples}
         className={`w-full py-3 rounded-xl border text-sm font-semibold transition-colors ${isDark ? 'border-violet-700/50 bg-violet-900/20 text-violet-300 hover:bg-violet-900/40' : 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'}`}>
-        📋 Load 12 Sample Cheques (demo)
+       {uiMsg('UI_DEMOPIPELINE_LOAD_12_SAMPLE_CHEQUES_DEMO')}
       </button>
       {files.length > 0 && (
         <div className={`rounded-xl border overflow-hidden ${th.card}`}>
           <div className={`px-4 py-2 border-b flex items-center justify-between ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
-            <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{files.length} file{files.length > 1 ? 's' : ''} ready</span>
+            <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_FILE_READY', { count: files.length, value: files.length > 1 ? 's' : '' })}</span>
           </div>
           <div className="max-h-48 overflow-y-auto">
             {files.map((f, i) => (
@@ -288,7 +289,7 @@ function UploadZone({ files, onFiles, onLoadSamples, onStart, isDark }) {
       {files.length > 0 && (
         <button onClick={onStart}
           className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm transition-colors">
-          ▶ Start Presentment Processing ({files.length} cheque{files.length > 1 ? 's' : ''})
+         {uiMsg('UI_DEMOPIPELINE_START_PRESENTMENT_PROCESSING_CHEQUE', { count: files.length, value: files.length > 1 ? 's' : '' })}
         </button>
       )}
     </div>
@@ -308,36 +309,36 @@ function NPCIView({ npciGroups, items, onRunDrawee, isDark }) {
       <div className={`rounded-xl border px-5 py-4 flex items-center gap-6 ${isDark ? 'bg-emerald-900/10 border-emerald-700/30' : 'bg-emerald-50 border-emerald-200'}`}>
         <span className="text-2xl">✅</span>
         <div>
-          <div className={`text-sm font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>Presentment Complete</div>
+          <div className={`text-sm font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>{uiMsg('UI_DEMOPIPELINE_PRESENTMENT_COMPLETE')}</div>
           <div className={`text-xs mt-0.5 ${isDark ? 'text-emerald-400/70' : 'text-emerald-600'}`}>
-            {success} accepted · {failed} rejected · routed to {Object.keys(npciGroups).length} clearing banks
+            {uiMsg('UI_DEMOPIPELINE_ACCEPTED_REJECTED_ROUTED_TO_CLEARING', { success, failed, count: Object.keys(npciGroups).length })}
           </div>
         </div>
         <div className="ml-auto flex gap-3">
           <button onClick={() => downloadCSV(buildSuccessCSV(items, 'presentment'), 'presentment_success.csv')}
             className={`px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${isDark ? 'border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/30' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-100'}`}>
-            ⬇ Success CSV
+           {uiMsg('UI_DEMOPIPELINE_SUCCESS_CSV')}
           </button>
           <button onClick={() => downloadCSV(buildFailureCSV(items), 'presentment_failure.csv')}
             className={`px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${isDark ? 'border-red-700/40 text-red-300 hover:bg-red-900/30' : 'border-red-300 text-red-700 hover:bg-red-100'}`}>
-            ⬇ Failure CSV
+           {uiMsg('UI_DEMOPIPELINE_FAILURE_CSV')}
           </button>
         </div>
       </div>
-      <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted}`}>NPCI Clearing House — Routing accepted cheques by drawee bank</div>
+      <div className={`text-xs font-semibold uppercase tracking-widest ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_NPCI_CLEARING_HOUSE_ROUTING_ACCEPTED')}</div>
       <div className="grid grid-cols-2 gap-3">
         {Object.entries(npciGroups).map(([bank, count]) => (
           <div key={bank} className={`rounded-xl border p-4 ${th.card}`}>
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className={`text-xs font-semibold ${th.head}`}>{bank}</div>
-                <div className={`text-[10px] mt-0.5 ${th.muted}`}>{count} cheque{count > 1 ? 's' : ''} routed</div>
+                <div className={`text-[10px] mt-0.5 ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_CHEQUE_ROUTED', { count, value: count > 1 ? 's' : '' })}</div>
               </div>
               <span className="text-xl">🏦</span>
             </div>
             <button onClick={() => onRunDrawee(bank)}
               className={`w-full py-2 rounded-lg text-[11px] font-semibold transition-colors ${isDark ? 'bg-violet-900/40 text-violet-300 hover:bg-violet-900/60 border border-violet-700/40' : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200'}`}>
-              ▶ Process as {bank.split(' ')[0]}
+             {uiMsg('UI_DEMOPIPELINE_PROCESS_AS', { bank: bank.split(' ')[0] })}
             </button>
           </div>
         ))}
@@ -352,15 +353,15 @@ function CompleteView({ presentItems, draweeItems, isDark }) {
     <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full mt-8">
       <div className={`rounded-xl border px-6 py-5 text-center ${isDark ? 'bg-indigo-900/10 border-indigo-700/30' : 'bg-indigo-50 border-indigo-200'}`}>
         <div className="text-3xl mb-2">🎉</div>
-        <div className={`text-base font-semibold ${isDark ? 'text-indigo-200' : 'text-indigo-900'}`}>End-to-End Demo Complete</div>
-        <div className={`text-xs mt-1 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{ds.success} confirmed · {ds.failed} returned</div>
+        <div className={`text-base font-semibold ${isDark ? 'text-indigo-200' : 'text-indigo-900'}`}>{uiMsg('UI_DEMOPIPELINE_END_TO_END_DEMO_COMPLETE')}</div>
+        <div className={`text-xs mt-1 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{uiMsg('UI_DEMOPIPELINE_CONFIRMED_RETURNED', { success: ds.success, failed: ds.failed })}</div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Drawee Confirmed CSV',   fn: () => downloadCSV(buildSuccessCSV(draweeItems,  'drawee'),       'drawee_confirmed.csv'),   color: 'emerald' },
-          { label: 'Drawee Returned CSV',    fn: () => downloadCSV(buildFailureCSV(draweeItems),                  'drawee_returned.csv'),    color: 'red'     },
-          { label: 'Presentment Success',    fn: () => downloadCSV(buildSuccessCSV(presentItems, 'presentment'), 'presentment_success.csv'), color: 'violet'  },
-          { label: 'Presentment Failure',    fn: () => downloadCSV(buildFailureCSV(presentItems),                'presentment_failure.csv'), color: 'orange'  },
+          { label: uiMsg('UI_DEMOPIPELINE_DRAWEE_CONFIRMED_CSV'),   fn: () => downloadCSV(buildSuccessCSV(draweeItems,  'drawee'),       'drawee_confirmed.csv'),   color: 'emerald' },
+          { label: uiMsg('UI_DEMOPIPELINE_DRAWEE_RETURNED_CSV'),    fn: () => downloadCSV(buildFailureCSV(draweeItems),                  'drawee_returned.csv'),    color: 'red'     },
+          { label: uiMsg('UI_DEMOPIPELINE_PRESENTMENT_SUCCESS'),    fn: () => downloadCSV(buildSuccessCSV(presentItems, 'presentment'), 'presentment_success.csv'), color: 'violet'  },
+          { label: uiMsg('UI_DEMOPIPELINE_PRESENTMENT_FAILURE'),    fn: () => downloadCSV(buildFailureCSV(presentItems),                'presentment_failure.csv'), color: 'orange'  },
         ].map(({ label, fn, color }) => (
           <button key={label} onClick={fn}
             className={`rounded-xl border px-4 py-3 text-[11px] font-semibold flex items-center gap-2 transition-colors text-left ${
@@ -384,7 +385,7 @@ const fresh = (filename) => ({ filename, status: 'queued', steps: [], decision: 
 export default function CTSDemoPipeline() {
   const { isDark }   = useTheme()
   const { bankType } = useBankContext()
-  usePageHeader({ subtitle: 'End-to-end live demo — Presentment · NPCI routing · Drawee processing' })
+  usePageHeader({ subtitle: uiMsg('UI_DEMOPIPELINE_END_TO_END_LIVE_DEMO') })
 
   const [phase,       setPhase]       = useState('setup')
   const [files,       setFiles]       = useState([])
@@ -623,10 +624,10 @@ export default function CTSDemoPipeline() {
         {(phase === 'presentment' || phase === 'drawee') && (
           <div className={`shrink-0 px-6 py-2.5 border-b ${th.divider} flex items-center gap-8`}>
             {[
-              { label: 'Processing', val: processing, color: 'text-amber-400' },
+              { label: uiMsg('UI_COMMON_PROCESSING'), val: processing, color: 'text-amber-400' },
               { label: phase === 'drawee' ? 'Confirmed' : 'Accepted', val: success, color: 'text-emerald-400' },
               { label: phase === 'drawee' ? 'Returned'  : 'Rejected',  val: failed,  color: 'text-red-400'     },
-              { label: 'Total', val: displayItems.length, color: isDark ? 'text-slate-300' : 'text-slate-700' },
+              { label: uiMsg('UI_COMMON_TOTAL'), val: displayItems.length, color: isDark ? 'text-slate-300' : 'text-slate-700' },
             ].map(k => (
               <div key={k.label} className="flex items-baseline gap-2">
                 <span className={`text-2xl font-black font-mono tabular-nums ${k.color}`}>{k.val}</span>
@@ -640,7 +641,7 @@ export default function CTSDemoPipeline() {
           {/* Left: item queue */}
           <div className={`w-72 shrink-0 border-r ${th.divider} flex flex-col`}>
             <div className={`px-3 py-2 border-b ${th.divider} flex items-center justify-between`}>
-              <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>Cheque Queue</span>
+              <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_CHEQUE_QUEUE')}</span>
               <span className={`text-[10px] font-mono ${th.faint}`}>{displayItems.length || files.length}</span>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -661,7 +662,7 @@ export default function CTSDemoPipeline() {
                     {it.status === 'processing' && it.currentStep && (
                       <span className={`text-[9px] font-mono ${th.faint} truncate`}>{it.currentStep}</span>
                     )}
-                    {it.totalMs > 0 && <span className={`ml-auto text-[9px] font-mono ${th.faint}`}>{it.totalMs}ms</span>}
+                    {it.totalMs > 0 && <span className={`ml-auto text-[9px] font-mono ${th.faint}`}>{uiMsg('UI_DEMOPIPELINE_MS', { totalMs: it.totalMs })}</span>}
                   </div>
                   {it.rejectReason && <div className="text-[9px] mt-1 text-red-400 truncate">{it.rejectReason}</div>}
                 </div>
@@ -700,13 +701,13 @@ export default function CTSDemoPipeline() {
               {(phase === 'presentment' || phase === 'drawee') && displayItems.length > 0 && (
                 <div className={`mt-3 rounded-xl border overflow-hidden ${th.card}`}>
                   <div className={`px-4 py-2 border-b ${th.divider}`}>
-                    <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>Live Processing Detail</span>
+                    <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_LIVE_PROCESSING_DETAIL')}</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-[10px]">
                       <thead>
                         <tr className={`border-b ${th.divider}`}>
-                          {['File','Status','Current Step','Decision','Time'].map(h => (
+                          {[uiMsg('UI_DEMOPIPELINE_FILE'),uiMsg('UI_COMMON_STATUS'),uiMsg('UI_DEMOPIPELINE_CURRENT_STEP'),uiMsg('UI_COMMON_DECISION'),uiMsg('UI_COMMON_TIME')].map(h => (
                             <th key={h} className={`px-3 py-2 text-left font-semibold ${th.muted}`}>{h}</th>
                           ))}
                         </tr>
@@ -732,15 +733,15 @@ export default function CTSDemoPipeline() {
           {/* Right: live event feed */}
           <div className={`w-60 shrink-0 border-l ${th.divider} flex flex-col`}>
             <div className={`px-3 py-2 border-b ${th.divider} flex items-center justify-between`}>
-              <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>Live Feed</span>
+              <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_LIVE_FEED')}</span>
               {phase !== 'setup' && phase !== 'npci' && phase !== 'complete' && (
                 <span className="flex items-center gap-1 text-[9px] text-emerald-400">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />Live
+                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />{uiMsg('UI_COMMON_LIVE')}
                 </span>
               )}
             </div>
             <div ref={logRef} className="flex-1 overflow-y-auto p-2 space-y-1">
-              {eventLog.length === 0 && <div className={`text-[10px] text-center mt-8 ${th.faint}`}>Events will appear here</div>}
+              {eventLog.length === 0 && <div className={`text-[10px] text-center mt-8 ${th.faint}`}>{uiMsg('UI_DEMOPIPELINE_EVENTS_WILL_APPEAR_HERE')}</div>}
               {eventLog.map((ev, i) => (
                 <div key={i} className={`text-[9px] rounded px-2 py-1 flex items-start gap-1.5 ${
                   ev.type === 'error'   ? (isDark ? 'bg-red-900/20 text-red-300'         : 'bg-red-50 text-red-700') :
@@ -756,23 +757,23 @@ export default function CTSDemoPipeline() {
             {/* Download shortcuts during NPCI/Complete phases */}
             {(phase === 'npci' || phase === 'complete') && (
               <div className={`shrink-0 p-3 border-t ${th.divider} space-y-2`}>
-                <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>Downloads</div>
+                <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>{uiMsg('UI_DEMOPIPELINE_DOWNLOADS')}</div>
                 <button onClick={() => downloadCSV(buildSuccessCSV(items, 'presentment'), 'presentment_success.csv')}
                   className={`block w-full text-center py-1.5 rounded-lg text-[10px] font-semibold border transition-colors ${isDark ? 'border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/20' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}>
-                  ⬇ Presentment Success
+                 {uiMsg('UI_DEMOPIPELINE_PRESENTMENT_SUCCESS_2')}
                 </button>
                 <button onClick={() => downloadCSV(buildFailureCSV(items), 'presentment_failure.csv')}
                   className={`block w-full text-center py-1.5 rounded-lg text-[10px] font-semibold border transition-colors ${isDark ? 'border-red-700/40 text-red-300 hover:bg-red-900/20' : 'border-red-200 text-red-700 hover:bg-red-50'}`}>
-                  ⬇ Presentment Failure
+                 {uiMsg('UI_DEMOPIPELINE_PRESENTMENT_FAILURE_2')}
                 </button>
                 {phase === 'complete' && <>
                   <button onClick={() => downloadCSV(buildSuccessCSV(draweeItems, 'drawee'), 'drawee_confirmed.csv')}
                     className={`block w-full text-center py-1.5 rounded-lg text-[10px] font-semibold border transition-colors ${isDark ? 'border-violet-700/40 text-violet-300 hover:bg-violet-900/20' : 'border-violet-200 text-violet-700 hover:bg-violet-50'}`}>
-                    ⬇ Drawee Confirmed
+                   {uiMsg('UI_DEMOPIPELINE_DRAWEE_CONFIRMED')}
                   </button>
                   <button onClick={() => downloadCSV(buildFailureCSV(draweeItems), 'drawee_returned.csv')}
                     className={`block w-full text-center py-1.5 rounded-lg text-[10px] font-semibold border transition-colors ${isDark ? 'border-orange-700/40 text-orange-300 hover:bg-orange-900/20' : 'border-orange-200 text-orange-700 hover:bg-orange-50'}`}>
-                    ⬇ Drawee Returned
+                   {uiMsg('UI_DEMOPIPELINE_DRAWEE_RETURNED')}
                   </button>
                 </>}
               </div>

@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MOCK_QUEUE } from '../data/mockQueue'
+import { msg } from '../../../shared/messages'
 
 const POLL_INTERVAL_MS = 10_000
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -86,7 +87,7 @@ export default function useReviewQueue({ token, pollEnabled = true, isDemo = tru
       setTotal(0)
       setUseMock(false)
       setLoading(false)
-      setError('No auth token — queue unavailable')
+      setError(msg('UI_USEREVIEWQUEUE_NO_AUTH_TOKEN_QUEUE_UNAVAILABLE'))
       return
     }
 
@@ -96,7 +97,7 @@ export default function useReviewQueue({ token, pollEnabled = true, isDemo = tru
       })
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
+        throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       }
 
       const data = await res.json()

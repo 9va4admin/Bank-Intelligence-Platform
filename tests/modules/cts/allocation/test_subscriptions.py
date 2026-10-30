@@ -69,3 +69,9 @@ async def test_reads_are_cached_and_a_write_refreshes_them(pool, store):
 async def test_without_a_database_nobody_is_subscribed_so_nothing_is_wrongly_blocked(store):
     s = SubscriptionStore(None, redis=None)
     assert await s.get_subscribers(BANK, "HVC") == [] and await s.get_reviewer_buckets(BANK, "alice") == []
+
+
+@pytest.mark.asyncio
+async def test_a_reviewer_can_be_connected_to_the_validation_queue(store):
+    await store.set_reviewer_buckets(BANK, "checker", ["VAL", "SIP_SUCCESS"], changed_by="boss")
+    assert await store.get_subscribers(BANK, "VAL") == ["checker"]

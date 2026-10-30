@@ -1,3 +1,4 @@
+import { msg } from '../../../shared/messages'
 export default function BatchStats({ stats, isDark }) {
   const pctDone = Math.round(((stats.stp_confirmed + stats.stp_returned + stats.human_review) / stats.total_inward) * 100)
 
@@ -8,12 +9,12 @@ export default function BatchStats({ stats, isDark }) {
   const wrapper = isDark ? 'border-white/10 bg-navy-900/60' : 'border-slate-200 bg-white'
 
   const tiles = [
-    { label: 'Inward',    value: stats.total_inward,          color: heading },
-    { label: 'Confirmed', value: stats.stp_confirmed,         color: 'text-emerald-500' },
-    { label: 'Returned',  value: stats.stp_returned,          color: 'text-red-400' },
-    { label: 'Review',    value: stats.human_review,          color: 'text-amber-400' },
-    { label: 'STP Rate',  value: `${stats.stp_rate}%`,        color: 'text-gold-400' },
-    { label: 'Avg',       value: `${stats.avg_decision_ms}ms`,color: 'text-blue-400' },
+    { label: msg('UI_COMMON_INWARD'),    value: stats.total_inward,          color: heading },
+    { label: msg('UI_COMMON_CONFIRMED'), value: stats.stp_confirmed,         color: 'text-emerald-500' },
+    { label: msg('UI_COMMON_RETURNED'),  value: stats.stp_returned,          color: 'text-red-400' },
+    { label: msg('UI_BATCHSTATS_REVIEW'),    value: stats.human_review,          color: 'text-amber-400' },
+    { label: msg('UI_COMMON_STP_RATE'),  value: `${stats.stp_rate}%`,        color: 'text-gold-400' },
+    { label: msg('UI_BATCHSTATS_AVG'),       value: `${stats.avg_decision_ms}ms`,color: 'text-blue-400' },
   ]
 
   return (
@@ -22,8 +23,8 @@ export default function BatchStats({ stats, isDark }) {
       <div className="flex items-center gap-4 px-5 py-1.5">
         {/* Branding + live pill */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[11px] font-semibold ${heading}`}>Mumbai Clearing · {stats.date}</span>
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
+          <span className={`text-[11px] font-semibold ${heading}`}>{msg('UI_BATCHSTATS_MUMBAI_CLEARING', { date: stats.date })}</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">{msg('UI_BATCHSTATS_LIVE')}</span>
         </div>
 
         {/* Progress bar — slim, takes remaining space */}
@@ -52,7 +53,7 @@ export default function BatchStats({ stats, isDark }) {
       {stats.iet_risk > 0 && (
         <div className="flex items-center gap-1.5 px-5 pb-1 text-[10px] text-red-400 animate-pulse">
           <span>⚠</span>
-          <span>{stats.iet_risk} cheque{stats.iet_risk > 1 ? 's' : ''} approaching IET deadline — review immediately</span>
+          <span>{msg('UI_BATCHSTATS_CHEQUE_APPROACHING_IET_DEADLINE_REVI', { iet_risk: stats.iet_risk, value: stats.iet_risk > 1 ? 's' : '' })}</span>
         </div>
       )}
     </div>

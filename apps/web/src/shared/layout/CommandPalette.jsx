@@ -4,20 +4,21 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { msg } from '../messages'
 
 const COMMANDS = [
-  { id: 'nav-hrq',      group: 'CTS Inward',  label: 'Human Review Queue',         sub: 'Claim and review pending instruments',         to: '/cts/inward/review-queue', icon: '👁' },
-  { id: 'nav-inward',   group: 'CTS Inward',  label: 'Inward Monitor',              sub: 'Live swimlane view of inward clearing session', to: '/cts/inward',              icon: '📥' },
-  { id: 'nav-decisions',group: 'CTS Inward',  label: 'AI Decisions Log',            sub: 'All AI-driven cheque decisions',               to: '/cts/decisions',           icon: '🧠' },
-  { id: 'nav-vault-st', group: 'CTS Vault',   label: 'Vault Status',                sub: 'Signature and PPS vault health + trends',      to: '/cts/vault/status',        icon: '🔐' },
-  { id: 'nav-vault-up', group: 'CTS Vault',   label: 'Vault Upload',                sub: 'Upload signature / PPS / stop payment CSV',    to: '/cts/vault/upload',        icon: '📤' },
-  { id: 'nav-vault-sy', group: 'CTS Vault',   label: 'Vault Sync Schedule',         sub: 'Next sync countdown and sync history',         to: '/cts/vault/sync',          icon: '🔄' },
-  { id: 'nav-vault-gap',group: 'CTS Vault',   label: 'Vault Gap Report',            sub: 'Accounts with no vault specimen — enroll before next session', to: '/cts/vault/gaps', icon: '⚠️' },
-  { id: 'nav-outward',  group: 'CTS Outward', label: 'Outward Clearing',            sub: 'Scanner capture, lot management, NGCH filing', to: '/cts/outward',             icon: '📄' },
-  { id: 'nav-ops',      group: 'Operations',  label: 'Operations Dashboard',        sub: 'Platform health, alerts, and throughput',      to: '/ops/dashboard',           icon: '📊' },
-  { id: 'nav-audit',    group: 'Admin',       label: 'Audit Trail',                 sub: 'Immutable audit log (Immudb)',                  to: '/admin/audit',             icon: '📋' },
-  { id: 'nav-admin',    group: 'Admin',       label: 'Admin Console',               sub: 'Bank configuration and user management',       to: '/admin',                   icon: '⚙️' },
-  { id: 'act-theme',    group: 'Actions',     label: 'Toggle Dark / Light Theme',   sub: 'Switch between dark and light mode',           action: 'toggle-theme',         icon: '🌙' },
+  { id: 'nav-hrq',      group: 'CTS Inward',  label: msg('UI_APPSHELL_HUMAN_REVIEW_QUEUE'),         sub: 'Claim and review pending instruments',         to: '/cts/inward/review-queue', icon: '👁' },
+  { id: 'nav-inward',   group: 'CTS Inward',  label: msg('UI_APPSHELL_INWARD_MONITOR'),              sub: 'Live swimlane view of inward clearing session', to: '/cts/inward',              icon: '📥' },
+  { id: 'nav-decisions',group: 'CTS Inward',  label: msg('UI_COMMANDPALETTE_AI_DECISIONS_LOG'),            sub: 'All AI-driven cheque decisions',               to: '/cts/decisions',           icon: '🧠' },
+  { id: 'nav-vault-st', group: 'CTS Vault',   label: msg('UI_SMBREGISTRY_VAULT_STATUS'),                sub: 'Signature and PPS vault health + trends',      to: '/cts/vault/status',        icon: '🔐' },
+  { id: 'nav-vault-up', group: 'CTS Vault',   label: msg('UI_COMMON_VAULT_UPLOAD'),                sub: 'Upload signature / PPS / stop payment CSV',    to: '/cts/vault/upload',        icon: '📤' },
+  { id: 'nav-vault-sy', group: 'CTS Vault',   label: msg('UI_COMMANDPALETTE_VAULT_SYNC_SCHEDULE'),         sub: 'Next sync countdown and sync history',         to: '/cts/vault/sync',          icon: '🔄' },
+  { id: 'nav-vault-gap',group: 'CTS Vault',   label: msg('UI_APPSHELL_VAULT_GAP_REPORT'),            sub: 'Accounts with no vault specimen — enroll before next session', to: '/cts/vault/gaps', icon: '⚠️' },
+  { id: 'nav-outward',  group: 'CTS Outward', label: msg('UI_APPSHELL_OUTWARD_CLEARING'),            sub: 'Scanner capture, lot management, NGCH filing', to: '/cts/outward',             icon: '📄' },
+  { id: 'nav-ops',      group: 'Operations',  label: msg('UI_COMMANDPALETTE_OPERATIONS_DASHBOARD'),        sub: 'Platform health, alerts, and throughput',      to: '/ops/dashboard',           icon: '📊' },
+  { id: 'nav-audit',    group: 'Admin',       label: msg('UI_COMMON_AUDIT_TRAIL'),                 sub: 'Immutable audit log (Immudb)',                  to: '/admin/audit',             icon: '📋' },
+  { id: 'nav-admin',    group: 'Admin',       label: msg('UI_COMMANDPALETTE_ADMIN_CONSOLE'),               sub: 'Bank configuration and user management',       to: '/admin',                   icon: '⚙️' },
+  { id: 'act-theme',    group: 'Actions',     label: msg('UI_COMMANDPALETTE_TOGGLE_DARK_LIGHT_THEME'),   sub: 'Switch between dark and light mode',           action: 'toggle-theme',         icon: '🌙' },
 ]
 
 export default function CommandPalette({ open, onClose, onToggleTheme, isDark }) {
@@ -107,17 +108,17 @@ export default function CommandPalette({ open, onClose, onToggleTheme, isDark })
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search pages and actions…"
+            placeholder={msg('UI_COMMANDPALETTE_SEARCH_PAGES_AND_ACTIONS')}
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: text }}
           />
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: muted, border: `1px solid ${border}` }}>Esc</kbd>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: muted, border: `1px solid ${border}` }}>{msg('UI_COMMANDPALETTE_ESC')}</kbd>
         </div>
 
         {/* Results */}
         <div ref={listRef} className="overflow-y-auto py-2" style={{ maxHeight: '55vh' }}>
           {filtered.length === 0 ? (
-            <div className="text-center py-10 text-sm" style={{ color: muted }}>No results for "{query}"</div>
+            <div className="text-center py-10 text-sm" style={{ color: muted }}>{msg('UI_COMMANDPALETTE_NO_RESULTS_FOR', { query })}</div>
           ) : (
             Object.entries(groups).map(([group, cmds]) => (
               <div key={group}>
@@ -152,10 +153,10 @@ export default function CommandPalette({ open, onClose, onToggleTheme, isDark })
 
         {/* Footer */}
         <div className="flex items-center gap-4 px-4 py-2.5 text-[10px]" style={{ borderTop: `1px solid ${border}`, color: muted }}>
-          <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-          <span><kbd className="font-mono">↵</kbd> open</span>
-          <span><kbd className="font-mono">Esc</kbd> close</span>
-          <span className="ml-auto font-mono">Ctrl K</span>
+          <span><kbd className="font-mono">↑↓</kbd> {msg('UI_COMMANDPALETTE_NAVIGATE')}</span>
+          <span><kbd className="font-mono">↵</kbd> {msg('UI_COMMANDPALETTE_OPEN')}</span>
+          <span><kbd className="font-mono">{msg('UI_COMMANDPALETTE_ESC')}</kbd> {msg('UI_COMMANDPALETTE_CLOSE')}</span>
+          <span className="ml-auto font-mono">{msg('UI_COMMANDPALETTE_CTRL_K')}</span>
         </div>
       </div>
     </div>

@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { msg } from '../messages'
 
 const MOCK_RESULTS = [
-  { instrument_id: 'INS-2024-001234', cheque_number: '000234', account_display: '****4521', payee_display: 'R***', amount_range: '₹[1L-5L]', status: 'STP_CONFIRM', clearing_zone: 'MUMBAI', received_at: '2026-06-25T09:14:23Z', fraud_score: 0.12, ocr_confidence: 0.97 },
-  { instrument_id: 'INS-2024-001235', cheque_number: '000235', account_display: '****7890', payee_display: 'S***', amount_range: '₹[5L-10L]', status: 'HUMAN_REVIEW', clearing_zone: 'DELHI',  received_at: '2026-06-25T09:18:05Z', fraud_score: 0.74, ocr_confidence: 0.91 },
-  { instrument_id: 'INS-2024-001236', cheque_number: '000236', account_display: '****1122', payee_display: 'M***', amount_range: '₹[<1L]',    status: 'STP_RETURN',  clearing_zone: 'MUMBAI', received_at: '2026-06-25T08:52:11Z', fraud_score: 0.88, ocr_confidence: 0.95 },
+  { instrument_id: 'INS-2024-001234', cheque_number: '000234', account_display: '****4521', payee_display: 'R***', amount_range: '₹[1L-5L]', status: 'STP_CONFIRM', pu_id: 'MUMBAI', received_at: '2026-06-25T09:14:23Z', fraud_score: 0.12, ocr_confidence: 0.97 },
+  { instrument_id: 'INS-2024-001235', cheque_number: '000235', account_display: '****7890', payee_display: 'S***', amount_range: '₹[5L-10L]', status: 'HUMAN_REVIEW', pu_id: 'DELHI',  received_at: '2026-06-25T09:18:05Z', fraud_score: 0.74, ocr_confidence: 0.91 },
+  { instrument_id: 'INS-2024-001236', cheque_number: '000236', account_display: '****1122', payee_display: 'M***', amount_range: '₹[<1L]',    status: 'STP_RETURN',  pu_id: 'MUMBAI', received_at: '2026-06-25T08:52:11Z', fraud_score: 0.88, ocr_confidence: 0.95 },
 ]
 
 const STATUS_STYLE = {
-  STP_CONFIRM:  { dot: 'bg-emerald-400', label: 'Confirmed',     text: 'text-emerald-400' },
-  STP_RETURN:   { dot: 'bg-red-400',     label: 'Returned',      text: 'text-red-400'     },
-  HUMAN_REVIEW: { dot: 'bg-amber-400',   label: 'Human Review',  text: 'text-amber-400'   },
-  RUNNING:      { dot: 'bg-blue-400',    label: 'Processing',    text: 'text-blue-400'    },
+  STP_CONFIRM:  { dot: 'bg-emerald-400', label: msg('UI_COMMON_CONFIRMED'),     text: 'text-emerald-400' },
+  STP_RETURN:   { dot: 'bg-red-400',     label: msg('UI_COMMON_RETURNED'),      text: 'text-red-400'     },
+  HUMAN_REVIEW: { dot: 'bg-amber-400',   label: msg('UI_COMMON_HUMAN_REVIEW'),  text: 'text-amber-400'   },
+  RUNNING:      { dot: 'bg-blue-400',    label: msg('UI_COMMON_PROCESSING'),    text: 'text-blue-400'    },
 }
 
 function useDebouncedSearch(query, delay = 300) {
@@ -114,7 +115,7 @@ export default function ChequeSearchBar({ isDark }) {
           onChange={(e) => { setQuery(e.target.value); setOpen(true); setActiveIdx(-1) }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search cheque / instrument…"
+          placeholder={msg('UI_CHEQUESEARCHBAR_SEARCH_CHEQUE_INSTRUMENT')}
           className={`h-7 w-56 pl-7 pr-6 rounded-lg border text-[11px] outline-none transition-all ${ib}`}
         />
         {query && (
@@ -135,9 +136,9 @@ export default function ChequeSearchBar({ isDark }) {
           }`}
         >
           {loading ? (
-            <div className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Searching…</div>
+            <div className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_CHEQUESEARCHBAR_SEARCHING')}</div>
           ) : results.length === 0 ? (
-            <div className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>No cheques found for "{query}"</div>
+            <div className={`px-4 py-3 text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_CHEQUESEARCHBAR_NO_CHEQUES_FOUND_FOR', { query })}</div>
           ) : (
             <ul>
               {results.map((r, i) => {
@@ -169,7 +170,7 @@ export default function ChequeSearchBar({ isDark }) {
                           <span className="opacity-40">·</span>
                           <span>{r.amount_range}</span>
                           <span className="opacity-40">·</span>
-                          <span>{r.clearing_zone}</span>
+                          <span>{r.pu_id}</span>
                         </div>
                       </div>
                     </button>
@@ -179,8 +180,8 @@ export default function ChequeSearchBar({ isDark }) {
             </ul>
           )}
           <div className={`px-4 py-1.5 text-[10px] border-t flex items-center justify-between ${isDark ? 'border-white/5 text-slate-600' : 'border-slate-100 text-slate-400'}`}>
-            <span>↑↓ navigate · Enter to open · Esc to close</span>
-            <span>{results.length} result{results.length !== 1 ? 's' : ''}</span>
+            <span>{msg('UI_CHEQUESEARCHBAR_NAVIGATE_ENTER_TO_OPEN_ESC')}</span>
+            <span>{msg('UI_CHEQUESEARCHBAR_RESULT', { count: results.length, value: results.length !== 1 ? 's' : '' })}</span>
           </div>
         </div>
       )}
@@ -217,7 +218,7 @@ function ChequeDetailModal({ item, isDark, onClose }) {
           <div>
             <div className="flex items-center gap-2.5">
               <span className={`text-[15px] font-bold font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Cheque #{item.cheque_number}
+               {msg('UI_CHEQUESEARCHBAR_CHEQUE', { cheque_number: item.cheque_number })}
               </span>
               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
                 item.status === 'STP_CONFIRM'  ? (isDark ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' : 'bg-emerald-50 text-emerald-700 border-emerald-200') :
@@ -243,15 +244,15 @@ function ChequeDetailModal({ item, isDark, onClose }) {
 
         {/* Body */}
         <div className="px-5 py-3">
-          <div className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Instrument Details</div>
+          <div className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_CHEQUESEARCHBAR_INSTRUMENT_DETAILS')}</div>
           {row('Cheque Number', item.cheque_number, true)}
           {row('Account', item.account_display, true)}
           {row('Payee', item.payee_display)}
           {row('Amount Range', item.amount_range)}
-          {row('Clearing Zone', item.clearing_zone)}
+          {row('Processing Unit', item.pu_id)}
           {row('Received At', new Date(item.received_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))}
 
-          <div className={`text-[10px] font-semibold uppercase tracking-widest mt-3 mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>AI Scores</div>
+          <div className={`text-[10px] font-semibold uppercase tracking-widest mt-3 mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_CHEQUESEARCHBAR_AI_SCORES')}</div>
           {row('Fraud Score', item.fraud_score != null ? (
             <span className={item.fraud_score > 0.7 ? 'text-red-400' : item.fraud_score > 0.4 ? 'text-amber-400' : 'text-emerald-400'}>
               {(item.fraud_score * 100).toFixed(1)}%
@@ -266,7 +267,7 @@ function ChequeDetailModal({ item, isDark, onClose }) {
             onClick={onClose}
             className={`px-3 py-1.5 text-[11px] rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
           >
-            Close
+           {msg('UI_CHEQUESEARCHBAR_CLOSE')}
           </button>
         </div>
       </div>

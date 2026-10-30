@@ -15,6 +15,7 @@ from typing import Optional
 import structlog
 
 from modules.cts.buckets import ALL_BUCKETS
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -66,9 +67,9 @@ class SubscriptionStore:
         wanted = list(dict.fromkeys(buckets))
         bad = [b for b in wanted if b not in SUBSCRIBABLE]
         if bad:
-            raise InvalidBucketError(f"not a subscribable bucket: {bad}. Valid: {list(SUBSCRIBABLE)}")
+            raise InvalidBucketError(get_message("CTS_NOT_A_SUBSCRIBABLE_BUCKET_VALID", bad=bad, list=list(SUBSCRIBABLE)))
         if self._db is None:
-            raise RuntimeError("database unavailable")
+            raise RuntimeError(get_message("CTS_DATABASE_UNAVAILABLE"))
         before = set(await self.get_reviewer_buckets(bank_id, reviewer_id))
         async with self._db.acquire() as conn:
             async with conn.transaction():

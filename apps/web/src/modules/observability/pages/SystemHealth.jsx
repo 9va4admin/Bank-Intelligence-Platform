@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const REFRESH_MS = 60_000
@@ -28,7 +29,7 @@ function useSystemHealth(bankId, { enabled = true } = {}) {
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/v1/ops/system`, { credentials: 'include' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP', { status: res.status }))
       setData(await res.json())
       setLastFetch(new Date())
     } catch (e) {
@@ -100,7 +101,7 @@ function ConnRow({ label, ok, value, isDark }) {
 function DegradedNote({ isDark }) {
   return (
     <p className={`text-xs italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-      Client unavailable — signal degraded
+     {msg('UI_SYSTEMHEALTH_CLIENT_UNAVAILABLE_SIGNAL_DEGRADED')}
     </p>
   )
 }
@@ -113,7 +114,7 @@ function HitRateBar({ pct, isDark }) {
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-        Vault hit rate — target: &gt;95%
+       {msg('UI_SYSTEMHEALTH_VAULT_HIT_RATE_TARGET_95')}
       </p>
     </div>
   )
@@ -143,7 +144,9 @@ function KafkaGroupRow({ group, isDark }) {
 
 export default function SystemHealth() {
   const { isDark } = useTheme()
-  const { bankId, isDemo } = useBankContext()
+  const { bankId, isDemo: isDemoBuild } = useBankContext()
+  // VITE_BRANCH_MASTER_LIVE=true: read the real backend even in a DEMO build (otherwise this page stays on its placeholder).
+  const isDemo = isDemoBuild && import.meta.env.VITE_BRANCH_MASTER_LIVE !== 'true'
   const { data, loading, error, lastFetch, reload } = useSystemHealth(bankId, { enabled: !isDemo })
 
   const th = {
@@ -172,13 +175,13 @@ export default function SystemHealth() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <Link to="/ops/dashboard" className={`text-xs ${th.muted} hover:underline`}>Ops Dashboard</Link>
+              <Link to="/ops/dashboard" className={`text-xs ${th.muted} hover:underline`}>{msg('UI_COMMON_OPS_DASHBOARD')}</Link>
               <span className={`text-xs ${th.muted}`}>/</span>
-              <span className={`text-xs ${th.muted}`}>System Health</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_COMMON_SYSTEM_HEALTH')}</span>
             </div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>System Health</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_COMMON_SYSTEM_HEALTH')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…'} · Auto-refresh 60s
+              {msg('UI_SYSTEMHEALTH_AUTO_REFRESH_60S', { value: lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…' })}
             </p>
           </div>
           <button
@@ -202,7 +205,7 @@ export default function SystemHealth() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
 
           {/* Redis CTS */}
-          <HealthCard title="Redis CTS" icon="🟥" isDark={isDark}>
+          <HealthCard title={msg('UI_SMOKETEST_REDIS_CTS')} icon="🟥" isDark={isDark}>
             <div className="flex items-center gap-2 mb-3">
               <StatusDot ok={redisCts.connected} />
               <span className={`text-sm font-medium ${redisCts.connected
@@ -214,14 +217,14 @@ export default function SystemHealth() {
             </div>
             {redisCts.degraded ? <DegradedNote isDark={isDark} /> : (
               <>
-                <ConnRow label="Hit rate" value={`${redisCts.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_HIT_RATE')} value={`${redisCts.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
                 <HitRateBar pct={redisCts.hit_rate_pct} isDark={isDark} />
               </>
             )}
           </HealthCard>
 
           {/* YugabyteDB */}
-          <HealthCard title="YugabyteDB (CTS pool)" icon="🐘" isDark={isDark}>
+          <HealthCard title={msg('UI_SYSTEMHEALTH_YUGABYTEDB_CTS_POOL')} icon="🐘" isDark={isDark}>
             <div className="flex items-center gap-2 mb-3">
               <StatusDot ok={yb.connected} />
               <span className={`text-sm font-medium ${yb.connected
@@ -233,15 +236,15 @@ export default function SystemHealth() {
             </div>
             {yb.degraded ? <DegradedNote isDark={isDark} /> : (
               <div className={`border-t ${th.divider} pt-3`}>
-                <ConnRow label="Pool size"    value={yb.pool_size}           isDark={isDark} />
-                <ConnRow label="Active conns" value={yb.active_connections}  isDark={isDark} />
-                <ConnRow label="Idle conns"   value={Math.max(0, yb.pool_size - yb.active_connections)} isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_POOL_SIZE')}    value={yb.pool_size}           isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_ACTIVE_CONNS')} value={yb.active_connections}  isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_IDLE_CONNS')}   value={Math.max(0, yb.pool_size - yb.active_connections)} isDark={isDark} />
               </div>
             )}
           </HealthCard>
 
           {/* HashiCorp Vault */}
-          <HealthCard title="HashiCorp Vault" icon="🔐" isDark={isDark} alert={vaultAlert}>
+          <HealthCard title={msg('UI_SYSTEMHEALTH_HASHICORP_VAULT')} icon="🔐" isDark={isDark} alert={vaultAlert}>
             <div className="flex items-center gap-2 mb-3">
               <StatusDot ok={vault.connected && vault.seal_status === 'unsealed'} />
               <span className={`text-sm font-medium ${
@@ -259,18 +262,18 @@ export default function SystemHealth() {
             </div>
             {vault.degraded ? <DegradedNote isDark={isDark} /> : (
               <div className={`border-t ${th.divider} pt-3`}>
-                <ConnRow label="Seal status" value={vault.seal_status} isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_SEAL_STATUS')} value={vault.seal_status} isDark={isDark} />
               </div>
             )}
             {!vault.degraded && vault.seal_status === 'sealed' && (
               <p className="text-xs text-red-400 mt-2">
-                All secrets unavailable. Unseal Vault immediately — processing halted.
+               {msg('UI_SYSTEMHEALTH_ALL_SECRETS_UNAVAILABLE_UNSEAL_VAULT')}
               </p>
             )}
           </HealthCard>
 
           {/* Kafka consumer groups */}
-          <HealthCard title="Kafka Consumer Groups" icon="📨" isDark={isDark} alert={kafkaAlert}>
+          <HealthCard title={msg('UI_SYSTEMHEALTH_KAFKA_CONSUMER_GROUPS')} icon="📨" isDark={isDark} alert={kafkaAlert}>
             <div className="flex items-center gap-2 mb-3">
               <StatusDot ok={kafka.connected && kafka.total_lag < 1000} />
               <span className={`text-sm font-medium ${kafka.connected
@@ -290,7 +293,7 @@ export default function SystemHealth() {
             {kafka.degraded ? <DegradedNote isDark={isDark} /> : (
               <div className={`border-t ${th.divider} pt-3 space-y-0`}>
                 {kafka.groups.length === 0 ? (
-                  <p className={`text-xs ${th.muted}`}>No consumer groups registered yet</p>
+                  <p className={`text-xs ${th.muted}`}>{msg('UI_SYSTEMHEALTH_NO_CONSUMER_GROUPS_REGISTERED_YET')}</p>
                 ) : (
                   kafka.groups.map(g => (
                     <KafkaGroupRow key={g.group_id} group={g} isDark={isDark} />
@@ -301,7 +304,7 @@ export default function SystemHealth() {
           </HealthCard>
 
           {/* Temporal */}
-          <HealthCard title="Temporal Workflow Engine" icon="⏱" isDark={isDark}>
+          <HealthCard title={msg('UI_SYSTEMHEALTH_TEMPORAL_WORKFLOW_ENGINE')} icon="⏱" isDark={isDark}>
             <div className="flex items-center gap-2 mb-3">
               <StatusDot ok={temporal.connected} />
               <span className={`text-sm font-medium ${temporal.connected
@@ -313,8 +316,8 @@ export default function SystemHealth() {
             </div>
             {temporal.degraded ? <DegradedNote isDark={isDark} /> : (
               <div className={`border-t ${th.divider} pt-3`}>
-                <ConnRow label="Namespace" value="default"       isDark={isDark} />
-                <ConnRow label="Reachable" ok={temporal.connected} isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_NAMESPACE')} value="default"       isDark={isDark} />
+                <ConnRow label={msg('UI_SYSTEMHEALTH_REACHABLE')} ok={temporal.connected} isDark={isDark} />
               </div>
             )}
           </HealthCard>
@@ -323,12 +326,11 @@ export default function SystemHealth() {
 
         {/* Footer note */}
         <p className={`text-xs mt-2 ${th.muted}`}>
-          OTel instrumentation active in all pods (zero Docker overhead).
-          For distributed traces, install the optional{' '}
+         {msg('UI_SYSTEMHEALTH_OTEL_INSTRUMENTATION_ACTIVE_IN_ALL')}
           <code className={`mx-1 px-1.5 py-0.5 rounded text-[10px] ${isDark ? 'bg-white/8' : 'bg-slate-100'}`}>
-            astra-observability
+           {msg('UI_SYSTEMHEALTH_ASTRA_OBSERVABILITY')}
           </code>
-          Helm chart.
+         {msg('UI_SYSTEMHEALTH_HELM_CHART')}
         </p>
 
       </div>

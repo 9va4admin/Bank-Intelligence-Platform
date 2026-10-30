@@ -36,6 +36,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from modules.cts.dem.models import CCHKeyBundle, DEMEncryptionAlgo
+from shared.messages import get_message
 
 # DEM spec §3.b.iii: IV is bytes 0x00 through 0x0F
 _DEM_AES_IV = bytes(range(16))
@@ -116,7 +117,7 @@ def _parse_header(data: bytes, begin_marker: str, end_marker: str) -> tuple[dict
 
     end_pos = data.find(end_b)
     if end_pos == -1:
-        raise DEMPKIError(f"DEM end marker '{end_marker}' not found in data")
+        raise DEMPKIError(get_message("CTS_DEM_END_MARKER_NOT_FOUND", end_marker=end_marker))
 
     header_bytes = data[: end_pos + len(end_b)]
     body = data[end_pos + len(end_b):]
@@ -206,7 +207,7 @@ def sign_and_encrypt_file(
     if algo == DEMEncryptionAlgo.AES:
         ciphertext = _aes_encrypt(aes_key, signed_block)
     else:
-        raise DEMPKIError(f"Unsupported DEM encryption algorithm: {algo}")
+        raise DEMPKIError(get_message("CTS_UNSUPPORTED_DEM_ENCRYPTION_ALGORITHM", algo=algo))
 
     # Step 4 — RSA-encrypt the AES key with CCH's public key
     cch_pub = _cch_public_key(cch_key_bundle)
@@ -257,36 +258,36 @@ def verify_and_decrypt_file(
     except DEMPKIError:
         raise
     except Exception as exc:
-        raise DEMPKIError(f"Failed to parse Trans.Encrypt.Data header: {exc}") from exc
+        raise DEMPKIError(get_message("CTS_FAILED_TO_PARSE_TRANS_ENCRYPT", exc=exc)) from exc
 
     key_b64 = enc_fields.get("Key", "")
     if not key_b64:
-        raise DEMPKIError("Trans.Encrypt.Data header missing 'Key' field")
+        raise DEMPKIError(get_message("CTS_TRANS_ENCRYPT_DATA_HEADER_MISSING"))
 
     # Step 2 — Decrypt AES key with bank HSM
     try:
         wrapped_key = base64.b64decode(key_b64)
         aes_key = hsm.decrypt_rsa(wrapped_key)
     except Exception as exc:
-        raise DEMPKIError(f"Failed to decrypt AES key via HSM: {exc}") from exc
+        raise DEMPKIError(get_message("CTS_FAILED_TO_DECRYPT_AES_KEY", exc=exc)) from exc
 
     # Step 3 — AES-256-CBC decrypt the body
     try:
         signed_block = _aes_decrypt(aes_key, ciphertext)
     except Exception as exc:
-        raise DEMPKIError(f"AES decryption failed (tampered ciphertext?): {exc}") from exc
+        raise DEMPKIError(get_message("CTS_AES_DECRYPTION_FAILED_TAMPERED_CIPHE", exc=exc)) from exc
 
     # Step 4 — Parse Trans.Signature.Data header
     try:
         sig_fields, original_bytes = _parse_header(signed_block, _SIG_BEGIN, _SIG_END)
     except DEMPKIError:
-        raise DEMPKIError("Trans.Signature.Data header missing or malformed after decryption")
+        raise DEMPKIError(get_message("CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING"))
     except Exception as exc:
-        raise DEMPKIError(f"Failed to parse Trans.Signature.Data header: {exc}") from exc
+        raise DEMPKIError(get_message("CTS_FAILED_TO_PARSE_TRANS_SIGNATURE", exc=exc)) from exc
 
     sig_b64 = sig_fields.get("Data", "")
     if not sig_b64:
-        raise DEMPKIError("Trans.Signature.Data header missing 'Data' (signature) field")
+        raise DEMPKIError(get_message("CTS_TRANS_SIGNATURE_DATA_HEADER_MISSING_2"))
 
     # Step 5 — Verify CCH's RSA-SHA256 signature over the original file bytes
     try:
@@ -294,10 +295,10 @@ def verify_and_decrypt_file(
         cch_pub = _cch_public_key(cch_key_bundle)
         cch_pub.verify(signature, original_bytes, asym_padding.PKCS1v15(), hashes.SHA256())
     except InvalidSignature:
-        raise DEMPKIError("CCH signature verification failed — file may be tampered")
+        raise DEMPKIError(get_message("CTS_CCH_SIGNATURE_VERIFICATION_FAILED_FI"))
     except DEMPKIError:
         raise
     except Exception as exc:
-        raise DEMPKIError(f"Signature verification error: {exc}") from exc
+        raise DEMPKIError(get_message("CTS_SIGNATURE_VERIFICATION_ERROR", exc=exc)) from exc
 
     return original_bytes

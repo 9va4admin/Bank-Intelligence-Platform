@@ -117,7 +117,7 @@ domain_2_information_security:
     implementation: |
       7 named roles: ops_reviewer, fraud_analyst, ops_manager, bank_it_admin,
       compliance_officer, rbi_examiner, ml_engineer.
-      ABAC on top: ops_reviewer scoped to clearing_zone; all roles scoped to bank_id.
+      ABAC on top: ops_reviewer scoped to processing units (pu_ids); all roles scoped to bank_id.
       rbi_examiner: time-limited, date-scoped access (per audit engagement).
       No shared passwords: bank's IdP via SAML 2.0 — ASTRA never stores passwords.
       Service accounts: Vault dynamic secrets, rotated every 24 hours.

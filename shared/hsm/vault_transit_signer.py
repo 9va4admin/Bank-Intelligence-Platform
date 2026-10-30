@@ -37,6 +37,7 @@ except ImportError:
     hvac = None  # type: ignore[assignment]
 
 from shared.audit.audit_event import HSMSigningError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -69,13 +70,13 @@ class VaultTransitSigner:
         except HSMSigningError:
             raise
         except Exception as exc:
-            raise HSMSigningError(f"Vault Transit signing failed: {exc}") from exc
+            raise HSMSigningError(get_message("PLATFORM_VAULT_TRANSIT_SIGNING_FAILED", exc=exc)) from exc
 
         try:
             sig_b64 = sig_str.split(":")[-1]
             return base64.b64decode(sig_b64)
         except Exception as exc:
-            raise HSMSigningError(f"Failed to decode Vault Transit signature: {exc}") from exc
+            raise HSMSigningError(get_message("PLATFORM_FAILED_TO_DECODE_VAULT_TRANSIT", exc=exc)) from exc
 
     @classmethod
     def from_env(cls, key_name: str) -> "VaultTransitSigner":
@@ -90,7 +91,7 @@ class VaultTransitSigner:
         Raises ImportError if hvac is not installed.
         """
         if hvac is None:
-            raise ImportError("hvac is not installed — pip install hvac")
+            raise ImportError(get_message("PLATFORM_HVAC_IS_NOT_INSTALLED_PIP"))
 
         vault_addr = os.environ["VAULT_ADDR"]
         vault_token = os.environ["VAULT_TOKEN"]

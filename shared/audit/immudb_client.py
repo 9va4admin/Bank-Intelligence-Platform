@@ -25,6 +25,7 @@ from typing import Any
 import structlog
 
 from shared.audit.exceptions import ImmudbUnavailableError, ImmudbVerificationError
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -68,7 +69,7 @@ class ImmudbClient:
             self._stub.login(username, password, database=database.encode())
             self._credentials = (username, password, database)
         except Exception as exc:
-            raise ImmudbUnavailableError(f"immudb connect failed at {host}:{port}: {exc}") from exc
+            raise ImmudbUnavailableError(get_message("PLATFORM_IMMUDB_CONNECT_FAILED_AT", host=host, port=port, exc=exc)) from exc
 
         self._bank_id = bank_id
         self._collection = collection
@@ -98,7 +99,7 @@ class ImmudbClient:
         self._assert_ready()
 
         if "bank_id" not in payload:
-            raise ValueError("payload must include 'bank_id' for audit isolation")
+            raise ValueError(get_message("PLATFORM_PAYLOAD_MUST_INCLUDE_BANK_ID"))
 
         event_id = payload.get("event_id", f"{payload['event_type']}:{time.time_ns()}")
         key = self._make_key(payload["bank_id"], self._collection, str(event_id))
@@ -108,7 +109,7 @@ class ImmudbClient:
             response = self._call(self._stub.verifiedSet, key, value)
         except Exception as exc:
             log.error("immudb.write_failed", event_type=payload.get("event_type"), error=str(exc))
-            raise ImmudbUnavailableError(f"immudb write failed: {exc}") from exc
+            raise ImmudbUnavailableError(get_message("PLATFORM_IMMUDB_WRITE_FAILED", exc=exc)) from exc
 
         result = {
             "tx_id": response.id,
@@ -138,7 +139,7 @@ class ImmudbClient:
         try:
             response = self._call(self._stub.verifiedGet, key)
         except Exception as exc:
-            raise ImmudbUnavailableError(f"immudb verify failed: {exc}") from exc
+            raise ImmudbUnavailableError(get_message("PLATFORM_IMMUDB_VERIFY_FAILED", exc=exc)) from exc
 
         if not response.verified:
             raise ImmudbVerificationError(
@@ -179,6 +180,5 @@ class ImmudbClient:
     def _assert_ready(self) -> None:
         if not self._ready:
             raise RuntimeError(
-                "ImmudbClient.connect() has not been called. "
-                "Call it in the service startup before writing events."
+                get_message("PLATFORM_IMMUDBCLIENT_CONNECT_HAS_NOT_BEEN")
             )

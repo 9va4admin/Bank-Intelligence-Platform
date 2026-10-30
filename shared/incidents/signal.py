@@ -21,6 +21,7 @@ import structlog
 
 from shared.messages import get_entry
 from shared.messages.registry import UnknownMessageKey
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -35,7 +36,7 @@ def _get_counter() -> Any:
         meter = get_meter("astra.incidents")
         _counter = meter.create_counter(
             _METRIC_NAME,
-            description="Caught errors classified for incident routing, by message key",
+            description=get_message("PLATFORM_CAUGHT_ERRORS_CLASSIFIED_FOR_INCIDEN"),
         )
     return _counter
 

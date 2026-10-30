@@ -23,6 +23,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import Role, UserContext
 from shared.config.config_service import ConfigKeyNotFoundError, config_service
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -112,7 +113,7 @@ async def upload_pps_ciif(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error_code": "VAULT_UPLOAD_FORBIDDEN",
-                    "message": f"Role {ctx.role} cannot upload PPS.", "request_id": ""},
+                    "message": get_message("API_ROLE_CANNOT_UPLOAD_PPS", role=ctx.role), "request_id": ""},
         )
     try:
         amount_unit = config_service.get_platform("cts.ciif_amount_unit")
@@ -120,7 +121,7 @@ async def upload_pps_ciif(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error_code": "CIIF_AMOUNT_UNIT_NOT_SET",
-                    "message": "cts.ciif_amount_unit (RUPEES or PAISE) is not configured for this deployment.",
+                    "message": get_message("API_CTS_CIIF_AMOUNT_UNIT_RUPEES"),
                     "request_id": ""},
         )
     content = await file.read()
@@ -128,7 +129,7 @@ async def upload_pps_ciif(
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail={"error_code": "VAULT_UPLOAD_TOO_LARGE",
-                    "message": f"File exceeds {_MAX_UPLOAD_BYTES // 1024 // 1024} MB limit.", "request_id": ""},
+                    "message": get_message("API_FILE_EXCEEDS_MB_LIMIT", value=_MAX_UPLOAD_BYTES // 1024 // 1024), "request_id": ""},
         )
     db_pool = getattr(request.app.state, "db_pool", None)
     pps_vault_factory = getattr(request.app.state, "pps_vault_factory", None)
@@ -199,7 +200,7 @@ async def upload_vault_csv(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "error_code": "VAULT_UPLOAD_FORBIDDEN",
-                "message": f"Role {ctx.role} cannot upload {vault_type}.",
+                "message": get_message("API_ROLE_CANNOT_UPLOAD", role=ctx.role, vault_type=vault_type),
                 "request_id": "",
             },
         )
@@ -211,7 +212,7 @@ async def upload_vault_csv(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail={
                 "error_code": "VAULT_UPLOAD_TOO_LARGE",
-                "message": f"File exceeds {_MAX_UPLOAD_BYTES // 1024 // 1024} MB limit.",
+                "message": get_message("API_FILE_EXCEEDS_MB_LIMIT", value=_MAX_UPLOAD_BYTES // 1024 // 1024),
                 "request_id": "",
             },
         )
@@ -300,7 +301,7 @@ async def download_template(
     if vault_type not in _VALID_VAULT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error_code": "VAULT_UNKNOWN_TYPE", "message": f"Unknown: {vault_type}"},
+            detail={"error_code": "VAULT_UNKNOWN_TYPE", "message": get_message("API_UNKNOWN", vault_type=vault_type)},
         )
 
     from modules.cts.vaults.vault_upload_processor import TEMPLATES
@@ -331,7 +332,7 @@ async def list_upload_batches(
     if ctx.role not in {Role.BANK_IT_ADMIN, Role.OPS_MANAGER}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail={"error_code": "VAULT_BATCHES_FORBIDDEN",
-                                    "message": "Insufficient role."})
+                                    "message": get_message("API_INSUFFICIENT_ROLE")})
     limit = min(max(1, limit), 100)
 
     db_pool, *_ = _get_vault_upload_deps(request)
@@ -444,7 +445,7 @@ async def file_drop_webhook(
                     bank_id=body.bank_id, vault_type=vault_type)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"error_code": "TEMPORAL_UNAVAILABLE", "message": "Temporal not connected."},
+            detail={"error_code": "TEMPORAL_UNAVAILABLE", "message": get_message("API_TEMPORAL_NOT_CONNECTED")},
         )
 
     from modules.cts.workflows.vault_file_drop_workflow import (

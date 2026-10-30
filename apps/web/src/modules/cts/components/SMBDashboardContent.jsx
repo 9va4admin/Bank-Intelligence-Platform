@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const _SMB_API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -116,7 +117,7 @@ function IETCountdownCard({ item, isDark }) {
   return (
     <div className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${th.card}`}>
       <div className="flex-1 min-w-0">
-        <div className={`text-xs font-semibold uppercase tracking-wide mb-1 ${th.heading}`}>IET Countdown</div>
+        <div className={`text-xs font-semibold uppercase tracking-wide mb-1 ${th.heading}`}>{msg('UI_SMBDASHBOARDCONTENT_IET_COUNTDOWN')}</div>
         <div className={`text-sm font-medium ${th.body}`}>{item.instrument_id}</div>
         <div className={`text-xs ${th.meta}`}>{item.amount_range} · {item.reason.replace(/_/g, ' ')}</div>
       </div>
@@ -128,10 +129,10 @@ function IETCountdownCard({ item, isDark }) {
 }
 
 const DECISION_PILL = {
-  CONFIRMED:   { dark: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40', light: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'CONFIRMED' },
-  RETURNED:    { dark: 'bg-red-900/40 text-red-300 border-red-700/40',             light: 'bg-red-50 text-red-700 border-red-200',             label: 'RETURNED'  },
-  STP_CONFIRM: { dark: 'bg-sky-900/40 text-sky-300 border-sky-700/40',             light: 'bg-sky-50 text-sky-700 border-sky-200',             label: 'STP ✓'     },
-  STP_RETURN:  { dark: 'bg-amber-900/40 text-amber-300 border-amber-700/40',       light: 'bg-amber-50 text-amber-700 border-amber-200',       label: 'STP ✗'     },
+  CONFIRMED:   { dark: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40', light: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: msg('UI_SMBDASHBOARDCONTENT_CONFIRMED') },
+  RETURNED:    { dark: 'bg-red-900/40 text-red-300 border-red-700/40',             light: 'bg-red-50 text-red-700 border-red-200',             label: msg('UI_SMBDASHBOARDCONTENT_RETURNED')  },
+  STP_CONFIRM: { dark: 'bg-sky-900/40 text-sky-300 border-sky-700/40',             light: 'bg-sky-50 text-sky-700 border-sky-200',             label: msg('UI_SMBDASHBOARDCONTENT_STP')     },
+  STP_RETURN:  { dark: 'bg-amber-900/40 text-amber-300 border-amber-700/40',       light: 'bg-amber-50 text-amber-700 border-amber-200',       label: msg('UI_SMBDASHBOARDCONTENT_STP_2')     },
 }
 
 function RecentDecisionsTable({ items, isDark }) {
@@ -147,11 +148,11 @@ function RecentDecisionsTable({ items, isDark }) {
       <table className="w-full text-sm">
         <thead>
           <tr className={`text-xs uppercase tracking-wide border-b ${th.header}`}>
-            <th className="text-left py-2 pr-4 font-medium">Instrument</th>
-            <th className="text-left py-2 pr-4 font-medium">Amount</th>
-            <th className="text-left py-2 pr-4 font-medium">Decision</th>
-            <th className="text-left py-2 pr-4 font-medium">Filed by</th>
-            <th className="text-left py-2 font-medium">Time</th>
+            <th className="text-left py-2 pr-4 font-medium">{msg('CTS_OUT_CUSTODY_COL_INSTRUMENT')}</th>
+            <th className="text-left py-2 pr-4 font-medium">{msg('CTS_OUT_CUSTODY_COL_AMOUNT')}</th>
+            <th className="text-left py-2 pr-4 font-medium">{msg('UI_COMMON_DECISION')}</th>
+            <th className="text-left py-2 pr-4 font-medium">{msg('UI_SMBDASHBOARDCONTENT_FILED_BY')}</th>
+            <th className="text-left py-2 font-medium">{msg('UI_COMMON_TIME')}</th>
           </tr>
         </thead>
         <tbody>
@@ -259,29 +260,29 @@ export default function SMBDashboardContent() {
         <div className="flex-1 min-w-0">
           <div className={`text-base font-semibold ${th.bannerHd}`}>{bankName || 'Sub-Member Bank'}</div>
           <div className={`text-xs ${th.bannerMt}`}>
-            IFSC: {bankIfsc || bankId?.toUpperCase()} · Sponsor: {sponsorBankName || 'Sponsor Bank'} · Zone: MUMBAI
+           {msg('UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR_ZONE_MUMBAI', { value: bankIfsc || bankId?.toUpperCase(), value2: sponsorBankName || 'Sponsor Bank' })}
           </div>
         </div>
         <div className={`text-xs px-2.5 py-1 rounded-full border font-medium ${th.bannerHd} ${isDark ? 'border-violet-700/40 bg-violet-900/30' : 'border-violet-300 bg-violet-100'}`}>
-          SMB
+         {msg('UI_SMBDASHBOARDCONTENT_SMB')}
         </div>
       </div>
 
       {/* Today's Stats */}
       <section>
-        <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 ${th.muted}`}>Today · {today.clearing_date}</h2>
+        <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 ${th.muted}`}>{msg('UI_SMBDASHBOARDCONTENT_TODAY', { clearing_date: today.clearing_date })}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Total Inward" value={today.total_inward.toLocaleString()} sub={`${today.sessions_count} sessions, ${today.sessions_open} open`} isDark={isDark} />
-          <StatCard label="STP Confirmed" value={today.stp_confirmed.toLocaleString()} sub={`${today.overall_stp_rate_pct}% STP rate`} accent={stpRateColor} isDark={isDark} />
+          <StatCard label={msg('UI_COMMON_TOTAL_INWARD')} value={today.total_inward.toLocaleString()} sub={`${today.sessions_count} sessions, ${today.sessions_open} open`} isDark={isDark} />
+          <StatCard label={msg('UI_COMMON_STP_CONFIRMED')} value={today.stp_confirmed.toLocaleString()} sub={`${today.overall_stp_rate_pct}% STP rate`} accent={stpRateColor} isDark={isDark} />
           <StatCard
-            label="Pending Review"
+            label={msg('UI_OPSDASHBOARDBODY_PENDING_REVIEW')}
             value={today.pending_review}
             sub="In human review queue"
             accent={today.pending_review > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : undefined}
             isDark={isDark}
           />
           <StatCard
-            label="IET At-Risk"
+            label={msg('UI_SMBDASHBOARDCONTENT_IET_AT_RISK')}
             value={today.iet_at_risk}
             sub="Items within 60-min IET window"
             accent={today.iet_at_risk > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : undefined}
@@ -293,7 +294,7 @@ export default function SMBDashboardContent() {
       {/* IET Countdown (only shown when items at-risk) */}
       {MOCK_IET_ITEMS.length > 0 && today.iet_at_risk > 0 && (
         <section>
-          <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 ${th.muted}`}>IET Countdown</h2>
+          <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 ${th.muted}`}>{msg('UI_SMBDASHBOARDCONTENT_IET_COUNTDOWN')}</h2>
           <div className="space-y-2">
             {MOCK_IET_ITEMS.map(item => (
               <IETCountdownCard key={item.instrument_id} item={item} isDark={isDark} />
@@ -306,25 +307,25 @@ export default function SMBDashboardContent() {
         {/* Recent Decisions */}
         <div className={`lg:col-span-2 rounded-xl border p-5 ${th.card}`}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className={`text-sm font-semibold ${th.heading}`}>Recent Decisions</h2>
-            <Link to="/cts/decisions" className={`text-xs ${th.muted} hover:underline`}>View all →</Link>
+            <h2 className={`text-sm font-semibold ${th.heading}`}>{msg('UI_SMBDASHBOARDCONTENT_RECENT_DECISIONS')}</h2>
+            <Link to="/cts/decisions" className={`text-xs ${th.muted} hover:underline`}>{msg('UI_SMBDASHBOARDCONTENT_VIEW_ALL')}</Link>
           </div>
           <RecentDecisionsTable items={recentDecisions} isDark={isDark} />
         </div>
 
         {/* Quick Actions */}
         <div className={`rounded-xl border p-5 ${th.card}`}>
-          <h2 className={`text-sm font-semibold mb-4 ${th.heading}`}>Quick Actions</h2>
+          <h2 className={`text-sm font-semibold mb-4 ${th.heading}`}>{msg('UI_SMBDASHBOARDCONTENT_QUICK_ACTIONS')}</h2>
           <div className="flex flex-col gap-2">
-            <QuickLink to="/cts/smb/review-queue" label="Review Queue" icon="📋" isDark={isDark} />
-            <QuickLink to="/cts/inward-pipeline" label="Inward Pipeline" icon="🔄" isDark={isDark} />
-            <QuickLink to="/cts/settlement" label="Settlement" icon="🏦" isDark={isDark} />
-            <QuickLink to="/cts/decisions" label="Decision Log" icon="📊" isDark={isDark} />
-            <QuickLink to="/cts/vault" label="Signature Vault" icon="🔐" isDark={isDark} />
+            <QuickLink to="/cts/smb/review-queue" label={msg('UI_SMBDASHBOARDCONTENT_REVIEW_QUEUE')} icon="📋" isDark={isDark} />
+            <QuickLink to="/cts/inward-pipeline" label={msg('UI_SMBDASHBOARDCONTENT_INWARD_PIPELINE')} icon="🔄" isDark={isDark} />
+            <QuickLink to="/cts/settlement" label={msg('UI_COMMON_SETTLEMENT')} icon="🏦" isDark={isDark} />
+            <QuickLink to="/cts/decisions" label={msg('UI_SMBDASHBOARDCONTENT_DECISION_LOG')} icon="📊" isDark={isDark} />
+            <QuickLink to="/cts/vault" label={msg('UI_COMMON_SIGNATURE_VAULT')} icon="🔐" isDark={isDark} />
           </div>
 
           <div className={`mt-5 pt-4 border-t ${th.divider}`}>
-            <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${th.muted}`}>Today's Return Rate</div>
+            <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${th.muted}`}>{msg('UI_SMBDASHBOARDCONTENT_TODAY_S_RETURN_RATE')}</div>
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-white/5 rounded-full h-2 overflow-hidden">
                 <div
@@ -336,7 +337,7 @@ export default function SMBDashboardContent() {
                 {((today.stp_returned / today.total_inward) * 100).toFixed(1)}%
               </span>
             </div>
-            <div className={`text-xs mt-1 ${th.muted}`}>{today.stp_returned} returns out of {today.total_inward}</div>
+            <div className={`text-xs mt-1 ${th.muted}`}>{msg('UI_SMBDASHBOARDCONTENT_RETURNS_OUT_OF', { stp_returned: today.stp_returned, total_inward: today.total_inward })}</div>
           </div>
         </div>
       </div>

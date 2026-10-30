@@ -23,6 +23,7 @@ from apps.api.routers.cts_deps import (
     get_current_bank_id,
     get_current_user_context,
 )
+from shared.messages import get_message
 from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
@@ -216,14 +217,14 @@ async def trigger_vault_sync(
             log.error("cts.vault_sync_trigger_error", bank_id=bank_id, error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to trigger vault sync workflow",
+                detail=get_message("API_FAILED_TO_TRIGGER_VAULT_SYNC"),
             ) from exc
 
     log.info("cts.vault_sync_triggered", bank_id=bank_id, workflow_id=workflow_id)
     return VaultSyncTriggerResponse(
         workflow_id=workflow_id,
         status="TRIGGERED",
-        message=f"VaultSyncWorkflow started: {workflow_id}. PPS & Stop Cheque data will refresh within ~60 seconds.",
+        message=get_message("API_VAULTSYNCWORKFLOW_STARTED_PPS_STOP_C", workflow_id=workflow_id),
     )
 
 
@@ -498,7 +499,7 @@ async def list_vault_stop_cheques(
     Role-gated: ops_manager, bank_it_admin, compliance_officer only.
     """
     if ctx.role.value not in _STOP_CHEQUE_ROLES:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
 
     bank_id = ctx.bank_id
 

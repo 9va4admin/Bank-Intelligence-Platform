@@ -11,6 +11,7 @@ Raises SignatureDetectorUnavailableError on model failure (caller routes to huma
 """
 import structlog
 from opentelemetry import trace
+from shared.messages import get_message
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.msv.ai")
@@ -131,5 +132,5 @@ class SignatureDetector:
                     error=str(exc),
                 )
                 raise SignatureDetectorUnavailableError(
-                    f"Signature detector unavailable: {exc}"
+                    get_message("MSV_SIGNATURE_DETECTOR_UNAVAILABLE", exc=exc)
                 ) from exc

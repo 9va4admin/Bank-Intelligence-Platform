@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { msg } from '../../shared/messages'
 
 const NAV_LINKS = [
-  { label: 'Platform', href: '#platform' },
+  { label: msg('UI_FOOTER_PLATFORM'), href: '#platform' },
   { label: 'CTS', href: '#cts' },
-  { label: 'EJ Intelligence', href: '#ej' },
-  { label: 'Commercial', href: '#commercial' },
-  { label: 'Security', href: '#security' },
-  { label: 'CTS FAQ', href: 'CTS_FAQ.html', external: true },
+  { label: msg('UI_NAVBAR_EJ_INTELLIGENCE'), href: '#ej' },
+  { label: msg('UI_NAVBAR_COMMERCIAL'), href: '#commercial' },
+  { label: msg('UI_NAVBAR_SECURITY'), href: '#security' },
+  { label: msg('UI_FOOTER_CTS_FAQ'), href: 'CTS_FAQ.html', external: true },
 ]
 
 export default function Navbar() {
@@ -38,8 +39,8 @@ export default function Navbar() {
             </div>
           </div>
           <div className="flex flex-col leading-none">
-            <span className={`font-bold tracking-wide text-sm ${scrolled ? 'text-slate-800' : 'text-white'}`}>ASTRA</span>
-            <span className={`text-[10px] tracking-widest ${scrolled ? 'text-slate-400' : 'text-teal-300/70'}`}>BANKING INTELLIGENCE</span>
+            <span className={`font-bold tracking-wide text-sm ${scrolled ? 'text-slate-800' : 'text-white'}`}>{msg('UI_COMMON_ASTRA')}</span>
+            <span className={`text-[10px] tracking-widest ${scrolled ? 'text-slate-400' : 'text-teal-300/70'}`}>{msg('UI_FOOTER_BANKING_INTELLIGENCE')}</span>
           </div>
         </a>
 
@@ -70,19 +71,19 @@ export default function Navbar() {
                 : 'text-slate-300 border-white/20 hover:bg-white/10'
             }`}
           >
-            CTS Demo
+           {msg('UI_NAVBAR_CTS_DEMO')}
           </Link>
           <Link
             to="/ej"
             className="text-sm font-medium bg-teal-400 hover:bg-teal-500 text-forest-900 px-5 py-2 rounded-lg transition-colors"
           >
-            EJ Dashboard
+           {msg('UI_NAVBAR_EJ_DASHBOARD')}
           </Link>
           <a
             href="#contact"
             className="text-sm font-medium bg-sky-400 hover:bg-sky-500 text-white px-5 py-2 rounded-lg transition-colors"
           >
-            Request Demo
+           {msg('UI_NAVBAR_REQUEST_DEMO')}
           </a>
         </div>
 
@@ -90,7 +91,7 @@ export default function Navbar() {
         <button
           className={`md:hidden p-2 ${scrolled ? 'text-slate-600' : 'text-slate-300'}`}
           onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Toggle menu"
+          aria-label={msg('UI_NAVBAR_TOGGLE_MENU')}
         >
           <div className={`w-5 h-0.5 bg-current mb-1.5 transition-all ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
           <div className={`w-5 h-0.5 bg-current mb-1.5 transition-all ${menuOpen ? 'opacity-0' : ''}`} />
@@ -118,14 +119,14 @@ export default function Navbar() {
             className="mt-1 text-sm font-medium bg-teal-400 text-forest-900 px-5 py-2.5 rounded-lg text-center"
             onClick={() => setMenuOpen(false)}
           >
-            EJ Dashboard
+           {msg('UI_NAVBAR_EJ_DASHBOARD')}
           </Link>
           <a
             href="#contact"
             className="text-sm font-medium bg-sky-400 text-white px-5 py-2.5 rounded-lg text-center"
             onClick={() => setMenuOpen(false)}
           >
-            Request Demo
+           {msg('UI_NAVBAR_REQUEST_DEMO')}
           </a>
         </div>
       </div>

@@ -175,6 +175,6 @@ def test_clearing_zones_from_config(connector):
         entity_type="sb",
         entity_id="saraswat-coop",
         bank_id="saraswat-coop",
-        clearing_zones=["MUMBAI", "PUNE"],
+        pu_ids=["MUMBAI", "PUNE"],
     )
-    assert conn_with_zones.clearing_zones == ["MUMBAI", "PUNE"]
+    assert conn_with_zones.pu_ids == ["MUMBAI", "PUNE"]

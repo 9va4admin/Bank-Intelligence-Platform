@@ -38,6 +38,7 @@ from modules.cts.workflows.activities.amount_words_parser import amounts_match
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -1191,7 +1192,7 @@ def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
     except UnidentifiedImageError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Uploaded file isn't a readable image.",
+            detail=get_message("API_UPLOADED_FILE_ISN_T_A"),
         ) from exc
 
 
@@ -1656,8 +1657,7 @@ async def _extract_yolov8_sig(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Cloud AI demo token not configured — set demo.hf_token in Vault "
-                "or ASTRA_DEMO_HF_TOKEN in the environment for local dev."
+                get_message("API_CLOUD_AI_DEMO_TOKEN_NOT")
             ),
         )
 
@@ -1696,7 +1696,7 @@ async def _extract_yolov8_sig(
                   bank_id=ctx.bank_id, error=str(fields_resp))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Field extraction via Qwen 32B failed: {fields_resp}",
+            detail=get_message("API_FIELD_EXTRACTION_VIA_QWEN_32B", fields_resp=fields_resp),
         )
 
     # Unpack (detections, service_available) tuple from _call_sig_detector
@@ -1919,10 +1919,7 @@ async def _extract_indic_devanagari(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                f"Both local services are unreachable. "
-                f"Start sig detector: cd apps/sig_detector; python main.py  "
-                f"(expected at {sig_url}). "
-                f"IndicOCR: {indic_error}"
+                get_message("API_BOTH_LOCAL_SERVICES_ARE_UNREACHABLE", sig_url=sig_url, indic_error=indic_error)
             ),
         )
 
@@ -2000,7 +1997,7 @@ async def _extract_qwen2vl_sig(file: UploadFile, ctx) -> CloudExtractResponse:
     hf_token = await _resolve_hf_token(ctx.bank_id)
     if hf_token is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="HF token not configured.")
+                            detail=get_message("API_HF_TOKEN_NOT_CONFIGURED"))
 
     hf_base_url  = await _resolve_hf_base_url(ctx.bank_id)
     raw_bytes    = await file.read()
@@ -2070,7 +2067,7 @@ async def cloud_extract_cheque(
     if model not in _all_valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unknown model '{model}'. Must be one of {sorted(_all_valid)}.",
+            detail=get_message("API_UNKNOWN_MODEL_MUST_BE_ONE", model=model, sorted=sorted(_all_valid)),
         )
 
     if model in _YOLO_SIG_ONLY_MODELS:
@@ -2094,8 +2091,7 @@ async def cloud_extract_cheque(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Cloud AI demo token not configured — set demo.hf_token in Vault, "
-                "or ASTRA_DEMO_HF_TOKEN in the environment for local dev without Vault."
+                get_message("API_CLOUD_AI_DEMO_TOKEN_NOT_2")
             ),
         )
 
@@ -2134,13 +2130,13 @@ async def cloud_extract_cheque(
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Hugging Face rejected the request for model '{model}': {exc.message}",
+            detail=get_message("API_HUGGING_FACE_REJECTED_THE_REQUEST", model=model, message=exc.message),
         ) from exc
     except Exception as exc:
         log.error("demo.cloud_extract.hf_call_failed", bank_id=ctx.bank_id, model=model, error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cloud AI extraction failed — Hugging Face Inference Providers unreachable.",
+            detail=get_message("API_CLOUD_AI_EXTRACTION_FAILED_HUGGING"),
         ) from exc
 
     raw_text = response.choices[0].message.content

@@ -67,7 +67,7 @@ def _issue_sample(svc: SessionTokenService, **overrides) -> IssuedSession:
         role="ops_reviewer",
         entity_type="sb",
         entity_id="saraswat-coop",
-        clearing_zones=["MUMBAI"],
+        pu_ids=["MUMBAI"],
         mfa_authenticated=True,
     )
     params.update(overrides)
@@ -98,7 +98,7 @@ def test_validate_roundtrips_all_identity_claims(svc):
     assert claims.permission_level == "EDIT"
     assert claims.role == "ops_reviewer"
     assert claims.entity_type == "sb"
-    assert claims.clearing_zones == ["MUMBAI"]
+    assert claims.pu_ids == ["MUMBAI"]
     assert claims.mfa_authenticated is True
     assert claims.session_id == issued.session_id
     assert claims.csrf_token == issued.csrf_token
@@ -137,7 +137,7 @@ def test_expired_token_raises_session_expired(svc, keys):
             "username": "ops1", "bank_id": "saraswat-coop", "bank_type": "SB",
             "permission_level": "EDIT", "role": "ops_reviewer",
             "entity_type": "sb", "entity_id": "saraswat-coop",
-            "clearing_zones": ["MUMBAI"], "mfa_authenticated": True, "csrf": "x",
+            "pu_ids": ["MUMBAI"], "mfa_authenticated": True, "csrf": "x",
         },
         priv, algorithm="RS256",
     )
@@ -249,3 +249,12 @@ def test_validate_csrf_rejects_empty(svc):
     claims = svc.validate(issued.token)
     with pytest.raises(CSRFValidationError):
         svc.validate_csrf(claims, "")
+
+
+def test_branch_assignment_roundtrips_through_the_token(svc):
+    issued = _issue_sample(svc, branch_ids=["BR-001", "BR-002"])
+    assert svc.validate(issued.token).branch_ids == ["BR-001", "BR-002"]
+
+
+def test_a_token_without_branches_means_central_staff(svc):
+    assert svc.validate(_issue_sample(svc).token).branch_ids == []

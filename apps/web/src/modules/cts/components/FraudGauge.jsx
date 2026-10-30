@@ -1,3 +1,4 @@
+import { msg } from '../../../shared/messages'
 export default function FraudGauge({ score }) {
   const pct = Math.round(score * 100)
 
@@ -39,7 +40,7 @@ export default function FraudGauge({ score }) {
           {label}
         </text>
       </svg>
-      <div className="text-[10px] text-slate-500 uppercase tracking-widest -mt-1">Fraud Score</div>
+      <div className="text-[10px] text-slate-500 uppercase tracking-widest -mt-1">{msg('UI_COMMON_FRAUD_SCORE')}</div>
     </div>
   )
 }

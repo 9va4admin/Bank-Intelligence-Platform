@@ -6,6 +6,7 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+import { msg } from '../../../shared/messages'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -50,7 +51,7 @@ const IQA_FAIL_REASONS = [
 ]
 
 function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001') {
-  const zones = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI']
+  const pus = ['PU-1', 'PU-2', 'PU-3', 'PU-4']
   const statuses = ['CAPTURED', 'IQA_PASS', 'IQA_FAIL', 'AI_EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'NGCH_REJECT']
   const weights  = [0.05, 0.08, 0.04, 0.15, 0.12, 0.20, 0.28, 0.08]
   function pick() {
@@ -90,7 +91,7 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
         if (ch === 'BACK_ANNOTATION') return { extracted_account: fullAcct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
         return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-${_todayPresentment()}`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  ${new Date().toLocaleDateString('en-GB')}` }
       })(),
-      zone: zones[idx % zones.length],
+      pu: pus[idx % pus.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       lot_number: `LOT_${bankIfsc}_${_todayPresentment()}_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
@@ -120,35 +121,35 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
 
 // STATUS_META_D / STATUS_META_L are selected per-render based on isDark
 const STATUS_META_D = {
-  CAPTURED:     { label: 'Captured',     color: 'text-slate-400',    bg: 'bg-slate-400/10 border-slate-400/20'   },
-  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-400',      bg: 'bg-sky-400/10 border-sky-400/20'       },
-  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-400',      bg: 'bg-red-400/10 border-red-400/25'       },
-  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-400',   bg: 'bg-violet-400/10 border-violet-400/20' },
-  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-400',    bg: 'bg-amber-400/10 border-amber-400/20'   },
-  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-400',     bg: 'bg-blue-400/10 border-blue-400/20'     },
-  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-400',  bg: 'bg-emerald-400/10 border-emerald-400/20'},
-  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-500',      bg: 'bg-red-500/10 border-red-500/25'       },
+  CAPTURED:     { label: msg('UI_PRESENTMENT_CAPTURED'),     color: 'text-slate-400',    bg: 'bg-slate-400/10 border-slate-400/20'   },
+  IQA_PASS:     { label: msg('UI_IMAGEQUALITY_IQA_PASS'),     color: 'text-sky-400',      bg: 'bg-sky-400/10 border-sky-400/20'       },
+  IQA_FAIL:     { label: msg('UI_COMMON_IQA_FAIL'),     color: 'text-red-400',      bg: 'bg-red-400/10 border-red-400/25'       },
+  AI_EXTRACTED: { label: msg('UI_COMMON_AI_EXTRACTED'), color: 'text-violet-400',   bg: 'bg-violet-400/10 border-violet-400/20' },
+  PKI_SIGNED:   { label: msg('UI_COMMON_PKI_SIGNED'),   color: 'text-amber-400',    bg: 'bg-amber-400/10 border-amber-400/20'   },
+  SUBMITTED:    { label: msg('UI_COMMON_SUBMITTED'),    color: 'text-blue-400',     bg: 'bg-blue-400/10 border-blue-400/20'     },
+  NGCH_ACK:     { label: msg('UI_PRESENTMENT_NGCH_ACK'),  color: 'text-emerald-400',  bg: 'bg-emerald-400/10 border-emerald-400/20'},
+  NGCH_REJECT:  { label: msg('UI_PIPELINEVISUALIZER_NGCH_REJECT'),  color: 'text-red-500',      bg: 'bg-red-500/10 border-red-500/25'       },
 }
 const STATUS_META_L = {
-  CAPTURED:     { label: 'Captured',     color: 'text-slate-500',    bg: 'bg-slate-50 border-slate-300'          },
-  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600',      bg: 'bg-sky-50 border-sky-300'              },
-  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600',      bg: 'bg-red-50 border-red-300'              },
-  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600',   bg: 'bg-violet-50 border-violet-300'        },
-  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600',    bg: 'bg-amber-50 border-amber-300'          },
-  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600',     bg: 'bg-blue-50 border-blue-300'            },
-  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700',  bg: 'bg-emerald-50 border-emerald-300'      },
-  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700',      bg: 'bg-red-50 border-red-300'              },
+  CAPTURED:     { label: msg('UI_PRESENTMENT_CAPTURED'),     color: 'text-slate-500',    bg: 'bg-slate-50 border-slate-300'          },
+  IQA_PASS:     { label: msg('UI_IMAGEQUALITY_IQA_PASS'),     color: 'text-sky-600',      bg: 'bg-sky-50 border-sky-300'              },
+  IQA_FAIL:     { label: msg('UI_COMMON_IQA_FAIL'),     color: 'text-red-600',      bg: 'bg-red-50 border-red-300'              },
+  AI_EXTRACTED: { label: msg('UI_COMMON_AI_EXTRACTED'), color: 'text-violet-600',   bg: 'bg-violet-50 border-violet-300'        },
+  PKI_SIGNED:   { label: msg('UI_COMMON_PKI_SIGNED'),   color: 'text-amber-600',    bg: 'bg-amber-50 border-amber-300'          },
+  SUBMITTED:    { label: msg('UI_COMMON_SUBMITTED'),    color: 'text-blue-600',     bg: 'bg-blue-50 border-blue-300'            },
+  NGCH_ACK:     { label: msg('UI_PRESENTMENT_NGCH_ACK'),  color: 'text-emerald-700',  bg: 'bg-emerald-50 border-emerald-300'      },
+  NGCH_REJECT:  { label: msg('UI_PIPELINEVISUALIZER_NGCH_REJECT'),  color: 'text-red-700',      bg: 'bg-red-50 border-red-300'              },
 }
 // STATUS_META is aliased per-component using isDark (see below)
 
 const PIPELINE_STEPS = [
-  { id: 'CAPTURE',   label: 'Scan & Capture',   icon: '📷', desc: 'Scanner feed → TIFF+JPEG'    },
-  { id: 'IQA',       label: 'IQA',              icon: '🔍', desc: 'Image quality check'          },
-  { id: 'AI',        label: 'AI Extraction',    icon: '🤖', desc: 'OCR · MICR · fields'          },
-  { id: 'VALIDATE',  label: 'Cross-Validate',   icon: '⚖',  desc: 'Amount words · date · CTS'    },
-  { id: 'PKI',       label: 'PKI Sign (HSM)',    icon: '🔐', desc: 'HSM digital signature'        },
-  { id: 'SUBMIT',    label: 'Submit to NGCH',   icon: '📤', desc: 'SFTP · API · MCP'             },
-  { id: 'ACK',       label: 'NGCH ACK',         icon: '✅', desc: 'Accept / reject from NGCH'    },
+  { id: 'CAPTURE',   label: msg('UI_PRESENTMENT_SCAN_CAPTURE'),   icon: '📷', desc: msg('UI_PRESENTMENT_SCANNER_FEED_TIFF_JPEG')    },
+  { id: 'IQA',       label: 'IQA',              icon: '🔍', desc: msg('UI_PRESENTMENT_IMAGE_QUALITY_CHECK')          },
+  { id: 'AI',        label: msg('UI_PRESENTMENT_AI_EXTRACTION'),    icon: '🤖', desc: msg('UI_PRESENTMENT_OCR_MICR_FIELDS')          },
+  { id: 'VALIDATE',  label: msg('UI_PRESENTMENT_CROSS_VALIDATE'),   icon: '⚖',  desc: msg('UI_PRESENTMENT_AMOUNT_WORDS_DATE_CTS')    },
+  { id: 'PKI',       label: msg('UI_PRESENTMENT_PKI_SIGN_HSM'),    icon: '🔐', desc: msg('UI_PRESENTMENT_HSM_DIGITAL_SIGNATURE')        },
+  { id: 'SUBMIT',    label: msg('UI_PRESENTMENT_SUBMIT_TO_NGCH'),   icon: '📤', desc: msg('UI_PRESENTMENT_SFTP_API_MCP')             },
+  { id: 'ACK',       label: msg('UI_PRESENTMENT_NGCH_ACK_2'),         icon: '✅', desc: msg('UI_PRESENTMENT_ACCEPT_REJECT_FROM_NGCH')    },
 ]
 
 function pipelinePos(status) {
@@ -169,7 +170,7 @@ function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
   }
   return (
     <div className={`shrink-0 border-b ${th.bar} px-5 py-2 flex items-center gap-3`}>
-      <span className={`text-[10px] uppercase tracking-widest ${th.label} mr-1`}>NGCH Sessions</span>
+      <span className={`text-[10px] uppercase tracking-widest ${th.label} mr-1`}>{msg('UI_PRESENTMENT_NGCH_SESSIONS')}</span>
       {sessions.map((s, i) => {
         const active = i === activeIdx
         const isLive = s.status === 'ACTIVE'
@@ -180,15 +181,15 @@ function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
             }`}>
             {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             <span className="font-mono">{s.window}</span>
-            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${th.live}`}>LIVE</span>}
-            {s.status === 'PENDING' && <span className={`text-[9px] ${th.label}`}>Pending</span>}
+            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${th.live}`}>{msg('UI_PRESENTMENT_LIVE')}</span>}
+            {s.status === 'PENDING' && <span className={`text-[9px] ${th.label}`}>{msg('UI_COMMON_PENDING')}</span>}
           </button>
         )
       })}
       <div className={`ml-auto flex items-center gap-4 text-[11px] ${th.label}`}>
-        <span>📷 <span className="font-mono font-semibold">4</span> scanners</span>
-        <span>📁 <span className="font-mono font-semibold">2</span> folders</span>
-        <span className={`font-mono font-semibold ${th.scnFeed}`}>SCN feed active</span>
+        <span>📷 <span className="font-mono font-semibold">4</span> {msg('UI_PRESENTMENT_SCANNERS')}</span>
+        <span>📁 <span className="font-mono font-semibold">2</span> {msg('UI_PRESENTMENT_FOLDERS')}</span>
+        <span className={`font-mono font-semibold ${th.scnFeed}`}>{msg('UI_PRESENTMENT_SCN_FEED_ACTIVE')}</span>
       </div>
     </div>
   )
@@ -216,16 +217,16 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
   }
 
   const tiles = [
-    { key: 'ALL',          label: 'Total Batch',    val: total,       color: isDark ? 'text-white' : 'text-slate-900' },
-    { key: 'IQA_FAIL',     label: 'IQA Fail',       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-    { key: 'AI_EXTRACTED', label: 'AI Extracted',   val: extracted,   color: isDark ? 'text-violet-400' : 'text-violet-600' },
-    { key: 'SUBMITTED',    label: 'Submitted NGCH', val: submitted,   color: isDark ? 'text-blue-400' : 'text-blue-600' },
-    { key: 'NGCH_ACK',     label: 'NGCH ACK',       val: acked,       color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-    { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
-    { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
-    { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
-    { key: 'MANUAL_CONFIRM', label: 'Manual Confirmed', val: manualConfirmed, color: isDark ? 'text-emerald-300' : 'text-emerald-600', disabled: true },
-    { key: 'MANUAL_REJECT',  label: 'Manual Rejected',  val: manualRejected,  color: isDark ? 'text-red-300'     : 'text-red-600',     disabled: true },
+    { key: 'ALL',          label: msg('UI_PIPELINEVISUALIZER_TOTAL_BATCH'),    val: total,       color: isDark ? 'text-white' : 'text-slate-900' },
+    { key: 'IQA_FAIL',     label: msg('UI_COMMON_IQA_FAIL'),       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+    { key: 'AI_EXTRACTED', label: msg('UI_COMMON_AI_EXTRACTED'),   val: extracted,   color: isDark ? 'text-violet-400' : 'text-violet-600' },
+    { key: 'SUBMITTED',    label: msg('UI_PIPELINEVISUALIZER_SUBMITTED_NGCH'), val: submitted,   color: isDark ? 'text-blue-400' : 'text-blue-600' },
+    { key: 'NGCH_ACK',     label: msg('UI_PRESENTMENT_NGCH_ACK_2'),       val: acked,       color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+    { key: 'NGCH_REJECT',  label: msg('UI_PIPELINEVISUALIZER_NGCH_REJECT'),    val: rejected,    color: rejected > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'AMT_MISMATCH', label: msg('UI_COMMON_AMT_MISMATCH'),   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'DATE_INVALID', label: msg('UI_PIPELINEVISUALIZER_DATE_INVALID'),   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'MANUAL_CONFIRM', label: msg('UI_COMMON_MANUAL_CONFIRMED'), val: manualConfirmed, color: isDark ? 'text-emerald-300' : 'text-emerald-600', disabled: true },
+    { key: 'MANUAL_REJECT',  label: msg('UI_PIPELINEVISUALIZER_MANUAL_REJECTED'),  val: manualRejected,  color: isDark ? 'text-red-300'     : 'text-red-600',     disabled: true },
   ]
 
   return (
@@ -235,7 +236,7 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
           const active = filterStatus === t.key
           if (t.disabled) {
             return (
-              <div key={t.key} title="Decided in Outward Q — shown here for monitoring only"
+              <div key={t.key} title={msg('UI_PRESENTMENT_DECIDED_IN_OUTWARD_Q_SHOWN')}
                 className={`flex-1 rounded-xl border px-3 py-2 text-left ${th.card} opacity-90`}>
                 <div className={`text-[9px] uppercase tracking-widest ${th.lbl} mb-0.5 truncate`}>{t.label}</div>
                 <div className={`text-xl font-bold font-mono ${t.color}`}>{t.val}</div>
@@ -273,7 +274,7 @@ function PipelineLane({ batch, isDark }) {
 
   return (
     <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
-      <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Pipeline — Current Session</div>
+      <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>{msg('UI_PRESENTMENT_OUTWARD_PIPELINE_CURRENT_SESSION')}</div>
       <div className="flex gap-2 items-end">
         {PIPELINE_STEPS.map((step, i) => {
           const cnt = counts[i] || 0
@@ -326,12 +327,12 @@ function BatchRow({ item, selected, onClick, isDark }) {
           <span>·</span>
           <span>{item.amount}</span>
           <span>·</span>
-          <span>{item.zone}</span>
+          <span>{item.pu}</span>
           {item.lot_seq && (
             <>
               <span>·</span>
               <span className={isDark ? 'text-violet-400 font-medium' : 'text-violet-600 font-medium'}>
-                Lot {item.lot_seq}
+               {msg('UI_PRESENTMENT_LOT', { lot_seq: item.lot_seq })}
               </span>
             </>
           )}
@@ -383,12 +384,12 @@ function OutwardPipelineViz({ item }) {
       <div className="flex items-center px-4 pt-3 pb-1 gap-2">
         <div className="flex-1 flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.8)' }} />
-          <span className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(245,158,11,0.6)' }}>Presenting Bank</span>
+          <span className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(245,158,11,0.6)' }}>{msg('UI_PRESENTMENT_PRESENTING_BANK')}</span>
         </div>
         <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.1)' }} />
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#06b6d4', boxShadow: '0 0 6px rgba(6,182,212,0.8)' }} />
-          <span className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(6,182,212,0.6)' }}>NGCH</span>
+          <span className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(6,182,212,0.6)' }}>{msg('UI_COMMON_NGCH')}</span>
         </div>
       </div>
 
@@ -467,7 +468,7 @@ function DetailPanel({ item, isDark }) {
 
   if (!item) return (
     <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-300'} text-sm`}>
-      Select a cheque to inspect
+     {msg('UI_PRESENTMENT_SELECT_A_CHEQUE_TO_INSPECT')}
     </div>
   )
   const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
@@ -487,23 +488,23 @@ function DetailPanel({ item, isDark }) {
   }
 
   const fields = [
-    { label: 'Instrument ID',   val: item.instrument_id,  mono: true },
-    { label: 'Account (masked)',val: item.account_display, mono: true },
-    { label: 'Payee Name',      val: item.payee,           mono: false },
-    { label: 'Amount',          val: item.amount,          mono: true },
-    { label: 'Zone',            val: item.zone,            mono: false },
-    { label: 'MICR Code',       val: item.micr,            mono: true },
-    { label: 'Date on Cheque',  val: item.date_on_cheque,  mono: false },
-    { label: 'Scanner ID',      val: item.scanner_id,      mono: true },
-    { label: 'Lot Number',      val: item.lot_number,      mono: true },
+    { label: msg('UI_COMMON_INSTRUMENT_ID'),   val: item.instrument_id,  mono: true },
+    { label: msg('UI_PRESENTMENT_ACCOUNT_MASKED'),val: item.account_display, mono: true },
+    { label: msg('UI_PRESENTMENT_PAYEE_NAME'),      val: item.payee,           mono: false },
+    { label: msg('CTS_OUT_CUSTODY_COL_AMOUNT'),          val: item.amount,          mono: true },
+    { label: 'PU',              val: item.pu,            mono: false },
+    { label: msg('UI_PRESENTMENT_MICR_CODE'),       val: item.micr,            mono: true },
+    { label: msg('UI_PRESENTMENT_DATE_ON_CHEQUE'),  val: item.date_on_cheque,  mono: false },
+    { label: msg('UI_PRESENTMENT_SCANNER_ID'),      val: item.scanner_id,      mono: true },
+    { label: msg('UI_PRESENTMENT_LOT_NUMBER'),      val: item.lot_number,      mono: true },
   ]
 
   const checks = item.status !== 'IQA_FAIL' ? [
-    { label: 'Amount words match', ok: item.amount_words_match, note: item.amount_words_match === false ? 'Words amount governs per NI Act' : null },
-    { label: 'Date validity',      ok: item.date_valid },
-    { label: 'CTS cheque valid',   ok: item.cts_valid },
-    { label: 'OCR confidence',     ok: parseFloat(item.ocr_confidence) >= 0.85, val: `${(parseFloat(item.ocr_confidence) * 100).toFixed(0)}%` },
-    { label: 'Signature score',    ok: parseFloat(item.sig_score) >= 0.78, val: `${(parseFloat(item.sig_score) * 100).toFixed(0)}%` },
+    { label: msg('UI_COMMON_AMOUNT_WORDS_MATCH'), ok: item.amount_words_match, note: item.amount_words_match === false ? 'Words amount governs per NI Act' : null },
+    { label: msg('UI_PRESENTMENT_DATE_VALIDITY'),      ok: item.date_valid },
+    { label: msg('UI_PRESENTMENT_CTS_CHEQUE_VALID'),   ok: item.cts_valid },
+    { label: msg('UI_PRESENTMENT_OCR_CONFIDENCE'),     ok: parseFloat(item.ocr_confidence) >= 0.85, val: `${(parseFloat(item.ocr_confidence) * 100).toFixed(0)}%` },
+    { label: msg('UI_PRESENTMENT_SIGNATURE_SCORE'),    ok: parseFloat(item.sig_score) >= 0.78, val: `${(parseFloat(item.sig_score) * 100).toFixed(0)}%` },
   ] : []
 
   return (
@@ -512,18 +513,18 @@ function DetailPanel({ item, isDark }) {
       <div className={`shrink-0 px-5 py-3 border-b ${th.divider} flex items-center gap-3 flex-wrap`}>
         <span className={`text-[13px] font-mono font-semibold ${th.id}`}>{item.instrument_id}</span>
         <span className={`text-[10px] font-mono`}>·</span>
-        <span className={`text-[11px] ${th.muted}`}>{item.zone}</span>
+        <span className={`text-[11px] ${th.muted}`}>{item.pu}</span>
         <span className={`text-[10px] px-2 py-0.5 rounded border ${s.bg} ${s.color} font-medium`}>{s.label}</span>
         {item.ngch_ack_id && (
-          <span className={`text-[9px] font-mono ${th.lbl}`}>ACK: {item.ngch_ack_id.slice(-12)}</span>
+          <span className={`text-[9px] font-mono ${th.lbl}`}>{msg('UI_PRESENTMENT_ACK', { ngch_ack_id: item.ngch_ack_id.slice(-12) })}</span>
         )}
       </div>
 
       {/* Tab bar: Pipeline | Chq Images */}
       <div className={`shrink-0 flex items-center gap-1 px-5 pt-2.5 border-b ${th.divider}`}>
         {[
-          { key: 'pipeline', label: '⚙ Pipeline' },
-          { key: 'chq',      label: '🖼 Chq Images' },
+          { key: 'pipeline', label: msg('UI_PIPELINEVISUALIZER_PIPELINE') },
+          { key: 'chq',      label: msg('UI_PIPELINEVISUALIZER_CHQ_IMAGES') },
         ].map(t => (
           <button
             key={t.key}
@@ -540,7 +541,7 @@ function DetailPanel({ item, isDark }) {
       {/* Pipeline tab */}
       {detailTab === 'pipeline' && (
         <div className={`shrink-0 px-5 py-3 border-b ${th.divider}`}>
-          <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Clearing Pipeline</div>
+          <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>{msg('UI_PRESENTMENT_OUTWARD_CLEARING_PIPELINE')}</div>
           <OutwardPipelineViz item={item} />
         </div>
       )}
@@ -550,9 +551,9 @@ function DetailPanel({ item, isDark }) {
         <div className="px-5 py-3">
           <ChequeImageViewer
             views={[
-              { key: 'BFB', label: 'BFB — Front Black', url: item.front_bw_url   ?? null },
-              { key: 'BBB', label: 'BBB — Back Black',  url: null },
-              { key: 'BFG', label: 'BFG — Front Grey',  url: item.front_gray_url ?? null },
+              { key: 'BFB', label: msg('UI_PRESENTMENT_BFB_FRONT_BLACK'), url: item.front_bw_url   ?? null },
+              { key: 'BBB', label: msg('UI_PRESENTMENT_BBB_BACK_BLACK'),  url: null },
+              { key: 'BFG', label: msg('UI_PRESENTMENT_BFG_FRONT_GREY'),  url: item.front_gray_url ?? null },
             ]}
             fields={{
               payee:           item.payee,
@@ -581,24 +582,24 @@ function DetailPanel({ item, isDark }) {
         {/* IQA fail alert */}
         {item.iqa_fail_reason && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
-            <div className="text-[10px] text-red-400 uppercase tracking-widest mb-1">IQA Failure — Rescan Required</div>
+            <div className="text-[10px] text-red-400 uppercase tracking-widest mb-1">{msg('UI_PRESENTMENT_IQA_FAILURE_RESCAN_REQUIRED')}</div>
             <div className="text-sm text-red-300 font-medium">{item.iqa_fail_reason}</div>
-            <div className="text-[11px] text-red-400/70 mt-1">Instrument excluded from NGCH submission. Operator must rescan and re-submit.</div>
+            <div className="text-[11px] text-red-400/70 mt-1">{msg('UI_PRESENTMENT_INSTRUMENT_EXCLUDED_FROM_NGCH_SUBMIS')}</div>
           </div>
         )}
 
         {/* Amount words mismatch alert */}
         {item.amount_words_match === false && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <div className="text-[10px] text-amber-400 uppercase tracking-widest mb-1">Amount Mismatch — NI Act §18</div>
-            <div className="text-sm text-amber-300 font-medium">Amount in words governs over amount in figures</div>
-            <div className="text-[11px] text-amber-400/70 mt-1">System uses words amount for NGCH submission. Verify with customer before proceed.</div>
+            <div className="text-[10px] text-amber-400 uppercase tracking-widest mb-1">{msg('UI_PRESENTMENT_AMOUNT_MISMATCH_NI_ACT_18')}</div>
+            <div className="text-sm text-amber-300 font-medium">{msg('UI_PRESENTMENT_AMOUNT_IN_WORDS_GOVERNS_OVER')}</div>
+            <div className="text-[11px] text-amber-400/70 mt-1">{msg('UI_PRESENTMENT_SYSTEM_USES_WORDS_AMOUNT_FOR')}</div>
           </div>
         )}
 
         {/* Extracted fields */}
         <div>
-          <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Extracted Fields</div>
+          <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>{msg('UI_PRESENTMENT_EXTRACTED_FIELDS')}</div>
           <div className={`rounded-xl border ${th.card} divide-y ${th.divider}`}>
             {fields.map(f => (
               <div key={f.label} className="flex items-center justify-between px-4 py-2">
@@ -612,7 +613,7 @@ function DetailPanel({ item, isDark }) {
         {/* Cross-validation */}
         {checks.length > 0 && (
           <div>
-            <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Cross-Validation</div>
+            <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>{msg('UI_PRESENTMENT_CROSS_VALIDATION')}</div>
             <div className={`rounded-xl border ${th.card} divide-y ${th.divider}`}>
               {checks.map(c => (
                 <div key={c.label} className="flex items-center justify-between px-4 py-2">
@@ -635,30 +636,30 @@ function DetailPanel({ item, isDark }) {
         {/* NGCH submission details */}
         {['SUBMITTED', 'NGCH_ACK', 'NGCH_REJECT'].includes(item.status) && (
           <div>
-            <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>NGCH Submission</div>
+            <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>{msg('UI_PRESENTMENT_NGCH_SUBMISSION')}</div>
             <div className={`rounded-xl border ${th.card} divide-y ${th.divider}`}>
               <div className="flex items-center justify-between px-4 py-2">
-                <span className={`text-[11px] ${th.muted}`}>Transport</span>
-                <span className={`text-[11px] ${th.body}`}>SFTP → NGCH DEM</span>
+                <span className={`text-[11px] ${th.muted}`}>{msg('UI_PRESENTMENT_TRANSPORT')}</span>
+                <span className={`text-[11px] ${th.body}`}>{msg('UI_PRESENTMENT_SFTP_NGCH_DEM')}</span>
               </div>
               <div className="flex items-center justify-between px-4 py-2">
-                <span className={`text-[11px] ${th.muted}`}>File format</span>
-                <span className={`text-[11px] font-mono ${th.body}`}>CXF (XML) + CIBF</span>
+                <span className={`text-[11px] ${th.muted}`}>{msg('UI_PRESENTMENT_FILE_FORMAT')}</span>
+                <span className={`text-[11px] font-mono ${th.body}`}>{msg('UI_PRESENTMENT_CXF_XML_CIBF')}</span>
               </div>
               <div className="flex items-center justify-between px-4 py-2">
-                <span className={`text-[11px] ${th.muted}`}>HSM signed</span>
-                <span className={`text-[11px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ FIPS 140-2 L3</span>
+                <span className={`text-[11px] ${th.muted}`}>{msg('UI_PRESENTMENT_HSM_SIGNED')}</span>
+                <span className={`text-[11px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{msg('UI_PRESENTMENT_FIPS_140_2_L3')}</span>
               </div>
               {item.ngch_ack_id && (
                 <div className="flex items-center justify-between px-4 py-2">
-                  <span className={`text-[11px] ${th.muted}`}>NGCH ACK ID</span>
+                  <span className={`text-[11px] ${th.muted}`}>{msg('UI_PRESENTMENT_NGCH_ACK_ID')}</span>
                   <span className={`text-[10px] font-mono ${th.body}`}>{item.ngch_ack_id.slice(-16)}</span>
                 </div>
               )}
               {item.status === 'NGCH_REJECT' && (
                 <div className="flex items-center justify-between px-4 py-2">
-                  <span className={`text-[11px] text-red-400`}>Reject reason</span>
-                  <span className={`text-[11px] text-red-400`}>Invalid MICR / Duplicate</span>
+                  <span className={`text-[11px] text-red-400`}>{msg('UI_PRESENTMENT_REJECT_REASON')}</span>
+                  <span className={`text-[11px] text-red-400`}>{msg('UI_PRESENTMENT_INVALID_MICR_DUPLICATE')}</span>
                 </div>
               )}
             </div>
@@ -896,7 +897,7 @@ export default function CTSPresentment() {
             <div className={`shrink-0 px-3 py-2 border-b ${th.divider} flex items-center gap-2`}>
               <input
                 value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search ID / payee / account…"
+                placeholder={msg('UI_PRESENTMENT_SEARCH_ID_PAYEE_ACCOUNT')}
                 className={`flex-1 text-[11px] rounded-lg border px-3 py-1.5 focus:outline-none ${th.search}`}
               />
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -918,13 +919,13 @@ export default function CTSPresentment() {
 
             {/* Column headers */}
             <div className={`shrink-0 px-4 py-1.5 border-b ${th.divider} flex items-center gap-2`}>
-              <span className={`text-[9px] uppercase tracking-widest ${th.lbl} flex-1`}>Instrument · Payee · Amount</span>
-              <span className={`text-[9px] uppercase tracking-widest ${th.lbl}`}>Time</span>
+              <span className={`text-[9px] uppercase tracking-widest ${th.lbl} flex-1`}>{msg('UI_PRESENTMENT_INSTRUMENT_PAYEE_AMOUNT')}</span>
+              <span className={`text-[9px] uppercase tracking-widest ${th.lbl}`}>{msg('UI_COMMON_TIME')}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               {visible.length === 0 && (
-                <div className={`text-center ${th.lbl} text-sm py-16`}>No cheques match filter</div>
+                <div className={`text-center ${th.lbl} text-sm py-16`}>{msg('UI_DEMOLIVE_NO_CHEQUES_MATCH_FILTER')}</div>
               )}
               {visible.map(item => (
                 <BatchRow

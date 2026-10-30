@@ -5,6 +5,7 @@ raised inside swallowed try/except blocks and returned empty results. This codec
 valid ISO-8601 date string, and still rejects anything else. Reads are unchanged (DATE -> `date`).
 """
 from datetime import date, datetime
+from shared.messages import get_message
 
 
 def encode_date(value) -> str:
@@ -14,7 +15,7 @@ def encode_date(value) -> str:
         return value.isoformat()
     if isinstance(value, str):
         return date.fromisoformat(value).isoformat()   # ValueError on garbage
-    raise TypeError(f"cannot encode {type(value).__name__} as DATE")
+    raise TypeError(get_message("PLATFORM_CANNOT_ENCODE_AS_DATE", name__=type(value).__name__))
 
 
 async def register_lenient_codecs(conn) -> None:

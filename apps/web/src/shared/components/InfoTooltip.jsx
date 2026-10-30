@@ -11,6 +11,7 @@
  * announce it as an info button.
  */
 import { useState, useRef, useEffect } from 'react'
+import { msg } from '../messages'
 
 export default function InfoTooltip({ text, isDark, placement = 'top' }) {
   const [visible, setVisible] = useState(false)
@@ -40,7 +41,7 @@ export default function InfoTooltip({ text, isDark, placement = 'top' }) {
     <span ref={ref} className="relative inline-flex items-center">
       <button
         type="button"
-        aria-label="Show description"
+        aria-label={msg('UI_INFOTOOLTIP_SHOW_DESCRIPTION')}
         onMouseEnter={() => setVisible(true)}
         onMouseLeave={() => setVisible(false)}
         onFocus={() => setVisible(true)}

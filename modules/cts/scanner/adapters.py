@@ -37,6 +37,7 @@ from modules.cts.scanner.drivers import (
 from modules.cts.scanner.drivers.ranger_transport import RangerTransportClient, RangerScanResult
 from modules.cts.scanner.drivers.panini_sdk import PaniniSDKDriver, PaniniScanResult
 from modules.cts.scanner.drivers.dcc_api import DCCAPIDriver, DCCScanResult
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -132,11 +133,11 @@ class _SecureLinkClient:
                 return resp.json()
         except (httpx.ConnectError, httpx.TimeoutException) as exc:
             raise ScannerUnavailableError(
-                f"SecureLink unreachable at {self._base_url}: {exc}"
+                get_message("CTS_SECURELINK_UNREACHABLE_AT", base_url=self._base_url, exc=exc)
             ) from exc
         except httpx.HTTPStatusError as exc:
             raise ScannerUnavailableError(
-                f"SecureLink returned HTTP {exc.response.status_code}: {exc}"
+                get_message("CTS_SECURELINK_RETURNED_HTTP", status_code=exc.response.status_code, exc=exc)
             ) from exc
 
     async def get_status(self) -> dict:
@@ -148,7 +149,7 @@ class _SecureLinkClient:
                 return resp.json()
         except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as exc:
             raise ScannerUnavailableError(
-                f"SecureLink status check failed at {self._base_url}: {exc}"
+                get_message("CTS_SECURELINK_STATUS_CHECK_FAILED_AT", base_url=self._base_url, exc=exc)
             ) from exc
 
 
@@ -338,8 +339,7 @@ class CanonCR120UVAdapter(ScannerAdapter):
         """
         if not self._cfg.ranger_host or not self._cfg.ranger_port:
             raise ScannerUnavailableError(
-                f"Canon Ranger Transport not configured for branch "
-                f"'{self._cfg.branch_id}'. Set ranger_host and ranger_port."
+                get_message("CTS_CANON_RANGER_TRANSPORT_NOT_CONFIGURE", branch_id=self._cfg.branch_id)
             )
         try:
             async with RangerTransportClient(
@@ -462,7 +462,7 @@ class DigitalCheckTS240UVAdapter(DigitalCheckAdapter):
                 securelink_url=self._cfg.securelink_url,
             )
             raise ScannerUnavailableError(
-                f"{self.scanner_model} at {self._cfg.securelink_url} is unreachable"
+                get_message("CTS_AT_IS_UNREACHABLE", scanner_model=self.scanner_model, securelink_url=self._cfg.securelink_url)
             )
         return self._parse_securelink_response(data)
 
@@ -523,7 +523,7 @@ class DigitalCheckTS250Adapter(DigitalCheckAdapter):
                 securelink_url=self._cfg.securelink_url,
             )
             raise ScannerUnavailableError(
-                f"{self.scanner_model} at {self._cfg.securelink_url} is unreachable"
+                get_message("CTS_AT_IS_UNREACHABLE", scanner_model=self.scanner_model, securelink_url=self._cfg.securelink_url)
             )
         return self._parse_securelink_response(data)
 
@@ -606,9 +606,7 @@ class ScannerFactory:
             raw = await self._config.get(f"cts.scanner.bank.{bank_id}.default")
         if raw is None:
             raise ScannerConfigNotFoundError(
-                f"No scanner config found for branch '{branch_id}' "
-                f"or bank '{bank_id}' default. "
-                f"Set cts.scanner.branch.{branch_id} in Admin UI."
+                get_message("CTS_NO_SCANNER_CONFIG_FOUND_FOR", branch_id=branch_id, bank_id=bank_id, branch_id2=branch_id)
             )
         # bank_id and branch_id come from the call-site, not the stored config dict,
         # so we inject them before constructing BranchScannerConfig.
