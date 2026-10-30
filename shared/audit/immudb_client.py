@@ -35,6 +35,7 @@ class ImmudbClient:
         self._collection: str = "cts_events"
         self._bank_id: str = ""
         self._ready: bool = False
+        self._credentials: tuple[str, str, str] | None = None   # kept to re-login when the token expires
 
     # ------------------------------------------------------------------
     # Startup
@@ -65,6 +66,7 @@ class ImmudbClient:
             from immudb import ImmudbClient as _SDK  # type: ignore[import]
             self._stub = _SDK(f"{host}:{port}")
             self._stub.login(username, password, database=database.encode())
+            self._credentials = (username, password, database)
         except Exception as exc:
             raise ImmudbUnavailableError(f"immudb connect failed at {host}:{port}: {exc}") from exc
 
@@ -103,7 +105,7 @@ class ImmudbClient:
         value = json.dumps(payload, default=str).encode()
 
         try:
-            response = self._stub.verifiedSet(key, value)
+            response = self._call(self._stub.verifiedSet, key, value)
         except Exception as exc:
             log.error("immudb.write_failed", event_type=payload.get("event_type"), error=str(exc))
             raise ImmudbUnavailableError(f"immudb write failed: {exc}") from exc
@@ -134,7 +136,7 @@ class ImmudbClient:
         """
         self._assert_ready()
         try:
-            response = self._stub.verifiedGet(key)
+            response = self._call(self._stub.verifiedGet, key)
         except Exception as exc:
             raise ImmudbUnavailableError(f"immudb verify failed: {exc}") from exc
 
@@ -147,6 +149,27 @@ class ImmudbClient:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _token_expired(exc: Exception) -> bool:
+        text = str(exc).lower()
+        return "token has expired" in text or "token validation error" in text
+
+    def _call(self, fn, *args):
+        """Run an immudb call; if the session token has expired, log in again once and retry once.
+
+        immudb session tokens expire. Without this a long-running worker or API answered every audit write with
+        PERMISSION_DENIED for ever, and cheque workflows stalled on the unlimited audit retry.
+        """
+        try:
+            return fn(*args)
+        except Exception as exc:
+            if self._credentials is None or not self._token_expired(exc):
+                raise
+            username, password, database = self._credentials
+            log.warning("immudb.token_expired_relogin", bank_id=self._bank_id)
+            self._stub.login(username, password, database=database.encode())
+            return fn(*args)
 
     def _make_key(self, bank_id: str, collection: str, event_id: str) -> bytes:
         """Deterministic key: {bank_id}:{collection}:{sha256(event_id)}."""
