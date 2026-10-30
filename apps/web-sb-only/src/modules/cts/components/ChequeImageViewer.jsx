@@ -14,6 +14,7 @@
  *   title    string    — e.g. instrument_id shown in lightbox
  */
 import { useState, useEffect, useCallback } from 'react'
+import { msg } from '../../../shared/messages'
 
 // ── SVG placeholder generator ─────────────────────────────────────────────────
 
@@ -342,7 +343,7 @@ function IQABadge({ score, isDark }) {
     : 'bg-red-500/80 text-white'
   return (
     <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${color}`}>
-      IQA {pct}%
+     {msg('UI_CHEQUEIMAGEVIEWER_IQA_3', { pct })}
     </span>
   )
 }
@@ -374,7 +375,7 @@ function Lightbox({ src, label, title, onClose, isDark }) {
             onClick={(e) => e.stopPropagation()}
             className="text-[11px] text-slate-400 hover:text-white transition-colors px-3 py-1 rounded border border-white/20 hover:border-white/40"
           >
-            ↓ Download
+           {msg('UI_CHEQUEIMAGEVIEWER_DOWNLOAD')}
           </a>
           <button
             onClick={onClose}
@@ -392,7 +393,7 @@ function Lightbox({ src, label, title, onClose, isDark }) {
         className="max-w-[90vw] max-h-[80vh] object-contain rounded shadow-2xl border border-white/10"
         style={{ imageRendering: 'crisp-edges' }}
       />
-      <div className="absolute bottom-4 text-[11px] text-slate-500">Click anywhere or press Esc to close</div>
+      <div className="absolute bottom-4 text-[11px] text-slate-500">{msg('UI_CHEQUEIMAGEVIEWER_CLICK_ANYWHERE_OR_PRESS_ESC')}</div>
     </div>
   )
 }
@@ -400,9 +401,9 @@ function Lightbox({ src, label, title, onClose, isDark }) {
 // ── Deposit info panel ────────────────────────────────────────────────────────
 
 const CHANNEL_META = {
-  PAY_IN_SLIP:     { icon: '🧾', label: 'Pay-in Slip',   clrD: 'text-emerald-400', bgD: 'bg-emerald-500/8 border-emerald-500/20',  clrL: 'text-emerald-700', bgL: 'bg-emerald-50 border-emerald-200'  },
-  BACK_ANNOTATION: { icon: '✍️',  label: 'Back — OCR',    clrD: 'text-sky-400',     bgD: 'bg-sky-500/8 border-sky-500/20',           clrL: 'text-sky-700',     bgL: 'bg-sky-50 border-sky-200'          },
-  KIOSK:           { icon: '🏧',  label: 'Kiosk / CDM',  clrD: 'text-violet-400',  bgD: 'bg-violet-500/8 border-violet-500/20',     clrL: 'text-violet-700',  bgL: 'bg-violet-50 border-violet-200'    },
+  PAY_IN_SLIP:     { icon: '🧾', label: msg('UI_COMMON_PAY_IN_SLIP_2'),   clrD: 'text-emerald-400', bgD: 'bg-emerald-500/8 border-emerald-500/20',  clrL: 'text-emerald-700', bgL: 'bg-emerald-50 border-emerald-200'  },
+  BACK_ANNOTATION: { icon: '✍️',  label: msg('UI_CHEQUEIMAGEVIEWER_BACK_OCR_2'),    clrD: 'text-sky-400',     bgD: 'bg-sky-500/8 border-sky-500/20',           clrL: 'text-sky-700',     bgL: 'bg-sky-50 border-sky-200'          },
+  KIOSK:           { icon: '🏧',  label: msg('UI_COMMON_KIOSK_CDM_2'),  clrD: 'text-violet-400',  bgD: 'bg-violet-500/8 border-violet-500/20',     clrL: 'text-violet-700',  bgL: 'bg-violet-50 border-violet-200'    },
 }
 
 function DepRow({ label, value, isDark }) {
@@ -434,36 +435,36 @@ function DepositInfoPanel({ depositInfo, isDark }) {
       <div className="flex-1 overflow-y-auto px-3 py-1">
         {depositInfo.channel === 'PAY_IN_SLIP' && (
           <>
-            <DepRow label="Depositor Name"  value={data.depositor_name    || '—'} isDark={isDark} />
-            <DepRow label="Account"         value={data.depositor_account || '—'} isDark={isDark} />
-            <DepRow label="Amount on Slip"  value={data.deposit_amount    || '—'} isDark={isDark} />
-            <DepRow label="Counter Token"   value={data.counter_token     || '—'} isDark={isDark} />
-            <DepRow label="Date"            value={data.date              || '—'} isDark={isDark} />
-            <DepRow label="Branch"          value={data.branch            || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_DEPOSITOR_NAME_2')}  value={data.depositor_name    || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_ACCOUNT')}         value={data.depositor_account || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_AMOUNT_ON_SLIP_2')}  value={data.deposit_amount    || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_COUNTER_TOKEN_2')}   value={data.counter_token     || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_DATE_2')}            value={data.date              || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_BRANCH')}          value={data.branch            || '—'} isDark={isDark} />
           </>
         )}
         {depositInfo.channel === 'BACK_ANNOTATION' && (
           <>
-            <DepRow label="A/c Extracted"   value={data.extracted_account || '—'} isDark={isDark} />
-            <DepRow label="Mobile"          value={data.extracted_mobile  || '—'} isDark={isDark} />
-            <DepRow label="OCR Confidence"  value={data.ocr_confidence != null ? `${Math.round(data.ocr_confidence * 100)}%` : '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_A_C_EXTRACTED_2')}   value={data.extracted_account || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_MOBILE_2')}          value={data.extracted_mobile  || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_OCR_CONFIDENCE')}  value={data.ocr_confidence != null ? `${Math.round(data.ocr_confidence * 100)}%` : '—'} isDark={isDark} />
           </>
         )}
         {depositInfo.channel === 'KIOSK' && (
           <>
-            <DepRow label="Name"            value={data.name      || '—'} isDark={isDark} />
-            <DepRow label="Account"         value={data.account   || '—'} isDark={isDark} />
-            <DepRow label="Txn ID"          value={data.txn_id    || '—'} isDark={isDark} />
-            <DepRow label="Timestamp"       value={data.timestamp || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_CHEQUEIMAGEVIEWER_NAME_2')}            value={data.name      || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_ACCOUNT')}         value={data.account   || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_TXN_ID_2')}          value={data.txn_id    || '—'} isDark={isDark} />
+            <DepRow label={msg('UI_COMMON_TIMESTAMP_2')}       value={data.timestamp || '—'} isDark={isDark} />
           </>
         )}
       </div>
 
       {/* Source footer */}
       <div className={`px-3 py-1.5 border-t text-[9px] italic ${isDark ? 'border-white/8 text-slate-600' : 'border-slate-200 text-slate-400'}`}>
-        {depositInfo.channel === 'PAY_IN_SLIP'     && 'Branch counter capture'}
-        {depositInfo.channel === 'BACK_ANNOTATION' && 'Scanner back-side OCR'}
-        {depositInfo.channel === 'KIOSK'           && 'CDM machine — system-verified'}
+        {depositInfo.channel === 'PAY_IN_SLIP'     && msg('UI_CHEQUEIMAGEVIEWER_BRANCH_COUNTER_CAPTURE_2')}
+        {depositInfo.channel === 'BACK_ANNOTATION' && msg('UI_CHEQUEIMAGEVIEWER_SCANNER_BACK_SIDE_OCR_2')}
+        {depositInfo.channel === 'KIOSK'           && msg('UI_CHEQUEIMAGEVIEWER_CDM_MACHINE_SYSTEM_VERIFIED_2')}
       </div>
     </div>
   )
@@ -532,14 +533,14 @@ export default function ChequeImageViewer({
               : (isDark ? 'text-red-400 border-red-400/30' : 'text-red-600 border-red-300')
             return (
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${cls}`}>
-                IQA {pct}%
+               {msg('UI_CHEQUEIMAGEVIEWER_IQA_3', { pct })}
               </span>
             )
           })()}
           {/* Expand button */}
           <button
             onClick={openLightbox}
-            title="View full screen"
+            title={msg('UI_CHEQUEIMAGEVIEWER_VIEW_FULL_SCREEN_2')}
             className={`ml-1 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
           >
             ⤢
@@ -549,7 +550,7 @@ export default function ChequeImageViewer({
             href={src}
             download={`${title ? title + '_' : ''}${activeView?.key ?? 'cheque'}.${isPlaceholder ? 'svg' : 'jpg'}`}
             className={`ml-0.5 px-2 py-1 text-[11px] rounded border transition-colors ${th.badge} hover:opacity-80`}
-            title="Download image"
+            title={msg('UI_CHEQUEIMAGEVIEWER_DOWNLOAD_IMAGE_2')}
           >
             ↓
           </a>
@@ -571,7 +572,7 @@ export default function ChequeImageViewer({
             />
             {isPlaceholder && (
               <div className={`absolute bottom-1 left-2 text-[9px] italic ${th.mock} pointer-events-none`}>
-                preview — real image from scanner/MinIO
+               {msg('UI_CHEQUEIMAGEVIEWER_PREVIEW_REAL_IMAGE_FROM_SCANNER_2')}
               </div>
             )}
           </div>
@@ -588,11 +589,11 @@ export default function ChequeImageViewer({
             {activeView?.iqaScore != null && (
               <>
                 <span>·</span>
-                <span>IQA {Math.round(activeView.iqaScore * 100)}%</span>
+                <span>{msg('UI_CHEQUEIMAGEVIEWER_IQA_4', { value: Math.round(activeView.iqaScore * 100) })}</span>
               </>
             )}
             <span className="flex-1" />
-            <span className="italic">{isPlaceholder ? 'No image URL — showing SVG preview' : 'Live scan image'}</span>
+            <span className="italic">{isPlaceholder ? msg('UI_CHEQUEIMAGEVIEWER_NO_IMAGE_URL_SHOWING_SVG_2') : msg('UI_CHEQUEIMAGEVIEWER_LIVE_SCAN_IMAGE_2')}</span>
           </div>
         )}
       </div>

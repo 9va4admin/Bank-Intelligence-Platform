@@ -1,4 +1,5 @@
 import { useTheme } from '../theme/ThemeContext'
+import { msg } from '../messages'
 
 export default function ComingSoon({ page }) {
   const { isDark } = useTheme()
@@ -10,7 +11,7 @@ export default function ComingSoon({ page }) {
       ].join(' ')}>
         <div className="text-3xl mb-3">🚧</div>
         <p className="text-sm font-medium">{page}</p>
-        <p className="text-xs mt-1 opacity-60">Coming next sprint</p>
+        <p className="text-xs mt-1 opacity-60">{msg('UI_COMINGSOON_COMING_NEXT_SPRINT')}</p>
       </div>
     </div>
   )

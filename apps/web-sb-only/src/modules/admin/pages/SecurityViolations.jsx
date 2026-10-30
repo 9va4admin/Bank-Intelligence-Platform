@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -17,7 +18,7 @@ function useSecurityViolations() {
       const res = await fetch(`${API_BASE}/v1/admin/security-violations?limit=100`, {
         headers: { Authorization: 'Bearer test-token-saraswat-coop' },
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(msg('UI_COMMON_HTTP_2', { status: res.status }))
       setData(await res.json())
     } catch (e) {
       setError(e.message)
@@ -45,10 +46,10 @@ function useSecurityViolations() {
 }
 
 const SEVERITY_META = {
-  TenantIsolationError: { label: 'Tenant Isolation',  color: 'red',    icon: '⛔' },
-  BankIsolationError:   { label: 'Bank Isolation',    color: 'red',    icon: '⛔' },
-  AccessDeniedError:    { label: 'Access Denied',     color: 'amber',  icon: '⚠' },
-  EngagementExpiredError: { label: 'Engagement Expired', color: 'slate', icon: 'ℹ' },
+  TenantIsolationError: { label: msg('UI_SECURITYVIOLATIONS_TENANT_ISOLATION_2'),  color: 'red',    icon: '⛔' },
+  BankIsolationError:   { label: msg('UI_SECURITYVIOLATIONS_BANK_ISOLATION_2'),    color: 'red',    icon: '⛔' },
+  AccessDeniedError:    { label: msg('UI_SECURITYVIOLATIONS_ACCESS_DENIED_2'),     color: 'amber',  icon: '⚠' },
+  EngagementExpiredError: { label: msg('UI_SECURITYVIOLATIONS_ENGAGEMENT_EXPIRED_2'), color: 'slate', icon: 'ℹ' },
 }
 
 function sev(violationType, isDark) {
@@ -70,9 +71,9 @@ function sev(violationType, isDark) {
 function relTime(isoStr) {
   if (!isoStr) return '—'
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000)
-  if (diff < 60) return `${diff}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 60) return msg('UI_SECURITYVIOLATIONS_S_AGO_2', { diff })
+  if (diff < 3600) return msg('UI_SECURITYVIOLATIONS_M_AGO_2', { value: Math.floor(diff / 60) })
+  if (diff < 86400) return msg('UI_SECURITYVIOLATIONS_H_AGO_2', { value: Math.floor(diff / 3600) })
   return new Date(isoStr).toLocaleDateString('en-IN')
 }
 
@@ -139,20 +140,20 @@ export default function SecurityViolations() {
         <div className={`flex-1 overflow-y-auto px-6 py-8 ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
           <div className={`max-w-3xl mx-auto rounded-2xl border p-8 text-center ${isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200'}`}>
             <div className="text-3xl mb-3">🛡</div>
-            <h1 className={`text-lg font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Security Violation Log</h1>
+            <h1 className={`text-lg font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{msg('UI_APPSHELL_SECURITY_VIOLATION_LOG')}</h1>
             <p className={`text-sm mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Real-time log of unauthorised API access attempts. Accounts that attempt cross-bank data access are suspended immediately.
+             {msg('UI_SECURITYVIOLATIONS_REAL_TIME_LOG_OF_UNAUTHORISED_2')}
             </p>
             {!isSB && (
               <p className={`text-sm px-4 py-3 rounded-lg mb-6 ${isDark ? 'bg-amber-900/30 text-amber-300 border border-amber-700/40' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                This view is available to your Sponsor Bank's IT administrator.
+               {msg('UI_SECURITYVIOLATIONS_THIS_VIEW_IS_AVAILABLE_TO_2')}
               </p>
             )}
             <button
               onClick={() => { setLoaded(true); load() }}
               className="px-5 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-500 transition-colors"
             >
-              Load violation log
+             {msg('UI_SECURITYVIOLATIONS_LOAD_VIOLATION_LOG_2')}
             </button>
           </div>
         </div>
@@ -184,25 +185,25 @@ export default function SecurityViolations() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-red-500 text-lg">🛡</span>
-              <h1 className={`text-lg font-semibold ${th.heading}`}>Security Violation Log</h1>
+              <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_APPSHELL_SECURITY_VIOLATION_LOG')}</h1>
             </div>
-            <p className={`text-xs ${th.muted}`}>{bankName} · bank_it_admin access only</p>
+            <p className={`text-xs ${th.muted}`}>{msg('UI_SECURITYVIOLATIONS_BANK_IT_ADMIN_ACCESS_ONLY_2', { bankName })}</p>
           </div>
           <button
             onClick={load}
             disabled={loading}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-white/10 text-slate-300 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-600 hover:bg-slate-100'} disabled:opacity-40`}
           >
-            {loading ? 'Loading…' : '↻ Refresh'}
+            {loading ? msg('UI_OPSDASHBOARD_LOADING') : msg('UI_SECURITYVIOLATIONS_REFRESH_2')}
           </button>
         </div>
 
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3 mb-5">
           {[
-            { label: 'Total incidents', value: data?.total ?? 0, accent: isDark ? 'text-white' : 'text-slate-900' },
-            { label: 'Accounts suspended', value: suspendedCount, accent: 'text-red-500' },
-            { label: 'Requires action', value: violations.filter(v => v.suspended).length, accent: 'text-amber-500' },
+            { label: msg('UI_SECURITYVIOLATIONS_TOTAL_INCIDENTS_2'), value: data?.total ?? 0, accent: isDark ? 'text-white' : 'text-slate-900' },
+            { label: msg('UI_SECURITYVIOLATIONS_ACCOUNTS_SUSPENDED_2'), value: suspendedCount, accent: 'text-red-500' },
+            { label: msg('UI_SECURITYVIOLATIONS_REQUIRES_ACTION_2'), value: violations.filter(v => v.suspended).length, accent: 'text-amber-500' },
           ].map(s => (
             <div key={s.label} className={`rounded-xl border p-4 ${th.card}`}>
               <div className={`text-2xl font-bold tabular-nums ${s.accent}`}>{s.value}</div>
@@ -214,12 +215,12 @@ export default function SecurityViolations() {
         {/* Violation list */}
         <div className={`rounded-xl border overflow-hidden ${th.card}`}>
           <div className={`px-4 py-3 border-b flex items-center justify-between ${th.divider}`}>
-            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Incidents</span>
-            {error && <span className="text-xs text-amber-400">⚠ API unavailable — showing demo data</span>}
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>{msg('UI_SECURITYVIOLATIONS_INCIDENTS_2')}</span>
+            {error && <span className="text-xs text-amber-400">{msg('UI_SECURITYVIOLATIONS_API_UNAVAILABLE_SHOWING_DEMO_DATA_2')}</span>}
           </div>
 
           {violations.length === 0 && !loading && (
-            <div className={`px-4 py-10 text-center text-sm ${th.muted}`}>No security violations recorded.</div>
+            <div className={`px-4 py-10 text-center text-sm ${th.muted}`}>{msg('UI_SECURITYVIOLATIONS_NO_SECURITY_VIOLATIONS_RECORDED_2')}</div>
           )}
 
           {violations.map((v) => {
@@ -246,8 +247,8 @@ export default function SecurityViolations() {
                       {v.method} {v.endpoint}
                     </div>
                     <div className={`text-[10px] mt-1 ${th.muted}`}>
-                      IP {v.client_ip} · {relTime(v.timestamp_iso)}
-                      {v.request_id && <span className="ml-2 opacity-50">req:{v.request_id.slice(-8)}</span>}
+                     {msg('UI_SECURITYVIOLATIONS_IP_2', { client_ip: v.client_ip, relTime: relTime(v.timestamp_iso) })}
+                      {v.request_id && <span className="ml-2 opacity-50">{msg('UI_SECURITYVIOLATIONS_REQ_2', { request_id: v.request_id.slice(-8) })}</span>}
                     </div>
                   </div>
 
@@ -255,11 +256,11 @@ export default function SecurityViolations() {
                   <div className="shrink-0 flex flex-col items-end gap-1.5">
                     {v.suspended ? (
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${th.badge}`}>
-                        SUSPENDED
+                       {msg('UI_SECURITYVIOLATIONS_SUSPENDED_2')}
                       </span>
                     ) : (
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${th.ok}`}>
-                        ACTIVE
+                       {msg('UI_SECURITYVIOLATIONS_ACTIVE_2')}
                       </span>
                     )}
                     {v.suspended && (
@@ -272,7 +273,7 @@ export default function SecurityViolations() {
                         disabled={reinstating === v.user_id}
                         className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700'} disabled:opacity-40`}
                       >
-                        {reinstating === v.user_id ? 'Reinstating…' : 'Reinstate'}
+                        {reinstating === v.user_id ? msg('UI_SECURITYVIOLATIONS_REINSTATING_2') : msg('UI_SECURITYVIOLATIONS_REINSTATE_2')}
                       </button>
                     )}
                   </div>
@@ -284,8 +285,7 @@ export default function SecurityViolations() {
 
         {/* Policy note */}
         <p className={`text-[10px] mt-4 text-center ${th.muted}`}>
-          Cross-bank access attempts trigger immediate account suspension per ASTRA security policy.
-          Reinstatement requires bank_it_admin authority and is logged to the immutable audit trail.
+         {msg('UI_SECURITYVIOLATIONS_CROSS_BANK_ACCESS_ATTEMPTS_TRIGGER_2')}
         </p>
 
       </div>

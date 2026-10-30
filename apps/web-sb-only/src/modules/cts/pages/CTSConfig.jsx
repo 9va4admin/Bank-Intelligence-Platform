@@ -4,29 +4,30 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { getReturnReasons, saveReturnReasons, getDefaultReturnReasons } from '../data/returnReasons'
+import { msg } from '../../../shared/messages'
 
 const LAYER3_CONFIG = [
-  { key: 'iet_minutes',                  label: 'IET Window',                value: 180,      unit: 'minutes', desc: 'RBI mandated clearing window. Breach = deemed approval.',       editable: true,  warn: true  },
-  { key: 'stp_auto_confirm_threshold',   label: 'STP Auto-Confirm Threshold',value: 0.92,     unit: 'score',   desc: 'Fraud score below this → automatic NGCH confirm filing.',      editable: true,  warn: false },
-  { key: 'human_review_fraud_threshold', label: 'Human Review Threshold',    value: 0.72,     unit: 'score',   desc: 'Fraud score above this → routed to ops reviewer queue.',        editable: true,  warn: false },
-  { key: 'high_value_amount_threshold',  label: 'High-Value Limit',          value: 500000,   unit: '₹',       desc: 'Cheques above this amount require dual ops_reviewer approval.', editable: true,  warn: false },
-  { key: 'vault_miss_action',            label: 'Vault Miss Action',         value: 'HUMAN_REVIEW', unit: '', desc: 'Action on signature/PPS vault miss. Cannot be changed to AUTO_RETURN.', editable: false, warn: true },
+  { key: 'iet_minutes',                  label: msg('UI_COMMON_IET_WINDOW_2'),                value: 180,      unit: 'minutes', desc: msg('UI_CONFIG_RBI_MANDATED_CLEARING_WINDOW_BREACH_2'),       editable: true,  warn: true  },
+  { key: 'stp_auto_confirm_threshold',   label: msg('UI_CONFIG_STP_AUTO_CONFIRM_THRESHOLD_2'),value: 0.92,     unit: 'score',   desc: msg('UI_CONFIG_FRAUD_SCORE_BELOW_THIS_AUTOMATIC_2'),      editable: true,  warn: false },
+  { key: 'human_review_fraud_threshold', label: msg('UI_CONFIG_HUMAN_REVIEW_THRESHOLD_2'),    value: 0.72,     unit: 'score',   desc: msg('UI_CONFIG_FRAUD_SCORE_ABOVE_THIS_ROUTED_2'),        editable: true,  warn: false },
+  { key: 'high_value_amount_threshold',  label: msg('UI_CONFIG_HIGH_VALUE_LIMIT_2'),          value: 500000,   unit: '₹',       desc: msg('UI_CONFIG_CHEQUES_ABOVE_THIS_AMOUNT_REQUIRE_2'), editable: true,  warn: false },
+  { key: 'vault_miss_action',            label: msg('UI_COMMON_VAULT_MISS_ACTION_2'),         value: 'HUMAN_REVIEW', unit: '', desc: msg('UI_CONFIG_ACTION_ON_SIGNATURE_PPS_VAULT_2'), editable: false, warn: true },
 ]
 
 const LAYER2_CONFIG = [
-  { key: 'module_cts_enabled',   label: 'CTS Module',       value: 'true' },
-  { key: 'cbs_connector_type',   label: 'CBS Connector',    value: 'finacle' },
-  { key: 'max_agent_swarm_size', label: 'Max Agent Swarm',  value: '500' },
-  { key: 'clearing_zones',       label: 'Clearing Zones',   value: 'MUMBAI, DELHI' },
-  { key: 'gpu_profile',          label: 'GPU Profile',      value: 'production (4×A100)' },
+  { key: 'module_cts_enabled',   label: msg('UI_CONFIG_CTS_MODULE'),       value: 'true' },
+  { key: 'cbs_connector_type',   label: msg('UI_CONFIG_CBS_CONNECTOR_2'),    value: 'finacle' },
+  { key: 'max_agent_swarm_size', label: msg('UI_CONFIG_MAX_AGENT_SWARM_2'),  value: '500' },
+  { key: 'clearing_zones',       label: msg('UI_CONFIG_CLEARING_ZONES'),   value: 'MUMBAI, DELHI' },
+  { key: 'gpu_profile',          label: msg('UI_CONFIG_GPU_PROFILE_2'),      value: 'production (4×A100)' },
 ]
 
 const LAYER1_CONFIG = [
-  { key: 'min_tls_version',      label: 'Min TLS Version',   value: '1.3',  desc: 'Non-overridable. Enforced by Istio service mesh.' },
-  { key: 'audit_trail_enabled',  label: 'Audit Trail',       value: 'true', desc: 'Cannot be disabled. Cryptographic Immudb writes on every decision.' },
-  { key: 'exactly_once_ngch',    label: 'Exactly-Once NGCH', value: 'true', desc: 'Temporal idempotency. Duplicate filings are impossible by design.' },
-  { key: 'iet_watchdog_enabled', label: 'IET Watchdog',      value: 'true', desc: 'Emergency filing at T-30s. Non-overridable.' },
-  { key: 'hsm_required',         label: 'HSM Signing',       value: 'true', desc: 'All audit events signed with FIPS 140-2 Level 3 HSM.' },
+  { key: 'min_tls_version',      label: msg('UI_CONFIG_MIN_TLS_VERSION_2'),   value: '1.3',  desc: msg('UI_CONFIG_NON_OVERRIDABLE_ENFORCED_BY_ISTIO_2') },
+  { key: 'audit_trail_enabled',  label: msg('UI_COMMON_AUDIT_TRAIL_2'),       value: 'true', desc: msg('UI_CONFIG_CANNOT_BE_DISABLED_CRYPTOGRAPHIC_IMM_2') },
+  { key: 'exactly_once_ngch',    label: msg('UI_CONFIG_EXACTLY_ONCE_NGCH_2'), value: 'true', desc: msg('UI_CONFIG_TEMPORAL_IDEMPOTENCY_DUPLICATE_FILIN_2') },
+  { key: 'iet_watchdog_enabled', label: msg('UI_PLATFORMCONFIG_IET_WATCHDOG_2'),      value: 'true', desc: msg('UI_CONFIG_EMERGENCY_FILING_AT_T_30S_2') },
+  { key: 'hsm_required',         label: msg('UI_CONFIG_HSM_SIGNING_2'),       value: 'true', desc: msg('UI_CONFIG_ALL_AUDIT_EVENTS_SIGNED_WITH_2') },
 ]
 
 const MOCK_CHANGE_LOG = [
@@ -151,10 +152,10 @@ export default function CTSConfig() {
   }
 
   usePageHeader({
-    subtitle: 'Layer 3 business rules · Layer 2 topology · Layer 1 platform constraints',
+    subtitle: msg('UI_CONFIG_LAYER_3_BUSINESS_RULES_LAYER_2'),
     actions: (
       <div className={`text-[10px] ${th.meta} px-3 py-1.5 rounded-lg`}>
-        Maker-Checker required · Changes hot-reload in &lt;30s
+       {msg('UI_CONFIG_MAKER_CHECKER_REQUIRED_CHANGES_HOT_2')}
       </div>
     ),
   })
@@ -168,8 +169,8 @@ export default function CTSConfig() {
           <div className={`border rounded-xl px-5 py-4 mb-6 ${th.cardAmber}`}>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-sm font-semibold text-amber-500">Pending Approval</span>
-              <span className={`text-xs ${th.muted}`}>— requires checker sign-off (itadmin@svcb)</span>
+              <span className="text-sm font-semibold text-amber-500">{msg('UI_CONFIG_PENDING_APPROVAL_2')}</span>
+              <span className={`text-xs ${th.muted}`}>{msg('UI_CONFIG_REQUIRES_CHECKER_SIGN_OFF_ITADMIN_2')}</span>
             </div>
             <div className="space-y-2">
               {pendingChanges.map(p => {
@@ -182,7 +183,7 @@ export default function CTSConfig() {
                         <span className="font-mono">{String(p.oldValue)}</span>
                         <span className={`mx-2 ${th.faint}`}>→</span>
                         <span className="font-mono text-amber-500">{String(p.newValue)}</span>
-                        <span className={`ml-3 ${th.faint}`}>by {p.submittedBy} at {p.submittedAt}</span>
+                        <span className={`ml-3 ${th.faint}`}>{msg('UI_CONFIG_BY_AT_2', { submittedBy: p.submittedBy, submittedAt: p.submittedAt })}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
@@ -190,13 +191,13 @@ export default function CTSConfig() {
                         onClick={() => handleApprove(p.key)}
                         className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${th.btnGreen}`}
                       >
-                        Approve
+                       {msg('UI_CONFIG_APPROVE_2')}
                       </button>
                       <button
                         onClick={() => handleReject(p.key)}
                         className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${th.btnRed}`}
                       >
-                        Reject
+                       {msg('UI_CONFIG_REJECT_2')}
                       </button>
                     </div>
                   </div>
@@ -209,8 +210,8 @@ export default function CTSConfig() {
         {/* Layer 3 — editable */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-semibold text-amber-500 uppercase tracking-widest">Layer 3</span>
-            <span className={`text-xs ${th.faint}`}>Business Rules / Thresholds — Admin UI controlled</span>
+            <span className="text-xs font-semibold text-amber-500 uppercase tracking-widest">{msg('UI_OPERATIONSCONFIG_LAYER_3_2')}</span>
+            <span className={`text-xs ${th.faint}`}>{msg('UI_CONFIG_BUSINESS_RULES_THRESHOLDS_ADMIN_UI_2')}</span>
           </div>
           <div className="space-y-3">
             {LAYER3_CONFIG.map(c => {
@@ -221,10 +222,10 @@ export default function CTSConfig() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-sm font-medium ${th.heading}`}>{c.label}</span>
-                        {c.warn && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 uppercase tracking-wide">Protected</span>}
+                        {c.warn && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 uppercase tracking-wide">{msg('UI_CONFIG_PROTECTED_2')}</span>}
                         {isPending && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-400 border border-amber-400/30 uppercase tracking-wide">
-                            Pending Approval
+                           {msg('UI_CONFIG_PENDING_APPROVAL_2')}
                           </span>
                         )}
                       </div>
@@ -244,7 +245,7 @@ export default function CTSConfig() {
                             onClick={() => handleSubmit(c.key)}
                             className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${th.btn}`}
                           >
-                            Submit
+                           {msg('UI_CONFIG_SUBMIT_2')}
                           </button>
                         </>
                       ) : (
@@ -261,8 +262,8 @@ export default function CTSConfig() {
         {/* Layer 2 — read only deployment topology */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-semibold text-sky-400 uppercase tracking-widest">Layer 2</span>
-            <span className={`text-xs ${th.faint}`}>Deployment Topology — Helm values, requires ArgoCD sync</span>
+            <span className="text-xs font-semibold text-sky-400 uppercase tracking-widest">{msg('UI_PLATFORMCONFIG_LAYER_2_2')}</span>
+            <span className={`text-xs ${th.faint}`}>{msg('UI_CONFIG_DEPLOYMENT_TOPOLOGY_HELM_VALUES_REQU_2')}</span>
           </div>
           <div className="space-y-2">
             {LAYER2_CONFIG.map(c => (
@@ -270,7 +271,7 @@ export default function CTSConfig() {
                 <div>
                   <span className={`text-sm ${th.body}`}>{c.label}</span>
                   <div className={`text-[10px] ${th.faint} mt-0.5`}>
-                    Read-only · Change via PR to infra/helm/values/banks/svcb/ → ArgoCD sync
+                   {msg('UI_CONFIG_READ_ONLY_CHANGE_VIA_PR_2')}
                   </div>
                 </div>
                 <span className={`font-mono text-xs px-3 py-1 rounded-lg ${th.l2val}`}>{c.value}</span>
@@ -282,8 +283,8 @@ export default function CTSConfig() {
         {/* Layer 1 — read only */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <span className={`text-xs font-semibold ${th.l1label} uppercase tracking-widest`}>Layer 1</span>
-            <span className={`text-xs ${th.faint}`}>Platform Constraints — non-overridable, set by ASTRA vendor</span>
+            <span className={`text-xs font-semibold ${th.l1label} uppercase tracking-widest`}>{msg('UI_PLATFORMCONFIG_LAYER_1_2')}</span>
+            <span className={`text-xs ${th.faint}`}>{msg('UI_CONFIG_PLATFORM_CONSTRAINTS_NON_OVERRIDABLE_2')}</span>
           </div>
           <div className="space-y-2">
             {LAYER1_CONFIG.map(c => (
@@ -302,15 +303,15 @@ export default function CTSConfig() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className={`text-xs font-semibold ${th.muted} uppercase tracking-widest`}>Return Reasons</span>
-              <span className={`text-xs ${th.faint}`}>Shown to ops reviewers in the human review queue</span>
+              <span className={`text-xs font-semibold ${th.muted} uppercase tracking-widest`}>{msg('UI_CONFIG_RETURN_REASONS')}</span>
+              <span className={`text-xs ${th.faint}`}>{msg('UI_CONFIG_SHOWN_TO_OPS_REVIEWERS_IN_2')}</span>
             </div>
             <button
               type="button"
               onClick={resetReasons}
               className={`text-[10px] px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
             >
-              Reset to defaults
+             {msg('UI_CONFIG_RESET_TO_DEFAULTS_2')}
             </button>
           </div>
 
@@ -328,7 +329,7 @@ export default function CTSConfig() {
               value={newReasonText}
               onChange={e => setNewReasonText(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addReason()}
-              placeholder="Enter new return reason…"
+              placeholder={msg('UI_CONFIG_ENTER_NEW_RETURN_REASON_2')}
               className={`flex-1 text-xs px-3 py-2 rounded-lg border outline-none ${isDark ? 'bg-white/5 border-white/10 text-slate-200 placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-700 placeholder:text-slate-400'}`}
             />
             <button
@@ -337,7 +338,7 @@ export default function CTSConfig() {
               disabled={!newReasonText.trim()}
               className="text-xs px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 transition-colors"
             >
-              Add
+             {msg('UI_CONFIG_ADD_2')}
             </button>
           </div>
 
@@ -347,7 +348,7 @@ export default function CTSConfig() {
               <div key={group} className={`rounded-xl border ${th.card} overflow-hidden`}>
                 <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
                   <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{group}</span>
-                  <span className={`text-[10px] ${th.faint}`}>{reasons.length} reasons</span>
+                  <span className={`text-[10px] ${th.faint}`}>{msg('UI_CONFIG_REASONS_2', { count: reasons.length })}</span>
                 </div>
                 <div className="divide-y" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' }}>
                   {[...reasons].sort((a, b) => a.localeCompare(b)).map(reason => (
@@ -358,12 +359,12 @@ export default function CTSConfig() {
                         onClick={() => removeReason(group, reason)}
                         className={`text-[10px] opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded border ${isDark ? 'border-red-700/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
                       >
-                        Remove
+                       {msg('UI_CONFIG_REMOVE')}
                       </button>
                     </div>
                   ))}
                   {reasons.length === 0 && (
-                    <div className={`px-4 py-4 text-xs text-center ${th.faint}`}>No reasons — add one above</div>
+                    <div className={`px-4 py-4 text-xs text-center ${th.faint}`}>{msg('UI_CONFIG_NO_REASONS_ADD_ONE_ABOVE_2')}</div>
                   )}
                 </div>
               </div>
@@ -374,20 +375,20 @@ export default function CTSConfig() {
         {/* Recent Changes audit log */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <span className={`text-xs font-semibold ${th.muted} uppercase tracking-widest`}>Recent Changes</span>
-            <span className={`text-xs ${th.faint}`}>Immudb-backed audit trail · HSM signed</span>
+            <span className={`text-xs font-semibold ${th.muted} uppercase tracking-widest`}>{msg('UI_CONFIG_RECENT_CHANGES_2')}</span>
+            <span className={`text-xs ${th.faint}`}>{msg('UI_CONFIG_IMMUDB_BACKED_AUDIT_TRAIL_HSM_2')}</span>
           </div>
           <div className={`border rounded-xl overflow-hidden ${th.card}`}>
             <table className="w-full text-xs">
               <thead>
                 <tr className={th.tblHead}>
-                  <th className="text-left px-4 py-2.5 font-medium">Config Key</th>
-                  <th className="text-right px-4 py-2.5 font-medium">Old Value</th>
-                  <th className="text-right px-4 py-2.5 font-medium">New Value</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Submitted By</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Approved By</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Timestamp</th>
-                  <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                  <th className="text-left px-4 py-2.5 font-medium">{msg('UI_COMMON_CONFIG_KEY_2')}</th>
+                  <th className="text-right px-4 py-2.5 font-medium">{msg('UI_CONFIG_OLD_VALUE_2')}</th>
+                  <th className="text-right px-4 py-2.5 font-medium">{msg('UI_COMMON_NEW_VALUE_2')}</th>
+                  <th className="text-left px-4 py-2.5 font-medium">{msg('UI_COMMON_SUBMITTED_BY_2')}</th>
+                  <th className="text-left px-4 py-2.5 font-medium">{msg('UI_COMMON_APPROVED_BY_2')}</th>
+                  <th className="text-left px-4 py-2.5 font-medium">{msg('UI_COMMON_TIMESTAMP_2')}</th>
+                  <th className="text-center px-4 py-2.5 font-medium">{msg('UI_COMMON_STATUS_2')}</th>
                 </tr>
               </thead>
               <tbody>

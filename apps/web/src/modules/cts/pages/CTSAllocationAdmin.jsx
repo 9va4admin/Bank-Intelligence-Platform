@@ -375,7 +375,7 @@ export default function CTSAllocationAdmin() {
               bucketData?.routing_enabled
                 ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
                 : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700')}`}>
-             {msg('UI_ALLOCATIONADMIN_BUCKET_ROUTING', { value: bucketData?.routing_enabled ? 'ON' : 'OFF' })}
+             {msg('UI_ALLOCATIONADMIN_BUCKET_ROUTING', { value: bucketData?.routing_enabled ? msg('UI_ALLOCATIONADMIN_ON') : msg('UI_ALLOCATIONADMIN_OFF') })}
             </span>
           </div>
           {!bucketData?.routing_enabled && (

@@ -13,15 +13,16 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { msg } from '../../../shared/messages'
 
 const MODEL_OPTIONS = [
-  { value: 'qwen-72b',          label: 'Qwen 72B  (cloud VLM)' },
-  { value: 'qwen-32b',          label: 'Qwen 32B  (cloud VLM)' },
-  { value: 'gemma-27b',         label: 'Gemma 27B (cloud VLM)' },
-  { value: 'qwen2vl-sig',       label: '✍️ Qwen2-VL Sig Extract  (multi-signature, cloud)' },
-  { value: 'yolov8-sig',        label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
-  { value: 'yolov8-sig-only',   label: '🔍 YOLOv8 Sig Only  (local — no HF token needed)' },
-  { value: 'indic-devanagari',  label: '🇮🇳 IndicOCR Devanagari  +  YOLO Sig  (local)' },
+  { value: 'qwen-72b',          label: msg('UI_CLOUDAIDEMO_QWEN_72B_CLOUD_VLM_2') },
+  { value: 'qwen-32b',          label: msg('UI_CLOUDAIDEMO_QWEN_32B_CLOUD_VLM_2') },
+  { value: 'gemma-27b',         label: msg('UI_CLOUDAIDEMO_GEMMA_27B_CLOUD_VLM_2') },
+  { value: 'qwen2vl-sig',       label: msg('UI_CLOUDAIDEMO_QWEN2_VL_SIG_EXTRACT_MULTI_2') },
+  { value: 'yolov8-sig',        label: msg('UI_CLOUDAIDEMO_YOLOV8_SIG_DETECTOR_QWEN_32B_2') },
+  { value: 'yolov8-sig-only',   label: msg('UI_CLOUDAIDEMO_YOLOV8_SIG_ONLY_LOCAL_NO_2') },
+  { value: 'indic-devanagari',  label: msg('UI_CLOUDAIDEMO_INDICOCR_DEVANAGARI_YOLO_SIG_LOCAL_2') },
 ]
 
 const FIELD_ROWS = [
@@ -88,7 +89,7 @@ function downloadJSON(data, filename) {
 
 export default function CTSCloudAIDemo() {
   const { isDark } = useTheme()
-  usePageHeader({ subtitle: 'Real Vision AI extraction — cloud-backed demo, temporary' })
+  usePageHeader({ subtitle: msg('UI_CLOUDAIDEMO_REAL_VISION_AI_EXTRACTION_CLOUD_2') })
 
   const th = {
     page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
@@ -123,7 +124,7 @@ export default function CTSCloudAIDemo() {
       const url = await fetchChequePreview(f)
       setPreview(url)
     } catch (err) {
-      setError(err.message || 'Preview generation failed')
+      setError(err.message || msg('UI_CLOUDAIDEMO_PREVIEW_GENERATION_FAILED_2'))
     } finally {
       setPreviewLoading(false)
     }
@@ -138,7 +139,7 @@ export default function CTSCloudAIDemo() {
       const data = await extractChequeCloud(file, model)
       setResult(data)
     } catch (err) {
-      setError(err.message || 'Extraction failed')
+      setError(err.message || msg('UI_CLOUDAIDEMO_EXTRACTION_FAILED_2'))
     } finally {
       setLoading(false)
     }
@@ -148,18 +149,15 @@ export default function CTSCloudAIDemo() {
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         <div className={`mb-5 rounded-xl border px-4 py-3 ${isDark ? 'bg-amber-900/30 border-amber-700/40 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
-          <span className="font-semibold">☁️ Cloud AI Demo — Temporary.</span>{' '}
-          This page calls a cloud Vision LLM (Hugging Face) for real, live extraction results.
-          Production CTS processing never leaves the bank's own infrastructure — this page exists
-          only to demo real AI behaviour ahead of on-prem GPU availability.
+          <span className="font-semibold">{msg('UI_CLOUDAIDEMO_CLOUD_AI_DEMO_TEMPORARY_2')}</span>{msg('UI_CLOUDAIDEMO_THIS_PAGE_CALLS_A_CLOUD_2')}
         </div>
 
-        <h1 className={`text-lg font-semibold mb-4 ${th.heading}`}>Cloud AI Cheque Extraction</h1>
+        <h1 className={`text-lg font-semibold mb-4 ${th.heading}`}>{msg('UI_CLOUDAIDEMO_CLOUD_AI_CHEQUE_EXTRACTION_2')}</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className={`rounded-xl border p-5 ${th.card}`} style={{ alignSelf: 'start' }}>
             <div className="mb-3">
-              <label className={`block text-xs font-semibold mb-1 ${th.muted}`}>Vision Model</label>
+              <label className={`block text-xs font-semibold mb-1 ${th.muted}`}>{msg('UI_CLOUDAIDEMO_VISION_MODEL_2')}</label>
               <select
                 className={`w-full rounded-lg border px-3 py-2 text-sm ${th.select}`}
                 value={model}
@@ -171,36 +169,28 @@ export default function CTSCloudAIDemo() {
               </select>
               {model === 'yolov8-sig' && (
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
-                  Sig crop via local YOLOv8 pixel detector + connected-component denoising.
-                  All text fields extracted via Qwen 32B (HF token required).
-                  Start detector first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
+                 {msg('UI_CLOUDAIDEMO_SIG_CROP_VIA_LOCAL_YOLOV8_2')} <code className="font-mono">{msg('UI_CLOUDAIDEMO_CD_APPS_SIG_DETECTOR_PYTHON_2')}</code>
                 </p>
               )}
               {model === 'yolov8-sig-only' && (
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
-                  Local-only mode — runs the pixel sig detector + denoising, returns the clean
-                  signature crop. <strong>No HF token needed, no cloud call.</strong> Use this
-                  to test sig crop quality without burning HF quota.
-                  Start detector first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
+                 {msg('UI_CLOUDAIDEMO_LOCAL_ONLY_MODE_RUNS_THE_2')} <strong>{msg('UI_CLOUDAIDEMO_NO_HF_TOKEN_NEEDED_NO_2')}</strong> {msg('UI_CLOUDAIDEMO_USE_THIS_TO_TEST_SIG_2')} <code className="font-mono">{msg('UI_CLOUDAIDEMO_CD_APPS_SIG_DETECTOR_PYTHON_2')}</code>
                 </p>
               )}
               {model === 'indic-devanagari' && (
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
-                  <strong>Stage 1 — Devanagari script only</strong> (Hindi, Marathi, Sanskrit).
-                  Payee name, amount in words, date, and bank name extracted via{' '}
-                  <strong>PaddleOCR hi</strong> (default) · <strong>AI4Bharat IndicOCR</strong> (manual setup required) · <strong>EasyOCR hi-pack</strong> (fallback) —
-                  set <code className="font-mono">INDIC_OCR_BACKEND=paddle|ai4bharat|easyocr</code> on the IndicOCR service.
-                  Signature detected via local <strong>YOLOv8 pixel detector</strong>.{' '}
-                  <strong>No HF token needed.</strong> Start both services first:{' '}
-                  <code className="font-mono">cd apps/sig_detector; python main.py</code>
-                  {' '}and{' '}
-                  <code className="font-mono">cd apps/indic_ocr; python main.py</code>
+                  <strong>{msg('UI_CLOUDAIDEMO_STAGE_1_DEVANAGARI_SCRIPT_ONLY_2')}</strong> {msg('UI_CLOUDAIDEMO_HINDI_MARATHI_SANSKRIT_PAYEE_NAME_2')}
+                  <strong>{msg('UI_CLOUDAIDEMO_PADDLEOCR_HI_2')}</strong> {msg('UI_CLOUDAIDEMO_DEFAULT_2')} <strong>{msg('UI_CLOUDAIDEMO_AI4BHARAT_INDICOCR_2')}</strong> {msg('UI_CLOUDAIDEMO_MANUAL_SETUP_REQUIRED_2')} <strong>{msg('UI_CLOUDAIDEMO_EASYOCR_HI_PACK_2')}</strong> {msg('UI_CLOUDAIDEMO_FALLBACK_SET_2')} <code className="font-mono">{msg('UI_CLOUDAIDEMO_INDIC_OCR_BACKEND_PADDLE_AI4BHARAT_2')}</code> {msg('UI_CLOUDAIDEMO_ON_THE_INDICOCR_SERVICE_SIGNATURE_2')} <strong>{msg('UI_CLOUDAIDEMO_YOLOV8_PIXEL_DETECTOR_2')}</strong>.{' '}
+                  <strong>{msg('UI_CLOUDAIDEMO_NO_HF_TOKEN_NEEDED_2')}</strong> {msg('UI_CLOUDAIDEMO_START_BOTH_SERVICES_FIRST_2')}
+                  <code className="font-mono">{msg('UI_CLOUDAIDEMO_CD_APPS_SIG_DETECTOR_PYTHON_2')}</code>
+                  {msg('UI_CLOUDAIDEMO_AND_2')}
+                  <code className="font-mono">{msg('UI_CLOUDAIDEMO_CD_APPS_INDIC_OCR_PYTHON_2')}</code>
                 </p>
               )}
             </div>
 
             <div className="mb-3">
-              <label className={`block text-xs font-semibold mb-1 ${th.muted}`}>Upload Cheque Image</label>
+              <label className={`block text-xs font-semibold mb-1 ${th.muted}`}>{msg('UI_CLOUDAIDEMO_UPLOAD_CHEQUE_IMAGE_2')}</label>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/bmp,image/tiff"
@@ -214,7 +204,7 @@ export default function CTSCloudAIDemo() {
               disabled={!file || loading}
               className="w-full h-11 rounded-lg font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition"
             >
-              {loading ? 'Extracting…' : '🚀 Extract Information'}
+              {loading ? msg('UI_CLOUDAIDEMO_EXTRACTING_3') : msg('UI_CLOUDAIDEMO_EXTRACT_INFORMATION_2')}
             </button>
 
             {error && (
@@ -223,33 +213,33 @@ export default function CTSCloudAIDemo() {
 
             {previewLoading && (
               <div className={`mt-4 rounded-lg border flex items-center justify-center text-sm ${th.faint}`} style={{ minHeight: '8rem' }}>
-                Generating preview…
+               {msg('UI_CLOUDAIDEMO_GENERATING_PREVIEW_2')}
               </div>
             )}
 
             {previewUrl && !previewLoading && (
               <div className="mt-4">
-                <p className={`text-xs mb-1 ${th.muted}`}>Uploaded Cheque — compare against extracted fields</p>
+                <p className={`text-xs mb-1 ${th.muted}`}>{msg('UI_CLOUDAIDEMO_UPLOADED_CHEQUE_COMPARE_AGAINST_EXTR_2')}</p>
                 <img
                   src={previewUrl}
-                  alt="Cheque preview"
+                  alt={msg('UI_CLOUDAIDEMO_CHEQUE_PREVIEW_2')}
                   className="rounded-lg border w-full max-h-72 object-contain bg-white"
                   style={{ minHeight: '8rem' }}
-                  onError={() => setError('Preview failed to render — try re-selecting the file.')}
+                  onError={() => setError(msg('UI_CLOUDAIDEMO_PREVIEW_FAILED_TO_RENDER_TRY_2'))}
                 />
               </div>
             )}
           </div>
 
           <div className={`rounded-xl border p-5 ${th.card}`}>
-            <h3 className={`text-sm font-semibold mb-3 ${th.heading}`}>📋 Extracted Information</h3>
+            <h3 className={`text-sm font-semibold mb-3 ${th.heading}`}>{msg('UI_CLOUDAIDEMO_EXTRACTED_INFORMATION_2')}</h3>
 
             {!result && !loading && (
-              <p className={`text-sm ${th.faint}`}>Upload a cheque image and click Extract Information.</p>
+              <p className={`text-sm ${th.faint}`}>{msg('UI_CLOUDAIDEMO_UPLOAD_A_CHEQUE_IMAGE_AND_2')}</p>
             )}
 
             {loading && (
-              <p className={`text-sm ${th.faint}`}>Extracting…</p>
+              <p className={`text-sm ${th.faint}`}>{msg('UI_CLOUDAIDEMO_EXTRACTING_3')}</p>
             )}
 
             {result?.error && !result.error.startsWith('SIG_DETECTOR_OFFLINE') && (
@@ -269,10 +259,9 @@ export default function CTSCloudAIDemo() {
                 <div>
                   {sigOffline && (
                     <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-amber-900/30 border-amber-700/40 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
-                      <p className="text-xs font-semibold mb-0.5">⚠ Sig detector offline</p>
+                      <p className="text-xs font-semibold mb-0.5">{msg('UI_CLOUDAIDEMO_SIG_DETECTOR_OFFLINE_2')}</p>
                       <p className="text-[11px] leading-snug">
-                        Field extraction succeeded. Signature crop unavailable — start the local detector:
-                        {' '}<code className="font-mono">cd apps/sig_detector; python main.py</code>
+                       {msg('UI_CLOUDAIDEMO_FIELD_EXTRACTION_SUCCEEDED_SIGNATURE_2')}<code className="font-mono">{msg('UI_CLOUDAIDEMO_CD_APPS_SIG_DETECTOR_PYTHON_2')}</code>
                       </p>
                     </div>
                   )}
@@ -280,10 +269,9 @@ export default function CTSCloudAIDemo() {
                     null  /* sig-only + offline: banner above is the only output */
                   ) : isSigOnly ? (
                     <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-indigo-900/30 border-indigo-700/40 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-800'}`}>
-                      <p className="text-xs font-semibold mb-0.5">🔍 Sig-only mode</p>
+                      <p className="text-xs font-semibold mb-0.5">{msg('UI_CLOUDAIDEMO_SIG_ONLY_MODE_2')}</p>
                       <p className="text-[11px] leading-snug">
-                        Only the signature crop is returned — no field extraction was run
-                        (no HF call made). See the signature panel below for the denoised crop.
+                       {msg('UI_CLOUDAIDEMO_ONLY_THE_SIGNATURE_CROP_IS_2')}
                       </p>
                     </div>
                   ) : (
@@ -291,7 +279,7 @@ export default function CTSCloudAIDemo() {
                       {isIndicDevanagari && (
                         <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-emerald-900/25 border-emerald-700/40 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
                           <p className="text-xs font-semibold mb-0.5">
-                            🇮🇳 IndicOCR Devanagari — Stage 1
+                           {msg('UI_CLOUDAIDEMO_INDICOCR_DEVANAGARI_STAGE_1_2')}
                             {result.indic_backend && (
                               <span className={`ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'border-emerald-600/50 bg-emerald-800/40' : 'border-emerald-300 bg-emerald-100'}`}>
                                 {{ paddle: 'PaddleOCR hi', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR hi-pack' }[result.indic_backend] ?? result.indic_backend}
@@ -299,11 +287,7 @@ export default function CTSCloudAIDemo() {
                             )}
                           </p>
                           <p className="text-[11px] leading-snug">
-                            Payee, amount in words, date &amp; bank name extracted via{' '}
-                            {{ paddle: 'PaddleOCR Hindi model (default)', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR Hindi pack' }[result.indic_backend] ?? 'local IndicOCR'}.
-                            MICR, IFSC, cheque number &amp; account number are printed in English and are
-                            not extracted in Stage 1 — they will show as —.
-                            Signature detected via local YOLOv8 pixel detector.
+                           {msg('UI_CLOUDAIDEMO_PAYEE_AMOUNT_IN_WORDS_DATE_2', { value: { paddle: 'PaddleOCR Hindi model (default)', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR Hindi pack' }[result.indic_backend] ?? msg('UI_CLOUDAIDEMO_LOCAL_INDICOCR') })}
                           </p>
                         </div>
                       )}
@@ -317,31 +301,31 @@ export default function CTSCloudAIDemo() {
                       </div>
 
                       <div className={`rounded-lg border px-3 py-2 mb-2 ${th.infoCard}`}>
-                        <div className={`text-[11px] font-semibold ${th.muted}`}>✍ Signature</div>
+                        <div className={`text-[11px] font-semibold ${th.muted}`}>{msg('UI_CLOUDAIDEMO_SIGNATURE_3')}</div>
                         <div className={`text-sm font-semibold ${th.heading}`}>
-                          {result.signature_present ? 'Present' : 'Not Found'}
+                          {result.signature_present ? msg('UI_CLOUDAIDEMO_PRESENT_2') : msg('UI_CLOUDAIDEMO_NOT_FOUND_2')}
                         </div>
                       </div>
 
                       {result.is_amount_matching === true && (
-                        <p className="text-sm text-emerald-500">✅ Amount in Words matches Amount in Figures</p>
+                        <p className="text-sm text-emerald-500">{msg('UI_CLOUDAIDEMO_AMOUNT_IN_WORDS_MATCHES_AMOUNT_2')}</p>
                       )}
                       {result.is_amount_matching === false && (
-                        <p className="text-sm text-red-500">❌ Amount in Words DOES NOT match Amount in Figures</p>
+                        <p className="text-sm text-red-500">{msg('UI_CLOUDAIDEMO_AMOUNT_IN_WORDS_DOES_NOT_2')}</p>
                       )}
                       {result.is_amount_matching == null && (
-                        <p className={`text-sm ${th.muted}`}>⚠ Unable to validate amount</p>
+                        <p className={`text-sm ${th.muted}`}>{msg('UI_CLOUDAIDEMO_UNABLE_TO_VALIDATE_AMOUNT_2')}</p>
                       )}
                     </>
                   )}
 
-                  <p className={`text-xs mt-3 mb-3 ${th.faint}`}>Model: {result.model_used}</p>
+                  <p className={`text-xs mt-3 mb-3 ${th.faint}`}>{msg('UI_CLOUDAIDEMO_MODEL_2', { model_used: result.model_used })}</p>
 
                   <button
                     onClick={() => downloadJSON(result, 'cheque_extraction.json')}
                     className={`w-full h-10 rounded-lg font-semibold text-sm border transition ${isDark ? 'border-white/15 text-white hover:bg-white/5' : 'border-slate-300 text-slate-900 hover:bg-slate-50'}`}
                   >
-                    ⬇ Download JSON
+                   {msg('UI_CLOUDAIDEMO_DOWNLOAD_JSON_2')}
                   </button>
                 </div>
               )
@@ -358,9 +342,9 @@ export default function CTSCloudAIDemo() {
                   const count = result.signature_count ?? (result.signature_present ? 1 : 0)
                   return (
                     <>
-                      ✍ Extracted Signature{count !== 1 ? 's' : ''}&nbsp;
+                     {msg('UI_CLOUDAIDEMO_EXTRACTED_SIGNATURE_2', { value: count !== 1 ? 's' : '' })}&nbsp;
                       <span className={`text-xs font-normal ${th.muted}`}>
-                        — {count} signature{count !== 1 ? 's' : ''} detected on this cheque
+                       {msg('UI_CLOUDAIDEMO_SIGNATURE_DETECTED_ON_THIS_CHEQUE_2', { count, value: count !== 1 ? 's' : '' })}
                       </span>
                     </>
                   )
@@ -368,7 +352,7 @@ export default function CTSCloudAIDemo() {
               </h3>
               {result.signature_fraud_flags && result.signature_fraud_flags.length > 0 && (
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
-                  ⚠ {result.signature_fraud_flags.length} fraud flag{result.signature_fraud_flags.length !== 1 ? 's' : ''}
+                 {msg('UI_CLOUDAIDEMO_FRAUD_FLAG_2', { count: result.signature_fraud_flags.length, value: result.signature_fraud_flags.length !== 1 ? 's' : '' })}
                 </span>
               )}
             </div>
@@ -383,11 +367,11 @@ export default function CTSCloudAIDemo() {
                       style={{ minWidth: '10rem' }}
                     >
                       <div className={`text-[10px] font-mono font-semibold ${th.muted}`}>
-                        Signature #{i + 1}
+                       {msg('UI_CLOUDAIDEMO_SIGNATURE_4', { value: i + 1 })}
                       </div>
                       <img
                         src={`data:image/png;base64,${crop}`}
-                        alt={`Detected signature ${i + 1}`}
+                        alt={msg('UI_CLOUDAIDEMO_DETECTED_SIGNATURE_2', { value: i + 1 })}
                         className="rounded bg-white max-h-24 max-w-xs object-contain border"
                         style={{ minHeight: '3rem' }}
                       />
@@ -396,17 +380,17 @@ export default function CTSCloudAIDemo() {
                 </div>
                 {result.signature_crops_estimated && (
                   <p className={`text-[11px] ${th.muted}`}>
-                    ⚠ Region estimated via ink-detection — model returned no coordinates. Crop covers the standard CTS-2010 signature zone.
+                   {msg('UI_CLOUDAIDEMO_REGION_ESTIMATED_VIA_INK_DETECTION_2')}
                   </p>
                 )}
               </div>
             ) : (
               <p className={`text-sm ${th.faint}`}>
                 {result.error?.startsWith('SIG_DETECTOR_OFFLINE')
-                  ? 'Sig detector offline — start it with: cd apps/sig_detector; python main.py'
+                  ? msg('UI_CLOUDAIDEMO_SIG_DETECTOR_OFFLINE_START_IT_2')
                   : result.signature_present
-                    ? 'Signature present · region could not be isolated from this scan.'
-                    : 'No signature detected on this cheque.'}
+                    ? msg('UI_CLOUDAIDEMO_SIGNATURE_PRESENT_REGION_COULD_NOT_2')
+                    : msg('UI_CLOUDAIDEMO_NO_SIGNATURE_DETECTED_ON_THIS_2')}
               </p>
             )}
 

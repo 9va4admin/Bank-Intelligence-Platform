@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
+COPY main.py service_messages.py messages.json ./
 
 # Optional: set to a local .pt weights file path (bind-mounted at runtime)
 # to enable YOLOv8 mode.  Default is pixel-analysis mode — no download needed.

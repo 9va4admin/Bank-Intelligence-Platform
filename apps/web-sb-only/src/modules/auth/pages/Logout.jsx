@@ -8,6 +8,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../shared/context/AuthContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { msg } from '../../../shared/messages'
 
 export default function Logout() {
   const { logout } = useAuth()
@@ -25,7 +26,7 @@ export default function Logout() {
 
   return (
     <div className={`min-h-screen w-full grid place-items-center ${isDark ? 'bg-[#020817] text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
-      <div className="text-sm">Signing out…</div>
+      <div className="text-sm">{msg('UI_LOGOUT_SIGNING_OUT_2')}</div>
     </div>
   )
 }

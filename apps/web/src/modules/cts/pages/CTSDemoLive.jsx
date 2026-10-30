@@ -253,7 +253,7 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
                 ? 'bg-emerald-900/40 text-emerald-300'
                 : 'bg-white/5 text-slate-300'
             }`}>
-             {msg('UI_DEMOLIVE_VERDICT', { value: ocr.ocr_verdict || 'PASS' })}
+             {msg('UI_DEMOLIVE_VERDICT', { value: ocr.ocr_verdict || msg('UI_DEMOLIVE_PASS') })}
             </div>
           </div>
         </div>
@@ -310,7 +310,7 @@ function OcrVsVisionPanel({ result, cheque, isDark }) {
                 ? 'bg-red-900/40 text-red-300'
                 : 'bg-white/5 text-slate-300'
             }`}>
-             {msg('UI_DEMOLIVE_VERDICT', { value: vision.vision_verdict || vision.verdict || 'PASS' })}
+             {msg('UI_DEMOLIVE_VERDICT', { value: vision.vision_verdict || vision.verdict || msg('UI_DEMOLIVE_PASS') })}
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { BANK_CONFIG } from '../config/bank.config'
 import { PageHeaderCtx } from './PageHeaderContext'
+import { msg } from '../messages'
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -54,120 +55,120 @@ function ChevronIcon({ style }) {
 
 const SIDEBAR_MODULES = [
   {
-    id: 'cts', label: 'CTS', fullLabel: 'Cheque Truncation', Icon: CtsIcon,
+    id: 'cts', label: 'CTS', fullLabel: msg('UI_APPSHELL_CHEQUE_TRUNCATION_2'), Icon: CtsIcon,
     sections: [
       {
-        label: 'Dashboard', directLink: true,
-        items: [{ to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true }],
+        label: msg('UI_APPSHELL_DASHBOARD_2'), directLink: true,
+        items: [{ to: '/cts/ops-dashboard', label: msg('UI_APPSHELL_OPS_DASHBOARD'), end: true }],
       },
       {
-        label: 'Settlement', directLink: true,
-        items: [{ to: '/cts/settlement', label: 'Settlement' }],
+        label: msg('UI_APPSHELL_SETTLEMENT'), directLink: true,
+        items: [{ to: '/cts/settlement', label: msg('UI_APPSHELL_SETTLEMENT') }],
       },
       {
-        label: 'Outward Clearing',
+        label: msg('UI_APPSHELL_OUTWARD_CLEARING_2'),
         items: [
-          { to: '/cts/outward',              label: 'Outward Monitor',  end: true },
-          { to: '/cts/outward/verification', label: 'Verification OQ'            },
-          { to: '/cts/outward/queue',        label: 'Validation OQ'              },
-          { to: '/cts/outward/submission',   label: 'Submission OQ'              },
-          { to: '/cts/presentment-file',     label: 'Outward File'               },
+          { to: '/cts/outward',              label: msg('UI_APPSHELL_OUTWARD_MONITOR_2'),  end: true },
+          { to: '/cts/outward/verification', label: msg('UI_APPSHELL_VERIFICATION_OQ_2')            },
+          { to: '/cts/outward/queue',        label: msg('UI_VALIDATIONQUEUE_VALIDATION_OQ_2')              },
+          { to: '/cts/outward/submission',   label: msg('UI_COMMON_SUBMISSION_OQ')              },
+          { to: '/cts/presentment-file',     label: msg('UI_APPSHELL_OUTWARD_FILE_2')               },
         ],
       },
       {
-        label: 'Inward Clearing',
+        label: msg('UI_APPSHELL_INWARD_CLEARING_2'),
         items: [
-          { to: '/cts/pipeline',            label: 'Inward Monitor'           },
-          { to: '/cts/inward/verification', label: 'Verification IQ'          },
-          { to: '/cts',                     label: 'Validation IQ', end: true  },
-          { to: '/cts/inward/submission',   label: 'Submission IQ'            },
-          { to: '/cts/inward/review-queue', label: 'Human Review Queue'       },
-          { to: '/cts/hold-queue',          label: 'Hold Queue'               },
-          { to: '/cts/recall',              label: 'Recall'                   },
+          { to: '/cts/pipeline',            label: msg('UI_APPSHELL_INWARD_MONITOR_2')           },
+          { to: '/cts/inward/verification', label: msg('UI_APPSHELL_VERIFICATION_IQ_2')          },
+          { to: '/cts',                     label: msg('UI_VALIDATIONQUEUE_VALIDATION_IQ_2'), end: true  },
+          { to: '/cts/inward/submission',   label: msg('UI_COMMON_SUBMISSION_IQ')            },
+          { to: '/cts/inward/review-queue', label: msg('UI_WORKSTATION_HUMAN_REVIEW_QUEUE')       },
+          { to: '/cts/hold-queue',          label: msg('UI_APPSHELL_HOLD_QUEUE_2')               },
+          { to: '/cts/recall',              label: msg('UI_APPSHELL_RECALL')                   },
         ],
       },
       {
-        label: 'Processing',
+        label: msg('UI_APPSHELL_PROCESSING'),
         items: [
-          { to: '/cts/batches',     label: 'Batches'                          },
-          { to: '/cts/vault',       label: 'Vault'                            },
-          { to: '/cts/vault-sync',  label: 'PPS & Stop Cheque'               },
-          { to: '/cts/endorsement', label: 'Endorsement'                      },
-          { to: '/cts/exceptions',  label: 'Exceptions'                       },
-          { to: '/cts/iqa',         label: 'Image Quality'                    },
-          { to: '/cts/scanner',     label: 'Scanner SDK'                      },
-          { to: '/cts/rf-drawee',   label: 'Rejection File - By Drawee Bank'  },
+          { to: '/cts/batches',     label: msg('UI_APPSHELL_BATCHES_2')                          },
+          { to: '/cts/vault',       label: msg('UI_COMMON_VAULT_2')                            },
+          { to: '/cts/vault-sync',  label: msg('UI_APPSHELL_PPS_STOP_CHEQUE_2')               },
+          { to: '/cts/endorsement', label: msg('UI_APPSHELL_ENDORSEMENT_2')                      },
+          { to: '/cts/exceptions',  label: msg('UI_APPSHELL_EXCEPTIONS')                       },
+          { to: '/cts/iqa',         label: msg('UI_DEMOLIVE_IMAGE_QUALITY_2')                    },
+          { to: '/cts/scanner',     label: msg('UI_APPSHELL_SCANNER_SDK_2')                      },
+          { to: '/cts/rf-drawee',   label: msg('UI_APPSHELL_REJECTION_FILE_BY_DRAWEE_BANK_2')  },
         ],
       },
       {
-        label: 'Reports',
+        label: msg('UI_APPSHELL_REPORTS_2'),
         items: [
-          { to: '/cts/decisions',      label: 'Decisions Log'   },
-          { to: '/cts/discrepancy',    label: 'Discrepancy'     },
-          { to: '/cts/reconciliation', label: 'Reconciliation'  },
-          { to: '/cts/analytics',      label: 'Analytics'       },
-          { to: '/cts/compliance',     label: 'Compliance Cert' },
+          { to: '/cts/decisions',      label: msg('UI_APPSHELL_DECISIONS_LOG')   },
+          { to: '/cts/discrepancy',    label: msg('UI_APPSHELL_DISCREPANCY_2')     },
+          { to: '/cts/reconciliation', label: msg('UI_APPSHELL_RECONCILIATION_2')  },
+          { to: '/cts/analytics',      label: msg('UI_APPSHELL_ANALYTICS_2')       },
+          { to: '/cts/compliance',     label: msg('UI_APPSHELL_COMPLIANCE_CERT_2') },
         ],
       },
       {
-        label: 'Branch Portal',
+        label: msg('UI_APPSHELL_BRANCH_PORTAL'),
         items: [
-          { to: '/branch',          label: 'Branch Dashboard' },
-          { to: '/branch/scan',     label: 'Scanner Monitor'  },
-          { to: '/branch/mismatch', label: 'Mismatch Queue'   },
-          { to: '/branch/history',  label: 'Session History'  },
+          { to: '/branch',          label: msg('UI_APPSHELL_BRANCH_DASHBOARD_2') },
+          { to: '/branch/scan',     label: msg('UI_APPSHELL_SCANNER_MONITOR')  },
+          { to: '/branch/mismatch', label: msg('UI_APPSHELL_MISMATCH_QUEUE')   },
+          { to: '/branch/history',  label: msg('UI_APPSHELL_SESSION_HISTORY')  },
         ],
       },
       {
-        label: 'Miscellaneous',
+        label: msg('UI_APPSHELL_MISCELLANEOUS'),
         items: [
-          { to: '/cts/demo',            label: '⚡ Live Demo'         },
-          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)' },
-          { to: '/cts/cloud-ai-demo',   label: '☁️ Cloud AI Extract' },
-          { to: '/cts/sig-batch-test',  label: '🖊️ Sig Batch Test'   },
+          { to: '/cts/demo',            label: msg('UI_APPSHELL_LIVE_DEMO_2')         },
+          { to: '/cts/inward-pipeline', label: msg('UI_APPSHELL_PIPELINE_ANIMATED_2') },
+          { to: '/cts/cloud-ai-demo',   label: msg('UI_APPSHELL_CLOUD_AI_EXTRACT_2') },
+          { to: '/cts/sig-batch-test',  label: msg('UI_APPSHELL_SIG_BATCH_TEST_2')   },
         ],
       },
     ],
   },
   {
-    id: 'branch-ops', label: 'Branch', fullLabel: 'Branch Operations', Icon: BranchIcon,
+    id: 'branch-ops', label: msg('UI_COMMON_BRANCH'), fullLabel: msg('UI_APPSHELL_BRANCH_OPERATIONS'), Icon: BranchIcon,
     sections: [
       {
-        label: 'Hold Queue', directLink: true,
-        items: [{ to: '/branch/hold-queue', label: 'Inward Hold Queue' }],
+        label: msg('UI_APPSHELL_HOLD_QUEUE_2'), directLink: true,
+        items: [{ to: '/branch/hold-queue', label: msg('UI_COMMON_INWARD_HOLD_QUEUE_2') }],
       },
     ],
   },
   {
-    id: 'ops', label: 'Ops', fullLabel: 'Platform Operations', Icon: OpsIcon,
+    id: 'ops', label: msg('UI_APPSHELL_OPS_2'), fullLabel: msg('UI_APPSHELL_PLATFORM_OPERATIONS_2'), Icon: OpsIcon,
     sections: [
       {
-        label: 'ASTRA Ops Dashboard',
+        label: msg('UI_APPSHELL_ASTRA_OPS_DASHBOARD'),
         items: [
-          { to: '/ops/dashboard',    label: 'Ops Overview'  },
-          { to: '/ops/model-health', label: 'Model Health'  },
-          { to: '/ops/alerts',       label: 'Alert Log'     },
-          { to: '/ops/system',       label: 'System Health' },
+          { to: '/ops/dashboard',    label: msg('UI_APP_OPS_OVERVIEW')  },
+          { to: '/ops/model-health', label: msg('UI_APP_MODEL_HEALTH')  },
+          { to: '/ops/alerts',       label: msg('UI_APP_ALERT_LOG')     },
+          { to: '/ops/system',       label: msg('UI_APP_SYSTEM_HEALTH') },
         ],
       },
     ],
   },
   {
-    id: 'admin', label: 'Admin', fullLabel: 'Administration', Icon: AdminIcon,
+    id: 'admin', label: msg('UI_APPSHELL_ADMIN_2'), fullLabel: msg('UI_APPSHELL_ADMINISTRATION_2'), Icon: AdminIcon,
     sections: [
       {
-        label: 'Admin',
+        label: msg('UI_APPSHELL_ADMIN_2'),
         items: [
-          { to: '/admin/users',                label: 'User Management'   },
-          { to: '/cts/schedules',              label: 'Schedules'         },
-          { to: '/cts/config',                 label: 'Configuration'     },
-          { to: '/cts/config/micr-prefixes',   label: 'MICR Prefixes'    },
-          { to: '/cts/config/thresholds',      label: 'Thresholds'        },
-          { to: '/cts/config/mcp-connections', label: 'MCP Connections'   },
-          { to: '/admin/config/operations',    label: 'Operations Config' },
-          { to: '/admin/config/platform',      label: 'Platform Config'   },
-          { to: '/admin/allocation',           label: 'Allocation Panel'  },
-          { to: '/admin/smoke-test',           label: '✓ Go-Live Test'    },
+          { to: '/admin/users',                label: msg('UI_APPSHELL_USER_MANAGEMENT')   },
+          { to: '/cts/schedules',              label: msg('UI_APPSHELL_SCHEDULES_2')         },
+          { to: '/cts/config',                 label: msg('UI_APPSHELL_CONFIGURATION_2')     },
+          { to: '/cts/config/micr-prefixes',   label: msg('UI_APPSHELL_MICR_PREFIXES_2')    },
+          { to: '/cts/config/thresholds',      label: msg('UI_THRESHOLDS_THRESHOLDS_2')        },
+          { to: '/cts/config/mcp-connections', label: msg('UI_APPSHELL_MCP_CONNECTIONS_2')   },
+          { to: '/admin/config/operations',    label: msg('UI_OPERATIONSCONFIG_OPERATIONS_CONFIG_2') },
+          { to: '/admin/config/platform',      label: msg('UI_PLATFORMCONFIG_PLATFORM_CONFIG_2')   },
+          { to: '/admin/allocation',           label: msg('UI_APPSHELL_ALLOCATION_PANEL_2')  },
+          { to: '/admin/smoke-test',           label: msg('UI_APPSHELL_GO_LIVE_TEST_2')    },
         ],
       },
     ],
@@ -175,55 +176,55 @@ const SIDEBAR_MODULES = [
 ]
 
 const ROUTE_LABELS = {
-  '/cts':                        ['Inward Clearing',       'Validation IQ — Human Review'],
-  '/cts/inward/verification':    ['Inward Clearing',       'Verification IQ — Stage 1 Review Queue'],
-  '/cts/inward/submission':      ['Inward Clearing',       'Submission IQ — Stage 3 Confirm / Return'],
-  '/cts/outward':                ['Outward Clearing',      'Outward Monitor'],
-  '/cts/outward/verification':   ['Outward Clearing',      'Verification OQ — Stage 1 IQA / MICR Review'],
-  '/cts/outward/queue':          ['Outward Clearing',      'Validation OQ — Stage 2 OCR Validation'],
-  '/cts/outward/submission':     ['Outward Clearing',      'Submission OQ — Stage 3 NGCH Submission'],
-  '/cts/presentment-file':       ['Presentation Process',  'Presentment File'],
-  '/cts/rf-drawee':              ['Presentation Process',  'RF — Drawee Bank'],
-  '/cts/vault':                  ['CTS',                   'Vault Status'],
-  '/cts/vault-sync':             ['Processing',            'Positive Pay & Stop Cheque'],
-  '/cts/decisions':              ['Reports',               'Decisions Log'],
-  '/cts/reconciliation':         ['Reports',               'Reconciliation'],
-  '/cts/analytics':              ['Reports',               'Analytics'],
-  '/cts/compliance':             ['Reports',               'Compliance Cert'],
-  '/cts/exceptions':             ['Processing',            'Exceptions'],
-  '/cts/endorsement':            ['Processing',            'Endorsement'],
-  '/cts/iqa':                    ['Processing',            'Image Quality Assessment'],
-  '/cts/scanner':                ['Processing',            'Scanner SDK'],
-  '/cts/pipeline':               ['Drawee Process',        'Inward Pipeline — AI View'],
-  '/cts/inward-pipeline':        ['Drawee Process',        'Inward Pipeline — Animated'],
-  '/cts/demo':                   ['Demo',                  'End-to-End Live Demo'],
-  '/cts/cloud-ai-demo':          ['Demo',                  'Cloud AI Cheque Extraction'],
-  '/cts/recall':                 ['Drawee Process',        'Recall'],
-  '/cts/ops-dashboard':          ['Dashboard',             'Ops Dashboard'],
-  '/cts/settlement':             ['Settlement',            'Settlement Lifecycle'],
-  '/cts/batches':                ['Processing',            'Batches'],
-  '/cts/discrepancy':            ['Reports',               'Discrepancy'],
-  '/admin/users':                ['Admin',                 'User Management'],
-  '/cts/schedules':              ['Admin',                 'Temporal Schedules'],
-  '/cts/config':                 ['Admin',                 'Configuration'],
-  '/cts/config/micr-prefixes':   ['Admin · Config',        'MICR Prefix Table'],
-  '/cts/config/thresholds':      ['Admin · Config',        'Thresholds & Rules'],
-  '/cts/config/mcp-connections': ['Admin · Config',        'MCP Connection Setup'],
-  '/admin/config/operations':    ['Admin · Config',        'Operations Config'],
-  '/admin/config/platform':      ['Admin · Config',        'Platform Config'],
-  '/admin/allocation':           ['Admin · Queue',         'Allocation Control Panel'],
-  '/admin/smoke-test':           ['Admin',                 'Pre-Live Smoke Test'],
-  '/branch':                     ['Branch Portal',         'Dashboard'],
-  '/branch/scan':                ['Branch Portal',         'Scanner Monitor'],
-  '/branch/mismatch':            ['Branch Portal',         'Mismatch Queue'],
-  '/branch/history':             ['Branch Portal',         'Session History'],
-  '/branch/hold-queue':          ['Branch Operations',     'Inward Hold Queue'],
-  '/cts/inward/review-queue':    ['Inward Clearing',       'Human Review Queue'],
-  '/cts/hold-queue':             ['Inward Clearing',       'Hold Queue'],
-  '/ops/dashboard':              ['Platform Ops',          'ASTRA Ops Overview'],
-  '/ops/model-health':           ['Platform Ops',          'AI Model Health — 7-Day Drift'],
-  '/ops/alerts':                 ['Platform Ops',          'Alert Log — CRITICAL/ERROR (24h)'],
-  '/ops/system':                 ['Platform Ops',          'System Health'],
+  '/cts':                        [msg('UI_APPSHELL_INWARD_CLEARING_2'),       msg('UI_APPSHELL_VALIDATION_IQ_HUMAN_REVIEW')],
+  '/cts/inward/verification':    [msg('UI_APPSHELL_INWARD_CLEARING_2'),       msg('UI_APPSHELL_VERIFICATION_IQ_STAGE_1_REVIEW')],
+  '/cts/inward/submission':      [msg('UI_APPSHELL_INWARD_CLEARING_2'),       msg('UI_APPSHELL_SUBMISSION_IQ_STAGE_3_CONFIRM')],
+  '/cts/outward':                [msg('UI_APPSHELL_OUTWARD_CLEARING_2'),      msg('UI_APPSHELL_OUTWARD_MONITOR_2')],
+  '/cts/outward/verification':   [msg('UI_APPSHELL_OUTWARD_CLEARING_2'),      msg('UI_APPSHELL_VERIFICATION_OQ_STAGE_1_IQA')],
+  '/cts/outward/queue':          [msg('UI_APPSHELL_OUTWARD_CLEARING_2'),      msg('UI_APPSHELL_VALIDATION_OQ_STAGE_2_OCR')],
+  '/cts/outward/submission':     [msg('UI_APPSHELL_OUTWARD_CLEARING_2'),      msg('UI_APPSHELL_SUBMISSION_OQ_STAGE_3_NGCH')],
+  '/cts/presentment-file':       [msg('UI_APPSHELL_PRESENTATION_PROCESS'),  msg('UI_APPSHELL_PRESENTMENT_FILE')],
+  '/cts/rf-drawee':              [msg('UI_APPSHELL_PRESENTATION_PROCESS'),  msg('UI_APPSHELL_RF_DRAWEE_BANK')],
+  '/cts/vault':                  ['CTS',                   msg('UI_APPSHELL_VAULT_STATUS')],
+  '/cts/vault-sync':             [msg('UI_APPSHELL_PROCESSING'),            msg('UI_APPSHELL_POSITIVE_PAY_STOP_CHEQUE')],
+  '/cts/decisions':              [msg('UI_APPSHELL_REPORTS_2'),               msg('UI_APPSHELL_DECISIONS_LOG')],
+  '/cts/reconciliation':         [msg('UI_APPSHELL_REPORTS_2'),               msg('UI_APPSHELL_RECONCILIATION_2')],
+  '/cts/analytics':              [msg('UI_APPSHELL_REPORTS_2'),               msg('UI_APPSHELL_ANALYTICS_2')],
+  '/cts/compliance':             [msg('UI_APPSHELL_REPORTS_2'),               msg('UI_APPSHELL_COMPLIANCE_CERT_2')],
+  '/cts/exceptions':             [msg('UI_APPSHELL_PROCESSING'),            msg('UI_APPSHELL_EXCEPTIONS')],
+  '/cts/endorsement':            [msg('UI_APPSHELL_PROCESSING'),            msg('UI_APPSHELL_ENDORSEMENT_2')],
+  '/cts/iqa':                    [msg('UI_APPSHELL_PROCESSING'),            msg('UI_APPSHELL_IMAGE_QUALITY_ASSESSMENT')],
+  '/cts/scanner':                [msg('UI_APPSHELL_PROCESSING'),            msg('UI_APPSHELL_SCANNER_SDK_2')],
+  '/cts/pipeline':               [msg('UI_APPSHELL_DRAWEE_PROCESS'),        msg('UI_APPSHELL_INWARD_PIPELINE_AI_VIEW')],
+  '/cts/inward-pipeline':        [msg('UI_APPSHELL_DRAWEE_PROCESS'),        msg('UI_APPSHELL_INWARD_PIPELINE_ANIMATED')],
+  '/cts/demo':                   [msg('UI_APPSHELL_DEMO'),                  msg('UI_APPSHELL_END_TO_END_LIVE_DEMO_2')],
+  '/cts/cloud-ai-demo':          [msg('UI_APPSHELL_DEMO'),                  msg('UI_CLOUDAIDEMO_CLOUD_AI_CHEQUE_EXTRACTION_2')],
+  '/cts/recall':                 [msg('UI_APPSHELL_DRAWEE_PROCESS'),        msg('UI_APPSHELL_RECALL')],
+  '/cts/ops-dashboard':          [msg('UI_APPSHELL_DASHBOARD_2'),             msg('UI_APPSHELL_OPS_DASHBOARD')],
+  '/cts/settlement':             [msg('UI_APPSHELL_SETTLEMENT'),            msg('UI_APPSHELL_SETTLEMENT_LIFECYCLE')],
+  '/cts/batches':                [msg('UI_APPSHELL_PROCESSING'),            msg('UI_APPSHELL_BATCHES_2')],
+  '/cts/discrepancy':            [msg('UI_APPSHELL_REPORTS_2'),               msg('UI_APPSHELL_DISCREPANCY_2')],
+  '/admin/users':                [msg('UI_APPSHELL_ADMIN_2'),                 msg('UI_APPSHELL_USER_MANAGEMENT')],
+  '/cts/schedules':              [msg('UI_APPSHELL_ADMIN_2'),                 msg('UI_APPSHELL_TEMPORAL_SCHEDULES')],
+  '/cts/config':                 [msg('UI_APPSHELL_ADMIN_2'),                 msg('UI_APPSHELL_CONFIGURATION_2')],
+  '/cts/config/micr-prefixes':   [msg('UI_APPSHELL_ADMIN_CONFIG'),        msg('UI_APPSHELL_MICR_PREFIX_TABLE')],
+  '/cts/config/thresholds':      [msg('UI_APPSHELL_ADMIN_CONFIG'),        msg('UI_APPSHELL_THRESHOLDS_RULES')],
+  '/cts/config/mcp-connections': [msg('UI_APPSHELL_ADMIN_CONFIG'),        msg('UI_APPSHELL_MCP_CONNECTION_SETUP')],
+  '/admin/config/operations':    [msg('UI_APPSHELL_ADMIN_CONFIG'),        msg('UI_OPERATIONSCONFIG_OPERATIONS_CONFIG_2')],
+  '/admin/config/platform':      [msg('UI_APPSHELL_ADMIN_CONFIG'),        msg('UI_PLATFORMCONFIG_PLATFORM_CONFIG_2')],
+  '/admin/allocation':           [msg('UI_APPSHELL_ADMIN_QUEUE'),         msg('UI_ALLOCATIONADMIN_ALLOCATION_CONTROL_PANEL_2')],
+  '/admin/smoke-test':           [msg('UI_APPSHELL_ADMIN_2'),                 msg('UI_SMOKETEST_PRE_LIVE_SMOKE_TEST')],
+  '/branch':                     [msg('UI_APPSHELL_BRANCH_PORTAL'),         msg('UI_APPSHELL_DASHBOARD_2')],
+  '/branch/scan':                [msg('UI_APPSHELL_BRANCH_PORTAL'),         msg('UI_APPSHELL_SCANNER_MONITOR')],
+  '/branch/mismatch':            [msg('UI_APPSHELL_BRANCH_PORTAL'),         msg('UI_APPSHELL_MISMATCH_QUEUE')],
+  '/branch/history':             [msg('UI_APPSHELL_BRANCH_PORTAL'),         msg('UI_APPSHELL_SESSION_HISTORY')],
+  '/branch/hold-queue':          [msg('UI_APPSHELL_BRANCH_OPERATIONS'),     msg('UI_COMMON_INWARD_HOLD_QUEUE_2')],
+  '/cts/inward/review-queue':    [msg('UI_APPSHELL_INWARD_CLEARING_2'),       msg('UI_WORKSTATION_HUMAN_REVIEW_QUEUE')],
+  '/cts/hold-queue':             [msg('UI_APPSHELL_INWARD_CLEARING_2'),       msg('UI_APPSHELL_HOLD_QUEUE_2')],
+  '/ops/dashboard':              [msg('UI_APPSHELL_PLATFORM_OPS'),          msg('UI_APPSHELL_ASTRA_OPS_OVERVIEW')],
+  '/ops/model-health':           [msg('UI_APPSHELL_PLATFORM_OPS'),          msg('UI_APPSHELL_AI_MODEL_HEALTH_7_DAY')],
+  '/ops/alerts':                 [msg('UI_APPSHELL_PLATFORM_OPS'),          msg('UI_APPSHELL_ALERT_LOG_CRITICAL_ERROR_24H')],
+  '/ops/system':                 [msg('UI_APPSHELL_PLATFORM_OPS'),          msg('UI_APP_SYSTEM_HEALTH')],
 }
 
 function itemMatches({ to, end }, pathname) {
@@ -261,7 +262,7 @@ function SidebarHeader({ collapsed, isDark, onToggle }) {
         </div>
         {!collapsed && (
           <span className={`text-sm font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            stra
+           {msg('UI_APPSHELL_STRA_2')}
           </span>
         )}
       </Link>
@@ -269,7 +270,7 @@ function SidebarHeader({ collapsed, isDark, onToggle }) {
       <button
         onClick={onToggle}
         className={`ml-auto p-1 rounded-md opacity-40 hover:opacity-100 transition-opacity shrink-0 ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={collapsed ? msg('UI_APPSHELL_EXPAND_SIDEBAR_2') : msg('UI_APPSHELL_COLLAPSE_SIDEBAR_2')}
       >
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
           <path strokeLinecap="round" strokeLinejoin="round"
@@ -326,7 +327,7 @@ function TopbarRight({ isDark, toggle }) {
       {/* Theme toggle */}
       <button
         onClick={toggle}
-        title={isDark ? 'Switch to light' : 'Switch to dark'}
+        title={isDark ? msg('UI_BUSINESSMODEL_SWITCH_TO_LIGHT_2') : msg('UI_BUSINESSMODEL_SWITCH_TO_DARK_2')}
         className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
       >
         {isDark ? '☀' : '🌙'}
@@ -342,7 +343,7 @@ function TopbarRight({ isDark, toggle }) {
             U
           </div>
           <div className="hidden md:block text-left leading-tight">
-            <div className={`text-[11px] font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>User</div>
+            <div className={`text-[11px] font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{msg('UI_COMMON_USER')}</div>
             <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{BANK_CONFIG.bank_short_name}</div>
           </div>
           <span className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>▾</span>
@@ -358,9 +359,9 @@ function TopbarRight({ isDark, toggle }) {
               <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{BANK_CONFIG.clearing_zone} · {BANK_CONFIG.ifsc_prefix}</div>
             </div>
             {[
-              { label: 'My Profile',  icon: '👤', to: '/profile'  },
-              { label: 'Settings',    icon: '⚙️',  to: '/settings' },
-              { label: 'Sign Out',    icon: '→',   to: '/logout'   },
+              { label: msg('UI_PROFILE_MY_PROFILE_2'),  icon: '👤', to: '/profile'  },
+              { label: msg('UI_APPSHELL_SETTINGS'),    icon: '⚙️',  to: '/settings' },
+              { label: msg('UI_APPSHELL_SIGN_OUT_2'),    icon: '→',   to: '/logout'   },
             ].map(item => (
               <button
                 key={item.label}

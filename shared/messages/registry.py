@@ -317,13 +317,9 @@ class MessageRegistry:
         if key not in en_entries:
             raise UnknownMessageKey(key)
 
-        target = locale if (locale in self._cache and key in self._cache[locale]) else "en"
-        entry = self._cache[target][key]
-
-        if target != "en" and entry.text == "":
-            return ""
-
-        return entry.format(**variables)
+        # The requested language when it has text for this message, otherwise English: an untranslated message is never blank.
+        target = locale if (locale in self._cache and key in self._cache[locale] and self._cache[locale][key].text) else "en"
+        return self._cache[target][key].format(**variables)
 
     def get_entry(self, key: str, locale: str = "en") -> MessageEntry:
         """Return MessageEntry (always returns en entry for metadata)."""

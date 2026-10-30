@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useAuth } from '../../../shared/context/AuthContext'
+import { msg } from '../../../shared/messages'
 
 async function postJSON(path, body) {
   const res = await fetch(path, {
@@ -76,8 +77,8 @@ export default function LoginPage() {
       else { beginEnrol() }
       return
     }
-    if (status === 423) setError('Account locked after repeated failed attempts. Contact your administrator.')
-    else setError('Invalid username or password.')
+    if (status === 423) setError(msg('UI_LOGINPAGE_ACCOUNT_LOCKED_AFTER_REPEATED_FAILED'))
+    else setError(msg('UI_LOGINPAGE_INVALID_USERNAME_OR_PASSWORD_2'))
   }
 
   async function beginEnrol() {
@@ -85,7 +86,7 @@ export default function LoginPage() {
     const { ok, data } = await postJSON('/v1/auth/mfa/enrol/begin')
     setBusy(false)
     if (ok && data) { setEnrol(data); setCode(''); setStep('enrol') }
-    else setError('Could not start MFA setup. Please try again.')
+    else setError(msg('UI_LOGINPAGE_COULD_NOT_START_MFA_SETUP_2'))
   }
 
   async function submitVerify(e) {
@@ -93,7 +94,7 @@ export default function LoginPage() {
     setError(''); setBusy(true)
     const { ok, data } = await postJSON('/v1/auth/mfa/verify', { code })
     setBusy(false)
-    if (ok) { finish(data) } else setError('Invalid code. Try the current 6-digit code from your app.')
+    if (ok) { finish(data) } else setError(msg('UI_LOGINPAGE_INVALID_CODE_TRY_THE_CURRENT_2'))
   }
 
   async function submitEnrolConfirm(e) {
@@ -101,7 +102,7 @@ export default function LoginPage() {
     setError(''); setBusy(true)
     const { ok, data } = await postJSON('/v1/auth/mfa/enrol/confirm', { code })
     setBusy(false)
-    if (ok) { finish(data) } else setError('That code did not match. Scan the key again and enter the current code.')
+    if (ok) { finish(data) } else setError(msg('UI_LOGINPAGE_THAT_CODE_DID_NOT_MATCH_2'))
   }
 
   async function finish(data) {
@@ -112,7 +113,7 @@ export default function LoginPage() {
 
   return (
     <div className={`min-h-screen w-full flex items-center justify-center px-4 ${th.page}`}>
-      <button onClick={toggle} className={`fixed top-5 right-5 text-lg ${th.toggle}`} aria-label="Toggle theme">
+      <button onClick={toggle} className={`fixed top-5 right-5 text-lg ${th.toggle}`} aria-label={msg('UI_LOGINPAGE_TOGGLE_THEME')}>
         {isDark ? '◑' : '◐'}
       </button>
 
@@ -122,20 +123,20 @@ export default function LoginPage() {
           <div className="flex items-center gap-3 mb-1">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 grid place-items-center text-white font-bold text-lg">A</div>
             <div>
-              <div className={`font-semibold tracking-tight leading-none ${th.heading}`}>ASTRA</div>
-              <div className={`text-[11px] ${th.faint}`}>Precision Banking. Zero Compromise.</div>
+              <div className={`font-semibold tracking-tight leading-none ${th.heading}`}>{msg('UI_LOGINPAGE_ASTRA')}</div>
+              <div className={`text-[11px] ${th.faint}`}>{msg('UI_LOGINPAGE_PRECISION_BANKING_ZERO_COMPROMISE_2')}</div>
             </div>
           </div>
 
           <h1 className={`mt-6 text-xl font-semibold ${th.heading}`}>
-            {step === 'password' && 'Sign in'}
-            {step === 'verify' && 'Two-factor authentication'}
-            {step === 'enrol' && 'Set up two-factor authentication'}
+            {step === 'password' && msg('UI_LOGINPAGE_SIGN_IN_2')}
+            {step === 'verify' && msg('UI_LOGINPAGE_TWO_FACTOR_AUTHENTICATION')}
+            {step === 'enrol' && msg('UI_LOGINPAGE_SET_UP_TWO_FACTOR_AUTHENTICATION')}
           </h1>
           <p className={`mt-1 text-sm ${th.muted}`}>
-            {step === 'password' && 'Use your ASTRA operator credentials.'}
-            {step === 'verify' && 'Enter the 6-digit code from your authenticator app.'}
-            {step === 'enrol' && 'MFA is required. Add this key to your authenticator app, then confirm.'}
+            {step === 'password' && msg('UI_LOGINPAGE_USE_YOUR_ASTRA_OPERATOR_CREDENTIALS')}
+            {step === 'verify' && msg('UI_LOGINPAGE_ENTER_THE_6_DIGIT_CODE')}
+            {step === 'enrol' && msg('UI_LOGINPAGE_MFA_IS_REQUIRED_ADD_THIS')}
           </p>
 
           {error && (
@@ -148,7 +149,7 @@ export default function LoginPage() {
           {step === 'password' && (
             <form onSubmit={submitPassword} className="mt-5 space-y-4">
               <div>
-                <label className={`block text-xs font-medium mb-1.5 ${th.label}`}>Username</label>
+                <label className={`block text-xs font-medium mb-1.5 ${th.label}`}>{msg('UI_LOGINPAGE_USERNAME_2')}</label>
                 <input
                   autoFocus value={username} onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username" required
@@ -157,7 +158,7 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className={`block text-xs font-medium mb-1.5 ${th.label}`}>Password</label>
+                <label className={`block text-xs font-medium mb-1.5 ${th.label}`}>{msg('UI_LOGINPAGE_PASSWORD_2')}</label>
                 <input
                   type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password" required
@@ -167,7 +168,7 @@ export default function LoginPage() {
               </div>
               <button type="submit" disabled={busy}
                 className={`w-full rounded-lg py-2.5 text-sm font-semibold text-white transition-colors ${btn}`}>
-                {busy ? 'Signing in…' : 'Sign in'}
+                {busy ? msg('UI_LOGINPAGE_SIGNING_IN_2') : msg('UI_LOGINPAGE_SIGN_IN_2')}
               </button>
             </form>
           )}
@@ -183,11 +184,11 @@ export default function LoginPage() {
               />
               <button type="submit" disabled={busy || code.length !== 6}
                 className={`w-full rounded-lg py-2.5 text-sm font-semibold text-white transition-colors ${code.length === 6 && !busy ? 'bg-violet-600 hover:bg-violet-500' : 'bg-violet-600/40 cursor-not-allowed'}`}>
-                {busy ? 'Verifying…' : 'Verify'}
+                {busy ? msg('UI_LOGINPAGE_VERIFYING_2') : msg('UI_LOGINPAGE_VERIFY_2')}
               </button>
               <button type="button" onClick={() => { setStep('password'); setError('') }}
                 className={`w-full text-center text-xs ${th.muted} hover:underline`}>
-                Back to sign in
+               {msg('UI_LOGINPAGE_BACK_TO_SIGN_IN_2')}
               </button>
             </form>
           )}
@@ -199,19 +200,19 @@ export default function LoginPage() {
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <QRCodeSVG value={enrol.otpauth_uri} size={168} />
                 </div>
-                <div className={`text-[11px] ${th.faint}`}>Scan with Google Authenticator or Authy</div>
+                <div className={`text-[11px] ${th.faint}`}>{msg('UI_LOGINPAGE_SCAN_WITH_GOOGLE_AUTHENTICATOR_OR')}</div>
               </div>
               <div>
-                <div className={`text-xs font-medium mb-1.5 ${th.label}`}>Can't scan? Enter this key manually</div>
+                <div className={`text-xs font-medium mb-1.5 ${th.label}`}>{msg('UI_LOGINPAGE_CAN_T_SCAN_ENTER_THIS')}</div>
                 <div className={`rounded-lg border px-3 py-3 font-mono text-sm break-all ${th.key}`}>
                   {groupSecret(enrol.secret)}
                 </div>
                 <div className={`mt-1.5 text-[11px] ${th.faint}`}>
-                  Issuer: ASTRA · TOTP · 6 digits · 30s
+                 {msg('UI_LOGINPAGE_ISSUER_ASTRA_TOTP_6_DIGITS_2')}
                 </div>
               </div>
               <div className={`border-t ${th.divider} pt-4`}>
-                <label className={`block text-xs font-medium mb-1.5 ${th.label}`}>Confirm the current 6-digit code</label>
+                <label className={`block text-xs font-medium mb-1.5 ${th.label}`}>{msg('UI_LOGINPAGE_CONFIRM_THE_CURRENT_6_DIGIT_2')}</label>
                 <input
                   autoFocus inputMode="numeric" pattern="[0-9]*" maxLength={6}
                   value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
@@ -221,7 +222,7 @@ export default function LoginPage() {
               </div>
               <button type="submit" disabled={busy || code.length !== 6}
                 className={`w-full rounded-lg py-2.5 text-sm font-semibold text-white transition-colors ${code.length === 6 && !busy ? 'bg-violet-600 hover:bg-violet-500' : 'bg-violet-600/40 cursor-not-allowed'}`}>
-                {busy ? 'Confirming…' : 'Confirm & finish'}
+                {busy ? msg('UI_LOGINPAGE_CONFIRMING_2') : msg('UI_LOGINPAGE_CONFIRM_FINISH_2')}
               </button>
             </form>
           )}
@@ -229,7 +230,7 @@ export default function LoginPage() {
 
         <div className={`px-8 py-3 border-t ${th.divider}`}>
           <p className={`text-[11px] text-center ${th.faint}`}>
-            Authorized access only. All activity is audited.
+           {msg('UI_LOGINPAGE_AUTHORIZED_ACCESS_ONLY_ALL_ACTIVITY')}
           </p>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { msg } from '../../../shared/messages'
 /**
  * OpsDashboardBody — KPI grid + decision breakdown + sessions + 7-day trend.
  *
@@ -41,11 +42,11 @@ function KPICard({ label, value, sub, color, isDark }) {
 function DecisionBar({ stp_c, stp_r, man_c, man_r, pend, total, isDark }) {
   const bg = isDark ? 'bg-white/5' : 'bg-slate-100'
   const segments = [
-    { w: pct(stp_c,  total), color: 'bg-emerald-500', label: 'STP Confirmed' },
-    { w: pct(stp_r,  total), color: 'bg-red-400',     label: 'STP Returned' },
-    { w: pct(man_c,  total), color: 'bg-blue-400',    label: 'Manual Confirmed' },
-    { w: pct(man_r,  total), color: 'bg-orange-400',  label: 'Manual Returned' },
-    { w: pct(pend,   total), color: 'bg-slate-500',   label: 'Pending' },
+    { w: pct(stp_c,  total), color: 'bg-emerald-500', label: msg('UI_COMMON_STP_CONFIRMED_2') },
+    { w: pct(stp_r,  total), color: 'bg-red-400',     label: msg('UI_COMMON_STP_RETURNED_2') },
+    { w: pct(man_c,  total), color: 'bg-blue-400',    label: msg('UI_COMMON_MANUAL_CONFIRMED_2') },
+    { w: pct(man_r,  total), color: 'bg-orange-400',  label: msg('UI_OPSDASHBOARDBODY_MANUAL_RETURNED_2') },
+    { w: pct(pend,   total), color: 'bg-slate-500',   label: msg('UI_COMMON_PENDING_3') },
   ]
   return (
     <div>
@@ -79,8 +80,8 @@ function TrendBar({ days, isDark }) {
           <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
             <div className="w-full flex items-end" style={{ height: '48px' }}>
               {d.inward > 0
-                ? <div className={`w-full rounded-t transition-all cursor-default ${bar}`} style={{ height: `${h}%` }} title={`${d.date}: ${d.inward} cheques, ${d.return_rate_pct}% return`} />
-                : <div className={`w-full rounded-t ${hol}`} style={{ height: '8%' }} title="Holiday" />
+                ? <div className={`w-full rounded-t transition-all cursor-default ${bar}`} style={{ height: `${h}%` }} title={msg('UI_OPSDASHBOARDBODY_CHEQUES_RETURN_2', { date: d.date, inward: d.inward, return_rate_pct: d.return_rate_pct })} />
+                : <div className={`w-full rounded-t ${hol}`} style={{ height: '8%' }} title={msg('UI_OPSDASHBOARDBODY_HOLIDAY_2')} />
               }
             </div>
             <span className={`text-[9px] ${lbl}`}>{d.date.split(' ')[1]}</span>
@@ -110,15 +111,15 @@ function SessionCard({ s, isDark, onDownload }) {
         <>
           <div className="grid grid-cols-3 gap-2 mb-3">
             <div>
-              <div className={`text-[10px] ${muted}`}>Inward</div>
+              <div className={`text-[10px] ${muted}`}>{msg('UI_COMMON_INWARD_2')}</div>
               <div className={`text-sm font-bold font-mono ${head}`}>{s.inward.toLocaleString()}</div>
             </div>
             <div>
-              <div className={`text-[10px] ${muted}`}>Value</div>
+              <div className={`text-[10px] ${muted}`}>{msg('UI_COMMON_VALUE')}</div>
               <div className="text-sm font-bold font-mono text-gold-400">{fmtPaise(s.inward_val)}</div>
             </div>
             <div>
-              <div className={`text-[10px] ${muted}`}>Return %</div>
+              <div className={`text-[10px] ${muted}`}>{msg('UI_COMMON_RETURN_3')}</div>
               <div className={`text-sm font-bold font-mono ${s.return_rate > 20 ? 'text-red-400' : 'text-emerald-400'}`}>
                 {s.return_rate.toFixed(1)}%
               </div>
@@ -140,7 +141,7 @@ function SessionCard({ s, isDark, onDownload }) {
           )}
         </>
       ) : (
-        <div className={`text-[11px] ${muted}`}>Session not yet open</div>
+        <div className={`text-[11px] ${muted}`}>{msg('UI_OPSDASHBOARDBODY_SESSION_NOT_YET_OPEN_2')}</div>
       )}
     </div>
   )
@@ -162,19 +163,19 @@ export default function OpsDashboardBody({ TODAY, SESSIONS, TREND, isDark, downl
     <div className="space-y-6">
       {/* KPI row — today totals */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
-        <KPICard label="Total Inward"      value={TODAY.total_inward.toLocaleString()} sub={fmtPaise(TODAY.total_inward_value_paise)} color={th.heading} isDark={isDark} />
-        <KPICard label="STP Confirmed"     value={TODAY.stp_confirmed.toLocaleString()} sub={`${pct(TODAY.stp_confirmed, TODAY.total_inward)}%`} color="text-emerald-400" isDark={isDark} />
-        <KPICard label="STP Returned"      value={TODAY.stp_returned.toLocaleString()} sub={`${pct(TODAY.stp_returned, TODAY.total_inward)}%`} color="text-red-400" isDark={isDark} />
-        <KPICard label="Manual Confirmed"  value={TODAY.manual_confirmed.toLocaleString()} sub={`${pct(TODAY.manual_confirmed, TODAY.total_inward)}%`} color="text-blue-400" isDark={isDark} />
-        <KPICard label="Manual Returned"   value={TODAY.manual_returned.toLocaleString()} sub={`${pct(TODAY.manual_returned, TODAY.total_inward)}%`} color="text-orange-400" isDark={isDark} />
-        <KPICard label="Pending Review"    value={TODAY.pending_review} sub="in queue" color="text-amber-400" isDark={isDark} />
-        <KPICard label="Total Outward"     value={TODAY.total_outward.toLocaleString()} sub={fmtPaise(TODAY.total_outward_value_paise)} color={th.muted} isDark={isDark} />
-        <KPICard label={`Net (${netDir})`} value={fmtPaise(Math.abs(TODAY.net_settlement_paise))} sub="settlement position" color={netColor} isDark={isDark} />
+        <KPICard label={msg('UI_COMMON_TOTAL_INWARD_2')}      value={TODAY.total_inward.toLocaleString()} sub={fmtPaise(TODAY.total_inward_value_paise)} color={th.heading} isDark={isDark} />
+        <KPICard label={msg('UI_COMMON_STP_CONFIRMED_2')}     value={TODAY.stp_confirmed.toLocaleString()} sub={`${pct(TODAY.stp_confirmed, TODAY.total_inward)}%`} color="text-emerald-400" isDark={isDark} />
+        <KPICard label={msg('UI_COMMON_STP_RETURNED_2')}      value={TODAY.stp_returned.toLocaleString()} sub={`${pct(TODAY.stp_returned, TODAY.total_inward)}%`} color="text-red-400" isDark={isDark} />
+        <KPICard label={msg('UI_COMMON_MANUAL_CONFIRMED_2')}  value={TODAY.manual_confirmed.toLocaleString()} sub={`${pct(TODAY.manual_confirmed, TODAY.total_inward)}%`} color="text-blue-400" isDark={isDark} />
+        <KPICard label={msg('UI_OPSDASHBOARDBODY_MANUAL_RETURNED_2')}   value={TODAY.manual_returned.toLocaleString()} sub={`${pct(TODAY.manual_returned, TODAY.total_inward)}%`} color="text-orange-400" isDark={isDark} />
+        <KPICard label={msg('UI_COMMON_PENDING_REVIEW')}    value={TODAY.pending_review} sub="in queue" color="text-amber-400" isDark={isDark} />
+        <KPICard label={msg('UI_COMMON_TOTAL_OUTWARD')}     value={TODAY.total_outward.toLocaleString()} sub={fmtPaise(TODAY.total_outward_value_paise)} color={th.muted} isDark={isDark} />
+        <KPICard label={msg('UI_OPSDASHBOARDBODY_NET_2', { netDir })} value={fmtPaise(Math.abs(TODAY.net_settlement_paise))} sub="settlement position" color={netColor} isDark={isDark} />
       </div>
 
       {/* Decision breakdown bar */}
       <div className={`border rounded-xl p-4 ${th.card}`}>
-        <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>Decision Breakdown — Inward</div>
+        <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>{msg('UI_OPSDASHBOARDBODY_DECISION_BREAKDOWN_INWARD_2')}</div>
         <DecisionBar
           stp_c={TODAY.stp_confirmed}
           stp_r={TODAY.stp_returned}
@@ -186,19 +187,19 @@ export default function OpsDashboardBody({ TODAY, SESSIONS, TREND, isDark, downl
         />
         <div className={`grid grid-cols-3 gap-4 mt-4 pt-4 border-t ${th.divider}`}>
           <div>
-            <div className={`text-[10px] ${th.muted}`}>STP Rate</div>
+            <div className={`text-[10px] ${th.muted}`}>{msg('UI_COMMON_STP_RATE_2')}</div>
             <div className={`text-lg font-bold font-mono ${TODAY.overall_stp_rate_pct >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
               {TODAY.overall_stp_rate_pct}%
             </div>
           </div>
           <div>
-            <div className={`text-[10px] ${th.muted}`}>Return Rate</div>
+            <div className={`text-[10px] ${th.muted}`}>{msg('UI_COMMON_RETURN_RATE_2')}</div>
             <div className={`text-lg font-bold font-mono ${TODAY.overall_return_rate_pct > 22 ? 'text-red-400' : 'text-slate-300'}`}>
               {TODAY.overall_return_rate_pct}%
             </div>
           </div>
           <div>
-            <div className={`text-[10px] ${th.muted}`}>Outward Returns</div>
+            <div className={`text-[10px] ${th.muted}`}>{msg('UI_OPSDASHBOARDBODY_OUTWARD_RETURNS_2')}</div>
             <div className="text-lg font-bold font-mono text-orange-400">
               {TODAY.outward_returned} ({pct(TODAY.outward_returned, TODAY.total_outward)}%)
             </div>
@@ -210,7 +211,7 @@ export default function OpsDashboardBody({ TODAY, SESSIONS, TREND, isDark, downl
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Sessions */}
         <div className="lg:col-span-2">
-          <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>Today's Sessions</div>
+          <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>{msg('UI_OPSDASHBOARDBODY_TODAY_S_SESSIONS_2')}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {SESSIONS.map(s => (
               <SessionCard key={s.id} s={s} isDark={isDark} onDownload={onDownload} />
@@ -220,7 +221,7 @@ export default function OpsDashboardBody({ TODAY, SESSIONS, TREND, isDark, downl
 
         {/* 7-day trend */}
         <div className={`border rounded-xl p-4 ${th.card}`}>
-          <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>7-Day Trend</div>
+          <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>{msg('UI_OPSDASHBOARDBODY_7_DAY_TREND_2')}</div>
           <TrendBar days={TREND} isDark={isDark} />
           <div className={`mt-4 pt-3 border-t ${th.divider} space-y-2`}>
             {TREND.filter(d => d.inward > 0).slice(-3).reverse().map(d => (
@@ -229,7 +230,7 @@ export default function OpsDashboardBody({ TODAY, SESSIONS, TREND, isDark, downl
                 <div className="flex items-center gap-3">
                   <span className={`text-[11px] font-mono ${th.body}`}>{d.inward.toLocaleString()}</span>
                   <span className={`text-[11px] font-mono ${d.return_rate_pct > 20 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {d.return_rate_pct}% ret
+                    {msg('UI_OPSDASHBOARDBODY_RET_2', { return_rate_pct: d.return_rate_pct })}
                   </span>
                 </div>
               </div>
@@ -240,7 +241,7 @@ export default function OpsDashboardBody({ TODAY, SESSIONS, TREND, isDark, downl
 
       {downloading && (
         <div className="fixed bottom-4 right-4 bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
-          Downloading...
+         {msg('UI_OPSDASHBOARDBODY_DOWNLOADING_2')}
         </div>
       )}
     </div>

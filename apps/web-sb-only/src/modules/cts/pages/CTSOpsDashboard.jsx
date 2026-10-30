@@ -18,6 +18,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
+import { msg } from '../../../shared/messages'
 
 // RPC zones — each is a live, independent connection to NGCH for its clearing
 // zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
@@ -40,10 +41,10 @@ function ZoneGatewayStrip({ isDark }) {
   return (
     <Link to="/cts/rpc" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>RPC — NGCH Gateway Status</span>
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>{msg('UI_OPSDASHBOARD_RPC_NGCH_GATEWAY_STATUS')}</span>
         {degraded.length > 0 && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
-            {degraded.length} zone{degraded.length > 1 ? 's' : ''} degraded
+            {msg('UI_OPSDASHBOARD_ZONE_DEGRADED', { count: degraded.length, value: degraded.length > 1 ? 's' : '' })}
           </span>
         )}
       </div>
@@ -58,7 +59,7 @@ function ZoneGatewayStrip({ isDark }) {
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
               <span className="font-medium">{z.zone}</span>
-              {!ok && <span className="font-mono opacity-80">· {z.iet_risk} IET risk</span>}
+              {!ok && <span className="font-mono opacity-80">{msg('UI_OPSDASHBOARD_IET_RISK', { iet_risk: z.iet_risk })}</span>}
             </div>
           )
         })}
@@ -294,7 +295,7 @@ export default function CTSOpsDashboard() {
         `/api/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error('Download URL request failed')
+      if (!res.ok) throw new Error(msg('UI_OPSDASHBOARD_DOWNLOAD_URL_REQUEST_FAILED_2'))
       return res.json()
     },
     onSuccess: (data, { sessionId, path }) => {
@@ -355,12 +356,11 @@ export default function CTSOpsDashboard() {
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_OPSDASHBOARD_CLEARING_OPERATIONS_DASHBOARD_2')}</h1>
               <p className={`text-[11px] ${th.muted}`}>
-                {dashTab === 'mybank'
-                  ? (includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
-                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs')}
-                {' · '}{active.TODAY.clearing_date} · {totalSessions} sessions · {settledSessions} settled
+                {msg('UI_OPSDASHBOARD_SESSIONS_SETTLED_2', { value: dashTab === 'mybank'
+                  ? (includeSMB ? msg('UI_OPSDASHBOARD_SPONSORED_SMBS_COMBINED', { bankName, count: smbs.length }) : bankName)
+                  : (selectedSmbId ? selectedSmb?.name : msg('UI_OPSDASHBOARD_ALL_SPONSORED_SMBS')), clearing_date: active.TODAY.clearing_date, totalSessions, settledSessions })}
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -372,17 +372,17 @@ export default function CTSOpsDashboard() {
                     onChange={(e) => setIncludeSMB(e.target.checked)}
                     className="w-3.5 h-3.5 rounded accent-violet-500"
                   />
-                  + SMB
+                 {msg('UI_OPSDASHBOARD_SMB_2')}
                 </label>
               )}
               <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} />
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">{msg('UI_BATCHSTATS_LIVE_2')}</span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
                 className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors
                   ${isDark ? 'border-white/15 text-slate-300 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
               >
-                ↓ Today's MIS
+               {msg('UI_OPSDASHBOARD_TODAY_S_MIS_2')}
               </button>
             </div>
           </div>

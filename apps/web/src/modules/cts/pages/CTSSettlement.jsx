@@ -300,7 +300,7 @@ export default function CTSSettlement() {
                     {msg('UI_SETTLEMENT_CR_2', { value: sel.net_dir === 'RECEIVE' ? '+' : '-', net_cr: sel.net_cr })}
                   </div>
                   <div className={`text-[11px] font-semibold mt-1 ${sel.net_dir === 'RECEIVE' ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {msg('UI_SETTLEMENT_FROM_NGCH', { value: sel.net_dir === 'RECEIVE' ? 'WE RECEIVE' : 'WE PAY' })}
+                    {msg('UI_SETTLEMENT_FROM_NGCH', { value: sel.net_dir === 'RECEIVE' ? msg('UI_SETTLEMENT_WE_RECEIVE') : msg('UI_SETTLEMENT_WE_PAY') })}
                   </div>
                 </div>
                 {sel.ngch_ack && (

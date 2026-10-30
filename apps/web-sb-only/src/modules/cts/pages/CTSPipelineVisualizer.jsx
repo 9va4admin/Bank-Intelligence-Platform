@@ -4,6 +4,7 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+import { msg } from '../../../shared/messages'
 
 // ─── Stage config ──────────────────────────────────────────────────────────────
 // bank: 'd' = Drawee Bank (all processing stages) · 'g' = NGCH Gateway
@@ -12,15 +13,15 @@ import { demoChequeUrl } from '../demoImages'
 // Account/CBS moved to after Fraud (status check at end, not at start).
 
 const STAGES = [
-  { id: 0, label: 'Ingest',      icon: '📥', shortLabel: 'Ingest',   avgMs: 3,   bank: 'd' },
-  { id: 1, label: 'Vision',      icon: '🔍', shortLabel: 'Vision',   avgMs: 110, bank: 'd' },
-  { id: 2, label: 'Compliance',  icon: '✅', shortLabel: 'Comply',   avgMs: 80,  bank: 'd' },
-  { id: 3, label: 'Stop Pay',    icon: '🛑', shortLabel: 'StopPay',  avgMs: 50,  bank: 'd' },
-  { id: 4, label: 'Pos Pay',     icon: '📋', shortLabel: 'PPS',      avgMs: 30,  bank: 'd' },
-  { id: 5, label: 'Signature',   icon: '✍️', shortLabel: 'Sig',      avgMs: 95,  bank: 'd' },
-  { id: 6, label: 'Fraud',       icon: '🛡️', shortLabel: 'Fraud',    avgMs: 45,  bank: 'd' },
-  { id: 7, label: 'CBS · Acct',  icon: '🏦', shortLabel: 'CBS',      avgMs: 60,  bank: 'd' },
-  { id: 8, label: 'Decision',    icon: '⚖️', shortLabel: 'Decide',   avgMs: 12,  bank: 'd' },
+  { id: 0, label: msg('UI_PIPELINEVISUALIZER_INGEST_3'),      icon: '📥', shortLabel: msg('UI_PIPELINEVISUALIZER_INGEST_3'),   avgMs: 3,   bank: 'd' },
+  { id: 1, label: msg('UI_DEMOLIVE_VISION_2'),      icon: '🔍', shortLabel: msg('UI_DEMOLIVE_VISION_2'),   avgMs: 110, bank: 'd' },
+  { id: 2, label: msg('UI_PIPELINEVISUALIZER_COMPLIANCE_2'),  icon: '✅', shortLabel: msg('UI_PIPELINEVISUALIZER_COMPLY_2'),   avgMs: 80,  bank: 'd' },
+  { id: 3, label: msg('UI_PIPELINEVISUALIZER_STOP_PAY_2'),    icon: '🛑', shortLabel: msg('UI_PIPELINEVISUALIZER_STOPPAY_2'),  avgMs: 50,  bank: 'd' },
+  { id: 4, label: msg('UI_PIPELINEVISUALIZER_POS_PAY_2'),     icon: '📋', shortLabel: 'PPS',      avgMs: 30,  bank: 'd' },
+  { id: 5, label: msg('UI_COMMON_SIGNATURE_2'),   icon: '✍️', shortLabel: msg('UI_COMMON_SIG'),      avgMs: 95,  bank: 'd' },
+  { id: 6, label: msg('UI_COMMON_FRAUD_2'),       icon: '🛡️', shortLabel: msg('UI_COMMON_FRAUD_2'),    avgMs: 45,  bank: 'd' },
+  { id: 7, label: msg('UI_PIPELINEVISUALIZER_CBS_ACCT_2'),  icon: '🏦', shortLabel: 'CBS',      avgMs: 60,  bank: 'd' },
+  { id: 8, label: msg('UI_COMMON_DECISION_2'),    icon: '⚖️', shortLabel: msg('UI_PIPELINEVISUALIZER_DECIDE_2'),   avgMs: 12,  bank: 'd' },
   { id: 9, label: 'NGCH',        icon: '🌐', shortLabel: 'NGCH',     avgMs: 485, bank: 'g' },
 ]
 
@@ -40,15 +41,15 @@ const MOCK_QUEUE = [
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     // Phase 3 stage order: Vision(1) FIRST → Comply(2) → StopPay(3) → PPS(4) → Sig(5) → Fraud(6) → CBS(7) → Decision(8)
     stageResults: {
-      0: { ms: 3,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
-      1: { ms: 30,  ok: true,  detail: 'No alteration detected on amount or date fields · tamper_risk 0.04' },
-      2: { ms: 60,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
-      3: { ms: 80,  ok: true,  detail: 'No stop payment instruction on record' },
-      4: { ms: 110, ok: true,  detail: 'PPS record found · Amount ₹[5L-10L] matches' },
-      5: { ms: 205, ok: false, detail: 'Match score 0.61 < threshold 0.85 — MISMATCH' },
-      6: { ms: 250, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
-      7: { ms: 310, ok: true,  detail: 'Account ACTIVE · Balance sufficient · No legal hold' },
-      8: { ms: 320, ok: false, detail: 'HELD — awaiting reviewer decision' },
+      0: { ms: 3,   ok: true,  detail: msg('UI_PIPELINEVISUALIZER_IQA_PASSED_INSTRUMENT_ACCEPTED_FROM_2') },
+      1: { ms: 30,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_ALTERATION_DETECTED_ON_AMOUNT_2') },
+      2: { ms: 60,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_DATE_VALID_FIGURES_WORDS_MATCH_3') },
+      3: { ms: 80,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_STOP_PAYMENT_INSTRUCTION_ON_2') },
+      4: { ms: 110, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_PPS_RECORD_FOUND_AMOUNT_5L_2') },
+      5: { ms: 205, ok: false, detail: msg('UI_PIPELINEVISUALIZER_MATCH_SCORE_0_61_THRESHOLD_2') },
+      6: { ms: 250, ok: false, detail: msg('UI_PIPELINEVISUALIZER_FRAUD_SCORE_0_81_SHAP_2') },
+      7: { ms: 310, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_ACCOUNT_ACTIVE_BALANCE_SUFFICIENT_NO_2') },
+      8: { ms: 320, ok: false, detail: msg('UI_PIPELINEVISUALIZER_HELD_AWAITING_REVIEWER_DECISION_2') },
     },
   },
   {
@@ -63,15 +64,15 @@ const MOCK_QUEUE = [
     bank: 'HDFC Bank',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 2,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
-      1: { ms: 28,  ok: true,  detail: 'No alteration detected · tamper_risk 0.02' },
-      2: { ms: 55,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
-      3: { ms: 78,  ok: true,  detail: 'No stop payment instruction on record' },
-      4: { ms: 108, ok: true,  detail: 'PPS record found · Amount ₹[>1Cr] matches' },
-      5: { ms: 203, ok: true,  detail: 'Match score 0.88 ✓' },
-      6: { ms: 248, ok: false, detail: 'Fraud 0.77 · SHAP: high_value=0.51 · OPA rule fired' },
-      7: { ms: 308, ok: true,  detail: 'Account ACTIVE · Balance sufficient' },
-      8: { ms: 318, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
+      0: { ms: 2,   ok: true,  detail: msg('UI_PIPELINEVISUALIZER_IQA_PASSED_INSTRUMENT_ACCEPTED_FROM_2') },
+      1: { ms: 28,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_ALTERATION_DETECTED_TAMPER_RISK_3') },
+      2: { ms: 55,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_DATE_VALID_FIGURES_WORDS_MATCH_3') },
+      3: { ms: 78,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_STOP_PAYMENT_INSTRUCTION_ON_2') },
+      4: { ms: 108, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_PPS_RECORD_FOUND_AMOUNT_1CR_2') },
+      5: { ms: 203, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_MATCH_SCORE_0_88_2') },
+      6: { ms: 248, ok: false, detail: msg('UI_PIPELINEVISUALIZER_FRAUD_0_77_SHAP_HIGH_2') },
+      7: { ms: 308, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_ACCOUNT_ACTIVE_BALANCE_SUFFICIENT_2') },
+      8: { ms: 318, ok: false, detail: msg('UI_PIPELINEVISUALIZER_HELD_DUAL_APPROVAL_REQUIRED_1CR_2') },
     },
   },
   {
@@ -87,8 +88,8 @@ const MOCK_QUEUE = [
     stop_payment: false, dormant: false, pps_match: false, kyc_expired: false,
     // Vision FIRST: tamper detected at step 1 — downstream stages not reached
     stageResults: {
-      0: { ms: 4,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
-      1: { ms: 108, ok: false, detail: 'ALTERATION detected — amount field rewrite suspected · tamper_risk 0.91' },
+      0: { ms: 4,   ok: true,  detail: msg('UI_PIPELINEVISUALIZER_IQA_PASSED_INSTRUMENT_ACCEPTED_FROM_2') },
+      1: { ms: 108, ok: false, detail: msg('UI_PIPELINEVISUALIZER_ALTERATION_DETECTED_AMOUNT_FIELD_REW_2') },
     },
   },
 ]
@@ -106,12 +107,12 @@ const MOCK_EXCEPTIONS = [
     bank: 'Thane Janata → SBI',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 3,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
-      1: { ms: 28,  ok: true,  detail: 'No alteration detected · tamper_risk 0.03' },
-      2: { ms: 52,  ok: true,  detail: 'Date valid · figures/words match' },
-      3: { ms: 78,  ok: true,  detail: 'No stop payment instruction on record' },
-      4: { ms: 110, ok: true,  detail: 'PPS matched ✓' },
-      5: { ms: 162, ok: false, detail: 'VAULT MISS — no signature specimen on file · HUMAN_REVIEW' },
+      0: { ms: 3,   ok: true,  detail: msg('UI_PIPELINEVISUALIZER_IQA_PASSED_INSTRUMENT_ACCEPTED_FROM_2') },
+      1: { ms: 28,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_ALTERATION_DETECTED_TAMPER_RISK_4') },
+      2: { ms: 52,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_DATE_VALID_FIGURES_WORDS_MATCH_4') },
+      3: { ms: 78,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_STOP_PAYMENT_INSTRUCTION_ON_2') },
+      4: { ms: 110, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_PPS_MATCHED_2') },
+      5: { ms: 162, ok: false, detail: msg('UI_PIPELINEVISUALIZER_VAULT_MISS_NO_SIGNATURE_SPECIMEN_2') },
     },
   },
   {
@@ -127,14 +128,14 @@ const MOCK_EXCEPTIONS = [
     stop_payment: false, dormant: true, pps_match: false, kyc_expired: true,
     // Account status check is step 7 (after fraud) in Phase 3
     stageResults: {
-      0: { ms: 2,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
-      1: { ms: 27,  ok: true,  detail: 'No alteration detected · tamper_risk 0.03' },
-      2: { ms: 48,  ok: true,  detail: 'Date valid · figures/words match' },
-      3: { ms: 74,  ok: true,  detail: 'No stop payment instruction on record' },
-      4: { ms: 98,  ok: false, detail: 'PPS not registered — amount ₹[1L-5L] without PPS' },
-      5: { ms: 193, ok: true,  detail: 'Match score 0.91 ✓' },
-      6: { ms: 238, ok: true,  detail: 'Fraud score 0.21 — clean' },
-      7: { ms: 295, ok: false, detail: 'DORMANT — no txn 28 months · RBI rule: HUMAN_REVIEW' },
+      0: { ms: 2,   ok: true,  detail: msg('UI_PIPELINEVISUALIZER_IQA_PASSED_INSTRUMENT_ACCEPTED_FROM_2') },
+      1: { ms: 27,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_ALTERATION_DETECTED_TAMPER_RISK_4') },
+      2: { ms: 48,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_DATE_VALID_FIGURES_WORDS_MATCH_4') },
+      3: { ms: 74,  ok: true,  detail: msg('UI_PIPELINEVISUALIZER_NO_STOP_PAYMENT_INSTRUCTION_ON_2') },
+      4: { ms: 98,  ok: false, detail: msg('UI_PIPELINEVISUALIZER_PPS_NOT_REGISTERED_AMOUNT_1L_2') },
+      5: { ms: 193, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_MATCH_SCORE_0_91_2') },
+      6: { ms: 238, ok: true,  detail: msg('UI_PIPELINEVISUALIZER_FRAUD_SCORE_0_21_CLEAN_2') },
+      7: { ms: 295, ok: false, detail: msg('UI_PIPELINEVISUALIZER_DORMANT_NO_TXN_28_MONTHS_2') },
     },
   },
 ]
@@ -210,9 +211,9 @@ function ChildPanel({ item, onClose, isException }) {
 
   // build cheque views for the image viewer
   const chqViews = [
-    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
-    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
-    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+    { key: 'BFB', label: msg('UI_COMMON_FRONT_B_W_2'),  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+    { key: 'BBB', label: msg('UI_COMMON_BACK_B_W_2'),   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+    { key: 'BFG', label: msg('UI_COMMON_FRONT_GRAY_2'), url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
   ]
   const chqFields = {
     payee:          item.ocr_fields?.payee,
@@ -261,8 +262,8 @@ function ChildPanel({ item, onClose, isException }) {
         {/* Tab bar */}
         <div className="flex items-center gap-1 px-6 pt-3 pb-0 border-b border-white/8 shrink-0">
           {[
-            { key: 'pipeline', label: '⚙ Pipeline' },
-            { key: 'chq',      label: '🖼 Chq Images' },
+            { key: 'pipeline', label: msg('UI_PIPELINEVISUALIZER_PIPELINE_2') },
+            { key: 'chq',      label: msg('UI_PIPELINEVISUALIZER_CHQ_IMAGES_2') },
           ].map(t => (
             <button
               key={t.key}
@@ -284,9 +285,9 @@ function ChildPanel({ item, onClose, isException }) {
             <div className="p-5">
               {/* Phase header labels */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>{msg('UI_COMMON_DRAWEE_BANK_2')}</span>
                 <span className="text-slate-700 text-xs">·</span>
-                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>{msg('UI_PIPELINEVISUALIZER_NGCH_GATEWAY_2')}</span>
               </div>
 
               <div className="flex items-start gap-0">
@@ -331,11 +332,11 @@ function ChildPanel({ item, onClose, isException }) {
                         <div>
                           <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
                           <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
-                            {s.result ? `${s.result.ms}ms` : '—'}
+                            {s.result ? msg('UI_COMMON_MS_3', { ms: s.result.ms }) : '—'}
                           </div>
                         </div>
                         <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
-                          {s.result ? s.result.detail : 'not reached'}
+                          {s.result ? s.result.detail : msg('UI_PIPELINEVISUALIZER_NOT_REACHED_2')}
                         </div>
                       </div>
                       {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
@@ -351,12 +352,12 @@ function ChildPanel({ item, onClose, isException }) {
               {/* Score row */}
               <div className="mt-4 flex gap-3 flex-wrap">
                 {[
-                  { label: 'Vision Conf',     val: item.vision_confidence, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.70 },
-                  { label: 'Signature Match', val: item.sig_match_score,   fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
-                  { label: 'Fraud Score',     val: item.fraud_score,       fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
-                  { label: 'Amount Range',    val: item.amount_range,      fmt: v => v, good: () => true },
-                  { label: 'PPS Match',       val: item.pps_match,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true },
-                  { label: 'Dormant Acct',    val: item.dormant,           fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false },
+                  { label: msg('UI_PIPELINEVISUALIZER_VISION_CONF_2'),     val: item.vision_confidence, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.70 },
+                  { label: msg('UI_COMMON_SIGNATURE_MATCH_2'), val: item.sig_match_score,   fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
+                  { label: msg('UI_COMMON_FRAUD_SCORE_2'),     val: item.fraud_score,       fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
+                  { label: msg('UI_COMMON_AMOUNT_RANGE_2'),    val: item.amount_range,      fmt: v => v, good: () => true },
+                  { label: msg('UI_PIPELINEVISUALIZER_PPS_MATCH_2'),       val: item.pps_match,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true },
+                  { label: msg('UI_PIPELINEVISUALIZER_DORMANT_ACCT_2'),    val: item.dormant,           fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false },
                 ].map(({ label, val, fmt, good }) => (
                   <div key={label} className="flex-1 min-w-[90px] bg-white/3 rounded-xl border border-white/6 px-4 py-3">
                     <div className="text-[10px] text-slate-500 mb-1">{label}</div>
@@ -389,9 +390,9 @@ function ChildPanel({ item, onClose, isException }) {
           <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
             <div className="flex-1 text-[11px] text-slate-400 min-w-0">
-              {isException ? 'Exception — ' : 'Held for human review — '}
+              {isException ? msg('UI_PIPELINEVISUALIZER_EXCEPTION_3') : msg('UI_PIPELINEVISUALIZER_HELD_FOR_HUMAN_REVIEW_2')}
               <span className="text-amber-400 font-mono">{item.id}</span>
-              &nbsp;is monitoring-only here. Decide in <span className="text-slate-300 font-medium">Inward Q</span>.
+              {msg('UI_PIPELINEVISUALIZER_IS_MONITORING_ONLY_HERE_DECIDE_2')} <span className="text-slate-300 font-medium">{msg('UI_PIPELINEVISUALIZER_INWARD_Q_2')}</span>.
             </div>
           </div>
         )}
@@ -404,9 +405,9 @@ function ChildPanel({ item, onClose, isException }) {
 
 function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
   const cfg = {
-    confirm: { label: 'STP Confirmed', accent: '#10b981', border: 'border-emerald-500/30', bg: 'rgba(16,185,129,0.06)', tagCls: 'text-emerald-400', rowBg: 'rgba(16,185,129,0.04)', rowBorder: 'rgba(16,185,129,0.15)' },
-    return:  { label: 'STP Returned',  accent: '#ef4444', border: 'border-red-500/30',     bg: 'rgba(239,68,68,0.06)',  tagCls: 'text-red-400',     rowBg: 'rgba(239,68,68,0.04)',  rowBorder: 'rgba(239,68,68,0.15)'  },
-    review:  { label: 'Human Review',  accent: '#f59e0b', border: 'border-amber-500/30',   bg: 'rgba(245,158,11,0.06)', tagCls: 'text-amber-400',   rowBg: 'rgba(245,158,11,0.04)', rowBorder: 'rgba(245,158,11,0.15)' },
+    confirm: { label: msg('UI_COMMON_STP_CONFIRMED_2'), accent: '#10b981', border: 'border-emerald-500/30', bg: 'rgba(16,185,129,0.06)', tagCls: 'text-emerald-400', rowBg: 'rgba(16,185,129,0.04)', rowBorder: 'rgba(16,185,129,0.15)' },
+    return:  { label: msg('UI_COMMON_STP_RETURNED_2'),  accent: '#ef4444', border: 'border-red-500/30',     bg: 'rgba(239,68,68,0.06)',  tagCls: 'text-red-400',     rowBg: 'rgba(239,68,68,0.04)',  rowBorder: 'rgba(239,68,68,0.15)'  },
+    review:  { label: msg('UI_COMMON_HUMAN_REVIEW_2'),  accent: '#f59e0b', border: 'border-amber-500/30',   bg: 'rgba(245,158,11,0.06)', tagCls: 'text-amber-400',   rowBg: 'rgba(245,158,11,0.04)', rowBorder: 'rgba(245,158,11,0.15)' },
   }[type]
   const total = items.length + baseCount
   const list = type === 'confirm' ? [...items].reverse() : items
@@ -468,18 +469,18 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCo
   const barColor = pct < 50 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444'
 
   const pools = [
-    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + 847,  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
-    { key: 'return',         label: 'STP Returned',     val: returnCount  + 124,  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
-    { key: 'review',         label: 'Human Review',     val: reviewCount,          color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
-    { key: 'manualConfirm',  label: 'Manual Confirmed', val: manualConfirmCount,   color: 'text-emerald-300', hoverCls: 'hover:text-emerald-200 hover:bg-emerald-500/8', disabled: true },
-    { key: 'manualReject',   label: 'Manual Rejected',  val: manualRejectCount,    color: 'text-red-300',     hoverCls: 'hover:text-red-200 hover:bg-red-500/8',         disabled: true },
+    { key: 'confirm',        label: msg('UI_COMMON_STP_CONFIRMED_2'),    val: confirmCount + 847,  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
+    { key: 'return',         label: msg('UI_COMMON_STP_RETURNED_2'),     val: returnCount  + 124,  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
+    { key: 'review',         label: msg('UI_COMMON_HUMAN_REVIEW_2'),     val: reviewCount,          color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
+    { key: 'manualConfirm',  label: msg('UI_COMMON_MANUAL_CONFIRMED_2'), val: manualConfirmCount,   color: 'text-emerald-300', hoverCls: 'hover:text-emerald-200 hover:bg-emerald-500/8', disabled: true },
+    { key: 'manualReject',   label: msg('UI_PIPELINEVISUALIZER_MANUAL_REJECTED_2'),  val: manualRejectCount,    color: 'text-red-300',     hoverCls: 'hover:text-red-200 hover:bg-red-500/8',         disabled: true },
   ]
 
   return (
     <div className="flex items-center gap-5 bg-white/2 border border-white/6 rounded-xl px-5 py-3 shrink-0">
       <div className="flex items-center gap-3 shrink-0">
         <div>
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">IET Window</div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">{msg('UI_COMMON_IET_WINDOW_2')}</div>
           <div
             className="font-mono text-2xl font-bold text-amber-400"
             style={{ letterSpacing: '-0.02em', textShadow: '0 0 20px rgba(251,191,36,0.4)' }}
@@ -498,7 +499,7 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCo
           onClick={disabled ? undefined : () => onOpenPool(key)}
           disabled={disabled}
           className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors ${disabled ? 'cursor-default' : `cursor-pointer ${hoverCls}`}`}
-          title={disabled ? label : `View all ${label}`}
+          title={disabled ? label : msg('UI_PIPELINEVISUALIZER_VIEW_ALL_2', { label })}
         >
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5 whitespace-nowrap">{label}</div>
           <div className={`font-mono text-xl font-bold ${disabled ? '' : 'underline-offset-2 hover:underline'} ${color}`}>{val}</div>
@@ -507,7 +508,7 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCo
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
         <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span className="text-[11px] text-emerald-400 font-medium whitespace-nowrap">IET Watchdog ACTIVE</span>
+        <span className="text-[11px] text-emerald-400 font-medium whitespace-nowrap">{msg('UI_PIPELINEVISUALIZER_IET_WATCHDOG_ACTIVE_2')}</span>
       </div>
     </div>
   )
@@ -601,9 +602,9 @@ function StatsStrip({ stats, stageActive }) {
             <div className="text-[9px] font-semibold uppercase tracking-wide truncate" style={{ color: active ? 'rgba(251,191,36,0.7)' : 'rgba(148,163,184,0.5)' }}>
               {s.shortLabel}
             </div>
-            <div className="text-[11px] font-mono font-bold text-amber-400">{st.avgMs}ms</div>
+            <div className="text-[11px] font-mono font-bold text-amber-400">{msg('UI_COMMON_MS_2', { avgMs: st.avgMs })}</div>
             <div className="flex items-center">
-              <div className="text-[9px] text-slate-600">{st.throughput}/m</div>
+              <div className="text-[9px] text-slate-600">{msg('UI_PIPELINEVISUALIZER_M_2', { throughput: st.throughput })}</div>
               <div className={`text-[9px] ml-auto font-mono ${st.errRate < 1 ? 'text-emerald-600' : 'text-red-400'}`}>{st.errRate}%</div>
             </div>
           </div>
@@ -625,7 +626,7 @@ function ConfirmPool({ items, onSelect }) {
       <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.5), transparent)' }} />
       <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px #10b981' }} />
-        <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">STP Confirmed</span>
+        <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">{msg('UI_COMMON_STP_CONFIRMED_2')}</span>
         <span className="ml-auto font-mono text-xl font-bold text-emerald-400" style={{ textShadow: '0 0 16px rgba(16,185,129,0.5)' }}>{total}</span>
       </div>
       <div className="flex gap-2 overflow-hidden flex-1">
@@ -644,7 +645,7 @@ function ConfirmPool({ items, onSelect }) {
           </button>
         ))}
         {items.length === 0 && (
-          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">Awaiting…</div>
+          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">{msg('UI_HOLDQUEUE_AWAITING_2')}</div>
         )}
       </div>
     </div>
@@ -661,7 +662,7 @@ function ReturnPool({ items, onSelect }) {
       <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.5), transparent)' }} />
       <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" style={{ boxShadow: '0 0 6px #ef4444' }} />
-        <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">STP Returned</span>
+        <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">{msg('UI_COMMON_STP_RETURNED_2')}</span>
         <span className="ml-auto font-mono text-xl font-bold text-red-400" style={{ textShadow: '0 0 16px rgba(239,68,68,0.5)' }}>{total}</span>
       </div>
       <div className="flex gap-2 overflow-hidden flex-1">
@@ -681,7 +682,7 @@ function ReturnPool({ items, onSelect }) {
           </button>
         ))}
         {items.length === 0 && (
-          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">Awaiting…</div>
+          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">{msg('UI_HOLDQUEUE_AWAITING_2')}</div>
         )}
       </div>
     </div>
@@ -697,7 +698,7 @@ function ReviewDock({ items, onSelect }) {
       <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(245,158,11,0.5), transparent)' }} />
       <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" style={{ boxShadow: '0 0 8px #f59e0b' }} />
-        <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Human Review Dock</span>
+        <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">{msg('UI_PIPELINEVISUALIZER_HUMAN_REVIEW_DOCK_2')}</span>
         <span className="ml-auto bg-amber-400/15 border border-amber-400/25 text-amber-400 text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0">
           {items.length}
         </span>
@@ -722,7 +723,7 @@ function ReviewDock({ items, onSelect }) {
           </button>
         ))}
         {items.length === 0 && (
-          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">Queue empty</div>
+          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">{msg('UI_PIPELINEVISUALIZER_QUEUE_EMPTY_2')}</div>
         )}
       </div>
     </div>
@@ -732,14 +733,14 @@ function ReviewDock({ items, onSelect }) {
 // ─── Batch summary stats bar ─────────────────────────────────────────────────
 
 const BATCH_STATS_DEF = [
-  { key: 'total',       label: 'Total Batch',     color: 'text-white',        base: 487 },
-  { key: 'iqa_fail',    label: 'IQA Fail',         color: 'text-red-400',      base: 3   },
-  { key: 'ai_extract',  label: 'AI Extracted',     color: 'text-violet-400',   base: 0   },
-  { key: 'submitted',   label: 'Submitted NGCH',   color: 'text-cyan-400',     base: 0   },
-  { key: 'ngch_ack',    label: 'NGCH Ack',         color: 'text-emerald-400',  base: 0   },
-  { key: 'ngch_reject', label: 'NGCH Reject',      color: 'text-red-400',      base: 4   },
-  { key: 'amt_mismatch',label: 'Amt Mismatch',     color: 'text-amber-400',    base: 1   },
-  { key: 'date_invalid',label: 'Date Invalid',     color: 'text-slate-500',    base: 0   },
+  { key: 'total',       label: msg('UI_PIPELINEVISUALIZER_TOTAL_BATCH_2'),     color: 'text-white',        base: 487 },
+  { key: 'iqa_fail',    label: msg('UI_COMMON_IQA_FAIL_2'),         color: 'text-red-400',      base: 3   },
+  { key: 'ai_extract',  label: msg('UI_COMMON_AI_EXTRACTED_2'),     color: 'text-violet-400',   base: 0   },
+  { key: 'submitted',   label: msg('UI_PIPELINEVISUALIZER_SUBMITTED_NGCH_2'),   color: 'text-cyan-400',     base: 0   },
+  { key: 'ngch_ack',    label: msg('UI_BATCHES_NGCH_ACK_2'),         color: 'text-emerald-400',  base: 0   },
+  { key: 'ngch_reject', label: msg('UI_PIPELINEVISUALIZER_NGCH_REJECT_2'),      color: 'text-red-400',      base: 4   },
+  { key: 'amt_mismatch',label: msg('UI_COMMON_AMT_MISMATCH_2'),     color: 'text-amber-400',    base: 1   },
+  { key: 'date_invalid',label: msg('UI_PIPELINEVISUALIZER_DATE_INVALID_2'),     color: 'text-slate-500',    base: 0   },
 ]
 
 function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }) {
@@ -791,7 +792,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   const spawnRef = useRef(null)
 
   usePageHeader({
-    subtitle: 'Live · 500 agents · <600ms wall clock',
+    subtitle: msg('UI_PIPELINEVISUALIZER_LIVE_500_AGENTS_600MS_WALL_2'),
     actions: (
       <button
         onClick={() => setRunning(r => !r)}
@@ -802,7 +803,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
         }`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${running ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-        {running ? 'Running' : 'Paused'}
+        {running ? msg('UI_PIPELINEVISUALIZER_RUNNING_2') : msg('UI_PIPELINEVISUALIZER_PAUSED_2')}
       </button>
     ),
   })
@@ -932,9 +933,9 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
           <div className="shrink-0 flex flex-col">
             {/* Pipeline label */}
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Inward Clearing Pipeline</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{msg('UI_PIPELINEVISUALIZER_INWARD_CLEARING_PIPELINE_2')}</span>
               <div className="flex-1 h-px bg-white/4" />
-              <span className="text-[9px] text-slate-700 font-mono">Live · 500 parallel agents · &lt;600ms</span>
+              <span className="text-[9px] text-slate-700 font-mono">{msg('UI_PIPELINEVISUALIZER_LIVE_500_PARALLEL_AGENTS_600MS_2')}</span>
             </div>
             {/* Track wrapper */}
             <div
@@ -965,8 +966,8 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
               />
 
               {/* Bank phase labels */}
-              <div className="absolute top-2 left-[5%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(139,92,246,0.45)' }}>Drawee Bank</div>
-              <div className="absolute top-2 right-[4%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(6,182,212,0.45)' }}>NGCH</div>
+              <div className="absolute top-2 left-[5%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(139,92,246,0.45)' }}>{msg('UI_COMMON_DRAWEE_BANK_2')}</div>
+              <div className="absolute top-2 right-[4%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(6,182,212,0.45)' }}>{msg('UI_COMMON_NGCH_2')}</div>
 
               {/* Separator: Drawee Bank (0-9) → NGCH Gateway (10) */}
               {(() => {
@@ -1027,7 +1028,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
               {exceptions.length > 0 && (
                 <div className="absolute top-2.5 right-4 flex items-center gap-1.5 pointer-events-none">
                   <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                  <span className="text-[10px] text-red-400 font-medium">{exceptions.length} Exception{exceptions.length > 1 ? 's' : ''}</span>
+                  <span className="text-[10px] text-red-400 font-medium">{msg('UI_PIPELINEVISUALIZER_EXCEPTION_4', { count: exceptions.length, value: exceptions.length > 1 ? 's' : '' })}</span>
                 </div>
               )}
             </div>
@@ -1076,16 +1077,16 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
                 </div>
                 <button onClick={() => setStatModal(null)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/10 text-lg">×</button>
               </div>
-              <div className="text-[11px] text-slate-500">Session SES-0619-001 · MUMBAI clearing · 18-Jun-2026</div>
+              <div className="text-[11px] text-slate-500">{msg('UI_PIPELINEVISUALIZER_SESSION_SES_0619_001_MUMBAI_2')}</div>
               <div className="mt-4 pt-4 border-t border-white/6 text-[11px] text-slate-600">
-                {statModal === 'ngch_ack'    && 'Cheques confirmed and acknowledged by NGCH — settled.'}
-                {statModal === 'ngch_reject' && 'NGCH returned error; Temporal auto-retried. 4 required manual intervention.'}
-                {statModal === 'iqa_fail'    && 'Image quality below CTS-2010 DPI threshold (200 DPI). Returned via NGCH.'}
-                {statModal === 'ai_extract'  && 'Successfully parsed by AI (OCR + vision). Includes all STP and human review items.'}
-                {statModal === 'submitted'   && 'Filed to NGCH (confirm + return). Excludes items still in human review.'}
-                {statModal === 'total'       && 'Total inward instruments received this session from NGCH.'}
-                {statModal === 'amt_mismatch'&& 'Words vs figures amount discrepancy detected by OCR. Routed to human review.'}
-                {statModal === 'date_invalid'&& 'No stale or post-dated instruments detected this session.'}
+                {statModal === 'ngch_ack'    && msg('UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B_2')}
+                {statModal === 'ngch_reject' && msg('UI_PIPELINEVISUALIZER_NGCH_RETURNED_ERROR_TEMPORAL_AUTO_2')}
+                {statModal === 'iqa_fail'    && msg('UI_PIPELINEVISUALIZER_IMAGE_QUALITY_BELOW_CTS_2010_2')}
+                {statModal === 'ai_extract'  && msg('UI_PIPELINEVISUALIZER_SUCCESSFULLY_PARSED_BY_AI_OCR_2')}
+                {statModal === 'submitted'   && msg('UI_PIPELINEVISUALIZER_FILED_TO_NGCH_CONFIRM_RETURN_2')}
+                {statModal === 'total'       && msg('UI_PIPELINEVISUALIZER_TOTAL_INWARD_INSTRUMENTS_RECEIVED_TH_2')}
+                {statModal === 'amt_mismatch'&& msg('UI_PIPELINEVISUALIZER_WORDS_VS_FIGURES_AMOUNT_DISCREPANCY_2')}
+                {statModal === 'date_invalid'&& msg('UI_PIPELINEVISUALIZER_NO_STALE_OR_POST_DATED_2')}
               </div>
             </div>
           </div>

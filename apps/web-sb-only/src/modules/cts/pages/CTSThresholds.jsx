@@ -2,110 +2,111 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const THRESHOLDS = [
   {
     key: 'iet_minutes',
-    label: 'IET Window',
+    label: msg('UI_COMMON_IET_WINDOW_2'),
     value: 180,
     unit: 'minutes',
     type: 'integer',
     min: 60, max: 240,
     layer: 3,
-    desc: 'RBI-mandated Item Expiry Time window. Cheques not decided within this window are deemed approved. Default: 180 min (3 hours).',
+    desc: msg('UI_THRESHOLDS_RBI_MANDATED_ITEM_EXPIRY_TIME_2'),
     warn: true,
     editable: true,
-    category: 'IET & Timing',
+    category: msg('UI_OPERATIONSCONFIG_IET_TIMING_2'),
   },
   {
     key: 'stp_auto_confirm_threshold',
-    label: 'STP Auto-Confirm Score',
+    label: msg('UI_OPERATIONSCONFIG_STP_AUTO_CONFIRM_SCORE_2'),
     value: 0.92,
     unit: 'score (0–1)',
     type: 'float',
     min: 0.85, max: 0.99,
     layer: 3,
-    desc: 'Fraud probability below this score triggers automatic NGCH CONFIRM filing (Straight-Through Processing). Raise to reduce STP rate; lower to increase human review load.',
+    desc: msg('UI_THRESHOLDS_FRAUD_PROBABILITY_BELOW_THIS_SCORE_2'),
     warn: false,
     editable: true,
-    category: 'Fraud Scoring',
+    category: msg('UI_THRESHOLDS_FRAUD_SCORING_2'),
   },
   {
     key: 'human_review_fraud_threshold',
-    label: 'Human Review Trigger Score',
+    label: msg('UI_OPERATIONSCONFIG_HUMAN_REVIEW_TRIGGER_SCORE_2'),
     value: 0.72,
     unit: 'score (0–1)',
     type: 'float',
     min: 0.50, max: 0.90,
     layer: 3,
-    desc: 'Fraud probability above this score routes the cheque to ops reviewer queue instead of auto-confirm. Must be lower than STP threshold.',
+    desc: msg('UI_THRESHOLDS_FRAUD_PROBABILITY_ABOVE_THIS_SCORE_2'),
     warn: false,
     editable: true,
-    category: 'Fraud Scoring',
+    category: msg('UI_THRESHOLDS_FRAUD_SCORING_2'),
   },
   {
     key: 'high_value_amount_threshold',
-    label: 'High-Value Cheque Limit',
+    label: msg('UI_THRESHOLDS_HIGH_VALUE_CHEQUE_LIMIT_2'),
     value: 500000,
     unit: '₹',
     type: 'integer',
     min: 100000, max: 10000000,
     layer: 3,
-    desc: 'Cheques above this amount trigger dual ops_reviewer approval before NGCH filing. Aligns with RBI high-value transaction monitoring norms.',
+    desc: msg('UI_THRESHOLDS_CHEQUES_ABOVE_THIS_AMOUNT_TRIGGER_2'),
     warn: false,
     editable: true,
-    category: 'Amount Controls',
+    category: msg('UI_OPERATIONSCONFIG_AMOUNT_CONTROLS_2'),
   },
   {
     key: 'ocr_min_confidence',
-    label: 'OCR Minimum Confidence',
+    label: msg('UI_OPERATIONSCONFIG_OCR_MINIMUM_CONFIDENCE_2'),
     value: 0.90,
     unit: 'score (0–1)',
     type: 'float',
     min: 0.80, max: 0.99,
     layer: 3,
-    desc: 'GOT-OCR2.0 confidence below this threshold routes the cheque to human review for manual MICR/field verification.',
+    desc: msg('UI_THRESHOLDS_GOT_OCR2_0_CONFIDENCE_BELOW_2'),
     warn: false,
     editable: true,
-    category: 'AI Confidence',
+    category: msg('UI_COMMON_AI_CONFIDENCE_2'),
   },
   {
     key: 'signature_min_match_score',
-    label: 'Signature Match Minimum',
+    label: msg('UI_OPERATIONSCONFIG_SIGNATURE_MATCH_MINIMUM_2'),
     value: 0.87,
     unit: 'score (0–1)',
     type: 'float',
     min: 0.75, max: 0.99,
     layer: 3,
-    desc: 'Siamese network match score below this routes to human review for manual signature comparison. Lower = more human review; higher = more STP risk.',
+    desc: msg('UI_THRESHOLDS_SIAMESE_NETWORK_MATCH_SCORE_BELOW_2'),
     warn: false,
     editable: true,
-    category: 'AI Confidence',
+    category: msg('UI_COMMON_AI_CONFIDENCE_2'),
   },
   {
     key: 'vault_miss_action',
-    label: 'Vault Miss Action',
+    label: msg('UI_COMMON_VAULT_MISS_ACTION_2'),
     value: 'HUMAN_REVIEW',
     unit: '',
     type: 'enum',
     layer: 1,
-    desc: 'Action when signature or PPS vault has no record for the account. LOCKED to HUMAN_REVIEW by platform constraint — cannot be changed to AUTO_RETURN.',
+    desc: msg('UI_THRESHOLDS_ACTION_WHEN_SIGNATURE_OR_PPS_2'),
     warn: true,
     editable: false,
-    category: 'Security',
+    category: msg('UI_OPERATIONSCONFIG_SECURITY_2'),
   },
   {
     key: 'iet_watchdog_trigger_seconds',
-    label: 'IET Watchdog Trigger',
+    label: msg('UI_THRESHOLDS_IET_WATCHDOG_TRIGGER_2'),
     value: 30,
     unit: 'seconds before IET',
     type: 'integer',
     min: 15, max: 120,
     layer: 1,
-    desc: 'IETWatchdogWorkflow fires emergency NGCH filing at this many seconds before IET deadline. LOCKED — changing this risks IET breach.',
+    desc: msg('UI_THRESHOLDS_IETWATCHDOGWORKFLOW_FIRES_EMERGENCY_2'),
     warn: true,
     editable: false,
-    category: 'IET & Timing',
+    category: msg('UI_OPERATIONSCONFIG_IET_TIMING_2'),
   },
 ]
 
@@ -144,8 +145,8 @@ export default function CTSThresholds() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         {/* Header */}
         <div className="mb-5">
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Thresholds & Rules</h1>
-          <p className={`text-xs mt-0.5 ${th.muted}`}>Layer 3 business rules — live hot-reload within 30 seconds. All changes require maker-checker approval.</p>
+          <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_APPSHELL_THRESHOLDS_RULES')}</h1>
+          <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_THRESHOLDS_LAYER_3_BUSINESS_RULES_LIVE_2')}</p>
         </div>
 
         {/* Tabs */}
@@ -156,7 +157,7 @@ export default function CTSThresholds() {
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-xs font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? 'border-cyan-500 text-cyan-400' : `border-transparent ${th.muted} hover:${th.body}`}`}
             >
-              {t === 'change-log' ? 'Change Log' : 'Thresholds'}
+              {t === 'change-log' ? msg('UI_THRESHOLDS_CHANGE_LOG_2') : msg('UI_THRESHOLDS_THRESHOLDS_2')}
             </button>
           ))}
         </div>
@@ -179,16 +180,16 @@ export default function CTSThresholds() {
                       <div className="flex items-center gap-2">
                         <span className={`font-medium text-sm ${th.heading}`}>{t.label}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                          Layer {t.layer}
+                         {msg('UI_OPERATIONSCONFIG_LAYER_2', { layer: t.layer })}
                         </span>
                         {t.warn && (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
-                            CRITICAL
+                           {msg('UI_THRESHOLDS_CRITICAL_2')}
                           </span>
                         )}
                         {!t.editable && (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-600'}`}>
-                            LOCKED
+                           {msg('UI_OPERATIONSCONFIG_LOCKED_2')}
                           </span>
                         )}
                       </div>
@@ -206,7 +207,7 @@ export default function CTSThresholds() {
                           onClick={() => { setEditing(t); setEditVal(String(t.value)) }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
                         >
-                          Edit
+                         {msg('UI_COMMON_EDIT_2')}
                         </button>
                       )}
                     </div>
@@ -236,7 +237,7 @@ export default function CTSThresholds() {
             <table className="w-full text-xs">
               <thead>
                 <tr className={`border-b ${th.divider}`}>
-                  {['Config Key', 'Old Value', 'New Value', 'Submitted By', 'Approved By', 'Timestamp', 'Status'].map(h => (
+                  {[msg('UI_COMMON_CONFIG_KEY_2'), msg('UI_CONFIG_OLD_VALUE_2'), msg('UI_COMMON_NEW_VALUE_2'), msg('UI_COMMON_SUBMITTED_BY_2'), msg('UI_COMMON_APPROVED_BY_2'), msg('UI_COMMON_TIMESTAMP_2'), msg('UI_COMMON_STATUS_2')].map(h => (
                     <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                   ))}
                 </tr>
@@ -248,11 +249,11 @@ export default function CTSThresholds() {
                     <td className={`px-4 py-3 ${th.muted} line-through`}>{c.old}</td>
                     <td className={`px-4 py-3 font-semibold ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}>{c.new}</td>
                     <td className={`px-4 py-3 ${th.body}`}>{c.by}</td>
-                    <td className={`px-4 py-3 ${th.body}`}>{c.approved ?? <span className={th.muted}>Pending…</span>}</td>
+                    <td className={`px-4 py-3 ${th.body}`}>{c.approved ?? <span className={th.muted}>{msg('UI_OPERATIONSCONFIG_PENDING_3')}</span>}</td>
                     <td className={`px-4 py-3 font-mono text-[11px] ${th.muted}`}>{c.at}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.status === 'LIVE' ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')}`}>
-                        {c.status === 'PENDING_APPROVAL' ? 'PENDING' : c.status}
+                        {c.status === 'PENDING_APPROVAL' ? msg('UI_OPERATIONSCONFIG_PENDING_4') : c.status}
                       </span>
                     </td>
                   </tr>
@@ -267,12 +268,12 @@ export default function CTSThresholds() {
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
             <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${isDark ? 'bg-[#0e1428] border-white/10' : 'bg-white border-slate-200'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-semibold ${th.heading}`}>Edit — {editing.label}</h3>
+                <h3 className={`font-semibold ${th.heading}`}>{msg('UI_OPERATIONSCONFIG_EDIT_2', { label: editing.label })}</h3>
                 <button onClick={() => setEditing(null)} className={th.muted}>✕</button>
               </div>
               <p className={`text-xs mb-4 ${th.muted}`}>{editing.desc}</p>
               <div>
-                <label className={`text-xs ${th.muted}`}>New Value ({editing.unit})</label>
+                <label className={`text-xs ${th.muted}`}>{msg('UI_THRESHOLDS_NEW_VALUE_2', { unit: editing.unit })}</label>
                 <input
                   type="number"
                   value={editVal}
@@ -283,15 +284,15 @@ export default function CTSThresholds() {
                   className={`w-full mt-1 h-9 px-3 rounded-lg border text-sm outline-none transition-colors ${th.input}`}
                 />
                 {editing.min !== undefined && (
-                  <p className={`text-[10px] mt-1 ${th.muted}`}>Range: {editing.min} – {editing.max}</p>
+                  <p className={`text-[10px] mt-1 ${th.muted}`}>{msg('UI_THRESHOLDS_RANGE_2', { min: editing.min, max: editing.max })}</p>
                 )}
               </div>
               <div className={`mt-4 p-3 rounded-lg text-xs ${isDark ? 'bg-amber-900/20 border border-amber-700/40 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-                ⚠ This change will be submitted to bank_it_admin for approval. It goes live via Kafka hot-reload within 30 seconds of approval.
+               {msg('UI_THRESHOLDS_THIS_CHANGE_WILL_BE_SUBMITTED_2')}
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={() => setEditing(null)} className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>Cancel</button>
-                <button onClick={() => setEditing(null)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white">Submit for Approval</button>
+                <button onClick={() => setEditing(null)} className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>{msg('UI_COMMON_CANCEL_2')}</button>
+                <button onClick={() => setEditing(null)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white">{msg('UI_COMMON_SUBMIT_FOR_APPROVAL')}</button>
               </div>
             </div>
           </div>

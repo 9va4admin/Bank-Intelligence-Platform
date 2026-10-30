@@ -3,6 +3,8 @@
 //   - no raw message key (UI_..., CTS_WF_...) reaches the screen, which would mean wording was looked up before the bundle was loaded
 //     or a key does not exist.
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { render, cleanup, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -12,7 +14,10 @@ import { BankProvider } from './context/BankContext'
 import { PageHeaderProvider } from './layout/PageHeaderContext'
 
 const pages = import.meta.glob(['../modules/**/pages/*.jsx', '!../modules/**/pages/*.test.jsx'])
-const RAW_KEY = /\b(?:UI|CTS|AUTH|PLATFORM|API|VAULT|CBS|MSV)_[A-Z0-9]+(?:_[A-Z0-9]+){1,}\b/
+// A leak is a real message key showing on screen. A status code that merely looks like one (CTS_NON_COMP) is not.
+const MESSAGE_KEYS = new Set(
+  [...readFileSync(join(process.cwd(), '..', '..', 'shared', 'messages', 'locales', 'messages.yaml'), 'utf8').matchAll(/^([A-Z][A-Z0-9_]+):\s*$/gm)].map(m => m[1]))
+const leakedKey = (text) => (text.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g) ?? []).find(t => MESSAGE_KEYS.has(t)) ?? null
 
 afterEach(() => cleanup())
 
@@ -34,7 +39,7 @@ describe('every page renders and shows real wording', () => {
         await new Promise(r => setTimeout(r, 30))
       })
       const text = document.body.textContent
-      expect(text.match(RAW_KEY)?.[0] ?? null).toBeNull()
+      expect(leakedKey(text)).toBeNull()
     })
   }
 })

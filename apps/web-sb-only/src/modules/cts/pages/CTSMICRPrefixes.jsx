@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const MOCK_MICR_PREFIXES = [
   { id: 1, prefix: '400002',  bank: 'State Bank of India',          branch: 'Fort, Mumbai',           zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
@@ -46,11 +47,11 @@ export default function CTSMICRPrefixes() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>MICR Prefix Table</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>6-digit MICR codes used to route inward cheques to drawee banks</p>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_APPSHELL_MICR_PREFIX_TABLE')}</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>{msg('UI_MICRPREFIXES_6_DIGIT_MICR_CODES_USED_2')}</p>
           </div>
           <button className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDark ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-cyan-600 hover:bg-cyan-700 text-white'}`}>
-            + Add Prefix
+           {msg('UI_MICRPREFIXES_ADD_PREFIX_2')}
           </button>
         </div>
 
@@ -59,7 +60,7 @@ export default function CTSMICRPrefixes() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search prefix, bank, or branch…"
+            placeholder={msg('UI_MICRPREFIXES_SEARCH_PREFIX_BANK_OR_BRANCH_2')}
             className={`flex-1 h-8 px-3 rounded-lg border text-xs outline-none transition-colors ${th.input}`}
           />
           <div className="flex gap-1.5">
@@ -77,7 +78,7 @@ export default function CTSMICRPrefixes() {
 
         {/* Info callout */}
         <div className={`mb-4 rounded-lg border px-4 py-3 text-xs ${isDark ? 'bg-amber-900/20 border-amber-700/40 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-          <span className="font-semibold">MICR Routing Note:</span> The first 6 digits of the MICR code identify the drawee bank and branch. Changes here affect real-time NGCH routing. Incorrect entries will cause cheque returns. Dual-approval required for any modification.
+          <span className="font-semibold">{msg('UI_MICRPREFIXES_MICR_ROUTING_NOTE_2')}</span> {msg('UI_MICRPREFIXES_THE_FIRST_6_DIGITS_OF_2')}
         </div>
 
         {/* Table */}
@@ -85,7 +86,7 @@ export default function CTSMICRPrefixes() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['MICR Prefix', 'Drawee Bank', 'Branch', 'Zone', 'Grid', 'Status', ''].map(h => (
+                {[msg('UI_MICRPREFIXES_MICR_PREFIX_2'), msg('UI_COMMON_DRAWEE_BANK_2'), msg('UI_COMMON_BRANCH'), msg('UI_COMMON_ZONE'), msg('UI_MICRPREFIXES_GRID'), msg('UI_COMMON_STATUS_2'), ''].map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>
@@ -110,20 +111,20 @@ export default function CTSMICRPrefixes() {
                       onClick={() => setEditing(m)}
                       className={`text-[11px] ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'}`}
                     >
-                      Edit
+                     {msg('UI_COMMON_EDIT_2')}
                     </button>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className={`px-4 py-8 text-center text-xs ${th.muted}`}>No MICR prefixes match the current filter.</td>
+                  <td colSpan={7} className={`px-4 py-8 text-center text-xs ${th.muted}`}>{msg('UI_MICRPREFIXES_NO_MICR_PREFIXES_MATCH_THE_2')}</td>
                 </tr>
               )}
             </tbody>
           </table>
           <div className={`px-4 py-2 border-t text-xs ${th.divider} ${th.muted}`}>
-            {filtered.length} of {MOCK_MICR_PREFIXES.length} prefixes
+            {msg('UI_MICRPREFIXES_OF_PREFIXES_2', { count: filtered.length, count2: MOCK_MICR_PREFIXES.length })}
           </div>
         </div>
 
@@ -132,7 +133,7 @@ export default function CTSMICRPrefixes() {
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
             <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${isDark ? 'bg-[#0e1428] border-white/10' : 'bg-white border-slate-200'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-semibold ${th.heading}`}>Edit MICR Prefix — {editing.prefix}</h3>
+                <h3 className={`font-semibold ${th.heading}`}>{msg('UI_MICRPREFIXES_EDIT_MICR_PREFIX_2', { prefix: editing.prefix })}</h3>
                 <button onClick={() => setEditing(null)} className={th.muted}>✕</button>
               </div>
               <div className="space-y-3">
@@ -144,11 +145,11 @@ export default function CTSMICRPrefixes() {
                 ))}
               </div>
               <div className={`mt-4 p-3 rounded-lg text-xs ${isDark ? 'bg-amber-900/20 border border-amber-700/40 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-                ⚠ Changes require maker-checker approval before taking effect.
+               {msg('UI_MICRPREFIXES_CHANGES_REQUIRE_MAKER_CHECKER_APPROV_2')}
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={() => setEditing(null)} className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Cancel</button>
-                <button onClick={() => setEditing(null)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white">Submit for Approval</button>
+                <button onClick={() => setEditing(null)} className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{msg('UI_COMMON_CANCEL_2')}</button>
+                <button onClick={() => setEditing(null)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white">{msg('UI_COMMON_SUBMIT_FOR_APPROVAL')}</button>
               </div>
             </div>
           </div>

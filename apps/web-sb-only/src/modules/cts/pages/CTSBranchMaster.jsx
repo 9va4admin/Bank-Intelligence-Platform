@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg as uiMsg } from '../../../shared/messages'
 
 const API = import.meta.env.VITE_API_BASE || ''
 
@@ -147,11 +148,11 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
   }
 
   function handleSubmit() {
-    if (!form.branch_name.trim()) return setErr('Branch name is required.')
+    if (!form.branch_name.trim()) return setErr(uiMsg('UI_BRANCHMASTER_BRANCH_NAME_IS_REQUIRED_2'))
     if (!isEdit) {
-      if (!form.branch_ifsc.trim()) return setErr('IFSC code is required.')
-      if (form.branch_ifsc.length !== 11) return setErr('IFSC must be exactly 11 characters.')
-      if (!/^[A-Za-z0-9]+$/.test(form.branch_ifsc)) return setErr('IFSC must be alphanumeric.')
+      if (!form.branch_ifsc.trim()) return setErr(uiMsg('UI_BRANCHMASTER_IFSC_CODE_IS_REQUIRED_2'))
+      if (form.branch_ifsc.length !== 11) return setErr(uiMsg('UI_BRANCHMASTER_IFSC_MUST_BE_EXACTLY_11_3'))
+      if (!/^[A-Za-z0-9]+$/.test(form.branch_ifsc)) return setErr(uiMsg('UI_BRANCHMASTER_IFSC_MUST_BE_ALPHANUMERIC_2'))
     }
     const payload = isEdit
       ? { branch_name: form.branch_name, city: form.city, district: form.district, state: form.state, address: form.address, pin_code: form.pin_code, phone_number: form.phone_number }
@@ -162,37 +163,37 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
 
   return (
-    <Modal title={isEdit ? 'Edit Branch' : 'Add Branch'} onClose={onClose} isDark={isDark}>
+    <Modal title={isEdit ? uiMsg('UI_BRANCHMASTER_EDIT_BRANCH_3') : uiMsg('UI_BRANCHMASTER_ADD_BRANCH_3')} onClose={onClose} isDark={isDark}>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Branch Name *" isDark={isDark}>
-          <Input isDark={isDark} value={form.branch_name} onChange={e => handleChange('branch_name', e.target.value)} placeholder="Koramangala Branch" />
+        <Field label={uiMsg('UI_BRANCHMASTER_BRANCH_NAME_3')} isDark={isDark}>
+          <Input isDark={isDark} value={form.branch_name} onChange={e => handleChange('branch_name', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KORAMANGALA_BRANCH_2')} />
         </Field>
-        <Field label={isEdit ? 'IFSC Code (read-only)' : 'IFSC Code *'} isDark={isDark}>
+        <Field label={isEdit ? uiMsg('UI_BRANCHMASTER_IFSC_CODE_READ_ONLY_2') : uiMsg('UI_BRANCHMASTER_IFSC_CODE_2')} isDark={isDark}>
           <Input isDark={isDark} value={form.branch_ifsc} onChange={e => handleChange('branch_ifsc', e.target.value)} placeholder="KARB0000123" maxLength={11} disabled={isEdit} />
         </Field>
-        <Field label="City" isDark={isDark}>
-          <Input isDark={isDark} value={form.city} onChange={e => handleChange('city', e.target.value)} placeholder="Bengaluru" />
+        <Field label={uiMsg('UI_BRANCHMASTER_CITY_2')} isDark={isDark}>
+          <Input isDark={isDark} value={form.city} onChange={e => handleChange('city', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_BENGALURU_2')} />
         </Field>
-        <Field label="District" isDark={isDark}>
-          <Input isDark={isDark} value={form.district} onChange={e => handleChange('district', e.target.value)} placeholder="Bengaluru Urban" />
+        <Field label={uiMsg('UI_BRANCHMASTER_DISTRICT_2')} isDark={isDark}>
+          <Input isDark={isDark} value={form.district} onChange={e => handleChange('district', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_BENGALURU_URBAN_2')} />
         </Field>
-        <Field label="State" isDark={isDark}>
-          <Input isDark={isDark} value={form.state} onChange={e => handleChange('state', e.target.value)} placeholder="Karnataka" />
+        <Field label={uiMsg('UI_BRANCHMASTER_STATE_2')} isDark={isDark}>
+          <Input isDark={isDark} value={form.state} onChange={e => handleChange('state', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_KARNATAKA_2')} />
         </Field>
-        <Field label="PIN Code" isDark={isDark}>
+        <Field label={uiMsg('UI_BRANCHMASTER_PIN_CODE_2')} isDark={isDark}>
           <Input isDark={isDark} value={form.pin_code} onChange={e => handleChange('pin_code', e.target.value)} placeholder="560034" maxLength={6} />
         </Field>
-        <Field label="Phone Number" isDark={isDark}>
+        <Field label={uiMsg('UI_BRANCHMASTER_PHONE_NUMBER_2')} isDark={isDark}>
           <Input isDark={isDark} value={form.phone_number} onChange={e => handleChange('phone_number', e.target.value)} placeholder="08025534567" />
         </Field>
-        <Field label="Address" isDark={isDark}>
-          <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="80 Feet Road, Koramangala" />
+        <Field label={uiMsg('UI_BRANCHMASTER_ADDRESS_2')} isDark={isDark}>
+          <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder={uiMsg('UI_BRANCHMASTER_80_FEET_ROAD_KORAMANGALA_2')} />
         </Field>
       </div>
       {err && <p className="text-red-400 text-xs mt-2">{err}</p>}
       <div className="flex justify-end gap-3 pt-2">
-        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>Cancel</button>
-        <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Branch'}</button>
+        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL_2')}</button>
+        <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={handleSubmit}>{isEdit ? uiMsg('UI_USERMANAGEMENT_SAVE_CHANGES') : uiMsg('UI_BRANCHMASTER_CREATE_BRANCH_2')}</button>
       </div>
     </Modal>
   )
@@ -243,12 +244,12 @@ function ImportModal({ isDark, onClose, qc }) {
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
 
   return (
-    <Modal title="Import Branch Directory (CSV)" onClose={onClose} isDark={isDark}>
+    <Modal title={uiMsg('UI_BRANCHMASTER_IMPORT_BRANCH_DIRECTORY_CSV_2')} onClose={onClose} isDark={isDark}>
       {step === 'pick' && (
         <div className="space-y-4">
           <div className={cardCls}>
-            <p className={bodyText}>Upload your branch directory CSV with the following columns:</p>
-            <p className={`${mutedText} mt-2 font-mono`}>Branch Name, Complete Address, City, District, State, PIN Code, IFSC Code, Phone Number</p>
+            <p className={bodyText}>{uiMsg('UI_BRANCHMASTER_UPLOAD_YOUR_BRANCH_DIRECTORY_CSV_2')}</p>
+            <p className={`${mutedText} mt-2 font-mono`}>{uiMsg('UI_BRANCHMASTER_BRANCH_NAME_COMPLETE_ADDRESS_CITY_2')}</p>
           </div>
 
           {/* Drop zone */}
@@ -262,16 +263,16 @@ function ImportModal({ isDark, onClose, qc }) {
           >
             <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => setFile(e.target.files[0])} />
             {file
-              ? <p className={`${bodyText} font-medium`}>📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
-              : <p className={mutedText}>Drag & drop CSV or click to browse</p>
+              ? <p className={`${bodyText} font-medium`}>{uiMsg('UI_BRANCHMASTER_KB_2', { name: file.name, value: (file.size / 1024).toFixed(1) })}</p>
+              : <p className={mutedText}>{uiMsg('UI_BRANCHMASTER_DRAG_DROP_CSV_OR_CLICK_2')}</p>
             }
           </div>
 
           {err && <p className="text-red-400 text-xs">{err}</p>}
           <div className="flex justify-end gap-3">
-            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>Cancel</button>
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL_2')}</button>
             <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40`} onClick={handlePreview} disabled={!file || loading}>
-              {loading ? 'Validating…' : 'Validate CSV'}
+              {loading ? uiMsg('UI_BRANCHMASTER_VALIDATING_2') : uiMsg('UI_BRANCHMASTER_VALIDATE_CSV_2')}
             </button>
           </div>
         </div>
@@ -281,9 +282,9 @@ function ImportModal({ isDark, onClose, qc }) {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Valid rows', value: preview.valid_count, color: 'text-emerald-400' },
-              { label: 'Errors', value: preview.error_count, color: 'text-red-400' },
-              { label: 'Total', value: preview.valid_count + preview.error_count, color: isDark ? 'text-white' : 'text-slate-900' },
+              { label: uiMsg('UI_BRANCHMASTER_VALID_ROWS_2'), value: preview.valid_count, color: 'text-emerald-400' },
+              { label: uiMsg('UI_BRANCHMASTER_ERRORS_2'), value: preview.error_count, color: 'text-red-400' },
+              { label: uiMsg('UI_COMMON_TOTAL_2'), value: preview.valid_count + preview.error_count, color: isDark ? 'text-white' : 'text-slate-900' },
             ].map(s => (
               <div key={s.label} className={cardCls}>
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -294,22 +295,22 @@ function ImportModal({ isDark, onClose, qc }) {
 
           {preview.errors.length > 0 && (
             <div className={`${cardCls} max-h-40 overflow-y-auto`}>
-              <p className="text-red-400 text-xs font-semibold mb-2">Row errors (will be skipped):</p>
+              <p className="text-red-400 text-xs font-semibold mb-2">{uiMsg('UI_BRANCHMASTER_ROW_ERRORS_WILL_BE_SKIPPED_2')}</p>
               {preview.errors.map((e, i) => (
-                <p key={i} className="text-xs text-red-300 font-mono">Row {e.row}: {e.error}</p>
+                <p key={i} className="text-xs text-red-300 font-mono">{uiMsg('UI_BRANCHMASTER_ROW_2', { row: e.row, error: e.error })}</p>
               ))}
             </div>
           )}
 
           {err && <p className="text-red-400 text-xs">{err}</p>}
           <div className="flex justify-end gap-3">
-            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={() => setStep('pick')}>Back</button>
+            <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={() => setStep('pick')}>{uiMsg('UI_BRANCHMASTER_BACK_2')}</button>
             <button
               className={`${btnCls} bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40`}
               onClick={handleConfirm}
               disabled={preview.valid_count === 0 || loading}
             >
-              {loading ? 'Importing…' : `Import ${preview.valid_count} branches`}
+              {loading ? uiMsg('UI_BRANCHMASTER_IMPORTING_2') : uiMsg('UI_BRANCHMASTER_IMPORT_BRANCHES_2', { valid_count: preview.valid_count })}
             </button>
           </div>
         </div>
@@ -318,12 +319,12 @@ function ImportModal({ isDark, onClose, qc }) {
       {step === 'done' && result && (
         <div className="space-y-4 text-center">
           <p className="text-4xl">✅</p>
-          <p className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>Import complete</p>
+          <p className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>{uiMsg('UI_BRANCHMASTER_IMPORT_COMPLETE_2')}</p>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Imported', value: result.imported_count, color: 'text-emerald-400' },
-              { label: 'Updated', value: result.skipped_count, color: 'text-violet-400' },
-              { label: 'Errors', value: result.error_count, color: 'text-red-400' },
+              { label: uiMsg('UI_BRANCHMASTER_IMPORTED_2'), value: result.imported_count, color: 'text-emerald-400' },
+              { label: uiMsg('UI_BRANCHMASTER_UPDATED_2'), value: result.skipped_count, color: 'text-violet-400' },
+              { label: uiMsg('UI_BRANCHMASTER_ERRORS_2'), value: result.error_count, color: 'text-red-400' },
             ].map(s => (
               <div key={s.label} className={cardCls}>
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -331,7 +332,7 @@ function ImportModal({ isDark, onClose, qc }) {
               </div>
             ))}
           </div>
-          <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={onClose}>Done</button>
+          <button className={`${btnCls} bg-violet-600 text-white hover:bg-violet-500`} onClick={onClose}>{uiMsg('UI_USERMANAGEMENT_DONE_2')}</button>
         </div>
       )}
     </Modal>
@@ -342,16 +343,16 @@ function DeleteConfirmModal({ branch, isDark, onClose, onConfirm }) {
   const bodyText = isDark ? 'text-slate-300 text-sm' : 'text-slate-700 text-sm'
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
   return (
-    <Modal title="Deactivate Branch" onClose={onClose} isDark={isDark}>
+    <Modal title={uiMsg('UI_BRANCHMASTER_DEACTIVATE_BRANCH_3')} onClose={onClose} isDark={isDark}>
       <p className={bodyText}>
-        Are you sure you want to deactivate <strong>{branch.branch_ifsc}</strong> — {branch.branch_name}?
+       {uiMsg('UI_BRANCHMASTER_ARE_YOU_SURE_YOU_WANT_2')} <strong>{branch.branch_ifsc}</strong> — {branch.branch_name}?
       </p>
       <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        The branch will be marked inactive (soft-delete). Existing scan records are preserved.
+       {uiMsg('UI_BRANCHMASTER_THE_BRANCH_WILL_BE_MARKED_2')}
       </p>
       <div className="flex justify-end gap-3 pt-2">
-        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>Cancel</button>
-        <button className={`${btnCls} bg-red-600 text-white hover:bg-red-500`} onClick={onConfirm}>Deactivate</button>
+        <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600'}`} onClick={onClose}>{uiMsg('UI_COMMON_CANCEL_2')}</button>
+        <button className={`${btnCls} bg-red-600 text-white hover:bg-red-500`} onClick={onConfirm}>{uiMsg('UI_USERMANAGEMENT_DEACTIVATE')}</button>
       </div>
     </Modal>
   )
@@ -390,19 +391,19 @@ export default function CTSBranchMaster() {
 
   const createMut = useMutation({
     mutationFn: createBranch,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast('Branch created.', 'green') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast(uiMsg('UI_BRANCHMASTER_BRANCH_CREATED_2'), 'green') },
     onError: e => showToast(e.message, 'red'),
   })
 
   const updateMut = useMutation({
     mutationFn: ({ ifsc, payload }) => updateBranch(ifsc, payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast('Branch updated.', 'green') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast(uiMsg('UI_BRANCHMASTER_BRANCH_UPDATED_2'), 'green') },
     onError: e => showToast(e.message, 'red'),
   })
 
   const deleteMut = useMutation({
     mutationFn: ifsc => deleteBranch(ifsc),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast('Branch deactivated.', 'green') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['branches'] }); setModal(null); showToast(uiMsg('UI_BRANCHMASTER_BRANCH_DEACTIVATED_2'), 'green') },
     onError: e => showToast(e.message, 'red'),
   })
 
@@ -421,9 +422,9 @@ export default function CTSBranchMaster() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Branch Master</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{uiMsg('UI_APPSHELL_BRANCH_MASTER')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              {total} branch{total !== 1 ? 'es' : ''} registered
+              {uiMsg('UI_BRANCHMASTER_BRANCH_REGISTERED_2', { total, value: total !== 1 ? uiMsg('UI_BRANCHMASTER_ES') : '' })}
             </p>
           </div>
           <div className="flex gap-2">
@@ -431,13 +432,13 @@ export default function CTSBranchMaster() {
               onClick={() => setModal('import')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
             >
-              Import CSV
+             {uiMsg('UI_BRANCHMASTER_IMPORT_CSV_2')}
             </button>
             <button
               onClick={() => { setSelected(null); setModal('create') }}
               className="px-3 py-1.5 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-500 transition-colors"
             >
-              + Add Branch
+             {uiMsg('UI_BRANCHMASTER_ADD_BRANCH_4')}
             </button>
           </div>
         </div>
@@ -463,9 +464,9 @@ export default function CTSBranchMaster() {
               value={filters.isActive === null ? '' : String(filters.isActive)}
               onChange={e => setFilters(f => ({ ...f, isActive: e.target.value === '' ? null : e.target.value === 'true' }))}
             >
-              <option value="">All statuses</option>
-              <option value="true">Active only</option>
-              <option value="false">Inactive only</option>
+              <option value="">{uiMsg('UI_BRANCHMASTER_ALL_STATUSES_2')}</option>
+              <option value="true">{uiMsg('UI_BRANCHMASTER_ACTIVE_ONLY_2')}</option>
+              <option value="false">{uiMsg('UI_BRANCHMASTER_INACTIVE_ONLY_2')}</option>
             </select>
           </div>
         </div>
@@ -475,22 +476,22 @@ export default function CTSBranchMaster() {
           <table className="w-full">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['IFSC', 'Branch Name', 'City', 'State', 'District', 'Phone', 'PU', 'Status', ''].map(h => (
+                {['IFSC', uiMsg('UI_BRANCHMASTER_BRANCH_NAME_4'), uiMsg('UI_BRANCHMASTER_CITY_2'), uiMsg('UI_BRANCHMASTER_STATE_2'), uiMsg('UI_BRANCHMASTER_DISTRICT_2'), uiMsg('UI_BRANCHMASTER_PHONE_2'), 'PU', uiMsg('UI_COMMON_STATUS_2'), ''].map(h => (
                   <th key={h} className={`text-left px-4 py-3 ${th.th}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={9} className={`text-center py-12 ${th.muted}`}>Loading…</td></tr>
+                <tr><td colSpan={9} className={`text-center py-12 ${th.muted}`}>{uiMsg('UI_OPSDASHBOARD_LOADING')}</td></tr>
               )}
               {isError && (
-                <tr><td colSpan={9} className="text-center py-12 text-red-400 text-sm">Failed to load branches.</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-red-400 text-sm">{uiMsg('UI_BRANCHMASTER_FAILED_TO_LOAD_BRANCHES_2')}</td></tr>
               )}
               {!isLoading && branches.length === 0 && (
                 <tr>
                   <td colSpan={9} className={`text-center py-12 ${th.muted} text-sm`}>
-                    No branches found. Use <strong>Import CSV</strong> to load your branch directory.
+                   {uiMsg('UI_BRANCHMASTER_NO_BRANCHES_FOUND_USE_2')} <strong>{uiMsg('UI_BRANCHMASTER_IMPORT_CSV_2')}</strong> {uiMsg('UI_BRANCHMASTER_TO_LOAD_YOUR_BRANCH_DIRECTORY_2')}
                   </td>
                 </tr>
               )}
@@ -505,12 +506,12 @@ export default function CTSBranchMaster() {
                   <td className={`px-4 py-3 text-sm`}>
                     {b.pu_id
                       ? <span className="font-mono text-xs text-violet-400">{b.pu_id}</span>
-                      : <span className={`text-xs ${th.muted} italic`}>unassigned</span>
+                      : <span className={`text-xs ${th.muted} italic`}>{uiMsg('UI_BRANCHMASTER_UNASSIGNED_3')}</span>
                     }
                   </td>
                   <td className="px-4 py-3">
                     <Badge isDark={isDark} variant={b.is_active ? 'green' : 'red'}>
-                      {b.is_active ? 'Active' : 'Inactive'}
+                      {b.is_active ? uiMsg('UI_COMMON_ACTIVE_2') : uiMsg('UI_USERMANAGEMENT_INACTIVE_2')}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
@@ -519,14 +520,14 @@ export default function CTSBranchMaster() {
                         className={`text-xs px-2 py-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
                         onClick={() => { setSelected(b); setModal('edit') }}
                       >
-                        Edit
+                       {uiMsg('UI_COMMON_EDIT_2')}
                       </button>
                       {b.is_active && (
                         <button
                           className={`text-xs px-2 py-1 rounded transition-colors text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}
                           onClick={() => { setSelected(b); setModal('delete') }}
                         >
-                          Deactivate
+                         {uiMsg('UI_USERMANAGEMENT_DEACTIVATE')}
                         </button>
                       )}
                     </div>

@@ -21,6 +21,7 @@ import json
 import structlog
 from datetime import date, datetime, timezone
 from typing import Any, AsyncIterator
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -133,7 +134,7 @@ async def branch_sse_stream(
 
     # Initial connection acknowledgement
     yield format_as_sse(
-        data={"message": "Connected to EEH status feed", "branch_id": branch_id},
+        data={"message": get_message("EEH_CONNECTED_TO_EEH_STATUS_FEED"), "branch_id": branch_id},
         event_type="CONNECTED",
     )
 

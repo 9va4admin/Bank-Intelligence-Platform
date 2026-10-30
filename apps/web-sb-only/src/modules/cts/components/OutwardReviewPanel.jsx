@@ -8,6 +8,7 @@
 import { useState, useRef, useEffect } from 'react'
 import ChequeImageViewer from './ChequeImageViewer'
 import { getReturnReasons, getReasonByLabel } from '../data/returnReasons'
+import { msg } from '../../../shared/messages'
 
 const REASON_COLORS = {
   AMOUNT_MISMATCH:          'bg-amber-400/10 border-amber-400/30 text-amber-300',
@@ -40,18 +41,18 @@ function ExtractionPopover({ meta, isDark, onClose }) {
     <div ref={ref}
       className={`absolute z-50 bottom-full mb-1 left-0 w-64 rounded-xl border shadow-2xl p-3 text-[11px] ${isDark ? 'bg-navy-900 border-white/15' : 'bg-white border-slate-200'}`}
     >
-      <div className={`text-[9px] uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>AI Extraction Detail</div>
+      <div className={`text-[9px] uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_AI_EXTRACTION_DETAIL_3')}</div>
       <div className="space-y-1.5">
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Extracted by</span>
-          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? 'GOT-OCR2.0'}</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_EXTRACTED_BY_2')}</span>
+          <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{meta?.extracted_by ?? msg('UI_COMMON_GOT_OCR2_0')}</span>
         </div>
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Raw value</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_OUTWARDREVIEWPANEL_RAW_VALUE_2')}</span>
           <span className={`font-mono font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{String(meta?.extracted_value ?? '—')}</span>
         </div>
         <div className="flex justify-between">
-          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Confidence</span>
+          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{msg('UI_COMMON_CONFIDENCE_2')}</span>
           <span className={`font-mono font-semibold ${confColor}`}>{confPct}%</span>
         </div>
       </div>
@@ -63,10 +64,10 @@ function ExtractionPopover({ meta, isDark, onClose }) {
 
 function SourceBadge({ source, isDark }) {
   if (source === 'STP') return (
-    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>STP</span>
+    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>{msg('UI_COMMON_STP_2')}</span>
   )
   return (
-    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>MANUAL</span>
+    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>{msg('UI_COMMON_MANUAL_2')}</span>
   )
 }
 
@@ -76,7 +77,7 @@ function VerifyFieldRow({ label, fieldKey, meta, isDark }) {
   const [open, setOpen] = useState(false)
   const isBoolean = typeof meta?.extracted_value === 'boolean'
   const val = isBoolean
-    ? (meta.actual_value ? '⚠ DETECTED' : '✓ None')
+    ? (meta.actual_value ? msg('UI_OUTWARDREVIEWPANEL_DETECTED_2') : msg('UI_COMMON_NONE'))
     : String(meta?.actual_value ?? meta?.extracted_value ?? '—')
 
   return (
@@ -85,7 +86,7 @@ function VerifyFieldRow({ label, fieldKey, meta, isDark }) {
         <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</span>
         <button type="button" onClick={() => setOpen(o => !o)}
           className={`text-[10px] w-4 h-4 flex items-center justify-center rounded-full transition-colors ${isDark ? 'text-slate-500 hover:text-sky-400 hover:bg-sky-400/10' : 'text-slate-400 hover:text-sky-600 hover:bg-sky-100'}`}
-          title="AI extraction detail"
+          title={msg('UI_OUTWARDREVIEWPANEL_AI_EXTRACTION_DETAIL_4')}
         >ⓘ</button>
         {open && <ExtractionPopover meta={meta} isDark={isDark} onClose={() => setOpen(false)} />}
       </div>
@@ -186,7 +187,7 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
         className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none ${th.sel}`}
       >
         <span className={`truncate ${returnReason ? '' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-          {returnReason || 'Select Return Reason…'}
+          {returnReason || msg('UI_OUTWARDREVIEWPANEL_SELECT_RETURN_REASON_2')}
         </span>
         {selectedEntry && <span className={`ml-2 shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700'}`}>{selectedEntry.code}</span>}
         <span className={`ml-1 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{open ? '▲' : '▼'}</span>
@@ -194,14 +195,14 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
       {open && (
         <div className={`absolute bottom-full mb-1 left-0 right-0 z-50 rounded-lg border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
           <div className={`px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reasons…"
+            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={msg('UI_OUTWARDREVIEWPANEL_SEARCH_REASONS_2')}
               className={`w-full text-xs bg-transparent outline-none ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
             />
           </div>
           <div className="max-h-52 overflow-y-auto">
             {!search && getRecentReasons().length > 0 && (
               <div>
-                <div className={`px-3 pt-2 pb-1 text-[9px] uppercase font-semibold tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Recent</div>
+                <div className={`px-3 pt-2 pb-1 text-[9px] uppercase font-semibold tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_RECENT_2')}</div>
                 {getRecentReasons().map(r => (
                   <button key={r} type="button" onMouseDown={() => { setReturnReason(r); setOpen(false) }}
                     className={`w-full text-left px-3 py-2 text-xs transition-colors ${isDark ? 'hover:bg-white/5 text-amber-400' : 'hover:bg-amber-50 text-amber-600'}`}
@@ -266,7 +267,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
       <div className={`flex-1 flex items-center justify-center text-sm ${th.lbl}`}>
         <div className="text-center">
           <div className="text-4xl mb-3">📄</div>
-          <div>Select a cheque to verify</div>
+          <div>{msg('UI_OUTWARDREVIEWPANEL_SELECT_A_CHEQUE_TO_VERIFY_2')}</div>
         </div>
       </div>
     )
@@ -274,9 +275,9 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
 
   const meta = item.fields_meta ?? buildFallbackMeta(item.ocr_fields)
   const views = [
-    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
-    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
-    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+    { key: 'BFB', label: msg('UI_COMMON_FRONT_B_W_2'),  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+    { key: 'BBB', label: msg('UI_COMMON_BACK_B_W_2'),   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+    { key: 'BFG', label: msg('UI_COMMON_FRONT_GRAY_2'), url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
   ]
 
   const overallIqa = ((item.iqa_front_bw ?? 0) + (item.iqa_back_bw ?? 0) + (item.iqa_front_gray ?? 0)) / 3
@@ -319,10 +320,10 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
         {/* IQA summary strip */}
         <div className="flex items-center gap-2 mb-3">
           {[
-            { label: 'IQA Overall', score: overallIqa },
-            { label: 'Front B/W',  score: item.iqa_front_bw   ?? null },
-            { label: 'Back B/W',   score: item.iqa_back_bw    ?? null },
-            { label: 'Front Gray', score: item.iqa_front_gray ?? null },
+            { label: msg('UI_OUTWARDREVIEWPANEL_IQA_OVERALL_2'), score: overallIqa },
+            { label: msg('UI_COMMON_FRONT_B_W_2'),  score: item.iqa_front_bw   ?? null },
+            { label: msg('UI_COMMON_BACK_B_W_2'),   score: item.iqa_back_bw    ?? null },
+            { label: msg('UI_COMMON_FRONT_GRAY_2'), score: item.iqa_front_gray ?? null },
           ].map(({ label, score }) => <IQACard key={label} label={label} score={score} isDark={isDark} />)}
         </div>
 
@@ -352,7 +353,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
         {tab === 'ocr fields' && (
           <div className="space-y-3">
             <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Click ⓘ on any field to see the AI extraction model, raw output, and confidence score.
+             {msg('UI_OUTWARDREVIEWPANEL_CLICK_ON_ANY_FIELD_TO_2')}
             </div>
             <div className={`rounded-xl p-4 ${th.glass}`}>
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
@@ -367,7 +368,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
 
             {/* MICR detail */}
             <div className={`rounded-xl p-4 ${th.glass}`}>
-              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>MICR Line</div>
+              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>{msg('UI_OCRFEEDBACK_MICR_LINE')}</div>
               <div className={`font-mono text-sm ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{item.ocr_fields?.micr ?? '—'}</div>
               <div className="grid grid-cols-3 gap-3 mt-3 text-[10px]">
                 {[
@@ -390,14 +391,14 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
             {/* Image + content checks */}
             <div className="space-y-2">
               {[
-                { label: 'Image Quality ≥ 85%',     ok: overallIqa >= 0.85 },
-                { label: 'MICR Line Extracted',      ok: !!item.ocr_fields?.micr },
-                { label: 'Date Present + Parseable', ok: !!item.ocr_fields?.date },
-                { label: 'Payee Name Present',       ok: !!item.ocr_fields?.payee },
-                { label: 'Amount in Figures',        ok: !!item.ocr_fields?.amount_figures },
-                { label: 'Amount in Words',          ok: !!item.ocr_fields?.amount_words },
-                { label: 'Alteration Check',         ok: !item.ocr_fields?.alterations },
-                { label: 'Endorsement Stamp',        ok: item.has_endorsement !== false },
+                { label: msg('UI_OUTWARDREVIEWPANEL_IMAGE_QUALITY_85_2'),     ok: overallIqa >= 0.85 },
+                { label: msg('UI_OUTWARDREVIEWPANEL_MICR_LINE_EXTRACTED_2'),      ok: !!item.ocr_fields?.micr },
+                { label: msg('UI_OUTWARDREVIEWPANEL_DATE_PRESENT_PARSEABLE_2'), ok: !!item.ocr_fields?.date },
+                { label: msg('UI_OUTWARDREVIEWPANEL_PAYEE_NAME_PRESENT_2'),       ok: !!item.ocr_fields?.payee },
+                { label: msg('UI_OUTWARDREVIEWPANEL_AMOUNT_IN_FIGURES_2'),        ok: !!item.ocr_fields?.amount_figures },
+                { label: msg('UI_OUTWARDREVIEWPANEL_AMOUNT_IN_WORDS_2'),          ok: !!item.ocr_fields?.amount_words },
+                { label: msg('UI_OUTWARDREVIEWPANEL_ALTERATION_CHECK_2'),         ok: !item.ocr_fields?.alterations },
+                { label: msg('UI_OUTWARDREVIEWPANEL_ENDORSEMENT_STAMP_2'),        ok: item.has_endorsement !== false },
               ].map(({ label, ok }) => (
                 <div key={label} className={`flex items-center justify-between px-4 py-2.5 rounded-lg ${ok ? (isDark ? 'bg-emerald-500/5 border border-emerald-500/15' : 'bg-emerald-50 border border-emerald-200') : (isDark ? 'bg-red-500/5 border border-red-500/15' : 'bg-red-50 border border-red-200')}`}>
                   <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{label}</span>
@@ -407,13 +408,13 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
             </div>
             {/* Security print features (Qwen2-VL) */}
             <div>
-              <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Security Print Features</div>
+              <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{msg('UI_OUTWARDREVIEWPANEL_SECURITY_PRINT_FEATURES_2')}</div>
               <div className="space-y-2">
                 {[
-                  { label: 'Void Pantograph',       key: 'void_pantograph'      },
-                  { label: '₹ Symbol',              key: 'rupee_symbol'         },
-                  { label: 'Micro-lettering',       key: 'micro_lettering'      },
-                  { label: 'Printer Name CTS-2010', key: 'printer_name_cts2010' },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_VOID_PANTOGRAPH_2'),       key: 'void_pantograph'      },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_SYMBOL_2'),              key: 'rupee_symbol'         },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_MICRO_LETTERING_2'),       key: 'micro_lettering'      },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_PRINTER_NAME_CTS_2010_2'), key: 'printer_name_cts2010' },
                 ].map(({ label, key }) => {
                   const sf = item.security_features
                   const detected = sf ? sf[key] === true : null
@@ -443,18 +444,18 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
           <div className="space-y-5">
             {/* Score pills */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>{msg('UI_COMMON_AI_CONFIDENCE_2')}</div>
               <div className="grid grid-cols-2 gap-2">
-                <ScorePill label="OCR Accuracy"    value={item.ocr_confidence}     isDark={isDark} />
-                <ScorePill label="Vision / CTS-10" value={item.vision_compliance}  isDark={isDark} />
-                <ScorePill label="MICR Confidence" value={item.micr_confidence}    isDark={isDark} />
-                <ScorePill label="IQA Overall"     value={overallIqa > 0 ? overallIqa : null} isDark={isDark} />
+                <ScorePill label={msg('UI_COMMON_OCR_ACCURACY_2')}    value={item.ocr_confidence}     isDark={isDark} />
+                <ScorePill label={msg('UI_OUTWARDREVIEWPANEL_VISION_CTS_10_2')} value={item.vision_compliance}  isDark={isDark} />
+                <ScorePill label={msg('UI_OUTWARDREVIEWPANEL_MICR_CONFIDENCE_2')} value={item.micr_confidence}    isDark={isDark} />
+                <ScorePill label={msg('UI_OUTWARDREVIEWPANEL_IQA_OVERALL_2')}     value={overallIqa > 0 ? overallIqa : null} isDark={isDark} />
               </div>
             </div>
 
             {/* Field confidence */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>Field Confidence</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>{msg('UI_OUTWARDREVIEWPANEL_FIELD_CONFIDENCE_2')}</div>
               <div className={`rounded-lg border overflow-hidden text-[11px] ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 {Object.entries(meta).map(([key, m]) => {
                   if (!m || m.extracted_confidence == null) return null
@@ -478,18 +479,18 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
 
             {/* Risk signals */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_RISK_SIGNALS_2')}</div>
               <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
                 (!item.checks?.cts_valid || !item.checks?.date_valid || !item.checks?.signature_present)
                   ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
                   : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
               }`}>
                 {[
-                  { label: 'Signature present',   val: item.checks?.signature_present  ? '✓ Detected' : '⚠ Missing', warn: !item.checks?.signature_present  },
-                  { label: 'Amount words match',   val: item.checks?.amount_words_match ? '✓ Match'    : '⚠ Mismatch', warn: !item.checks?.amount_words_match },
-                  { label: 'Date valid',            val: item.checks?.date_valid         ? '✓ Valid'    : '⚠ Invalid',  warn: !item.checks?.date_valid         },
-                  { label: 'CTS-2010 compliant',    val: item.checks?.cts_valid          ? '✓ Pass'     : '⚠ Fail',     warn: !item.checks?.cts_valid          },
-                  { label: 'Alteration detected',   val: item.ocr_fields?.alterations    ? '⚠ Yes'      : '✓ None',     warn: !!item.ocr_fields?.alterations   },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_SIGNATURE_PRESENT_2'),   val: item.checks?.signature_present  ? '✓ Detected' : '⚠ Missing', warn: !item.checks?.signature_present  },
+                  { label: msg('UI_COMMON_AMOUNT_WORDS_MATCH_2'),   val: item.checks?.amount_words_match ? '✓ Match'    : '⚠ Mismatch', warn: !item.checks?.amount_words_match },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_DATE_VALID_2'),            val: item.checks?.date_valid         ? '✓ Valid'    : '⚠ Invalid',  warn: !item.checks?.date_valid         },
+                  { label: msg('UI_OUTWARDREVIEWPANEL_CTS_2010_COMPLIANT_2'),    val: item.checks?.cts_valid          ? '✓ Pass'     : '⚠ Fail',     warn: !item.checks?.cts_valid          },
+                  { label: msg('UI_COMMON_ALTERATION_DETECTED_2'),   val: item.ocr_fields?.alterations    ? '⚠ Yes'      : '✓ None',     warn: !!item.ocr_fields?.alterations   },
                 ].map(({ label, val, warn }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
@@ -502,24 +503,24 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
             {/* Security print features */}
             {item.security_features && (
               <div>
-                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Security Print</div>
+                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_OUTWARDREVIEWPANEL_SECURITY_PRINT_2')}</div>
                 <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
                   (item.security_features.missing ?? []).length > 0
                     ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
                     : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
                 }`}>
                   {[
-                    { label: 'Void Pantograph',       key: 'void_pantograph'      },
-                    { label: '₹ Symbol',              key: 'rupee_symbol'         },
-                    { label: 'Micro-lettering',       key: 'micro_lettering'      },
-                    { label: 'Printer CTS-2010',      key: 'printer_name_cts2010' },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_VOID_PANTOGRAPH_2'),       key: 'void_pantograph'      },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_SYMBOL_2'),              key: 'rupee_symbol'         },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_MICRO_LETTERING_2'),       key: 'micro_lettering'      },
+                    { label: msg('UI_OUTWARDREVIEWPANEL_PRINTER_CTS_2010_2'),      key: 'printer_name_cts2010' },
                   ].map(({ label, key }) => {
                     const ok = item.security_features[key] === true
                     return (
                       <div key={key} className="flex items-center justify-between">
                         <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
                         <span className={`font-mono font-semibold ${ok ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
-                          {ok ? '✓ Present' : '⚠ Missing'}
+                          {ok ? msg('UI_OUTWARDREVIEWPANEL_PRESENT_2') : msg('UI_OUTWARDREVIEWPANEL_MISSING_2')}
                         </span>
                       </div>
                     )
@@ -530,12 +531,12 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
 
             {/* Model attribution */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>{msg('UI_COMMON_MODEL_ATTRIBUTION_2')}</div>
               <div className="space-y-1.5 text-[11px]">
                 {[
-                  { task: 'OCR / MICR',        model: 'GOT-OCR2.0'            },
-                  { task: 'Vision / CTS-2010',  model: 'Qwen2-VL 72B'          },
-                  { task: 'Compliance check',   model: 'CTS-2010 Validator v3' },
+                  { task: msg('UI_COMMON_OCR_MICR_2'),        model: 'GOT-OCR2.0'            },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_VISION_CTS_2010_2'),  model: 'Qwen2-VL 72B'          },
+                  { task: msg('UI_OUTWARDREVIEWPANEL_COMPLIANCE_CHECK_2'),   model: 'CTS-2010 Validator v3' },
                 ].map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
@@ -550,31 +551,31 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
         {tab === 'passport' && (() => {
           const ocr = item.ocr_fields ?? {}
           const DCFG = {
-            PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾' },
-            BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️' },
-            KIOSK:           { label: 'Kiosk / CDM', icon: '🏧' },
+            PAY_IN_SLIP:     { label: msg('UI_COMMON_PAY_IN_SLIP_2'), icon: '🧾' },
+            BACK_ANNOTATION: { label: msg('UI_COMMON_BACK_NOTE_2'),   icon: '✍️' },
+            KIOSK:           { label: msg('UI_COMMON_KIOSK_CDM_2'), icon: '🏧' },
           }
           const dd = item.deposit_data ?? {}
           const depositRows =
             item.deposit_channel === 'PAY_IN_SLIP' ? [
-              { label: 'Depositor',    value: dd.depositor_name    },
-              { label: 'Dep. Account', value: dd.depositor_account },
-              { label: 'Deposit Amt',  value: dd.deposit_amount    },
-              { label: 'Token',        value: dd.counter_token     },
-              { label: 'Dep. Branch',  value: dd.branch            },
+              { label: msg('UI_COMMON_DEPOSITOR_2'),    value: dd.depositor_name    },
+              { label: msg('UI_COMMON_DEP_ACCOUNT_2'), value: dd.depositor_account },
+              { label: msg('UI_COMMON_DEPOSIT_AMT_2'),  value: dd.deposit_amount    },
+              { label: msg('UI_COMMON_TOKEN_2'),        value: dd.counter_token     },
+              { label: msg('UI_COMMON_DEP_BRANCH_2'),  value: dd.branch            },
             ] : item.deposit_channel === 'BACK_ANNOTATION' ? [
-              { label: 'Ext. Account', value: dd.extracted_account },
-              { label: 'Ext. Mobile',  value: dd.extracted_mobile  },
+              { label: msg('UI_COMMON_EXT_ACCOUNT_2'), value: dd.extracted_account },
+              { label: msg('UI_COMMON_EXT_MOBILE_2'),  value: dd.extracted_mobile  },
             ] : item.deposit_channel === 'KIOSK' ? [
-              { label: 'Depositor',    value: dd.name      },
-              { label: 'CDM Account',  value: dd.account   },
-              { label: 'Txn ID',       value: dd.txn_id    },
-              { label: 'Timestamp',    value: dd.timestamp },
+              { label: msg('UI_COMMON_DEPOSITOR_2'),    value: dd.name      },
+              { label: msg('UI_COMMON_CDM_ACCOUNT_2'),  value: dd.account   },
+              { label: msg('UI_COMMON_TXN_ID_2'),       value: dd.txn_id    },
+              { label: msg('UI_COMMON_TIMESTAMP_2'),    value: dd.timestamp },
             ] : []
 
           return (
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>Cheque Passport</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>{msg('UI_COMMON_CHEQUE_PASSPORT_2')}</div>
               <div className={`rounded-xl border divide-y text-xs ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
                 {/* Header */}
                 <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
@@ -585,14 +586,14 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
                 </div>
                 {/* Cheque fields */}
                 {[
-                  { label: 'Payee',          value: ocr.payee           },
-                  { label: 'Amount',         value: ocr.amount_figures  },
-                  { label: 'Amount (words)', value: ocr.amount_words    },
-                  { label: 'Date',           value: ocr.date            },
+                  { label: msg('UI_VALIDATIONQUEUE_PAYEE'),          value: ocr.payee           },
+                  { label: msg('UI_COMMON_AMOUNT'),         value: ocr.amount_figures  },
+                  { label: msg('UI_COMMON_AMOUNT_WORDS_2'), value: ocr.amount_words    },
+                  { label: msg('UI_COMMON_DATE_2'),           value: ocr.date            },
                   { label: 'MICR',           value: ocr.micr            },
-                  { label: 'Account',        value: item.account_display },
-                  { label: 'Drawee Bank',    value: ocr.bank_name       },
-                  { label: 'Branch',         value: ocr.bank_branch     },
+                  { label: msg('UI_COMMON_ACCOUNT'),        value: item.account_display },
+                  { label: msg('UI_COMMON_DRAWEE_BANK_2'),    value: ocr.bank_name       },
+                  { label: msg('UI_COMMON_BRANCH'),         value: ocr.bank_branch     },
                   { label: 'IFSC',           value: ocr.bank_ifsc       },
                 ].filter(r => r.value).map(({ label, value }) => (
                   <div key={label} className="flex items-start gap-3 px-4 py-2">
@@ -625,10 +626,10 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
         <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
         <button onClick={handleReturn} disabled={!returnReason || submitting}
           className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-        >{submitting ? 'Filing…' : '✕ Return'}</button>
+        >{submitting ? msg('UI_OUTWARDREVIEWPANEL_FILING_2') : msg('UI_OUTWARDREVIEWPANEL_RETURN_2')}</button>
         <button onClick={handleApprove} disabled={submitting}
           className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
-        >Approve → Validation OQ</button>
+        >{msg('UI_OUTWARDREVIEWPANEL_APPROVE_VALIDATION_OQ_2')}</button>
       </div>
     </div>
   )

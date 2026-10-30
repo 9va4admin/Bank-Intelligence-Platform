@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 // ── Mock RPC data ─────────────────────────────────────────────────────────────
 const RPCS = [
@@ -44,13 +45,13 @@ const CLEARING_SESSION = 'AM-CLEARING-001'
 // Cross-centre fraud signals
 const CROSS_CENTRE_ALERTS = [
   { id: 'XALERT-001', type: 'DUPLICATE_SIGNATURE', severity: 'HIGH',
-    description: 'Same signature fingerprint seen in MUMBAI and DELHI within 2h',
+    description: msg('UI_RPCCONSOLIDATION_SAME_SIGNATURE_FINGERPRINT_SEEN_IN'),
     zones: ['MUMBAI', 'DELHI'], ts: '10:44:12' },
   { id: 'XALERT-002', type: 'VELOCITY_ANOMALY', severity: 'MEDIUM',
-    description: 'Account ****3347 presented in 3 zones — possible round-tripping',
+    description: msg('UI_RPCCONSOLIDATION_ACCOUNT_3347_PRESENTED_IN_3'),
     zones: ['CHENNAI', 'KOLKATA', 'MUMBAI'], ts: '10:51:38' },
   { id: 'XALERT-003', type: 'IET_RISK_CLUSTER', severity: 'HIGH',
-    description: 'Hyderabad RPC: 5 cheques within 30s of IET deadline',
+    description: msg('UI_RPCCONSOLIDATION_HYDERABAD_RPC_5_CHEQUES_WITHIN'),
     zones: ['HYDERABAD'], ts: '10:57:02' },
 ]
 
@@ -67,10 +68,9 @@ export default function CTSRPCConsolidation() {
         <div className={`flex-1 flex items-center justify-center ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
           <div className="text-center max-w-sm px-6">
             <div className="text-4xl mb-4">🏦</div>
-            <h2 className={`text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>SB-Only Feature</h2>
+            <h2 className={`text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>{msg('UI_COMMON_SB_ONLY_FEATURE_2')}</h2>
             <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Regional Processing Centre consolidation is available only to Sponsor Banks.
-              Your instruments are routed through your sponsor bank's RPC.
+             {msg('UI_RPCCONSOLIDATION_REGIONAL_PROCESSING_CENTRE_CONSOLIDA')}
             </p>
           </div>
         </div>
@@ -114,11 +114,11 @@ export default function CTSRPCConsolidation() {
   const avg_stp       = (RPCS.reduce((a, r) => a + r.stp_rate, 0) / RPCS.length).toFixed(1)
 
   usePageHeader({
-    subtitle: `Live NGCH connectivity, per zone · ${SESSION_DATE} · ${CLEARING_SESSION}`,
+    subtitle: msg('UI_RPCCONSOLIDATION_LIVE_NGCH_CONNECTIVITY_PER_ZONE', { SESSION_DATE, CLEARING_SESSION }),
     actions: (
       <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
         <span className="w-1.5 h-1.5 inline-block rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
-        {RPCS.filter(r => r.status === 'ACTIVE').length}/{RPCS.length} RPCs Active
+        {msg('UI_RPCCONSOLIDATION_RPCS_ACTIVE', { count: RPCS.filter(r => r.status === 'ACTIVE').length, count2: RPCS.length })}
       </div>
     ),
   })
@@ -130,11 +130,11 @@ export default function CTSRPCConsolidation() {
         {/* Consolidated KPI strip */}
         <div className="grid grid-cols-5 gap-3 mb-5">
           {[
-            { label: 'Total Inward',    value: total_inward.toLocaleString(),  color: th.heading },
-            { label: 'Total Outward',   value: total_outward.toLocaleString(), color: th.heading },
-            { label: 'Pending Review',  value: total_pending, color: total_pending > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-            { label: 'IET Risk',        value: total_iet,     color: total_iet > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-            { label: 'Avg STP Rate',    value: `${avg_stp}%`, color: isDark ? 'text-violet-400' : 'text-violet-600' },
+            { label: msg('UI_COMMON_TOTAL_INWARD_2'),    value: total_inward.toLocaleString(),  color: th.heading },
+            { label: msg('UI_COMMON_TOTAL_OUTWARD'),   value: total_outward.toLocaleString(), color: th.heading },
+            { label: msg('UI_COMMON_PENDING_REVIEW'),  value: total_pending, color: total_pending > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: msg('UI_RPCCONSOLIDATION_IET_RISK'),        value: total_iet,     color: total_iet > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: msg('UI_RPCCONSOLIDATION_AVG_STP_RATE'),    value: `${avg_stp}%`, color: isDark ? 'text-violet-400' : 'text-violet-600' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -163,16 +163,16 @@ export default function CTSRPCConsolidation() {
               <div className={`text-[10px] ${rpc.status === 'ACTIVE' ? rpcS.ACTIVE : rpcS.DEGRADED} font-medium mb-2`}>{rpc.status}</div>
               <div className="space-y-0.5">
                 <div className="flex justify-between">
-                  <span className={`text-[10px] ${th.faint}`}>Inward</span>
+                  <span className={`text-[10px] ${th.faint}`}>{msg('UI_COMMON_INWARD_2')}</span>
                   <span className={`text-[10px] font-medium ${th.body}`}>{rpc.inward.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={`text-[10px] ${th.faint}`}>STP</span>
+                  <span className={`text-[10px] ${th.faint}`}>{msg('UI_COMMON_STP_2')}</span>
                   <span className={`text-[10px] font-medium ${rpc.stp_rate >= 90 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>{rpc.stp_rate}%</span>
                 </div>
                 {rpc.iet_risk > 0 && (
                   <div className="flex justify-between">
-                    <span className={`text-[10px] ${th.faint}`}>IET Risk</span>
+                    <span className={`text-[10px] ${th.faint}`}>{msg('UI_RPCCONSOLIDATION_IET_RISK')}</span>
                     <span className="text-[10px] font-medium text-red-400">⚠ {rpc.iet_risk}</span>
                   </div>
                 )}
@@ -185,19 +185,19 @@ export default function CTSRPCConsolidation() {
         {selected && (
           <div className={`border rounded-xl p-4 mb-5 ${th.card}`}>
             <div className="flex items-center justify-between mb-3">
-              <span className={`text-sm font-semibold ${th.heading}`}>{selected.name} — Detail</span>
+              <span className={`text-sm font-semibold ${th.heading}`}>{msg('UI_RPCCONSOLIDATION_DETAIL', { name: selected.name })}</span>
               <button onClick={() => setSelected(null)} className={`text-xs ${th.muted}`}>✕</button>
             </div>
             <div className="grid grid-cols-4 gap-4 text-xs">
               {[
-                { label: 'Inward Cheques', value: selected.inward.toLocaleString() },
-                { label: 'Outward Cheques', value: selected.outward.toLocaleString() },
-                { label: 'Pending Review', value: selected.pending },
-                { label: 'Avg Decision', value: `${selected.avg_decision_ms}ms` },
-                { label: 'Batches', value: selected.batches },
-                { label: 'Lots', value: selected.lots },
-                { label: 'IFSC Prefix', value: selected.ifsc_prefix },
-                { label: 'Last Sync', value: selected.last_sync },
+                { label: msg('UI_RPCCONSOLIDATION_INWARD_CHEQUES'), value: selected.inward.toLocaleString() },
+                { label: msg('UI_RPCCONSOLIDATION_OUTWARD_CHEQUES'), value: selected.outward.toLocaleString() },
+                { label: msg('UI_COMMON_PENDING_REVIEW'), value: selected.pending },
+                { label: msg('UI_RPCCONSOLIDATION_AVG_DECISION'), value: `${selected.avg_decision_ms}ms` },
+                { label: msg('UI_APPSHELL_BATCHES_2'), value: selected.batches },
+                { label: msg('UI_COMMON_LOTS'), value: selected.lots },
+                { label: msg('UI_RPCCONSOLIDATION_IFSC_PREFIX'), value: selected.ifsc_prefix },
+                { label: msg('UI_COMMON_LAST_SYNC_2'), value: selected.last_sync },
               ].map(f => (
                 <div key={f.label}>
                   <div className={`text-[10px] ${th.faint} mb-0.5`}>{f.label}</div>
@@ -211,8 +211,8 @@ export default function CTSRPCConsolidation() {
         {/* Cross-centre alerts */}
         <div className={`border rounded-xl overflow-hidden ${th.card} mb-5`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
-            <span className={`text-sm font-medium ${th.heading}`}>Cross-Centre Intelligence</span>
-            <span className={`text-[10px] ${th.muted}`}>{CROSS_CENTRE_ALERTS.length} signals</span>
+            <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_RPCCONSOLIDATION_CROSS_CENTRE_INTELLIGENCE')}</span>
+            <span className={`text-[10px] ${th.muted}`}>{msg('UI_RPCCONSOLIDATION_SIGNALS', { count: CROSS_CENTRE_ALERTS.length })}</span>
           </div>
           {CROSS_CENTRE_ALERTS.map(alert => (
             <div key={alert.id} className={`flex items-start gap-3 px-4 py-3 border-b ${th.row}`}>
@@ -220,7 +220,7 @@ export default function CTSRPCConsolidation() {
               <div className="flex-1 min-w-0">
                 <div className={`text-xs font-medium ${th.body}`}>{alert.description}</div>
                 <div className={`text-[10px] ${th.faint} mt-0.5`}>
-                  Zones: {alert.zones.join(' · ')} · {alert.ts}
+                 {msg('UI_RPCCONSOLIDATION_ZONES', { zones: alert.zones.join(' · '), ts: alert.ts })}
                 </div>
               </div>
               <span className={`text-[10px] ${th.faint} shrink-0`}>{alert.type.replace(/_/g, ' ')}</span>
@@ -231,22 +231,22 @@ export default function CTSRPCConsolidation() {
         {/* Consolidated summary table */}
         <div className={`border rounded-xl overflow-hidden ${th.card}`}>
           <div className={`px-4 py-2.5 border-b ${th.divider}`}>
-            <span className={`text-sm font-medium ${th.heading}`}>Settlement Position — All Zones</span>
+            <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_RPCCONSOLIDATION_SETTLEMENT_POSITION_ALL_ZONES')}</span>
           </div>
 
           {/* Table header */}
           <div className={`grid grid-cols-12 gap-2 px-4 py-2 border-b ${th.divider} text-[10px] ${th.faint} font-medium uppercase tracking-wider`}>
-            <div className="col-span-2">RPC</div>
-            <div className="col-span-1">Zone</div>
-            <div className="col-span-1 text-right">Inward</div>
-            <div className="col-span-1 text-right">Outward</div>
-            <div className="col-span-1 text-right">Pending</div>
-            <div className="col-span-1 text-right">IET Risk</div>
-            <div className="col-span-1 text-right">STP %</div>
-            <div className="col-span-1 text-right">Avg ms</div>
-            <div className="col-span-1 text-right">Batches</div>
-            <div className="col-span-1 text-right">Lots</div>
-            <div className="col-span-1 text-right">Sync</div>
+            <div className="col-span-2">{msg('UI_RPCCONSOLIDATION_RPC')}</div>
+            <div className="col-span-1">{msg('UI_COMMON_ZONE')}</div>
+            <div className="col-span-1 text-right">{msg('UI_COMMON_INWARD_2')}</div>
+            <div className="col-span-1 text-right">{msg('UI_DRAWEEVIEW_OUTWARD_2')}</div>
+            <div className="col-span-1 text-right">{msg('UI_COMMON_PENDING_3')}</div>
+            <div className="col-span-1 text-right">{msg('UI_RPCCONSOLIDATION_IET_RISK')}</div>
+            <div className="col-span-1 text-right">{msg('UI_RPCCONSOLIDATION_STP')}</div>
+            <div className="col-span-1 text-right">{msg('UI_RPCCONSOLIDATION_AVG_MS')}</div>
+            <div className="col-span-1 text-right">{msg('UI_APPSHELL_BATCHES_2')}</div>
+            <div className="col-span-1 text-right">{msg('UI_COMMON_LOTS')}</div>
+            <div className="col-span-1 text-right">{msg('UI_RPCCONSOLIDATION_SYNC')}</div>
           </div>
 
           {RPCS.map(rpc => (
@@ -267,7 +267,7 @@ export default function CTSRPCConsolidation() {
 
           {/* Totals row */}
           <div className={`grid grid-cols-12 gap-2 px-4 py-2.5 text-xs font-medium ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
-            <div className={`col-span-2 ${th.heading}`}>All Zones</div>
+            <div className={`col-span-2 ${th.heading}`}>{msg('UI_RPCCONSOLIDATION_ALL_ZONES')}</div>
             <div className="col-span-1" />
             <div className={`col-span-1 text-right ${th.heading}`}>{total_inward.toLocaleString()}</div>
             <div className={`col-span-1 text-right ${th.heading}`}>{total_outward.toLocaleString()}</div>

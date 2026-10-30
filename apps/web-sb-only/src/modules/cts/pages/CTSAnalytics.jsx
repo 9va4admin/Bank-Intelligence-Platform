@@ -2,6 +2,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 const SB_DAILY = [
   { date: 'Jun 13', total: 4820, stp_confirm: 3921, stp_return: 641, human: 258, avg_ms: 389 },
@@ -126,7 +127,7 @@ export default function CTSAnalytics() {
 
   const MSC = isDark ? MODEL_STATUS_COLOR : MODEL_STATUS_COLOR_L
 
-  usePageHeader({ subtitle: 'Decision analytics · AI model performance · IET safety · 7-day rolling view' })
+  usePageHeader({ subtitle: msg('UI_ANALYTICS_DECISION_ANALYTICS_AI_MODEL_PERFORMA_2') })
 
   return (
     <AppShell>
@@ -135,11 +136,11 @@ export default function CTSAnalytics() {
         {/* KPI strip — 5 cards */}
         <div className="grid grid-cols-5 gap-3 mb-6">
           {[
-            { label: 'Total Processed (7d)', value: weekTotal.toLocaleString(), color: th.heading },
-            { label: 'STP Rate',             value: `${stpRate}%`,              color: 'text-emerald-500' },
-            { label: 'Avg Decision Time',    value: `${avgMs}ms`,               color: 'text-amber-500' },
-            { label: 'IET Breaches',         value: '0',                        color: 'text-emerald-500' },
-            { label: 'Human Review Rate',    value: `${humanRate}%`,            color: 'text-amber-500' },
+            { label: msg('UI_ANALYTICS_TOTAL_PROCESSED_7D'), value: weekTotal.toLocaleString(), color: th.heading },
+            { label: msg('UI_COMMON_STP_RATE_2'),             value: `${stpRate}%`,              color: 'text-emerald-500' },
+            { label: msg('UI_ANALYTICS_AVG_DECISION_TIME'),    value: `${avgMs}ms`,               color: 'text-amber-500' },
+            { label: msg('UI_ANALYTICS_IET_BREACHES_2'),         value: '0',                        color: 'text-emerald-500' },
+            { label: msg('UI_ANALYTICS_HUMAN_REVIEW_RATE'),    value: `${humanRate}%`,            color: 'text-amber-500' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -151,18 +152,18 @@ export default function CTSAnalytics() {
         {/* Daily throughput table */}
         <div className={`border rounded-xl mb-4 ${th.card}`}>
           <div className={`px-4 py-3 border-b ${th.divider}`}>
-            <span className={`text-sm font-medium ${th.heading}`}>Daily Throughput — 7 Days</span>
+            <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_ANALYTICS_DAILY_THROUGHPUT_7_DAYS')}</span>
           </div>
           <table className="w-full text-xs">
             <thead>
               <tr className={`${th.thCell} border-b ${th.dividerSm}`}>
-                <th className="text-left px-4 py-2 font-normal">Date</th>
-                <th className="text-right px-4 py-2 font-normal">Total</th>
-                <th className="text-right px-4 py-2 font-normal">STP Confirm</th>
-                <th className="text-right px-4 py-2 font-normal">STP Return</th>
-                <th className="text-right px-4 py-2 font-normal">Human Review</th>
-                <th className="text-right px-4 py-2 font-normal">Avg Time</th>
-                <th className="text-right px-4 py-2 font-normal">STP Rate</th>
+                <th className="text-left px-4 py-2 font-normal">{msg('UI_COMMON_DATE_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_TOTAL_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_STP_CONFIRM')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_STP_RETURN_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_HUMAN_REVIEW_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_ANALYTICS_AVG_TIME_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_STP_RATE_2')}</th>
               </tr>
             </thead>
             <tbody>
@@ -173,7 +174,7 @@ export default function CTSAnalytics() {
                   <td className="px-4 py-2.5 text-emerald-500 text-right">{d.stp_confirm}</td>
                   <td className="px-4 py-2.5 text-red-400 text-right">{d.stp_return}</td>
                   <td className="px-4 py-2.5 text-amber-500 text-right">{d.human}</td>
-                  <td className={`px-4 py-2.5 ${th.muted} text-right font-mono`}>{d.avg_ms}ms</td>
+                  <td className={`px-4 py-2.5 ${th.muted} text-right font-mono`}>{msg('UI_ANALYTICS_MS_2', { avg_ms: d.avg_ms })}</td>
                   <td className="px-4 py-2.5 text-emerald-500 text-right">
                     {((d.stp_confirm / d.total) * 100).toFixed(1)}%
                   </td>
@@ -181,12 +182,12 @@ export default function CTSAnalytics() {
               ))}
               {/* Totals row */}
               <tr className={th.totals}>
-                <td className="px-4 py-2.5">Total / Avg</td>
+                <td className="px-4 py-2.5">{msg('UI_ANALYTICS_TOTAL_AVG')}</td>
                 <td className="px-4 py-2.5 text-right">{weekTotal.toLocaleString()}</td>
                 <td className="px-4 py-2.5 text-right text-emerald-500">{weekConfirm.toLocaleString()}</td>
                 <td className="px-4 py-2.5 text-right text-red-400">{DAILY.reduce((s,d)=>s+d.stp_return,0)}</td>
                 <td className="px-4 py-2.5 text-right text-amber-500">{weekHuman}</td>
-                <td className="px-4 py-2.5 text-right font-mono">{avgMs}ms</td>
+                <td className="px-4 py-2.5 text-right font-mono">{msg('UI_COMMON_MS_2', { avgMs })}</td>
                 <td className="px-4 py-2.5 text-right text-emerald-500">{stpRate}%</td>
               </tr>
             </tbody>
@@ -196,7 +197,7 @@ export default function CTSAnalytics() {
         <div className="grid grid-cols-2 gap-4 mb-4">
           {/* Fraud score distribution */}
           <div className={`border rounded-xl p-4 ${th.card}`}>
-            <div className={`text-sm font-medium ${th.heading} mb-4`}>Fraud Score Distribution (today)</div>
+            <div className={`text-sm font-medium ${th.heading} mb-4`}>{msg('UI_ANALYTICS_FRAUD_SCORE_DISTRIBUTION_TODAY')}</div>
             <div className="space-y-2.5">
               {FRAUD_DIST.map(d => (
                 <div key={d.range} className="flex items-center gap-3">
@@ -215,7 +216,7 @@ export default function CTSAnalytics() {
 
           {/* Return reasons */}
           <div className={`border rounded-xl p-4 ${th.card}`}>
-            <div className={`text-sm font-medium ${th.heading} mb-4`}>STP Return Reasons (7-day)</div>
+            <div className={`text-sm font-medium ${th.heading} mb-4`}>{msg('UI_ANALYTICS_STP_RETURN_REASONS_7_DAY')}</div>
             <div className="space-y-2.5">
               {RETURN_REASONS.map(d => (
                 <div key={d.reason} className="flex items-center gap-3">
@@ -233,17 +234,17 @@ export default function CTSAnalytics() {
         {/* AI model performance */}
         <div className={`border rounded-xl mb-4 ${th.card}`}>
           <div className={`px-4 py-3 border-b ${th.divider}`}>
-            <span className={`text-sm font-medium ${th.heading}`}>AI Model Performance</span>
+            <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_ANALYTICS_AI_MODEL_PERFORMANCE_2')}</span>
           </div>
           <table className="w-full text-xs">
             <thead>
               <tr className={`${th.thCell} border-b ${th.dividerSm}`}>
-                <th className="text-left px-4 py-2 font-normal">Model</th>
-                <th className="text-left px-4 py-2 font-normal">Metric</th>
-                <th className="text-right px-4 py-2 font-normal">Value</th>
-                <th className="text-right px-4 py-2 font-normal">Threshold</th>
-                <th className="text-right px-4 py-2 font-normal">Margin</th>
-                <th className="text-right px-4 py-2 font-normal">Status</th>
+                <th className="text-left px-4 py-2 font-normal">{msg('UI_ANALYTICS_MODEL_2')}</th>
+                <th className="text-left px-4 py-2 font-normal">{msg('UI_ANALYTICS_METRIC_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_VALUE')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_ANALYTICS_THRESHOLD_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_ANALYTICS_MARGIN_2')}</th>
+                <th className="text-right px-4 py-2 font-normal">{msg('UI_COMMON_STATUS_2')}</th>
               </tr>
             </thead>
             <tbody>
@@ -273,9 +274,9 @@ export default function CTSAnalytics() {
         {/* IET Safety panel */}
         <div className={`border rounded-xl p-4 ${th.card}`}>
           <div className="flex items-center justify-between mb-4">
-            <span className={`text-sm font-medium ${th.heading}`}>IET Safety — 7-Day Near-Breach Trend</span>
+            <span className={`text-sm font-medium ${th.heading}`}>{msg('UI_ANALYTICS_IET_SAFETY_7_DAY_NEAR')}</span>
             <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-              IET Breach Rate: 0.000% &nbsp;·&nbsp; Target: 0.000% ✓
+             {msg('UI_ANALYTICS_IET_BREACH_RATE_0_000_2')}
             </span>
           </div>
           <div className="space-y-2">
@@ -293,13 +294,13 @@ export default function CTSAnalytics() {
                   )}
                 </div>
                 <span className={`text-[10px] w-24 text-right ${d.nearBreach === 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                  {d.nearBreach === 0 ? '0 near-breaches ✓' : `${d.nearBreach} near-breach${d.nearBreach > 1 ? 'es' : ''}`}
+                  {d.nearBreach === 0 ? msg('UI_ANALYTICS_0_NEAR_BREACHES') : `${d.nearBreach} near-breach${d.nearBreach > 1 ? 'es' : ''}`}
                 </span>
               </div>
             ))}
           </div>
           <div className={`mt-3 text-[10px] ${th.faint}`}>
-            Near-breach = cheque processed within 30s of IET deadline. Zero actual breaches in all 7 days.
+           {msg('UI_ANALYTICS_NEAR_BREACH_CHEQUE_PROCESSED_WITHIN')}
           </div>
         </div>
 

@@ -1,0 +1,16 @@
+{
+ "en": {
+  "SIG_DETECTOR_COUNT_QUALITY": "count={count}, quality={sp}",
+  "SIG_DETECTOR_DENSITY_40_SOLID_HORIZONTAL_RULE": "density > 40% — solid horizontal rule lines",
+  "SIG_DETECTOR_INVALID_IMAGE": "Invalid image: {exc}",
+  "SIG_DETECTOR_LARGE_GAP_ORPHAN_FRAGMENT_DROPPED": "large-gap orphan fragment dropped: head={len} rows, gap={gap}px",
+  "SIG_DETECTOR_NO_QUALIFYING_CLUSTER": "no qualifying cluster",
+  "SIG_DETECTOR_RIGHT_FRINGE_ONLY_BARCODE_STRIPE": "right-fringe only — barcode stripe rows",
+  "SIG_DETECTOR_ROWS_REJECTED": "{rows_rejected} rows rejected — {description}",
+  "SIG_DETECTOR_RUNS_15_SECURITY_PRINT_DIAGONAL": "runs > 15 — security-print diagonal patterns",
+  "SIG_DETECTOR_SIG_DETECTOR_VISION_URL_NOT": "SIG_DETECTOR_VISION_URL not configured",
+  "SIG_DETECTOR_SPAN_PX_ISOLATED_DOTS_SPECKS": "span < {MIN_SPAN}px — isolated dots/specks",
+  "SIG_DETECTOR_VLLM_RETURNED_ERROR_RESULT_INCONCLUS": "vLLM returned error — result inconclusive"
+ },
+ "hi": {}
+}

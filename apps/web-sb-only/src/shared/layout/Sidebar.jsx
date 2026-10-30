@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { BANK_CONFIG } from '../config/bank.config'
+import { msg } from '../messages'
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -62,43 +63,43 @@ const NAV = [
     section: 'Inward CTS',
     Icon: InwardIcon,
     items: [
-      { to: '/inward/queue',      label: 'Live Queue' },
-      { to: '/inward/decisions',  label: 'Decision History' },
-      { to: '/inward/iet',        label: 'IET Monitor', Icon: WatchdogIcon },
+      { to: '/inward/queue',      label: msg('UI_EXCEPTIONS_LIVE_QUEUE_2') },
+      { to: '/inward/decisions',  label: msg('UI_DECISIONSPAGE_DECISION_HISTORY') },
+      { to: '/inward/iet',        label: msg('UI_SIDEBAR_IET_MONITOR'), Icon: WatchdogIcon },
     ],
   },
   {
     section: 'Outward CTS',
     Icon: OutwardIcon,
     items: [
-      { to: '/outward/batches',      label: 'Batch Overview' },
-      { to: '/outward/presentment',  label: 'Presentment Status' },
+      { to: '/outward/batches',      label: msg('UI_SIDEBAR_BATCH_OVERVIEW') },
+      { to: '/outward/presentment',  label: msg('UI_SIDEBAR_PRESENTMENT_STATUS') },
     ],
   },
   {
     section: 'Risk & Fraud',
     Icon: FraudIcon,
     items: [
-      { to: '/fraud',           label: 'Fraud Analytics' },
-      { to: '/analytics/ocr',  label: 'OCR Accuracy' },
+      { to: '/fraud',           label: msg('UI_SIDEBAR_FRAUD_ANALYTICS') },
+      { to: '/analytics/ocr',  label: msg('UI_COMMON_OCR_ACCURACY_2') },
     ],
   },
   {
     section: 'Compliance',
     Icon: AuditIcon,
     items: [
-      { to: '/audit',    label: 'Audit Trail' },
-      { to: '/reports',  label: 'Reports' },
+      { to: '/audit',    label: msg('UI_COMMON_AUDIT_TRAIL_2') },
+      { to: '/reports',  label: msg('UI_APPSHELL_REPORTS_2') },
     ],
   },
   {
     section: 'Admin',
     Icon: AdminIcon,
     items: [
-      { to: '/admin/users',       label: 'User Management' },
-      { to: '/admin/branches',    label: 'Branch Master' },
-      { to: '/admin/thresholds',  label: 'Thresholds & Config' },
-      { to: '/admin/vault',       label: 'Vault Status' },
+      { to: '/admin/users',       label: msg('UI_APPSHELL_USER_MANAGEMENT') },
+      { to: '/admin/branches',    label: msg('UI_APPSHELL_BRANCH_MASTER') },
+      { to: '/admin/thresholds',  label: msg('UI_SIDEBAR_THRESHOLDS_CONFIG') },
+      { to: '/admin/vault',       label: msg('UI_APPSHELL_VAULT_STATUS') },
     ],
   },
 ]
@@ -119,7 +120,7 @@ function DualLogoBlock() {
       </div>
       {/* ASTRA logo — secondary, smaller, "Powered by" framing */}
       <div className="flex items-center gap-2 opacity-60">
-        <span className="text-[10px] text-slate-400 leading-none">Powered by</span>
+        <span className="text-[10px] text-slate-400 leading-none">{msg('UI_SIDEBAR_POWERED_BY')}</span>
         <img
           src={BANK_CONFIG.astra_logo}
           alt="ASTRA"

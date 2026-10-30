@@ -211,7 +211,7 @@ class FinacleCBSConnector(CBSConnector):
         )
 
     async def list_issued_leaves(self, bank_id: str) -> list[dict]:
-        raise NotImplementedError("Finacle list_issued_leaves not yet implemented")
+        raise NotImplementedError(get_message("PLATFORM_FINACLE_LIST_ISSUED_LEAVES_NOT"))
 
     async def get_signatory_data(
         self,

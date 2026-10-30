@@ -193,7 +193,7 @@ async def run_single_test(
     except Exception as exc:
         latency_ms = int((time.monotonic() - t0) * 1000)
         status = SmokeTestStatus.FAIL
-        message = f"Test raised exception: {type(exc).__name__}: {exc}"
+        message = get_message("API_TEST_RAISED_EXCEPTION", name=type(exc).__name__, exc=exc)
 
     return SmokeTestResult(
         test_id=test_id,

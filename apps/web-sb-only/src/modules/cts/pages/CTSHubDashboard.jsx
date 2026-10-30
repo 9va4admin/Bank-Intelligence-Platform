@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -177,9 +178,9 @@ function eehDot(status) {
 }
 
 function eehLabel(status, latency) {
-  if (status === 'CONNECTED') return `Connected · ${latency}ms`
-  if (status === 'WARN')      return `High latency · ${latency}ms`
-  return 'Disconnected'
+  if (status === 'CONNECTED') return msg('UI_HUBDASHBOARD_CONNECTED_MS_2', { latency })
+  if (status === 'WARN')      return msg('UI_HUBDASHBOARD_HIGH_LATENCY_MS_2', { latency })
+  return msg('UI_HUBDASHBOARD_DISCONNECTED_2')
 }
 
 function LotBar({ filled, max, isDark }) {
@@ -225,8 +226,8 @@ function BranchRow({ branch, onSealLot, isDark }) {
   }
 
   const sessionLabel = !hasSession
-    ? 'No scan yet'
-    : `Auto-started ${session.opened_at.slice(11, 16)}`
+    ? msg('UI_HUBDASHBOARD_NO_SCAN_YET_2')
+    : msg('UI_HUBDASHBOARD_AUTO_STARTED_2', { opened_at: session.opened_at.slice(11, 16) })
 
   const sessionColor = !hasSession
     ? (isDark ? 'text-slate-500' : 'text-slate-400')
@@ -259,10 +260,10 @@ function BranchRow({ branch, onSealLot, isDark }) {
       <td className="py-3 px-4">
         {hasSession ? (
           <div className="flex gap-3 text-xs tabular-nums">
-            <span className={th.body}>{session.total_uploaded} up</span>
-            <span className="text-emerald-400">{session.total_accepted} ok</span>
-            {session.total_rejected > 0 && <span className="text-red-400">{session.total_rejected} rej</span>}
-            {session.total_held > 0 && <span className="text-amber-400">{session.total_held} held</span>}
+            <span className={th.body}>{msg('UI_HUBDASHBOARD_UP_2', { total_uploaded: session.total_uploaded })}</span>
+            <span className="text-emerald-400">{msg('UI_HUBDASHBOARD_OK_2', { total_accepted: session.total_accepted })}</span>
+            {session.total_rejected > 0 && <span className="text-red-400">{msg('UI_HUBDASHBOARD_REJ_2', { total_rejected: session.total_rejected })}</span>}
+            {session.total_held > 0 && <span className="text-amber-400">{msg('UI_HUBDASHBOARD_HELD_2', { total_held: session.total_held })}</span>}
           </div>
         ) : (
           <span className={`text-xs ${th.muted}`}>—</span>
@@ -299,7 +300,7 @@ function BranchRow({ branch, onSealLot, isDark }) {
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
-            {lotFull ? 'Seal Full Lot' : 'Seal Lot'}
+            {lotFull ? msg('UI_HUBDASHBOARD_SEAL_FULL_LOT_2') : msg('UI_HUBDASHBOARD_SEAL_LOT_3')}
           </button>
         ) : (
           <span className={`text-xs ${th.muted}`}>—</span>
@@ -325,28 +326,26 @@ function SealConfirmModal({ branch, lot, onConfirm, onCancel, isDark }) {
         className={`rounded-xl border p-6 w-full max-w-md shadow-2xl ${th.modal}`}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className={`text-base font-semibold mb-1 ${th.heading}`}>Seal Lot</h2>
+        <h2 className={`text-base font-semibold mb-1 ${th.heading}`}>{msg('UI_HUBDASHBOARD_SEAL_LOT_3')}</h2>
         <p className={`text-sm mb-4 ${th.body}`}>
-          Seal <span className="font-mono text-blue-400">{lot.lot_id}</span> from{' '}
-          <span className="font-medium">{branch.branch_name}</span>?
-          Once sealed, no further instruments can be added. The lot will be included
-          in the next NGCH submission.
+         {msg('UI_HUBDASHBOARD_SEAL_2')} <span className="font-mono text-blue-400">{lot.lot_id}</span> {msg('UI_HUBDASHBOARD_FROM_2')}
+          <span className="font-medium">{branch.branch_name}</span>{msg('UI_HUBDASHBOARD_ONCE_SEALED_NO_FURTHER_INSTRUMENTS_2')}
         </p>
         <div className={`text-xs mb-5 ${th.muted}`}>
-          {lot.filled} / {lot.max} instruments · Status: {lot.status}
+          {msg('UI_HUBDASHBOARD_INSTRUMENTS_STATUS_2', { filled: lot.filled, max: lot.max, status: lot.status })}
         </div>
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
             className={`px-4 py-2 text-sm rounded border ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'} transition-colors`}
           >
-            Cancel
+           {msg('UI_COMMON_CANCEL_2')}
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
           >
-            Confirm Seal
+           {msg('UI_HUBDASHBOARD_CONFIRM_SEAL_2')}
           </button>
         </div>
       </div>
@@ -410,7 +409,7 @@ export default function CTSHubDashboard() {
         lots_sealed_today: b.lots_sealed_today + 1,
       }
     ))
-    setToast(`Lot ${lot.lot_id.slice(-10)} sealed — ${branch.branch_name}`)
+    setToast(msg('UI_HUBDASHBOARD_LOT_SEALED_2', { lot_id: lot.lot_id.slice(-10), branch_name: branch.branch_name }))
     setSealTarget(null)
   }
 
@@ -424,7 +423,7 @@ export default function CTSHubDashboard() {
       lots_sealed_today: b.lots_sealed_today + (b.current_lot ? 1 : 0),
       current_lot: null,
     })))
-    setToast(`All ${openLots.length} open lots sealed — ready for NGCH submission`)
+    setToast(msg('UI_HUBDASHBOARD_ALL_OPEN_LOTS_SEALED_READY_2', { count: openLots.length }))
     setSealAllPending(false)
   }
 
@@ -438,20 +437,20 @@ export default function CTSHubDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Hub Manager</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_HUBDASHBOARD_HUB_MANAGER_2')}</h1>
             <p className={`text-sm ${th.muted}`}>{bankName} · {new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}</p>
           </div>
 
           {/* Clearing window badge */}
           <div className={`rounded-lg border px-4 py-2.5 flex items-center gap-4 ${th.card}`}>
             <div>
-              <p className={`text-xs font-medium uppercase tracking-wider ${th.muted}`}>Clearing Window</p>
+              <p className={`text-xs font-medium uppercase tracking-wider ${th.muted}`}>{msg('UI_HUBDASHBOARD_CLEARING_WINDOW_2')}</p>
               <p className={`text-sm font-semibold ${windowStatusColor}`}>
                 {CLEARING_WINDOW.session_type} · {CLEARING_WINDOW.window_open}–{CLEARING_WINDOW.window_close}
               </p>
             </div>
             <div className="text-right">
-              <p className={`text-xs ${th.muted}`}>Window closes in</p>
+              <p className={`text-xs ${th.muted}`}>{msg('UI_HUBDASHBOARD_WINDOW_CLOSES_IN_2')}</p>
               <p className={`text-lg font-mono font-bold tabular-nums ${th.heading}`}>{countdown}</p>
             </div>
           </div>
@@ -460,35 +459,35 @@ export default function CTSHubDashboard() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
           <SummaryCard
-            label="Branches Active"
+            label={msg('UI_HUBDASHBOARD_BRANCHES_ACTIVE_2')}
             value={activeBranches}
             accent={isDark ? 'text-emerald-400' : 'text-emerald-600'}
             sub={`${noSessionCount} not yet started`}
             isDark={isDark}
           />
           <SummaryCard
-            label="Total Uploaded"
+            label={msg('UI_HUBDASHBOARD_TOTAL_UPLOADED_2')}
             value={totalUploaded.toLocaleString('en-IN')}
             accent={isDark ? 'text-white' : 'text-slate-900'}
             sub="instruments today"
             isDark={isDark}
           />
           <SummaryCard
-            label="On Hold"
+            label={msg('UI_COMMON_ON_HOLD_2')}
             value={totalHeld}
             accent={totalHeld > 0 ? 'text-amber-400' : (isDark ? 'text-slate-400' : 'text-slate-500')}
             sub="pending resolution"
             isDark={isDark}
           />
           <SummaryCard
-            label="Lots Sealed"
+            label={msg('UI_HUBDASHBOARD_LOTS_SEALED_2')}
             value={totalSealed}
             accent={isDark ? 'text-blue-400' : 'text-blue-600'}
             sub="across all branches"
             isDark={isDark}
           />
           <SummaryCard
-            label="Open Lots"
+            label={msg('UI_HUBDASHBOARD_OPEN_LOTS_2')}
             value={openLots.length}
             accent={openLots.length > 0 ? 'text-amber-400' : (isDark ? 'text-slate-400' : 'text-slate-500')}
             sub="awaiting seal"
@@ -499,13 +498,13 @@ export default function CTSHubDashboard() {
         {/* Branch session table */}
         <div className={`rounded-lg border overflow-hidden mb-5 ${th.card}`}>
           <div className={`flex items-center justify-between px-4 py-3 border-b ${th.divider}`}>
-            <h2 className={`text-sm font-semibold ${th.heading}`}>Branch Sessions — Today</h2>
+            <h2 className={`text-sm font-semibold ${th.heading}`}>{msg('UI_HUBDASHBOARD_BRANCH_SESSIONS_TODAY_2')}</h2>
             {openLots.length > 0 && (
               <button
                 onClick={handleSealAll}
                 className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
               >
-                Seal All Open Lots ({openLots.length})
+               {msg('UI_HUBDASHBOARD_SEAL_ALL_OPEN_LOTS_3', { count: openLots.length })}
               </button>
             )}
           </div>
@@ -513,13 +512,13 @@ export default function CTSHubDashboard() {
             <table className="w-full">
               <thead>
                 <tr className={`text-xs font-medium uppercase tracking-wider border-b ${th.thead} ${th.theadTx}`}>
-                  <th className="py-2.5 px-4 text-left">Branch</th>
-                  <th className="py-2.5 px-4 text-left">EEH / IEH</th>
-                  <th className="py-2.5 px-4 text-left">Session</th>
-                  <th className="py-2.5 px-4 text-left">Scans Today</th>
-                  <th className="py-2.5 px-4 text-left">Current Lot</th>
-                  <th className="py-2.5 px-4 text-center">Sealed</th>
-                  <th className="py-2.5 px-4 text-left">Action</th>
+                  <th className="py-2.5 px-4 text-left">{msg('UI_COMMON_BRANCH')}</th>
+                  <th className="py-2.5 px-4 text-left">{msg('UI_HUBDASHBOARD_EEH_IEH_2')}</th>
+                  <th className="py-2.5 px-4 text-left">{msg('UI_COMMON_SESSION_2')}</th>
+                  <th className="py-2.5 px-4 text-left">{msg('UI_HUBDASHBOARD_SCANS_TODAY_2')}</th>
+                  <th className="py-2.5 px-4 text-left">{msg('UI_HUBDASHBOARD_CURRENT_LOT_2')}</th>
+                  <th className="py-2.5 px-4 text-center">{msg('UI_HUBDASHBOARD_SEALED_2')}</th>
+                  <th className="py-2.5 px-4 text-left">{msg('UI_ENDORSEMENT_ACTION')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -539,11 +538,11 @@ export default function CTSHubDashboard() {
         {/* NGCH readiness strip */}
         <div className={`rounded-lg border px-4 py-3 flex items-center justify-between ${th.card}`}>
           <div>
-            <p className={`text-xs font-medium uppercase tracking-wider ${th.muted}`}>NGCH Submission Readiness</p>
+            <p className={`text-xs font-medium uppercase tracking-wider ${th.muted}`}>{msg('UI_HUBDASHBOARD_NGCH_SUBMISSION_READINESS_2')}</p>
             <p className={`text-sm mt-0.5 ${th.body}`}>
               {openLots.length > 0
-                ? `${openLots.length} open lot${openLots.length > 1 ? 's' : ''} must be sealed before submission`
-                : 'All lots sealed — ready to trigger ClearingSessionWorkflow'
+                ? msg('UI_HUBDASHBOARD_OPEN_LOT_MUST_BE_SEALED_2', { count: openLots.length, value: openLots.length > 1 ? 's' : '' })
+                : msg('UI_HUBDASHBOARD_ALL_LOTS_SEALED_READY_TO_2')
               }
             </p>
           </div>
@@ -555,7 +554,7 @@ export default function CTSHubDashboard() {
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
             }`}
           >
-            Submit to NGCH
+           {msg('UI_HUBDASHBOARD_SUBMIT_TO_NGCH_2')}
           </button>
         </div>
 
@@ -579,28 +578,26 @@ export default function CTSHubDashboard() {
             className={`rounded-xl border p-6 w-full max-w-md shadow-2xl ${th.card}`}
             onClick={e => e.stopPropagation()}
           >
-            <h2 className={`text-base font-semibold mb-1 ${th.heading}`}>Seal All Open Lots</h2>
+            <h2 className={`text-base font-semibold mb-1 ${th.heading}`}>{msg('UI_HUBDASHBOARD_SEAL_ALL_OPEN_LOTS_4')}</h2>
             <p className={`text-sm mb-4 ${th.body}`}>
-              Seal all <span className="font-bold text-blue-400">{openLots.length}</span> open lots across{' '}
-              {openLots.length} branches? This marks the end of the{' '}
-              <span className="font-medium">{CLEARING_WINDOW.session_type}</span> clearing window
-              and prepares the batch for NGCH submission.
+             {msg('UI_HUBDASHBOARD_SEAL_ALL_2')} <span className="font-bold text-blue-400">{openLots.length}</span> {msg('UI_HUBDASHBOARD_OPEN_LOTS_ACROSS_BRANCHES_THIS_2', { count: openLots.length })}
+              <span className="font-medium">{CLEARING_WINDOW.session_type}</span> {msg('UI_HUBDASHBOARD_CLEARING_WINDOW_AND_PREPARES_THE_2')}
             </p>
             <p className={`text-xs mb-5 ${th.muted}`}>
-              Branches: {openLots.map(b => b.branch_name.split(' ')[0]).join(', ')}
+             {msg('UI_HUBDASHBOARD_BRANCHES_2', { openLots: openLots.map(b => b.branch_name.split(' ')[0]).join(', ') })}
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setSealAllPending(false)}
                 className={`px-4 py-2 text-sm rounded border ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'} transition-colors`}
               >
-                Cancel
+               {msg('UI_COMMON_CANCEL_2')}
               </button>
               <button
                 onClick={confirmSealAll}
                 className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
               >
-                Seal All &amp; Proceed
+               {msg('UI_HUBDASHBOARD_SEAL_ALL_PROCEED_2')}
               </button>
             </div>
           </div>

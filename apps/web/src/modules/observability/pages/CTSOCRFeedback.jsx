@@ -106,7 +106,7 @@ function CorpusBar({ entry, isDark }) {
     <div className={`rounded-xl border p-5 ${th.card}`}>
       <div className="flex items-center justify-between mb-3">
         <p className={`text-sm font-semibold capitalize ${th.heading}`}>
-          {msg('UI_OCRFEEDBACK_CORPUS_2', { value: entry.corpus_type === 'payee' ? 'Payee Name' : 'MICR Line' })}
+          {msg('UI_OCRFEEDBACK_CORPUS_2', { value: entry.corpus_type === 'payee' ? msg('UI_OCRFEEDBACK_PAYEE_NAME') : msg('UI_OCRFEEDBACK_MICR_LINE') })}
         </p>
         <span className={`text-xs font-mono tabular-nums ${th.muted}`}>
           {msg('UI_OCRFEEDBACK_SAMPLES', { count: entry.count, threshold: entry.threshold })}

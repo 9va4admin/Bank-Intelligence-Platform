@@ -230,7 +230,7 @@ export default function OpsDashboard() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_OPSDASHBOARD_ASTRA_OPS_DASHBOARD')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {msg('UI_OPSDASHBOARD_AUTO_REFRESH_30S', { value: lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…' })}
+              {msg('UI_OPSDASHBOARD_AUTO_REFRESH_30S', { value: lastFetch ? msg('UI_OPSDASHBOARD_UPDATED', { lastFetch: lastFetch.toLocaleTimeString() }) : msg('UI_OPSDASHBOARD_LOADING') })}
             </p>
           </div>
           <div className="flex items-center gap-3">

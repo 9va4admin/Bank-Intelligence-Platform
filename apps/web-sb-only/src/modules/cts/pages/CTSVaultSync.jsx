@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -35,10 +36,10 @@ const MOCK_PPS = [
 ]
 
 const MOCK_STOP = [
-  { account_display: '****2233', cheque_number: '000045', reason: 'Lost / Stolen',       requested_at: '2026-06-24T11:30:00Z', status: 'ACTIVE' },
-  { account_display: '****8877', cheque_number: '000178', reason: 'Disputed Amount',      requested_at: '2026-06-23T09:15:00Z', status: 'ACTIVE' },
-  { account_display: '****4499', cheque_number: '000222', reason: 'Countermand by Drawer',requested_at: '2026-06-20T16:45:00Z', status: 'REVOKED' },
-  { account_display: '****6611', cheque_number: '000033', reason: 'Lost / Stolen',        requested_at: '2026-06-18T08:00:00Z', status: 'ACTIVE' },
+  { account_display: '****2233', cheque_number: '000045', reason: msg('UI_VAULTSYNC_LOST_STOLEN_2'),       requested_at: '2026-06-24T11:30:00Z', status: 'ACTIVE' },
+  { account_display: '****8877', cheque_number: '000178', reason: msg('UI_VAULTSYNC_DISPUTED_AMOUNT_2'),      requested_at: '2026-06-23T09:15:00Z', status: 'ACTIVE' },
+  { account_display: '****4499', cheque_number: '000222', reason: msg('UI_VAULTSYNC_COUNTERMAND_BY_DRAWER_2'),requested_at: '2026-06-20T16:45:00Z', status: 'REVOKED' },
+  { account_display: '****6611', cheque_number: '000033', reason: msg('UI_VAULTSYNC_LOST_STOLEN_2'),        requested_at: '2026-06-18T08:00:00Z', status: 'ACTIVE' },
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -101,19 +102,19 @@ export default function CTSVaultSync() {
         method: 'POST',
         credentials: 'include',
       })
-      if (!res.ok) throw new Error('Trigger failed')
+      if (!res.ok) throw new Error(msg('UI_VAULTSYNC_TRIGGER_FAILED_2'))
       return res.json()
     },
     onSuccess: (data) => {
       setSyncing(false)
       setSyncMsg({
         type: 'success',
-        text: `Vault sync triggered (workflow: ${data.workflow_id}). PPS & Stop Cheque data will refresh within ~45 seconds.`,
+        text: msg('UI_VAULTSYNC_VAULT_SYNC_TRIGGERED_WORKFLOW_PPS_2', { workflow_id: data.workflow_id }),
       })
     },
     onError: () => {
       setSyncing(false)
-      setSyncMsg({ type: 'error', text: 'Failed to trigger vault sync. Please retry.' })
+      setSyncMsg({ type: 'error', text: msg('UI_VAULTSYNC_FAILED_TO_TRIGGER_VAULT_SYNC_2') })
     },
   })
 
@@ -137,9 +138,9 @@ export default function CTSVaultSync() {
         {/* Page header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Positive Pay & Stop Cheque</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_APPSHELL_POSITIVE_PAY_STOP_CHEQUE')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              CBS vault data — synced daily at 7:00 AM via Temporal · CBS: {MOCK_SYNC_STATUS.cbs_connector}
+             {msg('UI_VAULTSYNC_CBS_VAULT_DATA_SYNCED_DAILY_2', { cbs_connector: MOCK_SYNC_STATUS.cbs_connector })}
             </p>
           </div>
           <button
@@ -156,7 +157,7 @@ export default function CTSVaultSync() {
                 <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
                 </svg>
-                Syncing…
+               {msg('UI_MCPCONFIG_SYNCING_2')}
               </>
             ) : (
               <>
@@ -164,7 +165,7 @@ export default function CTSVaultSync() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4A7 7 0 1 0 14 8" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 1v3h-3" />
                 </svg>
-                Sync Now
+               {msg('UI_VAULTSYNC_SYNC_NOW_2')}
               </>
             )}
           </button>
@@ -185,10 +186,10 @@ export default function CTSVaultSync() {
         {/* Status cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Last Sync', value: fmtDate(MOCK_SYNC_STATUS.last_run_at), sub: MOCK_SYNC_STATUS.triggered_by },
-            { label: 'PPS Records', value: MOCK_SYNC_STATUS.pps_records_loaded.toLocaleString('en-IN'), sub: 'Active entries' },
-            { label: 'Stop Cheques', value: MOCK_SYNC_STATUS.stop_cheque_records_loaded.toLocaleString('en-IN'), sub: 'Active holds' },
-            { label: 'Next Scheduled', value: fmtDate(MOCK_SYNC_STATUS.next_scheduled), sub: 'Daily at 07:00 AM' },
+            { label: msg('UI_COMMON_LAST_SYNC_2'), value: fmtDate(MOCK_SYNC_STATUS.last_run_at), sub: MOCK_SYNC_STATUS.triggered_by },
+            { label: msg('UI_VAULTSYNC_PPS_RECORDS_2'), value: MOCK_SYNC_STATUS.pps_records_loaded.toLocaleString('en-IN'), sub: msg('UI_VAULTSYNC_ACTIVE_ENTRIES_2') },
+            { label: msg('UI_VAULTSYNC_STOP_CHEQUES_2'), value: MOCK_SYNC_STATUS.stop_cheque_records_loaded.toLocaleString('en-IN'), sub: msg('UI_VAULTSYNC_ACTIVE_HOLDS_2') },
+            { label: msg('UI_VAULTSYNC_NEXT_SCHEDULED_2'), value: fmtDate(MOCK_SYNC_STATUS.next_scheduled), sub: msg('UI_SCHEDULES_DAILY_AT_07_00_AM_2') },
           ].map(({ label, value, sub }) => (
             <div key={label} className={`rounded-xl border p-4 ${th.card}`}>
               <div className={`text-[10px] font-semibold uppercase tracking-widest mb-1 ${th.muted}`}>{label}</div>
@@ -222,18 +223,18 @@ export default function CTSVaultSync() {
         {tab === 'pps' && (
           <div className={`rounded-xl border overflow-hidden ${th.card}`}>
             <div className={`flex items-center justify-between px-4 py-3 border-b ${th.divider}`}>
-              <span className={`text-xs font-semibold ${th.heading}`}>Positive Pay Instructions</span>
+              <span className={`text-xs font-semibold ${th.heading}`}>{msg('UI_VAULTSYNC_POSITIVE_PAY_INSTRUCTIONS_2')}</span>
               <input
                 value={ppsSearch}
                 onChange={(e) => setPpsSearch(e.target.value)}
-                placeholder="Search account / series…"
+                placeholder={msg('UI_VAULTSYNC_SEARCH_ACCOUNT_SERIES_2')}
                 className={`h-7 w-48 px-3 rounded-lg border text-[11px] outline-none ${th.input}`}
               />
             </div>
             <table className="w-full">
               <thead>
                 <tr className={`text-[10px] uppercase tracking-wider ${th.muted} ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
-                  {['Account', 'Series From', 'Series To', 'Amount Range', 'Payee', 'Valid From', 'Valid To', 'Status'].map((h) => (
+                  {[msg('UI_COMMON_ACCOUNT'), msg('UI_VAULTSYNC_SERIES_FROM_2'), msg('UI_VAULTSYNC_SERIES_TO_2'), msg('UI_COMMON_AMOUNT_RANGE_2'), msg('UI_VALIDATIONQUEUE_PAYEE'), msg('UI_VAULTSYNC_VALID_FROM_2'), msg('UI_VAULTSYNC_VALID_TO_2'), msg('UI_COMMON_STATUS_2')].map((h) => (
                     <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
                   ))}
                 </tr>
@@ -254,7 +255,7 @@ export default function CTSVaultSync() {
               </tbody>
             </table>
             <div className={`px-4 py-2 border-t text-[10px] ${th.muted} ${th.divider}`}>
-              {filteredPPS.length} records shown · Total in vault: {MOCK_SYNC_STATUS.pps_records_loaded.toLocaleString('en-IN')}
+              {msg('UI_VAULTSYNC_RECORDS_SHOWN_TOTAL_IN_VAULT_3', { count: filteredPPS.length, pps_records_loaded: MOCK_SYNC_STATUS.pps_records_loaded.toLocaleString('en-IN') })}
             </div>
           </div>
         )}
@@ -263,18 +264,18 @@ export default function CTSVaultSync() {
         {tab === 'stop' && (
           <div className={`rounded-xl border overflow-hidden ${th.card}`}>
             <div className={`flex items-center justify-between px-4 py-3 border-b ${th.divider}`}>
-              <span className={`text-xs font-semibold ${th.heading}`}>Stop Cheque Instructions</span>
+              <span className={`text-xs font-semibold ${th.heading}`}>{msg('UI_VAULTSYNC_STOP_CHEQUE_INSTRUCTIONS_2')}</span>
               <input
                 value={stopSearch}
                 onChange={(e) => setStopSearch(e.target.value)}
-                placeholder="Search account / cheque no…"
+                placeholder={msg('UI_VAULTSYNC_SEARCH_ACCOUNT_CHEQUE_NO_2')}
                 className={`h-7 w-48 px-3 rounded-lg border text-[11px] outline-none ${th.input}`}
               />
             </div>
             <table className="w-full">
               <thead>
                 <tr className={`text-[10px] uppercase tracking-wider ${th.muted} ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
-                  {['Account', 'Cheque No.', 'Reason', 'Requested At', 'Status'].map((h) => (
+                  {[msg('UI_COMMON_ACCOUNT'), msg('UI_VAULTSYNC_CHEQUE_NO_2'), msg('UI_COMMON_REASON_2'), msg('UI_VAULTSYNC_REQUESTED_AT_2'), msg('UI_COMMON_STATUS_2')].map((h) => (
                     <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
                   ))}
                 </tr>
@@ -292,7 +293,7 @@ export default function CTSVaultSync() {
               </tbody>
             </table>
             <div className={`px-4 py-2 border-t text-[10px] ${th.muted} ${th.divider}`}>
-              {filteredStop.length} records shown · Total in vault: {MOCK_SYNC_STATUS.stop_cheque_records_loaded.toLocaleString('en-IN')}
+              {msg('UI_VAULTSYNC_RECORDS_SHOWN_TOTAL_IN_VAULT_4', { count: filteredStop.length, stop_cheque_records_loaded: MOCK_SYNC_STATUS.stop_cheque_records_loaded.toLocaleString('en-IN') })}
             </div>
           </div>
         )}
@@ -301,12 +302,12 @@ export default function CTSVaultSync() {
         {tab === 'history' && (
           <div className={`rounded-xl border overflow-hidden ${th.card}`}>
             <div className={`px-4 py-3 border-b ${th.divider}`}>
-              <span className={`text-xs font-semibold ${th.heading}`}>Sync Run History</span>
+              <span className={`text-xs font-semibold ${th.heading}`}>{msg('UI_VAULTSYNC_SYNC_RUN_HISTORY_2')}</span>
             </div>
             <table className="w-full">
               <thead>
                 <tr className={`text-[10px] uppercase tracking-wider ${th.muted} ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
-                  {['Run At', 'Triggered By', 'Status', 'PPS Records', 'Stop Records', 'Duration'].map((h) => (
+                  {[msg('UI_VAULTSYNC_RUN_AT_2'), msg('UI_VAULTSYNC_TRIGGERED_BY_2'), msg('UI_COMMON_STATUS_2'), msg('UI_VAULTSYNC_PPS_RECORDS_2'), msg('UI_VAULTSYNC_STOP_RECORDS_2'), msg('UI_VAULTSTATUS_DURATION_2')].map((h) => (
                     <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
                   ))}
                 </tr>
@@ -325,7 +326,7 @@ export default function CTSVaultSync() {
                     <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
                     <td className={`px-4 py-2.5 tabular-nums ${th.body}`}>{r.pps.toLocaleString('en-IN')}</td>
                     <td className={`px-4 py-2.5 tabular-nums ${th.body}`}>{r.stop.toLocaleString('en-IN')}</td>
-                    <td className={`px-4 py-2.5 ${th.muted}`}>{r.duration}s</td>
+                    <td className={`px-4 py-2.5 ${th.muted}`}>{msg('UI_VAULTSYNC_S_2', { duration: r.duration })}</td>
                   </tr>
                 ))}
               </tbody>

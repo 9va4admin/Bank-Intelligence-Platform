@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 // ── Mock schedule data ──────────────────────────────────────────────────────
 // In production these come from GET /v1/cts/schedules
@@ -11,8 +12,8 @@ import { useBankContext } from '../../../shared/context/BankContext'
 const MOCK_SCHEDULES = [
   {
     schedule_id: 'cts-vaultsync-schedule-bank001',
-    label: 'PPS & Stop Cheque Vault Sync',
-    description: 'Pulls Positive Pay and Stop Cheque records from CBS into the CTS Redis vaults.',
+    label: msg('UI_SCHEDULES_PPS_STOP_CHEQUE_VAULT_SYNC_2'),
+    description: msg('UI_SCHEDULES_PULLS_POSITIVE_PAY_AND_STOP_2'),
     workflow: 'VaultSyncWorkflow',
     module: 'CTS',
     cron: '0 7 * * *',
@@ -32,17 +33,17 @@ const MOCK_SCHEDULES = [
 // ── Common cron presets ─────────────────────────────────────────────────────
 
 const CRON_PRESETS = [
-  { label: 'Every 15 minutes',  value: '*/15 * * * *' },
-  { label: 'Every 30 minutes',  value: '*/30 * * * *' },
-  { label: 'Every hour',        value: '0 * * * *'    },
-  { label: 'Every 2 hours',     value: '0 */2 * * *'  },
-  { label: 'Every 6 hours',     value: '0 */6 * * *'  },
-  { label: 'Daily at 04:00 AM', value: '0 4 * * *'    },
-  { label: 'Daily at 06:00 AM', value: '0 6 * * *'    },
-  { label: 'Daily at 07:00 AM', value: '0 7 * * *'    },
-  { label: 'Daily at 08:00 AM', value: '0 8 * * *'    },
-  { label: 'Daily at midnight', value: '0 0 * * *'    },
-  { label: 'Custom…',           value: '__custom__'   },
+  { label: msg('UI_SCHEDULES_EVERY_15_MINUTES_2'),  value: '*/15 * * * *' },
+  { label: msg('UI_SCHEDULES_EVERY_30_MINUTES_2'),  value: '*/30 * * * *' },
+  { label: msg('UI_SCHEDULES_EVERY_HOUR_2'),        value: '0 * * * *'    },
+  { label: msg('UI_SCHEDULES_EVERY_2_HOURS_2'),     value: '0 */2 * * *'  },
+  { label: msg('UI_SCHEDULES_EVERY_6_HOURS_2'),     value: '0 */6 * * *'  },
+  { label: msg('UI_SCHEDULES_DAILY_AT_04_00_AM_2'), value: '0 4 * * *'    },
+  { label: msg('UI_SCHEDULES_DAILY_AT_06_00_AM_2'), value: '0 6 * * *'    },
+  { label: msg('UI_SCHEDULES_DAILY_AT_07_00_AM_2'), value: '0 7 * * *'    },
+  { label: msg('UI_SCHEDULES_DAILY_AT_08_00_AM_2'), value: '0 8 * * *'    },
+  { label: msg('UI_SCHEDULES_DAILY_AT_MIDNIGHT_2'), value: '0 0 * * *'    },
+  { label: msg('UI_SCHEDULES_CUSTOM_2'),           value: '__custom__'   },
 ]
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
         credentials: 'include',
         body: JSON.stringify({ cron }),
       })
-      if (!res.ok) throw new Error('Failed to update schedule')
+      if (!res.ok) throw new Error(msg('UI_SCHEDULES_FAILED_TO_UPDATE_SCHEDULE_2'))
       onSave({ ...schedule, cron })
       onClose()
     } catch {
@@ -126,7 +127,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
         {/* Header */}
         <div className={`flex items-start justify-between px-6 py-4 ${th.head}`}>
           <div>
-            <div className={`text-sm font-semibold ${th.heading}`}>Edit Schedule</div>
+            <div className={`text-sm font-semibold ${th.heading}`}>{msg('UI_SCHEDULES_EDIT_SCHEDULE_2')}</div>
             <div className={`text-xs mt-0.5 ${th.muted}`}>{schedule.label}</div>
           </div>
           <button onClick={onClose} className={`p-1 rounded-lg ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
@@ -140,14 +141,14 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
         <div className="px-6 py-5 space-y-4">
           {/* Read-only info */}
           <div className={`rounded-xl border px-4 py-3 text-xs space-y-1.5 ${th.info}`}>
-            <div className="flex justify-between"><span className={th.muted}>Workflow</span><span className="font-mono">{schedule.workflow}</span></div>
-            <div className="flex justify-between"><span className={th.muted}>Task Queue</span><span className="font-mono text-[11px]">{schedule.task_queue}</span></div>
-            <div className="flex justify-between"><span className={th.muted}>Schedule ID</span><span className="font-mono text-[10px] truncate ml-4">{schedule.schedule_id}</span></div>
+            <div className="flex justify-between"><span className={th.muted}>{msg('UI_SCHEDULES_WORKFLOW_2')}</span><span className="font-mono">{schedule.workflow}</span></div>
+            <div className="flex justify-between"><span className={th.muted}>{msg('UI_SCHEDULES_TASK_QUEUE_2')}</span><span className="font-mono text-[11px]">{schedule.task_queue}</span></div>
+            <div className="flex justify-between"><span className={th.muted}>{msg('UI_SCHEDULES_SCHEDULE_ID_2')}</span><span className="font-mono text-[10px] truncate ml-4">{schedule.schedule_id}</span></div>
           </div>
 
           {/* Cron preset */}
           <div>
-            <label className={`block mb-1.5 ${th.label}`}>Frequency</label>
+            <label className={`block mb-1.5 ${th.label}`}>{msg('UI_SCHEDULES_FREQUENCY_2')}</label>
             <select
               value={preset}
               onChange={e => handlePresetChange(e.target.value)}
@@ -161,28 +162,28 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
 
           {/* Cron expression */}
           <div>
-            <label className={`block mb-1.5 ${th.label}`}>Cron Expression</label>
+            <label className={`block mb-1.5 ${th.label}`}>{msg('UI_SCHEDULES_CRON_EXPRESSION_2')}</label>
             <input
               value={cron}
               onChange={e => { setCron(e.target.value); setPreset('__custom__') }}
-              placeholder="e.g. 0 7 * * *"
+              placeholder={msg('UI_SCHEDULES_E_G_0_7_2')}
               className={`w-full h-9 px-3 rounded-lg border text-xs font-mono outline-none ${th.input}`}
             />
             <p className={`text-[11px] mt-1 ${th.muted}`}>
-              Standard UNIX cron — minute hour day month weekday. Changes take effect on next scheduled run.
+             {msg('UI_SCHEDULES_STANDARD_UNIX_CRON_MINUTE_HOUR_2')}
             </p>
           </div>
 
           {/* Warning */}
           <div className={`rounded-xl border px-4 py-3 text-xs ${isDark ? 'bg-amber-900/20 border-amber-700/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-            ⚠ This updates the Temporal Schedule directly. The new cron takes effect for all future runs. The current run (if any) is not affected.
+           {msg('UI_SCHEDULES_THIS_UPDATES_THE_TEMPORAL_SCHEDULE_2')}
           </div>
         </div>
 
         {/* Footer */}
         <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${th.head}`}>
           <button onClick={onClose} className={`px-4 py-2 rounded-lg text-xs ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
-            Cancel
+           {msg('UI_COMMON_CANCEL_2')}
           </button>
           <button
             onClick={handleSave}
@@ -193,7 +194,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
                 : (isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white')
             }`}
           >
-            {saving ? 'Saving…' : 'Save Schedule'}
+            {saving ? msg('UI_COMMON_SAVING_2') : msg('UI_SCHEDULES_SAVE_SCHEDULE_2')}
           </button>
         </div>
       </div>
@@ -224,7 +225,7 @@ export default function CTSSchedules() {
     queryKey: ['cts-schedules', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/cts/schedules', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error(msg('UI_COMPLIANCE_FAILED'))
       return res.json()
     },
     staleTime: 30_000,
@@ -236,7 +237,7 @@ export default function CTSSchedules() {
         method: 'POST',
         credentials: 'include',
       })
-      if (!res.ok) throw new Error('Toggle failed')
+      if (!res.ok) throw new Error(msg('UI_SCHEDULES_TOGGLE_FAILED_2'))
       return res.json()
     },
     onSuccess: () => {
@@ -267,20 +268,20 @@ export default function CTSSchedules() {
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Temporal Schedules</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_APPSHELL_TEMPORAL_SCHEDULES')}</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              Automated workflow schedules — view, pause, and edit cron expressions
+             {msg('UI_SCHEDULES_AUTOMATED_WORKFLOW_SCHEDULES_VIEW_PA_2')}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs ${th.card}`}>
               <StatusDot status="RUNNING" />
-              <span className={th.body}>{running} running</span>
+              <span className={th.body}>{msg('UI_SCHEDULES_RUNNING_2', { running })}</span>
             </div>
             {paused > 0 && (
               <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs ${th.card}`}>
                 <StatusDot status="PAUSED" />
-                <span className={th.body}>{paused} paused</span>
+                <span className={th.body}>{msg('UI_SCHEDULES_PAUSED_2', { paused })}</span>
               </div>
             )}
           </div>
@@ -317,7 +318,7 @@ export default function CTSSchedules() {
                           : (isDark ? 'border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/20' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50')
                     }`}
                   >
-                    {togglingId === s.schedule_id ? '…' : s.status === 'RUNNING' ? 'Pause' : 'Resume'}
+                    {togglingId === s.schedule_id ? '…' : s.status === 'RUNNING' ? msg('UI_SCHEDULES_PAUSE_2') : msg('UI_SCHEDULES_RESUME_2')}
                   </button>
                   {/* Edit */}
                   <button
@@ -328,7 +329,7 @@ export default function CTSSchedules() {
                         : 'border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                     }`}
                   >
-                    Edit
+                   {msg('UI_COMMON_EDIT_2')}
                   </button>
                 </div>
               </div>
@@ -336,10 +337,10 @@ export default function CTSSchedules() {
               {/* Card body */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-y md:divide-y-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0' }}>
                 {[
-                  { label: 'Cron', value: s.cron, sub: s.cron_human, mono: true },
-                  { label: 'Last Run', value: fmtDate(s.last_run_at), sub: <RunStatusPill s={s.last_run_status} isDark={isDark} /> },
-                  { label: 'Next Run', value: fmtDate(s.next_run_at), sub: s.status === 'PAUSED' ? 'Paused — will not run' : null },
-                  { label: 'Workflow', value: s.workflow, sub: <span className="font-mono text-[10px]">{s.task_queue.replace('bank001', '{bank_id}')}</span>, mono: true },
+                  { label: msg('UI_SCHEDULES_CRON_2'), value: s.cron, sub: s.cron_human, mono: true },
+                  { label: msg('UI_SCHEDULES_LAST_RUN_2'), value: fmtDate(s.last_run_at), sub: <RunStatusPill s={s.last_run_status} isDark={isDark} /> },
+                  { label: msg('UI_SCHEDULES_NEXT_RUN_2'), value: fmtDate(s.next_run_at), sub: s.status === 'PAUSED' ? msg('UI_SCHEDULES_PAUSED_WILL_NOT_RUN_2') : null },
+                  { label: msg('UI_SCHEDULES_WORKFLOW_2'), value: s.workflow, sub: <span className="font-mono text-[10px]">{s.task_queue.replace('bank001', '{bank_id}')}</span>, mono: true },
                 ].map(({ label, value, sub, mono }) => (
                   <div key={label} className="px-5 py-3">
                     <div className={`text-[10px] uppercase tracking-widest font-semibold mb-1 ${th.muted}`}>{label}</div>
@@ -354,12 +355,12 @@ export default function CTSSchedules() {
 
         {/* How it works callout */}
         <div className={`mt-6 rounded-xl border px-5 py-4 ${isDark ? 'bg-white/2 border-white/6' : 'bg-slate-50 border-slate-200'}`}>
-          <div className={`text-xs font-semibold mb-2 ${th.heading}`}>How Temporal Schedules work in ASTRA</div>
+          <div className={`text-xs font-semibold mb-2 ${th.heading}`}>{msg('UI_SCHEDULES_HOW_TEMPORAL_SCHEDULES_WORK_IN_2')}</div>
           <div className={`text-[11px] space-y-1 ${th.muted}`}>
-            <p>• Each schedule is a <strong className={th.body}>Temporal Schedule</strong> (not a cron job) — durable, audited, and exactly-once. If the worker is down when the cron fires, Temporal catches up automatically on restart.</p>
-            <p>• Editing a cron here calls <strong className={th.body}>PATCH /v1/cts/schedules/{'{id}'}</strong> which calls <code className="font-mono">temporal_client.get_schedule_handle(id).update(new_spec)</code> — the existing schedule is updated in-place, never deleted and recreated.</p>
-            <p>• Pausing stops future runs without deleting the schedule. Any currently running workflow is not affected.</p>
-            <p>• Each workflow run logs a <strong className={th.body}>triggered_by: SCHEDULED</strong> audit event to Immudb — visible in the Decisions Log and the Sync History tab on the PPS & Stop Cheque page.</p>
+            <p>{msg('UI_SCHEDULES_EACH_SCHEDULE_IS_A_2')} <strong className={th.body}>{msg('UI_SCHEDULES_TEMPORAL_SCHEDULE_2')}</strong> {msg('UI_SCHEDULES_NOT_A_CRON_JOB_DURABLE_2')}</p>
+            <p>{msg('UI_SCHEDULES_EDITING_A_CRON_HERE_CALLS_2')} <strong className={th.body}>{msg('UI_SCHEDULES_PATCH_V1_CTS_SCHEDULES_2', { id: '{id}' })}</strong> {msg('UI_SCHEDULES_WHICH_CALLS_2')} <code className="font-mono">{msg('UI_SCHEDULES_TEMPORAL_CLIENT_GET_SCHEDULE_HANDLE_2')}</code> {msg('UI_SCHEDULES_THE_EXISTING_SCHEDULE_IS_UPDATED_2')}</p>
+            <p>{msg('UI_SCHEDULES_PAUSING_STOPS_FUTURE_RUNS_WITHOUT_2')}</p>
+            <p>{msg('UI_SCHEDULES_EACH_WORKFLOW_RUN_LOGS_A_2')} <strong className={th.body}>{msg('UI_SCHEDULES_TRIGGERED_BY_SCHEDULED_2')}</strong> {msg('UI_SCHEDULES_AUDIT_EVENT_TO_IMMUDB_VISIBLE_2')}</p>
           </div>
         </div>
 

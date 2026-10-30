@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 const REFETCH_MS = 30_000
 
@@ -58,7 +59,7 @@ export default function CTSAllocationAdmin() {
     queryKey: ['allocation-status', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/cts/allocation/status', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to load allocation status')
+      if (!res.ok) throw new Error(msg('UI_ALLOCATIONADMIN_FAILED_TO_LOAD_ALLOCATION_STATUS_2'))
       return res.json()
     },
     refetchInterval: REFETCH_MS,
@@ -87,7 +88,7 @@ export default function CTSAllocationAdmin() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Release failed')
+        throw new Error(err.detail || msg('UI_ALLOCATIONADMIN_RELEASE_FAILED_2'))
       }
       return res.json()
     },
@@ -107,23 +108,23 @@ export default function CTSAllocationAdmin() {
         {/* Page header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Allocation Control Panel</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>{msg('UI_ALLOCATIONADMIN_ALLOCATION_CONTROL_PANEL_2')}</h1>
             <p className={`text-sm mt-0.5 ${th.muted}`}>
-              Active reviewer claims across the inward human review queue.
+             {msg('UI_ALLOCATIONADMIN_ACTIVE_REVIEWER_CLAIMS_ACROSS_THE_2')}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs">
-              <span className={th.muted}>Mode:</span>
+              <span className={th.muted}>{msg('UI_ALLOCATIONADMIN_MODE_2')}</span>
               <ModeTag mode={allocationMode} isDark={isDark} />
               <Link
                 to="/admin/config/operations"
                 className="text-blue-400 hover:underline text-xs"
               >
-                Change →
+               {msg('UI_ALLOCATIONADMIN_CHANGE_2')}
               </Link>
             </div>
-            <span className={`text-xs ${th.muted}`}>Updated {lastUpdated}</span>
+            <span className={`text-xs ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_UPDATED_2', { lastUpdated })}</span>
           </div>
         </div>
 
@@ -133,18 +134,18 @@ export default function CTSAllocationAdmin() {
             <div className={`text-2xl font-bold ${th.heading}`}>
               {isLoading ? '…' : claims.length}
             </div>
-            <div className={`text-xs ${th.muted} mt-0.5`}>Active Claims</div>
+            <div className={`text-xs ${th.muted} mt-0.5`}>{msg('UI_ALLOCATIONADMIN_ACTIVE_CLAIMS_2')}</div>
           </div>
           <div className={`h-8 w-px ${th.divider}`} />
           <div>
             <div className={`text-sm ${th.body}`}>
-              {[...new Set(claims.map(c => c.reviewer_id))].length} reviewer{claims.length !== 1 ? 's' : ''}
+              {msg('UI_ALLOCATIONADMIN_REVIEWER_2', { count: [...new Set(claims.map(c => c.reviewer_id))].length, value: claims.length !== 1 ? 's' : '' })}
             </div>
-            <div className={`text-xs ${th.muted}`}>with claims</div>
+            <div className={`text-xs ${th.muted}`}>{msg('UI_ALLOCATIONADMIN_WITH_CLAIMS')}</div>
           </div>
           {isError && (
             <div className="ml-auto text-xs text-red-400">
-              Failed to load — retrying in 30s
+             {msg('UI_ALLOCATIONADMIN_FAILED_TO_LOAD_RETRYING_IN_2')}
             </div>
           )}
         </div>
@@ -154,7 +155,7 @@ export default function CTSAllocationAdmin() {
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                {['Instrument ID', 'Claimed By', 'Tier', 'Actions'].map(h => (
+                {[msg('UI_COMMON_INSTRUMENT_ID_2'), msg('UI_ALLOCATIONADMIN_CLAIMED_BY_2'), msg('UI_ALLOCATIONADMIN_TIER_2'), msg('UI_COMMON_ACTIONS_2')].map(h => (
                   <th key={h} className={`px-4 py-2.5 text-left border-b ${th.divider} ${th.th}`}>
                     {h}
                   </th>
@@ -165,14 +166,14 @@ export default function CTSAllocationAdmin() {
               {claims.length === 0 && !isLoading && (
                 <tr>
                   <td colSpan={4} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
-                    No active claims — all instruments are unclaimed.
+                   {msg('UI_ALLOCATIONADMIN_NO_ACTIVE_CLAIMS_ALL_INSTRUMENTS_2')}
                   </td>
                 </tr>
               )}
               {isLoading && (
                 <tr>
                   <td colSpan={4} className={`px-4 py-8 text-center text-sm ${th.muted}`}>
-                    Loading…
+                   {msg('UI_OPSDASHBOARD_LOADING')}
                   </td>
                 </tr>
               )}
@@ -188,7 +189,7 @@ export default function CTSAllocationAdmin() {
                       {claim.reviewer_id}
                     </td>
                     <td className={`px-4 py-3 text-xs ${th.muted}`}>
-                      {claim.tier || 'standard'}
+                      {claim.tier || msg('UI_ALLOCATIONADMIN_STANDARD_2')}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -202,7 +203,7 @@ export default function CTSAllocationAdmin() {
                               : 'border-red-300 text-red-600 hover:bg-red-50'
                         }`}
                       >
-                        {isReleasing ? 'Releasing…' : 'Force Release'}
+                        {isReleasing ? msg('UI_ALLOCATIONADMIN_RELEASING_2') : msg('UI_ALLOCATIONADMIN_FORCE_RELEASE_2')}
                       </button>
                       {releaseMutation.isError &&
                         releaseMutation.variables === claim.instrument_id && (
@@ -219,9 +220,7 @@ export default function CTSAllocationAdmin() {
         </div>
 
         <p className={`text-xs mt-3 ${th.muted}`}>
-          Force Release removes a stale claim immediately.
-          The reviewer will see a "Claim lost" notice on their next action.
-          This is audited to Immudb.
+         {msg('UI_ALLOCATIONADMIN_FORCE_RELEASE_REMOVES_A_STALE')}
         </p>
       </div>
     </AppShell>

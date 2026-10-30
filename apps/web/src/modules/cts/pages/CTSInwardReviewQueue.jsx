@@ -392,9 +392,9 @@ function ExpandedPanel({ item, isDark }) {
           <div>
             <div className={th.sec}>{msg('UI_INWARDREVIEWQUEUE_AI_ANALYSIS')}</div>
             <div className="space-y-2">
-              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? 'OCR' })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
-              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? 'SigNet' })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
-              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? 'XGBoost' })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? msg('UI_INWARDREVIEWQUEUE_OCR') })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? msg('UI_INWARDREVIEWQUEUE_SIGNET') })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
+              <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? msg('UI_INWARDREVIEWQUEUE_XGBOOST') })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
               <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_ALTERATION_RISK')} value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
             </div>
           </div>
@@ -850,9 +850,9 @@ export default function CTSInwardReviewQueue() {
                   <div>
                     <div className={`text-[10px] font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{msg('UI_INWARDREVIEWQUEUE_AI_ANALYSIS')}</div>
                     <div className="space-y-2.5">
-                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? 'OCR' })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
-                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? 'SigNet' })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
-                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? 'XGBoost' })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? msg('UI_INWARDREVIEWQUEUE_OCR') })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? msg('UI_INWARDREVIEWQUEUE_SIGNET') })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
+                      <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? msg('UI_INWARDREVIEWQUEUE_XGBOOST') })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
                       <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_ALTERATION_RISK')} value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
                     </div>
                   </div>

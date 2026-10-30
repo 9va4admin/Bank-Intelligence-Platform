@@ -2,18 +2,19 @@ import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { msg } from '../../../shared/messages'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LOT_STATUSES = {
-  RECEIVED:     { label: 'Received',     dot: 'bg-slate-400',   dark: 'text-slate-300 bg-slate-800/60 border-slate-600/40',     light: 'text-slate-600 bg-slate-100 border-slate-300'         },
-  IQA_COMPLETE: { label: 'IQA Complete', dot: 'bg-blue-400',    dark: 'text-blue-300 bg-blue-900/40 border-blue-700/50',        light: 'text-blue-700 bg-blue-50 border-blue-300'              },
-  EXTRACTED:    { label: 'AI Extracted', dot: 'bg-violet-400',  dark: 'text-violet-300 bg-violet-900/40 border-violet-700/50',  light: 'text-violet-700 bg-violet-50 border-violet-300'        },
-  PKI_SIGNED:   { label: 'PKI Signed',   dot: 'bg-cyan-400',    dark: 'text-cyan-300 bg-cyan-900/40 border-cyan-700/50',        light: 'text-cyan-700 bg-cyan-50 border-cyan-300'              },
-  SUBMITTED:    { label: 'Submitted',    dot: 'bg-amber-400',   dark: 'text-amber-300 bg-amber-900/40 border-amber-700/50',     light: 'text-amber-700 bg-amber-50 border-amber-300'           },
-  NGCH_ACK:     { label: 'NGCH Ack',     dot: 'bg-emerald-400', dark: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/50', light: 'text-emerald-700 bg-emerald-50 border-emerald-300'  },
-  SETTLED:      { label: 'Settled',      dot: 'bg-emerald-300', dark: 'text-emerald-200 bg-emerald-900/60 border-emerald-600/50', light: 'text-emerald-800 bg-emerald-100 border-emerald-400'  },
-  PARTIAL_FAIL: { label: 'Partial Fail', dot: 'bg-red-400',     dark: 'text-red-300 bg-red-900/40 border-red-700/50',           light: 'text-red-700 bg-red-50 border-red-300'                },
+  RECEIVED:     { label: msg('UI_COMMON_RECEIVED_2'),     dot: 'bg-slate-400',   dark: 'text-slate-300 bg-slate-800/60 border-slate-600/40',     light: 'text-slate-600 bg-slate-100 border-slate-300'         },
+  IQA_COMPLETE: { label: msg('UI_BATCHES_IQA_COMPLETE_2'), dot: 'bg-blue-400',    dark: 'text-blue-300 bg-blue-900/40 border-blue-700/50',        light: 'text-blue-700 bg-blue-50 border-blue-300'              },
+  EXTRACTED:    { label: msg('UI_COMMON_AI_EXTRACTED_2'), dot: 'bg-violet-400',  dark: 'text-violet-300 bg-violet-900/40 border-violet-700/50',  light: 'text-violet-700 bg-violet-50 border-violet-300'        },
+  PKI_SIGNED:   { label: msg('UI_BATCHES_PKI_SIGNED'),   dot: 'bg-cyan-400',    dark: 'text-cyan-300 bg-cyan-900/40 border-cyan-700/50',        light: 'text-cyan-700 bg-cyan-50 border-cyan-300'              },
+  SUBMITTED:    { label: msg('UI_COMMON_SUBMITTED_2'),    dot: 'bg-amber-400',   dark: 'text-amber-300 bg-amber-900/40 border-amber-700/50',     light: 'text-amber-700 bg-amber-50 border-amber-300'           },
+  NGCH_ACK:     { label: msg('UI_BATCHES_NGCH_ACK_2'),     dot: 'bg-emerald-400', dark: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/50', light: 'text-emerald-700 bg-emerald-50 border-emerald-300'  },
+  SETTLED:      { label: msg('UI_BATCHES_SETTLED_2'),      dot: 'bg-emerald-300', dark: 'text-emerald-200 bg-emerald-900/60 border-emerald-600/50', light: 'text-emerald-800 bg-emerald-100 border-emerald-400'  },
+  PARTIAL_FAIL: { label: msg('UI_BATCHES_PARTIAL_FAIL_2'), dot: 'bg-red-400',     dark: 'text-red-300 bg-red-900/40 border-red-700/50',           light: 'text-red-700 bg-red-50 border-red-300'                },
 }
 
 const STATUS_ORDER = ['RECEIVED', 'IQA_COMPLETE', 'EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'SETTLED']
@@ -181,8 +182,8 @@ export default function CTSBatches() {
         <div className={`shrink-0 border-b px-6 py-4 ${th.divider}`}>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className={`text-lg font-semibold ${th.h1}`}>Batch / Lot Processing</h1>
-              <p className={`text-xs mt-0.5 ${th.sub}`}>Branch lots · Physical vs electronic count · IQA · NGCH submission status</p>
+              <h1 className={`text-lg font-semibold ${th.h1}`}>{msg('UI_BATCHES_BATCH_LOT_PROCESSING_2')}</h1>
+              <p className={`text-xs mt-0.5 ${th.sub}`}>{msg('UI_BATCHES_BRANCH_LOTS_PHYSICAL_VS_ELECTRONIC_2')}</p>
             </div>
             <div className="flex items-center gap-2">
               {SESSIONS.map(s => (
@@ -199,12 +200,12 @@ export default function CTSBatches() {
           {/* KPIs */}
           <div className="grid grid-cols-6 gap-3 mt-4">
             {[
-              { label: 'Total Lots',      val: SUMMARY.lots,           color: th.heading },
-              { label: 'Instruments',     val: SUMMARY.instruments,    color: th.heading },
-              { label: 'Total Value',     val: SUMMARY.totalAmt,       color: isDark ? 'text-cyan-300' : 'text-cyan-700' },
-              { label: 'Settled',         val: SUMMARY.settled,        color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-              { label: 'In Progress',     val: SUMMARY.pending,        color: isDark ? 'text-amber-400' : 'text-amber-600' },
-              { label: 'Count Mismatch',  val: SUMMARY.countMismatch,  color: SUMMARY.countMismatch > 0 ? 'text-red-400 animate-pulse' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+              { label: msg('UI_BATCHES_TOTAL_LOTS_2'),      val: SUMMARY.lots,           color: th.heading },
+              { label: msg('UI_COMMON_INSTRUMENTS_2'),     val: SUMMARY.instruments,    color: th.heading },
+              { label: msg('UI_BATCHES_TOTAL_VALUE_2'),     val: SUMMARY.totalAmt,       color: isDark ? 'text-cyan-300' : 'text-cyan-700' },
+              { label: msg('UI_BATCHES_SETTLED_2'),         val: SUMMARY.settled,        color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+              { label: msg('UI_BATCHES_IN_PROGRESS_2'),     val: SUMMARY.pending,        color: isDark ? 'text-amber-400' : 'text-amber-600' },
+              { label: msg('UI_BATCHES_COUNT_MISMATCH_2'),  val: SUMMARY.countMismatch,  color: SUMMARY.countMismatch > 0 ? 'text-red-400 animate-pulse' : (isDark ? 'text-slate-500' : 'text-slate-400') },
             ].map(k => (
               <div key={k.label} className={`rounded-lg border px-4 py-3 ${th.card}`}>
                 <div className={`text-xl font-bold font-mono ${k.color}`}>{k.val}</div>
@@ -217,18 +218,18 @@ export default function CTSBatches() {
         {/* ── Filters ── */}
         <div className={`shrink-0 px-6 py-2 border-b flex items-center gap-2 ${th.divider}`}>
           <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={sessionFilter} onChange={e => setSessionFilter(e.target.value)}>
-            <option value="ALL">All Sessions</option>
+            <option value="ALL">{msg('UI_BATCHES_ALL_SESSIONS_2')}</option>
             {SESSIONS.map(s => <option key={s.id} value={s.id}>{s.id} ({s.label})</option>)}
           </select>
           <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="ALL">All Status</option>
+            <option value="ALL">{msg('UI_BATCHES_ALL_STATUS_2')}</option>
             {Object.entries(LOT_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
-            <option value="ALL">All Branches</option>
+            <option value="ALL">{msg('UI_BATCHES_ALL_BRANCHES_2')}</option>
             {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
-          <span className={`text-xs ml-auto ${th.sub}`}>{filtered.length} lots · {filtered.reduce((s, l) => s + l.instrument_count, 0)} instruments</span>
+          <span className={`text-xs ml-auto ${th.sub}`}>{msg('UI_BATCHES_LOTS_INSTRUMENTS_2', { count: filtered.length, filtered: filtered.reduce((s, l) => s + l.instrument_count, 0) })}</span>
         </div>
 
         {/* ── Body ── */}
@@ -239,7 +240,7 @@ export default function CTSBatches() {
             <table className="w-full text-xs">
               <thead className={`sticky top-0 ${isDark ? 'bg-[#020817]' : 'bg-slate-50'}`}>
                 <tr className={`border-b ${th.divider}`}>
-                  {['Lot #', 'Branch', 'Session', 'Count (P/E)', 'Total Value', 'IQA Fail', 'Progress', 'Status'].map(h => (
+                  {[msg('UI_BATCHES_LOT_3'), msg('UI_COMMON_BRANCH'), msg('UI_COMMON_SESSION_2'), msg('UI_BATCHES_COUNT_P_E_2'), msg('UI_BATCHES_TOTAL_VALUE_2'), msg('UI_COMMON_IQA_FAIL_2'), msg('UI_BATCHES_PROGRESS_2'), msg('UI_COMMON_STATUS_2')].map(h => (
                     <th key={h} className={`text-left px-3 py-2 font-medium whitespace-nowrap ${th.label}`}>{h}</th>
                   ))}
                 </tr>
@@ -286,7 +287,7 @@ export default function CTSBatches() {
               {/* Lot header */}
               <div className={`shrink-0 px-5 py-3 border-b flex items-start justify-between ${th.divider}`}>
                 <div>
-                  <div className={`font-mono font-semibold ${th.val}`}>Lot {lot.lot_number}</div>
+                  <div className={`font-mono font-semibold ${th.val}`}>{msg('UI_BATCHES_LOT_4', { lot_number: lot.lot_number })}</div>
                   <div className={`text-xs ${th.sub}`}>{lot.branch} · {lot.session_label} · {lot.scanner_id}</div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -298,10 +299,10 @@ export default function CTSBatches() {
               {/* Lot KPIs */}
               <div className={`shrink-0 grid grid-cols-4 gap-2 px-4 py-3 border-b ${th.divider}`}>
                 {[
-                  { label: 'Instruments',    val: lot.instrument_count },
-                  { label: 'Physical Count', val: lot.physical_count, warn: !lot.count_match },
-                  { label: 'Total Value',    val: lot.total_amount },
-                  { label: 'IQA Fail',       val: lot.iqa_fail, warn: lot.iqa_fail > 0 },
+                  { label: msg('UI_COMMON_INSTRUMENTS_2'),    val: lot.instrument_count },
+                  { label: msg('UI_BATCHES_PHYSICAL_COUNT_2'), val: lot.physical_count, warn: !lot.count_match },
+                  { label: msg('UI_BATCHES_TOTAL_VALUE_2'),    val: lot.total_amount },
+                  { label: msg('UI_COMMON_IQA_FAIL_2'),       val: lot.iqa_fail, warn: lot.iqa_fail > 0 },
                 ].map(k => (
                   <div key={k.label} className={`rounded-lg border px-3 py-2 ${th.card}`}>
                     <div className={`text-base font-bold font-mono ${k.warn ? 'text-red-400' : th.val}`}>{k.val}</div>
@@ -315,7 +316,7 @@ export default function CTSBatches() {
                 <table className="w-full text-xs">
                   <thead className={`sticky top-0 ${isDark ? 'bg-[#020817]' : 'bg-slate-50'}`}>
                     <tr className={`border-b ${th.divider}`}>
-                      {['Instrument', 'Payee', 'Amount', 'OCR', 'Sig', 'Fraud', 'Decision', 'Status'].map(h => (
+                      {[msg('UI_COMMON_INSTRUMENT'), msg('UI_VALIDATIONQUEUE_PAYEE'), msg('UI_COMMON_AMOUNT'), 'OCR', msg('UI_COMMON_SIG'), msg('UI_COMMON_FRAUD_2'), msg('UI_COMMON_DECISION_2'), msg('UI_COMMON_STATUS_2')].map(h => (
                         <th key={h} className={`text-left px-3 py-2 font-medium ${th.label}`}>{h}</th>
                       ))}
                     </tr>
@@ -348,8 +349,8 @@ export default function CTSBatches() {
                               : <span className={th.sub}>—</span>}
                           </td>
                           <td className="px-3 py-1.5">
-                            {inst.decision === 'CONFIRM' && <span className="text-emerald-400 font-semibold">✓ CONFIRM</span>}
-                            {inst.decision === 'RETURN'  && <span className="text-red-400 font-semibold">✕ RETURN</span>}
+                            {inst.decision === 'CONFIRM' && <span className="text-emerald-400 font-semibold">{msg('UI_BATCHES_CONFIRM_2')}</span>}
+                            {inst.decision === 'RETURN'  && <span className="text-red-400 font-semibold">{msg('UI_BATCHES_RETURN_2')}</span>}
                             {!inst.decision && <span className={th.sub}>—</span>}
                           </td>
                           <td className="px-3 py-1.5">

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { msg } from '../../../shared/messages'
 
 // ── Entity test registry ─────────────────────────────────────────────────────
 
@@ -11,20 +12,20 @@ const ENTITY_SECTIONS = {
     fullName: 'Sponsor Bank',
     sections: {
       'Core Infrastructure': [
-        { id: 'test_cbs',             name: 'CBS Connectivity',              desc: 'Finacle/BaNCS/FlexCube API ping' },
-        { id: 'test_ngch',            name: 'NGCH Adapter',                  desc: 'SFTP/REST transport to NGCH' },
-        { id: 'test_kafka',           name: 'Kafka Topics',                  desc: 'Produce + consume cts.inward test event' },
-        { id: 'test_immudb',          name: 'Immudb Audit Trail',            desc: 'Write + Merkle verify a test AuditEvent' },
+        { id: 'test_cbs',             name: 'CBS Connectivity',              desc: msg('UI_SMOKETEST_FINACLE_BANCS_FLEXCUBE_API_PING_2') },
+        { id: 'test_ngch',            name: 'NGCH Adapter',                  desc: msg('UI_SMOKETEST_SFTP_REST_TRANSPORT_TO_NGCH_2') },
+        { id: 'test_kafka',           name: 'Kafka Topics',                  desc: msg('UI_SMOKETEST_PRODUCE_CONSUME_CTS_INWARD_TEST_2') },
+        { id: 'test_immudb',          name: 'Immudb Audit Trail',            desc: msg('UI_SMOKETEST_WRITE_MERKLE_VERIFY_A_TEST_2') },
       ],
       'Vaults': [
-        { id: 'test_signature_vault', name: 'Signature Vault (Redis CTS)',   desc: 'Ping Redis + sample signature lookup' },
-        { id: 'test_pps_vault',       name: 'PPS Vault (Redis CTS)',         desc: 'PPS vault ping + seeding count check' },
+        { id: 'test_signature_vault', name: 'Signature Vault (Redis CTS)',   desc: msg('UI_SMOKETEST_PING_REDIS_SAMPLE_SIGNATURE_LOOKUP_2') },
+        { id: 'test_pps_vault',       name: 'PPS Vault (Redis CTS)',         desc: msg('UI_SMOKETEST_PPS_VAULT_PING_SEEDING_COUNT_2') },
       ],
       'Authentication': [
-        { id: 'test_auth_sb',         name: 'SB Auth — SAML / LDAP IdP',    desc: 'IdP metadata fetch + XML validation' },
+        { id: 'test_auth_sb',         name: 'SB Auth — SAML / LDAP IdP',    desc: msg('UI_SMOKETEST_IDP_METADATA_FETCH_XML_VALIDATION_2') },
       ],
       'End-to-End': [
-        { id: 'test_iet_watchdog',    name: 'IET Watchdog (Synthetic Cheque)', desc: 'ChequeProcessingWorkflow < 600ms + watchdog armed' },
+        { id: 'test_iet_watchdog',    name: 'IET Watchdog (Synthetic Cheque)', desc: msg('UI_SMOKETEST_CHEQUEPROCESSINGWORKFLOW_600MS_WATCH') },
       ],
     },
   },
@@ -33,29 +34,29 @@ const ENTITY_SECTIONS = {
     fullName: 'Sub-Member Bank',
     sections: {
       'Authentication': [
-        { id: 'test_auth_smb',     name: 'SMB Auth Connector',         desc: 'Local argon2 DB reachable + verify test' },
+        { id: 'test_auth_smb',     name: 'SMB Auth Connector',         desc: msg('UI_SMOKETEST_LOCAL_ARGON2_DB_REACHABLE_VERIFY_2') },
       ],
       'Connectivity': [
-        { id: 'test_sftp_push',    name: 'Agency SFTP Push',           desc: 'Write test file to Agency SFTP drop path' },
+        { id: 'test_sftp_push',    name: 'Agency SFTP Push',           desc: msg('UI_SMOKETEST_WRITE_TEST_FILE_TO_AGENCY_2') },
       ],
       'Vault Seeding': [
-        { id: 'test_vault_seeded', name: 'Signature Vault Seeding',    desc: 'Count seeded signatures for SMB accounts' },
-        { id: 'test_smb_cbs',     name: 'SMB CBS Connectivity',        desc: 'SMB CBS ping (skips if no SMB_CBS configured)' },
+        { id: 'test_vault_seeded', name: 'Signature Vault Seeding',    desc: msg('UI_SMOKETEST_COUNT_SEEDED_SIGNATURES_FOR_SMB_2') },
+        { id: 'test_smb_cbs',     name: 'SMB CBS Connectivity',        desc: msg('UI_SMOKETEST_SMB_CBS_PING_SKIPS_IF_2') },
       ],
     },
   },
   branch: {
-    label: 'Branch',
+    label: msg('UI_COMMON_BRANCH'),
     fullName: 'Branch / Scanner',
     sections: {
       'Authentication': [
-        { id: 'test_auth_branch',    name: 'Branch Auth — LDAP-AD',      desc: 'LDAPS bind + group resolution' },
+        { id: 'test_auth_branch',    name: 'Branch Auth — LDAP-AD',      desc: msg('UI_SMOKETEST_LDAPS_BIND_GROUP_RESOLUTION_2') },
       ],
       'Scanner': [
-        { id: 'test_scanner_folder', name: 'Scanner Drop Folder',        desc: 'Path exists + write permission check' },
+        { id: 'test_scanner_folder', name: 'Scanner Drop Folder',        desc: msg('UI_SMOKETEST_PATH_EXISTS_WRITE_PERMISSION_CHECK_2') },
       ],
       'Session': [
-        { id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',  desc: 'gRPC ping to eeh-service' },
+        { id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',  desc: msg('UI_SMOKETEST_GRPC_PING_TO_EEH_SERVICE_2') },
       ],
     },
   },
@@ -64,14 +65,14 @@ const ENTITY_SECTIONS = {
     fullName: 'Processing Unit',
     sections: {
       'Authentication': [
-        { id: 'test_auth_pu',         name: 'PU Auth — LDAP-AD',          desc: 'LDAPS bind + group resolution' },
+        { id: 'test_auth_pu',         name: 'PU Auth — LDAP-AD',          desc: msg('UI_SMOKETEST_LDAPS_BIND_GROUP_RESOLUTION_2') },
       ],
       'SB Connectivity': [
-        { id: 'test_sb_connector',    name: 'Agency → SB Connector',      desc: 'SFTP write to SB lots path' },
+        { id: 'test_sb_connector',    name: 'Agency → SB Connector',      desc: msg('UI_SMOKETEST_SFTP_WRITE_TO_SB_LOTS_2') },
       ],
       'Scanner & Session': [
-        { id: 'test_scanner_folder',  name: 'Scanner Drop Folder',        desc: 'Path exists + write permission check' },
-        { id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',   desc: 'gRPC ping to eeh-service' },
+        { id: 'test_scanner_folder',  name: 'Scanner Drop Folder',        desc: msg('UI_SMOKETEST_PATH_EXISTS_WRITE_PERMISSION_CHECK_2') },
+        { id: 'test_eeh_connectivity', name: 'EEH/IEH Session (gRPC)',   desc: msg('UI_SMOKETEST_GRPC_PING_TO_EEH_SERVICE_2') },
       ],
     },
   },
@@ -225,7 +226,7 @@ export default function CTSSmokeTest() {
     const tests = getAllTests()
 
     for (const t of tests) {
-      setTestStates((prev) => ({ ...prev, [t.id]: { status: 'RUNNING', message: 'Checking…', latency: null } }))
+      setTestStates((prev) => ({ ...prev, [t.id]: { status: 'RUNNING', message: msg('UI_SMOKETEST_CHECKING_4'), latency: null } }))
       await sleep(300 + Math.random() * 250)
 
       const [status, message] = outcomes[t.id] || ['PASS', 'OK']
@@ -254,7 +255,7 @@ export default function CTSSmokeTest() {
       bank_id: 'saraswat-coop',
       run_at: new Date().toISOString(),
       results: tests.map((t) => {
-        const r = testStates[t.id] || { status: 'SKIP', message: 'Not run', latency: null }
+        const r = testStates[t.id] || { status: 'SKIP', message: msg('UI_SMOKETEST_NOT_RUN_2'), latency: null }
         return { test_id: t.id, name: t.name, status: r.status, latency_ms: r.latency, message: r.message }
       }),
       summary: buildSummary(),
@@ -276,10 +277,9 @@ export default function CTSSmokeTest() {
         <div className={`px-6 pt-5 pb-4 border-b ${th.divider}`}>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className={`text-base font-semibold ${th.heading}`}>Pre-Live Smoke Test</h1>
+              <h1 className={`text-base font-semibold ${th.heading}`}>{msg('UI_SMOKETEST_PRE_LIVE_SMOKE_TEST')}</h1>
               <p className={`text-xs mt-0.5 ${th.muted}`}>
-                Validate all connections, vaults, auth connectors, and IET infrastructure before go-live.
-                Run one entity at a time; all tests must be PASS or WARN before activating.
+               {msg('UI_SMOKETEST_VALIDATE_ALL_CONNECTIONS_VAULTS_AUTH')}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -292,7 +292,7 @@ export default function CTSSmokeTest() {
                     : 'opacity-30 cursor-default border-transparent ' + th.muted
                   }`}
               >
-                ↓ Download Report
+               {msg('UI_SMOKETEST_DOWNLOAD_REPORT_2')}
               </button>
               <button
                 onClick={runAll}
@@ -303,7 +303,7 @@ export default function CTSSmokeTest() {
                     : 'bg-violet-600 hover:bg-violet-500 text-white'
                   }`}
               >
-                {running ? '◌ Running…' : ran ? '↺ Run Again' : '▶ Run All Tests'}
+                {running ? msg('UI_SMOKETEST_RUNNING_2') : ran ? msg('UI_SMOKETEST_RUN_AGAIN_2') : msg('UI_SMOKETEST_RUN_ALL_TESTS')}
               </button>
             </div>
           </div>
@@ -314,26 +314,26 @@ export default function CTSSmokeTest() {
               <span className={`text-xs ${th.faint} ${th.mono}`}>{summary.done}/{summary.total}</span>
               {summary.pass > 0 && (
                 <span className={`text-xs font-mono font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                  ✓ {summary.pass} pass
+                 {msg('UI_SMOKETEST_PASS', { pass: summary.pass })}
                 </span>
               )}
               {summary.fail > 0 && (
                 <span className={`text-xs font-mono font-semibold ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-                  ✗ {summary.fail} fail
+                 {msg('UI_SMOKETEST_FAIL_2', { fail: summary.fail })}
                 </span>
               )}
               {summary.warn > 0 && (
                 <span className={`text-xs font-mono font-semibold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                  △ {summary.warn} warn
+                 {msg('UI_SMOKETEST_WARN', { warn: summary.warn })}
                 </span>
               )}
               {ran && summary.done === summary.total && (
                 summary.fail === 0
                   ? <span className={`ml-auto text-xs font-mono font-bold px-2.5 py-0.5 rounded ${isDark ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-                      ALL CLEAR
+                     {msg('UI_SMOKETEST_ALL_CLEAR_2')}
                     </span>
                   : <span className={`ml-auto text-xs font-mono font-bold px-2.5 py-0.5 rounded ${isDark ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                      {summary.fail} FAILURE{summary.fail > 1 ? 'S' : ''} — RESOLVE BEFORE GO-LIVE
+                      {msg('UI_SMOKETEST_FAILURE_RESOLVE_BEFORE_GO_LIVE_2', { fail: summary.fail, value: summary.fail > 1 ? 'S' : '' })}
                     </span>
               )}
             </div>
@@ -419,9 +419,9 @@ export default function CTSSmokeTest() {
                                   : (isDark ? 'text-amber-400' : 'text-amber-600')
                               }`}
                             >
-                              {res.latency}ms
+                              {msg('UI_SMOKETEST_MS_2', { latency: res.latency })}
                             </span>
-                            <span className={`text-[10px] ${th.faint} font-mono uppercase tracking-wider`}>latency</span>
+                            <span className={`text-[10px] ${th.faint} font-mono uppercase tracking-wider`}>{msg('UI_SMOKETEST_LATENCY_2')}</span>
                           </>
                         ) : isRunning ? (
                           <span className={`text-xs font-mono ${isDark ? 'text-violet-400' : 'text-violet-600'} animate-pulse`}>···</span>
@@ -439,8 +439,7 @@ export default function CTSSmokeTest() {
 
           {/* Bottom note */}
           <p className={`text-[11px] ${th.faint} pt-2 pb-4`}>
-            WARN is advisory and does not block go-live. FAIL must be resolved. SKIP means the test
-            is not applicable or the integration is not configured for this entity.
+           {msg('UI_SMOKETEST_WARN_IS_ADVISORY_AND_DOES_2')}
           </p>
         </div>
       </div>

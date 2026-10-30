@@ -11,6 +11,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { MOCK_QUEUE } from '../data/mockQueue'
+import { msg } from '../../../shared/messages'
 
 // ── Exception data ────────────────────────────────────────────────────────
 
@@ -31,10 +32,10 @@ const EXCEPTIONS = [
     id: 'EX-001',
     instrument_id: 'CHQ-IN-001994',
     exception_type: 'IET_NEAR_BREACH',
-    label: 'IET Near-Breach (< 30s margin)',
+    label: msg('UI_EXCEPTIONS_IET_NEAR_BREACH_30S_MARGIN_2'),
     severity: 'CRITICAL',
     occurred_at: '2026-06-19T13:29:35Z',
-    detail: 'Filed 25 s before IET deadline. IETWatchdog emergency trigger.',
+    detail: msg('UI_EXCEPTIONS_FILED_25_S_BEFORE_IET_2'),
     resolved: true,
     margin_seconds: 25,
   },
@@ -42,10 +43,10 @@ const EXCEPTIONS = [
     id: 'EX-002',
     instrument_id: 'CHQ-IN-001982',
     exception_type: 'NGCH_REJECT',
-    label: 'NGCH Filing Rejected / Retried',
+    label: msg('UI_EXCEPTIONS_NGCH_FILING_REJECTED_RETRIED_2'),
     severity: 'CRITICAL',
     occurred_at: '2026-06-19T11:42:18Z',
-    detail: 'NGCH returned HTTP 503. Auto-retried via Temporal (attempt 2/3 succeeded).',
+    detail: msg('UI_EXCEPTIONS_NGCH_RETURNED_HTTP_503_AUTO_2'),
     resolved: true,
     margin_seconds: null,
   },
@@ -53,10 +54,10 @@ const EXCEPTIONS = [
     id: 'EX-003',
     instrument_id: 'CHQ-IN-001947',
     exception_type: 'IQA_FAIL',
-    label: 'Image Quality Failure',
+    label: msg('UI_EXCEPTIONS_IMAGE_QUALITY_FAILURE_2'),
     severity: 'HIGH',
     occurred_at: '2026-06-19T10:14:22Z',
-    detail: 'Front image JPEG compression artefacts. DPI: 178 (min 200). Resent by presenting bank.',
+    detail: msg('UI_EXCEPTIONS_FRONT_IMAGE_JPEG_COMPRESSION_ARTEFAC_2'),
     resolved: true,
     margin_seconds: null,
   },
@@ -64,10 +65,10 @@ const EXCEPTIONS = [
     id: 'EX-004',
     instrument_id: 'CHQ-IN-001958',
     exception_type: 'VAULT_MISS',
-    label: 'Signature / PPS Vault Miss',
+    label: msg('UI_EXCEPTIONS_SIGNATURE_PPS_VAULT_MISS_2'),
     severity: 'HIGH',
     occurred_at: '2026-06-19T10:31:05Z',
-    detail: 'No signature specimen on file for A/c ****7842. Routed to human review.',
+    detail: msg('UI_EXCEPTIONS_NO_SIGNATURE_SPECIMEN_ON_FILE_2'),
     resolved: true,
     margin_seconds: null,
   },
@@ -75,10 +76,10 @@ const EXCEPTIONS = [
     id: 'EX-005',
     instrument_id: 'CHQ-IN-001963',
     exception_type: 'WORDS_FIGURES_MISMATCH',
-    label: 'Words / Figures Amount Differ',
+    label: msg('UI_EXCEPTIONS_WORDS_FIGURES_AMOUNT_DIFFER_2'),
     severity: 'HIGH',
     occurred_at: '2026-06-19T10:55:44Z',
-    detail: 'Figures: ₹1,25,000. Words: "One Lakh Only". Difference: ₹25,000.',
+    detail: msg('UI_EXCEPTIONS_FIGURES_1_25_000_WORDS_2'),
     resolved: false,
     margin_seconds: null,
   },
@@ -86,10 +87,10 @@ const EXCEPTIONS = [
     id: 'EX-006',
     instrument_id: 'CHQ-IN-001971',
     exception_type: 'ALTERATION_DETECTED',
-    label: 'Possible Alteration Detected',
+    label: msg('UI_EXCEPTIONS_POSSIBLE_ALTERATION_DETECTED_2'),
     severity: 'HIGH',
     occurred_at: '2026-06-19T11:08:33Z',
-    detail: 'Qwen2-VL confidence: 0.91 alteration on payee name field. Ink bleed inconsistency.',
+    detail: msg('UI_EXCEPTIONS_QWEN2_VL_CONFIDENCE_0_91_2'),
     resolved: false,
     margin_seconds: null,
   },
@@ -97,10 +98,10 @@ const EXCEPTIONS = [
     id: 'EX-007',
     instrument_id: 'CHQ-IN-001975',
     exception_type: 'FRAUD_HIGH_SCORE',
-    label: 'Fraud Score Above Threshold',
+    label: msg('UI_EXCEPTIONS_FRAUD_SCORE_ABOVE_THRESHOLD_2'),
     severity: 'HIGH',
     occurred_at: '2026-06-19T11:19:55Z',
-    detail: 'XGBoost fraud score: 0.81 (threshold: 0.72). Top SHAP: unusual_payee +0.31.',
+    detail: msg('UI_EXCEPTIONS_XGBOOST_FRAUD_SCORE_0_81_2'),
     resolved: true,
     margin_seconds: null,
   },
@@ -108,10 +109,10 @@ const EXCEPTIONS = [
     id: 'EX-008',
     instrument_id: 'CHQ-IN-001931',
     exception_type: 'OCR_LOW_CONFIDENCE',
-    label: 'OCR Confidence Below Threshold',
+    label: msg('UI_EXCEPTIONS_OCR_CONFIDENCE_BELOW_THRESHOLD_2'),
     severity: 'MEDIUM',
     occurred_at: '2026-06-19T10:02:11Z',
-    detail: 'GOT-OCR2 MICR line confidence: 0.74 (threshold: 0.88). Handwritten amount unclear.',
+    detail: msg('UI_EXCEPTIONS_GOT_OCR2_MICR_LINE_CONFIDENCE_2'),
     resolved: true,
     margin_seconds: null,
   },
@@ -119,10 +120,10 @@ const EXCEPTIONS = [
     id: 'EX-009',
     instrument_id: 'CHQ-IN-001935',
     exception_type: 'SIGNATURE_LOW_CONF',
-    label: 'Signature Match Low Confidence',
+    label: msg('UI_EXCEPTIONS_SIGNATURE_MATCH_LOW_CONFIDENCE_2'),
     severity: 'MEDIUM',
     occurred_at: '2026-06-19T10:07:47Z',
-    detail: 'Siamese net match score: 0.71 (threshold: 0.80). Possible pen pressure variation.',
+    detail: msg('UI_EXCEPTIONS_SIAMESE_NET_MATCH_SCORE_0_2'),
     resolved: true,
     margin_seconds: null,
   },
@@ -130,10 +131,10 @@ const EXCEPTIONS = [
     id: 'EX-010',
     instrument_id: 'CHQ-IN-001989',
     exception_type: 'HUMAN_REVIEW',
-    label: 'Escalated to Human Review',
+    label: msg('UI_EXCEPTIONS_ESCALATED_TO_HUMAN_REVIEW_2'),
     severity: 'MEDIUM',
     occurred_at: '2026-06-19T12:05:22Z',
-    detail: 'Multiple low-confidence signals. Compound exception — routed to senior reviewer.',
+    detail: msg('UI_EXCEPTIONS_MULTIPLE_LOW_CONFIDENCE_SIGNALS_COMP_2'),
     resolved: false,
     margin_seconds: null,
   },
@@ -252,13 +253,13 @@ export default function CTSExceptions() {
   }
 
   usePageHeader({
-    subtitle: `${SESSION_META.bank_name} · Session ${SESSION_META.session_id} · ${SESSION_META.clearing_date}`,
+    subtitle: msg('UI_EXCEPTIONS_SESSION_2', { bank_name: SESSION_META.bank_name, session_id: SESSION_META.session_id, clearing_date: SESSION_META.clearing_date }),
     actions: (
       <button
         onClick={handleDownload}
         className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white"
       >
-        ⬇ Download CSV
+       {msg('UI_EXCEPTIONS_DOWNLOAD_CSV_2')}
       </button>
     ),
   })
@@ -270,40 +271,40 @@ export default function CTSExceptions() {
         {/* D4: Predictive Risk Signals */}
         <div className={`border rounded-lg p-4 ${th.card}`}>
           <div className="flex items-center gap-2 mb-3">
-            <span className={`text-xs font-semibold ${th.heading}`}>Predictive Risk Signals</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-400/20 uppercase tracking-wide">Live Queue</span>
-            <span className={`text-[10px] ${th.muted} ml-auto`}>Based on {MOCK_QUEUE.length} pending items</span>
+            <span className={`text-xs font-semibold ${th.heading}`}>{msg('UI_EXCEPTIONS_PREDICTIVE_RISK_SIGNALS_2')}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-400/20 uppercase tracking-wide">{msg('UI_EXCEPTIONS_LIVE_QUEUE_2')}</span>
+            <span className={`text-[10px] ${th.muted} ml-auto`}>{msg('UI_EXCEPTIONS_BASED_ON_PENDING_ITEMS_2', { count: MOCK_QUEUE.length })}</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
-                label: 'IET Risk (<60 min)',
+                label: msg('UI_EXCEPTIONS_IET_RISK_60_MIN_2'),
                 value: predictive.ietRisk.length,
-                sub: predictive.ietRisk.length > 0 ? predictive.ietRisk.map(i => i.instrument_id).join(', ') : 'All clear',
+                sub: predictive.ietRisk.length > 0 ? predictive.ietRisk.map(i => i.instrument_id).join(', ') : msg('UI_EXCEPTIONS_ALL_CLEAR_2'),
                 color: predictive.ietRisk.length > 0 ? 'text-red-400' : 'text-emerald-400',
                 bg: predictive.ietRisk.length > 0 ? 'border-red-400/20 bg-red-400/3' : 'border-emerald-400/10',
                 icon: '⏱',
               },
               {
-                label: 'Vault Misses',
+                label: msg('UI_EXCEPTIONS_VAULT_MISSES'),
                 value: predictive.vaultMisses.length,
-                sub: predictive.vaultMisses.length > 0 ? 'Auto-return blocked — human required' : 'No vault misses',
+                sub: predictive.vaultMisses.length > 0 ? msg('UI_EXCEPTIONS_AUTO_RETURN_BLOCKED_HUMAN_REQUIRED_2') : msg('UI_EXCEPTIONS_NO_VAULT_MISSES_2'),
                 color: predictive.vaultMisses.length > 0 ? 'text-purple-400' : 'text-emerald-400',
                 bg: predictive.vaultMisses.length > 0 ? 'border-purple-400/20 bg-purple-400/3' : 'border-emerald-400/10',
                 icon: '🔐',
               },
               {
-                label: 'Fraud Cluster ≥78%',
+                label: msg('UI_EXCEPTIONS_FRAUD_CLUSTER_78_2'),
                 value: predictive.fraudCluster.length,
-                sub: predictive.fraudCluster.length > 0 ? `Avg queue fraud: ${Math.round(predictive.avgFraud * 100)}%` : 'Within threshold',
+                sub: predictive.fraudCluster.length > 0 ? msg('UI_EXCEPTIONS_AVG_QUEUE_FRAUD_2', { value: Math.round(predictive.avgFraud * 100) }) : msg('UI_EXCEPTIONS_WITHIN_THRESHOLD_2'),
                 color: predictive.fraudCluster.length >= 3 ? 'text-red-400' : predictive.fraudCluster.length > 0 ? 'text-amber-400' : 'text-emerald-400',
                 bg: predictive.fraudCluster.length >= 3 ? 'border-red-400/20 bg-red-400/3' : 'border-amber-400/10',
                 icon: '🛡',
               },
               {
-                label: 'Sub-Member Items',
+                label: msg('UI_EXCEPTIONS_SUB_MEMBER_ITEMS_2'),
                 value: predictive.subMemberItems.length,
-                sub: predictive.subMemberItems.length > 0 ? 'Sponsor bank notification on return' : 'None in queue',
+                sub: predictive.subMemberItems.length > 0 ? msg('UI_EXCEPTIONS_SPONSOR_BANK_NOTIFICATION_ON_RETURN_2') : msg('UI_EXCEPTIONS_NONE_IN_QUEUE_2'),
                 color: predictive.subMemberItems.length > 0 ? 'text-amber-400' : 'text-slate-400',
                 bg: predictive.subMemberItems.length > 0 ? 'border-amber-400/20 bg-amber-400/3' : isDark ? 'border-white/10' : 'border-slate-200',
                 icon: '🏦',
@@ -324,10 +325,10 @@ export default function CTSExceptions() {
         {/* Summary KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Exceptions', value: EXCEPTIONS.length, color: th.heading },
-            { label: 'Critical',         value: counts.CRITICAL,   color: 'text-red-400' },
-            { label: 'High',             value: counts.HIGH,        color: 'text-amber-400' },
-            { label: 'Unresolved',       value: unresolvedCount,    color: 'text-orange-400' },
+            { label: msg('UI_EXCEPTIONS_TOTAL_EXCEPTIONS_2'), value: EXCEPTIONS.length, color: th.heading },
+            { label: msg('UI_EXCEPTIONS_CRITICAL_2'),         value: counts.CRITICAL,   color: 'text-red-400' },
+            { label: msg('UI_EXCEPTIONS_HIGH_2'),             value: counts.HIGH,        color: 'text-amber-400' },
+            { label: msg('UI_EXCEPTIONS_UNRESOLVED_2'),       value: unresolvedCount,    color: 'text-orange-400' },
           ].map(k => (
             <div key={k.label} className={`border rounded-lg p-3 ${th.card}`}>
               <div className={`text-2xl font-bold ${k.color}`}>{k.value}</div>
@@ -338,7 +339,7 @@ export default function CTSExceptions() {
 
         {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap">
-          <span className={`text-xs ${th.muted}`}>Severity:</span>
+          <span className={`text-xs ${th.muted}`}>{msg('UI_EXCEPTIONS_SEVERITY_3')}</span>
           {['All', ...SEVERITY_ORDER].map(s => (
             <button
               key={s}
@@ -358,9 +359,9 @@ export default function CTSExceptions() {
               onChange={e => setShowResolved(e.target.checked)}
               className="w-3.5 h-3.5 accent-violet-500"
             />
-            Show resolved
+           {msg('UI_EXCEPTIONS_SHOW_RESOLVED_2')}
           </label>
-          <span className={`ml-auto text-xs ${th.muted}`}>{filtered.length} shown</span>
+          <span className={`ml-auto text-xs ${th.muted}`}>{msg('UI_USERMANAGEMENT_SHOWN_2', { count: filtered.length })}</span>
         </div>
 
         {/* Exception table */}
@@ -368,12 +369,12 @@ export default function CTSExceptions() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider} ${th.muted}`}>
-                <th className="px-3 py-2 text-left font-medium">Instrument ID</th>
-                <th className="px-3 py-2 text-left font-medium">Exception</th>
-                <th className="px-3 py-2 text-left font-medium">Severity</th>
-                <th className="px-3 py-2 text-left font-medium hidden md:table-cell">Occurred At</th>
-                <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">Detail</th>
-                <th className="px-3 py-2 text-left font-medium">Status</th>
+                <th className="px-3 py-2 text-left font-medium">{msg('UI_COMMON_INSTRUMENT_ID_2')}</th>
+                <th className="px-3 py-2 text-left font-medium">{msg('UI_EXCEPTIONS_EXCEPTION_2')}</th>
+                <th className="px-3 py-2 text-left font-medium">{msg('UI_EXCEPTIONS_SEVERITY_4')}</th>
+                <th className="px-3 py-2 text-left font-medium hidden md:table-cell">{msg('UI_EXCEPTIONS_OCCURRED_AT_2')}</th>
+                <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">{msg('UI_DISCREPANCY_DETAIL_2')}</th>
+                <th className="px-3 py-2 text-left font-medium">{msg('UI_COMMON_STATUS_2')}</th>
               </tr>
             </thead>
             <tbody>
@@ -389,7 +390,7 @@ export default function CTSExceptions() {
                   <td className={`px-3 py-2 hidden md:table-cell ${th.muted}`}>
                     {ex.occurred_at.replace('T', ' ').replace('Z', '')}
                     {ex.margin_seconds !== null && (
-                      <span className="ml-1 text-red-400 font-medium">({ex.margin_seconds}s margin)</span>
+                      <span className="ml-1 text-red-400 font-medium">{msg('UI_EXCEPTIONS_S_MARGIN_2', { margin_seconds: ex.margin_seconds })}</span>
                     )}
                   </td>
                   <td className={`px-3 py-2 hidden lg:table-cell ${th.muted} max-w-xs truncate`} title={ex.detail}>
@@ -397,15 +398,15 @@ export default function CTSExceptions() {
                   </td>
                   <td className="px-3 py-2">
                     {ex.resolved
-                      ? <span className="text-emerald-400 text-[11px] font-medium">✓ Resolved</span>
-                      : <span className="text-amber-400 text-[11px] font-medium">⚠ Open</span>}
+                      ? <span className="text-emerald-400 text-[11px] font-medium">{msg('UI_EXCEPTIONS_RESOLVED_2')}</span>
+                      : <span className="text-amber-400 text-[11px] font-medium">{msg('UI_EXCEPTIONS_OPEN_2')}</span>}
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className={`px-3 py-8 text-center ${th.muted}`}>
-                    No exceptions match current filters.
+                   {msg('UI_EXCEPTIONS_NO_EXCEPTIONS_MATCH_CURRENT_FILTERS_2')}
                   </td>
                 </tr>
               )}
@@ -415,7 +416,7 @@ export default function CTSExceptions() {
 
         {/* Exception type legend */}
         <div className={`border rounded-lg p-4 ${th.card}`}>
-          <h3 className={`text-xs font-semibold mb-3 ${th.heading}`}>Exception Type Reference</h3>
+          <h3 className={`text-xs font-semibold mb-3 ${th.heading}`}>{msg('UI_EXCEPTIONS_EXCEPTION_TYPE_REFERENCE_2')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
             {[
               ['IQA_FAIL',             'Image Quality Failure',            'HIGH'],
