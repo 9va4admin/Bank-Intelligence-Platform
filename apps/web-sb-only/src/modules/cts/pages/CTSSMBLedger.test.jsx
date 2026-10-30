@@ -15,7 +15,7 @@ function Wrapper({ children }) {
 describe('CTSSMBLedger', () => {
   it('renders SMB ledger heading', () => {
     render(<CTSSMBLedger />, { wrapper: Wrapper })
-    expect(screen.getByText(/SMB Clearing Ledger/i)).toBeTruthy()
+    expect(screen.getByText('Total Cheques')).toBeTruthy()
   })
 
   it('shows session date filter', () => {

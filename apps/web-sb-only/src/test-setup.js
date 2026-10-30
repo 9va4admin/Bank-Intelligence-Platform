@@ -17,10 +17,11 @@ vi.mock('@testing-library/react', async (importOriginal) => {
   const authIntact = await pick(() => import('./shared/context/AuthContext'), 'useAuthOptional')
   const BankProvider = authIntact ? await pick(() => import('./shared/context/BankContext'), 'BankProvider') : null
   const PageHeaderProvider = await pick(() => import('./shared/layout/PageHeaderContext'), 'PageHeaderProvider')
+  const ThemeProvider = await pick(() => import('./shared/theme/ThemeContext'), 'ThemeProvider')
   const nest = (Provider, children) => (Provider ? h(Provider, null, children) : children)
   function AppProviders({ children }) {
     const client = React.useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }), [])
-    return h(QueryClientProvider, { client }, nest(BankProvider, nest(PageHeaderProvider, children)))
+    return h(QueryClientProvider, { client }, nest(ThemeProvider, nest(BankProvider, nest(PageHeaderProvider, children))))
   }
   const compose = (Inner) => function Wrapped({ children }) { return h(AppProviders, null, h(Inner, null, children)) }
   return {

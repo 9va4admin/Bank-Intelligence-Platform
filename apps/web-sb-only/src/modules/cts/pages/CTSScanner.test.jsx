@@ -22,7 +22,7 @@ describe('CTSScanner', () => {
 
   it('shows scanner agent status bar with URL', () => {
     renderScanner()
-    expect(screen.getByText('Scanner Agent')).toBeTruthy()
+    expect(screen.getAllByText('Scanner Agent')[0]).toBeTruthy()
     expect(screen.getByText('http://localhost:9201')).toBeTruthy()
   })
 
@@ -35,6 +35,8 @@ describe('CTSScanner', () => {
     renderScanner()
     const btn = screen.getByRole('button', { name: /Start Session/ })
     fireEvent.click(btn)
+    // the button is part of the page-header actions, which the shell picks up on its next render
+    act(() => { vi.advanceTimersByTime(50) })
     expect(screen.queryAllByText('Stop Session').length).toBeGreaterThan(0)
   })
 
@@ -56,7 +58,7 @@ describe('CTSScanner', () => {
 
   it('shows empty state before session starts', () => {
     renderScanner()
-    expect(screen.getByText(/Start Session/)).toBeTruthy()
+    expect(screen.getAllByText(/Start Session/)[0]).toBeTruthy()
   })
 
   it('renders Kafka topics section', () => {
@@ -71,7 +73,7 @@ describe('CTSScanner', () => {
     renderScanner()
     expect(screen.getByText('SDK Integration Reference')).toBeTruthy()
     expect(screen.getByText('Canon CR-120')).toBeTruthy()
-    expect(screen.getByText('Scanner Agent')).toBeTruthy()
+    expect(screen.getAllByText('Scanner Agent')[0]).toBeTruthy()
   })
 
   it('renders pipeline KPI strip with 8 metrics', () => {

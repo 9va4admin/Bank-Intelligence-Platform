@@ -21,7 +21,7 @@ import SMBDashboardContent from '../components/SMBDashboardContent'
 import { msg } from '../../../shared/messages'
 
 // RPC zones — each is a live, independent connection to NGCH for its clearing
-// zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
+// zone (CLAUDE.md §2.2).
 // Shown first on My Bank: an RPC going DEGRADED is an NPCI-connectivity risk,
 // not a routine stat — it belongs above the fold, not three clicks deep.
 const ZONE_STATUS = [

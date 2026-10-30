@@ -231,7 +231,6 @@ describe('CTSPipelineVisualizer smoke tests', () => {
 
   afterEach(() => {
     vi.useRealTimers()
-    vi.resetModules()
   })
 
   it('renders without crashing', async () => {
@@ -247,8 +246,8 @@ describe('CTSPipelineVisualizer smoke tests', () => {
       renderWithProviders(<CTSPipelineVisualizer />)
     })
     // At least one stage short label should be visible
-    const micrLabels = screen.queryAllByText('MICR')
-    const ingLabels = screen.queryAllByText('ING')
+    const micrLabels = screen.queryAllByText('PPS')
+    const ingLabels = screen.queryAllByText('CBS')
     expect(micrLabels.length + ingLabels.length).toBeGreaterThan(0)
   })
 
@@ -257,7 +256,7 @@ describe('CTSPipelineVisualizer smoke tests', () => {
       renderWithProviders(<CTSPipelineVisualizer />)
     })
     // Confirm pool
-    expect(screen.getByText(/STP Confirmed/i)).toBeTruthy()
+    expect(screen.getAllByText(/STP Confirmed/i)[0]).toBeTruthy()
   })
 
   it('renders IET watchdog indicator', async () => {

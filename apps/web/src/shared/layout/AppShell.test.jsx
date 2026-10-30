@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import AppShell from './AppShell'
 import { ThemeProvider } from '../theme/ThemeContext'
 import { PageHeaderProvider } from './PageHeaderContext'
+import { BANK_CONFIG } from '../config/bank.config'
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
@@ -42,14 +43,14 @@ describe('AppShell sidebar navigation', () => {
 
   it('shows CTS nav items when CTS module is expanded', () => {
     renderShell('/cts')
-    expect(screen.getByText('Inward Queue')).toBeTruthy()
-    expect(screen.getByText('Ops Dashboard')).toBeTruthy()
+    expect(screen.getByText('Human Review Queue')).toBeTruthy()
+    expect(screen.getByText('Hold Queue')).toBeTruthy()
     expect(screen.getByText('Settlement')).toBeTruthy()
   })
 
   it('shows breadcrumb for /cts route', () => {
     renderShell('/cts')
-    expect(screen.getByText('Inward Queue — Human Review')).toBeTruthy()
+    expect(screen.getByText('Validation IQ — Human Review')).toBeTruthy()
   })
 
   it('shows breadcrumb for /cts/settlement route', () => {
@@ -68,14 +69,14 @@ describe('AppShell sidebar navigation', () => {
     const collapseBtn = screen.getByTitle('Collapse sidebar')
     fireEvent.click(collapseBtn)
     expect(screen.queryByTitle('Expand sidebar')).toBeTruthy()
-    expect(screen.queryByText('Inward Queue')).toBeNull()
+    expect(screen.queryByText('Human Review Queue')).toBeNull()
   })
 
   it('expands sidebar from collapsed state', () => {
     renderShell()
     fireEvent.click(screen.getByTitle('Collapse sidebar'))
     fireEvent.click(screen.getByTitle('Expand sidebar'))
-    expect(screen.getByText('Inward Queue')).toBeTruthy()
+    expect(screen.getByText('Human Review Queue')).toBeTruthy()
   })
 
   it('renders theme toggle button', () => {
@@ -86,12 +87,12 @@ describe('AppShell sidebar navigation', () => {
 
   it('renders user avatar with initials', () => {
     renderShell()
-    expect(screen.getByText('R')).toBeTruthy()
+    expect(screen.getByText('D')).toBeTruthy()
   })
 
   it('opens profile menu on avatar click', () => {
     renderShell()
-    const avatarBtn = screen.getByText('Rahul S.').closest('button')
+    const avatarBtn = screen.getByText('Demo User').closest('button')
     fireEvent.click(avatarBtn)
     expect(screen.getByText('Sign Out')).toBeTruthy()
   })
@@ -111,7 +112,7 @@ describe('AppShell sidebar navigation', () => {
 
   it('shows bank name in topbar', () => {
     renderShell()
-    const bankNames = screen.getAllByText('Saraswat Co-op Bank')
+    const bankNames = screen.getAllByText(BANK_CONFIG.bank_short_name)
     expect(bankNames.length).toBeGreaterThan(0)
   })
 })

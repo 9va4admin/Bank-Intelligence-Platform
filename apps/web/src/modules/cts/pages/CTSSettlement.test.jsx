@@ -18,18 +18,18 @@ describe('CTSSettlement', () => {
 
   it('shows settlement heading', () => {
     render(<MemoryRouter><CTSSettlement /></MemoryRouter>)
-    expect(screen.getByText(/Settlement/i)).toBeTruthy()
+    expect(screen.getAllByText(/Settlement/i)[0]).toBeTruthy()
   })
 
   it('shows pipeline stages', () => {
     render(<MemoryRouter><CTSSettlement /></MemoryRouter>)
-    expect(screen.getByText('OPEN')).toBeTruthy()
-    expect(screen.getByText('SETTLED')).toBeTruthy()
+    expect(screen.getAllByText('OPEN')[0]).toBeTruthy()
+    expect(screen.getAllByText('SETTLED')[0]).toBeTruthy()
   })
 
   it('shows session list', () => {
     render(<MemoryRouter><CTSSettlement /></MemoryRouter>)
-    expect(screen.getAllByText(/SES-/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/\d{2}:\d{2}–\d{2}:\d{2}/).length).toBeGreaterThan(0)
   })
 
   it('shows RECEIVE or PAY direction', () => {

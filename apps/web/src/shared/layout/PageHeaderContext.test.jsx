@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
 import { PageHeaderProvider, PageHeaderCtx, usePageHeader } from './PageHeaderContext'
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 
 afterEach(() => cleanup())
 
@@ -74,5 +74,31 @@ describe('usePageHeader', () => {
   it('renders page content alongside context', () => {
     render(<Tree subtitle="test" />)
     expect(screen.getByTestId('page')).toHaveTextContent('content')
+  })
+})
+
+describe('usePageHeader follows the page', () => {
+  // A page's header buttons depend on its state (a Start/Stop button, a session picker). They must change when the state does.
+  function StatefulPage() {
+    const [on, setOn] = useState(false)
+    usePageHeader({
+      subtitle: on ? 'running' : 'idle',
+      actions: <button onClick={() => setOn(v => !v)}>{on ? 'Stop' : 'Start'}</button>,
+    })
+    return <div data-testid="page">page</div>
+  }
+
+  it('updates the header actions and subtitle when the page state changes', () => {
+    render(<PageHeaderProvider><ContextReader /><StatefulPage /></PageHeaderProvider>)
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()
+    act(() => { screen.getByRole('button', { name: 'Start' }).click() })
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument()
+    expect(screen.getByTestId('subtitle')).toHaveTextContent('running')
+  })
+
+  it('clears the header when the page unmounts', () => {
+    const { rerender } = render(<PageHeaderProvider><ContextReader /><StatefulPage /></PageHeaderProvider>)
+    rerender(<PageHeaderProvider><ContextReader /></PageHeaderProvider>)
+    expect(screen.getByTestId('subtitle')).toHaveTextContent('none')
   })
 })

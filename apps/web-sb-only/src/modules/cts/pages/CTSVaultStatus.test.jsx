@@ -17,11 +17,11 @@ describe('CTSVaultStatus', () => {
   })
   it('shows Signature Vault card', () => {
     renderPage()
-    expect(screen.getByText('Signature Vault')).toBeInTheDocument()
+    expect(screen.getAllByText('Signature Vault')[0]).toBeInTheDocument()
   })
   it('shows PPS Vault card', () => {
     renderPage()
-    expect(screen.getByText('PPS Vault')).toBeInTheDocument()
+    expect(screen.getAllByText('PPS Vault')[0]).toBeInTheDocument()
   })
   it('shows both vaults as HEALTHY', () => {
     renderPage()
@@ -33,7 +33,7 @@ describe('CTSVaultStatus', () => {
   })
   it('all misses route to HUMAN_REVIEW', () => {
     renderPage()
-    const cells = screen.getAllByText('HUMAN_REVIEW')
+    const cells = screen.getAllByText(/HUMAN_REVIEW/)
     expect(cells.length).toBeGreaterThanOrEqual(3)
   })
   it('shows VaultSyncWorkflow log', () => {

@@ -1,9 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ThemeProvider } from '../../../shared/theme/ThemeContext'
 import { PageHeaderProvider } from '../../../shared/layout/PageHeaderContext'
 import CTSSchedules from './CTSSchedules'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 function renderPage() {
   return render(
@@ -18,7 +19,9 @@ function renderPage() {
 }
 
 describe('CTSSchedules', () => {
+  const configuredMode = BANK_CONFIG.deployment_mode
   beforeEach(() => localStorage.clear())
+  afterEach(() => { BANK_CONFIG.deployment_mode = configuredMode })
 
   it('renders page heading', () => {
     renderPage()
@@ -58,6 +61,8 @@ describe('CTSSchedules', () => {
   })
 
   it('clicking Edit opens the edit modal', () => {
+    // Editing is switched off in demo mode, so this one runs as a live deployment
+    BANK_CONFIG.deployment_mode = 'POC'
     renderPage()
     fireEvent.click(screen.getAllByText('Edit')[0])
     expect(screen.getByText('Edit Schedule')).toBeInTheDocument()
@@ -65,6 +70,7 @@ describe('CTSSchedules', () => {
   })
 
   it('edit modal shows Cancel button that closes it', () => {
+    BANK_CONFIG.deployment_mode = 'POC'
     renderPage()
     fireEvent.click(screen.getAllByText('Edit')[0])
     fireEvent.click(screen.getByText('Cancel'))
@@ -72,6 +78,7 @@ describe('CTSSchedules', () => {
   })
 
   it('edit modal shows cron expression input', () => {
+    BANK_CONFIG.deployment_mode = 'POC'
     renderPage()
     fireEvent.click(screen.getAllByText('Edit')[0])
     const input = screen.getByPlaceholderText(/e.g. 0 7 \* \* \*/i)

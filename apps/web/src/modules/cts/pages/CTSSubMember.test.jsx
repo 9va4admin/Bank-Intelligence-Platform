@@ -19,12 +19,11 @@ describe('CTSSubMember', () => {
     expect(screen.getAllByText(/Sub-Member Bank/i).length).toBeGreaterThan(0)
   })
 
-  it('shows 4 sub-member bank cards', () => {
+  it('shows a card for each sample sub-member bank', () => {
     renderSMB()
-    expect(screen.queryAllByText('Vasavi Co-op Bank').length).toBeGreaterThan(0)
-    expect(screen.queryAllByText('Kalyan Janata Sahakari Bank').length).toBeGreaterThan(0)
-    expect(screen.queryAllByText('Mehsana Urban Co-op Bank').length).toBeGreaterThan(0)
-    expect(screen.queryAllByText('Delhi Mercantile Co-op Bank').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText('Sample Sub-Member Bank 1').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText('Sample Sub-Member Bank 2').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText('Sample Sub-Member Bank 3').length).toBeGreaterThan(0)
   })
 
   it('shows KPI strip with key metrics', () => {
@@ -38,21 +37,21 @@ describe('CTSSubMember', () => {
 
   it('shows shield badge on cards', () => {
     renderSMB()
-    // SOFT_HOLD badge on Kalyan Janata (high return rate)
-    expect(screen.queryAllByText(/SOFT-HOLD/).length).toBeGreaterThan(0)
+    // WARN badge on the bank with the high return rate
+    expect(screen.queryAllByText(/WARN/).length).toBeGreaterThan(0)
     // SAFE on low-return cards
     expect(screen.queryAllByText(/SAFE/).length).toBeGreaterThan(0)
   })
 
   it('clicking a card opens detail panel', () => {
     renderSMB()
-    fireEvent.click(screen.queryAllByText('Vasavi Co-op Bank')[0])
-    expect(screen.getByText('Vasavi Co-op Bank — Detail')).toBeTruthy()
+    fireEvent.click(screen.queryAllByText('Sample Sub-Member Bank 1')[0])
+    expect(screen.getByText('Sample Sub-Member Bank 1 — Detail')).toBeTruthy()
   })
 
   it('detail panel shows bucket breakdown', () => {
     renderSMB()
-    fireEvent.click(screen.queryAllByText('Vasavi Co-op Bank')[0])
+    fireEvent.click(screen.queryAllByText('Sample Sub-Member Bank 1')[0])
     expect(screen.queryAllByText('STP Pass').length).toBeGreaterThan(0)
     expect(screen.queryAllByText('STP Return').length).toBeGreaterThan(0)
     expect(screen.queryAllByText('Eyeball').length).toBeGreaterThan(0)
@@ -60,15 +59,15 @@ describe('CTSSubMember', () => {
 
   it('detail panel shows BM email', () => {
     renderSMB()
-    fireEvent.click(screen.queryAllByText('Vasavi Co-op Bank')[0])
-    expect(screen.queryAllByText('bm.andheri@vasavi.bank').length).toBeGreaterThan(0)
+    fireEvent.click(screen.queryAllByText('Sample Sub-Member Bank 1')[0])
+    expect(screen.queryAllByText(/^bm\..+@.+\.coop$/).length).toBeGreaterThan(0)
   })
 
   it('closing detail panel hides it', () => {
     renderSMB()
-    fireEvent.click(screen.queryAllByText('Vasavi Co-op Bank')[0])
+    fireEvent.click(screen.queryAllByText('Sample Sub-Member Bank 1')[0])
     fireEvent.click(screen.getByText('✕'))
-    expect(screen.queryByText('Vasavi Co-op Bank — Detail')).toBeFalsy()
+    expect(screen.queryByText('Sample Sub-Member Bank 1 — Detail')).toBeFalsy()
   })
 
   it('shows notification log with return events', () => {
@@ -78,9 +77,9 @@ describe('CTSSubMember', () => {
     expect(screen.queryAllByText(/Tier 1/).length).toBeGreaterThan(0)
   })
 
-  it('shows soft hold active on kalyan janata card', () => {
+  it('shows no soft hold while every sample bank is under its threshold', () => {
     renderSMB()
-    expect(screen.queryAllByText(/Soft Hold Active/).length).toBeGreaterThan(0)
+    expect(screen.queryAllByText(/Soft Hold Active/).length).toBe(0)
   })
 
   it('notification log shows bucketed amounts not exact amounts', () => {

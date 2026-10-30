@@ -56,10 +56,10 @@ describe('ThemeContext', () => {
     expect(screen.getByTestId('isDark').textContent).toBe('false')
   })
 
-  it('sets data-theme attribute on documentElement', () => {
+  it('puts the dark class on the root element while dark (Tailwind dark mode)', () => {
     renderWithProvider()
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
     fireEvent.click(screen.getByRole('button'))
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 })

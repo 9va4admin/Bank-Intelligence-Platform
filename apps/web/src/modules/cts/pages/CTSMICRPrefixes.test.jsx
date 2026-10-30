@@ -39,19 +39,12 @@ describe('CTSMICRPrefixes', () => {
     expect(screen.getByText('ICICI Bank')).toBeInTheDocument()
   })
 
-  it('shows zone filter buttons', () => {
+  it('has no clearing-zone filter (a bank files to one grid; the model has no zones)', () => {
     renderPage()
-    expect(screen.getAllByText('MUMBAI').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('DELHI').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('CHENNAI').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('MUMBAI')).not.toBeInTheDocument()
+    expect(screen.queryByText('DELHI')).not.toBeInTheDocument()
   })
 
-  it('filtering by DELHI shows only Delhi entries', () => {
-    renderPage()
-    fireEvent.click(screen.getAllByText('DELHI')[0])
-    expect(screen.getByText('Punjab National Bank')).toBeInTheDocument()
-    expect(screen.queryByText('State Bank of India')).not.toBeInTheDocument()
-  })
 
   it('search filters by prefix', () => {
     renderPage()

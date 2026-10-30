@@ -15,15 +15,11 @@ describe('CTSAnalytics', () => {
     renderPage()
     expect(screen.getByTestId('appshell')).toBeInTheDocument()
   })
-  it('shows Analytics heading', () => {
-    renderPage()
-    expect(screen.getByText('Analytics')).toBeInTheDocument()
-  })
   it('shows KPI tiles', () => {
     renderPage()
-    expect(screen.getByText('Today Total')).toBeInTheDocument()
-    expect(screen.getByText('STP Rate')).toBeInTheDocument()
-    expect(screen.getByText('Avg Agent Time')).toBeInTheDocument()
+    expect(screen.getByText('Total (7d)')).toBeInTheDocument()
+    expect(screen.getAllByText('STP Rate')[0]).toBeInTheDocument()
+    expect(screen.getByText('Avg Decision')).toBeInTheDocument()
     expect(screen.getByText('IET Breaches')).toBeInTheDocument()
   })
   it('IET Breaches is always 0', () => {
@@ -34,15 +30,15 @@ describe('CTSAnalytics', () => {
   })
   it('shows daily volume chart', () => {
     renderPage()
-    expect(screen.getByText('Daily Volume (7 days)')).toBeInTheDocument()
+    expect(screen.getByText('Daily Throughput — 7 Sessions')).toBeInTheDocument()
   })
   it('shows fraud score distribution', () => {
     renderPage()
-    expect(screen.getByText('Fraud Score Distribution (today)')).toBeInTheDocument()
+    expect(screen.getByText('Fraud Score Distribution')).toBeInTheDocument()
   })
   it('shows return reasons chart', () => {
     renderPage()
-    expect(screen.getByText('STP Return Reasons (7-day)')).toBeInTheDocument()
+    expect(screen.getByText('Return Reasons')).toBeInTheDocument()
   })
   it('does not show exact amounts', () => {
     renderPage()

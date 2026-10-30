@@ -18,7 +18,7 @@ describe('CTSDraweeView', () => {
 
   it('shows outward heading', () => {
     render(<MemoryRouter><CTSDraweeView /></MemoryRouter>)
-    expect(screen.getByText(/Outward/i)).toBeTruthy()
+    expect(screen.getAllByText(/Outward/i)[0]).toBeTruthy()
   })
 
   it('shows branch names', () => {

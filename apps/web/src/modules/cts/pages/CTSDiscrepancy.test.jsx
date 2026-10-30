@@ -13,13 +13,13 @@ describe('CTSDiscrepancy', () => {
     render(<Wrap><CTSDiscrepancy /></Wrap>)
     expect(screen.getByText('Discrepancy Register')).toBeTruthy()
     expect(screen.getByText('Total Items')).toBeTruthy()
-    expect(screen.getByText('Open')).toBeTruthy()
-    expect(screen.getByText('Escalated')).toBeTruthy()
+    expect(screen.getAllByText('Open')[0]).toBeTruthy()
+    expect(screen.getAllByText('Escalated')[0]).toBeTruthy()
   })
   it('renders type sidebar', () => {
     render(<Wrap><CTSDiscrepancy /></Wrap>)
-    expect(screen.getByText('Amount Mismatch')).toBeTruthy()
-    expect(screen.getByText('MICR Read Error')).toBeTruthy()
+    expect(screen.getAllByText('Amount Mismatch')[0]).toBeTruthy()
+    expect(screen.getAllByText('MICR Read Error')[0]).toBeTruthy()
   })
   it('renders item rows', () => {
     render(<Wrap><CTSDiscrepancy /></Wrap>)

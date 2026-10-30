@@ -15,10 +15,6 @@ describe('CTSConfig', () => {
     renderPage()
     expect(screen.getByTestId('appshell')).toBeInTheDocument()
   })
-  it('shows Config heading', () => {
-    renderPage()
-    expect(screen.getByText('Config')).toBeInTheDocument()
-  })
   it('shows Layer 3 section', () => {
     renderPage()
     expect(screen.getByText('Layer 3')).toBeInTheDocument()

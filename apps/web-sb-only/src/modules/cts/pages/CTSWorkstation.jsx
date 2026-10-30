@@ -33,9 +33,9 @@ export default function CTSWorkstation() {
           ...item,
           status: localDecisions.get(item.instrument_id) ?? item.status,
         }))
-        // Auto-select first pending item when queue first loads
+        // Auto-select the first pending item of the open tab when the queue first loads (an item from the other tab is not in the list)
         if (prev.length === 0 && merged.length > 0) {
-          const firstPending = merged.find(i => i.status === 'PENDING')
+          const firstPending = merged.find(i => i.status === 'PENDING' && inScope(i))
           if (firstPending) setSelected(firstPending)
         }
         return merged
@@ -85,7 +85,7 @@ export default function CTSWorkstation() {
     setQueue((prev) =>
       prev.map((item) =>
         item.instrument_id === id
-          ? { ...item, status: action === 'CONFIRM' ? 'CONFIRMED' : 'RETURNED' }
+          ? { ...item, status: ['CONFIRM', 'APPROVE_TO_VALIDATION'].includes(action) ? 'CONFIRMED' : 'RETURNED' }
           : item
       )
     )

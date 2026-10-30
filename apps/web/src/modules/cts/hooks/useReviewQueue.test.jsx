@@ -28,14 +28,23 @@ const MOCK_ITEMS = [
 
 describe('useReviewQueue', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
+    // waitFor polls on real time; letting the fake clock follow it keeps the test from waiting forever
+    vi.useFakeTimers({ shouldAdvanceTime: true })
   })
   afterEach(() => {
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
-  it('returns mock data immediately when no token is provided', async () => {
+  it('returns the error and no data when there is no token outside demo mode', async () => {
+    const { result } = renderHook(() => useReviewQueue({ isDemo: false }))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.useMock).toBe(false)
+    expect(result.current.items).toEqual([])
+    expect(result.current.error).toBeTruthy()
+  })
+
+  it('returns mock data immediately in demo mode', async () => {
     const { result } = renderHook(() => useReviewQueue())
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.useMock).toBe(true)
@@ -49,7 +58,7 @@ describe('useReviewQueue', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1' }))
+    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1', isDemo: false }))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(result.current.useMock).toBe(false)
@@ -60,14 +69,15 @@ describe('useReviewQueue', () => {
     expect(result.current.items[0].iet_deadline).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 
-  it('falls back to mock data on fetch error when items list is empty', async () => {
+  it('shows the error and no sample data when the fetch fails outside demo mode', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('Network error'))
     vi.stubGlobal('fetch', fetchMock)
 
-    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1' }))
+    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1', isDemo: false }))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(result.current.useMock).toBe(true)
+    expect(result.current.useMock).toBe(false)
+    expect(result.current.items).toEqual([])
     expect(result.current.error).toBe('Network error')
   })
 
@@ -75,7 +85,7 @@ describe('useReviewQueue', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1' }))
+    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1', isDemo: false }))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(result.current.error).toBe('HTTP 503')
@@ -88,7 +98,7 @@ describe('useReviewQueue', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1' }))
+    const { result } = renderHook(() => useReviewQueue({ token: 'test-token-bank1', isDemo: false }))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(typeof result.current.refetch).toBe('function')
 
@@ -103,7 +113,7 @@ describe('useReviewQueue', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    renderHook(() => useReviewQueue({ token: 'test-token-bank1', pollEnabled: false }))
+    renderHook(() => useReviewQueue({ token: 'test-token-bank1', pollEnabled: false, isDemo: false }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
     // Advance past one poll interval — should not trigger another fetch

@@ -40,12 +40,13 @@ describe('CTSReconciliation', () => {
 
   it('renders KPI strip with Total Items', () => {
     renderPage()
-    expect(screen.getByText('Total Items')).toBeInTheDocument()
+    expect(screen.getAllByText('Total')[0]).toBeInTheDocument()
   })
 
   it('renders session selector', () => {
     renderPage()
-    expect(screen.getByText('Jun 19 — Session 1')).toBeInTheDocument()
+    render(<div>{captured.actions}</div>, { wrapper: ({ children }) => <MemoryRouter><ThemeProvider>{children}</ThemeProvider></MemoryRouter> })
+    expect(screen.getAllByText(/ — Session 1$/)[0]).toBeInTheDocument()
   })
 
   it('renders MATCHED status badge in table', () => {
@@ -69,8 +70,9 @@ describe('CTSReconciliation', () => {
 
   it('session dropdown changes data set', () => {
     renderPage()
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: '1' } })
-    expect(screen.getByText('Jun 18 — Session 1')).toBeInTheDocument()
+    const { rerender } = render(<div>{captured.actions}</div>, { wrapper: ({ children }) => <MemoryRouter><ThemeProvider>{children}</ThemeProvider></MemoryRouter> })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '1' } })
+    // the chosen session becomes the page subtitle
+    expect(captured.subtitle).toBe(screen.getAllByRole('option')[1].textContent)
   })
 })

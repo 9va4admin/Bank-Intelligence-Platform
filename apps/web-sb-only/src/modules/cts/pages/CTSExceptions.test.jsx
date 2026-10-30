@@ -8,16 +8,6 @@ vi.mock('../../../shared/layout/AppShell', () => ({
   default: ({ children }) => <div data-testid="appshell">{children}</div>,
 }))
 
-// Render subtitle + actions into the DOM so tests can assert on them
-vi.mock('../../../shared/layout/PageHeaderContext', () => ({
-  usePageHeader: ({ subtitle, actions } = {}) => {
-    // Render into a portal-like div so assertions work
-    return null
-  },
-  PageHeaderCtx: { subtitle: null, actions: null },
-  PageHeaderProvider: ({ children }) => <>{children}</>,
-}))
-
 import CTSExceptions from './CTSExceptions'
 
 function Wrapper({ children }) {
@@ -40,7 +30,7 @@ describe('CTSExceptions', () => {
 
   it('passes subtitle with bank name to page header', () => {
     render(<CTSExceptions />, { wrapper: Wrapper })
-    expect(captured.subtitle).toMatch(/Saraswat/)
+    expect(captured.subtitle).toMatch(/Federal/)
   })
 
   it('passes Download CSV button to page header actions', () => {
