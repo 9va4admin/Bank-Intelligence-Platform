@@ -572,8 +572,8 @@ function NameMatchCard({ inst, isInward, isDark }) {
   const accountNo   = isInward
     ? inst.account_display          // full account from MICR / NPCI file — never masked
     : (() => { const dd = inst.deposit_data || {}; return dd.depositor_account || dd.extracted_account || dd.account || '—' })()
-  const nameLabel   = isInward ? 'Drawer Name on Cheque' : 'Cheque Payee Name'
-  const acctLabel   = isInward ? "Drawer's A/C (MICR / NPCI)" : 'Credit Account'
+  const nameLabel   = isInward ? msg('UI_VALIDATIONQUEUE_DRAWER_NAME_ON_CHEQUE') : msg('UI_VALIDATIONQUEUE_CHEQUE_PAYEE_NAME')
+  const acctLabel   = isInward ? msg('UI_VALIDATIONQUEUE_DRAWER_S_A_C_MICR') : msg('UI_VALIDATIONQUEUE_CREDIT_ACCOUNT')
   const notePrefix  = isInward ? 'Drawer' : 'Payee'
 
   return (
@@ -773,7 +773,7 @@ function _scanImageUrl(instrumentId, view = 'front_bw') {
 }
 
 function adaptDecision(d) {
-  const meta = _OUTCOME_STAGE[d.decision] ?? { stage: d.decision ?? 'UNKNOWN', label: d.decision ?? 'Unknown' }
+  const meta = _OUTCOME_STAGE[d.decision] ?? { stage: d.decision ?? 'UNKNOWN', label: d.decision ?? msg('UI_VALIDATIONQUEUE_UNKNOWN') }
   const src = meta.stage === 'STP' ? 'STP' : 'LIVE'
   return {
     instrument_id: d.instrument_id,

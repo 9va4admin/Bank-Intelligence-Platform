@@ -339,10 +339,12 @@ class MessageRegistry:
 
     # ── Build ──────────────────────────────────────────────────────────────────
 
-    def build(self, output_dir: Path, redis_client: Any = None) -> None:
+    def build(self, output_dir: Path, redis_client: Any = None, browser_keys: Any = None) -> None:
         """
         Validate, push to Redis, and write messages.{locale}.json for the browser.
         redis_client overrides the instance client (useful when build CLI supplies its own).
+        browser_keys limits the browser bundle to the messages the web app can ask for (None = all). The bundle holds only each message's text,
+        compact, and leaves out empty translations: the web helper falls back to English for a key a locale does not have.
         """
         if redis_client:
             self._redis = redis_client
@@ -353,19 +355,16 @@ class MessageRegistry:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        en_entries = self._cache.get("en", {})
         for locale, entries in self._cache.items():
             payload: dict[str, Any] = {}
             for key, entry in entries.items():
-                en = en_entries.get(key)
-                payload[key] = {
-                    "text": entry.text,
-                    "severity": en.severity if en else "",
-                    "surface": en.surface if en else [],
-                    "variables": en.variables if en else [],
-                }
+                if browser_keys is not None and key not in browser_keys:
+                    continue
+                if locale != "en" and not entry.text:
+                    continue
+                payload[key] = {"text": entry.text}
             out = output_dir / f"messages.{locale}.json"
-            out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            out.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             log.info("messages.json_written", locale=locale, path=str(out), count=len(payload))
 
     # ── Validation ─────────────────────────────────────────────────────────────

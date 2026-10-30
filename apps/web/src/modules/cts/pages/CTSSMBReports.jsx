@@ -109,7 +109,7 @@ function downloadCSV(csv, filename) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const TABS = ['Daily Summary', 'Return Reason File', 'Settlement']
+const TABS = [msg('UI_SMBREPORTS_DAILY_SUMMARY'), msg('UI_SMBREPORTS_RETURN_REASON_FILE'), msg('UI_SMBREPORTS_SETTLEMENT')]
 
 function SummaryTab({ sessions, bankId, isDark }) {
   const th = {

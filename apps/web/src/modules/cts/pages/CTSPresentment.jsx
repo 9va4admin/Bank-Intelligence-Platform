@@ -500,7 +500,7 @@ function DetailPanel({ item, isDark }) {
   ]
 
   const checks = item.status !== 'IQA_FAIL' ? [
-    { label: msg('UI_COMMON_AMOUNT_WORDS_MATCH'), ok: item.amount_words_match, note: item.amount_words_match === false ? 'Words amount governs per NI Act' : null },
+    { label: msg('UI_COMMON_AMOUNT_WORDS_MATCH'), ok: item.amount_words_match, note: item.amount_words_match === false ? msg('UI_PRESENTMENT_WORDS_AMOUNT_GOVERNS_PER_NI') : null },
     { label: msg('UI_PRESENTMENT_DATE_VALIDITY'),      ok: item.date_valid },
     { label: msg('UI_PRESENTMENT_CTS_CHEQUE_VALID'),   ok: item.cts_valid },
     { label: msg('UI_PRESENTMENT_OCR_CONFIDENCE'),     ok: parseFloat(item.ocr_confidence) >= 0.85, val: `${(parseFloat(item.ocr_confidence) * 100).toFixed(0)}%` },
@@ -706,7 +706,7 @@ export default function CTSPresentment() {
           date_on_cheque: '—',
           passed: !i.iqa_fail && !i.cts_violation && !i.amount_mismatch,
           fail_code: i.iqa_fail ? 'IQA_FAIL' : i.cts_violation ? 'CTS_REJECTED' : i.amount_mismatch ? 'MISMATCH_HELD' : null,
-          fail_label: i.iqa_fail ? 'IQA Fail' : i.cts_violation ? 'CTS Violation' : i.amount_mismatch ? 'Amount Mismatch' : null,
+          fail_label: i.iqa_fail ? msg('UI_PRESENTMENT_IQA_FAIL') : i.cts_violation ? msg('UI_PRESENTMENT_CTS_VIOLATION') : i.amount_mismatch ? msg('UI_PRESENTMENT_AMOUNT_MISMATCH') : null,
           status: i.stage,
           lot_id: i.lot || null,
           seq_in_batch: 0,

@@ -274,8 +274,8 @@ function BranchRow({ branch, onSealLot, isDark }) {
   }
 
   const sessionLabel = !hasSession
-    ? 'No scan yet'
-    : `Auto-started ${session.opened_at.slice(11, 16)}`
+    ? msg('UI_HUBDASHBOARD_NO_SCAN_YET')
+    : msg('UI_HUBDASHBOARD_AUTO_STARTED', { opened_at: session.opened_at.slice(11, 16) })
 
   const sessionColor = !hasSession
     ? (isDark ? 'text-slate-500' : 'text-slate-400')

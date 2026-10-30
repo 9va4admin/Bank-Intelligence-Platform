@@ -32,7 +32,7 @@ function normaliseItem(raw) {
     reason_label: raw.reason_label ?? _reasonLabel(raw.reason),
     cbs_type: raw.cbs_type ?? 'Finacle',
     sig_specimen_available: raw.sig_match_score != null,
-    sig_specimen_label: raw.sig_specimen_label ?? 'Specimen on file',
+    sig_specimen_label: raw.sig_specimen_label ?? msg('UI_USEREVIEWQUEUE_SPECIMEN_ON_FILE'),
     principal_tag: raw.principal_tag ?? 'DIRECT',
     sub_member_name: raw.sub_member_name ?? null,
     sub_member_id: raw.sub_member_id ?? null,

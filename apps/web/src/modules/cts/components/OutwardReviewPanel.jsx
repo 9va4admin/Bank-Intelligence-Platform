@@ -77,7 +77,7 @@ function VerifyFieldRow({ label, fieldKey, meta, isDark }) {
   const [open, setOpen] = useState(false)
   const isBoolean = typeof meta?.extracted_value === 'boolean'
   const val = isBoolean
-    ? (meta.actual_value ? '⚠ DETECTED' : '✓ None')
+    ? (meta.actual_value ? msg('UI_OUTWARDREVIEWPANEL_DETECTED') : msg('UI_OUTWARDREVIEWPANEL_NONE'))
     : String(meta?.actual_value ?? meta?.extracted_value ?? '—')
 
   return (

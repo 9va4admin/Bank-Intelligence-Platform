@@ -266,15 +266,11 @@ def test_build_writes_json_files(registry, tmp_path):
     assert (tmp_path / "messages.hi.json").exists()
 
 
-def test_build_en_json_has_correct_structure(registry, tmp_path):
+def test_build_en_json_holds_just_the_text(registry, tmp_path):
+    """The browser only ever asks for a message's text (severity, surface and variables are server-side metadata), so the bundle carries only that."""
     registry.build(output_dir=tmp_path)
     data = json.loads((tmp_path / "messages.en.json").read_text())
-    entry = data["TEST_WORKFLOW_RECEIVED"]
-    assert entry["text"] == "Cheque {instrument_id} received from {bank}."
-    assert entry["severity"] == "INFO"
-    assert "UI" in entry["surface"]
-    assert "instrument_id" in entry["variables"]
-
+    assert data["TEST_WORKFLOW_RECEIVED"] == {"text": "Cheque {instrument_id} received from {bank}."}
 
 def test_build_en_json_has_all_keys(registry, tmp_path):
     registry.build(output_dir=tmp_path)
@@ -282,14 +278,11 @@ def test_build_en_json_has_all_keys(registry, tmp_path):
     assert set(data.keys()) == set(registry.keys())
 
 
-def test_build_hi_json_merges_en_metadata(registry, tmp_path):
+def test_build_hi_json_leaves_out_untranslated_messages(registry, tmp_path):
+    """An empty translation is not written: the web helper then shows the English text for that key instead of a blank."""
     registry.build(output_dir=tmp_path)
     data = json.loads((tmp_path / "messages.hi.json").read_text())
-    entry = data["TEST_WORKFLOW_RECEIVED"]
-    assert entry["text"] == ""
-    assert entry["severity"] == "INFO"
-    assert "instrument_id" in entry["variables"]
-
+    assert "TEST_WORKFLOW_RECEIVED" not in data
 
 # ── Redis-backed loading ───────────────────────────────────────────────────────
 

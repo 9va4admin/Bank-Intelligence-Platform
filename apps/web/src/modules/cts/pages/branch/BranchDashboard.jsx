@@ -155,7 +155,7 @@ export default function BranchDashboard() {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
-  const branchLabel = hasSession ? `${session.branch_name} · ${session.clearing_date}` : 'Branch Portal'
+  const branchLabel = hasSession ? `${session.branch_name} · ${session.clearing_date}` : msg('UI_BRANCHDASHBOARD_BRANCH_PORTAL_2')
 
   return (
     <AppShell>

@@ -43,7 +43,7 @@ export default function useMismatches({ branchId = null, pollEnabled = true } = 
         electronic_count: null,
         detail: Array.isArray(r.mismatch_fields)
           ? r.mismatch_fields.join(', ')
-          : 'Mismatch detected',
+          : msg('UI_USEMISMATCHES_MISMATCH_DETECTED'),
         raised_at: r.held_at,
         assigned_to: null,
       })))

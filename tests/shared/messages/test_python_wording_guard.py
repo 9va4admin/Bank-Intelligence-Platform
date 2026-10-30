@@ -17,3 +17,14 @@ def test_no_literal_wording_left_in_python_code():
     summary = json.loads(next(line for line in done.stdout.splitlines() if line.startswith("{")))
     assert summary.get("sites", 0) == 0, f"{summary.get('sites')} pieces of wording are still typed into Python code: run the converter"
     assert summary.get("failed", 0) == 0
+
+
+def test_standalone_services_do_not_depend_on_the_shared_package():
+    """sig_detector and eeh ship on their own: their container image / edge install holds only their own files, so importing shared.messages
+    stops them starting (an automatic conversion once did exactly that). Their wording stays in their own code."""
+    offenders = []
+    for app in ("sig_detector", "eeh", "ai_server", "ej_ingestion"):
+        for path in (ROOT / "apps" / app).rglob("*.py"):
+            if "shared.messages" in path.read_text(encoding="utf-8", errors="ignore"):
+                offenders.append(str(path.relative_to(ROOT)))
+    assert offenders == []

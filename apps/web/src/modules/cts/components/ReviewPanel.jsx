@@ -77,7 +77,7 @@ function SourceBadge({ source, isDark }) {
 function VerifyFieldRow({ label, fieldKey, meta, isDark }) {
   const [open, setOpen] = useState(false)
   const isBoolean = typeof meta?.extracted_value === 'boolean'
-  const val = isBoolean ? (meta.actual_value ? '⚠ DETECTED' : '✓ None') : String(meta?.actual_value ?? meta?.extracted_value ?? '—')
+  const val = isBoolean ? (meta.actual_value ? msg('UI_OUTWARDREVIEWPANEL_DETECTED') : msg('UI_OUTWARDREVIEWPANEL_NONE')) : String(meta?.actual_value ?? meta?.extracted_value ?? '—')
   return (
     <div className="flex flex-col relative">
       <div className="flex items-center gap-1">
@@ -335,7 +335,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
         <div className="flex items-center gap-3 py-1.5">
           {[
             { label: 'OCR',   pct: item.ocr_confidence,                      bar: item.ocr_confidence >= 0.92 ? 'bg-emerald-500' : item.ocr_confidence >= 0.80 ? 'bg-amber-400' : 'bg-red-400' },
-            { label: msg('UI_REVIEWPANEL_SIG'),   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
+            { label: msg('UI_REVIEWPANEL_SIG'),   pct: item.sig_match_score ?? 0,                 display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : msg('UI_REVIEWPANEL_N_A'), bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400' },
             { label: msg('UI_COMMON_FRAUD'), pct: item.fraud_score,                          bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500' },
             { label: 'IET',   pct: ietPct, display: msg('UI_REVIEWPANEL_M', { minsLeft }),           bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400' },
           ].map(({ label, pct, bar, display }) => (
@@ -384,7 +384,7 @@ export default function ReviewPanel({ item, onDecision, isDark, readOnly = false
             <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'OCR',       val: `${Math.round(item.ocr_confidence * 100)}%`,       sub: 'confidence', color: th.heading },
-                { label: msg('UI_COMMON_SIGNATURE'), val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : 'vault miss', color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
+                { label: msg('UI_COMMON_SIGNATURE'), val: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A', sub: item.sig_match_score != null ? 'match' : msg('UI_REVIEWPANEL_VAULT_MISS'), color: item.sig_match_score == null ? 'text-purple-400' : item.sig_match_score < 0.70 ? 'text-red-400' : 'text-emerald-400' },
                 { label: msg('UI_COMMON_FRAUD'),     val: `${Math.round(item.fraud_score * 100)}%`,           sub: msg('UI_REVIEWPANEL_RISK_SCORE'),  color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
               ].map(({ label, val, sub, color }) => (
                 <div key={label} className={`rounded-xl p-3 text-center ${th.glass}`}>

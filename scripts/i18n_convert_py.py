@@ -36,6 +36,9 @@ SKIP_CALLS = {"Field", "Query", "Path", "Body", "Header", "Depends", "APIRouter"
 TECH_KWARGS = {"sql", "query", "prompt", "system", "system_prompt", "content", "url", "path", "host", "key", "event", "event_type", "topic",
                "queue", "task_queue", "id", "workflow_id", "model", "regex", "pattern", "mode", "method", "media_type", "encoding", "name_prefix"}
 SQLISH = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|FROM|WHERE|AND|OR|ORDER)\b|\b(FROM|WHERE|JOIN|ILIKE)\b.*\$\d|WorkflowType\s*=|^You are |^Return only|^\s*\{|\n\n|^event:|^data:|^:\s|^(Bearer|Basic|attachment|inline)\b|^(application|text|multipart)/|^\s*<|^\s*[\[\(\d]")
+# Services that ship on their own, without the repo's `shared` package (their image or edge install holds only their own files). They cannot
+# import shared.messages, so their text stays in their own code.
+STANDALONE_APPS = ("apps/sig_detector/", "apps/eeh/", "apps/ai_server/", "apps/ej_ingestion/", "apps/indic_ocr/")
 SKIP_FILES = ("apps/api/dev_auth_server.py", "apps/api/routers/demo_cloud_extract.py", "modules/cts/demo/pipeline.py")
 HAS_WORD = re.compile(r"[A-Za-z]{2,}")
 
@@ -87,6 +90,8 @@ def tracked_files():
         if not f.startswith(("apps/", "modules/", "shared/")):
             continue
         if re.search(r"(^|/)(tests?|\.venv[^/]*|site-packages|indic_ocr|migrations)(/|$)", f) or f.startswith("shared/messages/"):
+            continue
+        if f.startswith(STANDALONE_APPS):
             continue
         if FILTERS and not any(x in f for x in FILTERS):
             continue

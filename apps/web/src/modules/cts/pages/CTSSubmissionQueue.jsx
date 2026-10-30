@@ -664,7 +664,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'RETURN', reason: reason || 'Return requested by ops reviewer' }),
+        body: JSON.stringify({ action: 'RETURN', reason: reason || msg('UI_SUBMISSIONQUEUE_RETURN_REQUESTED_BY_OPS_REVIEWER') }),
       })
       if (!res.ok) throw new Error(msg('UI_SUBMISSIONQUEUE_RETURN_FAILED'))
       return res.json()

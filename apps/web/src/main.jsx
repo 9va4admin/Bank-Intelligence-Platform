@@ -9,7 +9,7 @@ const queryClient = new QueryClient()
 
 // Screens take their wording from the message bundle, and some read it when their module loads. So the bundle is loaded first and the
 // app (and with it every screen) is imported only afterwards.
-initMessages('en').finally(async () => {
+initMessages().finally(async () => {
   const { default: App } = await import('./App.jsx')
   createRoot(document.getElementById('root')).render(
     <StrictMode>

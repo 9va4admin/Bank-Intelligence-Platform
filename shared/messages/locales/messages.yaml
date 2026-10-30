@@ -34552,3 +34552,371 @@ PLATFORM_ASTRA_CTS_SHIFT_SUMMARY:
   variables: []
   en: "ASTRA CTS — Shift summary"
   hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# SCREEN WORDING — generated from the web app by apps/web/scripts/i18n/convert.mjs
+# ══════════════════════════════════════════════════════════════════
+
+UI_LOGINLOG_TIME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Time"
+  hi: ""
+
+UI_LOGINLOG_EVENT_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Event"
+  hi: ""
+
+UI_LOGINLOG_IP_HASH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "IP (hash)"
+  hi: ""
+
+UI_LOGINLOG_DEVICE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Device"
+  hi: ""
+
+UI_LOGINLOG_IMMUDB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Immudb"
+  hi: ""
+
+UI_FRAUDGAUGE_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "REVIEW"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "⚠ DETECTED"
+  hi: ""
+
+UI_OUTWARDREVIEWPANEL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "✓ None"
+  hi: ""
+
+UI_REVIEWPANEL_N_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "N/A"
+  hi: ""
+
+UI_REVIEWPANEL_VAULT_MISS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "vault miss"
+  hi: ""
+
+UI_USEMISMATCHES_MISMATCH_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mismatch detected"
+  hi: ""
+
+UI_USEREVIEWQUEUE_SPECIMEN_ON_FILE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Specimen on file"
+  hi: ""
+
+UI_AGENCYCC_SB_CONNECTIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SB Connections"
+  hi: ""
+
+UI_AGENCYCC_CLEARING_SESSIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Clearing Sessions"
+  hi: ""
+
+UI_AGENCYCC_INWARD_RELAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Inward Relay"
+  hi: ""
+
+UI_AGENCYCC_SMB_PUSH_SESSIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB Push Sessions"
+  hi: ""
+
+UI_DEMOPIPELINE_ACCEPTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Accepted"
+  hi: ""
+
+UI_DEMOPIPELINE_RETURNED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Returned"
+  hi: ""
+
+UI_DISCREPANCY_MICR_READS_OCR_READS:
+  severity: INFO
+  surface: [UI]
+  variables: [amt1, amt2]
+  en: "MICR reads ₹{amt1}, OCR reads ₹{amt2}"
+  hi: ""
+
+UI_DISCREPANCY_MICR_BAND_UNREADABLE_AT_POSITION:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "MICR band unreadable at position {value}"
+  hi: ""
+
+UI_DISCREPANCY_PHYSICAL_ELECTRONIC_15:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Physical: {value}, Electronic: 15"
+  hi: ""
+
+UI_DISCREPANCY_CHEQUE_DATED_MONTHS_AGO:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Cheque dated {value} months ago"
+  hi: ""
+
+UI_DISCREPANCY_CHEQUE_DATED_DAYS_IN_FUTURE:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Cheque dated {value} days in future"
+  hi: ""
+
+UI_DISCREPANCY_FIGURES_WORDS_DIFFER_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [amt1, value]
+  en: "Figures: ₹{amt1}, Words differ by ₹{value}"
+  hi: ""
+
+UI_DISCREPANCY_INSTRUMENT_ALREADY_PRESENTED_ON:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Instrument already presented on {value}"
+  hi: ""
+
+UI_DISCREPANCY_RECEIVED_AT_AWAITING_ASSIGNMENT:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Received at {value}, awaiting assignment"
+  hi: ""
+
+UI_DISCREPANCY_FILED_FOR_MANUAL_PROCESSING_EXTENSIO:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Filed for manual processing — extension item ref {value}"
+  hi: ""
+
+UI_EXCEPTIONS_ALL_CLEAR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All clear"
+  hi: ""
+
+UI_EXCEPTIONS_AUTO_RETURN_BLOCKED_HUMAN_REQUIRED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Auto-return blocked — human required"
+  hi: ""
+
+UI_EXCEPTIONS_NO_VAULT_MISSES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No vault misses"
+  hi: ""
+
+UI_EXCEPTIONS_AVG_QUEUE_FRAUD:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "Avg queue fraud: {value}%"
+  hi: ""
+
+UI_EXCEPTIONS_WITHIN_THRESHOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Within threshold"
+  hi: ""
+
+UI_EXCEPTIONS_SPONSOR_BANK_NOTIFICATION_ON_RETURN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sponsor bank notification on return"
+  hi: ""
+
+UI_EXCEPTIONS_NONE_IN_QUEUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "None in queue"
+  hi: ""
+
+UI_HUBDASHBOARD_NO_SCAN_YET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No scan yet"
+  hi: ""
+
+UI_HUBDASHBOARD_AUTO_STARTED:
+  severity: INFO
+  surface: [UI]
+  variables: [opened_at]
+  en: "Auto-started {opened_at}"
+  hi: ""
+
+UI_PRESENTMENT_WORDS_AMOUNT_GOVERNS_PER_NI:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Words amount governs per NI Act"
+  hi: ""
+
+UI_PRESENTMENT_IQA_FAIL:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "IQA Fail"
+  hi: ""
+
+UI_PRESENTMENT_CTS_VIOLATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CTS Violation"
+  hi: ""
+
+UI_PRESENTMENT_AMOUNT_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Amount Mismatch"
+  hi: ""
+
+UI_RECONCILIATION_NO_SESSIONS_AVAILABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No sessions available"
+  hi: ""
+
+UI_SMBREPORTS_DAILY_SUMMARY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Daily Summary"
+  hi: ""
+
+UI_SMBREPORTS_RETURN_REASON_FILE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Return Reason File"
+  hi: ""
+
+UI_SMBREPORTS_SETTLEMENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Settlement"
+  hi: ""
+
+UI_SCHEDULES_PAUSED_WILL_NOT_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Paused — will not run"
+  hi: ""
+
+UI_SUBMISSIONQUEUE_RETURN_REQUESTED_BY_OPS_REVIEWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Return requested by ops reviewer"
+  hi: ""
+
+UI_VALIDATIONQUEUE_DRAWER_NAME_ON_CHEQUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Drawer Name on Cheque"
+  hi: ""
+
+UI_VALIDATIONQUEUE_CHEQUE_PAYEE_NAME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque Payee Name"
+  hi: ""
+
+UI_VALIDATIONQUEUE_DRAWER_S_A_C_MICR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Drawer's A/C (MICR / NPCI)"
+  hi: ""
+
+UI_VALIDATIONQUEUE_CREDIT_ACCOUNT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Credit Account"
+  hi: ""
+
+UI_VALIDATIONQUEUE_UNKNOWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unknown"
+  hi: ""
+
+UI_BRANCHDASHBOARD_BRANCH_PORTAL_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branch Portal"
+  hi: ""

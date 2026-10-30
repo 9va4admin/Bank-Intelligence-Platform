@@ -625,8 +625,8 @@ export default function CTSDemoPipeline() {
           <div className={`shrink-0 px-6 py-2.5 border-b ${th.divider} flex items-center gap-8`}>
             {[
               { label: uiMsg('UI_COMMON_PROCESSING'), val: processing, color: 'text-amber-400' },
-              { label: phase === 'drawee' ? 'Confirmed' : 'Accepted', val: success, color: 'text-emerald-400' },
-              { label: phase === 'drawee' ? 'Returned'  : 'Rejected',  val: failed,  color: 'text-red-400'     },
+              { label: phase === 'drawee' ? uiMsg('UI_SUBMISSIONQUEUE_CONFIRMED') : uiMsg('UI_DEMOPIPELINE_ACCEPTED'), val: success, color: 'text-emerald-400' },
+              { label: phase === 'drawee' ? uiMsg('UI_DEMOPIPELINE_RETURNED')  : uiMsg('UI_BRANCHMISMATCHQUEUE_REJECTED'),  val: failed,  color: 'text-red-400'     },
               { label: uiMsg('UI_COMMON_TOTAL'), val: displayItems.length, color: isDark ? 'text-slate-300' : 'text-slate-700' },
             ].map(k => (
               <div key={k.label} className="flex items-baseline gap-2">

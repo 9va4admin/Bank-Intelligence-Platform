@@ -336,7 +336,7 @@ export default function CTSSchedules() {
                 {[
                   { label: msg('UI_SCHEDULES_CRON'), value: s.cron, sub: s.cron_human, mono: true },
                   { label: msg('UI_SCHEDULES_LAST_RUN'), value: fmtDate(s.last_run_at), sub: <RunStatusPill s={s.last_run_status} isDark={isDark} /> },
-                  { label: msg('UI_SCHEDULES_NEXT_RUN'), value: fmtDate(s.next_run_at), sub: s.status === 'PAUSED' ? 'Paused — will not run' : null },
+                  { label: msg('UI_SCHEDULES_NEXT_RUN'), value: fmtDate(s.next_run_at), sub: s.status === 'PAUSED' ? msg('UI_SCHEDULES_PAUSED_WILL_NOT_RUN') : null },
                   { label: msg('UI_SCHEDULES_WORKFLOW'), value: s.workflow, sub: <span className="font-mono text-[10px]">{s.task_queue.replace('bank001', '{bank_id}')}</span>, mono: true },
                 ].map(({ label, value, sub, mono }) => (
                   <div key={label} className="px-5 py-3">

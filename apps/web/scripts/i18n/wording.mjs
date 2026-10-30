@@ -191,12 +191,21 @@ export function findWording(source, filename = 'file.jsx') {
       if (callee && DISPLAY_CALLS.test(callee) && n.arguments[0] && /^(StringLiteral|TemplateLiteral)$/.test(n.arguments[0].type)) {
         addLiteralSite(path, n.arguments[0], 'display')
       }
-      // ['A', 'B', 'C'].map(...) rendered as headings / options
-      if (n.callee.type === 'MemberExpression' && !n.callee.computed && n.callee.property.name === 'map' && n.callee.object.type === 'ArrayExpression') {
-        const arr = n.callee.object
+      // ['A', 'B', cond && 'C'].filter(Boolean).map(item => <th>{item}</th>): a list of labels rendered as visible text
+      if (n.callee.type === 'MemberExpression' && !n.callee.computed && n.callee.property.name === 'map') {
+        let obj = n.callee.object
+        while (obj.type === 'CallExpression' && obj.callee.type === 'MemberExpression' && obj.callee.property.name === 'filter') obj = obj.callee.object
         const inJsx = path.findParent(p => p.isJSXExpressionContainer() || p.isJSXAttribute())
-        if (inJsx && arr.elements.length && arr.elements.every(e => e && e.type === 'StringLiteral')) {
-          arr.elements.forEach(e => { if (HAS_WORD.test(e.value)) addLiteralSite(path, e, 'list') })
+        if (inJsx && obj.type === 'ArrayExpression' && obj.elements.length) {
+          const label = (e) => e && (e.type === 'StringLiteral' ? e : e.type === 'LogicalExpression' && e.operator === '&&' && e.right.type === 'StringLiteral' ? e.right : null)
+          const ok = obj.elements.every(e => e && (label(e) || (e.type === 'StringLiteral')))
+          const cb = n.arguments[0]
+          const param = cb && /Function/.test(cb.type) ? cb.params[0] : null
+          const cbPath = path.get('arguments.0')
+          const shownOnly = param && param.type === 'Identifier' && displayOnly(cbPath.scope.getBinding(param.name)?.referencePaths ?? [])
+          if (ok && shownOnly) {
+            obj.elements.forEach(e => { const l = label(e); if (l && HAS_WORD.test(l.value)) addLiteralSite(path, l, 'list') })
+          }
         }
       }
     },
@@ -217,9 +226,47 @@ export function findWording(source, filename = 'file.jsx') {
       const varName = parent.type === 'VariableDeclarator' && parent.id.type === 'Identifier' ? parent.id.name : null
       const headerish = (attrName && /^(head|headers|columns|cols|headings|labels|titles)$/i.test(attrName)) ||
                         (varName && /(HEAD|HEADER|COLUMN|HEADING|TITLES|LABELS)S?$/i.test(varName))
-      if (headerish) n.elements.forEach(e => { if (HAS_WORD.test(e.value)) addLiteralSite(path, e, 'list') })
+      if (headerish) { n.elements.forEach(e => { if (HAS_WORD.test(e.value)) addLiteralSite(path, e, 'list') }); return }
+      // any other const array of labels: convert when every use is `X.map(item => ...item as visible text only)`
+      if (varName && n.elements.length >= 2 && n.elements.every(e => HAS_WORD.test(e.value))) {
+        const binding = path.scope.getBinding(varName)
+        const refs = binding?.referencePaths ?? []
+        const ok = refs.length > 0 && refs.every(ref => {
+          const m = ref.parent
+          if (m.type !== 'MemberExpression' || m.object !== ref.node || m.property.name !== 'map') return false
+          const call = ref.parentPath.parent
+          if (call.type !== 'CallExpression' || call.callee !== m) return false
+          const cbPath = ref.parentPath.parentPath.get('arguments.0')
+          const param = cbPath.node?.params?.[0]
+          if (!param || param.type !== 'Identifier') return false
+          return displayOnly(cbPath.scope.getBinding(param.name)?.referencePaths ?? [])
+        })
+        if (ok) n.elements.forEach(e => addLiteralSite(path, e, 'list'))
+      }
     },
   })
+
+  // A reference is "display only" when the value ends up as visible text and nothing else: a JSX child ({x}), a key, a wording attribute,
+  // or inside a template literal that is itself one of those. Anything else (a comparison, a call, a click handler) means the value is also
+  // logic, and replacing it with a translated label would break the logic.
+  function isDisplayRef(ref) {
+    let cur = ref
+    while (cur.parent && (cur.parent.type === 'TemplateLiteral' || cur.parent.type === 'ParenthesizedExpression')) cur = cur.parentPath
+    const p = cur.parent
+    if (p.type !== 'JSXExpressionContainer') return false
+    const holder = cur.parentPath.parent
+    if (holder.type === 'JSXElement' || holder.type === 'JSXFragment') return true
+    return holder.type === 'JSXAttribute' && (holder.name.name === 'key' || WORDING_ATTRS.has(holder.name.name))
+  }
+  function displayOnly(refs) { return refs.length > 0 && refs.every(isDisplayRef) }
+
+  // X.map(item => <th>{item}</th>): every use of `item` is display only
+  function mapCallbackIsDisplayOnly(mapCall) {
+    const cb = mapCall.arguments[0]
+    if (!cb || !/Function/.test(cb.type) || !cb.params[0] || cb.params[0].type !== 'Identifier') return false
+    const scopePath = mapCall._path
+    return scopePath ? displayOnly((scopePath.get('arguments.0').scope.getBinding(cb.params[0].name)?.referencePaths) ?? []) : false
+  }
 
   // A string inside a ternary / logical chain that ends in a JSX child, a wording attribute or a returned label.
   function reachedByExpression(path) {
@@ -244,6 +291,17 @@ export function findWording(source, filename = 'file.jsx') {
         if (node.type === 'StringLiteral' && !HAS_WORD.test(text) && !/^[A-Za-z]$/.test(text.trim() || '0')) return
         if (isChild || plausible(text)) addLiteralSite(path, node, 'expr', { wrap: 'expr', force: isChild })
       }
+      return
+    }
+    // const label = cond ? 'Enabled' : 'Not enabled'  -- when `label` is only ever shown;  { label: cond ? 'A' : 'B' }
+    if (chain > 0 && parent.type === 'VariableDeclarator' && parent.id.type === 'Identifier') {
+      const refs = cur.scope.getBinding(parent.id.name)?.referencePaths ?? []
+      if (displayOnly(refs)) addLiteralSite(path, node, 'expr', { force: true })
+      return
+    }
+    if (chain > 0 && parent.type === 'ObjectProperty' && !parent.computed) {
+      const k = parent.key.type === 'Identifier' ? parent.key.name : parent.key.value
+      if (k && isWordingKey(k)) addLiteralSite(path, node, 'expr')
       return
     }
     if (chain === 0 && parent.type !== 'ReturnStatement' && !(parent.type === 'ArrowFunctionExpression' && parent.body === cur.node)) return

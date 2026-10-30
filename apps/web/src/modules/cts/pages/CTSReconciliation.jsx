@@ -371,7 +371,7 @@ export default function CTSReconciliation() {
   }
 
   usePageHeader({
-    subtitle: session?.label ?? 'No sessions available',
+    subtitle: session?.label ?? msg('UI_RECONCILIATION_NO_SESSIONS_AVAILABLE'),
     actions: (
       <div className="flex items-center gap-3">
         <select

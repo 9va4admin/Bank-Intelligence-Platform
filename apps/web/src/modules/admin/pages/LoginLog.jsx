@@ -318,7 +318,7 @@ export default function LoginLog() {
           <table className="w-full text-xs">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['Time', 'User', isSBViewer && 'Bank', 'Event', 'IP (hash)', 'Device', 'Immudb', ''].filter(Boolean).map(h => (
+                {[msg('UI_LOGINLOG_TIME'), msg('UI_APPSHELL_USER'), isSBViewer && msg('UI_VAULTUPLOAD_BANK'), msg('UI_LOGINLOG_EVENT_2'), msg('UI_LOGINLOG_IP_HASH'), msg('UI_LOGINLOG_DEVICE'), msg('UI_LOGINLOG_IMMUDB'), ''].filter(Boolean).map(h => (
                   <th key={h} className={`px-4 py-3 text-left font-medium ${th.muted}`}>{h}</th>
                 ))}
               </tr>

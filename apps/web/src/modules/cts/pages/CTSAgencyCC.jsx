@@ -379,7 +379,7 @@ export default function CTSAgencyCC() {
   const exceptionSessions = SESSIONS_DATA.filter(s => s.status === 'EXCEPTION').length
   const activeSBs = SB_CONNECTIONS.filter(c => c.is_active).length
 
-  const TABS = ['SB Connections', 'Clearing Sessions', 'Inward Relay', 'SMB Push Sessions']
+  const TABS = [msg('UI_AGENCYCC_SB_CONNECTIONS'), msg('UI_AGENCYCC_CLEARING_SESSIONS'), msg('UI_AGENCYCC_INWARD_RELAY'), msg('UI_AGENCYCC_SMB_PUSH_SESSIONS')]
 
   const PUSH_OUTCOME_D = {
     VAULT_UPDATED:     'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
