@@ -24,7 +24,6 @@ const RBI_CODE_MAP = {
 function getRbiCode(reason) { return RBI_CODE_MAP[reason] || RBI_CODE_MAP['DEFAULT'] }
 
 // SESSION_ID built dynamically inside component using bankIfsc
-const CLEARING_ZONE = 'MUMBAI'
 
 // SHAP feature contributions — positive = raises fraud score, negative = lowers it
 // Values in [-1, +1] range — XGBoost TreeExplainer output
@@ -249,7 +248,6 @@ function buildRrfXml(returns, sessionMeta) {
   <Header>
     <BankIFSC>${sessionMeta.bank_ifsc}</BankIFSC>
     <SessionID>${sessionMeta.session_id}</SessionID>
-    <ClearingZone>${sessionMeta.clearing_zone}</ClearingZone>
     <GeneratedAt>${now}</GeneratedAt>
     <TotalReturns>${returns.length}</TotalReturns>
     <FiledWithinIETCount>${filedCount}</FiledWithinIETCount>
@@ -460,7 +458,6 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
         <div className={`shrink-0 px-5 py-2 border-b ${th.divider} flex gap-6 text-[11px] ${th.muted}`}>
           <span>{msg('UI_DECISIONSLOG_BANK_2')} <span className="font-mono font-semibold">{sessionMeta.bank_ifsc}</span></span>
           <span>{msg('UI_DECISIONSLOG_SESSION_3')} <span className="font-mono">{sessionMeta.session_id}</span></span>
-          <span>{msg('UI_DECISIONSLOG_ZONE')} <span className="font-mono">{sessionMeta.clearing_zone}</span></span>
           <span className={th.ngchReady}>{msg('UI_DECISIONSLOG_NGCH_READY_HSM_SIGN_PENDING_2')}</span>
         </div>
         <pre className={`flex-1 overflow-auto text-[10px] font-mono p-4 rounded-b-2xl border-t ${th.code} leading-relaxed`}>{xml}</pre>
@@ -478,7 +475,6 @@ export default function CTSDecisionsLog() {
     bank_ifsc:     bankIfsc,
     bank_name:     bankName,
     session_id:    sessionId,
-    clearing_zone: CLEARING_ZONE,
     generated_at:  new Date().toISOString(),
   }
   const [filter,   setFilter]   = useState('All')
@@ -543,7 +539,7 @@ export default function CTSDecisionsLog() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
 
   usePageHeader({
-    subtitle: msg('UI_DECISIONSLOG_SESSION_4', { session_id: sessionMeta.session_id, bank_name: sessionMeta.bank_name, clearing_zone: sessionMeta.clearing_zone }),
+    subtitle: msg('UI_DECISIONSLOG_SESSION_2', { session_id: sessionMeta.session_id, bank_name: sessionMeta.bank_name }),
     actions: (
       <div className="flex items-center gap-2">
         {returned.length > 0 && (

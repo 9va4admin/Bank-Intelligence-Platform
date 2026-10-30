@@ -71,7 +71,7 @@ const STATE_TO_PU = {
 }
 
 const PU_OPTIONS_BY_BANK = {
-  'federal-bank':   [{ id: 'SOUTH-MAIN', label: uiMsg('UI_BRANCHMASTER_SOUTH_ZONE_PU') }, { id: 'WEST-MAIN', label: uiMsg('UI_BRANCHMASTER_WEST_ZONE_PU') }, { id: 'NORTH-MAIN', label: uiMsg('UI_BRANCHMASTER_NORTH_ZONE_PU') }, { id: 'EAST-MAIN', label: uiMsg('UI_BRANCHMASTER_EAST_ZONE_PU') }],
+  'federal-bank':   [{ id: 'SOUTH-MAIN', label: uiMsg('UI_BRANCHMASTER_SOUTH_PU') }, { id: 'WEST-MAIN', label: uiMsg('UI_BRANCHMASTER_WEST_PU') }, { id: 'NORTH-MAIN', label: uiMsg('UI_BRANCHMASTER_NORTH_PU') }, { id: 'EAST-MAIN', label: uiMsg('UI_BRANCHMASTER_EAST_PU') }],
   'saraswat-coop':  [{ id: 'PU-MUM-01', label: uiMsg('UI_BRANCHMASTER_MUMBAI_PU_01') }, { id: 'PU-MUM-02', label: uiMsg('UI_BRANCHMASTER_MUMBAI_PU_02') }, { id: 'PU-PUN-01', label: uiMsg('UI_BRANCHMASTER_PUNE_PU_01') }],
   'central-bank-of-india': [{ id: 'CBIN-PU-MUMBAI', label: uiMsg('UI_BRANCHMASTER_MUMBAI_PROCESSING_UNIT') }, { id: 'CBIN-PU-DELHI', label: uiMsg('UI_BRANCHMASTER_DELHI_PROCESSING_UNIT') }, { id: 'CBIN-PU-KOLKATA', label: uiMsg('UI_BRANCHMASTER_KOLKATA_PROCESSING_UNIT') }, { id: 'KBL-PU-01', label: uiMsg('UI_BRANCHMASTER_CHENNAI_PROCESSING_UNIT') }, { id: 'CBIN-PU-HYDERABAD', label: uiMsg('UI_BRANCHMASTER_HYDERABAD_PROCESSING_UNIT') }, { id: 'CBIN-PU-AHMEDABAD', label: uiMsg('UI_BRANCHMASTER_AHMEDABAD_PROCESSING_UNIT') }],
   'karnataka-bank': [{ id: 'PU-SOUTH', label: uiMsg('UI_BRANCHMASTER_SOUTH_PU') }, { id: 'PU-NORTH', label: uiMsg('UI_BRANCHMASTER_NORTH_PU') }],

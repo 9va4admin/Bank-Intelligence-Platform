@@ -238,7 +238,7 @@ function UploadZone({ files, onFiles, onLoadSamples, onStart, isDark }) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
   const th = {
-    zone:  isDark ? 'border-white/15 bg-white/3 hover:bg-white/5' : 'border-slate-300 bg-slate-50 hover:bg-slate-100',
+    dropArea: isDark ? 'border-white/15 bg-white/3 hover:bg-white/5' : 'border-slate-300 bg-slate-50 hover:bg-slate-100',
     drag:  isDark ? 'border-violet-500/60 bg-violet-900/20' : 'border-violet-400 bg-violet-50',
     card:  isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
     muted: isDark ? 'text-slate-400' : 'text-slate-500',
@@ -251,7 +251,7 @@ function UploadZone({ files, onFiles, onLoadSamples, onStart, isDark }) {
   }, [onFiles])
   return (
     <div className="flex flex-col gap-4 max-w-3xl mx-auto w-full mt-6">
-      <div className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200 ${dragging ? th.drag : th.zone}`}
+      <div className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200 ${dragging ? th.drag : th.dropArea}`}
         onDragOver={e => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}

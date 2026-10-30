@@ -17,7 +17,7 @@ kafka:
     kafka-broker-2.kafka-broker-headless.astra-platform-federal-bank.svc.cluster.local:9092
 
 # ── Clearing ─────────────────────────────────────────────────────────────────
-# Federal Bank is pan-India — all four NGCH clearing zones
+# Federal Bank is pan-India — one NGCH grid, four processing units
 
 # Federal Bank volumes: ~35,000 own inward + ~1,000 SMB inward = ~36,000/day
 max_agent_swarm_size: 500
@@ -78,7 +78,7 @@ ngch:
 deployment_mode: SB_NGCH
 
 # ── Processing Units ─────────────────────────────────────────────────────────
-# Federal Bank: 4 zone PUs — one per NGCH clearing zone
+# Federal Bank: 4 processing units (branches map to exactly one)
 pu:
   ids: [SOUTH-MAIN, WEST-MAIN, NORTH-MAIN, EAST-MAIN]
 

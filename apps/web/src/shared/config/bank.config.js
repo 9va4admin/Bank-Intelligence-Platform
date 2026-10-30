@@ -19,7 +19,6 @@ const BANK_PRESETS = {
     bank_logo:       'saraswat-logo.png',
     primary_hex:     '#1E3A8A',
     ifsc_prefix:     'SRCB',
-    clearing_zone:   'WEST',
     smbs: [
       { id: 'smb-mh-vasavi', ifsc: 'VASB0000001', name: 'Vasavi Co-operative Bank',    shortName: 'Vasavi',   city: 'Mumbai',  state: 'MH', daily_avg: 150 },
       { id: 'smb-mh-kjsb',   ifsc: 'KJSB0000001', name: 'Kalyan Janata Sahakari Bank', shortName: 'KJSB',     city: 'Kalyan',  state: 'MH', daily_avg: 120 },
@@ -35,7 +34,6 @@ const BANK_PRESETS = {
     bank_logo:       'karnataka-bank-logo-static.png',
     primary_hex:     '#6B21A8',
     ifsc_prefix:     'KARB',
-    clearing_zone:   'SOUTH',
   },
   'union-bank': {
     bank_id:         'union-bank',
@@ -45,7 +43,6 @@ const BANK_PRESETS = {
     bank_logo:       'union-bank-logo.png',
     primary_hex:     '#003087',
     ifsc_prefix:     'UBIN',
-    clearing_zone:   'WEST',
     // 10 branches across India for demo
     branches: [
       { id: 'ubin-mum-fort',  ifsc: 'UBIN0530001', name: 'Fort Branch',             city: 'Mumbai',      state: 'MH', micr: '400026001', address: '239, Vidhan Bhavan Marg, Fort, Mumbai - 400 001' },
@@ -72,7 +69,6 @@ const BANK_PRESETS = {
     bank_logo:       'central-bank-of-india-logo.png',
     primary_hex:     '#C8102E',
     ifsc_prefix:     'CBIN',
-    clearing_zone:   'WEST',
     // Sample sub-members shown on the sub-member screens in demo builds. Edit this list to change them everywhere.
     smbs: [
       { id: 'smb-demo-1', ifsc: 'SMBA0000001', name: 'Sample Sub-Member Bank 1', shortName: 'Sub-Member 1', city: 'Mumbai', state: 'MH', daily_avg: 120 },
@@ -88,7 +84,6 @@ const BANK_PRESETS = {
     bank_logo:       'federal-bank-logo.png',
     primary_hex:     '#C62828',
     ifsc_prefix:     'FDRL',
-    clearing_zone:   'SOUTH',
     // 25 UCB sub-members sponsored by Federal Bank for CTS clearing
     // Total combined outward volume: ~1,000 cheques/day
     smbs: [

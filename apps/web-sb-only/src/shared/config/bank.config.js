@@ -18,7 +18,6 @@ export const BANK_CONFIG = {
 
   // Network identity
   ifsc_prefix:   'FDRL',
-  clearing_zone: 'SOUTH',
 
   // Backend — override via .env.local
   api_base: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',

@@ -101,7 +101,7 @@ ngch:
   # REST base URL (future): secret/astra/saraswat-coop/ngch/rest_base_url (Vault)
 
 # ── Processing Units ─────────────────────────────────────────────────────────
-# Saraswat pilot: single PU covering Mumbai clearing zone.
+# Saraswat pilot: a single processing unit.
 # Expansion to multi-PU (Andheri, Borivali RPCs) after 90-day baseline.
 deployment_mode: SB_NGCH
 pu:

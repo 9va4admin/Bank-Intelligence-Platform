@@ -3,7 +3,7 @@
 # Requires astra-platform to be installed first.
 # ─────────────────────────────────────────────────────────────────────────────────────
 # Layer 1 (NON-OVERRIDABLE): iet_watchdog, exactly_once_ngch, vault_miss_action.
-# Layer 2 (BANK-CONFIGURABLE): scale, GPU profile, clearing zones.
+# Layer 2 (BANK-CONFIGURABLE): scale, GPU profile, processing units.
 #   Banks override in infra/helm/values/banks/{bank_id}/cts.yaml
 # Layer 3 (HOT-RELOAD SEEDS): threshold defaults seeded into YugabyteDB at onboarding.
 #   After onboarding, banks change these via Admin UI maker-checker — no Helm upgrade.

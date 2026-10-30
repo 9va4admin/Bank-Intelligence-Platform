@@ -5,7 +5,7 @@ Routes:
   GET    /v1/admin/users                        — list users (bank_it_admin only)
   POST   /v1/admin/users                        — create user
   GET    /v1/admin/users/{user_id}              — get user detail
-  PUT    /v1/admin/users/{user_id}              — update user (role, zone, status)
+  PUT    /v1/admin/users/{user_id}              — update user (role, processing unit, status)
   DELETE /v1/admin/users/{user_id}              — deactivate (soft delete, never hard)
   POST   /v1/admin/users/{user_id}/totp/setup   — generate TOTP secret + QR URI
   POST   /v1/admin/users/{user_id}/totp/confirm — verify first TOTP code (activates MFA)
@@ -407,9 +407,9 @@ async def _db_update_user(pool: Any, user_id: str, bank_id: str, updates: dict) 
         "display_name": "display_name",
     }
     if "pu_id" in updates and updates["pu_id"] is not None:
-        zone = updates["pu_id"]
+        pu = updates["pu_id"]
         set_clauses.append(f"pu_ids = ${idx}")
-        params.append([zone] if zone != "ALL" else [])
+        params.append([pu] if pu != "ALL" else [])
         idx += 1
     for key in ("role", "is_active", "display_name", "branch_ids"):
         if key in updates and updates[key] is not None:

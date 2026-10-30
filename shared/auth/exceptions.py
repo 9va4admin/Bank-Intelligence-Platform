@@ -3,7 +3,7 @@ class AccessDeniedError(PermissionError):
 
 
 class InsufficientScopeError(PermissionError):
-    """Raised when ops_reviewer attempts to access a clearing zone outside their scope."""
+    """Raised when ops_reviewer attempts to access a processing unit or branch outside their scope."""
 
 
 class BankIsolationError(PermissionError):

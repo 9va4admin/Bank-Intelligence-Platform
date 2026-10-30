@@ -46,7 +46,7 @@ export default function Topbar({ title }) {
             ? 'text-slate-400 border-white/10 bg-white/4'
             : 'text-slate-500 border-slate-200 bg-slate-50',
         ].join(' ')}>
-          {BANK_CONFIG.bank_short_name} · {BANK_CONFIG.clearing_zone}
+          {BANK_CONFIG.bank_short_name}
         </span>
 
         <button

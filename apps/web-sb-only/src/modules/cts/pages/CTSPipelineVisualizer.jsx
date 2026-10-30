@@ -1077,7 +1077,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
                 </div>
                 <button onClick={() => setStatModal(null)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/10 text-lg">×</button>
               </div>
-              <div className="text-[11px] text-slate-500">{msg('UI_PIPELINEVISUALIZER_SESSION_SES_0619_001_MUMBAI_2')}</div>
+              <div className="text-[11px] text-slate-500">{msg('UI_PIPELINEVISUALIZER_SESSION_SES_0619_001')}</div>
               <div className="mt-4 pt-4 border-t border-white/6 text-[11px] text-slate-600">
                 {statModal === 'ngch_ack'    && msg('UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B_2')}
                 {statModal === 'ngch_reject' && msg('UI_PIPELINEVISUALIZER_NGCH_RETURNED_ERROR_TEMPORAL_AUTO_2')}

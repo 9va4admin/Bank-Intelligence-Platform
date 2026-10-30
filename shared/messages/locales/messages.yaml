@@ -634,13 +634,6 @@ CTS_INSTRUMENT_PASSPORT:
   en: "Instrument passport recorded for {instrument_id} at bank {bank_id} — OCR engines: {ocr_engines_used}, vision: {vision_model}, fraud score: {fraud_score_range}."
   hi: ""
 
-CTS_OUT_LOT_CREATED:
-  severity: INFO
-  surface: [UI, AUDIT]
-  variables: [lot_id, zone, instrument_count]
-  en: "Lot {lot_id} created for clearing zone {zone} — {instrument_count} instruments."
-  hi: ""
-
 CTS_OUT_LOT_INSTRUMENT_ADDED:
   severity: INFO
   surface: [AUDIT]
@@ -1629,25 +1622,11 @@ AUTH_ACCESS_DENIED:
   en: "Access denied — {role} cannot perform {action} on {resource}."
   hi: ""
 
-AUTH_ZONE_ACCESS_DENIED:
-  severity: WARN
-  surface: [UI, AUDIT]
-  variables: [display_name, role, zone]
-  en: "Zone access denied — {display_name} ({role}) not authorised for clearing zone {zone}."
-  hi: ""
-
 AUTH_ROLE_CHANGED:
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
   variables: [target_user, old_role, new_role, changed_by]
   en: "Role changed for {target_user} from {old_role} to {new_role} by {changed_by}."
-  hi: ""
-
-AUTH_ZONE_SCOPE_CHANGED:
-  severity: WARN
-  surface: [AUDIT]
-  variables: [target_user, new_zones, changed_by]
-  en: "Clearing zone scope updated for {target_user} — zones: {new_zones} (changed by {changed_by})."
   hi: ""
 
 AUTH_USER_CREATED:
@@ -7481,11 +7460,11 @@ UI_BATCHSTATS_AVG:
   en: "Avg"
   hi: ""
 
-UI_BATCHSTATS_MUMBAI_CLEARING:
+UI_BATCHSTATS_CLEARING_DATE:
   severity: INFO
   surface: [UI]
   variables: [date]
-  en: "Mumbai Clearing · {date}"
+  en: "Clearing · {date}"
   hi: ""
 
 UI_BATCHSTATS_LIVE:
@@ -8643,11 +8622,11 @@ UI_COMMON_TIME:
   en: "Time"
   hi: ""
 
-UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR_ZONE_MUMBAI:
+UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR:
   severity: INFO
   surface: [UI]
   variables: [value, value2]
-  en: "IFSC: {value} · Sponsor: {value2} · Zone: MUMBAI"
+  en: "IFSC: {value} · Sponsor: {value2}"
   hi: ""
 
 UI_SMBDASHBOARDCONTENT_SMB:
@@ -9798,32 +9777,18 @@ UI_BATCHES_RETURN:
   en: "✕ RETURN"
   hi: ""
 
-UI_BRANCHMASTER_SOUTH_ZONE_PU:
+UI_BRANCHMASTER_WEST_PU:
   severity: INFO
   surface: [UI]
   variables: []
-  en: "South Zone PU"
+  en: "West PU"
   hi: ""
 
-UI_BRANCHMASTER_WEST_ZONE_PU:
+UI_BRANCHMASTER_EAST_PU:
   severity: INFO
   surface: [UI]
   variables: []
-  en: "West Zone PU"
-  hi: ""
-
-UI_BRANCHMASTER_NORTH_ZONE_PU:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "North Zone PU"
-  hi: ""
-
-UI_BRANCHMASTER_EAST_ZONE_PU:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "East Zone PU"
+  en: "East PU"
   hi: ""
 
 UI_BRANCHMASTER_MUMBAI_PU_01:
@@ -16749,11 +16714,11 @@ UI_PIPELINEVISUALIZER_EXCEPTION:
   en: "{count} Exception{value}"
   hi: ""
 
-UI_PIPELINEVISUALIZER_SESSION_SES_0619_001_MUMBAI:
+UI_PIPELINEVISUALIZER_SESSION_SES_0619_001:
   severity: INFO
   surface: [UI]
   variables: []
-  en: "Session SES-0619-001 · MUMBAI clearing · 18-Jun-2026"
+  en: "Session SES-0619-001 · 18-Jun-2026"
   hi: ""
 
 UI_PRESENTMENT_CAPTURED:
@@ -37737,27 +37702,6 @@ UI_USERMANAGEMENT_ADMIN_INCLUDES_ALL_EDIT_RIGHTS_2:
   en: "ADMIN includes all EDIT rights"
   hi: ""
 
-UI_USERMANAGEMENT_CLEARING_ZONE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Clearing Zone"
-  hi: ""
-
-UI_USERMANAGEMENT_REQUIRED_FOR_OPS_REVIEWER_ROLE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Required for ops_reviewer role"
-  hi: ""
-
-UI_USERMANAGEMENT_SELECT_ZONE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "— select zone —"
-  hi: ""
-
 UI_COMMON_ACTIVE_2:
   severity: INFO
   surface: [UI]
@@ -37903,13 +37847,6 @@ UI_USERMANAGEMENT_PERMISSION:
   surface: [UI]
   variables: []
   en: "Permission"
-  hi: ""
-
-UI_COMMON_ZONE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Zone"
   hi: ""
 
 UI_USERMANAGEMENT_LAST_LOGIN:
@@ -38262,13 +38199,6 @@ UI_BATCHSTATS_AVG_2:
   en: "Avg"
   hi: ""
 
-UI_BATCHSTATS_MUMBAI_CLEARING_2:
-  severity: INFO
-  surface: [UI]
-  variables: [date]
-  en: "Mumbai Clearing · {date}"
-  hi: ""
-
 UI_BATCHSTATS_LIVE_2:
   severity: INFO
   surface: [UI]
@@ -38498,13 +38428,6 @@ UI_CHEQUEMOCKIMAGE_CTS_2010_COMPLIANT_2:
   surface: [UI]
   variables: []
   en: "CTS-2010 Compliant"
-  hi: ""
-
-UI_CHEQUEMOCKIMAGE_MUMBAI_CLEARING_ZONE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Mumbai Clearing Zone"
   hi: ""
 
 UI_CHEQUEMOCKIMAGE_DATE_2:
@@ -39653,13 +39576,6 @@ UI_COMMON_SUB_MEMBER_BANK:
   surface: [UI]
   variables: []
   en: "Sub-Member Bank"
-  hi: ""
-
-UI_SMBDASHBOARDCONTENT_IFSC_SPONSOR_ZONE_MUMBAI_2:
-  severity: INFO
-  surface: [UI]
-  variables: [value, value2]
-  en: "IFSC: {value} · Sponsor: {value2} · Zone: MUMBAI"
   hi: ""
 
 UI_SMBDASHBOARDCONTENT_SMB_2:
@@ -42784,13 +42700,6 @@ UI_CONFIG_MAX_AGENT_SWARM_2:
   en: "Max Agent Swarm"
   hi: ""
 
-UI_CONFIG_CLEARING_ZONES:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Clearing Zones"
-  hi: ""
-
 UI_CONFIG_GPU_PROFILE_2:
   severity: INFO
   surface: [UI]
@@ -43589,25 +43498,11 @@ UI_DECISIONSLOG_SESSION_3:
   en: "Session:"
   hi: ""
 
-UI_DECISIONSLOG_ZONE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Zone:"
-  hi: ""
-
 UI_DECISIONSLOG_NGCH_READY_HSM_SIGN_PENDING_2:
   severity: INFO
   surface: [UI]
   variables: []
   en: "✓ NGCH-ready · HSM sign pending (backend)"
-  hi: ""
-
-UI_DECISIONSLOG_SESSION_4:
-  severity: INFO
-  surface: [UI]
-  variables: [session_id, bank_name, clearing_zone]
-  en: "Session: {session_id} · {bank_name} · {clearing_zone}"
   hi: ""
 
 UI_DECISIONSLOG_RRF_RETURNS_2:
@@ -47201,13 +47096,6 @@ UI_MICRPREFIXES_MICR_PREFIX_2:
   en: "MICR Prefix"
   hi: ""
 
-UI_MICRPREFIXES_GRID:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Grid"
-  hi: ""
-
 UI_MICRPREFIXES_NO_MICR_PREFIXES_MATCH_THE_2:
   severity: INFO
   surface: [UI]
@@ -47285,13 +47173,6 @@ UI_NGCHROUTING_CONDITION_2:
   en: "Condition"
   hi: ""
 
-UI_NGCHROUTING_DESTINATION_GRID:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Destination Grid"
-  hi: ""
-
 UI_NGCHROUTING_FILED_TODAY_2:
   severity: INFO
   surface: [UI]
@@ -47332,27 +47213,6 @@ UI_NGCHROUTING_EMERGENCY_ROUTING_RULE_CANNOT_BE_2:
   surface: [UI]
   variables: []
   en: "🔒 Emergency routing rule — cannot be edited. Managed by IETWatchdogWorkflow. Fires automatically at T-30s before IET deadline."
-  hi: ""
-
-UI_OPSDASHBOARD_RPC_NGCH_GATEWAY_STATUS:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "RPC — NGCH Gateway Status"
-  hi: ""
-
-UI_OPSDASHBOARD_ZONE_DEGRADED:
-  severity: WARN
-  surface: [UI]
-  variables: [count, value]
-  en: "{count} zone{value} degraded"
-  hi: ""
-
-UI_OPSDASHBOARD_IET_RISK:
-  severity: WARN
-  surface: [UI]
-  variables: [iet_risk]
-  en: "· {iet_risk} IET risk"
   hi: ""
 
 UI_OPSDASHBOARD_DOWNLOAD_URL_REQUEST_FAILED_2:
@@ -47941,13 +47801,6 @@ UI_PIPELINEVISUALIZER_EXCEPTION_4:
   surface: [UI]
   variables: [count, value]
   en: "{count} Exception{value}"
-  hi: ""
-
-UI_PIPELINEVISUALIZER_SESSION_SES_0619_001_MUMBAI_2:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Session SES-0619-001 · MUMBAI clearing · 18-Jun-2026"
   hi: ""
 
 UI_PIPELINEVISUALIZER_CHEQUES_CONFIRMED_AND_ACKNOWLEDGED_B_2:
@@ -48888,165 +48741,11 @@ UI_RFDRAWEE_COMING_SOON_DRAWEE_PROCESS_TO_2:
   en: "Coming soon — Drawee Process to be defined"
   hi: ""
 
-UI_RPCCONSOLIDATION_SAME_SIGNATURE_FINGERPRINT_SEEN_IN:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Same signature fingerprint seen in MUMBAI and DELHI within 2h"
-  hi: ""
-
-UI_RPCCONSOLIDATION_ACCOUNT_3347_PRESENTED_IN_3:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Account ****3347 presented in 3 zones — possible round-tripping"
-  hi: ""
-
-UI_RPCCONSOLIDATION_HYDERABAD_RPC_5_CHEQUES_WITHIN:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Hyderabad RPC: 5 cheques within 30s of IET deadline"
-  hi: ""
-
-UI_RPCCONSOLIDATION_REGIONAL_PROCESSING_CENTRE_CONSOLIDA:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Regional Processing Centre consolidation is available only to Sponsor Banks. Your instruments are routed through your sponsor bank's RPC."
-  hi: ""
-
-UI_RPCCONSOLIDATION_LIVE_NGCH_CONNECTIVITY_PER_ZONE:
-  severity: INFO
-  surface: [UI]
-  variables: [SESSION_DATE, CLEARING_SESSION]
-  en: "Live NGCH connectivity, per zone · {SESSION_DATE} · {CLEARING_SESSION}"
-  hi: ""
-
-UI_RPCCONSOLIDATION_RPCS_ACTIVE:
-  severity: INFO
-  surface: [UI]
-  variables: [count, count2]
-  en: "{count}/{count2} RPCs Active"
-  hi: ""
-
-UI_RPCCONSOLIDATION_IET_RISK:
-  severity: WARN
-  surface: [UI]
-  variables: []
-  en: "IET Risk"
-  hi: ""
-
-UI_RPCCONSOLIDATION_AVG_STP_RATE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Avg STP Rate"
-  hi: ""
-
-UI_RPCCONSOLIDATION_DETAIL:
-  severity: INFO
-  surface: [UI]
-  variables: [name]
-  en: "{name} — Detail"
-  hi: ""
-
-UI_RPCCONSOLIDATION_INWARD_CHEQUES:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Inward Cheques"
-  hi: ""
-
-UI_RPCCONSOLIDATION_OUTWARD_CHEQUES:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Outward Cheques"
-  hi: ""
-
-UI_RPCCONSOLIDATION_AVG_DECISION:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Avg Decision"
-  hi: ""
-
 UI_COMMON_LOTS:
   severity: INFO
   surface: [UI]
   variables: []
   en: "Lots"
-  hi: ""
-
-UI_RPCCONSOLIDATION_IFSC_PREFIX:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "IFSC Prefix"
-  hi: ""
-
-UI_RPCCONSOLIDATION_CROSS_CENTRE_INTELLIGENCE:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Cross-Centre Intelligence"
-  hi: ""
-
-UI_RPCCONSOLIDATION_SIGNALS:
-  severity: INFO
-  surface: [UI]
-  variables: [count]
-  en: "{count} signals"
-  hi: ""
-
-UI_RPCCONSOLIDATION_ZONES:
-  severity: INFO
-  surface: [UI]
-  variables: [zones, ts]
-  en: "Zones: {zones} · {ts}"
-  hi: ""
-
-UI_RPCCONSOLIDATION_SETTLEMENT_POSITION_ALL_ZONES:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Settlement Position — All Zones"
-  hi: ""
-
-UI_RPCCONSOLIDATION_RPC:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "RPC"
-  hi: ""
-
-UI_RPCCONSOLIDATION_STP:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "STP %"
-  hi: ""
-
-UI_RPCCONSOLIDATION_AVG_MS:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Avg ms"
-  hi: ""
-
-UI_RPCCONSOLIDATION_SYNC:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Sync"
-  hi: ""
-
-UI_RPCCONSOLIDATION_ALL_ZONES:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "All Zones"
   hi: ""
 
 UI_RECALL_INSTRUMENT_RECALL_ENABLES_THE_DRAWEE_2:
@@ -51791,13 +51490,6 @@ UI_SUBMEMBERBANKS_OPS_CONTACT_EMAIL_2:
   surface: [UI]
   variables: []
   en: "Ops Contact Email *"
-  hi: ""
-
-UI_SUBMEMBERBANKS_CLEARING_ZONES:
-  severity: INFO
-  surface: [UI]
-  variables: []
-  en: "Clearing Zones *"
   hi: ""
 
 UI_SUBMEMBERBANKS_INITIAL_RISK_ASSESSMENT_2:

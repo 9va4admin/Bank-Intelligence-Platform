@@ -45,10 +45,10 @@
 - All on-premises — zero cloud dependencies (regulatory + data localisation)
 - Per-bank: isolated Kubernetes namespace
 
-### 2.2 Multi-Center (Large Banks)
-- Regional Processing Centers (RPCs) per clearing zone, each connects to zone NGCH independently
-- No outward consolidation — NPCI handles cross-zone settlement
-- Central Intelligence Hub aggregates reporting; cross-center signature lookup hub-and-spoke
+### 2.2 Large Banks — Processing Units (superseded by §2.12: there are no clearing zones)
+- A bank files to a single NGCH grid; a large bank may run several processing units (PUs), each a group of branches handled together
+- No outward consolidation across PUs — they all file through the one grid
+- Central Intelligence Hub aggregates reporting; cross-PU signature lookup hub-and-spoke
 - PPS vault: always hub-and-spoke
 
 ### 2.3 MCP as Integration Standard
@@ -428,7 +428,7 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 |---|---|---|---|
 | ops_reviewer | CTS human queue | Own processing unit(s) only | None |
 | fraud_analyst | CTS analytics | Scores + SHAP, no PII | None |
-| ops_manager | CTS full | Cross-zone reports | Layer 3 |
+| ops_manager | CTS full | Cross-PU reports | Layer 3 |
 | bank_it_admin | Admin console | Infrastructure only | Layer 2 (maker-checker) |
 | compliance_officer | Audit + reports | Read-only audit trail | None |
 | rbi_examiner | Audit only (time-scoped) | Read-only, date-scoped | None |
