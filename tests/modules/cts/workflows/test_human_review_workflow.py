@@ -575,3 +575,94 @@ class TestHumanReviewRealWorkflowRun:
         assert result.outcome == "REVIEWER_RETURNED"   # workflow completes, doesn't crash
         assert len(_audit_calls) == 1                   # real decision still recorded
         assert _audit_calls[0]["event_type"] == "CTS_WF_HUMAN_RETURNED"
+
+
+# ---------------------------------------------------------------------------
+# SIP hold: a cheque the SYSTEM decided is held for a reviewer in a SIP bucket
+# ---------------------------------------------------------------------------
+
+class TestSipHold:
+    def test_input_carries_bucket_and_system_decision_with_safe_defaults(self):
+        inp = _make_input()
+        assert inp.bucket is None and inp.system_decision is None
+        sip = _make_input(bucket="SIP_SUCCESS", system_decision="CONFIRM")
+        assert sip.bucket == "SIP_SUCCESS" and sip.system_decision == "CONFIRM"
+
+    def test_system_decision_must_be_confirm_or_return(self):
+        with pytest.raises(Exception):
+            _make_input(system_decision="MAYBE")
+
+    @pytest.mark.asyncio
+    async def test_the_queue_event_carries_the_bucket_and_the_system_decision(self):
+        producer = AsyncMock()
+        await push_to_review_queue(_make_input(bucket="SIP_REJECT", system_decision="RETURN"), event_producer=producer)
+        payload = producer.publish.call_args.kwargs["payload"]
+        assert payload["bucket"] == "SIP_REJECT" and payload["system_decision"] == "RETURN"
+
+    @pytest.mark.asyncio
+    async def test_an_ordinary_review_event_has_no_system_decision(self):
+        producer = AsyncMock()
+        await push_to_review_queue(_make_input(bucket="HVC"), event_producer=producer)
+        payload = producer.publish.call_args.kwargs["payload"]
+        assert payload["bucket"] == "HVC" and "system_decision" not in payload
+
+    @pytest.mark.asyncio
+    async def test_on_timeout_the_systems_own_decision_is_filed_not_an_auto_return(self):
+        ngch, audit = _make_ngch(), AsyncMock()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(bucket="SIP_SUCCESS", system_decision="CONFIRM"),
+            ngch_adapter=ngch, audit_writer=audit, simulate_timeout=True)
+        assert res.filed_decision == "CONFIRM" and res.outcome == "SIP_AUTO_FILED" and res.timed_out is True
+        assert ngch.file_decision.call_args.kwargs["decision"] == "CONFIRM"
+        kw = audit.write.call_args.kwargs
+        assert kw["event_type"] == "CTS_WF_SIP_AUTO_FILED"
+        assert kw["payload"]["bucket"] == "SIP_SUCCESS" and kw["payload"]["system_decision"] == "CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_a_system_return_that_nobody_reviews_is_filed_as_a_return(self):
+        ngch = _make_ngch()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(bucket="SIP_REJECT", system_decision="RETURN"), ngch_adapter=ngch, simulate_timeout=True)
+        assert res.filed_decision == "RETURN" and res.outcome == "SIP_AUTO_FILED"
+
+    @pytest.mark.asyncio
+    async def test_a_reviewer_can_agree_with_the_system(self):
+        ngch, audit = _make_ngch(), AsyncMock()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(bucket="SIP_SUCCESS", system_decision="CONFIRM"),
+            ngch_adapter=ngch, audit_writer=audit, injected_decision=_make_decision("CONFIRM"))
+        assert res.outcome == "REVIEWER_CONFIRMED"
+        assert audit.write.call_args.kwargs["payload"]["overrode_system"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_reviewer_can_overrule_the_system_and_it_is_recorded(self):
+        ngch, audit = _make_ngch(), AsyncMock()
+        res = await HumanReviewWorkflow().run_with_mocks(
+            _make_input(bucket="SIP_SUCCESS", system_decision="CONFIRM"),
+            ngch_adapter=ngch, audit_writer=audit, injected_decision=_make_decision("RETURN"))
+        assert res.outcome == "REVIEWER_RETURNED" and res.filed_decision == "RETURN"
+        p = audit.write.call_args.kwargs["payload"]
+        assert p["overrode_system"] is True and p["system_decision"] == "CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_without_a_system_decision_a_timeout_still_auto_returns(self):
+        res = await HumanReviewWorkflow().run_with_mocks(_make_input(), ngch_adapter=_make_ngch(), simulate_timeout=True)
+        assert res.outcome == "TIMEOUT_AUTO_RETURNED" and res.filed_decision == "RETURN"
+
+
+class TestSipHoldRealWorkflow:
+    @pytest.mark.asyncio
+    async def test_real_run_files_the_system_decision_when_nobody_reviews_a_sip_item(self, temporal_env):
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, instrument_id = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+        inp = HumanReviewInput(instrument_id=instrument_id, bank_id=bank_id, workflow_id=f"cts-{bank_id}-{instrument_id}",
+                               context_bundle={}, iet_deadline=time.time() + 3600,
+                               bucket="SIP_SUCCESS", system_decision="CONFIRM", review_timeout_minutes=15)
+        async with Worker(temporal_env.client, task_queue=task_queue, workflows=[HumanReviewWorkflow],
+                          activities=[_fake_push_to_review_queue, _fake_file_to_ngch, _fake_write_audit],
+                          workflow_runner=UnsandboxedWorkflowRunner()):
+            result = await temporal_env.client.execute_workflow(
+                HumanReviewWorkflow.run, inp, id=f"cts-humanreview-{bank_id}-{instrument_id}", task_queue=task_queue)
+        assert result.outcome == "SIP_AUTO_FILED" and result.filed_decision == "CONFIRM" and result.timed_out is True
+        assert _ngch_calls[0]["decision"] == "CONFIRM"
+        assert _audit_calls[-1]["event_type"] == "CTS_WF_SIP_AUTO_FILED"

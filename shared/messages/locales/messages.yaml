@@ -350,6 +350,13 @@ CTS_WF_REVIEW_TIMEOUT:
   en: "Human review timed out for {instrument_id} after {elapsed_minutes} minutes — auto-returned."
   hi: ""
 
+CTS_WF_SIP_AUTO_FILED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, elapsed_minutes]
+  en: "No reviewer acted on system-processed cheque {instrument_id} within {elapsed_minutes} minutes — the system decision was filed."
+  hi: ""
+
 CTS_WF_REVIEW_IET_WARNING:
   severity: WARN
   surface: [UI, NOTIFICATION]

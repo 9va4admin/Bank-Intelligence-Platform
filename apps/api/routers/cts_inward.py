@@ -89,6 +89,34 @@ def _lock_service(redis):
     return LockService(redis_client=redis)
 
 
+async def _apply_buckets(request, ctx, lock_svc, items, cts_config, bank_id, bucket_filter):
+    """Overflow stale items to MISC, annotate each item with its bucket, and (routing on) show a reviewer only the
+    buckets an admin connected them to plus MISC. Managers and admins see every bucket."""
+    from modules.cts.allocation.allocation_service import AllocationService, bucket_allows
+    from modules.cts.allocation.subscriptions import SubscriptionStore
+
+    routing = bool(cts_config.get("bucket_routing_enabled", False))
+    subs = SubscriptionStore(getattr(request.app.state, "db_pool_cts", None),
+                             redis=getattr(request.app.state, "redis_cts", None))
+    if routing:
+        alloc = AllocationService(lock_svc, subscriptions=subs)
+        for i in items:
+            if not i.assigned_to:
+                try:
+                    await alloc.overflow_if_stale(bank_id, i.instrument_id, cts_config)
+                except Exception as exc:  # noqa: BLE001 - never fail the queue over an overflow check
+                    log.warning("cts.queue.overflow_error", instrument_id=i.instrument_id, error=str(exc))
+    metas = await lock_svc.get_item_metas(bank_id, [i.instrument_id for i in items])
+    items = [i.model_copy(update={"bucket": metas[i.instrument_id].get("bucket"),
+                                  "origin_bucket": metas[i.instrument_id].get("origin_bucket")}) for i in items]
+    if routing and ctx.role.value == "ops_reviewer":
+        mine = await subs.get_reviewer_buckets(bank_id, ctx.user_id)
+        items = [i for i in items if bucket_allows(i.bucket, mine)]
+    if bucket_filter:
+        items = [i for i in items if i.bucket == bucket_filter]
+    return items
+
+
 class QueueItem(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
@@ -108,6 +136,8 @@ class QueueItem(BaseModel):
     instrument_category: str = "CHEQUE"   # "CHEQUE" | "DEMAND_DRAFT" — from HumanReviewWorkflow memo
     drawee_name: Optional[str] = None     # account holder per CBS lookup (plain text by bank-owner decision)
     assigned_to: Optional[str] = None     # reviewer currently holding the claim, if any (allocation lock)
+    bucket: Optional[str] = None          # HVC | CA | IP | LVC | FCC | SIP_SUCCESS | SIP_REJECT | HR | MISC
+    origin_bucket: Optional[str] = None   # for MISC items: the bucket they came from
 
 
 class QueueResponse(BaseModel):
@@ -617,6 +647,7 @@ async def get_human_review_queue(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     limit: int = 50,
+    bucket: Optional[str] = None,
 ) -> QueueResponse:
     if limit > 100:
         limit = 100
@@ -674,6 +705,13 @@ async def get_human_review_queue(
     # unopened auto-assigned work when someone new has logged in (or at most once per interval).
     redis = getattr(request.app.state, "redis_cts", None)
     lock_svc = None
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if redis is not None and config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(eff_bank_id)
+        except Exception:
+            pass
     if redis is not None and ctx.role.value in ("ops_reviewer", "ops_manager"):
         from modules.cts.allocation.lock_service import LockService
         from modules.cts.allocation.allocation_service import AllocationService
@@ -686,16 +724,11 @@ async def get_human_review_queue(
         except Exception as exc:
             log.warning("cts.queue.heartbeat_failed", user_id=ctx.user_id, error=str(exc))
 
-        config_svc = getattr(request.app.state, "config_service", None)
-        cts_config: dict = {}
-        if config_svc is not None:
-            try:
-                cts_config = await config_svc.get_cts_config(eff_bank_id)
-            except Exception:
-                pass
-
         if cts_config.get("allocation_mode") in ("HYBRID", "AUTO"):
-            alloc_svc = AllocationService(lock_service=lock_svc)
+            from modules.cts.allocation.subscriptions import SubscriptionStore
+            alloc_svc = AllocationService(
+                lock_service=lock_svc,
+                subscriptions=SubscriptionStore(getattr(request.app.state, "db_pool_cts", None), redis=redis))
             try:
                 due = await lock_svc.pop_due_hybrid_pending(eff_bank_id, limit=10)
                 if due:
@@ -711,7 +744,7 @@ async def get_human_review_queue(
                             reason=result.reason,
                             bank_id=eff_bank_id,
                         )
-                        if not result.claimed and result.reason != "ALREADY_CLAIMED":
+                        if not result.claimed and result.reason not in ("ALREADY_CLAIMED", "MISC_SELF_CLAIM"):
                             # Nobody eligible right now: look again shortly rather than dropping the item.
                             await lock_svc.add_hybrid_pending(eff_bank_id, pending_id, time.time() + retry_seconds)
             except Exception as exc:
@@ -733,8 +766,10 @@ async def get_human_review_queue(
         items = [i for i in items if i.clearing_zone in zones or i.clearing_zone in ("", "UNKNOWN")]
     if redis is not None and items:
         try:
-            holders = await (lock_svc or _lock_service(redis)).get_lock_holders([i.instrument_id for i in items])
+            svc = lock_svc or _lock_service(redis)
+            holders = await svc.get_lock_holders([i.instrument_id for i in items])
             items = [i.model_copy(update={"assigned_to": holders.get(i.instrument_id)}) for i in items]
+            items = await _apply_buckets(request, ctx, svc, items, cts_config, eff_bank_id, bucket)
         except Exception as exc:
             log.warning("cts.queue.holders_fetch_failed", bank_id=eff_bank_id, error=str(exc))
 

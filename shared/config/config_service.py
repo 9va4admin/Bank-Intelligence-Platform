@@ -53,7 +53,7 @@ _OPA_CACHE_TTL_SECONDS = 1
 # NEVER reference these literals from anywhere else — they exist only so that the
 # config service can return a sane value instead of crashing with AttributeError
 # when the DB pool is None during local development.
-_ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign")
+_ALLOCATION_PREFIXES = ("cts.allocation_", "cts.hybrid_auto_assign", "cts.bucket_", "cts.sip_")
 
 _LAYER3_DEFAULTS: dict[str, Any] = {
     # ── CTS thresholds ──────────────────────────────────────────────────────────
@@ -106,6 +106,18 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.allocation_rebalance_interval_seconds": 60,  # at most one rebalance per bank per interval (joins bypass it)
     "cts.allocation_rebalance_max_moves": 20,         # cap on items moved in one rebalance
     "cts.allocation_retry_seconds": 60,               # retry delay when no eligible reviewer is available
+    # ── Buckets (modules/cts/buckets.py) and the SIP hold ──────────────────────
+    "cts.bucket_routing_enabled": False,              # True: reviewers work only the buckets an admin connected them to
+    "cts.bucket_priority": ["HVC", "CA", "IP", "FCC", "LVC"],   # which class bucket wins when a cheque fits several
+    "cts.bucket_hvc_min_amount": 500000,              # HVC: presented amount at or above this (rupees)
+    "cts.bucket_lvc_max_amount": 50000,               # LVC: presented amount below this (rupees)
+    "cts.bucket_frequent_min_cheques": 5,             # FCC: at least this many cheques on the account ...
+    "cts.bucket_frequent_window_days": 30,            # ... in this many days
+    "cts.bucket_corporate_account_types": ["CORPORATE"],                 # CA: CBS account types
+    "cts.bucket_institution_account_types": ["INSTITUTION", "GOVERNMENT"],   # IP: CBS account types
+    "cts.bucket_overflow_after_minutes": 10,          # an item nobody in its bucket can take moves to MISC after this
+    "cts.sip_review_timeout_minutes": 15,             # SIP hold (bank-wide): the system decision is filed if nobody acts
+    "cts.sip_iet_guard_minutes": 10,                  # never hold a system decision within this many minutes of its IET
     "cts.cheque_validity_days": 90,
     "cts.pps_mandatory_threshold": 500000,
     # Layer 4 business-policy rules (CLAUDE.md §2.6) — evaluated by shared.policy_engine.
@@ -526,6 +538,17 @@ class ConfigService:
             "date_implausible_age_days":         "cts.date_implausible_age_days",
             "amount_presented_tolerance":        "cts.amount_presented_tolerance",
             "date_implausible_future_days":      "cts.date_implausible_future_days",
+            # review buckets and the SIP hold (read by cheque_workflow.finalise)
+            "bucket_routing_enabled":            "cts.bucket_routing_enabled",
+            "bucket_priority":                   "cts.bucket_priority",
+            "bucket_hvc_min_amount":             "cts.bucket_hvc_min_amount",
+            "bucket_lvc_max_amount":             "cts.bucket_lvc_max_amount",
+            "bucket_frequent_min_cheques":       "cts.bucket_frequent_min_cheques",
+            "bucket_frequent_window_days":       "cts.bucket_frequent_window_days",
+            "bucket_corporate_account_types":    "cts.bucket_corporate_account_types",
+            "bucket_institution_account_types":  "cts.bucket_institution_account_types",
+            "sip_review_timeout_minutes":        "cts.sip_review_timeout_minutes",
+            "sip_iet_guard_minutes":             "cts.sip_iet_guard_minutes",
         }
         results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
         return dict(zip(key_map.keys(), results))

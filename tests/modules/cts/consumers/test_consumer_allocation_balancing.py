@@ -40,7 +40,8 @@ async def _run(envelope, redis, cfg):
 async def test_zone_and_deadline_are_remembered_in_every_mode(mode):
     redis = FakeRedis()
     await _run(_env(zone="WEST", deadline=1234.0), redis, _cfg(allocation_mode=mode))
-    assert await LockService(redis).get_item_meta(BANK, "I-1") == {"zone": "WEST", "iet_deadline": 1234.0}
+    meta = await LockService(redis).get_item_meta(BANK, "I-1")
+    assert meta["zone"] == "WEST" and meta["iet_deadline"] == 1234.0
 
 
 @pytest.mark.asyncio
@@ -97,3 +98,50 @@ async def test_hybrid_item_due_before_the_timeout_is_pulled_forward_to_the_margi
     await _run(_env(deadline=now + 33 * 60), redis, _cfg(allocation_mode="HYBRID"))
     score = redis.z[f"hybrid-pending:{BANK}"]["I-1"]
     assert now + 3 * 60 - 5 <= score <= now + 3 * 60 + 5
+
+
+# --- buckets ------------------------------------------------------------------------------------------------
+
+from modules.cts.allocation.subscriptions import SubscriptionStore  # noqa: E402
+from tests.modules.cts.allocation.fake_subs_db import FakeSubsPool  # noqa: E402
+
+
+def _env_b(iid="I-1", bucket=None, deadline=None):
+    e = _env(iid, deadline=deadline)
+    if bucket:
+        e.payload["bucket"] = bucket
+    return e
+
+
+@pytest.mark.asyncio
+async def test_the_items_bucket_and_arrival_time_are_remembered():
+    redis = FakeRedis(); before = time.time()
+    await _run(_env_b(bucket="HVC"), redis, _cfg(allocation_mode="SELF"))
+    meta = await LockService(redis).get_item_meta(BANK, "I-1")
+    assert meta["bucket"] == "HVC" and before <= meta["queued_at"] <= time.time()
+
+
+@pytest.mark.asyncio
+async def test_an_event_with_no_bucket_is_filed_under_hr():
+    redis = FakeRedis()
+    await _run(_env_b(), redis, _cfg(allocation_mode="SELF"))
+    assert (await LockService(redis).get_item_meta(BANK, "I-1"))["bucket"] == "HR"
+
+
+@pytest.mark.asyncio
+async def test_auto_with_routing_on_assigns_only_within_the_bucket():
+    redis = FakeRedis(); lock = LockService(redis); pool = FakeSubsPool()
+    subs = SubscriptionStore(pool, redis=None)
+    await subs.set_reviewer_buckets(BANK, "hv", ["HVC"], "boss"); await subs.set_reviewer_buckets(BANK, "lv", ["LVC"], "boss")
+    for who in ("hv", "lv"):
+        await lock.heartbeat_reviewer(BANK, who)
+    await handle_human_review_event(_env_b(bucket="HVC"), immudb=AsyncMock(), db=pool, redis=redis,
+                                    config_svc=_cfg(bucket_routing_enabled=True))
+    assert await lock.get_lock_holder("I-1") == "hv"
+
+
+@pytest.mark.asyncio
+async def test_a_misc_item_is_not_retried_because_people_claim_it_themselves():
+    redis = FakeRedis()
+    await _run(_env_b(bucket="MISC"), redis, _cfg(bucket_routing_enabled=True))
+    assert f"hybrid-pending:{BANK}" not in redis.z or "I-1" not in redis.z[f"hybrid-pending:{BANK}"]

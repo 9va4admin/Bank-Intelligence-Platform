@@ -205,6 +205,18 @@ layer3:
     allocation_rebalance_interval_seconds: 60   # at most one rebalance per bank per interval (a new login bypasses it)
     allocation_rebalance_max_moves: 20          # cap on items moved in one rebalance
     allocation_retry_seconds: 60                # retry delay when no eligible reviewer is available
+    # Review buckets (HVC, CA, IP, LVC, FCC, SIP_SUCCESS, SIP_REJECT, HR, MISC) and the SIP hold
+    bucket_routing_enabled: false               # true: reviewers work only the buckets an admin connected them to
+    bucket_priority: ["HVC", "CA", "IP", "FCC", "LVC"]   # which class bucket wins when a cheque fits several
+    bucket_hvc_min_amount: 500000               # HVC: presented amount at or above this (rupees)
+    bucket_lvc_max_amount: 50000                # LVC: presented amount below this (rupees)
+    bucket_frequent_min_cheques: 5              # FCC: at least this many cheques on the account ...
+    bucket_frequent_window_days: 30             # ... in this many days
+    bucket_corporate_account_types: ["CORPORATE"]                 # CA: CBS account types (plus the bank's account list)
+    bucket_institution_account_types: ["INSTITUTION", "GOVERNMENT"]   # IP: CBS account types (plus the bank's account list)
+    bucket_overflow_after_minutes: 10           # an item nobody logged in can take moves to MISC after this
+    sip_review_timeout_minutes: 15              # SIP hold (bank-wide): the system decision is filed if nobody acts
+    sip_iet_guard_minutes: 10                   # never hold a system decision within this many minutes of its IET
 
   vault:
     error_files:

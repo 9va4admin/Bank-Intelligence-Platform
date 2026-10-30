@@ -48,6 +48,7 @@ class DevStubCBSConnector(CBSConnector):
             bank_id=bank_id,
             available_balance=a.get("balance"),
             holder_name=a.get("holder") or None,
+            account_type=a.get("account_type") or None,
         )
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:

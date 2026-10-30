@@ -247,14 +247,33 @@ class LockService:
         return loads
 
     async def set_item_meta(self, bank_id: str, instrument_id: str, *, zone: str | None = None,
-                            iet_deadline: float | None = None) -> None:
+                            iet_deadline: float | None = None, bucket: str | None = None,
+                            origin_bucket: str | None = None, queued_at: float | None = None) -> None:
+        """Remember what allocation needs to know about an item. bucket / origin_bucket / queued_at are stored only
+        when given, so older callers keep exactly the old record."""
+        record = {"zone": zone, "iet_deadline": iet_deadline}
+        for key, value in (("bucket", bucket), ("origin_bucket", origin_bucket), ("queued_at", queued_at)):
+            if value is not None:
+                record[key] = value
         name = f"{_ITEM_META_KEY_PREFIX}{bank_id}"
-        await self._redis.hset(name, instrument_id, json.dumps({"zone": zone, "iet_deadline": iet_deadline}))
+        await self._redis.hset(name, instrument_id, json.dumps(record))
+        await self._redis.expire(name, _META_TTL_SECONDS)
+
+    async def update_item_meta(self, bank_id: str, instrument_id: str, **fields) -> None:
+        """Merge fields into an item's record (creating it if absent)."""
+        record = await self.get_item_meta(bank_id, instrument_id)
+        record.update({k: v for k, v in fields.items()})
+        name = f"{_ITEM_META_KEY_PREFIX}{bank_id}"
+        await self._redis.hset(name, instrument_id, json.dumps(record))
         await self._redis.expire(name, _META_TTL_SECONDS)
 
     async def get_item_meta(self, bank_id: str, instrument_id: str) -> dict:
         raw = await self._redis.hget(f"{_ITEM_META_KEY_PREFIX}{bank_id}", instrument_id)
         return json.loads(self._text(raw)) if raw else {}
+
+    async def get_item_metas(self, bank_id: str, instrument_ids: list[str]) -> dict[str, dict]:
+        """Metadata for several items (missing ones map to {})."""
+        return {i: await self.get_item_meta(bank_id, i) for i in instrument_ids}
 
     async def forget_item(self, bank_id: str, instrument_id: str) -> None:
         """The item reached a terminal state: drop every allocation record for it."""
