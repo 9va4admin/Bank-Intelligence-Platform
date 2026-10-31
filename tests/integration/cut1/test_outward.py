@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from tests.integration.cut1.conftest import TEST_BANK_ID, TEST_PEPPER, OCR_STUB_URL
+from shared.utils.instrument_uuid import to_instrument_uuid
 
 pytestmark = [pytest.mark.integration, pytest.mark.cut1]
 
@@ -155,7 +156,7 @@ class TestOutwardLotChain:
         async with cut1_db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT decision FROM cts.agent_decisions WHERE instrument_id = $1",
-                lot_id,
+                to_instrument_uuid(TEST_BANK_ID, lot_id),
             )
         assert row is not None
 
@@ -209,6 +210,6 @@ class TestOutwardLotChain:
         async with cut1_db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT decision FROM cts.agent_decisions WHERE instrument_id = $1",
-                instr_id,
+                to_instrument_uuid(TEST_BANK_ID, instr_id),
             )
         assert row is not None and row["decision"] == "STP_CONFIRM"

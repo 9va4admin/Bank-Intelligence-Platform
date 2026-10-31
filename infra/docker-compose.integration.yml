@@ -97,6 +97,21 @@ services:
       retries: 30
       start_period: 15s
 
+  # Temporal's auto-setup image has no sqlite driver (it accepts mysql8, postgres12, cassandra), so the integration stack
+  # gives it a throwaway Postgres of its own. Nothing here shares data with the dev stack.
+  temporal-db:
+    image: postgres:15-alpine
+    container_name: astra-it-temporal-db
+    networks: [astra-integration]
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   temporal:
     image: temporalio/auto-setup:1.24.2
     container_name: astra-it-temporal
@@ -104,10 +119,17 @@ services:
     networks: [astra-integration]
     ports:
       - "7234:7233"   # gRPC — Temporal SDK connects here
+    depends_on:
+      temporal-db:
+        condition: service_healthy
     environment:
-      - DB=sqlite
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-db
       - DEFAULT_NAMESPACE=default
-      - DEFAULT_NAMESPACE_RETENTION=1
+      - DEFAULT_NAMESPACE_RETENTION=24h
     # No Docker HEALTHCHECK: temporalio/auto-setup is a minimal image —
     # same approach as Immudb above. Real readiness is verified by the
     # port-open check in conftest.py + Client.connect() in the test itself.
