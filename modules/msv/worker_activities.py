@@ -130,7 +130,8 @@ async def _build_redis_client(config_service: Any) -> Any:
     try:
         import redis.asyncio as aioredis
         redis_url = await config_service.get_secret("redis.cts.url")
-        client = aioredis.from_url(redis_url, decode_responses=False)
+        from shared.config.redis_options import redis_options
+        client = aioredis.from_url(redis_url, decode_responses=False, **redis_options(config_service.get_platform))
         await client.ping()
         log.info("msv.worker.redis_client_ready")
         return client
