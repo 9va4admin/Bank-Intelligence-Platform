@@ -1159,3 +1159,19 @@ Each stage failed first; each failure was a real defect, fixed test-first:
 
 **Still NOT covered:** reconciliation (post-submission) and RRF return handling; the EEH and API-presigned entry routes into the outward workflow; the
 real NPCI batch file and a real NGCH endpoint; a real model (stub used); a real CBS account (dev fixture); lot sealing through the API route itself (SQL replicated).
+
+## 2026-10-31 (night) - `batch.py` session endpoints against the real schema
+
+`GET /v1/cts/sessions` and `/sessions/today` selected seven `cts.clearing_sessions` columns that no migration creates (`clearing_date`, `opened_at`,
+`sealed_at`, `submitted_at`, `reconciled_at`, `npci_ack_ref`, `total_instruments`). On a migrated database every query raised, and the handler swallowed
+the error and answered with hard-coded sessions, so a bank's screen would have shown plausible fake data with nothing in any log above `warning`.
+
+Fixed: both endpoints now read the real columns (`session_date`, `presentation_open_at`, `presentation_close_at`, `settlement_at`; counts from
+`cheque_instruments`, `agent_decisions`, `human_review_items`) and a database failure is `503 CTS_BATCH_DB_UNAVAILABLE`, never sample data. Run live
+against the dev Yugabyte through the real route: the session filed in the previous run appears as FILED; 3 outward cheques and 8 pending reviews counted.
+`net_settlement_paise` and `outward_returned` are now null (unknown until reconciliation exists) rather than invented.
+
+The summary, bankwise, three download (NPCI return file, MIS, settlement) and ops-dashboard endpoints were entirely hard-coded, a made-up NPCI return file
+among them. They now answer `501 CTS_BATCH_NOT_IMPLEMENTED` until built on real data. Unit tests check the SQL text for the forbidden columns, since a fake
+connection cannot notice a wrong column. Not covered: those six endpoints' real implementations; a decision-vocabulary check for inward "manual" counts
+beyond `CONFIRM`/`RETURN`.

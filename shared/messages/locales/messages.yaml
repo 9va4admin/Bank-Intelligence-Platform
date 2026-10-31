@@ -28360,6 +28360,20 @@ CTS_ACCOUNT_MISSING_FOR:
   en: "depositor account missing for {instrument_id}; the MICR band carries none"
   hi: ""
 
+API_BATCH_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Clearing session data is unavailable right now. Nothing is shown rather than showing wrong numbers."
+  hi: ""
+
+API_BATCH_NOT_IMPLEMENTED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "This report is not yet built on live data and is disabled; it does not return sample figures."
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]
