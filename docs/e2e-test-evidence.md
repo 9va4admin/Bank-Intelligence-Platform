@@ -1131,3 +1131,31 @@ a lot. Not fixed: it needs a decision on where the outward account hash comes fr
 
 **Still NOT covered:** lot assignment, endorsement, NGCH submission and reconciliation on outward (the run never gets past persist); the EEH and
 API-presigned entry routes into the outward workflow; the real NPCI batch file; a real model.
+
+## 2026-10-31 (evening) - Outward flow run end to end: scan -> persist -> lot -> endorsement -> NGCH session (dev stand-ins)
+
+Real worker, real Temporal, Kafka, Yugabyte, MinIO, Immudb. Stand-ins: the model server (`tests/integration/stubs/ocr_server.py`; now also returns a
+deposit-slip account and depositor name), `DevStubNGCHAdapter` (no real NGCH), dev HSM stub, dev CBS fixture (one account added: 4242424242).
+Drivers started each stage the way its API route does (seal = the route's SQL; `BatchEndorsementWorkflow`; `ClearingSessionWorkflow` SB_NGCH).
+
+Result: scan ACCEPTED, lot `LOT-B1-...-0002` assigned, lot ENDORSED (1/1), clearing session SUBMITTED, reference `NGCH-DEV-...`, audit events in Immudb at
+each stage. CXF (1,957 B) and CIBF image bundle (130,413 B) both present in MinIO.
+
+Each stage failed first; each failure was a real defect, fixed test-first:
+1. **`parse_micr` assumed a pre-2.9 layout** (17+ digits, account in the middle). A real 15-digit band is cheque no + sort code. Now parsed as such;
+   the account hash comes from the depositor's account (deposit slip / rear OCR, `payee_account_number`); `trans_code` stays empty (column is nullable).
+   A cheque with no account at all is held (`INSTRUMENT_DATA_MISSING`) instead of hashing an empty string. New message `CTS_ACCOUNT_MISSING_FOR`.
+2. **A bare 15-digit band with no known cheque number was unparseable** (needed a 6-digit first token). Fixed.
+3. **`object_key_from_url` dropped the bucket for `minio://` references**, so persisted keys were `s3://kbl/...` while the objects are in `cts-cheques`;
+   every later image fetch (endorsement, CIBF) would have missed. Fixed; verified: keys are now `s3://cts-cheques/kbl/...`.
+4. **`seal_all_lots` inserted `clearing_sessions.clearing_date`**, a column no migration creates (only the dev-server DDL adds it) -> `UndefinedColumn`
+   on every clearing session. Now uses `session_date`.
+5. **NGCH was sent the CXF without the CIBF image bundle** (`cibf_file_path=None`, a documented KNOWN GAP): the key was built, uploaded, and discarded.
+   `LotStore.cibf_key()` now reports it and it flows through `build_ngch_file` to `submit_to_ngch`.
+
+**Found, not fixed:** `apps/api/routers/batch.py` reads `clearing_sessions` columns that do not exist in the migrated schema (`clearing_date`, `opened_at`,
+`sealed_at`, `submitted_at`, `reconciled_at`, `npci_ack_ref`, `total_instruments`) - those endpoints would fail on a migrated database;
+`write_audit` logs `unknown_event_type` for `CTS_OUT_SESSION_SUBMITTED`; `incident_signal.unknown_key` for the same.
+
+**Still NOT covered:** reconciliation (post-submission) and RRF return handling; the EEH and API-presigned entry routes into the outward workflow; the
+real NPCI batch file and a real NGCH endpoint; a real model (stub used); a real CBS account (dev fixture); lot sealing through the API route itself (SQL replicated).

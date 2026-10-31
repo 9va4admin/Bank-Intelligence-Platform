@@ -107,8 +107,6 @@ class NGCHSubmissionWorkflow:
         )
 
         # Step 2: Submit to NGCH via adapter.
-        # KNOWN GAP: build_ngch_file only returns the CXF key (LotStore uploads the CIBF image bundle
-        # internally but does not return its key) — cibf_file_path is None until that's plumbed through.
         submit_result = await workflow.execute_activity(
             submit_to_ngch,
             SubmitToNGCHInput(
@@ -116,7 +114,7 @@ class NGCHSubmissionWorkflow:
                 bank_id=inp.bank_id,
                 bank_ifsc=inp.bank_ifsc,
                 file_path=build_result.file_path,
-                cibf_file_path=None,
+                cibf_file_path=build_result.cibf_file_path,
                 checksum_sha256=build_result.checksum_sha256,
                 instrument_count=build_result.instrument_count,
             ),

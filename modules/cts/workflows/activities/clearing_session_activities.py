@@ -103,9 +103,8 @@ async def seal_all_lots(
             await conn.execute(
                 """
                 INSERT INTO cts.clearing_sessions
-                    (session_id, bank_id, session_date, session_type, clearing_type, status,
-                     clearing_date)
-                VALUES ($1, $2, $3::date, $4, '14', 'PENDING', $3::date)
+                    (session_id, bank_id, session_date, session_type, clearing_type, status)
+                VALUES ($1, $2, $3::date, $4, '14', 'PENDING')
                 ON CONFLICT (session_id) DO NOTHING
                 """,
                 session_uuid, inp.bank_id, inp.clearing_date, inp.session_type,

@@ -337,3 +337,21 @@ class TestEmptyLot:
 
         await _call_build(store, n=0, hsm=None)
         assert minio.put_object.call_count == 1
+
+
+class TestCibfKeyIsReported:
+    """The first live NGCH submission went out with cibf_file_path=None: the CIBF was uploaded and its key discarded."""
+
+    @pytest.mark.asyncio
+    async def test_cibf_key_is_remembered_per_lot_and_matches_the_uploaded_object(self):
+        store, minio = _store()
+        await _call_build(store)
+        key = store.cibf_key("test-bank", "LOT_SVCB0000002_20260901_AM_01")
+        assert key and key.startswith("cts/ngch/test-bank/LOT_SVCB0000002_20260901_AM_01/")
+        uploaded = [c.args[1] for c in minio.put_object.call_args_list]
+        assert key in uploaded
+
+    @pytest.mark.asyncio
+    async def test_unknown_lot_has_no_cibf_key(self):
+        store, _ = _store()
+        assert store.cibf_key("test-bank", "NOPE") is None

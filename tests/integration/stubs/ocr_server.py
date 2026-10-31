@@ -43,6 +43,8 @@ _HIGH_CONF_FIELDS = {
     "date":           {"value": "25-08-2026",      "confidence": 0.98},
     "payee":          {"value": "Pradeep Kumar",   "confidence": 0.94},
     "ifsc_code":      {"value": "SYNB0003011",     "confidence": 0.92},
+    "account_number": {"value": "4242424242",      "confidence": 0.93},
+    "depositor_name": {"value": "Pradeep Kumar",   "confidence": 0.93},
 }
 
 _LOW_CONF_FIELDS = {
@@ -70,6 +72,8 @@ _OUTWARD_HIGH_CONF = {
     "date":           {"value": "25-08-2026",      "confidence": 0.98},
     "payee":          {"value": "Dinesh Kumar Vemula", "confidence": 0.94},
     "ifsc_code":      {"value": "UTIB0000426",     "confidence": 0.92},
+    "account_number": {"value": "4242424242",      "confidence": 0.93},   # deposit-slip account (the MICR band carries none)
+    "depositor_name": {"value": "Pradeep Kumar",   "confidence": 0.93},   # deposit-slip depositor
 }
 
 

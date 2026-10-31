@@ -41,6 +41,11 @@ def _inp(**kw):
     return PersistOutwardInstrumentInput(**base)
 
 
+def test_minio_scheme_keeps_its_bucket():
+    # The scanner watcher writes minio://bucket/key; losing the bucket made every later image fetch miss (found on the live run).
+    assert object_key_from_url("minio://cts-cheques/kbl/outward/PU1/S1/front_bw.tif") == "s3://cts-cheques/kbl/outward/PU1/S1/front_bw.tif"
+
+
 def test_object_key_from_s3_and_http_urls():
     assert object_key_from_url("s3://astra-cts/scans/a.tif") == "s3://astra-cts/scans/a.tif"
     assert object_key_from_url("http://localhost:19000/astra-cts/scans/a.tif?X-Amz=1") == "s3://astra-cts/scans/a.tif"
@@ -121,7 +126,7 @@ def test_micr_with_bank_text_prefix_anchored_on_cheque_number():
 def test_truncated_micr_is_rejected_for_repair():
     from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
     with pytest.raises(ValueError):
-        parse_micr("620339 560226375", cheque_number="620339")
+        parse_micr("620339 5602263", cheque_number="620339")
 
 
 @pytest.mark.asyncio
@@ -129,5 +134,47 @@ async def test_activity_raises_non_retryable_for_bad_micr(monkeypatch):
     from temporalio.exceptions import ApplicationError
     from modules.cts.workflows.activities import persist_outward_instrument as mod
     with pytest.raises(ApplicationError) as ei:
-        await mod.persist_outward_instrument_or_hold(FakeConn(), _inp(micr_line="620339 560226375"), pepper="p")
+        await mod.persist_outward_instrument_or_hold(FakeConn(), _inp(micr_line="620339 5602263"), pepper="p")
     assert ei.value.non_retryable and ei.value.type == "MICR_UNPARSEABLE"
+
+
+# ── CLAUDE.md 2.9: a real CTS-2010 MICR is cheque no (6) + sort code (9), 15 digits, no account number ──────────────────
+
+def test_real_15_digit_micr_parses_with_no_account_and_no_transaction_code():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    m = parse_micr("500025033290062", cheque_number="500025")
+    assert (m.cheque_number, m.micr_code) == ("500025", "033290062")
+    assert not m.account_field and not m.transaction_code
+
+
+@pytest.mark.asyncio
+async def test_account_hash_comes_from_the_deposit_slip_account_when_micr_has_none(monkeypatch):
+    async def fake_lot(conn, **kw):
+        return "LOT-1", 1
+    monkeypatch.setattr("modules.cts.workflows.activities.persist_outward_instrument.ensure_open_lot", fake_lot)
+    from shared.utils.pii_crypto import hash_account_number
+    conn = FakeConn()
+    await persist_outward_instrument_row(
+        conn, _inp(micr_line="500025033290062", cheque_number="500025", payee_account_number="4242424242"),
+        pepper="p", today=date(2026, 9, 21))
+    _, args = conn.executed[0]
+    assert hash_account_number("4242424242", "kbl", "p") in args
+    assert "4242" in args                         # last four only, never the number
+    assert not any(a == "4242424242" for a in args)
+    assert None in args                           # trans_code left empty, not invented
+
+
+@pytest.mark.asyncio
+async def test_no_account_anywhere_is_held_for_repair_not_hashed_from_nothing():
+    from temporalio.exceptions import ApplicationError
+    from modules.cts.workflows.activities import persist_outward_instrument as mod
+    with pytest.raises(ApplicationError) as ei:
+        await mod.persist_outward_instrument_or_hold(
+            FakeConn(), _inp(micr_line="500025033290062", cheque_number="500025"), pepper="p")
+    assert ei.value.non_retryable and ei.value.type == "INSTRUMENT_DATA_MISSING"
+
+
+def test_bare_15_digit_band_parses_without_a_known_cheque_number():
+    from modules.cts.workflows.activities.persist_outward_instrument import parse_micr
+    m = parse_micr("500025033290062")
+    assert (m.cheque_number, m.micr_code) == ("500025", "033290062")

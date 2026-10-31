@@ -134,3 +134,40 @@ async def test_lots_of_every_pu_seal_into_one_session():
     )
     assert res.status == "OK" and len(res.sealed_lots) == 2
     assert len([c for c in conn.executed if "INSERT INTO cts.clearing_sessions" in c[0]]) == 1
+
+
+@pytest.mark.asyncio
+async def test_clearing_sessions_insert_uses_only_columns_the_migrations_create():
+    # The migration chain gives cts.clearing_sessions session_date and no clearing_date (only the dev-server DDL adds
+    # one). A fake connection cannot notice that; the first live session run failed on UndefinedColumn.
+    conn = Conn(lot_rows=[_lot_row()])
+    await seal_all_lots(
+        SealAllLotsInput(session_id="s", bank_id="kbl", pu_ids=["KBL-PU-01"], clearing_date="2026-09-21"),
+        db_pool=Pool(conn),
+    )
+    insert_sql = [c for c in conn.executed if "INSERT INTO cts.clearing_sessions" in c[0]][0][0]
+    assert "clearing_date" not in insert_sql and "session_date" in insert_sql
+
+
+@pytest.mark.asyncio
+async def test_build_ngch_file_activity_returns_the_cibf_key_and_filename():
+    from modules.cts.workflows.activities.ngch_submission_activities import BuildNGCHFileInput, build_ngch_file
+
+    class Store:
+        async def build_ngch_file(self, **kw):
+            return "cts/ngch/kbl/LOT-1/CXF_1.XML", "c" * 64
+
+        def cibf_key(self, bank_id, lot_number):
+            return "cts/ngch/kbl/LOT-1/CIBF_1.DAT"
+
+    res = await build_ngch_file(
+        BuildNGCHFileInput(lot_number="LOT-1", bank_id="kbl", bank_ifsc="KARB0000001", session_id="s",
+                           clearing_date="2026-10-31", instrument_count=1, routing_no="KARB", clearing_type="14"),
+        lot_store=Store(), hsm=None)
+    assert res.cibf_file_path == "cts/ngch/kbl/LOT-1/CIBF_1.DAT" and res.cibf_filename == "CIBF_1.DAT"
+
+
+def test_submission_workflow_hands_the_cibf_key_to_the_adapter():
+    from pathlib import Path
+    src = Path("modules/cts/workflows/ngch_submission_workflow.py").read_text(encoding="utf-8")
+    assert "cibf_file_path=None" not in src and "cibf_file_path=build_result.cibf_file_path" in src
