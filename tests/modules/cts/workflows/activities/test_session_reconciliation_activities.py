@@ -125,3 +125,17 @@ async def test_fetch_ngch_settlement_report_accepts_dict_input():
     result = await fetch_ngch_settlement_report(inp_dict, ngch_client=_FakeNgchClient())
     assert result.degraded is False
     assert result.rows == [{"instrument_id": "IW-1", "status": "SETTLED"}]
+
+
+@pytest.mark.asyncio
+async def test_generate_rrf_records_clearing_date_as_a_date_not_a_string():
+    # Found by running it live: cts.rrf_sessions.clearing_date is a DATE column and asyncpg refuses a str, so on a real
+    # database the file was uploaded and then recording it failed. A fake connection accepts anything.
+    import datetime as dt
+    db_pool = _FakeDbPool()
+    await generate_rrf(GenerateRRFInput(
+        session_id="s1", bank_id="kbl", bank_ifsc="KARB0000001",
+        clearing_date="2026-09-22", exception_instruments=_EXCEPTION_INSTRUMENTS,
+    ), db_pool=db_pool, minio_client=_FakeMinioClient())
+    assert dt.date(2026, 9, 22) in db_pool.conn.executed[0]
+    assert "2026-09-22" not in db_pool.conn.executed[0]

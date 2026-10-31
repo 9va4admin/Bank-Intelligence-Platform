@@ -340,15 +340,20 @@ export default function CTSOpsDashboard() {
         { credentials: 'include' },
       )
       if (!res.ok) throw new Error(msg('UI_OPSDASHBOARD_DOWNLOAD_URL_REQUEST_FAILED'))
-      return res.json()
+      // The API answers with the file itself (not a link to it): save the bytes it sent.
+      const disposition = res.headers.get('Content-Disposition') || ''
+      const named = /filename="?([^";]+)"?/i.exec(disposition)
+      return { blob: await res.blob(), filename: named ? named[1] : null }
     },
-    onSuccess: (data, { sessionId, path }) => {
+    onSuccess: ({ blob, filename }, { sessionId, path }) => {
+      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = data.download_url
-      a.download = `${sessionId}-${path}`
+      a.href = url
+      a.download = filename || `${sessionId}-${path}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
+      URL.revokeObjectURL(url)
       setDownloading(null)
     },
     onError: (_, { sessionId, path }) => { setDownloading(null) },
