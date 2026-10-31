@@ -1080,3 +1080,24 @@ Neither was fixed here.
 
 **NOT covered:** the NPCI inward batch file itself (a stand-in batch file was used for slicing), the branch upload (EEH) code, a real model
 reading the image (stand-in), the outward workflow from an uploaded image, and any run with the dev database fully seeded.
+
+## 2026-10-31 (later) - Same run on a seeded dev database
+
+**Change:** `scripts/dev_seed.py` (idempotent) seeds the bank row, a processing unit, a branch and the three dev operator accounts. With it,
+`persist_agent_decision` stores its row (`agent_decisions` holds it), the review item is queued (`human_review_items`), the audit event is written to
+Immudb (tx 5560) and the review push completes. The foreign-key failure and the text-id failure above are closed: both were setup, not code.
+The worker needs `NGCH_DEV_STUB=true` (otherwise `file_to_ngch` has no adapter and a decided cheque fails after three attempts).
+
+**Correction to my first rerun today:** I started the worker with the model URL missing `/v1`. Both model calls returned 404, OCR fell back to
+Tesseract, and the "model server received" list I printed was the previous run's. Rerun with the right URL: receipts on the stand-in went 1 -> 2
+across the run, the new one is 42,565 bytes with the source sha256 (`a160f9c9...05d4b`), and the log shows `ai.cascade.l1_sufficient`. That is the
+real proof for this run; the first rerun proved nothing about the model server.
+
+**Observed, not fixed:** (1) a 30 s stall inside the run (log gap 13:30:52 -> 13:31:22) ending in `config.get.redis_error ... 10054 connection
+forcibly closed` - the worker's Redis connection had gone stale; the whole workflow took 34 s instead of ~6 s. Against a 600 ms target this needs a
+socket timeout / health-check on the config Redis client; cause not yet confirmed to be only Docker Desktop on Windows. (2) `fraud_activity.model_unavailable`
+(no fraud model loaded in dev). (3) `bloom.init_error BF.RESERVE` (the dev Redis has no RedisBloom module). (4) `feedback_emit.accumulator_unreachable`
+(no accumulator workflow running). (5) Duplicate-presentment guard confirmed live: a repeat of cheque 100001 was refused and returned.
+
+**Still NOT covered:** real NPCI batch file, EEH upload route, outward workflow from an uploaded image, a real model, a CBS account that exists (the dev
+fixture is empty, so every cheque stops at human review before the later gates).
