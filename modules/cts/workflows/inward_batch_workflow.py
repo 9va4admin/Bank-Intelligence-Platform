@@ -23,6 +23,7 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
+    from shared.storage.image_fetch import image_ref
     from modules.cts.workflows.activities.inward_batch_activities import (
         ParseInwardBatchInput,
         ParseInwardBatchResult,
@@ -254,7 +255,7 @@ class InwardBatchIngestionWorkflow:
                 args=[ChequeWorkflowInput(
                     instrument_id=insert_result.instrument_id,
                     bank_id=inp.bank_id,
-                    image_url=upload_result.front_bw_key,
+                    image_url=image_ref(inp.minio_bucket, upload_result.front_bw_key),
                     account_number=item_dict["drawee_account"],
                     cheque_number=item_dict["item_seq_no"][-6:],
                     presented_amount=item_dict["amount_paise"] / 100.0,
