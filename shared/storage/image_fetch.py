@@ -1,7 +1,8 @@
 """Turn an image URL into bytes — the one place activities must use.
 
-Accepted: s3://bucket/key (object URLs the API hands to scanners) and http(s):// (presigned URLs).
-Anything else raises ValueError. The MinIO store is configured once by the worker
+Accepted: s3://bucket/key (object URLs the API hands to scanners), minio://bucket/key (the same thing, written by the scanner
+drop-folder watcher and the branch EEH upload) and http(s):// (presigned URLs). Anything else raises ValueError - a bare object key
+has no bucket, so build the reference with image_ref(). The MinIO store is configured once by the worker
 (configure_default_store) or built lazily from config_service.
 """
 from typing import Any, Optional
@@ -34,9 +35,14 @@ async def _store() -> Any:
     return _default_store
 
 
+def image_ref(bucket: str, key: str) -> str:
+    """The bucket-qualified reference every image-reading activity understands."""
+    return f"s3://{bucket}/{str(key).lstrip('/')}"
+
+
 async def fetch_image_bytes(url: str, timeout: float = 15.0) -> bytes:
     scheme = urlparse(url or "").scheme.lower()
-    if scheme == "s3":
+    if scheme in ("s3", "minio"):
         parsed = urlparse(url)
         bucket, key = parsed.netloc, parsed.path.lstrip("/")
         if not bucket or not key:
