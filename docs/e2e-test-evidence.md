@@ -1051,3 +1051,111 @@ URL-fetch, signature-vault seeding methodology, MICR/account-number architecture
 session insisted on live, real-data verification instead of stopping at "the code looks right." This is the
 first real evidence all session that the STP mechanism, once its real blockers are removed, actually works
 on real cheques — not a projection, not a unit test, a completed Temporal workflow result checked directly.
+
+
+---
+
+## 2026-10-31 - Image to MinIO to workflow: live proof, and the model server could not read the reference
+
+**What was run (real):** real MinIO (integration stack and dev stack), the real scanner drop-folder upload code, the real inward-batch image upload
+activity, the real cascade orchestrator, the real `check_image_quality` activity, and a real `ChequeProcessingWorkflow` on a real worker
+(`cts-processing-kbl`, dev Temporal/Yugabyte/Immudb/MinIO/Redis/Kafka) with the cheque image `docs/cheques/CHQ-001-100001.jpg`.
+**Stand-in:** the model server is `tests/integration/stubs/ocr_server.py` (no GPU here); it now records what it was given at `GET /received`.
+
+**Found:** vLLM reads only `http(s)` and `data:` URLs. The cascade (OCR and vision), the signature-detection fallback and the security-features
+check handed it the `s3://` / `minio://` reference as-is, so on a real vLLM deployment every MinIO-stored cheque would have failed at the model.
+Fixed with `model_image_url()` (`shared/storage/image_fetch.py`): the image is read from the object store and sent as a data URI.
+
+**Result:** upload by the drop-folder route -> `minio://cts-cheques/kbl/outward/PU1/LIVE-3b05d2b8/front_bw.tif`; the workflow ran 5.9 s through image
+quality, OCR (model server), fraud, audit (Immudb tx 5555) and queued for human review. The model server received 42,565 bytes with the same
+sha256 as the source file (`a160f9c9...05d4b`). Decision `HUMAN_REVIEW`, rationale `micr_cheque_number_mismatch: presented 100001, read 500025` -
+correct, because the stand-in returns fixed field values. Tests: `tests/integration/test_image_to_minio_live.py` (4 live tests: drop-folder,
+inward batch, API presigned PUT, model receives the image).
+
+**Also found while preparing the stack:** the dev Yugabyte had no `cts` / `platform` schemas (its data was lost when the container was recreated on
+2026-10-30). The platform and CTS Alembic chains were run from empty: both applied through the head (`20261029_drop_clearing_zones`,
+`20261029_037`) on a real Yugabyte. On that fresh database `agent_decisions.bank_id` has a foreign key to a bank row that is not seeded, so
+`persist_agent_decision` failed (`agent_decisions_bank_id_fkey`); the review consumer also needs a UUID instrument id (this run used a text id).
+Neither was fixed here.
+
+**NOT covered:** the NPCI inward batch file itself (a stand-in batch file was used for slicing), the branch upload (EEH) code, a real model
+reading the image (stand-in), the outward workflow from an uploaded image, and any run with the dev database fully seeded.
+
+## 2026-10-31 (later) - Same run on a seeded dev database
+
+**Change:** `scripts/dev_seed.py` (idempotent) seeds the bank row, a processing unit, a branch and the three dev operator accounts. With it,
+`persist_agent_decision` stores its row (`agent_decisions` holds it), the review item is queued (`human_review_items`), the audit event is written to
+Immudb (tx 5560) and the review push completes. The foreign-key failure and the text-id failure above are closed: both were setup, not code.
+The worker needs `NGCH_DEV_STUB=true` (otherwise `file_to_ngch` has no adapter and a decided cheque fails after three attempts).
+
+**Correction to my first rerun today:** I started the worker with the model URL missing `/v1`. Both model calls returned 404, OCR fell back to
+Tesseract, and the "model server received" list I printed was the previous run's. Rerun with the right URL: receipts on the stand-in went 1 -> 2
+across the run, the new one is 42,565 bytes with the source sha256 (`a160f9c9...05d4b`), and the log shows `ai.cascade.l1_sufficient`. That is the
+real proof for this run; the first rerun proved nothing about the model server.
+
+**Observed, not fixed:** (1) a 30 s stall inside the run (log gap 13:30:52 -> 13:31:22) ending in `config.get.redis_error ... 10054 connection
+forcibly closed` - the worker's Redis connection had gone stale; the whole workflow took 34 s instead of ~6 s. Against a 600 ms target this needs a
+socket timeout / health-check on the config Redis client; cause not yet confirmed to be only Docker Desktop on Windows. (2) `fraud_activity.model_unavailable`
+(no fraud model loaded in dev). (3) `bloom.init_error BF.RESERVE` (the dev Redis has no RedisBloom module). (4) `feedback_emit.accumulator_unreachable`
+(no accumulator workflow running). (5) Duplicate-presentment guard confirmed live: a repeat of cheque 100001 was refused and returned.
+
+**Still NOT covered:** real NPCI batch file, EEH upload route, outward workflow from an uploaded image, a real model, a CBS account that exists (the dev
+fixture is empty, so every cheque stops at human review before the later gates).
+
+## 2026-10-31 (later still) - Redis stall fixed; first live outward run (scanner publish -> Kafka -> trigger -> OutwardScanWorkflow)
+
+**Redis stall.** Cause: a pooled connection the network had silently dropped; with no socket timeout the client waited ~30 s for the OS (34-41 s per
+cheque instead of ~3-6 s). Reproduced with a silent TCP proxy in front of the integration Redis: a bare client was still waiting at 15 s. Fix:
+`shared/config/redis_options.py` (socket + connect timeout, health check, keepalive, one retry on a fresh connection; values are platform config)
+applied to every Redis client (config service, CTS and MSV workers, API, EEH, audit service). Live after the fix, with 75 s idle gaps between runs:
+5.3 s, 2.5 s, 2.7 s, no `redis_error`.
+
+**Outward run (real):** real `DropFolderWatcher._publish` (images to dev MinIO, event to real Kafka `cts.outward.scanned.kbl`) -> the running worker's
+`OutwardScanTrigger` -> real `OutwardScanWorkflow`. Stand-ins: model server (`tests/integration/stubs/ocr_server.py`), `DevStubNGCHAdapter`, dev HSM stub.
+It failed four times in a row, each a real defect, each fixed test-first (the live run is the red):
+1. **Trigger read the wrong key.** The watcher publishes `image_front_bw_url`; the trigger read `image_front_url` -> empty image -> every scanned cheque
+   rejected `UNDATED_CHEQUE` (`unsupported image URL scheme: ''`). Each side's tests used its own assumed key. Now also passes gray and UV URLs.
+2. **No image metrics.** The drop-folder carries no DPI / colour depth / file size, so every cheque was rejected `MISSING_IMAGE_METRICS`. They are now
+   measured from the file (`modules/cts/scanner/image_metrics.py`); a value the file does not state stays unset and compliance still fails closed.
+3. **Quality score diluted by absent optional fields.** `overall_confidence` averaged account number / drawee name / category in as 0.0, so six fields at
+   ~0.95 scored 0.75 and failed the 0.80 MICR-band gate. Optional fields now count only when returned (mandatory ones still count as 0 when empty).
+   This also affects the inward `overall_confidence`.
+4. **Vision amount check crashed the workflow.** A model replying in the platform's per-field format (`{"value":..,"confidence":..}`) put a dict in a string
+   field -> `ValidationError` -> `WORKFLOW_ERROR`, despite the activity's "never raises" contract. Parsed defensively now.
+
+**Where it stops now:** `MISMATCH_HELD` / `MICR_UNREADABLE`. The persist step (`persist_outward_instrument.parse_micr`) still demands cheque no + 9-digit
+code + an account field + 2-digit transaction code (17+ digits) and hashes the account from the middle of the MICR line. Per section 2.9 a real MICR is
+15 digits (cheque no + sort code), so every real cheque would be held for MICR repair. Safe (it holds, not loses) but it means no outward cheque reaches
+a lot. Not fixed: it needs a decision on where the outward account hash comes from (`cheque_instruments.account_hash` is NOT NULL) and whether
+`trans_code` becomes nullable.
+
+**Still NOT covered:** lot assignment, endorsement, NGCH submission and reconciliation on outward (the run never gets past persist); the EEH and
+API-presigned entry routes into the outward workflow; the real NPCI batch file; a real model.
+
+## 2026-10-31 (evening) - Outward flow run end to end: scan -> persist -> lot -> endorsement -> NGCH session (dev stand-ins)
+
+Real worker, real Temporal, Kafka, Yugabyte, MinIO, Immudb. Stand-ins: the model server (`tests/integration/stubs/ocr_server.py`; now also returns a
+deposit-slip account and depositor name), `DevStubNGCHAdapter` (no real NGCH), dev HSM stub, dev CBS fixture (one account added: 4242424242).
+Drivers started each stage the way its API route does (seal = the route's SQL; `BatchEndorsementWorkflow`; `ClearingSessionWorkflow` SB_NGCH).
+
+Result: scan ACCEPTED, lot `LOT-B1-...-0002` assigned, lot ENDORSED (1/1), clearing session SUBMITTED, reference `NGCH-DEV-...`, audit events in Immudb at
+each stage. CXF (1,957 B) and CIBF image bundle (130,413 B) both present in MinIO.
+
+Each stage failed first; each failure was a real defect, fixed test-first:
+1. **`parse_micr` assumed a pre-2.9 layout** (17+ digits, account in the middle). A real 15-digit band is cheque no + sort code. Now parsed as such;
+   the account hash comes from the depositor's account (deposit slip / rear OCR, `payee_account_number`); `trans_code` stays empty (column is nullable).
+   A cheque with no account at all is held (`INSTRUMENT_DATA_MISSING`) instead of hashing an empty string. New message `CTS_ACCOUNT_MISSING_FOR`.
+2. **A bare 15-digit band with no known cheque number was unparseable** (needed a 6-digit first token). Fixed.
+3. **`object_key_from_url` dropped the bucket for `minio://` references**, so persisted keys were `s3://kbl/...` while the objects are in `cts-cheques`;
+   every later image fetch (endorsement, CIBF) would have missed. Fixed; verified: keys are now `s3://cts-cheques/kbl/...`.
+4. **`seal_all_lots` inserted `clearing_sessions.clearing_date`**, a column no migration creates (only the dev-server DDL adds it) -> `UndefinedColumn`
+   on every clearing session. Now uses `session_date`.
+5. **NGCH was sent the CXF without the CIBF image bundle** (`cibf_file_path=None`, a documented KNOWN GAP): the key was built, uploaded, and discarded.
+   `LotStore.cibf_key()` now reports it and it flows through `build_ngch_file` to `submit_to_ngch`.
+
+**Found, not fixed:** `apps/api/routers/batch.py` reads `clearing_sessions` columns that do not exist in the migrated schema (`clearing_date`, `opened_at`,
+`sealed_at`, `submitted_at`, `reconciled_at`, `npci_ack_ref`, `total_instruments`) - those endpoints would fail on a migrated database;
+`write_audit` logs `unknown_event_type` for `CTS_OUT_SESSION_SUBMITTED`; `incident_signal.unknown_key` for the same.
+
+**Still NOT covered:** reconciliation (post-submission) and RRF return handling; the EEH and API-presigned entry routes into the outward workflow; the
+real NPCI batch file and a real NGCH endpoint; a real model (stub used); a real CBS account (dev fixture); lot sealing through the API route itself (SQL replicated).

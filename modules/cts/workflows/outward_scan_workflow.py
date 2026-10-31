@@ -902,6 +902,7 @@ class OutwardScanWorkflow:
                 registered_drawee_ifsc=inp.registered_drawee_ifsc,
                 image_front_url=inp.image_front_url, image_rear_url=inp.image_rear_url,
                 image_front_gray_url=inp.image_front_gray_url, front_dpi=inp.front_dpi,
+                payee_account_number=inp.payee_account_number,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_INFRA_RETRY,

@@ -60,9 +60,11 @@ async def lifespan(app: FastAPI):
     try:
         import redis.asyncio as aioredis
         from shared.config.config_service import config_service
+        from shared.config.redis_options import redis_options
         _redis = aioredis.from_url(
             config_service.get("redis.cts.url"),
             decode_responses=True,
+            **redis_options(config_service.get_platform),
         )
         await _redis.ping()
         log.info("eeh.redis_connected")

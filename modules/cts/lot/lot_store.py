@@ -55,10 +55,15 @@ class LotStore:
         self._db = db_pool
         self._minio = minio_client
         self._bucket = bucket
+        self._cibf_keys: dict[tuple[str, str], str] = {}
 
     # ------------------------------------------------------------------
     # Public API (called from build_ngch_file activity)
     # ------------------------------------------------------------------
+
+    def cibf_key(self, bank_id: str, lot_number: str) -> Optional[str]:
+        """Object key of the CIBF image bundle last built for this lot, or None (never built, or an empty lot)."""
+        return self._cibf_keys.get((bank_id, lot_number))
 
     async def build_ngch_file(
         self,
@@ -120,6 +125,7 @@ class LotStore:
 
         self._upload(cxf_key, result.cxf_bytes, content_type="application/xml")
         self._upload(cibf_key, result.cibf_bytes, content_type="application/octet-stream")
+        self._cibf_keys[(bank_id, lot_number)] = cibf_key
 
         checksum = hashlib.sha256(result.cxf_bytes).hexdigest()
 

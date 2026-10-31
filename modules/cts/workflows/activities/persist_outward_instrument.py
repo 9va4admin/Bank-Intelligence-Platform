@@ -46,6 +46,7 @@ class PersistOutwardInstrumentInput(BaseModel):
     image_rear_url: str
     image_front_gray_url: Optional[str] = None
     front_dpi: Optional[int] = None
+    payee_account_number: Optional[str] = None  # depositor's account (deposit slip); MICR carries none (CLAUDE.md 2.9)
 
 
 class PersistOutwardInstrumentResult(BaseModel):
@@ -59,7 +60,7 @@ def object_key_from_url(url: str) -> str:
     """Bucket-qualified reference: s3://bucket/key, or http(s)://host/bucket/key?sig -> s3://bucket/key.
     Scans are uploaded to a different bucket than the lot store's own, so the bucket must travel with the key."""
     p = urlparse(url)
-    if p.scheme == "s3":
+    if p.scheme in ("s3", "minio"):
         return f"s3://{p.netloc}{p.path}"
     return "s3://" + p.path.lstrip("/")
 
@@ -68,8 +69,8 @@ def parse_micr(micr_line: str, cheque_number: str = ""):
     """Symbol-delimited MICR (validate_micr_line) or the plain digit groups OCR returns, e.g.
     '307384 5860150031 0030511 31' = cheque no (6) | MICR code (9) | account | transaction code (2).
     Noisy OCR (bank-name prefix, unspaced digits) is handled by anchoring on the known cheque number.
-    Anything that cannot yield cheque no + 9-digit MICR code + 2-digit transaction code raises ValueError
-    (needs a human MICR repair)."""
+    A real CTS-2010 band is just cheque no (6) + sort code (9): no account, no transaction code (CLAUDE.md 2.9).
+    Anything that cannot yield cheque no + 9-digit MICR code raises ValueError (needs a human MICR repair)."""
     m = validate_micr_line(micr_line or "")
     if m.micr_code is not None and m.cheque_number:
         return m
@@ -79,14 +80,21 @@ def parse_micr(micr_line: str, cheque_number: str = ""):
         pos = flat.index(cheque_number)
     elif tokens and len(tokens[0]) == 6:
         pos = 0
+    elif len(flat) == 15:        # the whole band is exactly cheque no + sort code
+        pos = 0
     else:
         raise ValueError(f"MICR line not parseable: {micr_line!r}")
     rest = flat[pos + 6:]
-    if len(rest) < 9 + 2:
+    if len(rest) < 9:
         raise ValueError(f"MICR line too short: {micr_line!r}")
     m.cheque_number = flat[pos:pos + 6]
     m.micr_code = rest[:9]
-    m.transaction_code, m.account_field = rest[-2:], rest[9:-2]
+    if len(rest) >= 9 + 2:       # older / non-standard bands that still carry a trailing transaction code
+        m.transaction_code, m.account_field = rest[-2:], rest[9:-2]
+    else:
+        m.transaction_code, m.account_field = None, ""
+    if len(rest) == 10:          # one digit short of a transaction code: a misread, not a layout
+        raise ValueError(f"MICR line too short: {micr_line!r}")
     m.decision = "VALID"
     return m
 
@@ -98,6 +106,8 @@ async def persist_outward_instrument_row(conn, inp: PersistOutwardInstrumentInpu
         raise ValueError(get_message("CTS_CHEQUE_DATE_MISSING_FOR", instrument_id=inp.instrument_id))
     if inp.amount_str is None:
         raise ValueError(get_message("CTS_AMOUNT_MISSING_FOR", instrument_id=inp.instrument_id))
+    if not (micr.account_field or inp.payee_account_number):
+        raise ValueError(get_message("CTS_ACCOUNT_MISSING_FOR", instrument_id=inp.instrument_id))
     cheque_date = date.fromisoformat(inp.cheque_date)
     amount = Decimal(inp.amount_str)
     amount_paise = int(amount * 100)
@@ -118,7 +128,7 @@ async def persist_outward_instrument_row(conn, inp: PersistOutwardInstrumentInpu
                 clearing_date=today or date.today(),
             )
 
-        account_field = micr.account_field or ""
+        account_field = micr.account_field or inp.payee_account_number or ""
         account_hash = hash_account_number(account_field, inp.bank_id, pepper)
         front_key = object_key_from_url(inp.image_front_url)
         rear_key = object_key_from_url(inp.image_rear_url)
@@ -170,7 +180,8 @@ async def persist_outward_instrument_or_hold(conn, inp, pepper, today=None):
         parse_micr(inp.micr_line, inp.cheque_number)
     except ValueError as exc:
         raise ApplicationError(str(exc), type="MICR_UNPARSEABLE", non_retryable=True) from exc
-    if not inp.cheque_date or inp.amount_str is None:
+    micr = parse_micr(inp.micr_line, inp.cheque_number)
+    if not inp.cheque_date or inp.amount_str is None or not (micr.account_field or inp.payee_account_number):
         raise ApplicationError(get_message("CTS_DATE_AMOUNT_MISSING_FOR", instrument_id=inp.instrument_id),
                                type="INSTRUMENT_DATA_MISSING", non_retryable=True)
     return await persist_outward_instrument_row(conn, inp, pepper, today)

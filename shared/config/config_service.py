@@ -26,6 +26,8 @@ from typing import Any
 import asyncpg
 import httpx
 import redis.asyncio as aioredis
+
+from shared.config.redis_options import redis_options
 import structlog
 from opentelemetry import trace
 
@@ -246,7 +248,7 @@ class ConfigService:
             # and each caller must tolerate that by using Layer 1/2 defaults)
             try:
                 redis_url = await self._secret_backend.get("redis.config.url")
-                self._redis = aioredis.from_url(redis_url, decode_responses=True)
+                self._redis = aioredis.from_url(redis_url, decode_responses=True, **redis_options(self.get_platform))
                 await self._redis.ping()
             except Exception as _redis_exc:
                 log.warning("config_service.layer3_redis_unavailable", error=str(_redis_exc))

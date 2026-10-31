@@ -14,6 +14,17 @@ all missing, model down, Langfuse lifecycle, no hardcoded thresholds.
 """
 import json
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _model_url_is_not_fetched(request, monkeypatch):
+    """These tests mock the model; the test image URLs are not real objects, so the resolver that inlines
+    object-store images for a real model server is replaced by an identity function here."""
+    async def _same(url):
+        return url
+    monkeypatch.setattr("shared.storage.image_fetch.model_image_url", _same)
+    yield
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 

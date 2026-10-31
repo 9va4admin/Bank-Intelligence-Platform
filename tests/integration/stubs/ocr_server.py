@@ -43,6 +43,8 @@ _HIGH_CONF_FIELDS = {
     "date":           {"value": "25-08-2026",      "confidence": 0.98},
     "payee":          {"value": "Pradeep Kumar",   "confidence": 0.94},
     "ifsc_code":      {"value": "SYNB0003011",     "confidence": 0.92},
+    "account_number": {"value": "4242424242",      "confidence": 0.93},
+    "depositor_name": {"value": "Pradeep Kumar",   "confidence": 0.93},
 }
 
 _LOW_CONF_FIELDS = {
@@ -70,6 +72,8 @@ _OUTWARD_HIGH_CONF = {
     "date":           {"value": "25-08-2026",      "confidence": 0.98},
     "payee":          {"value": "Dinesh Kumar Vemula", "confidence": 0.94},
     "ifsc_code":      {"value": "UTIB0000426",     "confidence": 0.92},
+    "account_number": {"value": "4242424242",      "confidence": 0.93},   # deposit-slip account (the MICR band carries none)
+    "depositor_name": {"value": "Pradeep Kumar",   "confidence": 0.93},   # deposit-slip depositor
 }
 
 
@@ -105,6 +109,26 @@ def _openai_response(content: str, model: str) -> dict:
     }
 
 
+# What image the "model" was actually given: a real vLLM can only read http(s)/data URLs, so a data URI is the proof an
+# image arrived. sha256 of the decoded bytes lets a test compare it with the file it uploaded.
+RECEIVED: list[dict] = []
+
+
+def _remember_image(image_url: str) -> None:
+    import base64
+    import hashlib
+    if image_url.startswith("data:") and "," in image_url:
+        raw = base64.b64decode(image_url.split(",", 1)[1])
+        RECEIVED.append({"kind": "data_uri", "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "head": image_url[:30]})
+    else:
+        RECEIVED.append({"kind": "reference", "url": image_url[:120]})
+
+
+@app.get("/received")
+async def received():
+    return RECEIVED
+
+
 # ── Chat completions endpoint (vLLM / OpenAI compatible) ────────────────────
 
 @app.post("/v1/chat/completions")
@@ -122,6 +146,7 @@ async def chat_completions(request: Request):
                     image_url = part.get("image_url", {}).get("url", "")
                     break
 
+    _remember_image(image_url)
     scenario = _extract_scenario(image_url)
 
     if scenario == "model_unavailable":

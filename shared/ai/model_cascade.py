@@ -20,6 +20,7 @@ import structlog
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 from shared.messages import get_message
+from shared.storage.image_fetch import model_image_url
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.ai.cascade")
@@ -73,6 +74,7 @@ class CascadeOrchestrator:
         l1_queue = "cts-vision-l1"
         l2_queue = "cts-vision-l2"
 
+        image_url = await model_image_url(image_url)
         messages = [
             {
                 "role": "user",
@@ -104,6 +106,7 @@ class CascadeOrchestrator:
         l1_queue = "cts-ocr-l1"
         l2_queue = "cts-ocr-l2"
 
+        image_url = await model_image_url(image_url)
         messages = [
             {
                 "role": "user",

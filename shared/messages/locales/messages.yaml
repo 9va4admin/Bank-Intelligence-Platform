@@ -28353,6 +28353,13 @@ CTS_DATE_AMOUNT_MISSING_FOR:
   en: "date/amount missing for {instrument_id}"
   hi: ""
 
+CTS_ACCOUNT_MISSING_FOR:
+  severity: WARN
+  surface: [UI]
+  variables: [instrument_id]
+  en: "depositor account missing for {instrument_id}; the MICR band carries none"
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]

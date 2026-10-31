@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from modules.cts.scanner.image_metrics import measure_image
 from modules.cts.scanner.mapper import (
     ScannedChequeInput,
     ScannerDropFolderMapper,
@@ -293,6 +294,9 @@ class DropFolderWatcher:
                             bucket, f"{prefix}/front_bw.tif", data, "image/tiff"
                         )
                         entry["image_front_bw_url"] = f"minio://{bucket}/{key}"
+                        _m = measure_image(data)
+                        entry["front_dpi"], entry["front_colour_depth"] = _m["dpi"], _m["colour_depth"]
+                        entry["front_file_size_kb"] = _m["file_size_kb"]
 
                     # Front grayscale — mandatory
                     if instrument.image_grey_path and instrument.image_grey_path.exists():
@@ -309,6 +313,9 @@ class DropFolderWatcher:
                             bucket, f"{prefix}/rear_bw.tif", data, "image/tiff"
                         )
                         entry["image_rear_url"] = f"minio://{bucket}/{key}"
+                        _m = measure_image(data)
+                        entry["rear_dpi"], entry["rear_colour_depth"] = _m["dpi"], _m["colour_depth"]
+                        entry["rear_file_size_kb"] = _m["file_size_kb"]
 
                     # UV — optional
                     uv_path = getattr(instrument, "image_uv_path", None)

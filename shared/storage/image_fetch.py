@@ -55,3 +55,26 @@ async def fetch_image_bytes(url: str, timeout: float = 15.0) -> bytes:
             resp.raise_for_status()
             return resp.content
     raise ValueError(f"unsupported image URL scheme: {url!r}")
+
+
+async def model_image_url(url: str) -> str:
+    """The form of an image reference a model server can read.
+
+    vLLM fetches http(s) and data: URLs only, so an s3:// or minio:// reference is read here and handed over as a data URI
+    (PNG, JPEG as-is). The image stays inside the bank: the model server is on-premises."""
+    scheme = urlparse(url or "").scheme.lower()
+    if scheme in ("http", "https", "data"):
+        return url
+    import base64
+    import io
+    raw = await fetch_image_bytes(url)
+    if raw.startswith(bytes.fromhex("ffd8ff")):
+        mime = "image/jpeg"
+    elif raw.startswith(bytes.fromhex("89504e470d0a1a0a")):
+        mime = "image/png"
+    else:
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.open(io.BytesIO(raw)).convert("RGB").save(buf, format="PNG")
+        raw, mime = buf.getvalue(), "image/png"
+    return f"data:{mime};base64,{base64.b64encode(raw).decode()}"

@@ -1115,7 +1115,10 @@ def _build_result(
     _raw_category = fields.get("instrument_category", (None, 0.0))[0]
     instrument_category = _raw_category if _raw_category in ("CHEQUE", "DEMAND_DRAFT") else "CHEQUE"
 
-    all_confs = [c for _, c in fields.values()]
+    # An optional field the model did not return (account number, drawee name, category) is not an unreadable one: only the
+    # fields every cheque must yield, plus any optional field that was actually read, count towards the score.
+    _must_read = set(_PRIMARY) | {"micr_line"}
+    all_confs = [c for name, (value, c) in fields.items() if name in _must_read or value not in (None, "")]
     overall = sum(all_confs) / len(all_confs) if all_confs else 0.0
 
     principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)

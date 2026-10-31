@@ -7,6 +7,20 @@ Tests the Cascaded AI Model pattern (Gemini Fix A):
   Kill switch KC skips cascade entirely (already handled in alteration.py).
 """
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _model_url_is_not_fetched(request, monkeypatch):
+    """These tests mock the model; the test image URLs are not real objects, so the resolver that inlines
+    object-store images for a real model server is replaced by an identity function here."""
+    if request.node.cls is not None and request.node.cls.__name__ == 'TestImageReachesTheModelReadable':
+        yield
+        return
+    async def _same(url):
+        return url
+    monkeypatch.setattr("shared.ai.model_cascade.model_image_url", _same)
+    yield
+
 from unittest.mock import AsyncMock, MagicMock
 
 
@@ -364,3 +378,30 @@ class TestCascadeOTelAttributes:
         assert hasattr(r, "model_used")
         assert hasattr(r, "escalated")
         assert hasattr(r, "confidence")
+
+
+class TestImageReachesTheModelReadable:
+    """The model server cannot read s3:// or minio:// - the cascade must hand it the image itself."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_store(self):
+        yield
+        from shared.storage.image_fetch import configure_default_store
+        configure_default_store(None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["call_ocr", "call_vision"])
+    async def test_object_store_reference_is_sent_as_data_uri(self, method):
+        import io
+        from PIL import Image
+        from shared.ai.model_cascade import CascadeOrchestrator
+        from shared.storage.image_fetch import configure_default_store
+        buf = io.BytesIO(); Image.new("RGB", (4, 4)).save(buf, format="PNG")
+        store = MagicMock(); store.download_bytes = AsyncMock(return_value=buf.getvalue())
+        configure_default_store(store)
+        l1 = AsyncMock(); resp = MagicMock(); resp.choices[0].message.content = '{"x": 1}'; resp.confidence = 0.95
+        l1.chat.completions.create = AsyncMock(return_value=resp)
+        orch = CascadeOrchestrator(l1_client=l1, l2_client=AsyncMock(), config=_make_cascade_config(), bank_id="b")
+        await getattr(orch, method)(image_url="minio://cts/k/front.png", prompt="p", cheque_amount=1.0)
+        sent = l1.chat.completions.create.await_args.kwargs["messages"][0]["content"][0]["image_url"]["url"]
+        assert sent.startswith("data:image/png;base64,"), sent

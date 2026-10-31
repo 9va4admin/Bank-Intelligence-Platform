@@ -44,6 +44,7 @@ class BuildNGCHFileResult(BaseModel):
     instrument_count: int
     cxf_filename: str = ""
     cibf_filename: str = ""
+    cibf_file_path: Optional[str] = None   # CIBF image bundle key; NGCH needs it alongside the CXF
 
 
 @activity.defn
@@ -92,11 +93,14 @@ async def build_ngch_file(
             bank_id=inp.bank_id,
             file_path=file_path,
         )
+        cibf_path = lot_store.cibf_key(inp.bank_id, inp.lot_number) if hasattr(lot_store, "cibf_key") else None
         return BuildNGCHFileResult(
             file_path=file_path,
             checksum_sha256=checksum,
             instrument_count=inp.instrument_count,
             cxf_filename=file_path.rsplit("/", 1)[-1],
+            cibf_filename=cibf_path.rsplit("/", 1)[-1] if cibf_path else "",
+            cibf_file_path=cibf_path,
         )
 
 

@@ -34,9 +34,11 @@ SERVICE_NAME = "audit-service"
 async def _build_redis_client(cfg: Any) -> Optional[Any]:
     try:
         import redis.asyncio as aioredis
+        from shared.config.redis_options import redis_options
         redis_cts_url = await cfg.get_secret("redis.cts.url")
         client = aioredis.from_url(
             redis_cts_url, encoding="utf-8", decode_responses=True, max_connections=10,
+            **redis_options(cfg.get_platform),
         )
         await client.ping()
         log.info("audit_service.redis_cts_connected")

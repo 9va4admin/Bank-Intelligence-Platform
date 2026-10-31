@@ -47,6 +47,7 @@ from apps.api.routers import cts_outward_core
 from apps.api.routers import cts_inward
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
+from shared.config.redis_options import redis_options
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
 from shared.auth.session_token import SessionTokenService
@@ -105,6 +106,7 @@ async def lifespan(app: FastAPI):
             encoding="utf-8",
             decode_responses=True,
             max_connections=20,
+            **redis_options(config_service.get_platform),
         )
         await app.state.redis_cts.ping()
         log.info("api_gateway.redis_cts_connected")
