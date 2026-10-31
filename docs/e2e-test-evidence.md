@@ -1101,3 +1101,33 @@ socket timeout / health-check on the config Redis client; cause not yet confirme
 
 **Still NOT covered:** real NPCI batch file, EEH upload route, outward workflow from an uploaded image, a real model, a CBS account that exists (the dev
 fixture is empty, so every cheque stops at human review before the later gates).
+
+## 2026-10-31 (later still) - Redis stall fixed; first live outward run (scanner publish -> Kafka -> trigger -> OutwardScanWorkflow)
+
+**Redis stall.** Cause: a pooled connection the network had silently dropped; with no socket timeout the client waited ~30 s for the OS (34-41 s per
+cheque instead of ~3-6 s). Reproduced with a silent TCP proxy in front of the integration Redis: a bare client was still waiting at 15 s. Fix:
+`shared/config/redis_options.py` (socket + connect timeout, health check, keepalive, one retry on a fresh connection; values are platform config)
+applied to every Redis client (config service, CTS and MSV workers, API, EEH, audit service). Live after the fix, with 75 s idle gaps between runs:
+5.3 s, 2.5 s, 2.7 s, no `redis_error`.
+
+**Outward run (real):** real `DropFolderWatcher._publish` (images to dev MinIO, event to real Kafka `cts.outward.scanned.kbl`) -> the running worker's
+`OutwardScanTrigger` -> real `OutwardScanWorkflow`. Stand-ins: model server (`tests/integration/stubs/ocr_server.py`), `DevStubNGCHAdapter`, dev HSM stub.
+It failed four times in a row, each a real defect, each fixed test-first (the live run is the red):
+1. **Trigger read the wrong key.** The watcher publishes `image_front_bw_url`; the trigger read `image_front_url` -> empty image -> every scanned cheque
+   rejected `UNDATED_CHEQUE` (`unsupported image URL scheme: ''`). Each side's tests used its own assumed key. Now also passes gray and UV URLs.
+2. **No image metrics.** The drop-folder carries no DPI / colour depth / file size, so every cheque was rejected `MISSING_IMAGE_METRICS`. They are now
+   measured from the file (`modules/cts/scanner/image_metrics.py`); a value the file does not state stays unset and compliance still fails closed.
+3. **Quality score diluted by absent optional fields.** `overall_confidence` averaged account number / drawee name / category in as 0.0, so six fields at
+   ~0.95 scored 0.75 and failed the 0.80 MICR-band gate. Optional fields now count only when returned (mandatory ones still count as 0 when empty).
+   This also affects the inward `overall_confidence`.
+4. **Vision amount check crashed the workflow.** A model replying in the platform's per-field format (`{"value":..,"confidence":..}`) put a dict in a string
+   field -> `ValidationError` -> `WORKFLOW_ERROR`, despite the activity's "never raises" contract. Parsed defensively now.
+
+**Where it stops now:** `MISMATCH_HELD` / `MICR_UNREADABLE`. The persist step (`persist_outward_instrument.parse_micr`) still demands cheque no + 9-digit
+code + an account field + 2-digit transaction code (17+ digits) and hashes the account from the middle of the MICR line. Per section 2.9 a real MICR is
+15 digits (cheque no + sort code), so every real cheque would be held for MICR repair. Safe (it holds, not loses) but it means no outward cheque reaches
+a lot. Not fixed: it needs a decision on where the outward account hash comes from (`cheque_instruments.account_hash` is NOT NULL) and whether
+`trans_code` becomes nullable.
+
+**Still NOT covered:** lot assignment, endorsement, NGCH submission and reconciliation on outward (the run never gets past persist); the EEH and
+API-presigned entry routes into the outward workflow; the real NPCI batch file; a real model.

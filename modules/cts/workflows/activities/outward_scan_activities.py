@@ -238,9 +238,14 @@ def _amount_from_vision_text(text: Optional[str]) -> Optional[str]:
         return None
     m = re.search(r"\{.*\}", text, re.S)
     try:
-        return json.loads(m.group(0)).get("amount_figures") if m else None
+        amount = json.loads(m.group(0)).get("amount_figures") if m else None
     except (json.JSONDecodeError, AttributeError):
         return None
+    if isinstance(amount, dict):   # the platform's per-field format: {"value": ..., "confidence": ...}
+        amount = amount.get("value")
+    if isinstance(amount, bool) or not isinstance(amount, (str, int, float)):
+        return None
+    return str(amount)
 
 
 @activity.defn

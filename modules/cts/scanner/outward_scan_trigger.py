@@ -207,8 +207,17 @@ class OutwardScanTrigger:
                 bank_id=self._bank_id,
                 bank_ifsc="",                   # resolved in workflow from CBS/lot context
                 session_id=batch_id,
-                image_front_url=scan_data.get("image_front_url", ""),
+                # The drop-folder watcher publishes image_front_bw_url; image_front_url is the older key.
+                image_front_url=scan_data.get("image_front_bw_url") or scan_data.get("image_front_url", ""),
                 image_rear_url=scan_data.get("image_rear_url", ""),
+                image_front_gray_url=scan_data.get("image_front_gray_url") or None,
+                image_uv_url=scan_data.get("image_uv_url") or None,
+                front_dpi=scan_data.get("front_dpi"),
+                front_colour_depth=scan_data.get("front_colour_depth"),
+                front_file_size_kb=scan_data.get("front_file_size_kb"),
+                rear_dpi=scan_data.get("rear_dpi"),
+                rear_colour_depth=scan_data.get("rear_colour_depth"),
+                rear_file_size_kb=scan_data.get("rear_file_size_kb"),
                 pu_id=pu_id or None,
                 branch_id=branch_id or None,
             )
