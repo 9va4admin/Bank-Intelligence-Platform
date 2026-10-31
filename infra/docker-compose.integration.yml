@@ -17,6 +17,10 @@
 # truth for "what does the integration environment look like," not a second
 # config that can drift from what runs locally.
 
+# Own project name: without it Compose uses the folder name ("infra"), the same as the dev stack, and `up` replaces the dev
+# containers that share a service name (temporal, yugabyte, kafka, minio, immudb).
+name: astra-it
+
 networks:
   astra-integration:
     driver: bridge
