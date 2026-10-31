@@ -28374,6 +28374,20 @@ API_BATCH_NOT_IMPLEMENTED:
   en: "This report is not yet built on live data and is disabled; it does not return sample figures."
   hi: ""
 
+API_BATCH_SESSION_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That clearing session was not found for your bank."
+  hi: ""
+
+API_BATCH_RRF_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "No Return Reason File has been generated for this session yet."
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]
@@ -53769,4 +53783,85 @@ UI_SMBDASHBOARDCONTENT_SARASWAT_CO_OP_BANK:
   surface: [UI]
   variables: []
   en: "Saraswat Co-op Bank"
+  hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+API_CLEARING_DATE:
+  severity: INFO
+  surface: [UI]
+  variables: [day]
+  en: "Clearing date: {day}"
+  hi: ""
+
+API_SECTION_1_INWARD_SUMMARY_PRESENTING_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 1 - INWARD SUMMARY (Presenting Bank)"
+  hi: ""
+
+API_SECTION_2_OUTWARD_SUMMARY_DRAWEE_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 2 - OUTWARD SUMMARY (Drawee Bank)"
+  hi: ""
+
+API_SECTION_3_RETURN_REASONS_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 3 - RETURN REASONS"
+  hi: ""
+
+API_REASON_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reason code"
+  hi: ""
+
+API_SECTION_4_PERFORMANCE_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SECTION 4 - PERFORMANCE"
+  hi: ""
+
+API_AVG_DECISION_TIME_MS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Avg Decision Time (ms)"
+  hi: ""
+
+API_P99_DECISION_TIME_MS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "P99 Decision Time (ms)"
+  hi: ""
+
+API_SETTLEMENT_POSITION_STATEMENT_INDICA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Settlement Position Statement (indicative)"
+  hi: ""
+
+API_INWARD_CONFIRMED_PAYABLE_INR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Inward Confirmed - Payable (INR)"
+  hi: ""
+
+API_OUTWARD_NOT_RETURNED_RECEIVABLE_INR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Outward Not Returned - Receivable (INR)"
   hi: ""
