@@ -22,6 +22,7 @@ import uuid
 import pytest
 
 from tests.integration.cut3.conftest import TEST_BANK_ID
+from shared.utils.instrument_uuid import to_instrument_uuid
 
 pytestmark = [pytest.mark.integration, pytest.mark.cut3]
 
@@ -337,7 +338,7 @@ class TestDecisionPairingCut3:
             row = await conn.fetchrow(
                 "SELECT decision, decision_reason FROM cts.agent_decisions "
                 "WHERE instrument_id = $1",
-                instr_id,
+                to_instrument_uuid(TEST_BANK_ID, instr_id),
             )
         assert row is not None
         assert row["decision"] == "STP_RETURN"

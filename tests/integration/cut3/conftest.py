@@ -49,13 +49,13 @@ _BOOTSTRAP_DDL = [
     "CREATE SCHEMA IF NOT EXISTS cts",
     """CREATE TABLE IF NOT EXISTS cts.agent_decisions (
         decision_id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        instrument_id        TEXT NOT NULL,
+        instrument_id        UUID NOT NULL,   -- the real column is a UUID (see shared/utils/instrument_uuid.py)
         bank_id              TEXT NOT NULL,
         workflow_id          TEXT NOT NULL UNIQUE,
         decision             TEXT NOT NULL,
         decision_reason      TEXT,
         fraud_score          NUMERIC(5,4),
-        shap_values          TEXT,
+        shap_values          JSONB,
         processing_started_at TIMESTAMPTZ,
         processing_completed_at TIMESTAMPTZ,
         processing_duration_ms INTEGER,
@@ -67,10 +67,11 @@ _BOOTSTRAP_DDL = [
         pps_verdict          TEXT,
         cbs_balance_status   TEXT,
         degraded_mode        BOOLEAN DEFAULT false,
-        ocr_engines_used     TEXT[],
+        ocr_engines_used     JSONB,
         indic_ocr_kill_switch_active BOOLEAN DEFAULT false,
+        instrument_category  TEXT,
         iet_margin_seconds   INTEGER DEFAULT 0,
-        steps_digest         TEXT,
+        steps_digest         JSONB,
         registry_version     TEXT,
         created_at           TIMESTAMPTZ DEFAULT now()
     )""",
@@ -144,7 +145,7 @@ def ocr_stub_server():
     proc.wait()
 
 
-# ── Redis (sync — SignatureVault uses sync redis) ─────────────────────────────
+# ── Redis (sync client for direct inspection; the vault itself gets an async one below) ─────────────────────────────
 
 @pytest.fixture
 def redis_sync(require_cut3_infra):
@@ -173,10 +174,15 @@ async def cut3_db_pool(require_cut3_infra):
 
 @pytest_asyncio.fixture
 async def sig_vault(redis_sync, cut3_db_pool):
+    # The vault awaits its Redis calls, and the worker gives it redis.asyncio (see worker_activities._build_redis_client), so the
+    # test must too. `redis_sync` stays a dependency for its flushdb on teardown and for tests that read the same database directly.
+    import redis.asyncio as aioredis
     from modules.cts.vaults.signature_vault import SignatureVault
+    client = aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=2, decode_responses=False)
     vault = SignatureVault(bank_id=TEST_BANK_ID, pepper=TEST_PEPPER, db_pool=cut3_db_pool)
-    vault.connect(redis_client=redis_sync)
-    return vault
+    vault.connect(redis_client=client)
+    yield vault
+    await client.aclose()
 
 
 # ── Immudb client ────────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ import pytest
 import pytest_asyncio
 
 from tests.integration.cut1.conftest import TEST_BANK_ID, TEST_PEPPER
+from shared.utils.instrument_uuid import to_instrument_uuid
 
 pytestmark = [pytest.mark.integration, pytest.mark.cut1]
 
@@ -89,7 +90,7 @@ class TestPersistDecisionDB:
             row = await conn.fetchrow(
                 "SELECT instrument_id, bank_id, decision FROM cts.agent_decisions "
                 "WHERE instrument_id = $1 AND bank_id = $2",
-                instr_id, TEST_BANK_ID,
+                to_instrument_uuid(TEST_BANK_ID, instr_id), TEST_BANK_ID,
             )
         assert row is not None, f"Row not found for {instr_id}"
         assert row["decision"] == "STP_CONFIRM"
@@ -108,7 +109,7 @@ class TestPersistDecisionDB:
         async with cut1_db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT instrument_id FROM cts.agent_decisions WHERE instrument_id = $1",
-                instr_id,
+                to_instrument_uuid(TEST_BANK_ID, instr_id),
             )
         assert row is not None
 
@@ -204,7 +205,7 @@ class TestInwardDecisionChain:
         async with cut1_db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT decision FROM cts.agent_decisions WHERE instrument_id = $1",
-                instr_id,
+                to_instrument_uuid(TEST_BANK_ID, instr_id),
             )
         assert row is not None and row["decision"] == "STP_CONFIRM"
 
