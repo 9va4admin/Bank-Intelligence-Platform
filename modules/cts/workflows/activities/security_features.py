@@ -136,6 +136,8 @@ async def check_security_features(
 
         raw_content: Optional[str] = None
         try:
+            from shared.storage.image_fetch import model_image_url
+            model_url = await model_image_url(inp.image_url)
             response = await vllm_client.chat.completions.create(
                 model="qwen2-vl-72b",
                 messages=[
@@ -144,7 +146,7 @@ async def check_security_features(
                         "content": [
                             {
                                 "type": "image_url",
-                                "image_url": {"url": inp.image_url},
+                                "image_url": {"url": model_url},
                             },
                             {
                                 "type": "text",

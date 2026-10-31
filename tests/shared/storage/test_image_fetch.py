@@ -74,3 +74,59 @@ def test_inward_batch_workflow_hands_the_cheque_workflow_a_bucket_qualified_url(
     src = Path("modules/cts/workflows/inward_batch_workflow.py").read_text(encoding="utf8")
     assert "image_url=upload_result.front_bw_key" not in src
     assert "image_url=image_ref(inp.minio_bucket, upload_result.front_bw_key)" in src
+
+
+@pytest.fixture(autouse=True)
+def _reset_default_store():
+    yield
+    configure_default_store(None)  # a fake store left configured would leak into every later test in the run
+
+
+# ── model_image_url: what a model server is given ────────────────────────────
+# vLLM can only read http(s) and data: URLs. Handing it the s3:// / minio:// reference the activities carry made
+# every MinIO-stored cheque unreadable to the model, so the reference is resolved to bytes first.
+
+def _png() -> bytes:
+    import io
+    from PIL import Image
+    b = io.BytesIO(); Image.new("RGB", (4, 4), (255, 255, 255)).save(b, format="PNG"); return b.getvalue()
+
+
+def _tiff() -> bytes:
+    import io
+    from PIL import Image
+    b = io.BytesIO(); Image.new("RGB", (4, 4), (255, 255, 255)).save(b, format="TIFF"); return b.getvalue()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("passthrough", ["http://minio:9000/b/k?sig=1", "https://x/y.png", "data:image/png;base64,AAAA"])
+async def test_model_image_url_leaves_urls_a_model_can_read_alone(passthrough):
+    from shared.storage.image_fetch import model_image_url
+    assert await model_image_url(passthrough) == passthrough
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ref", ["s3://b/k.png", "minio://b/k.png"])
+async def test_model_image_url_inlines_object_store_references(ref):
+    import base64
+    from shared.storage.image_fetch import model_image_url
+    store = MagicMock(); store.download_bytes = AsyncMock(return_value=_png())
+    configure_default_store(store)
+    out = await model_image_url(ref)
+    assert out.startswith("data:image/png;base64,")
+    assert base64.b64decode(out.split(",", 1)[1]) == _png()
+
+
+@pytest.mark.asyncio
+async def test_model_image_url_converts_tiff_to_png():
+    from shared.storage.image_fetch import model_image_url
+    store = MagicMock(); store.download_bytes = AsyncMock(return_value=_tiff())
+    configure_default_store(store)
+    assert (await model_image_url("s3://b/front_bw.tiff")).startswith("data:image/png;base64,")
+
+
+@pytest.mark.asyncio
+async def test_model_image_url_refuses_an_unreadable_reference():
+    from shared.storage.image_fetch import model_image_url
+    with pytest.raises(ValueError):
+        await model_image_url("cts/inward/b/1/front_bw.tiff")  # bare key: no bucket

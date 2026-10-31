@@ -105,6 +105,26 @@ def _openai_response(content: str, model: str) -> dict:
     }
 
 
+# What image the "model" was actually given: a real vLLM can only read http(s)/data URLs, so a data URI is the proof an
+# image arrived. sha256 of the decoded bytes lets a test compare it with the file it uploaded.
+RECEIVED: list[dict] = []
+
+
+def _remember_image(image_url: str) -> None:
+    import base64
+    import hashlib
+    if image_url.startswith("data:") and "," in image_url:
+        raw = base64.b64decode(image_url.split(",", 1)[1])
+        RECEIVED.append({"kind": "data_uri", "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "head": image_url[:30]})
+    else:
+        RECEIVED.append({"kind": "reference", "url": image_url[:120]})
+
+
+@app.get("/received")
+async def received():
+    return RECEIVED
+
+
 # ── Chat completions endpoint (vLLM / OpenAI compatible) ────────────────────
 
 @app.post("/v1/chat/completions")
@@ -122,6 +142,7 @@ async def chat_completions(request: Request):
                     image_url = part.get("image_url", {}).get("url", "")
                     break
 
+    _remember_image(image_url)
     scenario = _extract_scenario(image_url)
 
     if scenario == "model_unavailable":

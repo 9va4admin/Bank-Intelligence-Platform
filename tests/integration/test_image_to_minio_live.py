@@ -101,3 +101,32 @@ async def test_outward_api_presigned_put_route(store):
     ref = image_ref(BUCKET, key)
     assert await fetch_image_bytes(ref) == CHEQUE.read_bytes()
     await _read_through_activity(ref)
+
+
+async def test_model_server_receives_the_actual_image(store):
+    # A vLLM server can only read http(s)/data URLs. The real cascade, given a MinIO reference, must send it the image itself.
+    import base64
+    import json
+
+    from openai import AsyncOpenAI
+
+    from shared.ai.model_cascade import CascadeOrchestrator
+
+    key = "it-bank/inward/live/front.jpg"
+    await store.upload_bytes(BUCKET, key, CHEQUE.read_bytes(), "image/jpeg")
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        seen.append(body["messages"][0]["content"][0]["image_url"]["url"])
+        reply = {"id": "x", "object": "chat.completion", "created": 0, "model": body["model"],
+                 "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "{}"}}],
+                 "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}
+        return httpx.Response(200, json=reply)
+
+    client = AsyncOpenAI(base_url="http://model.invalid/v1", api_key="x", http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    cfg = {"ai.cascade.l1_confidence_threshold": 0.0, "ai.cascade.high_value_threshold": 1e12, "ai.cascade.l2_escalation_enabled": False}
+    await CascadeOrchestrator(l1_client=client, l2_client=client, config=cfg, bank_id="it-bank").call_ocr(
+        image_url=image_ref(BUCKET, key), prompt="read", cheque_amount=1.0)
+    assert seen and seen[0].startswith("data:image/jpeg;base64,"), seen[:1]
+    assert base64.b64decode(seen[0].split(",", 1)[1]) == CHEQUE.read_bytes()

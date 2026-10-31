@@ -1051,3 +1051,32 @@ URL-fetch, signature-vault seeding methodology, MICR/account-number architecture
 session insisted on live, real-data verification instead of stopping at "the code looks right." This is the
 first real evidence all session that the STP mechanism, once its real blockers are removed, actually works
 on real cheques — not a projection, not a unit test, a completed Temporal workflow result checked directly.
+
+
+---
+
+## 2026-10-31 - Image to MinIO to workflow: live proof, and the model server could not read the reference
+
+**What was run (real):** real MinIO (integration stack and dev stack), the real scanner drop-folder upload code, the real inward-batch image upload
+activity, the real cascade orchestrator, the real `check_image_quality` activity, and a real `ChequeProcessingWorkflow` on a real worker
+(`cts-processing-kbl`, dev Temporal/Yugabyte/Immudb/MinIO/Redis/Kafka) with the cheque image `docs/cheques/CHQ-001-100001.jpg`.
+**Stand-in:** the model server is `tests/integration/stubs/ocr_server.py` (no GPU here); it now records what it was given at `GET /received`.
+
+**Found:** vLLM reads only `http(s)` and `data:` URLs. The cascade (OCR and vision), the signature-detection fallback and the security-features
+check handed it the `s3://` / `minio://` reference as-is, so on a real vLLM deployment every MinIO-stored cheque would have failed at the model.
+Fixed with `model_image_url()` (`shared/storage/image_fetch.py`): the image is read from the object store and sent as a data URI.
+
+**Result:** upload by the drop-folder route -> `minio://cts-cheques/kbl/outward/PU1/LIVE-3b05d2b8/front_bw.tif`; the workflow ran 5.9 s through image
+quality, OCR (model server), fraud, audit (Immudb tx 5555) and queued for human review. The model server received 42,565 bytes with the same
+sha256 as the source file (`a160f9c9...05d4b`). Decision `HUMAN_REVIEW`, rationale `micr_cheque_number_mismatch: presented 100001, read 500025` -
+correct, because the stand-in returns fixed field values. Tests: `tests/integration/test_image_to_minio_live.py` (4 live tests: drop-folder,
+inward batch, API presigned PUT, model receives the image).
+
+**Also found while preparing the stack:** the dev Yugabyte had no `cts` / `platform` schemas (its data was lost when the container was recreated on
+2026-10-30). The platform and CTS Alembic chains were run from empty: both applied through the head (`20261029_drop_clearing_zones`,
+`20261029_037`) on a real Yugabyte. On that fresh database `agent_decisions.bank_id` has a foreign key to a bank row that is not seeded, so
+`persist_agent_decision` failed (`agent_decisions_bank_id_fkey`); the review consumer also needs a UUID instrument id (this run used a text id).
+Neither was fixed here.
+
+**NOT covered:** the NPCI inward batch file itself (a stand-in batch file was used for slicing), the branch upload (EEH) code, a real model
+reading the image (stand-in), the outward workflow from an uploaded image, and any run with the dev database fully seeded.

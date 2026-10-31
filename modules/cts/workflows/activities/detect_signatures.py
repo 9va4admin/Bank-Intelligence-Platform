@@ -476,7 +476,8 @@ async def _detect_signatures_once(
             }
             prompt = _ZONE_DETECTION_PROMPT
         else:
-            image_content = {"type": "image_url", "image_url": {"url": inp.image_url}}
+            from shared.storage.image_fetch import model_image_url
+            image_content = {"type": "image_url", "image_url": {"url": await model_image_url(inp.image_url)}}
             prompt = _DETECTION_PROMPT
 
         try:
