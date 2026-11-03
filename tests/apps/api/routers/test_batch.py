@@ -227,6 +227,14 @@ class TestBankwise:
         rows = _client(_real_pool()).get(f"/v1/cts/sessions/{SID}/bankwise?perspective=DRAWEE").json()["rows"]
         assert {r["perspective"] for r in rows} == {"DRAWEE"}
 
+    def test_outward_without_drawee_ifsc_is_grouped_by_the_micr_bank_code(self):
+        """An outward cheque stores no drawee IFSC; its MICR sort code (city-bank-branch) still names the bank."""
+        pool = _real_pool(bankwise_outward=[{"ifsc": "", "micr_bank": "290", "n": 2, "paise": 200, "confirmed": 2,
+                                             "returned": 0, "returned_paise": 0}])
+        rows = _client(pool).get(f"/v1/cts/sessions/{SID}/bankwise?perspective=DRAWEE").json()["rows"]
+        assert rows[0]["bank_ifsc"] == "" and "290" in rows[0]["bank_name"] and rows[0]["bank_name"] != "UNKNOWN"
+        assert "SUBSTRING(ci.micr_code FROM 4 FOR 3)" in " ".join(pool.sql)
+
     def test_no_activity_is_an_empty_list(self):
         d = _client(_real_pool(bankwise_inward=[], bankwise_outward=[])).get(f"/v1/cts/sessions/{SID}/bankwise").json()
         assert d["rows"] == []

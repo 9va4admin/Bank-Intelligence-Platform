@@ -1,7 +1,7 @@
 """
 Tests for cts_dashboard.py — GET /dashboard/today, /dashboard/trend, /exceptions.
 
-TDD: this file is written BEFORE cts_dashboard.py exists — first run must be RED.
+Failures are surfaced (503), never turned into zeros; queries use the real cts schema.
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -45,192 +45,150 @@ def _make_app(db_pool=None):
     return app
 
 
-# ---------------------------------------------------------------------------
-# GET /v1/cts/dashboard/today
-# ---------------------------------------------------------------------------
+
+import contextlib
+
+
+class _Conn:
+    """Routes a query to canned rows by its /* q:name */ tag (or by table name for untagged SQL)."""
+    def __init__(self, rows, fail=False):
+        self.rows, self.fail, self.sql = rows, fail, []
+
+    async def fetch(self, sql, *args):
+        if self.fail:
+            raise RuntimeError("db down")
+        self.sql.append(sql)
+        for key, val in self.rows.items():
+            if key in sql:
+                return val
+        return []
+
+
+class _Pool:
+    def __init__(self, rows=None, fail=False):
+        self.conn = _Conn(rows or {}, fail)
+
+    @contextlib.asynccontextmanager
+    async def acquire(self):
+        yield self.conn
+
+
+_INWARD = {
+    "q:inward_decisions": [{"decision": "STP_CONFIRM", "n": 6, "paise": 600}, {"decision": "STP_RETURN", "n": 1, "paise": 100}],
+    "q:inward_reviews": [{"status": "DECIDED", "reviewer_decision": "CONFIRM", "n": 2, "paise": 200},
+                         {"status": "DECIDED", "reviewer_decision": "RETURN", "n": 1, "paise": 50},
+                         {"status": "PENDING", "reviewer_decision": None, "n": 3, "paise": 300}],
+    "q:inward_totals": [{"n": 13, "paise": 1250, "breached": 0}],
+    "q:inward_perf": [{"avg_ms": 400, "p99_ms": 590, "near": 0}],
+    "q:outward_totals": [{"n": 5, "paise": 500}],
+    "q:outward_returns": [{"return_reason_code": "09", "n": 1, "paise": 100}],
+    "q:outward_ngch": [{"accepted": 4, "returned": 1}],
+    "FROM cts.clearing_sessions": [{"status": "SETTLED"}, {"status": "OPEN"}],
+}
+
 
 class TestDashboardToday:
 
-    def test_no_db_returns_zeroed_summary(self):
-        """When db_pool_cts is absent (dev mode) return zero-filled summary."""
-        client = TestClient(_make_app(db_pool=None))
+    def test_counts_come_from_real_decisions_and_reviews(self):
+        client = TestClient(_make_app(db_pool=_Pool(_INWARD)))
         r = client.get("/v1/cts/dashboard/today")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["bank_id"] == "test-bank"
-        assert body["total_inward"] == 0
-        assert body["stp_confirmed"] == 0
-        assert body["overall_stp_rate_pct"] == 0.0
+        assert r.status_code == 200, r.text
+        b = r.json()
+        assert (b["total_inward"], b["stp_confirmed"], b["stp_returned"]) == (13, 6, 1)
+        assert (b["manual_confirmed"], b["manual_returned"], b["pending_review"]) == (2, 1, 3)
+        assert b["total_outward"] == 5
+        assert b["sessions_count"] == 2 and b["sessions_settled"] == 1
 
-    def test_with_db_returns_computed_rates(self):
-        """When DB rows are present, stp_rate_pct is calculated correctly."""
-        inward_row = {
-            "total_inward": 100, "stp_confirmed": 80, "stp_returned": 10,
-            "manual_confirmed": 5, "manual_returned": 3, "pending_review": 2,
-        }
-        outward_row = {"total_outward": 50, "outward_returned": 5}
-        session_row = {"sessions_count": 3, "sessions_settled": 2}
+    def test_response_and_queries_are_scoped_to_the_callers_bank(self):
+        pool = _Pool(_INWARD)
+        captured = []
+        orig = pool.conn.fetch
+        async def spy(sql, *args):
+            captured.append(args)
+            return await orig(sql, *args)
+        pool.conn.fetch = spy
+        b = TestClient(_make_app(db_pool=pool)).get("/v1/cts/dashboard/today").json()
+        assert b["bank_id"] == "test-bank"
+        assert captured and all(a[0] == "test-bank" for a in captured)
 
-        mock_db = MagicMock()
-        mock_db.fetchrow = AsyncMock(side_effect=[inward_row, outward_row, session_row])
+    def test_inward_excludes_outward_cheques(self):
+        pool = _Pool(_INWARD)
+        TestClient(_make_app(db_pool=pool)).get("/v1/cts/dashboard/today")
+        inward_sql = [q for q in pool.conn.sql if "q:inward_decisions" in q][0]
+        assert "direction = 'INWARD'" in inward_sql
 
-        client = TestClient(_make_app(db_pool=mock_db))
+    def test_manual_decisions_read_the_columns_that_are_written(self):
+        pool = _Pool(_INWARD)
+        TestClient(_make_app(db_pool=pool)).get("/v1/cts/dashboard/today")
+        assert not any("MANUAL_CONFIRM" in q or "MANUAL_RETURN" in q for q in pool.conn.sql)
+
+    def test_db_error_is_503_not_zeros(self):
+        client = TestClient(_make_app(db_pool=_Pool(fail=True)), raise_server_exceptions=False)
         r = client.get("/v1/cts/dashboard/today")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["stp_confirmed"] == 80
-        assert body["total_inward"] == 100
-        assert body["overall_stp_rate_pct"] == 80.0
-        assert body["sessions_count"] == 3
+        assert r.status_code == 503
+        assert r.json()["detail"]["error_code"] == "CTS_BATCH_DB_UNAVAILABLE"
 
-    def test_db_error_returns_zeroed_summary(self):
-        """If the DB raises, return zero-filled summary — never 500."""
-        mock_db = MagicMock()
-        mock_db.fetchrow = AsyncMock(side_effect=Exception("db down"))
-
-        client = TestClient(_make_app(db_pool=mock_db))
-        r = client.get("/v1/cts/dashboard/today")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["total_inward"] == 0
+    def test_no_pool_is_503(self):
+        client = TestClient(_make_app(db_pool=None), raise_server_exceptions=False)
+        assert client.get("/v1/cts/dashboard/today").status_code == 503
 
     def test_unauthenticated_returns_401(self):
-        """No auth override → 401."""
         from apps.api.routers.cts_dashboard import router_v1
-        app = FastAPI()
-        app.include_router(router_v1)
-        client = TestClient(app, raise_server_exceptions=False)
-        r = client.get("/v1/cts/dashboard/today")
-        assert r.status_code == 401
+        app = FastAPI(); app.include_router(router_v1)
+        assert TestClient(app, raise_server_exceptions=False).get("/v1/cts/dashboard/today").status_code == 401
 
-
-# ---------------------------------------------------------------------------
-# GET /v1/cts/dashboard/trend
-# ---------------------------------------------------------------------------
 
 class TestDashboardTrend:
 
-    def test_no_db_returns_empty_trend(self):
-        client = TestClient(_make_app(db_pool=None))
-        r = client.get("/v1/cts/dashboard/trend?days=7")
+    def test_rows_are_inward_only_and_rates_from_decisions(self):
+        pool = _Pool({"q:trend": [{"date": "Nov 02", "inward": 10, "stp_rate_pct": 70.0, "return_rate_pct": 10.0}]})
+        r = TestClient(_make_app(db_pool=pool)).get("/v1/cts/dashboard/trend?days=3")
         assert r.status_code == 200
-        body = r.json()
-        assert body["bank_id"] == "test-bank"
-        assert body["trend"] == []
-        assert body["days"] == 7
+        assert r.json()["trend"][0] == {"date": "Nov 02", "inward": 10, "stp_rate_pct": 70.0, "return_rate_pct": 10.0}
+        sql = pool.conn.sql[0]
+        assert "direction = 'INWARD'" in sql and "MANUAL_RETURN" not in sql
 
-    def test_with_db_returns_trend_rows(self):
-        rows = [
-            {"date": "Sep 01", "inward": 40, "stp_rate_pct": 85.0, "return_rate_pct": 10.0},
-            {"date": "Sep 02", "inward": 55, "stp_rate_pct": 90.0, "return_rate_pct": 8.0},
-        ]
-        mock_db = MagicMock()
-        mock_db.fetch = AsyncMock(return_value=rows)
+    def test_days_bounds(self):
+        c = TestClient(_make_app(db_pool=_Pool()))
+        assert c.get("/v1/cts/dashboard/trend?days=31").status_code == 422
+        assert c.get("/v1/cts/dashboard/trend?days=0").status_code == 422
 
-        client = TestClient(_make_app(db_pool=mock_db))
-        r = client.get("/v1/cts/dashboard/trend?days=7")
-        assert r.status_code == 200
-        body = r.json()
-        assert len(body["trend"]) == 2
-        assert body["trend"][0]["date"] == "Sep 01"
-        assert body["trend"][0]["stp_rate_pct"] == 85.0
+    def test_db_error_is_503(self):
+        c = TestClient(_make_app(db_pool=_Pool(fail=True)), raise_server_exceptions=False)
+        assert c.get("/v1/cts/dashboard/trend").status_code == 503
 
-    def test_days_param_capped_at_30(self):
-        """days > 30 → 422 validation error."""
-        client = TestClient(_make_app(db_pool=None))
-        r = client.get("/v1/cts/dashboard/trend?days=99")
-        assert r.status_code == 422
-
-    def test_days_param_minimum_1(self):
-        """days=0 → 422 validation error."""
-        client = TestClient(_make_app(db_pool=None))
-        r = client.get("/v1/cts/dashboard/trend?days=0")
-        assert r.status_code == 422
-
-    def test_db_error_returns_empty_trend(self):
-        mock_db = MagicMock()
-        mock_db.fetch = AsyncMock(side_effect=Exception("db down"))
-        client = TestClient(_make_app(db_pool=mock_db))
-        r = client.get("/v1/cts/dashboard/trend")
-        assert r.status_code == 200
-        assert r.json()["trend"] == []
-
-
-# ---------------------------------------------------------------------------
-# GET /v1/cts/exceptions
-# ---------------------------------------------------------------------------
 
 class TestExceptions:
 
-    def test_no_db_returns_empty_exceptions(self):
-        client = TestClient(_make_app(db_pool=None))
-        r = client.get("/v1/cts/exceptions")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["bank_id"] == "test-bank"
-        assert body["items"] == []
-        assert body["total"] == 0
+    _ROWS = {"q:exceptions": [{
+        "exception_id": "EX-1", "instrument_id": "I1", "exception_type": "VAULT_MISS", "severity": "HIGH",
+        "occurred_at": "2026-11-03T10:00:00+00:00", "detail": "VAULT_MISS", "resolved": False, "margin_seconds": 12}]}
 
-    def test_with_db_returns_labelled_exceptions(self):
-        rows = [
-            {
-                "exception_id": "EX-001", "instrument_id": "INST001",
-                "exception_type": "IET_NEAR_BREACH", "severity": "CRITICAL",
-                "occurred_at": "2026-09-09T10:00:00+00:00",
-                "detail": "30s margin", "resolved": False, "margin_seconds": 28,
-            }
-        ]
-        mock_db = MagicMock()
-        mock_db.fetch = AsyncMock(return_value=rows)
-
-        client = TestClient(_make_app(db_pool=mock_db))
-        r = client.get("/v1/cts/exceptions")
+    def test_items_labelled_from_real_decision_reason(self):
+        r = TestClient(_make_app(db_pool=_Pool(self._ROWS))).get("/v1/cts/exceptions")
         assert r.status_code == 200
-        body = r.json()
-        assert len(body["items"]) == 1
-        assert body["items"][0]["label"] == "IET Near-Breach (< 30s margin)"
-        assert body["items"][0]["severity"] == "CRITICAL"
-        assert body["items"][0]["resolved"] is False
+        it = r.json()["items"][0]
+        assert it["exception_type"] == "VAULT_MISS" and it["margin_seconds"] == 12 and it["resolved"] is False
 
-    def test_severity_filter_passed_to_query(self):
-        """severity param is accepted without error."""
-        mock_db = MagicMock()
-        mock_db.fetch = AsyncMock(return_value=[])
-        client = TestClient(_make_app(db_pool=mock_db))
-        r = client.get("/v1/cts/exceptions?severity=CRITICAL")
-        assert r.status_code == 200
+    def test_reads_only_columns_that_exist(self):
+        pool = _Pool(self._ROWS)
+        TestClient(_make_app(db_pool=pool)).get("/v1/cts/exceptions")
+        sql = pool.conn.sql[0]
+        assert "workflow_exceptions" not in sql and "decision_outcome" not in sql and "decided_at" not in sql
+        assert "decision_reason" in sql and "iet_margin_seconds" in sql
+
+    def test_severity_filter_applied(self):
+        r = TestClient(_make_app(db_pool=_Pool(self._ROWS))).get("/v1/cts/exceptions?severity=CRITICAL")
+        assert r.status_code == 200 and r.json()["total"] == 0
 
     def test_limit_capped_at_500(self):
-        client = TestClient(_make_app(db_pool=None))
-        r = client.get("/v1/cts/exceptions?limit=501")
-        assert r.status_code == 422
+        assert TestClient(_make_app(db_pool=_Pool())).get("/v1/cts/exceptions?limit=501").status_code == 422
 
-    def test_db_exception_falls_back_to_agent_decisions(self):
-        """Primary query fails → fallback to agent_decisions query."""
-        fallback_rows = [
-            {
-                "exception_id": "EX-INST002", "instrument_id": "INST002",
-                "exception_type": "OCR_LOW_CONFIDENCE", "severity": "HIGH",
-                "occurred_at": "2026-09-09T11:00:00+00:00",
-                "detail": "See agent decision for full context",
-                "resolved": False, "margin_seconds": None,
-            }
-        ]
-        mock_db = MagicMock()
-        # First fetch (workflow_exceptions) raises, second fetch (agent_decisions) succeeds
-        mock_db.fetch = AsyncMock(side_effect=[Exception("table missing"), fallback_rows])
-
-        client = TestClient(_make_app(db_pool=mock_db))
-        r = client.get("/v1/cts/exceptions")
-        assert r.status_code == 200
-        body = r.json()
-        assert len(body["items"]) == 1
-        assert body["items"][0]["instrument_id"] == "INST002"
+    def test_db_error_is_503_not_empty(self):
+        c = TestClient(_make_app(db_pool=_Pool(fail=True)), raise_server_exceptions=False)
+        assert c.get("/v1/cts/exceptions").status_code == 503
 
     def test_unauthenticated_returns_401(self):
         from apps.api.routers.cts_dashboard import router_v1
-        app = FastAPI()
-        app.include_router(router_v1)
-        client = TestClient(app, raise_server_exceptions=False)
-        r = client.get("/v1/cts/exceptions")
-        assert r.status_code == 401
+        app = FastAPI(); app.include_router(router_v1)
+        assert TestClient(app, raise_server_exceptions=False).get("/v1/cts/exceptions").status_code == 401

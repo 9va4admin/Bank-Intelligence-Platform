@@ -549,14 +549,15 @@ async def _bankwise_rows(conn: Any, bank_id: str, day: date) -> list[dict]:
     outward = await conn.fetch(
         """
         /* q:bankwise_outward */
-        SELECT COALESCE(ci.drawee_ifsc, '') AS ifsc, COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise,
+        SELECT COALESCE(ci.drawee_ifsc, '') AS ifsc, SUBSTRING(ci.micr_code FROM 4 FOR 3) AS micr_bank,
+               COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise,
                COUNT(*) FILTER (WHERE ri.return_id IS NULL) AS confirmed,
                COUNT(*) FILTER (WHERE ri.return_id IS NOT NULL) AS returned,
                COALESCE(SUM(ci.amount_paise) FILTER (WHERE ri.return_id IS NOT NULL), 0) AS returned_paise
           FROM cts.cheque_instruments ci
           LEFT JOIN cts.return_items ri ON ri.bank_id = ci.bank_id AND ri.cheque_number = ci.cheque_number AND ri.micr_code = ci.micr_code
          WHERE ci.bank_id = $1 AND ci.direction = 'OUTWARD' AND ci.received_at::date = $2::date
-         GROUP BY COALESCE(ci.drawee_ifsc, '')
+         GROUP BY COALESCE(ci.drawee_ifsc, ''), SUBSTRING(ci.micr_code FROM 4 FOR 3)
          ORDER BY paise DESC
         """,
         bank_id, day,
@@ -567,9 +568,12 @@ async def _bankwise_rows(conn: Any, bank_id: str, day: date) -> list[dict]:
     return out
 
 
-def _bank_label(ifsc: str) -> str:
-    """No bank directory exists in the platform; the four-letter IFSC prefix identifies the bank."""
-    return ifsc[:4] if ifsc else "UNKNOWN"
+def _bank_label(ifsc: str, micr_bank: str = "") -> str:
+    """No bank directory exists in the platform: the IFSC's four-letter prefix identifies the bank, and an
+    outward cheque (which stores no drawee IFSC) is identified by the bank code inside its MICR sort code."""
+    if ifsc:
+        return ifsc[:4]
+    return get_message("UI_BANKWISE_MICR_BANK", micr_bank=micr_bank) if micr_bank else get_message("UI_BANKWISE_UNKNOWN_BANK")
 
 
 @router_v1.get("/sessions/{session_id}/summary", response_model=SessionSummaryResponse)
@@ -619,7 +623,7 @@ async def session_bankwise(
         raise _db_unavailable()
     rows = [
         BankwiseRow(
-            bank_ifsc=r["ifsc"], bank_name=_bank_label(r["ifsc"]), perspective=r["perspective"],
+            bank_ifsc=r["ifsc"], bank_name=_bank_label(r["ifsc"], r.get("micr_bank") or ""), perspective=r["perspective"],
             cheque_count=int(r["n"]), total_value_paise=int(r["paise"]),
             confirmed_count=int(r["confirmed"]), returned_count=int(r["returned"]),
             return_rate_pct=_pct(int(r["returned"]), int(r["n"])),

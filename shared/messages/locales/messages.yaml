@@ -28388,6 +28388,20 @@ API_BATCH_RRF_NOT_FOUND:
   en: "No Return Reason File has been generated for this session yet."
   hi: ""
 
+UI_BANKWISE_MICR_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: [micr_bank]
+  en: "Bank code {micr_bank} (from MICR)"
+  hi: ""
+
+UI_BANKWISE_UNKNOWN_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unknown bank"
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]
