@@ -6,11 +6,12 @@ Covers both perspectives:
   - Drawee bank      (outward cheques sent by our branches to NGCH)
   - Combined         (net position per session / per day)
 
-Routes:
-  GET  /v1/cts/sessions                          — list clearing sessions (today + history)
-  GET  /v1/cts/sessions/{session_id}/summary     — full val/vol/STP/manual breakdown
-  GET  /v1/cts/sessions/{session_id}/bankwise    — per-bank (presenting / drawee) breakdown
-  GET  /v1/cts/sessions/today                    — today's rolling totals across all sessions
+Routes backed by real data:
+  GET  /v1/cts/sessions                          — clearing sessions from cts.clearing_sessions
+  GET  /v1/cts/sessions/today                    — today's totals from cheque_instruments / agent_decisions / human_review_items
+
+  GET  /v1/cts/sessions/{session_id}/summary, /bankwise, /download/{npci,mis,settlement}, GET /v1/cts/dashboard/ops
+Instruments carry no clearing-session tag, so a session's figures are those of its clearing date; session id TODAY means today.
   GET  /v1/cts/sessions/{session_id}/download/npci   — NPCI return file (RRF/CSV)
   GET  /v1/cts/sessions/{session_id}/download/mis    — internal MIS report (CSV)
   GET  /v1/cts/sessions/{session_id}/download/settlement — settlement position statement
@@ -18,19 +19,22 @@ Routes:
 """
 from __future__ import annotations
 
-import csv
-import io
 from datetime import date, datetime, timezone
 from typing import Any, Literal, Optional
 
+import csv
+import io
+import uuid
+from datetime import timedelta
+
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
 from shared.messages import get_message
 from shared.auth.rbac import UserContext
+from shared.storage.image_fetch import fetch_image_bytes as fetch_object_bytes
 
 log = structlog.get_logger()
 
@@ -89,26 +93,56 @@ class SessionStatus(BaseModel):
     ngch_ack_at: Optional[datetime]
 
 
+class TodaySummaryResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    clearing_date: date
+    sessions_count: int
+    sessions_settled: int
+    # Presenting bank totals
+    total_inward: int
+    total_inward_value_paise: int
+    stp_confirmed: int
+    stp_returned: int
+    manual_confirmed: int
+    manual_returned: int
+    pending_review: int
+    overall_stp_rate_pct: float
+    overall_return_rate_pct: float
+    # Drawee bank totals
+    total_outward: int
+    total_outward_value_paise: int
+    outward_returned: Optional[int] = None   # needs the return-file reconciliation; not derived here
+    # Net settlement is known only after reconciliation
+    net_settlement_paise: Optional[int] = None
+    # 5-day trend (for sparkline)
+    trend_5d: list[dict]
+    generated_at: datetime
+
+
+class SessionListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    sessions: list[SessionStatus]
+    total: int
+
+
 class DecisionBreakdown(BaseModel):
     model_config = ConfigDict(frozen=True)
-    # Counts
     total_inward: int
     stp_confirmed: int
     stp_returned: int
     manual_confirmed: int
     manual_returned: int
     pending_review: int
-    # Values (in INR, stored as int paise to avoid float issues)
     total_value_paise: int
     stp_confirmed_value_paise: int
     stp_returned_value_paise: int
     manual_confirmed_value_paise: int
     manual_returned_value_paise: int
-    # Derived rates
     stp_rate_pct: float
     manual_rate_pct: float
     return_rate_pct: float
-    # Performance
     avg_decision_ms: int
     p99_decision_ms: int
     iet_near_breach_count: int
@@ -116,22 +150,21 @@ class DecisionBreakdown(BaseModel):
 
 class OutwardBreakdown(BaseModel):
     model_config = ConfigDict(frozen=True)
-    # Cheques our branches presented to other banks via NGCH
     total_outward: int
     total_outward_value_paise: int
     ngch_accepted: int
     ngch_returned: int
     ngch_returned_value_paise: int
-    return_reasons: dict[str, int]   # reason_code → count
+    return_reasons: dict[str, int]   # reason_code -> count
 
 
 class SessionSummaryResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     session: SessionStatus
     bank_id: str
-    presenting_bank: DecisionBreakdown    # inward (we are paying bank)
-    drawee_bank: OutwardBreakdown         # outward (we are collecting bank)
-    net_settlement_paise: int             # positive = we receive, negative = we pay
+    presenting_bank: DecisionBreakdown    # inward (we are the paying bank)
+    drawee_bank: OutwardBreakdown         # outward (we are the collecting bank)
+    net_settlement_paise: Optional[int] = None   # known only after reconciliation
     generated_at: datetime
 
 
@@ -155,126 +188,18 @@ class BankwiseResponse(BaseModel):
     generated_at: datetime
 
 
-class TodaySummaryResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    bank_id: str
-    clearing_date: date
-    sessions_count: int
-    sessions_settled: int
-    # Presenting bank totals
-    total_inward: int
-    total_inward_value_paise: int
-    stp_confirmed: int
-    stp_returned: int
-    manual_confirmed: int
-    manual_returned: int
-    pending_review: int
-    overall_stp_rate_pct: float
-    overall_return_rate_pct: float
-    # Drawee bank totals
-    total_outward: int
-    total_outward_value_paise: int
-    outward_returned: int
-    # Net
-    net_settlement_paise: int
-    # 5-day trend (for sparkline)
-    trend_5d: list[dict]
-    generated_at: datetime
-
-
-class SessionListResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    bank_id: str
-    sessions: list[SessionStatus]
-    total: int
-
 
 # ---------------------------------------------------------------------------
-# Mock data helpers (replace with YugabyteDB queries in production)
-# ---------------------------------------------------------------------------
-
-def _mock_session(session_id: str, slot: str, st: str) -> SessionStatus:
-    now = datetime.now(timezone.utc)
-    return SessionStatus(
-        session_id=session_id,
-        clearing_date=date.today(),
-        session_slot=slot,
-        status=st,
-        opened_at=now if st not in ("UPCOMING",) else None,
-        closed_at=now if st in ("FILED", "SETTLED") else None,
-        ngch_ack_at=now if st == "SETTLED" else None,
-    )
-
-
-def _mock_presenting(total: int, value_cr: float) -> DecisionBreakdown:
-    val = int(value_cr * 1e7)  # crores → paise
-    stp_c = int(total * 0.71)
-    stp_r = int(total * 0.14)
-    man_c = int(total * 0.09)
-    man_r = int(total * 0.05)
-    pend  = total - stp_c - stp_r - man_c - man_r
-    return DecisionBreakdown(
-        total_inward=total,
-        stp_confirmed=stp_c,
-        stp_returned=stp_r,
-        manual_confirmed=man_c,
-        manual_returned=man_r,
-        pending_review=max(0, pend),
-        total_value_paise=val,
-        stp_confirmed_value_paise=int(val * 0.71),
-        stp_returned_value_paise=int(val * 0.14),
-        manual_confirmed_value_paise=int(val * 0.09),
-        manual_returned_value_paise=int(val * 0.05),
-        stp_rate_pct=round((stp_c + stp_r) / total * 100, 2),
-        manual_rate_pct=round((man_c + man_r) / total * 100, 2),
-        return_rate_pct=round((stp_r + man_r) / total * 100, 2),
-        avg_decision_ms=312,
-        p99_decision_ms=587,
-        iet_near_breach_count=2,
-    )
-
-
-def _mock_drawee(total: int, value_cr: float) -> OutwardBreakdown:
-    val = int(value_cr * 1e7)
-    ret = int(total * 0.08)
-    return OutwardBreakdown(
-        total_outward=total,
-        total_outward_value_paise=val,
-        ngch_accepted=total - ret,
-        ngch_returned=ret,
-        ngch_returned_value_paise=int(val * 0.08),
-        return_reasons={
-            "FUNDS_INSUFFICIENT": int(ret * 0.45),
-            "SIGNATURE_MISMATCH": int(ret * 0.22),
-            "ACCOUNT_CLOSED": int(ret * 0.15),
-            "ALTERATION": int(ret * 0.10),
-            "OTHER": int(ret * 0.08),
-        },
-    )
-
-
-_SESSIONS = [
-    ("SES-{d}-001", "10:00–12:00", "SETTLED", 1840, 42.3, 1210, 28.1),
-    ("SES-{d}-002", "12:00–14:00", "FILED",   2105, 53.7, 1380, 31.4),
-    ("SES-{d}-003", "14:00–16:00", "OPEN",    1230, 29.8, 890,  19.2),
-    ("SES-{d}-004", "16:00–18:00", "UPCOMING", 0,   0.0,  0,    0.0),
-]
-
-
-def _session_id(template: str) -> str:
-    return template.format(d=date.today().strftime("%Y%m%d"))
-
-
-# ---------------------------------------------------------------------------
-# DB → API mapping helpers
+# DB -> API mapping (cts.clearing_sessions as the migrations create it)
 # ---------------------------------------------------------------------------
 
 _STATUS_MAP: dict[str, str] = {
-    "OPEN":        "OPEN",
-    "SEALED":      "PROCESSING",
-    "SUBMITTED":   "FILED",
-    "RECONCILED":  "SETTLED",
-    "EXCEPTION":   "FAILED",
+    "PENDING":         "OPEN",
+    "SUBMITTED":       "FILED",
+    "SUBMITTED_TO_SB": "FILED",
+    "EMPTY_SESSION":   "FILED",      # closed with nothing to settle
+    "RECONCILED":      "SETTLED",
+    "EXCEPTION":       "FAILED",
 }
 
 _SLOT_MAP: dict[str, str] = {
@@ -285,79 +210,40 @@ _SLOT_MAP: dict[str, str] = {
 
 
 def _row_to_session_status(row: dict) -> SessionStatus:
-    db_status = row.get("status", "OPEN")
-    api_status = _STATUS_MAP.get(db_status, "OPEN")
-    slot = _SLOT_MAP.get(row.get("session_type", "MORNING"), "10:00–12:00")
-    closed_at = row.get("submitted_at") or row.get("reconciled_at")
-    ngch_ack_at = row.get("reconciled_at") if db_status == "RECONCILED" else None
-    cleared = row.get("clearing_date")
-    if isinstance(cleared, str):
-        cleared = date.fromisoformat(cleared)
     return SessionStatus(
-        session_id=row["session_id"],
-        clearing_date=cleared or date.today(),
-        session_slot=slot,
-        status=api_status,
-        opened_at=row.get("opened_at"),
-        closed_at=closed_at,
-        ngch_ack_at=ngch_ack_at,
+        session_id=str(row["session_id"]),
+        clearing_date=row["session_date"],
+        session_slot=_SLOT_MAP.get(row.get("session_type"), str(row.get("session_type") or "")),
+        status=_STATUS_MAP.get(row.get("status"), "OPEN"),
+        opened_at=row.get("presentation_open_at") or row.get("created_at"),
+        closed_at=row.get("presentation_close_at"),
+        ngch_ack_at=row.get("settlement_at"),
     )
 
 
-async def _db_list_sessions(pool: Any, bank_id: str, clearing_date: Optional[date]) -> list[SessionStatus]:
-    async with pool.acquire() as conn:
-        if clearing_date:
-            rows = await conn.fetch(
-                """
-                SELECT session_id, bank_id, session_type, status, clearing_date,
-                       opened_at, sealed_at, submitted_at, reconciled_at, npci_ack_ref
-                FROM cts.clearing_sessions
-                WHERE bank_id = $1 AND clearing_date = $2
-                ORDER BY session_type
-                """,
-                bank_id, clearing_date,
-            )
-        else:
-            rows = await conn.fetch(
-                """
-                SELECT session_id, bank_id, session_type, status, clearing_date,
-                       opened_at, sealed_at, submitted_at, reconciled_at, npci_ack_ref
-                FROM cts.clearing_sessions
-                WHERE bank_id = $1
-                ORDER BY clearing_date DESC, session_type
-                LIMIT 50
-                """,
-                bank_id,
-            )
-    return [_row_to_session_status(dict(r)) for r in rows]
+def _db_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={"error_code": "CTS_BATCH_DB_UNAVAILABLE", "message": get_message("API_BATCH_DB_UNAVAILABLE")},
+    )
 
 
-async def _db_today_summary(pool: Any, bank_id: str) -> Optional[dict]:
-    """Returns aggregate row from clearing_sessions for today, or None if no sessions."""
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT session_id, status, total_instruments, session_type,
-                   opened_at, submitted_at, reconciled_at
-            FROM cts.clearing_sessions
-            WHERE bank_id = $1 AND clearing_date = CURRENT_DATE
-            ORDER BY session_type
-            """,
-            bank_id,
-        )
-    if not rows:
-        return None
-    total_in = sum(r["total_instruments"] or 0 for r in rows)
-    settled = sum(1 for r in rows if r["status"] == "RECONCILED")
-    return {
-        "sessions_count": len(rows),
-        "sessions_settled": settled,
-        "total_instruments": total_in,
-    }
+def _not_implemented() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail={"error_code": "CTS_BATCH_NOT_IMPLEMENTED", "message": get_message("API_BATCH_NOT_IMPLEMENTED")},
+    )
+
+
+def _pool(request: Request) -> Any:
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is None:
+        raise _db_unavailable()
+    return pool
 
 
 # ---------------------------------------------------------------------------
-# Routes — Session list
+# Routes - session list
 # ---------------------------------------------------------------------------
 
 @router_v1.get("/sessions", response_model=SessionListResponse)
@@ -367,23 +253,34 @@ async def list_sessions(
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
 ) -> SessionListResponse:
-    pool = getattr(request.app.state, "db_pool_cts", None)
-    if pool is not None:
-        try:
-            sessions = await _db_list_sessions(pool, bank_id, clearing_date)
-            return SessionListResponse(bank_id=bank_id, sessions=sessions, total=len(sessions))
-        except Exception:
-            log.warning("batch.list_sessions.db_error", bank_id=bank_id)
-    sessions = [
-        _mock_session(_session_id(sid), slot, st)
-        for sid, slot, st, *_ in _SESSIONS
-    ]
+    pool = _pool(request)
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT session_id, session_date, session_type, status, created_at,
+                       presentation_open_at, presentation_close_at, settlement_at
+                  FROM cts.clearing_sessions
+                 WHERE bank_id = $1 AND ($2::date IS NULL OR session_date = $2::date)
+                 ORDER BY session_date DESC, session_type
+                 LIMIT 50
+                """,
+                bank_id, clearing_date,
+            )
+        sessions = [_row_to_session_status(dict(r)) for r in rows]
+    except Exception:
+        log.exception("batch.list_sessions.db_error", bank_id=bank_id)
+        raise _db_unavailable()
     return SessionListResponse(bank_id=bank_id, sessions=sessions, total=len(sessions))
 
 
 # ---------------------------------------------------------------------------
-# Routes — Today summary
+# Routes - today summary
 # ---------------------------------------------------------------------------
+
+def _pct(part: int, whole: int) -> float:
+    return round(part / whole * 100, 2) if whole else 0.0
+
 
 @router_v1.get("/sessions/today", response_model=TodaySummaryResponse)
 async def today_summary(
@@ -391,275 +288,598 @@ async def today_summary(
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
 ) -> TodaySummaryResponse:
-    pool = getattr(request.app.state, "db_pool_cts", None)
-    db_agg: Optional[dict] = None
-    if pool is not None:
-        try:
-            db_agg = await _db_today_summary(pool, bank_id)
-        except Exception:
-            log.warning("batch.today_summary.db_error", bank_id=bank_id)
+    pool = _pool(request)
+    today = date.today()
+    try:
+        async with pool.acquire() as conn:
+            sessions = await conn.fetch(
+                "SELECT status FROM cts.clearing_sessions WHERE bank_id = $1 AND session_date = $2::date",
+                bank_id, today,
+            )
+            volumes = await conn.fetch(
+                """
+                SELECT direction, COUNT(*) AS n, COALESCE(SUM(amount_paise), 0) AS paise
+                  FROM cts.cheque_instruments
+                 WHERE bank_id = $1 AND received_at::date = $2::date
+                 GROUP BY direction
+                """,
+                bank_id, today,
+            )
+            decisions = await conn.fetch(
+                """
+                SELECT decision, COUNT(*) AS n
+                  FROM cts.agent_decisions
+                 WHERE bank_id = $1 AND created_at::date = $2::date
+                 GROUP BY decision
+                """,
+                bank_id, today,
+            )
+            reviews = await conn.fetch(
+                """
+                SELECT status, reviewer_decision, COUNT(*) AS n
+                  FROM cts.human_review_items
+                 WHERE bank_id = $1 AND (status = 'PENDING' OR reviewed_at::date = $2::date)
+                 GROUP BY status, reviewer_decision
+                """,
+                bank_id, today,
+            )
+            trend = await conn.fetch(
+                """
+                SELECT received_at::date AS day,
+                       COUNT(*) FILTER (WHERE direction = 'INWARD')  AS inward,
+                       COUNT(*) FILTER (WHERE direction = 'OUTWARD') AS outward
+                  FROM cts.cheque_instruments
+                 WHERE bank_id = $1 AND received_at::date > ($2::date - 5)
+                 GROUP BY 1
+                 ORDER BY 1
+                """,
+                bank_id, today,
+            )
+    except Exception:
+        log.exception("batch.today_summary.db_error", bank_id=bank_id)
+        raise _db_unavailable()
 
-    active = [s for s in _SESSIONS if s[2] not in ("UPCOMING",)]
-    total_in = sum(s[3] for s in active)
-    total_val_in = sum(s[4] for s in active)
-    total_out = sum(s[5] for s in active)
-    total_val_out = sum(s[6] for s in active)
-    stp_c = int(total_in * 0.71)
-    stp_r = int(total_in * 0.14)
-    man_c = int(total_in * 0.09)
-    man_r = int(total_in * 0.05)
-    pend  = total_in - stp_c - stp_r - man_c - man_r
-    out_ret = int(total_out * 0.08)
-    net = int((total_val_in * 0.71 - total_val_out) * 1e7)
-    trend = [
-        {"date": "2026-06-20", "inward": 4820, "outward": 3180, "return_rate_pct": 18.4},
-        {"date": "2026-06-21", "inward": 0,    "outward": 0,    "return_rate_pct": 0},
-        {"date": "2026-06-22", "inward": 0,    "outward": 0,    "return_rate_pct": 0},
-        {"date": "2026-06-23", "inward": 5210, "outward": 3540, "return_rate_pct": 17.9},
-        {"date": "2026-06-24", "inward": 5640, "outward": 3810, "return_rate_pct": 19.2},
-    ]
-    sessions_count_real = db_agg["sessions_count"] if db_agg else len(active)
-    sessions_settled_real = db_agg["sessions_settled"] if db_agg else sum(1 for s in active if s[2] == "SETTLED")
-    total_in_real = db_agg["total_instruments"] if db_agg else total_in
+    vol = {r["direction"]: r for r in volumes}
+    total_in, in_paise = (vol["INWARD"]["n"], vol["INWARD"]["paise"]) if "INWARD" in vol else (0, 0)
+    total_out, out_paise = (vol["OUTWARD"]["n"], vol["OUTWARD"]["paise"]) if "OUTWARD" in vol else (0, 0)
+    dec = {r["decision"]: r["n"] for r in decisions}
+    stp_c, stp_r = dec.get("STP_CONFIRM", 0), dec.get("STP_RETURN", 0)
+    man_c = sum(r["n"] for r in reviews if r["status"] == "DECIDED" and r["reviewer_decision"] == "CONFIRM")
+    man_r = sum(r["n"] for r in reviews if r["status"] == "DECIDED" and r["reviewer_decision"] == "RETURN")
+    pending = sum(r["n"] for r in reviews if r["status"] == "PENDING")
 
     return TodaySummaryResponse(
         bank_id=bank_id,
-        clearing_date=date.today(),
-        sessions_count=sessions_count_real,
-        sessions_settled=sessions_settled_real,
-        total_inward=total_in_real,
-        total_inward_value_paise=int(total_val_in * 1e7),
+        clearing_date=today,
+        sessions_count=len(sessions),
+        sessions_settled=sum(1 for r in sessions if r["status"] == "RECONCILED"),
+        total_inward=total_in,
+        total_inward_value_paise=in_paise,
         stp_confirmed=stp_c,
         stp_returned=stp_r,
         manual_confirmed=man_c,
         manual_returned=man_r,
-        pending_review=max(0, pend),
-        overall_stp_rate_pct=round((stp_c + stp_r) / max(total_in, 1) * 100, 2),
-        overall_return_rate_pct=round((stp_r + man_r) / max(total_in, 1) * 100, 2),
+        pending_review=pending,
+        overall_stp_rate_pct=_pct(stp_c + stp_r, total_in),
+        overall_return_rate_pct=_pct(stp_r + man_r, total_in),
         total_outward=total_out,
-        total_outward_value_paise=int(total_val_out * 1e7),
-        outward_returned=out_ret,
-        net_settlement_paise=net,
-        trend_5d=trend,
+        total_outward_value_paise=out_paise,
+        outward_returned=0,
+        net_settlement_paise=None,
+        trend_5d=[{"date": r["day"].isoformat(), "inward": r["inward"], "outward": r["outward"]} for r in trend],
         generated_at=datetime.now(timezone.utc),
     )
 
 
 # ---------------------------------------------------------------------------
-# Routes — Session detail
+# Session detail. Instruments carry no clearing-session tag, so a session's figures are those of its clearing DATE
+# (a day with several sessions shows the day's figures on each). Session "TODAY" means today across all sessions.
 # ---------------------------------------------------------------------------
+
+# The IET watchdog fires 30 s before the deadline; that is structural (Layer 1), not a bank setting.
+_IET_WATCHDOG_SECONDS = 30
+_INWARD_JOIN = "ci.instrument_id = {a}.instrument_id AND ci.bank_id = {a}.bank_id"
+
+
+def _session_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"error_code": "CTS_SESSION_NOT_FOUND", "message": get_message("API_BATCH_SESSION_NOT_FOUND")},
+    )
+
+
+async def _load_session(conn: Any, bank_id: str, session_id: str) -> tuple[Optional[dict], date]:
+    """(session row, clearing date). 'TODAY' has no row. A malformed or foreign id is a 404, never a 500."""
+    if session_id.upper() == "TODAY":
+        return None, date.today()
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise _session_not_found()
+    rows = await conn.fetch(
+        """
+        /* q:session */
+        SELECT session_id, session_date, session_type, status, created_at,
+               presentation_open_at, presentation_close_at, settlement_at
+          FROM cts.clearing_sessions
+         WHERE session_id = $1::uuid AND bank_id = $2
+        """,
+        session_id, bank_id,
+    )
+    if not rows:
+        raise _session_not_found()
+    row = dict(rows[0])
+    return row, row["session_date"]
+
+
+async def _inward_breakdown(conn: Any, bank_id: str, day: date) -> DecisionBreakdown:
+    join = _INWARD_JOIN
+    decisions = await conn.fetch(
+        f"""
+        /* q:inward_decisions */
+        SELECT ad.decision, COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise
+          FROM cts.agent_decisions ad
+          JOIN cts.cheque_instruments ci ON {join.format(a='ad')}
+         WHERE ad.bank_id = $1 AND ci.direction = 'INWARD' AND ci.received_at::date = $2::date
+         GROUP BY ad.decision
+        """,
+        bank_id, day,
+    )
+    reviews = await conn.fetch(
+        f"""
+        /* q:inward_reviews */
+        SELECT hr.status, hr.reviewer_decision, COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise
+          FROM cts.human_review_items hr
+          JOIN cts.cheque_instruments ci ON {join.format(a='hr')}
+         WHERE hr.bank_id = $1 AND ci.direction = 'INWARD' AND ci.received_at::date = $2::date
+         GROUP BY hr.status, hr.reviewer_decision
+        """,
+        bank_id, day,
+    )
+    totals = await conn.fetch(
+        """
+        /* q:inward_totals */
+        SELECT COUNT(*) AS n, COALESCE(SUM(amount_paise), 0) AS paise,
+               COUNT(*) FILTER (WHERE iet_breached) AS breached
+          FROM cts.cheque_instruments
+         WHERE bank_id = $1 AND direction = 'INWARD' AND received_at::date = $2::date
+        """,
+        bank_id, day,
+    )
+    perf = await conn.fetch(
+        f"""
+        /* q:inward_perf */
+        SELECT COALESCE(AVG(ad.processing_duration_ms), 0)::int AS avg_ms,
+               COALESCE(percentile_cont(0.99) WITHIN GROUP (ORDER BY ad.processing_duration_ms), 0)::int AS p99_ms,
+               COUNT(*) FILTER (WHERE ad.iet_margin_seconds IS NOT NULL AND ad.iet_margin_seconds < $3) AS near
+          FROM cts.agent_decisions ad
+          JOIN cts.cheque_instruments ci ON {join.format(a='ad')}
+         WHERE ad.bank_id = $1 AND ci.direction = 'INWARD' AND ci.received_at::date = $2::date
+        """,
+        bank_id, day, _IET_WATCHDOG_SECONDS,
+    )
+    dec = {r["decision"]: (int(r["n"]), int(r["paise"])) for r in decisions}
+    stp_c, stp_c_v = dec.get("STP_CONFIRM", (0, 0))
+    stp_r, stp_r_v = dec.get("STP_RETURN", (0, 0))
+
+    def _manual(kind: str) -> tuple[int, int]:
+        hit = [r for r in reviews if r["status"] == "DECIDED" and r["reviewer_decision"] == kind]
+        return sum(int(r["n"]) for r in hit), sum(int(r["paise"]) for r in hit)
+
+    man_c, man_c_v = _manual("CONFIRM")
+    man_r, man_r_v = _manual("RETURN")
+    pending = sum(int(r["n"]) for r in reviews if r["status"] == "PENDING")
+    t = totals[0] if totals else {"n": 0, "paise": 0, "breached": 0}
+    p = perf[0] if perf else {"avg_ms": 0, "p99_ms": 0, "near": 0}
+    total = int(t["n"])
+    return DecisionBreakdown(
+        total_inward=total,
+        stp_confirmed=stp_c, stp_returned=stp_r, manual_confirmed=man_c, manual_returned=man_r, pending_review=pending,
+        total_value_paise=int(t["paise"]),
+        stp_confirmed_value_paise=stp_c_v, stp_returned_value_paise=stp_r_v,
+        manual_confirmed_value_paise=man_c_v, manual_returned_value_paise=man_r_v,
+        stp_rate_pct=_pct(stp_c + stp_r, total), manual_rate_pct=_pct(man_c + man_r, total),
+        return_rate_pct=_pct(stp_r + man_r, total),
+        avg_decision_ms=int(p["avg_ms"]), p99_decision_ms=int(p["p99_ms"]), iet_near_breach_count=int(p["near"]),
+    )
+
+
+async def _outward_breakdown(conn: Any, bank_id: str, day: date) -> OutwardBreakdown:
+    totals = await conn.fetch(
+        """
+        /* q:outward_totals */
+        SELECT COUNT(*) AS n, COALESCE(SUM(amount_paise), 0) AS paise
+          FROM cts.cheque_instruments
+         WHERE bank_id = $1 AND direction = 'OUTWARD' AND received_at::date = $2::date
+        """,
+        bank_id, day,
+    )
+    returns = await conn.fetch(
+        """
+        /* q:outward_returns */
+        SELECT return_reason_code, COUNT(*) AS n, COALESCE(SUM(original_amount_paise), 0) AS paise
+          FROM cts.return_items
+         WHERE bank_id = $1 AND outward_item_id IS NOT NULL AND created_at::date = $2::date
+         GROUP BY return_reason_code
+        """,
+        bank_id, day,
+    )
+    t = totals[0] if totals else {"n": 0, "paise": 0}
+    returned = sum(int(r["n"]) for r in returns)
+    return OutwardBreakdown(
+        total_outward=int(t["n"]), total_outward_value_paise=int(t["paise"]),
+        ngch_accepted=int(t["n"]) - returned, ngch_returned=returned,
+        ngch_returned_value_paise=sum(int(r["paise"]) for r in returns),
+        return_reasons={str(r["return_reason_code"]): int(r["n"]) for r in returns},
+    )
+
+
+async def _net_settlement(conn: Any, bank_id: str, session_id: str) -> Optional[int]:
+    """Known only once the session has been reconciled; None until then."""
+    if session_id.upper() == "TODAY":
+        return None
+    rows = await conn.fetch(
+        """
+        /* q:settlement */
+        SELECT net_position_paise FROM cts.settlement_positions
+         WHERE bank_id = $1 AND session_id = $2::uuid
+        """,
+        bank_id, session_id,
+    )
+    return int(rows[0]["net_position_paise"]) if rows else None
+
+
+async def _bankwise_rows(conn: Any, bank_id: str, day: date) -> list[dict]:
+    inward = await conn.fetch(
+        """
+        /* q:bankwise_inward */
+        SELECT COALESCE(ci.presenting_ifsc, '') AS ifsc, COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise,
+               COUNT(*) FILTER (WHERE ad.decision = 'STP_CONFIRM' OR hr.reviewer_decision = 'CONFIRM') AS confirmed,
+               COUNT(*) FILTER (WHERE ad.decision = 'STP_RETURN' OR hr.reviewer_decision = 'RETURN') AS returned,
+               COALESCE(SUM(ci.amount_paise) FILTER (WHERE ad.decision = 'STP_CONFIRM' OR hr.reviewer_decision = 'CONFIRM'), 0) AS confirmed_paise
+          FROM cts.cheque_instruments ci
+          LEFT JOIN cts.agent_decisions ad ON ad.instrument_id = ci.instrument_id AND ad.bank_id = ci.bank_id
+          LEFT JOIN cts.human_review_items hr ON hr.instrument_id = ci.instrument_id AND hr.bank_id = ci.bank_id
+         WHERE ci.bank_id = $1 AND ci.direction = 'INWARD' AND ci.received_at::date = $2::date
+         GROUP BY COALESCE(ci.presenting_ifsc, '')
+         ORDER BY paise DESC
+        """,
+        bank_id, day,
+    )
+    outward = await conn.fetch(
+        """
+        /* q:bankwise_outward */
+        SELECT COALESCE(ci.drawee_ifsc, '') AS ifsc, COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise,
+               COUNT(*) FILTER (WHERE ri.return_id IS NULL) AS confirmed,
+               COUNT(*) FILTER (WHERE ri.return_id IS NOT NULL) AS returned,
+               COALESCE(SUM(ci.amount_paise) FILTER (WHERE ri.return_id IS NOT NULL), 0) AS returned_paise
+          FROM cts.cheque_instruments ci
+          LEFT JOIN cts.return_items ri ON ri.bank_id = ci.bank_id AND ri.cheque_number = ci.cheque_number AND ri.micr_code = ci.micr_code
+         WHERE ci.bank_id = $1 AND ci.direction = 'OUTWARD' AND ci.received_at::date = $2::date
+         GROUP BY COALESCE(ci.drawee_ifsc, '')
+         ORDER BY paise DESC
+        """,
+        bank_id, day,
+    )
+    out = [{**dict(r), "perspective": "PRESENTING", "confirmed_paise": int(r["confirmed_paise"]), "returned_paise": 0} for r in inward]
+    out += [{**dict(r), "perspective": "DRAWEE", "confirmed_paise": int(r["paise"]) - int(r["returned_paise"]),
+             "returned_paise": int(r["returned_paise"])} for r in outward]
+    return out
+
+
+def _bank_label(ifsc: str) -> str:
+    """No bank directory exists in the platform; the four-letter IFSC prefix identifies the bank."""
+    return ifsc[:4] if ifsc else "UNKNOWN"
+
 
 @router_v1.get("/sessions/{session_id}/summary", response_model=SessionSummaryResponse)
 async def session_summary(
     session_id: str,
+    request: Request,
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
 ) -> SessionSummaryResponse:
-    row = next(
-        (s for s in _SESSIONS if _session_id(s[0]) == session_id),
-        _SESSIONS[1],
-    )
-    _, slot, st, in_cnt, in_val, out_cnt, out_val = row
-    sess = _mock_session(session_id, slot, st)
-    pres = _mock_presenting(max(in_cnt, 1), in_val)
-    draw = _mock_drawee(max(out_cnt, 1), out_val)
-    net = pres.stp_confirmed_value_paise - draw.ngch_returned_value_paise
+    pool = _pool(request)
+    try:
+        async with pool.acquire() as conn:
+            row, day = await _load_session(conn, bank_id, session_id)
+            if row is None:                      # 'TODAY' has no session row to describe
+                raise _session_not_found()
+            presenting = await _inward_breakdown(conn, bank_id, day)
+            drawee = await _outward_breakdown(conn, bank_id, day)
+            net = await _net_settlement(conn, bank_id, session_id)
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("batch.session_summary.db_error", bank_id=bank_id)
+        raise _db_unavailable()
     return SessionSummaryResponse(
-        session=sess,
-        bank_id=bank_id,
-        presenting_bank=pres,
-        drawee_bank=draw,
-        net_settlement_paise=net,
-        generated_at=datetime.now(timezone.utc),
+        session=_row_to_session_status(row), bank_id=bank_id, presenting_bank=presenting, drawee_bank=drawee,
+        net_settlement_paise=net, generated_at=datetime.now(timezone.utc),
     )
 
 
 @router_v1.get("/sessions/{session_id}/bankwise", response_model=BankwiseResponse)
 async def session_bankwise(
     session_id: str,
+    request: Request,
     perspective: Optional[Literal["PRESENTING", "DRAWEE", "ALL"]] = Query("ALL"),
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
 ) -> BankwiseResponse:
-    banks = [
-        ("HDFC0000001", get_message("API_HDFC_BANK"),   "PRESENTING", 312, 8_20_00_000, 278, 34),
-        ("ICIC0000001", get_message("API_ICICI_BANK"),  "PRESENTING", 289, 7_10_00_000, 261, 28),
-        ("SBIN0000001", get_message("API_STATE_BANK"),  "PRESENTING", 445, 12_30_00_000, 401, 44),
-        ("UTIB0000001", get_message("API_AXIS_BANK"),   "PRESENTING", 198, 5_40_00_000, 179, 19),
-        ("KKBK0000001", get_message("API_KOTAK_BANK"),  "DRAWEE",     267, 9_80_00_000, 246, 21),
-        ("YESB0000001", get_message("API_YES_BANK"),    "DRAWEE",     143, 3_90_00_000, 131, 12),
-        ("INDB0000001", "IndusInd",    "DRAWEE",     189, 6_20_00_000, 174, 15),
+    pool = _pool(request)
+    try:
+        async with pool.acquire() as conn:
+            _row, day = await _load_session(conn, bank_id, session_id)
+            raw = await _bankwise_rows(conn, bank_id, day)
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("batch.bankwise.db_error", bank_id=bank_id)
+        raise _db_unavailable()
+    rows = [
+        BankwiseRow(
+            bank_ifsc=r["ifsc"], bank_name=_bank_label(r["ifsc"]), perspective=r["perspective"],
+            cheque_count=int(r["n"]), total_value_paise=int(r["paise"]),
+            confirmed_count=int(r["confirmed"]), returned_count=int(r["returned"]),
+            return_rate_pct=_pct(int(r["returned"]), int(r["n"])),
+        )
+        for r in raw if perspective in (None, "ALL") or r["perspective"] == perspective
     ]
-    rows = []
-    for ifsc, name, persp, cnt, val, conf, ret in banks:
-        if perspective != "ALL" and persp != perspective:
-            continue
-        rows.append(BankwiseRow(
-            bank_ifsc=ifsc,
-            bank_name=name,
-            perspective=persp,
-            cheque_count=cnt,
-            total_value_paise=val,
-            confirmed_count=conf,
-            returned_count=ret,
-            return_rate_pct=round(ret / cnt * 100, 2),
-        ))
-    return BankwiseResponse(
-        session_id=session_id,
-        bank_id=bank_id,
-        rows=rows,
-        generated_at=datetime.now(timezone.utc),
-    )
+    return BankwiseResponse(session_id=session_id, bank_id=bank_id, rows=rows, generated_at=datetime.now(timezone.utc))
 
 
 # ---------------------------------------------------------------------------
-# Routes — File downloads
+# File downloads
 # ---------------------------------------------------------------------------
+
+def _csv_response(rows: list[list], filename: str) -> Response:
+    out = io.StringIO()
+    csv.writer(out).writerows(rows)
+    return Response(content=out.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+def _rupees(paise: int) -> str:
+    return f"{paise / 100:.2f}"
+
 
 @router_v1.get("/sessions/{session_id}/download/npci")
 async def download_npci_return_file(
     session_id: str,
+    request: Request,
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
-) -> StreamingResponse:
-    """
-    NPCI Return Reason File (RRF) — the file submitted back to NGCH
-    for all returned instruments in this session.
-    Format: pipe-delimited per CTS-2010 spec.
-    """
-    output = io.StringIO()
-    writer = csv.writer(output, delimiter="|")
-    writer.writerow(["INSTRUMENT_ID", "MICR_CODE", "AMOUNT", "RETURN_REASON", "RETURN_CODE", "FILED_AT"])
-    # In production: query YugabyteDB for all STP_RETURNED + MANUAL_RETURNED in session
-    writer.writerow(["INS-20260625-00012", "400002001", "45000.00", "FUNDS_INSUFFICIENT", "01", "2026-06-25T11:42:00Z"])
-    writer.writerow(["INS-20260625-00034", "400002002", "125000.00", "SIGNATURE_MISMATCH", "06", "2026-06-25T11:43:12Z"])
-    writer.writerow(["INS-20260625-00051", "400002005", "8500.00",   "ACCOUNT_CLOSED",     "05", "2026-06-25T11:44:30Z"])
-    output.seek(0)
-    filename = f"NPCI_RRF_{bank_id.upper()}_{session_id}.txt"
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/plain",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+) -> Response:
+    """The Return Reason File reconciliation generated for this session, exactly as stored (not re-derived)."""
+    pool = _pool(request)
+    try:
+        async with pool.acquire() as conn:
+            if session_id.upper() == "TODAY":
+                rows = await conn.fetch(
+                    """
+                    /* q:rrf */
+                    SELECT rrf_path, exception_count FROM cts.rrf_sessions
+                     WHERE bank_id = $1 AND clearing_date = $2::date ORDER BY created_at DESC LIMIT 1
+                    """,
+                    bank_id, date.today(),
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    /* q:rrf */
+                    SELECT rrf_path, exception_count FROM cts.rrf_sessions
+                     WHERE bank_id = $1 AND session_id = $2 LIMIT 1
+                    """,
+                    bank_id, session_id,
+                )
+    except Exception:
+        log.exception("batch.download_npci.db_error", bank_id=bank_id)
+        raise _db_unavailable()
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "CTS_RRF_NOT_FOUND", "message": get_message("API_BATCH_RRF_NOT_FOUND")},
+        )
+    try:
+        content = await fetch_object_bytes(f"s3://astra-cts/{rows[0]['rrf_path']}")
+    except Exception:
+        log.exception("batch.download_npci.storage_error", bank_id=bank_id)
+        raise _db_unavailable()
+    return Response(content=content, media_type="application/xml",
+                    headers={"Content-Disposition": f"attachment; filename=NPCI_RRF_{bank_id.upper()}_{session_id}.xml"})
 
 
 @router_v1.get("/sessions/{session_id}/download/mis")
 async def download_mis_report(
     session_id: str,
+    request: Request,
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
-) -> StreamingResponse:
-    """
-    Internal MIS Report — full session breakdown for ops team / head office.
-    Includes: val/vol by decision type, bank-wise, STP rates, IET events.
-    PII masked per masking rules (account last 4 only).
-    """
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([get_message("API_ASTRA_MIS_REPORT"), get_message("API_SESSION", session_id=session_id), get_message("API_BANK", bank_id=bank_id)])
-    writer.writerow([])
-    writer.writerow([get_message("API_SECTION_1_INWARD_SUMMARY_PRESENTING")])
-    writer.writerow(["Metric", "Count", get_message("API_VALUE_INR")])
-    writer.writerow([get_message("UI_COMMON_TOTAL_INWARD"),      2105, "₹53,70,00,000"])
-    writer.writerow([get_message("UI_COMMON_STP_CONFIRMED"),     1494, "₹38,13,00,000"])
-    writer.writerow([get_message("UI_COMMON_STP_RETURNED"),       295, "₹7,51,00,000"])
-    writer.writerow([get_message("UI_COMMON_MANUAL_CONFIRMED"),   190, "₹4,83,00,000"])
-    writer.writerow([get_message("UI_OPSDASHBOARDBODY_MANUAL_RETURNED"),    106, "₹2,70,00,000"])
-    writer.writerow([get_message("UI_OPSDASHBOARDBODY_PENDING_REVIEW"),      20, "₹51,00,000"])
-    writer.writerow([])
-    writer.writerow([get_message("API_SECTION_2_OUTWARD_SUMMARY_DRAWEE")])
-    writer.writerow(["Metric", "Count", get_message("API_VALUE_INR")])
-    writer.writerow([get_message("UI_OPSDASHBOARDBODY_TOTAL_OUTWARD"),     1380, "₹31,40,00,000"])
-    writer.writerow([get_message("UI_DRAWEEVIEW_NGCH_ACCEPTED"),     1270, "₹28,89,00,000"])
-    writer.writerow([get_message("UI_DRAWEEVIEW_NGCH_RETURNED"),      110, "₹2,51,00,000"])
-    writer.writerow([])
-    writer.writerow([get_message("API_SECTION_3_RETURN_REASONS")])
-    writer.writerow(["Reason", "Count"])
-    writer.writerow(["FUNDS_INSUFFICIENT", 185])
-    writer.writerow(["SIGNATURE_MISMATCH",  92])
-    writer.writerow(["ACCOUNT_CLOSED",      68])
-    writer.writerow(["ALTERATION_DETECTED", 41])
-    writer.writerow(["OTHER",               15])
-    writer.writerow([])
-    writer.writerow([get_message("API_SECTION_4_PERFORMANCE")])
-    writer.writerow(["Metric", "Value"])
-    writer.writerow([get_message("UI_COMMON_STP_RATE"),              "84.9%"])
-    writer.writerow([get_message("API_OVERALL_RETURN_RATE"),   "19.1%"])
-    writer.writerow([get_message("API_AVG_DECISION_TIME"),     "312ms"])
-    writer.writerow([get_message("API_P99_DECISION_TIME"),     "587ms"])
-    writer.writerow([get_message("API_IET_NEAR_BREACH_COUNT"), "2"])
-    writer.writerow([get_message("API_IET_BREACH_COUNT"),      "0"])
-    output.seek(0)
-    filename = f"MIS_{bank_id.upper()}_{session_id}_{date.today()}.csv"
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+) -> Response:
+    """Internal MIS report: the same figures as the summary endpoint. Aggregates only, no account data."""
+    pool = _pool(request)
+    try:
+        async with pool.acquire() as conn:
+            _row, day = await _load_session(conn, bank_id, session_id)
+            p = await _inward_breakdown(conn, bank_id, day)
+            w = await _outward_breakdown(conn, bank_id, day)
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("batch.download_mis.db_error", bank_id=bank_id)
+        raise _db_unavailable()
+    rows: list[list] = [
+        [get_message("API_ASTRA_MIS_REPORT"), get_message("API_SESSION", session_id=session_id), get_message("API_BANK", bank_id=bank_id), get_message("API_CLEARING_DATE", day=day)], [],
+        [get_message("API_SECTION_1_INWARD_SUMMARY_PRESENTING_2")], ["Metric", "Count", get_message("API_VALUE_INR")],
+        [get_message("UI_COMMON_TOTAL_INWARD"), p.total_inward, _rupees(p.total_value_paise)],
+        [get_message("UI_COMMON_STP_CONFIRMED"), p.stp_confirmed, _rupees(p.stp_confirmed_value_paise)],
+        [get_message("UI_COMMON_STP_RETURNED"), p.stp_returned, _rupees(p.stp_returned_value_paise)],
+        [get_message("UI_COMMON_MANUAL_CONFIRMED"), p.manual_confirmed, _rupees(p.manual_confirmed_value_paise)],
+        [get_message("UI_OPSDASHBOARDBODY_MANUAL_RETURNED"), p.manual_returned, _rupees(p.manual_returned_value_paise)],
+        [get_message("UI_OPSDASHBOARDBODY_PENDING_REVIEW"), p.pending_review, ""], [],
+        [get_message("API_SECTION_2_OUTWARD_SUMMARY_DRAWEE_2")], ["Metric", "Count", get_message("API_VALUE_INR")],
+        [get_message("UI_OPSDASHBOARDBODY_TOTAL_OUTWARD"), w.total_outward, _rupees(w.total_outward_value_paise)],
+        [get_message("UI_DRAWEEVIEW_NGCH_ACCEPTED"), w.ngch_accepted, ""],
+        [get_message("UI_DRAWEEVIEW_NGCH_RETURNED"), w.ngch_returned, _rupees(w.ngch_returned_value_paise)], [],
+        [get_message("API_SECTION_3_RETURN_REASONS_2")], [get_message("API_REASON_CODE"), "Count"],
+        *[[code, n] for code, n in sorted(w.return_reasons.items())], [],
+        [get_message("API_SECTION_4_PERFORMANCE_2")], ["Metric", "Value"],
+        [get_message("UI_COMMON_STP_RATE"), f"{p.stp_rate_pct}%"], [get_message("UI_COMMON_RETURN_RATE"), f"{p.return_rate_pct}%"],
+        [get_message("API_AVG_DECISION_TIME_MS"), p.avg_decision_ms], [get_message("API_P99_DECISION_TIME_MS"), p.p99_decision_ms],
+        [get_message("API_IET_NEAR_BREACH_COUNT"), p.iet_near_breach_count],
+    ]
+    return _csv_response(rows, f"MIS_{bank_id.upper()}_{session_id}_{date.today()}.csv")
 
 
 @router_v1.get("/sessions/{session_id}/download/settlement")
 async def download_settlement_statement(
     session_id: str,
+    request: Request,
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
-) -> StreamingResponse:
-    """
-    Settlement Position Statement — net payable/receivable per bank for this session.
-    Used by treasury / settlement team.
-    """
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([get_message("API_SETTLEMENT_POSITION_STATEMENT"), get_message("API_SESSION", session_id=session_id)])
-    writer.writerow([get_message("UI_SCANNER_BANK_IFSC"), get_message("UI_SUBMEMBERBANKS_BANK_NAME_2"), get_message("API_INWARD_CONFIRMED_INR"), get_message("API_OUTWARD_RETURNED_INR"), get_message("API_NET_POSITION_INR"), "Direction"])
-    writer.writerow(["HDFC0000001", get_message("API_HDFC_BANK"),  "8,20,00,000", "32,00,000",  "+7,88,00,000", "RECEIVE"])
-    writer.writerow(["ICIC0000001", get_message("API_ICICI_BANK"), "7,10,00,000", "28,00,000",  "+6,82,00,000", "RECEIVE"])
-    writer.writerow(["SBIN0000001", get_message("API_STATE_BANK"), "12,30,00,000","44,00,000",  "+11,86,00,000","RECEIVE"])
-    writer.writerow(["KKBK0000001", get_message("API_KOTAK_BANK"), "9,80,00,000", "1,24,00,000","-8,56,00,000", "PAY"])
-    output.seek(0)
-    filename = f"SETTLEMENT_{bank_id.upper()}_{session_id}.csv"
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+) -> Response:
+    """Position by counterparty: receivable (our outward cheques not returned) less payable (inward we confirmed).
+    Indicative only: the binding net position is NPCI's, recorded on reconciliation."""
+    pool = _pool(request)
+    try:
+        async with pool.acquire() as conn:
+            _row, day = await _load_session(conn, bank_id, session_id)
+            raw = await _bankwise_rows(conn, bank_id, day)
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("batch.download_settlement.db_error", bank_id=bank_id)
+        raise _db_unavailable()
+    by_bank: dict[str, dict] = {}
+    for r in raw:
+        b = by_bank.setdefault(r["ifsc"], {"payable": 0, "receivable": 0})
+        if r["perspective"] == "PRESENTING":
+            b["payable"] += int(r["confirmed_paise"])
+        else:
+            b["receivable"] += int(r["confirmed_paise"])
+    rows: list[list] = [
+        [get_message("API_SETTLEMENT_POSITION_STATEMENT_INDICA"), get_message("API_SESSION", session_id=session_id), get_message("API_CLEARING_DATE", day=day)],
+        [get_message("UI_SCANNER_BANK_IFSC"), "Bank", get_message("API_INWARD_CONFIRMED_PAYABLE_INR"), get_message("API_OUTWARD_NOT_RETURNED_RECEIVABLE_INR"), get_message("API_NET_POSITION_INR"), "Direction"],
+    ]
+    for ifsc, b in sorted(by_bank.items()):
+        net = b["receivable"] - b["payable"]
+        rows.append([ifsc, _bank_label(ifsc), _rupees(b["payable"]), _rupees(b["receivable"]), _rupees(net),
+                     "RECEIVE" if net > 0 else "PAY" if net < 0 else "NIL"])
+    return _csv_response(rows, f"SETTLEMENT_{bank_id.upper()}_{session_id}.csv")
 
 
 # ---------------------------------------------------------------------------
-# Routes — Ops dashboard (multi-day trend for ops head)
+# Ops dashboard
 # ---------------------------------------------------------------------------
 
-@router_v1.get("/dashboard/ops")
+class OpsSession(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    slot: str
+    status: str
+
+
+class OpsDayRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    inward: int
+    outward: int
+    inward_value_cr: float
+    return_rate_pct: float
+    stp_rate_pct: float
+    iet_breach: int
+
+
+class OpsTodayRow(OpsDayRow):
+    sessions: list[OpsSession]
+
+
+class OpsDashboardResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    today: OpsTodayRow
+    trend: list[OpsDayRow]
+    generated_at: datetime
+
+
+@router_v1.get("/dashboard/ops", response_model=OpsDashboardResponse)
 async def ops_dashboard(
+    request: Request,
     days: int = Query(7, ge=1, le=30),
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
-) -> dict:
-    """
-    Ops head morning view: last N days trend + today live.
-    Single API call powers the full ops dashboard.
-    """
-    trend = [
-        {"date": "2026-06-19", "inward": 4820, "outward": 3180, "inward_value_cr": 112.4, "return_rate_pct": 18.4, "stp_rate_pct": 81.6, "iet_breach": 0},
-        {"date": "2026-06-20", "inward": 0,    "outward": 0,    "inward_value_cr": 0,     "return_rate_pct": 0,    "stp_rate_pct": 0,    "iet_breach": 0},
-        {"date": "2026-06-21", "inward": 0,    "outward": 0,    "inward_value_cr": 0,     "return_rate_pct": 0,    "stp_rate_pct": 0,    "iet_breach": 0},
-        {"date": "2026-06-22", "inward": 5210, "outward": 3540, "inward_value_cr": 128.7, "return_rate_pct": 17.9, "stp_rate_pct": 82.1, "iet_breach": 0},
-        {"date": "2026-06-23", "inward": 5640, "outward": 3810, "inward_value_cr": 141.2, "return_rate_pct": 19.2, "stp_rate_pct": 80.8, "iet_breach": 0},
-        {"date": "2026-06-24", "inward": 4980, "outward": 3290, "inward_value_cr": 118.6, "return_rate_pct": 18.8, "stp_rate_pct": 81.2, "iet_breach": 0},
-        {"date": "2026-06-25", "inward": 5175, "outward": 3480, "inward_value_cr": 135.8, "return_rate_pct": 19.1, "stp_rate_pct": 84.9, "iet_breach": 0},
-    ]
-    today = trend[-1]
-    return {
-        "bank_id": bank_id,
-        "today": {
-            **today,
-            "sessions": [
-                {"id": _session_id("SES-{d}-001"), "slot": "10:00–12:00", "status": "SETTLED", "inward": 1840, "return_rate_pct": 18.2},
-                {"id": _session_id("SES-{d}-002"), "slot": "12:00–14:00", "status": "FILED",   "inward": 2105, "return_rate_pct": 19.1},
-                {"id": _session_id("SES-{d}-003"), "slot": "14:00–16:00", "status": "OPEN",    "inward": 1230, "return_rate_pct": 20.4},
-                {"id": _session_id("SES-{d}-004"), "slot": "16:00–18:00", "status": "UPCOMING","inward": 0,    "return_rate_pct": 0},
-            ],
-        },
-        "trend": trend[-days:],
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-    }
+) -> OpsDashboardResponse:
+    """Ops head morning view: last N days plus today's sessions."""
+    pool = _pool(request)
+    today = date.today()
+    try:
+        async with pool.acquire() as conn:
+            inst = await conn.fetch(
+                """
+                /* q:ops_instruments */
+                SELECT received_at::date AS day,
+                       COUNT(*) FILTER (WHERE direction = 'INWARD')  AS inward,
+                       COUNT(*) FILTER (WHERE direction = 'OUTWARD') AS outward,
+                       COALESCE(SUM(amount_paise) FILTER (WHERE direction = 'INWARD'), 0) AS inward_paise,
+                       COUNT(*) FILTER (WHERE iet_breached) AS breached
+                  FROM cts.cheque_instruments
+                 WHERE bank_id = $1 AND received_at::date > ($2::date - $3::int)
+                 GROUP BY 1
+                """,
+                bank_id, today, days,
+            )
+            decisions = await conn.fetch(
+                """
+                /* q:ops_decisions */
+                SELECT ci.received_at::date AS day, COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE ad.decision = 'STP_CONFIRM') AS stp_confirmed,
+                       COUNT(*) FILTER (WHERE ad.decision IN ('STP_RETURN', 'AUTO_RETURN')) AS returned
+                  FROM cts.agent_decisions ad
+                  JOIN cts.cheque_instruments ci ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
+                 WHERE ad.bank_id = $1 AND ci.direction = 'INWARD' AND ci.received_at::date > ($2::date - $3::int)
+                 GROUP BY 1
+                """,
+                bank_id, today, days,
+            )
+            sessions = await conn.fetch(
+                """
+                /* q:ops_sessions */
+                SELECT session_id, session_date, session_type, status, created_at,
+                       presentation_open_at, presentation_close_at, settlement_at
+                  FROM cts.clearing_sessions
+                 WHERE bank_id = $1 AND session_date = $2::date
+                 ORDER BY session_type
+                """,
+                bank_id, today,
+            )
+    except Exception:
+        log.exception("batch.ops_dashboard.db_error", bank_id=bank_id)
+        raise _db_unavailable()
+
+    i_by = {r["day"]: r for r in inst}
+    d_by = {r["day"]: r for r in decisions}
+
+    def _day(d: date) -> OpsDayRow:
+        i, k = i_by.get(d), d_by.get(d)
+        total = int(k["total"]) if k else 0
+        return OpsDayRow(
+            date=d.isoformat(),
+            inward=int(i["inward"]) if i else 0, outward=int(i["outward"]) if i else 0,
+            inward_value_cr=round(int(i["inward_paise"]) / 1e9, 2) if i else 0.0,   # 1 crore = 1e9 paise
+            return_rate_pct=_pct(int(k["returned"]), total) if k else 0.0,
+            stp_rate_pct=_pct(int(k["stp_confirmed"]), total) if k else 0.0,
+            iet_breach=int(i["breached"]) if i else 0,
+        )
+
+    trend = [_day(today - timedelta(days=n)) for n in range(days - 1, -1, -1)]
+    statuses = [_row_to_session_status(dict(r)) for r in sessions]
+    return OpsDashboardResponse(
+        bank_id=bank_id,
+        today=OpsTodayRow(
+            **_day(today).model_dump(),
+            sessions=[OpsSession(id=str(r["session_id"]), slot=s.session_slot, status=s.status)
+                      for r, s in zip(sessions, statuses)],
+        ),
+        trend=trend, generated_at=datetime.now(timezone.utc),
+    )

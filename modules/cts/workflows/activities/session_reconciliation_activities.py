@@ -9,6 +9,7 @@ All activities degrade gracefully when external deps are unavailable.
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Optional
 
 import structlog
@@ -285,7 +286,7 @@ async def generate_rrf(
                 """,
                 inp.session_id,
                 inp.bank_id,
-                inp.clearing_date,
+                date.fromisoformat(inp.clearing_date),
                 inp.bank_ifsc,
                 rrf_path,
                 len(inp.exception_instruments),

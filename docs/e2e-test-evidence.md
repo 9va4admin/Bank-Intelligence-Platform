@@ -1159,3 +1159,41 @@ Each stage failed first; each failure was a real defect, fixed test-first:
 
 **Still NOT covered:** reconciliation (post-submission) and RRF return handling; the EEH and API-presigned entry routes into the outward workflow; the
 real NPCI batch file and a real NGCH endpoint; a real model (stub used); a real CBS account (dev fixture); lot sealing through the API route itself (SQL replicated).
+
+## 2026-10-31 (night) - `batch.py` session endpoints against the real schema
+
+`GET /v1/cts/sessions` and `/sessions/today` selected seven `cts.clearing_sessions` columns that no migration creates (`clearing_date`, `opened_at`,
+`sealed_at`, `submitted_at`, `reconciled_at`, `npci_ack_ref`, `total_instruments`). On a migrated database every query raised, and the handler swallowed
+the error and answered with hard-coded sessions, so a bank's screen would have shown plausible fake data with nothing in any log above `warning`.
+
+Fixed: both endpoints now read the real columns (`session_date`, `presentation_open_at`, `presentation_close_at`, `settlement_at`; counts from
+`cheque_instruments`, `agent_decisions`, `human_review_items`) and a database failure is `503 CTS_BATCH_DB_UNAVAILABLE`, never sample data. Run live
+against the dev Yugabyte through the real route: the session filed in the previous run appears as FILED; 3 outward cheques and 8 pending reviews counted.
+`net_settlement_paise` and `outward_returned` are now null (unknown until reconciliation exists) rather than invented.
+
+The summary, bankwise, three download (NPCI return file, MIS, settlement) and ops-dashboard endpoints were entirely hard-coded, a made-up NPCI return file
+among them. They now answer `501 CTS_BATCH_NOT_IMPLEMENTED` until built on real data. Unit tests check the SQL text for the forbidden columns, since a fake
+connection cannot notice a wrong column. Not covered: those six endpoints' real implementations; a decision-vocabulary check for inward "manual" counts
+beyond `CONFIRM`/`RETURN`.
+
+## 2026-10-31 (late night) - batch.py: the six 501 endpoints built on real data; web download fixed
+
+Replaced the `501 CTS_BATCH_NOT_IMPLEMENTED` stubs with real implementations, run live through the real routes against the dev Yugabyte + MinIO:
+- `GET /sessions/{id}/summary` (inward from `agent_decisions` + `human_review_items` joined to `cheque_instruments`; outward from instruments + `return_items`;
+  net settlement from `settlement_positions`, null until reconciled), `/bankwise` (per counterparty IFSC), `/dashboard/ops` (typed, per-day trend + today's sessions).
+- `/download/npci` serves the RRF file reconciliation stored (`rrf_sessions.rrf_path`), exactly as stored; 404 when none, 503 when storage fails.
+  `/download/mis` and `/download/settlement` are CSVs built from the same figures (settlement is labelled indicative; NPCI's position is binding).
+- A malformed or foreign session id is a 404, a database failure a 503. Session id `TODAY` means today across all sessions (the web page uses it).
+- **Scope caveat, stated in the code:** instruments carry no clearing-session tag, so a session's figures are those of its clearing DATE; a day with several
+  sessions shows the day's figures on each. Tagging instruments with their session at filing is the fix and is not done.
+
+Found by running it live, fixed test-first: `generate_rrf` passed `clearing_date` as a string to a DATE column, so on a real database the RRF was uploaded and
+recording it then failed (reconciliation would never have recorded an RRF). Now a date.
+
+Web: the download button expected a JSON link (`res.json()`) but the API returns the file; both `apps/web` and `apps/web-sb-only` now save the bytes the API sends
+under the name it gives (`Content-Disposition`). New tests in both. Full web suite 496 passed; Python apps + messages + activities 2619 passed.
+
+**Found, not fixed:** outward rows persist `drawee_ifsc` as empty unless the scan supplied `registered_drawee_ifsc` (never derived from the MICR sort code), so
+counterparty rows show "UNKNOWN" until that is derived; `cts_dashboard.py` swallows database errors into zeros and counts every agent decision (outward ones too)
+as "inward", and reads `MANUAL_CONFIRM`/`MANUAL_RETURN` decisions nothing ever writes (reviewer decisions live in `human_review_items`);
+the web page's session grid is still demo data and a failed download fails silently (no visible error).
