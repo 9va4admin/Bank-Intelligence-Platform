@@ -1197,3 +1197,19 @@ under the name it gives (`Content-Disposition`). New tests in both. Full web sui
 counterparty rows show "UNKNOWN" until that is derived; `cts_dashboard.py` swallows database errors into zeros and counts every agent decision (outward ones too)
 as "inward", and reads `MANUAL_CONFIRM`/`MANUAL_RETURN` decisions nothing ever writes (reviewer decisions live in `human_review_items`);
 the web page's session grid is still demo data and a failed download fails silently (no visible error).
+
+## 2026-11-03 — Ops dashboard routes (`cts_dashboard.py`) on the real schema; outward bankwise grouping
+
+**Not run live:** Docker Desktop's engine was down for this change (`502` from the engine pipe), so nothing here was checked against the dev
+Yugabyte. It is verified by tests that route each query by tag and by reading the migrations. Re-run `scripts` against the stack before relying on it.
+
+**Found and fixed (read from the code and migrations, not from a run):**
+- `/dashboard/today`, `/dashboard/trend` and `/exceptions` swallowed every database error into zeros or an empty list. They now answer 503 `CTS_BATCH_DB_UNAVAILABLE`.
+- `/dashboard/today` counted every agent decision as "inward" and read `MANUAL_CONFIRM` / `MANUAL_RETURN`, values nothing writes. It now reuses the batch summary's
+  inward and outward breakdowns (INWARD instruments only; reviewer decisions from `human_review_items`), so the two dashboards cannot disagree.
+- `/exceptions` queried `cts.workflow_exceptions` (no migration creates it) and, as a fallback, `agent_decisions.decision_outcome` / `decided_at` (columns that
+  do not exist there), so it always returned nothing. It now reads `decision_reason`, `degraded_mode`, `iet_margin_seconds` from `agent_decisions`.
+- Outward bankwise rows showed "UNKNOWN" because outward instruments store no drawee IFSC. They are now grouped by the bank code inside the MICR sort code.
+
+**Checked and left alone:** the clearing-session id is derived from bank, date and session type, so one session exists per bank per date per type; the
+per-date session figures are exact unless a bank runs several session types in one day. Tagging instruments with a session would change the filing path and needs a live run.
