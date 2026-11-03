@@ -324,7 +324,7 @@ export default function CTSOpsDashboard() {
   const [downloading, setDownloading] = useState(null)
 
   // Live data hooks — called unconditionally (before any early return)
-  const { today: liveToday, trend: liveTrend } = useOpsDashboard({ pollEnabled: !isDemo })
+  const { today: liveToday, trend: liveTrend, sessions: liveSessions } = useOpsDashboard({ pollEnabled: !isDemo })
   const liveSMBOps = useSMBOpsData({ pollEnabled: !isDemo && !isSMB, bankId: undefined, smbId: selectedSmbId })
 
   // All hooks called unconditionally, every render — the isSMB early return
@@ -339,7 +339,7 @@ export default function CTSOpsDashboard() {
         `/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
         { credentials: 'include' },
       )
-      if (!res.ok) throw new Error(msg('UI_OPSDASHBOARD_DOWNLOAD_URL_REQUEST_FAILED'))
+      if (!res.ok) throw new Error(msg('UI_OPSDASHBOARD_DOWNLOAD_FAILED'))
       // The API answers with the file itself (not a link to it): save the bytes it sent.
       const disposition = res.headers.get('Content-Disposition') || ''
       const named = /filename="?([^";]+)"?/i.exec(disposition)
@@ -424,7 +424,7 @@ export default function CTSOpsDashboard() {
     ? (includeSMB
         ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
         : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND })
-    : { TODAY: liveConverted || ZERO_TODAY, SESSIONS: [], TREND: liveTrendConverted || ZERO_TREND }
+    : { TODAY: liveConverted || ZERO_TODAY, SESSIONS: liveSessions || [], TREND: liveTrendConverted || ZERO_TREND }
   const smbView = isDemo
     ? (selectedSmbId
         ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
@@ -491,6 +491,11 @@ export default function CTSOpsDashboard() {
                 <div className="text-xs font-semibold">{msg('UI_OPSDASHBOARD_NO_CLEARING_DATA_YET_POC')}</div>
                 <div className="text-[11px] opacity-70 mt-0.5">{msg('UI_OPSDASHBOARD_DROP_TIF_JPG_FILES_INTO')}</div>
               </div>
+            </div>
+          )}
+          {downloadMutation.isError && (
+            <div role="alert" className="mb-3 px-3 py-2 rounded-lg border border-red-400/30 bg-red-400/10 text-red-400 text-xs">
+              {downloadMutation.error.message}
             </div>
           )}
           <OpsDashboardBody

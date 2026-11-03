@@ -73,3 +73,14 @@ describe('CTSOpsDashboard downloads', () => {
     global.URL.createObjectURL = realCreate
   })
 })
+
+// A failed download used to clear the spinner and say nothing.
+describe('CTSOpsDashboard download failure', () => {
+  it('tells the user when the file could not be downloaded', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))))
+    render(<MemoryRouter><CTSOpsDashboard /></MemoryRouter>)
+    fireEvent.click(screen.getAllByText(/MIS CSV/i)[0])
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be downloaded/i)
+    vi.unstubAllGlobals()
+  })
+})
