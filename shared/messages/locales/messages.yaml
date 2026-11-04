@@ -28402,6 +28402,13 @@ UI_BANKWISE_UNKNOWN_BANK:
   en: "Unknown bank"
   hi: ""
 
+UI_OPSDASHBOARD_DOWNLOAD_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The file could not be downloaded."
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]

@@ -24,6 +24,8 @@ const SESSION_STATUS_STYLE = {
   FILED:    'bg-blue-400/10 text-blue-400 border-blue-400/20',
   OPEN:     'bg-amber-400/10 text-amber-400 border-amber-400/20',
   UPCOMING: 'bg-slate-400/10 text-slate-400 border-slate-400/20',
+  PROCESSING: 'bg-amber-400/10 text-amber-400 border-amber-400/20',
+  FAILED:   'bg-red-400/10 text-red-400 border-red-400/20',
 }
 
 function KPICard({ label, value, sub, color, isDark }) {
