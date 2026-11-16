@@ -171,3 +171,30 @@ def test_submission_workflow_hands_the_cibf_key_to_the_adapter():
     from pathlib import Path
     src = Path("modules/cts/workflows/ngch_submission_workflow.py").read_text(encoding="utf-8")
     assert "cibf_file_path=None" not in src and "cibf_file_path=build_result.cibf_file_path" in src
+
+
+# Instruments carried no link to the clearing session they were filed in, so a session's figures could only be scoped by date
+# (wrong when one bank runs several sessions in a day). Sealing now tags the sealed lots' instruments with the session.
+@pytest.mark.asyncio
+async def test_sealing_tags_the_sealed_lots_instruments_with_the_clearing_session():
+    conn = Conn(lot_rows=[_lot_row("LOT-1"), _lot_row("LOT-2")])
+    res = await seal_all_lots(
+        SealAllLotsInput(session_id="clearsess-abcd1234", bank_id="kbl", pu_ids=["KBL-PU-01"], clearing_date="2026-09-21"),
+        db_pool=Pool(conn),
+    )
+    tag = [(s, a) for s, a in conn.executed if "UPDATE cts.cheque_instruments" in s and "ngch_clearing_session_id" in s]
+    assert len(tag) == 1
+    sql, args = tag[0]
+    assert "lot_id = ANY" in sql and "bank_id" in sql
+    assert res.session_uuid in {str(x) for x in args}
+    assert ["LOT-1", "LOT-2"] in [list(x) for x in args if isinstance(x, (list, tuple))]
+
+
+@pytest.mark.asyncio
+async def test_no_sealed_lots_means_nothing_to_tag():
+    conn = Conn(lot_rows=[])
+    await seal_all_lots(
+        SealAllLotsInput(session_id="clearsess-abcd1234", bank_id="kbl", pu_ids=["KBL-PU-01"], clearing_date="2026-09-21"),
+        db_pool=Pool(conn),
+    )
+    assert not [s for s, _ in conn.executed if "UPDATE cts.cheque_instruments" in s]

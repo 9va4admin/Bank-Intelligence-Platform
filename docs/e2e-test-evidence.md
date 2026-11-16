@@ -1263,6 +1263,18 @@ The IET deadline column is double precision; a first fix that converted it to a 
 **NOT covered:** STP_CONFIRM on a real inward cheque (the stand-in image reading never matches a presented cheque number); real model/CBS; the production inward entry (NGCH inward batch file via `InwardBatchIngestionWorkflow`)
 — the instrument was inserted by calling the same activity directly.
 
+## 2026-11-16 — Instruments linked to their clearing session (dev stack)
+
+Until now an instrument carried no link to the clearing session it was filed in (`clearing_session_id` holds the *scanner* session id, as text), so a session's outward figures could only be scoped by clearing date.
+New nullable column `cts.cheque_instruments.ngch_clearing_session_id` (migration `20261116_038`, additive, with downgrade); `seal_all_lots` sets it for the sealed lots' instruments when the session is created.
+Batch summary, bankwise and outward-returns queries scope outward figures by it. Instruments filed before the column existed (untagged) still fall back to the session's date, but only for a session that has no tagged instruments of its own, so legacy rows are not counted in every session of the day.
+
+**Live:** migration applied to the dev database (`20261029_037` -> `20261116_038`). A new cheque was scanned (presigned route), sealed through `seal-all`, endorsed and filed under a second session type (AFTERNOON) on the same day as the earlier MORNING session.
+Result: morning session (legacy, untagged) outward 3 / returned 1; afternoon session outward 1 / returned 0. Date scoping would have shown 4 for both.
+
+**Decided, not changed:** a session that has returned cheques stays SETTLED. Settlement is about NGCH's report being matched; returns are reported separately (`ngch_returned`, return reasons) and are normal.
+**NOT covered:** inward figures are still scoped by date (an inward batch has its own id, `inward_batch_id`, but no link to a session of ours); `/dashboard/today` is deliberately "today across sessions".
+
 ## 2026-11-16 — Inward STP_CONFIRM on real instruments (dev stack; every stand-in and override listed)
 
 Three inward cheques (Rs 25,000 / 38,000 / 4,500) ran through the real `insert_inward_instrument` and the real `ChequeProcessingWorkflow` and reached **STP_CONFIRM**

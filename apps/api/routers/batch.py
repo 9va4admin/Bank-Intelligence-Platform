@@ -484,25 +484,34 @@ async def _inward_breakdown(conn: Any, bank_id: str, day: date) -> DecisionBreak
     )
 
 
-async def _outward_breakdown(conn: Any, bank_id: str, day: date) -> OutwardBreakdown:
+async def _outward_breakdown(conn: Any, bank_id: str, day: date, session_uuid: Optional[str] = None) -> OutwardBreakdown:
     totals = await conn.fetch(
         """
         /* q:outward_totals */
-        SELECT COUNT(*) AS n, COALESCE(SUM(amount_paise), 0) AS paise
-          FROM cts.cheque_instruments
-         WHERE bank_id = $1 AND direction = 'OUTWARD' AND received_at::date = $2::date
+        SELECT COUNT(*) AS n, COALESCE(SUM(ci.amount_paise), 0) AS paise
+          FROM cts.cheque_instruments ci
+         WHERE ci.bank_id = $1 AND ci.direction = 'OUTWARD' AND (CASE WHEN $3::uuid IS NULL THEN ci.received_at::date = $2::date
+                ELSE (ci.ngch_clearing_session_id = $3::uuid
+                      OR (ci.ngch_clearing_session_id IS NULL AND ci.received_at::date = $2::date
+                          AND NOT EXISTS (SELECT 1 FROM cts.cheque_instruments tg
+                                           WHERE tg.bank_id = ci.bank_id AND tg.ngch_clearing_session_id = $3::uuid))) END)
         """,
-        bank_id, day,
+        bank_id, day, session_uuid,
     )
     returns = await conn.fetch(
         """
         /* q:outward_returns */
-        SELECT return_reason_code, COUNT(*) AS n, COALESCE(SUM(original_amount_paise), 0) AS paise
-          FROM cts.return_items
-         WHERE bank_id = $1 AND outward_item_id IS NOT NULL AND created_at::date = $2::date
-         GROUP BY return_reason_code
+        SELECT ri.return_reason_code, COUNT(*) AS n, COALESCE(SUM(ri.original_amount_paise), 0) AS paise
+          FROM cts.return_items ri
+          JOIN cts.cheque_instruments ci ON ri.outward_item_id = ci.instrument_id AND ci.bank_id = ri.bank_id
+         WHERE ri.bank_id = $1 AND ci.direction = 'OUTWARD' AND (CASE WHEN $3::uuid IS NULL THEN ci.received_at::date = $2::date
+                ELSE (ci.ngch_clearing_session_id = $3::uuid
+                      OR (ci.ngch_clearing_session_id IS NULL AND ci.received_at::date = $2::date
+                          AND NOT EXISTS (SELECT 1 FROM cts.cheque_instruments tg
+                                           WHERE tg.bank_id = ci.bank_id AND tg.ngch_clearing_session_id = $3::uuid))) END)
+         GROUP BY ri.return_reason_code
         """,
-        bank_id, day,
+        bank_id, day, session_uuid,
     )
     t = totals[0] if totals else {"n": 0, "paise": 0}
     returned = sum(int(r["n"]) for r in returns)
@@ -529,7 +538,7 @@ async def _net_settlement(conn: Any, bank_id: str, session_id: str) -> Optional[
     return int(rows[0]["net_position_paise"]) if rows else None
 
 
-async def _bankwise_rows(conn: Any, bank_id: str, day: date) -> list[dict]:
+async def _bankwise_rows(conn: Any, bank_id: str, day: date, session_uuid: Optional[str] = None) -> list[dict]:
     inward = await conn.fetch(
         """
         /* q:bankwise_inward */
@@ -556,11 +565,15 @@ async def _bankwise_rows(conn: Any, bank_id: str, day: date) -> list[dict]:
                COALESCE(SUM(ci.amount_paise) FILTER (WHERE ri.return_id IS NOT NULL), 0) AS returned_paise
           FROM cts.cheque_instruments ci
           LEFT JOIN cts.return_items ri ON ri.bank_id = ci.bank_id AND ri.outward_item_id = ci.instrument_id
-         WHERE ci.bank_id = $1 AND ci.direction = 'OUTWARD' AND ci.received_at::date = $2::date
+         WHERE ci.bank_id = $1 AND ci.direction = 'OUTWARD' AND (CASE WHEN $3::uuid IS NULL THEN ci.received_at::date = $2::date
+                ELSE (ci.ngch_clearing_session_id = $3::uuid
+                      OR (ci.ngch_clearing_session_id IS NULL AND ci.received_at::date = $2::date
+                          AND NOT EXISTS (SELECT 1 FROM cts.cheque_instruments tg
+                                           WHERE tg.bank_id = ci.bank_id AND tg.ngch_clearing_session_id = $3::uuid))) END)
          GROUP BY COALESCE(ci.drawee_ifsc, ''), SUBSTRING(ci.micr_code FROM 4 FOR 3)
          ORDER BY paise DESC
         """,
-        bank_id, day,
+        bank_id, day, session_uuid,
     )
     out = [{**dict(r), "perspective": "PRESENTING", "confirmed_paise": int(r["confirmed_paise"]), "returned_paise": 0} for r in inward]
     out += [{**dict(r), "perspective": "DRAWEE", "confirmed_paise": int(r["paise"]) - int(r["returned_paise"]),
@@ -590,7 +603,7 @@ async def session_summary(
             if row is None:                      # 'TODAY' has no session row to describe
                 raise _session_not_found()
             presenting = await _inward_breakdown(conn, bank_id, day)
-            drawee = await _outward_breakdown(conn, bank_id, day)
+            drawee = await _outward_breakdown(conn, bank_id, day, str(row['session_id']) if row else None)
             net = await _net_settlement(conn, bank_id, session_id)
     except HTTPException:
         raise
@@ -615,7 +628,7 @@ async def session_bankwise(
     try:
         async with pool.acquire() as conn:
             _row, day = await _load_session(conn, bank_id, session_id)
-            raw = await _bankwise_rows(conn, bank_id, day)
+            raw = await _bankwise_rows(conn, bank_id, day, str(_row['session_id']) if _row else None)
     except HTTPException:
         raise
     except Exception:
@@ -707,7 +720,7 @@ async def download_mis_report(
         async with pool.acquire() as conn:
             _row, day = await _load_session(conn, bank_id, session_id)
             p = await _inward_breakdown(conn, bank_id, day)
-            w = await _outward_breakdown(conn, bank_id, day)
+            w = await _outward_breakdown(conn, bank_id, day, str(_row['session_id']) if _row else None)
     except HTTPException:
         raise
     except Exception:
@@ -749,7 +762,7 @@ async def download_settlement_statement(
     try:
         async with pool.acquire() as conn:
             _row, day = await _load_session(conn, bank_id, session_id)
-            raw = await _bankwise_rows(conn, bank_id, day)
+            raw = await _bankwise_rows(conn, bank_id, day, str(_row['session_id']) if _row else None)
     except HTTPException:
         raise
     except Exception:
