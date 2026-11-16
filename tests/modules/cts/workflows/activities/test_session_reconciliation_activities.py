@@ -139,3 +139,41 @@ async def test_generate_rrf_records_clearing_date_as_a_date_not_a_string():
     ), db_pool=db_pool, minio_client=_FakeMinioClient())
     assert dt.date(2026, 9, 22) in db_pool.conn.executed[0]
     assert "2026-09-22" not in db_pool.conn.executed[0]
+
+
+# Found on the first live run through reconciliation (2026-11-16): the workflow reported RECONCILED but nothing ever updated
+# the clearing_sessions row, so every session stayed SUBMITTED with no settlement time and the ops dashboard could never show SETTLED.
+class TestMarkSessionReconciled:
+    @pytest.mark.asyncio
+    async def test_marks_the_session_reconciled_with_a_settlement_time(self):
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            mark_session_reconciled, MarkSessionReconciledInput,
+        )
+        pool = _FakeDbPool()
+        res = await mark_session_reconciled(
+            MarkSessionReconciledInput(session_id="06f0927b-dfde-56d6-920d-49c6b1a8ea49", bank_id="kbl"), db_pool=pool)
+        assert res.updated is True
+        sql_args = pool.conn.executed[0]
+        assert "06f0927b-dfde-56d6-920d-49c6b1a8ea49" in sql_args and "kbl" in sql_args
+
+    @pytest.mark.asyncio
+    async def test_only_moves_a_submitted_session(self):
+        """A session that is already SETTLED/FAILED, or never filed, must not be flipped back by a replayed workflow."""
+        from modules.cts.workflows.activities import session_reconciliation_activities as m
+        pool = _FakeDbPool()
+        captured = []
+        orig = pool.conn.execute
+        async def spy(query, *args):
+            captured.append(query)
+            return await orig(query, *args)
+        pool.conn.execute = spy
+        await m.mark_session_reconciled(m.MarkSessionReconciledInput(session_id="s", bank_id="kbl"), db_pool=pool)
+        assert "status = 'SUBMITTED'" in captured[0] and "settlement_at" in captured[0]
+
+    @pytest.mark.asyncio
+    async def test_no_database_degrades_without_raising(self):
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            mark_session_reconciled, MarkSessionReconciledInput,
+        )
+        res = await mark_session_reconciled(MarkSessionReconciledInput(session_id="s", bank_id="kbl"), db_pool=None)
+        assert res.updated is False

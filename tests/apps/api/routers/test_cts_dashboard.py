@@ -83,7 +83,7 @@ _INWARD = {
     "q:outward_totals": [{"n": 5, "paise": 500}],
     "q:outward_returns": [{"return_reason_code": "09", "n": 1, "paise": 100}],
     "q:outward_ngch": [{"accepted": 4, "returned": 1}],
-    "FROM cts.clearing_sessions": [{"status": "SETTLED"}, {"status": "OPEN"}],
+    "FROM cts.clearing_sessions": [{"status": "RECONCILED"}, {"status": "PENDING"}],
 }
 
 
@@ -110,6 +110,12 @@ class TestDashboardToday:
         b = TestClient(_make_app(db_pool=pool)).get("/v1/cts/dashboard/today").json()
         assert b["bank_id"] == "test-bank"
         assert captured and all(a[0] == "test-bank" for a in captured)
+
+    def test_a_reconciled_session_counts_as_settled(self):
+        """The database stores RECONCILED; the dashboard calls that SETTLED (same mapping as the sessions list)."""
+        rows = {**_INWARD, "FROM cts.clearing_sessions": [{"status": "RECONCILED"}, {"status": "SUBMITTED"}, {"status": "PENDING"}]}
+        b = TestClient(_make_app(db_pool=_Pool(rows))).get("/v1/cts/dashboard/today").json()
+        assert b["sessions_count"] == 3 and b["sessions_settled"] == 1
 
     def test_inward_excludes_outward_cheques(self):
         pool = _Pool(_INWARD)

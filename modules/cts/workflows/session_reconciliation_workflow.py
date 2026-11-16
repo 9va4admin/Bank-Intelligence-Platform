@@ -70,9 +70,11 @@ class SessionReconciliationWorkflow:
         from modules.cts.workflows.activities.session_reconciliation_activities import (
             FetchSettlementInput,
             GenerateRRFInput,
+            MarkSessionReconciledInput,
             MatchInput,
             fetch_ngch_settlement_report,
             generate_rrf,
+            mark_session_reconciled,
             match_submitted_vs_settled,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
@@ -145,6 +147,15 @@ class SessionReconciliationWorkflow:
                     parent_close_policy=ParentClosePolicy.ABANDON,
                 )
                 representation_spawned += 1
+
+        # Step 4b: the session row says RECONCILED with its settlement time, only when NGCH's report was actually matched
+        if not settlement.degraded:
+            await workflow.execute_activity(
+                mark_session_reconciled,
+                MarkSessionReconciledInput(session_id=inp.session_id, bank_id=inp.bank_id),
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_CBS_RETRY,
+            )
 
         # Step 5: Audit — always written
         event_type = (

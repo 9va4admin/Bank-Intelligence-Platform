@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict
 from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
-from apps.api.routers.batch import _db_unavailable, _inward_breakdown, _outward_breakdown
+from apps.api.routers.batch import _STATUS_MAP, _db_unavailable, _inward_breakdown, _outward_breakdown
 from apps.api.routers.cts_deps import get_current_user_context
 from shared.auth.rbac import UserContext
 from shared.messages import get_message
@@ -156,7 +156,7 @@ async def get_dashboard_today(
 
     return DashboardTodaySummary(
         bank_id=bank_id, clearing_date=today.isoformat(),
-        sessions_count=len(sessions), sessions_settled=sum(1 for r in sessions if r["status"] == "SETTLED"),
+        sessions_count=len(sessions), sessions_settled=sum(1 for r in sessions if _STATUS_MAP.get(r["status"]) == "SETTLED"),
         total_inward=inward.total_inward,
         stp_confirmed=inward.stp_confirmed, stp_returned=inward.stp_returned,
         manual_confirmed=inward.manual_confirmed, manual_returned=inward.manual_returned,
