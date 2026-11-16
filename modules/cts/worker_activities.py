@@ -900,7 +900,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         opa_client=opa_client,
         signature_vault=signature_vault,
         account_vault=account_vault,
-        embedding_model=await _build_embedding_model(),
+        embedding_model=await _build_embedding_model(config_service),
         pps_vault=pps_vault,
         bloom_client=bloom_client,
         orchestrator=orchestrator,
@@ -1324,10 +1324,28 @@ async def _build_minio_client(config_service: Any) -> Any:
         return None
 
 
-async def _build_embedding_model() -> Any:
-    """Local CPU signature embedder (generic backbone — see its module docstring)."""
+async def _build_embedding_model(config_service: Any = None) -> Any:
+    """Signature embedder. signature.embedder_checkpoint names an on-prem trained checkpoint (modules/cts/signature_training); when it is
+    unset or cannot be loaded this falls back to the generic backbone (see its module docstring), which stays flagged untrained so an
+    automatic confirm is never supported by it. Either way `trained` is what the verifier reads, and a trained checkpoint only sets it
+    once its model card records a promotion."""
+    import asyncio
+
+    checkpoint = ""
+    if config_service is not None:
+        try:
+            checkpoint = (await config_service.get("signature.embedder_checkpoint")) or ""
+        except Exception as exc:
+            log.warning("worker_activities.embedder_checkpoint_config_unavailable", error=str(exc))
+    if checkpoint:
+        try:
+            from modules.cts.signature_training.embedder import TrainedSignatureEmbedder
+            model = await asyncio.to_thread(TrainedSignatureEmbedder, checkpoint)
+            log.info("worker_activities.embedding_model_ready", model=model.MODEL_LABEL, trained=model.trained)
+            return model
+        except Exception as exc:
+            log.warning("worker_activities.embedder_checkpoint_unusable_using_generic", checkpoint=checkpoint, error=str(exc))
     try:
-        import asyncio
         from shared.ai.local_signature_embedder import LocalSignatureEmbedder
         model = await asyncio.to_thread(LocalSignatureEmbedder)
         log.info("worker_activities.embedding_model_ready", model="resnet18-imagenet-generic")

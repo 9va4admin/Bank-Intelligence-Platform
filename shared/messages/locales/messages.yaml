@@ -28409,6 +28409,13 @@ UI_OPSDASHBOARD_DOWNLOAD_FAILED:
   en: "The file could not be downloaded."
   hi: ""
 
+CTS_TRAINING_NEEDS_AT_LEAST_TWO_SIGNATURES:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Training needs at least two signatures."
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]
