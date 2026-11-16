@@ -171,27 +171,22 @@ class TestInwardBatchE2E:
             "amount_paise": 500000,
         }])
 
-    def _make_mock_minio(self) -> MagicMock:
-        """Mock MinIO client that returns the real bytes built above."""
+    def _make_mock_minio(self):
+        """The object store the worker injects (MinioObjectStore: async download_bytes / upload_bytes), returning the real bytes built above."""
+        from unittest.mock import AsyncMock
         mock = MagicMock()
 
-        def get_object(bucket_name, object_name):
-            if "pxf" in object_name:
-                data = self.pxf_bytes
-            elif "cxf" in object_name:
-                data = self.cxf_bytes
-            elif "cibf" in object_name:
-                data = self.cibf_bytes
-            else:
-                data = b""
-            r = MagicMock()
-            r.read.return_value = data
-            r.close = MagicMock()
-            r.release_conn = MagicMock()
-            return r
+        async def download_bytes(bucket_name, object_key):
+            if "pxf" in object_key:
+                return self.pxf_bytes
+            if "cxf" in object_key:
+                return self.cxf_bytes
+            if "cibf" in object_key:
+                return self.cibf_bytes
+            return b""
 
-        mock.get_object.side_effect = get_object
-        mock.put_object = MagicMock()  # for CIBF staging write
+        mock.download_bytes = AsyncMock(side_effect=download_bytes)
+        mock.upload_bytes = AsyncMock()  # for CIBF staging write
         return mock
 
     # ── Parse layer ──────────────────────────────────────────────────────────
@@ -343,24 +338,19 @@ class TestInwardBatchE2E:
         from modules.cts.workflows.activities.inward_batch_activities import (
             UploadInstrumentImagesInput, upload_instrument_images,
         )
-        mock_minio = MagicMock()
-        mock_minio.put_object = MagicMock()
+        from unittest.mock import AsyncMock
+        mock_minio = self._make_mock_minio()
         inp = UploadInstrumentImagesInput(
             bank_id="saraswat",
             batch_id="BCH0001",
             item_seq_no=self.item_seq_no,
-            front_bw_bytes=self.cibf_bytes[
-                self.offsets["front_bw_image_offset"]:
-                self.offsets["front_bw_image_offset"] + self.offsets["front_bw_image_length"]
-            ],
-            back_bw_bytes=self.cibf_bytes[
-                self.offsets["back_bw_image_offset"]:
-                self.offsets["back_bw_image_offset"] + self.offsets["back_bw_image_length"]
-            ],
-            front_gray_bytes=self.cibf_bytes[
-                self.offsets["front_gray_image_offset"]:
-                self.offsets["front_gray_image_offset"] + self.offsets["front_gray_image_length"]
-            ],
+            cibf_staging_key="cts/inward/saraswat/SES20260913A/staging/BCH0001_cibf.img",
+            front_bw_image_offset=self.offsets["front_bw_image_offset"],
+            front_bw_image_length=self.offsets["front_bw_image_length"],
+            back_bw_image_offset=self.offsets["back_bw_image_offset"],
+            back_bw_image_length=self.offsets["back_bw_image_length"],
+            front_gray_image_offset=self.offsets["front_gray_image_offset"],
+            front_gray_image_length=self.offsets["front_gray_image_length"],
             minio_bucket="cts-files",
             iet_deadline=1757890800.0,
         )
@@ -371,7 +361,7 @@ class TestInwardBatchE2E:
         assert "saraswat"         in result.back_bw_key
         assert "saraswat"         in result.front_gray_key
         assert result.iet_deadline == 1757890800.0
-        assert mock_minio.put_object.call_count == 3   # 3 images uploaded
+        assert mock_minio.upload_bytes.await_count == 3   # 3 images uploaded
 
     @pytest.mark.asyncio
     async def test_full_pipeline_roundtrip(self):

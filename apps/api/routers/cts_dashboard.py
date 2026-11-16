@@ -195,7 +195,7 @@ async def get_dashboard_trend(
                 )
                 SELECT TO_CHAR(day, 'Mon DD') AS date,
                        COUNT(*)::int AS inward,
-                       ROUND(COUNT(*) FILTER (WHERE decision = 'STP_CONFIRM')::numeric
+                       ROUND(COUNT(*) FILTER (WHERE decision IN ('STP_CONFIRM', 'STP_RETURN'))::numeric
                              / NULLIF(COUNT(*), 0) * 100, 1)::float AS stp_rate_pct,
                        ROUND(COUNT(*) FILTER (WHERE decision = 'STP_RETURN' OR reviewer_decision = 'RETURN')::numeric
                              / NULLIF(COUNT(*), 0) * 100, 1)::float AS return_rate_pct
