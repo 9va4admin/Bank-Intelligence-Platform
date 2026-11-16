@@ -63,3 +63,58 @@ The 65% FAR is the meaningful number; the rest is optimistic by construction.
 An embedder can be promoted to support `STP_CONFIRM` only when, on the bank's own labelled data, its skilled-forgery FAR at the chosen
 threshold is shown below the bank's target by the 95% interval (verdict `MEETS`), and the FRR at that threshold is a reviewer workload
 the bank accepts. Until then the verifier stays flagged untrained and the confirm gate stays on.
+
+## When the bank will not provide labelled forgeries (the constraint we are designing for)
+
+The bank has to provide something anyway: the **customers' genuine specimens for the signature vault**. That is enough to do two things
+with no forged examples and no data leaving the bank.
+
+**1. Train an embedder from genuine specimens only** (`scripts/train_signature_embedder.py`, `modules/cts/signature_training/`).
+Two augmented views of the same signature (and other specimens of the same account) are pulled together; other accounts are pushed apart
+(supervised contrastive loss). The augmentation imitates what changes between two captures of one signature: crop box, tilt, ink thickness,
+contrast, noise, blur, JPEG, printed lines behind the ink. It runs on the bank's own hardware. The checkpoint carries a model card that always
+starts `promoted: false`; the worker loads it through `signature.embedder_checkpoint` and the confirm gate stays on until a promotion is recorded.
+
+**2. Measure the part that needs no labels.** Different customers' signatures *are* the "random forgeries", and held-out customers are
+never trained on, so the training script scores the model on writers it never saw, with the same harness (FAR / FRR / EER, 95% intervals).
+
+### Experiment on real cheques (2026-11-16, `scripts/experiments/signature_contrastive_real_cheques.py`)
+
+119 real KBL cheque images; each cheque is one "writer". Trained on 89 (30 epochs, about 8 minutes on a CPU, no forgery labels), scored on
+30 never-seen writers. Held-out "genuine" samples are made by moving and resizing the detector's crop box and re-scanning (code independent of
+the training augmentation); 3 variants enrolled, 2 tested per writer; 1,500 random-forgery trials.
+
+| | EER | forgeries accepted at the production threshold 0.85 | genuine rejected at 0.85 | threshold for <= 3% forgeries accepted -> genuine rejected |
+|---|---|---|---|---|
+| generic ImageNet ResNet-18 | 8.7% | **66.7%** (1001/1500) | 0 / 60 | 0.959 -> **28.3%** (17/60) |
+| contrastive, trained on the 89 | **1.8%** | **2.9%** (44/1500; 95% CI 2.2-3.9%) | 1.7% (1/60) | 0.849 -> **1.7%** (1/60) |
+
+With an easier held-out variant (re-scan only, no crop-box change) the same pattern held: generic 60.1% accepted at 0.85, trained 2.4%.
+
+### What this shows, and what it does not
+
+- **Shows:** training on genuine specimens alone makes the embedder separate *different people's* signatures far better than the generic one,
+  on people it was not trained on, and holds up when the crop frame moves. The generic model's problem (it rates almost everyone as similar)
+  is largely a training problem, not a method problem, and it is fixable on-prem with data the bank must supply for the vault anyway.
+- **Does not show: skilled-forgery protection.** No forged examples exist here, and this training never sees one. A careful forger who
+  copies a customer's signature is the case that matters most for fraud and it remains **unmeasured**.
+- **Does not show: real genuine variation.** Held-out "genuine" samples are re-captures of one image, not a customer signing on different days
+  with different pens. Real FRR will be worse than 1.7%.
+- Small and unaudited: 30 held-out writers; two cheques may be the same customer (that would inflate the false-accept number and
+  contaminate the train/held-out split); the signature box is a fixed frame, not the detected signature.
+
+### What protects the bank for the risk that stays unmeasured
+
+Signature similarity is one signal, not the control. The controls that do not depend on signature data: Positive Pay (amount, payee, number,
+date against what the customer registered), the cheque-leaf vault (is this leaf issued to this account and not yet presented), stop-payment and
+CBS status, duplicate detection, the two-model reads of MICR and amount, alteration detection, the fraud score, and the high-value threshold that
+already sends large cheques to a human. A forged cheque usually fails one of those as well. A low signature score should send a cheque to review;
+a signature mismatch must never auto-return one.
+
+### Promotion rule when only random-forgery evidence exists
+
+Promote an embedder to support `STP_CONFIRM` only when (a) its held-out random-forgery result clears the bank's target by the 95% interval on the
+bank's *own* vault specimens with real repeated specimens per account (not re-scans), (b) the bank's risk owner has accepted in writing that
+skilled-forgery risk is carried by the other controls above for the value band concerned, and (c) the decision is recorded (the model card
+`promoted` flag is set by that recorded decision, never by training). Reviewer decisions collected in shadow mode can add evidence over time,
+but genuine skilled forgeries are rare, so they will not by themselves prove a skilled-forgery rate.

@@ -176,6 +176,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     # ── AI service endpoints ────────────────────────────────────────────────────
     "services.indic_ocr.url": "http://localhost:8021",
     "services.sig_detector.url": "http://localhost:8020",
+    "signature.embedder_checkpoint": "",     # path to an on-prem trained signature embedder checkpoint; empty = the generic backbone
     # ── Platform health ─────────────────────────────────────────────────────────
     "platform_health_check.cadence_seconds": 60,
     "platform_health_check.max_human_review_queue_depth": 50,
