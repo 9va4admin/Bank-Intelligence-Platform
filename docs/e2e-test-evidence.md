@@ -1280,3 +1280,19 @@ MICR/amount/payee read -> signature detection (not degraded) -> security feature
 Dashboard on real rows: stp_confirmed 3, stp_returned 1, total_inward 39.
 
 **NOT covered:** the production inward entry (NGCH inward batch file); a real model, real signatures, real CBS; filing the confirm to a real NGCH.
+
+## 2026-11-16 — Production inward entry: PXF + CXF + CIBF -> InwardBatchIngestionWorkflow (dev stack)
+
+A two-cheque batch built with the repo's own `CXFBuilder` and PXF/CIBF helpers (the real cheque image inside the CIBF), uploaded to MinIO, run through the real `InwardBatchIngestionWorkflow`:
+parse -> upload images -> insert instruments -> audit -> fan-out of one `ChequeProcessingWorkflow` per cheque. Result: 2 started, 0 failed, both decided.
+
+**Four defects, none visible to the mocked tests, all fixed with tests:**
+1. `InwardBatchIngestionWorkflow` called `workflow.logger.error(..., batch_id=...)`: standard logging rejects keyword arguments, so the workflow crashed whenever it logged. Guard test over every workflow file added.
+2. `parse_inward_batch` and `upload_instrument_images` called `get_object` / `put_object` (the MinIO SDK API) but the worker injects `MinioObjectStore` (async `download_bytes` / `upload_bytes`): every batch failed with `DOWNLOAD_FAILED`. Activities now use the injected API; the test doubles that imitated the wrong interface were corrected (one e2e test was also stale and is fixed).
+3. The PXF carries no payee, so the batch starts every cheque with `presented_payee=""`; the workflow forwarded that blank to the decision gate, which sent it to human review as an "open-bearer" cheque even when the OCR had read the payee. No cheque from the real batch path could ever be confirmed automatically. The workflow now falls back to the OCR payee (real-workflow test added).
+4. (From the same run) nothing else: the remaining stops were designed gates and test inputs: IFSC not in the registry (seeded through `IFSCRepository`, maker then checker), face IFSC vs NGCH IFSC (my registered reading).
+
+**Final state:** both cheques HUMAN_REVIEW with `signature_verifier_untrained`. Correct: the generic signature embedder is untrained, so by design it cannot support an automatic confirm; the batch path takes its thresholds from config and I did not override that gate here
+(the earlier STP_CONFIRM run did, in the workflow input, for the run only).
+
+**NOT covered:** a real NGCH-produced PXF/CXF/CIBF (the files here come from the repo's builders: the spec's real files, signatures and image formats are untested); a trained signature verifier; the NGCH adapter that deposits the batch into MinIO.

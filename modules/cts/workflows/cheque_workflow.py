@@ -1307,7 +1307,9 @@ class ChequeProcessingWorkflow:
                     shap_values=fraud_result.shap_values,
                     kill_switch_mode=alteration_result.kill_switch_mode,
                     kill_switch_scope=alteration_result.kill_switch_scope,
-                    payee_name=inp.presented_payee,
+                    # Presentment metadata carries no payee on the inward batch path (presented_payee=""): use the name the OCR read.
+                    # Blank only when both are blank, which is the open-bearer case the gate exists for.
+                    payee_name=(inp.presented_payee or "").strip() or (ocr_result.payee or ""),
                     ngch_ifsc=inp.ngch_ifsc,
                     ocr_ifsc=_ocr_ifsc,
                     cheque_date=_ocr_cheque_date.isoformat() if _ocr_cheque_date else None,
