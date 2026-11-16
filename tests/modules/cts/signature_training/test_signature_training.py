@@ -159,3 +159,22 @@ def test_worker_falls_back_to_the_generic_embedder_when_the_checkpoint_is_unusab
     bad.write_bytes(b"not a checkpoint")
     assert isinstance(asyncio.run(_build_embedding_model(_Cfg(str(bad)))), _GenericStandIn)
     assert isinstance(asyncio.run(_build_embedding_model(_Cfg(str(tmp_path / "missing.pt")))), _GenericStandIn)
+
+
+# ---------------------------------------------------------------------------
+# Embedder version ids: what the vault tags and filters vectors by.
+# ---------------------------------------------------------------------------
+
+def test_the_generic_embedder_version_matches_the_default_tag_of_existing_vault_rows():
+    from modules.cts.vaults.signature_vault import LEGACY_EMBEDDER_VERSION
+    import shared.ai.local_signature_embedder as m
+    assert m.VERSION_ID == LEGACY_EMBEDDER_VERSION == m.MODEL_LABEL
+
+
+def test_a_trained_checkpoint_version_changes_when_the_weights_change(tmp_path):
+    a, b = tmp_path / "a.pt", tmp_path / "b.pt"
+    for path, seed in ((a, 0), (b, 1)):
+        model, h = train([(f"W{i}", _signature(i)) for i in range(4)], epochs=1, batch_size=8, size=64, seed=seed, init=None)
+        save_checkpoint(model, path, size=64, n_images=4, n_writers=4, final_loss=h[-1])
+    va, vb = TrainedSignatureEmbedder(a).version_id, TrainedSignatureEmbedder(b).version_id
+    assert va != vb and va.startswith("resnet18-signature-contrastive@") and va == TrainedSignatureEmbedder(a).version_id

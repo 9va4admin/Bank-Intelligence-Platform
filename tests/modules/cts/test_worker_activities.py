@@ -782,3 +782,11 @@ class TestSignatureVerifierProvenance:
         with patch("modules.cts.workflows.activities.signature.verify_signature", new=fake):
             r = await bound.verify_signature(MagicMock())
         assert r.verifier_trained is True
+
+
+# The vault must be keyed by the embedder that is actually running.
+def test_signature_vault_is_built_with_the_embedder_version():
+    from unittest.mock import MagicMock
+    from modules.cts.worker_activities import _build_signature_vault
+    vault = _build_signature_vault("kbl", "pepper", MagicMock(), None, embedder_version="modelB@2")
+    assert vault._embedder_version == "modelB@2"

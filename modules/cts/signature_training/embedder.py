@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -20,8 +21,11 @@ class TrainedSignatureEmbedder:
 
     def __init__(self, checkpoint: Optional[Path] = None, *, _model: Optional[SignatureNet] = None, _size: int = 224,
                  _promoted: bool = False) -> None:
+        version_id = f"{MODEL_LABEL}@unsaved"
         if checkpoint is not None:
             checkpoint = Path(checkpoint)
+            # identifies THESE weights: a retrained checkpoint gets a new id, so the vault re-embeds instead of mixing vectors
+            version_id = f"{MODEL_LABEL}@{hashlib.sha256(checkpoint.read_bytes()).hexdigest()[:12]}"
             blob = torch.load(checkpoint, map_location="cpu", weights_only=True)
             _model = SignatureNet(init=None)
             _model.trunk.load_state_dict(blob["trunk"])
@@ -31,6 +35,7 @@ class TrainedSignatureEmbedder:
         self._net = _model.eval()
         self._size = _size
         self.trained = _promoted
+        self.version_id = version_id
 
     @classmethod
     def from_model(cls, model: SignatureNet, size: int) -> "TrainedSignatureEmbedder":

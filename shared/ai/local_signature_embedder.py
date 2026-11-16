@@ -17,12 +17,14 @@ from shared.messages import get_message
 log = structlog.get_logger()
 
 MODEL_LABEL = "resnet18-imagenet-generic"
+VERSION_ID = MODEL_LABEL      # what the signature vault tags and filters vectors by; matches the default tag of rows stored before versions existed
 TRAINED = False   # a generic backbone, not a trained signature model - its score cannot support an automatic confirm
 _SIZE = 224
 
 
 class LocalSignatureEmbedder:
     MODEL_LABEL = MODEL_LABEL
+    version_id = VERSION_ID
     trained = TRAINED
 
     def __init__(self) -> None:
