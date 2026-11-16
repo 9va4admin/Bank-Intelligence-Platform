@@ -110,9 +110,9 @@ async def parse_inward_batch(
             )
 
         try:
-            pxf_bytes  = _download(minio_client, inp.minio_bucket, inp.pxf_minio_key)
-            cxf_bytes  = _download(minio_client, inp.minio_bucket, inp.cxf_minio_key)
-            cibf_bytes = _download(minio_client, inp.minio_bucket, inp.cibf_minio_key)
+            pxf_bytes  = await _download(minio_client, inp.minio_bucket, inp.pxf_minio_key)
+            cxf_bytes  = await _download(minio_client, inp.minio_bucket, inp.cxf_minio_key)
+            cibf_bytes = await _download(minio_client, inp.minio_bucket, inp.cibf_minio_key)
         except Exception as exc:
             log.error(
                 "parse_inward_batch.download_failed",
@@ -186,13 +186,7 @@ async def parse_inward_batch(
             f"cts/inward/{inp.bank_id}/{inp.session_id}/staging/{inp.batch_id}_cibf.img"
         )
         try:
-            minio_client.put_object(
-                bucket_name=inp.minio_bucket,
-                object_name=cibf_staging_key,
-                data=io.BytesIO(cibf_bytes),
-                length=len(cibf_bytes),
-                content_type="application/octet-stream",
-            )
+            await minio_client.upload_bytes(inp.minio_bucket, cibf_staging_key, cibf_bytes, "application/octet-stream")
         except Exception as exc:
             log.warning(
                 "parse_inward_batch.cibf_staging_failed",
@@ -223,13 +217,9 @@ async def parse_inward_batch(
         )
 
 
-def _download(minio_client: Any, bucket: str, key: str) -> bytes:
-    response = minio_client.get_object(bucket_name=bucket, object_name=key)
-    try:
-        return response.read()
-    finally:
-        response.close()
-        response.release_conn()
+async def _download(minio_client: Any, bucket: str, key: str) -> bytes:
+    # The worker injects shared.storage.minio_client.MinioObjectStore (async), not the raw MinIO SDK client.
+    return await minio_client.download_bytes(bucket, key)
 
 
 def _item_to_dict(item: ParsedBatchItem) -> dict:
@@ -316,7 +306,7 @@ async def upload_instrument_images(
 
         try:
             # Download the staged CIBF once and slice out the three image regions
-            cibf = _download(minio_client, inp.minio_bucket, inp.cibf_staging_key)
+            cibf = await _download(minio_client, inp.minio_bucket, inp.cibf_staging_key)
             front_bw_bytes = cibf[
                 inp.front_bw_image_offset: inp.front_bw_image_offset + inp.front_bw_image_length
             ]
@@ -332,13 +322,7 @@ async def upload_instrument_images(
                 (bbw_key,  back_bw_bytes,    "image/tiff"),
                 (fgry_key, front_gray_bytes, "image/jpeg"),
             ]:
-                minio_client.put_object(
-                    bucket_name=inp.minio_bucket,
-                    object_name=key,
-                    data=io.BytesIO(data),
-                    length=len(data),
-                    content_type=ctype,
-                )
+                await minio_client.upload_bytes(inp.minio_bucket, key, data, ctype)
 
             log.info(
                 "upload_instrument_images.uploaded",

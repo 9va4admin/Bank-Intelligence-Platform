@@ -105,7 +105,7 @@ class InwardBatchIngestionWorkflow:
 
     @workflow.run
     async def run(self, inp: InwardBatchInput) -> InwardBatchResult:
-        workflow.logger.info(
+        log.info(
             "inward_batch.started",
             batch_id=inp.batch_id,
             bank_id=inp.bank_id,
@@ -128,7 +128,7 @@ class InwardBatchIngestionWorkflow:
         )
 
         if parse_result.parse_error:
-            workflow.logger.error(
+            log.error(
                 "inward_batch.parse_failed",
                 batch_id=inp.batch_id,
                 bank_id=inp.bank_id,
@@ -289,7 +289,7 @@ class InwardBatchIngestionWorkflow:
             retry_policy=_AUDIT_RETRY,
         )
 
-        workflow.logger.info(
+        log.info(
             "inward_batch.complete",
             batch_id=inp.batch_id,
             bank_id=inp.bank_id,

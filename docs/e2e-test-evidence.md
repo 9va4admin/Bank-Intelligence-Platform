@@ -1274,3 +1274,37 @@ Result: morning session (legacy, untagged) outward 3 / returned 1; afternoon ses
 
 **Decided, not changed:** a session that has returned cheques stays SETTLED. Settlement is about NGCH's report being matched; returns are reported separately (`ngch_returned`, return reasons) and are normal.
 **NOT covered:** inward figures are still scoped by date (an inward batch has its own id, `inward_batch_id`, but no link to a session of ours); `/dashboard/today` is deliberately "today across sessions".
+
+## 2026-11-16 — Inward STP_CONFIRM on real instruments (dev stack; every stand-in and override listed)
+
+Three inward cheques (Rs 25,000 / 38,000 / 4,500) ran through the real `insert_inward_instrument` and the real `ChequeProcessingWorkflow` and reached **STP_CONFIRM**
+(fraud 0.100, OCR 0.963, signature 1.000, combined 0.981). Getting there passed every real gate in turn; each stop was a designed safety gate, not a defect:
+MICR/amount/payee read -> signature detection (not degraded) -> security features -> signature vault hit -> signature match -> verifier-trained gate -> `stp_mode` -> confirm.
+
+**What is a stand-in or override in this run (none of it is production behaviour):**
+- Model stand-in (`tests/integration/stubs/ocr_server.py`) now answers per image (`POST /register` by image hash), the signature-detection prompt (one signature) and the security-features prompt (all four present). It is not a model.
+- Dev database config rows (not in the repo): `vllm.url` / `vllm.l1_url` -> the stand-in.
+- Reference signature for account 4242424242 seeded through the real `SignatureVault` with the pipeline's own crop (so the match is 1.0 by construction).
+- The run passes `require_trained_signature_verifier=False` and `stp_mode=FULL_STP` in the workflow's `cts_config`. A bank must keep the first true: the generic embedder is untrained (measured: accepts 53% of impostor pairs).
+- Fraud score 0.100 comes from the labelled synthetic stand-in model; CBS is the dev fixture; NGCH is the dev stub.
+
+**Defect found:** the dashboard trend and the today summary used two definitions of the STP rate (10.26% vs 7.7% on the same data). The trend now uses the summary's (decided by the system, confirm or return).
+Dashboard on real rows: stp_confirmed 3, stp_returned 1, total_inward 39.
+
+**NOT covered:** the production inward entry (NGCH inward batch file); a real model, real signatures, real CBS; filing the confirm to a real NGCH.
+
+## 2026-11-16 — Production inward entry: PXF + CXF + CIBF -> InwardBatchIngestionWorkflow (dev stack)
+
+A two-cheque batch built with the repo's own `CXFBuilder` and PXF/CIBF helpers (the real cheque image inside the CIBF), uploaded to MinIO, run through the real `InwardBatchIngestionWorkflow`:
+parse -> upload images -> insert instruments -> audit -> fan-out of one `ChequeProcessingWorkflow` per cheque. Result: 2 started, 0 failed, both decided.
+
+**Four defects, none visible to the mocked tests, all fixed with tests:**
+1. `InwardBatchIngestionWorkflow` called `workflow.logger.error(..., batch_id=...)`: standard logging rejects keyword arguments, so the workflow crashed whenever it logged. Guard test over every workflow file added.
+2. `parse_inward_batch` and `upload_instrument_images` called `get_object` / `put_object` (the MinIO SDK API) but the worker injects `MinioObjectStore` (async `download_bytes` / `upload_bytes`): every batch failed with `DOWNLOAD_FAILED`. Activities now use the injected API; the test doubles that imitated the wrong interface were corrected (one e2e test was also stale and is fixed).
+3. The PXF carries no payee, so the batch starts every cheque with `presented_payee=""`; the workflow forwarded that blank to the decision gate, which sent it to human review as an "open-bearer" cheque even when the OCR had read the payee. No cheque from the real batch path could ever be confirmed automatically. The workflow now falls back to the OCR payee (real-workflow test added).
+4. (From the same run) nothing else: the remaining stops were designed gates and test inputs: IFSC not in the registry (seeded through `IFSCRepository`, maker then checker), face IFSC vs NGCH IFSC (my registered reading).
+
+**Final state:** both cheques HUMAN_REVIEW with `signature_verifier_untrained`. Correct: the generic signature embedder is untrained, so by design it cannot support an automatic confirm; the batch path takes its thresholds from config and I did not override that gate here
+(the earlier STP_CONFIRM run did, in the workflow input, for the run only).
+
+**NOT covered:** a real NGCH-produced PXF/CXF/CIBF (the files here come from the repo's builders: the spec's real files, signatures and image formats are untested); a trained signature verifier; the NGCH adapter that deposits the batch into MinIO.

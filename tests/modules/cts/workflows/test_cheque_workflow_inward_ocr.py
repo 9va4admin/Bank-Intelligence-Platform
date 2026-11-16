@@ -1393,3 +1393,58 @@ class TestOcrActivityFailureNeverFailsTheWorkflow:
         r = await TestSignatureAbsentByInstrumentType()._run(temporal_env, _ocr_always_fails)
         assert r.decision == "HUMAN_REVIEW"
         assert r.rationale.startswith("ocr_activity_failed")
+
+
+# ---------------------------------------------------------------------------
+# Found on the first live run of the production inward entry (InwardBatchIngestionWorkflow): the PXF carries no payee, so the
+# batch workflow starts every cheque with presented_payee="" ("the Vision LLM extracts it inside the workflow"). The workflow then
+# forwarded that blank to the decision gate, which treats a blank payee as an open-bearer instrument and sends it to human review,
+# even when the OCR had read the payee. No cheque arriving through the real inward batch could ever be confirmed automatically.
+# ---------------------------------------------------------------------------
+
+_SEEN_PAYEE = []
+
+
+@activity.defn(name="synthesise_decision")
+async def _recording_synthesise_decision(inp, cts_config=None, kill_switch_status=None):
+    from modules.cts.workflows.activities.decision import DecisionResult
+    _SEEN_PAYEE.append(_dget(inp, "payee_name"))
+    return DecisionResult(instrument_id=_dget(inp, "instrument_id"), decision="STP_CONFIRM",
+                          rationale="recorded", shap_values={"amount": -0.1})
+
+
+class TestPayeeForTheDecisionGate:
+    async def _run(self, temporal_env, presented_payee):
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+
+        _SEEN_PAYEE.clear()
+        task_queue = f"tq-payee-{uuid.uuid4()}"
+        bank_id, instrument_id = "saraswat-coop", f"PAYEE-{uuid.uuid4().hex[:8]}"
+        others = [a for a in _BASE_ACTIVITIES if a is not _e2e_synthesise_decision]
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
+            activities=[_ocr_fake_proceed, _recording_synthesise_decision, *others],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            return await temporal_env.client.execute_workflow(
+                ChequeProcessingWorkflow.run,
+                ChequeWorkflowInput(
+                    instrument_id=instrument_id, bank_id=bank_id, image_url="minio://cts/inward/x.tiff",
+                    account_number="12340000005678", cheque_number="000099", presented_amount=75000.0,
+                    presented_payee=presented_payee, iet_deadline=time.time() + 3600, ngch_ifsc="SRCB0000001",
+                    cts_config={"stp_mode": "FULL_STP"}),
+                id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue)
+
+    @pytest.mark.asyncio
+    async def test_blank_presented_payee_falls_back_to_the_payee_the_ocr_read(self, temporal_env):
+        await self._run(temporal_env, presented_payee="")
+        assert _SEEN_PAYEE == ["Suresh Patil"]
+
+    @pytest.mark.asyncio
+    async def test_a_presented_payee_is_still_what_the_gate_sees(self, temporal_env):
+        await self._run(temporal_env, presented_payee="Suresh Patil")
+        assert _SEEN_PAYEE == ["Suresh Patil"]

@@ -153,6 +153,8 @@ class TestDashboardTrend:
         assert r.json()["trend"][0] == {"date": "Nov 02", "inward": 10, "stp_rate_pct": 70.0, "return_rate_pct": 10.0}
         sql = pool.conn.sql[0]
         assert "direction = 'INWARD'" in sql and "MANUAL_RETURN" not in sql
+        # same definition as /dashboard/today and the batch summary: STP = decided by the system, confirm or return
+        assert "decision IN ('STP_CONFIRM', 'STP_RETURN')" in sql
 
     def test_days_bounds(self):
         c = TestClient(_make_app(db_pool=_Pool()))

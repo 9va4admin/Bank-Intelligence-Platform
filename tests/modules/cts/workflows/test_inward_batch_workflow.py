@@ -229,19 +229,15 @@ class TestUploadInstrumentImagesActivity:
               + b"\x00" * 256 + back_bw    # DS then back_bw at 256+104+256=616
               + b"\x00" * 256 + front_gray)
 
+        from unittest.mock import AsyncMock
         captured_uploads = {}
-        def fake_put(bucket_name, object_name, data, length, content_type):
-            captured_uploads[object_name] = data.read()
+        async def fake_upload(bucket_name, object_key, data, content_type="application/octet-stream"):
+            captured_uploads[object_key] = data
 
+        # The worker injects MinioObjectStore: async download_bytes / upload_bytes
         mock_minio = MagicMock()
-        mock_minio.put_object.side_effect = fake_put
-
-        # CIBF returned on get_object
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = cibf
-        mock_resp.close = MagicMock()
-        mock_resp.release_conn = MagicMock()
-        mock_minio.get_object.return_value = mock_resp
+        mock_minio.upload_bytes = AsyncMock(side_effect=fake_upload)
+        mock_minio.download_bytes = AsyncMock(return_value=cibf)
 
         inp = UploadInstrumentImagesInput(
             bank_id="saraswat",
@@ -263,7 +259,7 @@ class TestUploadInstrumentImagesActivity:
         assert result.front_gray_key
 
         # Verify the CIBF was downloaded once
-        mock_minio.get_object.assert_called_once()
+        mock_minio.download_bytes.assert_awaited_once()
 
         # Verify the correct bytes were uploaded for each view
         front_bw_uploaded  = captured_uploads.get(result.front_bw_key)
@@ -279,12 +275,10 @@ class TestUploadInstrumentImagesActivity:
             UploadInstrumentImagesInput, upload_instrument_images,
         )
         cibf = b"\x00" * 512 + b"\x49\x49\x2a\x00" * 50
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = cibf
-        mock_resp.close = MagicMock()
-        mock_resp.release_conn = MagicMock()
+        from unittest.mock import AsyncMock
         mock_minio = MagicMock()
-        mock_minio.get_object.return_value = mock_resp
+        mock_minio.download_bytes = AsyncMock(return_value=cibf)
+        mock_minio.upload_bytes = AsyncMock()
 
         inp = UploadInstrumentImagesInput(
             bank_id="saraswat",
