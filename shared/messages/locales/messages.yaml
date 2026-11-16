@@ -53886,3 +53886,21 @@ API_OUTWARD_NOT_RETURNED_RECEIVABLE_INR:
   variables: []
   en: "Outward Not Returned - Receivable (INR)"
   hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+CTS_MANIFEST_IS_MISSING_COLUMN_S:
+  severity: WARN
+  surface: [UI]
+  variables: [value]
+  en: "manifest is missing column(s): {value}"
+  hi: ""
+
+CTS_LINE_IMAGE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: [line_no, rec]
+  en: "line {line_no}: image not found: {rec}"
+  hi: ""
