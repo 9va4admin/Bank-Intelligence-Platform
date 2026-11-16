@@ -116,7 +116,7 @@ async def get_bank_id_scanner_or_user(
                 async with db_pool.acquire() as conn:
                     row = await conn.fetchrow(
                         "SELECT bank_id FROM cts.scanner_tokens "
-                        "WHERE token_hash = $1 AND revoked = false",
+                        "WHERE token_hash = $1 AND revoked = false AND expires_at > now()",
                         incoming_hash,
                     )
                 if row is not None:
