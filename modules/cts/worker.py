@@ -170,6 +170,7 @@ from modules.cts.workflows.activities.session_reconciliation_activities import (
     fetch_ngch_settlement_report,
     match_submitted_vs_settled,
     generate_rrf,
+    mark_session_reconciled,
 )
 from modules.cts.workflows.activities.sb_relay_activities import (
     resolve_crl_batch,
@@ -315,6 +316,7 @@ ALL_ACTIVITIES = [
     fetch_ngch_settlement_report,
     match_submitted_vs_settled,
     generate_rrf,
+    mark_session_reconciled,
     resolve_crl_batch,
     publish_to_pu_queues,
     build_lot_package,
@@ -356,6 +358,7 @@ NO_DI_ACTIVITIES = [
     # Session reconciliation (SessionReconciliationWorkflow)
     match_submitted_vs_settled,
     generate_rrf,
+    mark_session_reconciled,
     # SB relay — inward forwarding + agency CC
     resolve_crl_batch,
     publish_to_pu_queues,

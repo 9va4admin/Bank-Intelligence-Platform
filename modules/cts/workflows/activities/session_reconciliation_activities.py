@@ -304,3 +304,46 @@ async def generate_rrf(
             rrf_path=rrf_path,
             record_count=len(inp.exception_instruments),
         )
+
+
+# ── mark_session_reconciled ───────────────────────────────────────────────────
+
+class MarkSessionReconciledInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    bank_id: str
+
+
+class MarkSessionReconciledResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    updated: bool
+
+
+@activity.defn
+async def mark_session_reconciled(
+    inp: MarkSessionReconciledInput,
+    db_pool: Any = None,
+) -> MarkSessionReconciledResult:
+    """
+    Record that NGCH's settlement report for this session was matched: status RECONCILED and the settlement time.
+    Only a SUBMITTED session moves (a replayed workflow cannot flip a settled or failed one). Degrades when db_pool is None.
+    """
+    if isinstance(inp, dict):
+        inp = MarkSessionReconciledInput(**inp)
+    with tracer.start_as_current_span("activity.mark_session_reconciled") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None:
+            log.warning("mark_session_reconciled.db_unavailable", session_id=inp.session_id, bank_id=inp.bank_id)
+            return MarkSessionReconciledResult(updated=False)
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE cts.clearing_sessions
+                   SET status = 'RECONCILED', settlement_at = NOW()
+                 WHERE session_id = $1::uuid AND bank_id = $2 AND status = 'SUBMITTED'
+                """,
+                inp.session_id, inp.bank_id,
+            )
+        log.info("mark_session_reconciled.updated", session_id=inp.session_id, bank_id=inp.bank_id)
+        return MarkSessionReconciledResult(updated=True)
+

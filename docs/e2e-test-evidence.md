@@ -1213,3 +1213,19 @@ Yugabyte. It is verified by tests that route each query by tag and by reading th
 
 **Checked and left alone:** the clearing-session id is derived from bank, date and session type, so one session exists per bank per date per type; the
 per-date session figures are exact unless a bank runs several session types in one day. Tagging instruments with a session would change the filing path and needs a live run.
+
+## 2026-11-16 — Outward through the API entry route, sealing and reconciliation (dev stack; model, NGCH, HSM, CBS are stand-ins)
+
+**Run live, in order:** `POST /outward/scanner/session/open` -> `POST /outward/scan/upload-url` -> PUT both images to MinIO via the presigned URLs -> `POST /outward/scan/submit`
+-> `OutwardScanWorkflow` ACCEPTED, lot `LOT-B1-20261116-0001` assigned -> `POST /outward/lots/seal-all` (the real route; SEALED) -> `BatchEndorsementWorkflow` ENDORSED
+-> `ClearingSessionWorkflow` SUBMITTED (dev NGCH stub reference) -> `SessionReconciliationWorkflow` RECONCILED (dev stub settlement report).
+
+**Notes from the run:** a scan with no scanner session is accepted and persisted but gets no lot (by design: lot assignment needs `session_id` + `branch_id`). The CTS-2010 gate
+rejected my first bodies for a wrong cheque number, missing file sizes and 8-bit depth; real measured metrics (24-bit, the file's own size) pass.
+
+**Found and fixed:** nothing ever moved a session past SUBMITTED. The reconciliation workflow reported RECONCILED but `cts.clearing_sessions` kept status SUBMITTED and no `settlement_at`, so the
+dashboard could never show SETTLED. New activity `mark_session_reconciled` (only moves a SUBMITTED session; skipped when NGCH's report was unavailable) is wired into the workflow and worker; verified live
+(row RECONCILED with `settlement_at`; `/v1/cts/sessions` then shows SETTLED). Also fixed my own #25 slip: `/dashboard/today` counted `status == 'SETTLED'` on the raw value (the database stores RECONCILED), so it reported 0 settled.
+
+**NOT covered:** return handling after submission (reconciliation ran with the stub's clean report: 0 exceptions, no RRF, no re-presentation); the EEH/scanner-agent bearer-token auth (the route's auth was overridden in this run);
+real NGCH, model, HSM and CBS; inward (the dev database still holds no inward instruments). Two `generate_rrf` tests in `tests/e2e/test_post_wiring_e2e.py` fail on `main` too (not caused by this change).
