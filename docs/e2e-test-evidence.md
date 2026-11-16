@@ -1213,3 +1213,16 @@ Yugabyte. It is verified by tests that route each query by tag and by reading th
 
 **Checked and left alone:** the clearing-session id is derived from bank, date and session type, so one session exists per bank per date per type; the
 per-date session figures are exact unless a bank runs several session types in one day. Tagging instruments with a session would change the filing path and needs a live run.
+
+## 2026-11-16 — Live check of the #25 dashboard routes and outward bankwise (dev Yugabyte, real routes)
+
+Stack was restarted first (`wsl --shutdown`, Docker Desktop, then `docker start` of the `astra-*` dev containers; Yugabyte needed a stale
+Postgres lock file removed from the container's `/tmp`). Run through the real FastAPI routers against the dev database.
+
+**Proven:** `/dashboard/today`, `/dashboard/trend`, `/exceptions`, `/sessions`, `/sessions/today`, `/sessions/{id}/summary` and `/sessions/{id}/bankwise` all
+execute on the real schema with no SQL error and return 200. Bankwise for the 31 Oct outward session shows the three outward cheques as
+"Bank code 290 (from MICR)" (was "UNKNOWN"). The schema confirms `cts.workflow_exceptions` does not exist, and that `agent_decisions` also holds outward scan
+outcomes (CTS_REJECTED, ACCEPTED, MISMATCH_HELD, WORKFLOW_ERROR), which is why counting every decision as "inward" was wrong.
+
+**NOT proven:** the dev database holds no INWARD instruments (3 OUTWARD only), so the inward counts, the trend rates and the exceptions list were returned
+empty/zero. They are verified only by tests, not against real inward rows. Today (16 Nov) has no cheques at all.
