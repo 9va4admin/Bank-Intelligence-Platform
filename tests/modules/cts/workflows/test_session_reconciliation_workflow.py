@@ -181,3 +181,21 @@ class TestSessionReconciliationWorkflowId:
         from modules.cts.workflows.session_reconciliation_workflow import SessionReconciliationWorkflow
         wf = SessionReconciliationWorkflow()
         assert wf.workflow_id("bank-a", "SES-1") != wf.workflow_id("bank-a", "SES-2")
+
+
+def test_run_uses_no_undefined_names():
+    """Found live: record_outward_returns was called but never imported, so the real workflow failed on every run while the
+    mocked tests passed. Every name the workflow body loads must be a builtin, a module global, or bound inside the function."""
+    import ast, builtins, inspect, textwrap
+    from modules.cts.workflows import session_reconciliation_workflow as mod
+    tree = ast.parse(textwrap.dedent(inspect.getsource(mod.SessionReconciliationWorkflow.run)))
+    bound, used = set(), set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            (bound if isinstance(node.ctx, (ast.Store, ast.Del)) else used).add(node.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound |= {(a.asname or a.name).split(".")[0] for a in node.names}
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+    undefined = used - bound - set(vars(mod)) - set(dir(builtins))
+    assert not undefined, f"undefined names in SessionReconciliationWorkflow.run: {sorted(undefined)}"

@@ -185,8 +185,8 @@ async def insert_inward_instrument(
                     account_last4,
                     inp.amount_paise,
                     amount_range,
-                    received_now.date().isoformat(),       # cheque_date (from received_at for inward)
-                    inp.iet_deadline,
+                    received_now.date(),                   # cheque_date (from received_at for inward): a DATE, not a string
+                    inp.iet_deadline,                      # a float (epoch seconds): that column is double precision
                     received_now,
                     workflow_id,
                     inp.queue_tier,

@@ -143,3 +143,30 @@ async def re_submit_to_ngch_for_representation(
             ngch_reference=ngch_reference,
             degraded=False,
         )
+
+
+# ── load_representation_window ────────────────────────────────────────────────
+
+class LoadRepresentationWindowInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+
+
+class LoadRepresentationWindowResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    hours: int
+
+
+@activity.defn
+async def load_representation_window(inp: LoadRepresentationWindowInput) -> LoadRepresentationWindowResult:
+    """The bank's re-presentation window (cts.representation_window_hours). Config is read here, never inside workflow code."""
+    if isinstance(inp, dict):
+        inp = LoadRepresentationWindowInput(**inp)
+    with tracer.start_as_current_span("activity.load_representation_window") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        from shared.config.config_service import config_service  # avoid circular import at module load
+        if not config_service._ready:
+            await config_service.initialise()
+        cts_config = await config_service.get_cts_config(inp.bank_id)
+        return LoadRepresentationWindowResult(hours=int(cts_config.get("representation_window_hours", 24)))
+

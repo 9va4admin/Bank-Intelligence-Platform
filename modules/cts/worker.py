@@ -171,7 +171,9 @@ from modules.cts.workflows.activities.session_reconciliation_activities import (
     match_submitted_vs_settled,
     generate_rrf,
     mark_session_reconciled,
+    record_outward_returns,
 )
+from modules.cts.workflows.activities.representation_activities import load_representation_window
 from modules.cts.workflows.activities.sb_relay_activities import (
     resolve_crl_batch,
     publish_to_pu_queues,
@@ -317,6 +319,8 @@ ALL_ACTIVITIES = [
     match_submitted_vs_settled,
     generate_rrf,
     mark_session_reconciled,
+    record_outward_returns,
+    load_representation_window,
     resolve_crl_batch,
     publish_to_pu_queues,
     build_lot_package,
@@ -359,6 +363,8 @@ NO_DI_ACTIVITIES = [
     match_submitted_vs_settled,
     generate_rrf,
     mark_session_reconciled,
+    record_outward_returns,
+    load_representation_window,
     # SB relay — inward forwarding + agency CC
     resolve_crl_batch,
     publish_to_pu_queues,
