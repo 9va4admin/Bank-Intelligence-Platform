@@ -29,6 +29,7 @@ class FakeConn:
         return self.pool.rows.pop(0) if self.pool.rows else []
 
     async def fetch(self, sql, *a):
+        self.pool.calls.append((sql, a))
         return self._answer(sql)
 
     async def fetchrow(self, sql, *a):
@@ -39,6 +40,7 @@ class FakeConn:
 class FakePool:
     def __init__(self, rows=None, fail=False, routes=None):
         self.rows, self.fail, self.sql, self.routes = list(rows or []), fail, [], dict(routes or {})
+        self.calls = []     # (sql, args) of every fetch
 
     def acquire(self):
         conn = FakeConn(self)
@@ -213,6 +215,36 @@ class TestSessionSummary:
         pool = _real_pool()
         _client(pool).get(f"/v1/cts/sessions/{SID}/summary")
         assert not [c for c in _NOT_IN_SCHEMA if c in " ".join(pool.sql)]
+
+
+class TestOutwardFiguresAreScopedToTheSession:
+    """A session's outward figures follow the instruments tagged with it (set when its lots are sealed), not just the date.
+    Instruments filed before the tag existed (untagged) still fall back to the session's date."""
+    def _calls(self, path):
+        pool = _real_pool()
+        _client(pool).get(path)
+        return pool.calls
+
+    def test_summary_outward_queries_use_the_session_tag(self):
+        calls = self._calls(f"/v1/cts/sessions/{SID}/summary")
+        for tag in ("q:outward_totals", "q:outward_returns"):
+            sql, args = [c for c in calls if tag in c[0]][0]
+            assert "ngch_clearing_session_id" in sql, tag
+            assert SID in [str(a) for a in args], tag
+
+    def test_bankwise_outward_query_uses_the_session_tag(self):
+        sql, args = [c for c in self._calls(f"/v1/cts/sessions/{SID}/bankwise") if "q:bankwise_outward" in c[0]][0]
+        assert "ngch_clearing_session_id" in sql and SID in [str(a) for a in args]
+
+    def test_untagged_instruments_fall_back_to_the_sessions_date(self):
+        sql, _ = [c for c in self._calls(f"/v1/cts/sessions/{SID}/summary") if "q:outward_totals" in c[0]][0]
+        assert "ngch_clearing_session_id IS NULL" in sql and "received_at::date" in sql
+        # ...but only for a session that has no tagged instruments of its own, so legacy rows are not counted in every session of the day
+        assert "NOT EXISTS" in sql
+
+    def test_returns_are_found_through_the_instrument(self):
+        sql, _ = [c for c in self._calls(f"/v1/cts/sessions/{SID}/summary") if "q:outward_returns" in c[0]][0]
+        assert "ri.outward_item_id = ci.instrument_id" in sql
 
 
 class TestBankwise:

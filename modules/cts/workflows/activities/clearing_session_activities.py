@@ -110,6 +110,17 @@ async def seal_all_lots(
                 session_uuid, inp.bank_id, inp.clearing_date, inp.session_type,
             )
 
+            # Link the filed instruments to this session, so the session's figures do not have to be guessed from the date.
+            if sealed:
+                await conn.execute(
+                    """
+                    UPDATE cts.cheque_instruments
+                       SET ngch_clearing_session_id = $1::uuid
+                     WHERE bank_id = $2 AND lot_id = ANY($3::text[])
+                    """,
+                    session_uuid, inp.bank_id, [r["lot_id"] for r in sealed],
+                )
+
         log.info(
             "seal_all_lots.complete",
             session_id=inp.session_id,
