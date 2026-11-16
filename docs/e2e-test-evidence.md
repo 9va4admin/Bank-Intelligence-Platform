@@ -1262,3 +1262,21 @@ The IET deadline column is double precision; a first fix that converted it to a 
 
 **NOT covered:** STP_CONFIRM on a real inward cheque (the stand-in image reading never matches a presented cheque number); real model/CBS; the production inward entry (NGCH inward batch file via `InwardBatchIngestionWorkflow`)
 — the instrument was inserted by calling the same activity directly.
+
+## 2026-11-16 — Inward STP_CONFIRM on real instruments (dev stack; every stand-in and override listed)
+
+Three inward cheques (Rs 25,000 / 38,000 / 4,500) ran through the real `insert_inward_instrument` and the real `ChequeProcessingWorkflow` and reached **STP_CONFIRM**
+(fraud 0.100, OCR 0.963, signature 1.000, combined 0.981). Getting there passed every real gate in turn; each stop was a designed safety gate, not a defect:
+MICR/amount/payee read -> signature detection (not degraded) -> security features -> signature vault hit -> signature match -> verifier-trained gate -> `stp_mode` -> confirm.
+
+**What is a stand-in or override in this run (none of it is production behaviour):**
+- Model stand-in (`tests/integration/stubs/ocr_server.py`) now answers per image (`POST /register` by image hash), the signature-detection prompt (one signature) and the security-features prompt (all four present). It is not a model.
+- Dev database config rows (not in the repo): `vllm.url` / `vllm.l1_url` -> the stand-in.
+- Reference signature for account 4242424242 seeded through the real `SignatureVault` with the pipeline's own crop (so the match is 1.0 by construction).
+- The run passes `require_trained_signature_verifier=False` and `stp_mode=FULL_STP` in the workflow's `cts_config`. A bank must keep the first true: the generic embedder is untrained (measured: accepts 53% of impostor pairs).
+- Fraud score 0.100 comes from the labelled synthetic stand-in model; CBS is the dev fixture; NGCH is the dev stub.
+
+**Defect found:** the dashboard trend and the today summary used two definitions of the STP rate (10.26% vs 7.7% on the same data). The trend now uses the summary's (decided by the system, confirm or return).
+Dashboard on real rows: stp_confirmed 3, stp_returned 1, total_inward 39.
+
+**NOT covered:** the production inward entry (NGCH inward batch file); a real model, real signatures, real CBS; filing the confirm to a real NGCH.

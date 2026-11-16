@@ -129,6 +129,26 @@ async def received():
     return RECEIVED
 
 
+# What a specific image "reads" as: sha256 of its bytes -> field overrides. Lets a test cheque read as the cheque it is declared to be
+# (the model itself is a stand-in either way). Unregistered images keep the default reading.
+REGISTERED: dict[str, dict] = {}
+
+
+@app.post("/register")
+async def register(request: Request):
+    body = await request.json()
+    REGISTERED[body["sha256"]] = body["fields"]
+    return {"registered": len(REGISTERED)}
+
+
+def _registered_fields(image_url: str) -> dict:
+    import base64
+    import hashlib
+    if image_url.startswith("data:") and "," in image_url:
+        return REGISTERED.get(hashlib.sha256(base64.b64decode(image_url.split(",", 1)[1])).hexdigest(), {})
+    return {}
+
+
 # ── Chat completions endpoint (vLLM / OpenAI compatible) ────────────────────
 
 @app.post("/v1/chat/completions")
@@ -136,15 +156,28 @@ async def chat_completions(request: Request):
     body = await request.json()
     model = body.get("model", "got-ocr2-stub")
 
-    # Extract image URL from messages
+    # Extract image URL (and any text prompt) from messages
     image_url = ""
+    prompt_text = ""
     for msg in body.get("messages", []):
         content = msg.get("content", [])
         if isinstance(content, list):
             for part in content:
                 if isinstance(part, dict) and part.get("type") == "image_url":
                     image_url = part.get("image_url", {}).get("url", "")
-                    break
+                elif isinstance(part, dict) and part.get("type") == "text":
+                    prompt_text += part.get("text", "")
+
+    # security_features asks whether the four CTS-2010 features are present: a stand-in reading says all are.
+    if "void_pantograph" in prompt_text:
+        return JSONResponse(_openai_response(json.dumps({
+            k: {"present": True, "confidence": 0.95}
+            for k in ("void_pantograph", "rupee_symbol", "micro_lettering", "printer_name_cts2010")}), model))
+
+    # detect_signatures asks the vision model for signature_count / signature_bboxes: answer that shape (a stand-in reading, one signature).
+    if "signature_count" in prompt_text:
+        return JSONResponse(_openai_response(json.dumps(
+            {"signature_count": 1, "signature_bboxes": [[0.2, 0.2, 0.8, 0.8]], "signature_fraud_flags": []}), model))
 
     _remember_image(image_url)
     scenario = _extract_scenario(image_url)
@@ -153,7 +186,7 @@ async def chat_completions(request: Request):
         raise HTTPException(status_code=503, detail="Model unavailable (test stub)")
 
     is_outward = "outward" in image_url.lower()
-    fields = _fields_for(scenario, is_outward)
+    fields = {**_fields_for(scenario, is_outward), **_registered_fields(image_url)}
     content = json.dumps(fields)
     return JSONResponse(_openai_response(content, model))
 
