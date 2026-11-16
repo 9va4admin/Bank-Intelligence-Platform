@@ -1247,3 +1247,18 @@ bankwise shows 2 confirmed / 1 returned for the three outward cheques.
 5. `ChequeRepresentationWorkflow.run` read config inside workflow code (fails in the worker; the workflow sat RUNNING) and treated `wait_condition` as returning a boolean (it returns nothing and raises on timeout, so an approved re-presentation would have been reported expired). Config is now read by an activity, the timeout is caught.
 
 **NOT covered:** a real NGCH return file (the format and timing are NPCI's; only the simulated path ran); the session status stays RECONCILED/SETTLED even when it has returns; the representation-window default of 24 h is still a literal fallback.
+
+## 2026-11-16 — Inward on a populated database; scanner token auth (dev stack; model, CBS, NGCH are stand-ins)
+
+**Inward:** six cheques through the real `insert_inward_instrument` activity and the real `ChequeProcessingWorkflow` on the dev worker (the model stand-in returns one fixed image reading, MICR cheque no. 500025).
+Result: 5 HUMAN_REVIEW (`micr_cheque_number_mismatch`, correct: presented 600001-600005 vs read 500025) and 1 STP_RETURN (`DUPLICATE_PRESENTMENT`, correct: the first run's 600000 had already been presented).
+Dashboards on those real rows: `/dashboard/today` total_inward 6, stp_returned 1, pending_review 5, STP rate 16.67%; `/dashboard/trend` one day, 6 inward; `/exceptions` lists the five held cheques with their real reasons; session summary
+agrees (total value Rs 9,82,500; avg decision 2119 ms). Inward counts are now verified against real rows, not only tests.
+
+**Defect found by this run:** `insert_inward_instrument` passed the cheque date as a string for a DATE column, so no inward instrument had ever been inserted on a real database (the activity had no tests). Fixed, 3 tests added.
+The IET deadline column is double precision; a first fix that converted it to a datetime was wrong and was reverted after the live run rejected it.
+
+**Scanner bearer-token auth (live, no dependency override):** valid token 200; expired 401; revoked 401; unknown 401; no credentials 401. Defect: the token lookup never checked `expires_at`, so an expired token kept working. Fixed, 5 tests added.
+
+**NOT covered:** STP_CONFIRM on a real inward cheque (the stand-in image reading never matches a presented cheque number); real model/CBS; the production inward entry (NGCH inward batch file via `InwardBatchIngestionWorkflow`)
+— the instrument was inserted by calling the same activity directly.
