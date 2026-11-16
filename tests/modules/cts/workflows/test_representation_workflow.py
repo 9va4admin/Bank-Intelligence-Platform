@@ -509,3 +509,34 @@ class TestSessionReconciliationSpawnsRepresentation:
         wf = SessionReconciliationWorkflow()
         result = await wf.run_with_mocks(inp, mock_results=mocks)
         assert result.representation_workflows_spawned == 0
+
+
+# Found on the first live run past reconciliation: the real `run` read config_service inside the workflow (not allowed; the worker
+# raised "config_service.initialise() has not been awaited" on every task, so the workflow sat RUNNING forever), and it treated
+# workflow.wait_condition as returning a boolean (it returns nothing and raises asyncio.TimeoutError on timeout). The tests above only
+# exercise run_with_mocks, which never touches either.
+def _run_source():
+    import inspect
+    from modules.cts.workflows.representation_workflow import ChequeRepresentationWorkflow
+    return inspect.getsource(ChequeRepresentationWorkflow.run)
+
+
+def test_run_does_not_read_config_inside_the_workflow():
+    assert "config_service" not in _run_source()
+
+
+def test_run_does_not_treat_wait_condition_as_returning_a_boolean():
+    assert "approved = await workflow.wait_condition" not in _run_source()
+    assert "asyncio.TimeoutError" in _run_source()
+
+
+@pytest.mark.asyncio
+async def test_window_hours_come_from_an_activity(monkeypatch):
+    from modules.cts.workflows.activities import representation_activities as m
+    from shared.config.config_service import config_service
+    async def _cfg(bank_id):
+        return {"representation_window_hours": 6}
+    monkeypatch.setattr(config_service, "get_cts_config", _cfg)
+    monkeypatch.setattr(config_service, "_ready", True)
+    res = await m.load_representation_window(m.LoadRepresentationWindowInput(bank_id="kbl"))
+    assert res.hours == 6

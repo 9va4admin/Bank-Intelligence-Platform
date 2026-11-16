@@ -72,10 +72,12 @@ class SessionReconciliationWorkflow:
             GenerateRRFInput,
             MarkSessionReconciledInput,
             MatchInput,
+            RecordOutwardReturnsInput,
             fetch_ngch_settlement_report,
             generate_rrf,
             mark_session_reconciled,
             match_submitted_vs_settled,
+            record_outward_returns,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
         from modules.cts.workflows.representation_workflow import (
@@ -108,6 +110,15 @@ class SessionReconciliationWorkflow:
                 submitted_instrument_ids=inp.submitted_instrument_ids,
                 report_unavailable=settlement.degraded,
             ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_CBS_RETRY,
+        )
+
+        # Step 2b: record what NGCH returned, so return figures exist anywhere other than the RRF
+        await workflow.execute_activity(
+            record_outward_returns,
+            RecordOutwardReturnsInput(
+                session_id=inp.session_id, bank_id=inp.bank_id, exception_instruments=recon.exception_instruments),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_CBS_RETRY,
         )

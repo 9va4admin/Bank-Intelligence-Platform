@@ -347,3 +347,54 @@ async def mark_session_reconciled(
         log.info("mark_session_reconciled.updated", session_id=inp.session_id, bank_id=inp.bank_id)
         return MarkSessionReconciledResult(updated=True)
 
+
+# ── record_outward_returns ────────────────────────────────────────────────────
+
+class RecordOutwardReturnsInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    bank_id: str
+    exception_instruments: list[dict]
+
+
+class RecordOutwardReturnsResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    recorded: int
+
+
+@activity.defn
+async def record_outward_returns(
+    inp: RecordOutwardReturnsInput,
+    db_pool: Any = None,
+) -> RecordOutwardReturnsResult:
+    """
+    Record each outward instrument NGCH reported RETURNED (with a reason code) in cts.return_items, so the dashboards and the bankwise
+    report can count returns. Idempotent per instrument and reason code; a row with no reason code cannot be recorded and is skipped.
+    """
+    if isinstance(inp, dict):
+        inp = RecordOutwardReturnsInput(**inp)
+    with tracer.start_as_current_span("activity.record_outward_returns") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        returned = [r for r in inp.exception_instruments if r.get("status") == "RETURNED" and r.get("reason_code")]
+        if db_pool is None:
+            log.warning("record_outward_returns.db_unavailable", session_id=inp.session_id, bank_id=inp.bank_id)
+            return RecordOutwardReturnsResult(recorded=0)
+        async with db_pool.acquire() as conn:
+            for row in returned:
+                await conn.execute(
+                    """
+                    INSERT INTO cts.return_items
+                        (bank_id, session_id, outward_item_id, cheque_number, micr_code, original_amount_paise,
+                         original_cheque_date, return_reason_code, return_type, return_deadline_at)
+                    SELECT ci.bank_id, $2::uuid, ci.instrument_id, ci.cheque_number, ci.micr_code, ci.amount_paise,
+                           ci.cheque_date, $3::varchar, 'INWARD_RETURN', NOW() + INTERVAL '24 hours'
+                      FROM cts.cheque_instruments ci
+                     WHERE ci.bank_id = $1 AND ci.instrument_id = $4::uuid
+                       AND NOT EXISTS (SELECT 1 FROM cts.return_items r
+                                        WHERE r.outward_item_id = ci.instrument_id AND r.return_reason_code = $3::varchar)
+                    """,
+                    inp.bank_id, inp.session_id, str(row["reason_code"]), str(row["instrument_id"]),
+                )
+        log.info("record_outward_returns.recorded", session_id=inp.session_id, bank_id=inp.bank_id, count=len(returned))
+        return RecordOutwardReturnsResult(recorded=len(returned))
+

@@ -555,7 +555,7 @@ async def _bankwise_rows(conn: Any, bank_id: str, day: date) -> list[dict]:
                COUNT(*) FILTER (WHERE ri.return_id IS NOT NULL) AS returned,
                COALESCE(SUM(ci.amount_paise) FILTER (WHERE ri.return_id IS NOT NULL), 0) AS returned_paise
           FROM cts.cheque_instruments ci
-          LEFT JOIN cts.return_items ri ON ri.bank_id = ci.bank_id AND ri.cheque_number = ci.cheque_number AND ri.micr_code = ci.micr_code
+          LEFT JOIN cts.return_items ri ON ri.bank_id = ci.bank_id AND ri.outward_item_id = ci.instrument_id
          WHERE ci.bank_id = $1 AND ci.direction = 'OUTWARD' AND ci.received_at::date = $2::date
          GROUP BY COALESCE(ci.drawee_ifsc, ''), SUBSTRING(ci.micr_code FROM 4 FOR 3)
          ORDER BY paise DESC

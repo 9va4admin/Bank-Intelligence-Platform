@@ -194,3 +194,21 @@ async def test_submit_representation_idempotent_per_instrument(stub):
         return_reason_code="RETURN_INSUFFICIENT_FUNDS", original_session_id="sess-1",
     )
     assert ref1 == ref2
+
+
+# A real exception could only be exercised by hand-writing a settlement row. The stand-in can now be told, in development only,
+# that chosen instruments come back RETURNED with a reason code (NGCH_DEV_STUB_RETURNS="<instrument_id>:<code>,...").
+@pytest.mark.asyncio
+async def test_simulated_return_is_reported_returned_with_its_reason_code(monkeypatch):
+    from modules.cts.mcp.dev_stub_ngch import DevStubNGCHAdapter
+    monkeypatch.setenv("ASTRA_ENV", "development")
+    monkeypatch.setenv("NGCH_DEV_STUB_RETURNS", "aaaaaaaa-0000-0000-0000-000000000002:39")
+    rows_in = [{"instrument_id": "aaaaaaaa-0000-0000-0000-000000000001"},
+               {"instrument_id": "aaaaaaaa-0000-0000-0000-000000000002"}]
+    a = DevStubNGCHAdapter(bank_id="kbl", db_pool=_FakeDbPool(session_row={"ngch_session_ref": "NGCH-DEV-X"}, instrument_rows=rows_in))
+    a.connect()
+    rows = {r["instrument_id"]: r for r in await a.fetch_settlement_report(
+        session_id="16e423fa-d334-5a6c-b368-6e0d87e12bae", clearing_date="2026-11-16", bank_ifsc="KARB0000001")}
+    assert rows["aaaaaaaa-0000-0000-0000-000000000001"]["status"] == "SETTLED"
+    assert rows["aaaaaaaa-0000-0000-0000-000000000002"]["status"] == "RETURNED"
+    assert rows["aaaaaaaa-0000-0000-0000-000000000002"]["reason_code"] == "39"

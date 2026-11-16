@@ -235,6 +235,13 @@ class TestBankwise:
         assert rows[0]["bank_ifsc"] == "" and "290" in rows[0]["bank_name"] and rows[0]["bank_name"] != "UNKNOWN"
         assert "SUBSTRING(ci.micr_code FROM 4 FOR 3)" in " ".join(pool.sql)
 
+    def test_outward_returns_join_on_the_instrument_not_on_cheque_number(self):
+        """Two cheques can share a cheque number and sort code; one return must not mark both returned."""
+        pool = _real_pool()
+        _client(pool).get(f"/v1/cts/sessions/{SID}/bankwise")
+        sql = [q for q in pool.sql if "q:bankwise_outward" in q][0]
+        assert "ri.outward_item_id = ci.instrument_id" in sql and "ri.cheque_number" not in sql
+
     def test_no_activity_is_an_empty_list(self):
         d = _client(_real_pool(bankwise_inward=[], bankwise_outward=[])).get(f"/v1/cts/sessions/{SID}/bankwise").json()
         assert d["rows"] == []

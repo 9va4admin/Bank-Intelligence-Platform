@@ -17,6 +17,7 @@ Workflow ID: cts-represent-{bank_id}-{instrument_id}
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from typing import Optional
 
@@ -83,16 +84,22 @@ class ChequeRepresentationWorkflow:
     @workflow.run
     async def run(self, inp: ChequeRepresentationInput) -> ChequeRepresentationResult:
         from modules.cts.workflows.activities.representation_activities import (
+            LoadRepresentationWindowInput,
             NotifyRepresentationInput,
             ResubmitNgchInput,
+            load_representation_window,
             notify_representation_pending,
             re_submit_to_ngch_for_representation,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
-        from shared.config.config_service import config_service
 
-        cts_config = await config_service.get_cts_config(inp.bank_id)
-        representation_window_hours: int = cts_config.get("representation_window_hours", 24)
+        window = await workflow.execute_activity(
+            load_representation_window,
+            LoadRepresentationWindowInput(bank_id=inp.bank_id),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_NOTIFY_RETRY,
+        )
+        representation_window_hours: int = window.hours
 
         # Step 1: Notify ops that re-presentation is pending
         await workflow.execute_activity(
@@ -110,10 +117,15 @@ class ChequeRepresentationWorkflow:
         )
 
         # Step 2: Wait for approval signal or window timeout
-        approved = await workflow.wait_condition(
-            lambda: self._approved,
-            timeout=timedelta(hours=representation_window_hours),
-        )
+        # wait_condition returns nothing and raises asyncio.TimeoutError when the window passes first
+        approved = True
+        try:
+            await workflow.wait_condition(
+                lambda: self._approved,
+                timeout=timedelta(hours=representation_window_hours),
+            )
+        except asyncio.TimeoutError:
+            approved = False
 
         if not approved:
             # Timeout — ops did not act within the window

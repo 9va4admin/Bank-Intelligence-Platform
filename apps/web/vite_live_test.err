@@ -1,0 +1,68 @@
+[2m12:34:27 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /v1/cts/queue?bank_id=kbl[39m
+Error: connect ECONNREFUSED 127.0.0.1:8010
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m12:35:07 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mTypeError[22m: Cannot convert undefined or null to object
+[39m > ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx:2102:35
+ > CTSValidationQueue ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx:2101:26
+ > Object.react_stack_bottom_frame ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:12867:12
+ > renderWithHooks ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:4212:19
+ > updateFunctionComponent ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:5568:16
+ > beginWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:6139:20
+ > runWithFiberInDEV ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:850:66
+ > performUnitOfWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:8428:92
+
+[2m12:35:07 pm[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <CTSValidationQueue> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+[2m12:35:29 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mTypeError[22m: Cannot convert undefined or null to object
+[39m > ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx:2102:35
+ > CTSValidationQueue ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx:2101:26
+ > Object.react_stack_bottom_frame ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:12867:12
+ > renderWithHooks ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:4212:19
+ > updateFunctionComponent ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:5568:16
+ > beginWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:6139:20
+ > runWithFiberInDEV ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:850:66
+ > performUnitOfWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:8428:92
+
+[2m12:35:29 pm[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <CTSValidationQueue> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+[2m12:35:44 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mTypeError[22m: Cannot convert undefined or null to object
+[39m > ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx:2102:35
+ > CTSValidationQueue ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx:2101:26
+ > Object.react_stack_bottom_frame ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:12867:12
+ > renderWithHooks ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:4212:19
+ > updateFunctionComponent ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:5568:16
+ > beginWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:6139:20
+ > runWithFiberInDEV ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:850:66
+ > performUnitOfWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:8428:92
+
+[2m12:35:44 pm[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <CTSValidationQueue> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+[2m12:37:31 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mTypeError[22m: Cannot convert undefined or null to object
+[39m > ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx?t=1791788832330:2105:35
+ > CTSValidationQueue ../../../../../Bank-Intelligence-Platform/src/modules/cts/pages/CTSValidationQueue.jsx?t=1791788832330:2104:26
+ > Object.react_stack_bottom_frame ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:12867:12
+ > renderWithHooks ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:4212:19
+ > updateFunctionComponent ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:5568:16
+ > beginWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:6139:20
+ > runWithFiberInDEV ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:850:66
+ > performUnitOfWork ../../../../../Bank-Intelligence-Platform/node_modules/.vite/deps/react-dom_client.js?v=a827c840:8428:92
+
+[2m12:37:31 pm[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <CTSValidationQueue> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+npm notice
+npm notice New major version of npm available! 11.16.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

@@ -170,6 +170,41 @@ class TestMarkSessionReconciled:
         await m.mark_session_reconciled(m.MarkSessionReconciledInput(session_id="s", bank_id="kbl"), db_pool=pool)
         assert "status = 'SUBMITTED'" in captured[0] and "settlement_at" in captured[0]
 
+
+# Nothing in the code ever wrote an outward return row, so every return figure on the dashboards and the bankwise report was zero.
+class TestRecordOutwardReturns:
+    @pytest.mark.asyncio
+    async def test_records_only_returned_rows_with_their_reason_codes(self):
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            record_outward_returns, RecordOutwardReturnsInput,
+        )
+        pool = _FakeDbPool()
+        res = await record_outward_returns(RecordOutwardReturnsInput(
+            session_id="06f0927b-dfde-56d6-920d-49c6b1a8ea49", bank_id="kbl",
+            exception_instruments=[
+                {"instrument_id": "11111111-1111-1111-1111-111111111111", "status": "RETURNED", "reason_code": "39"},
+                {"instrument_id": "22222222-2222-2222-2222-222222222222", "status": "MISSING_FROM_SETTLEMENT"},
+                {"instrument_id": "33333333-3333-3333-3333-333333333333", "status": "RETURNED"},   # no reason code: cannot record
+            ]), db_pool=pool)
+        assert res.recorded == 1
+        assert len(pool.conn.executed) == 1
+        assert "11111111-1111-1111-1111-111111111111" in pool.conn.executed[0] and "39" in pool.conn.executed[0]
+
+    @pytest.mark.asyncio
+    async def test_is_idempotent_per_instrument_and_reason(self):
+        from modules.cts.workflows.activities import session_reconciliation_activities as m
+        pool = _FakeDbPool()
+        sqls = []
+        orig = pool.conn.execute
+        async def spy(q, *a):
+            sqls.append(q); return await orig(q, *a)
+        pool.conn.execute = spy
+        await m.record_outward_returns(m.RecordOutwardReturnsInput(
+            session_id="s", bank_id="kbl", exception_instruments=[{"instrument_id": "i", "status": "RETURNED", "reason_code": "39"}]), db_pool=pool)
+        assert "NOT EXISTS" in sqls[0] and "cts.cheque_instruments" in sqls[0] and "INWARD_RETURN" in sqls[0]
+        # $3 is both inserted and compared: Postgres rejects it as ambiguous unless it is cast (found on the live database)
+        assert sqls[0].count("$3::varchar") == 2
+
     @pytest.mark.asyncio
     async def test_no_database_degrades_without_raising(self):
         from modules.cts.workflows.activities.session_reconciliation_activities import (
@@ -177,3 +212,11 @@ class TestMarkSessionReconciled:
         )
         res = await mark_session_reconciled(MarkSessionReconciledInput(session_id="s", bank_id="kbl"), db_pool=None)
         assert res.updated is False
+
+    @pytest.mark.asyncio
+    async def test_returns_recording_without_database_degrades_without_raising(self):
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            record_outward_returns, RecordOutwardReturnsInput,
+        )
+        res = await record_outward_returns(RecordOutwardReturnsInput(session_id="s", bank_id="kbl", exception_instruments=[]), db_pool=None)
+        assert res.recorded == 0

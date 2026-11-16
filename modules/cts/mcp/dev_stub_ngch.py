@@ -101,7 +101,19 @@ class DevStubNGCHAdapter:
                 "WHERE bank_id = $1 AND direction = 'OUTWARD' AND ngch_instrument_ref = $2",
                 self._bank_id, session_row["ngch_session_ref"],
             )
-        return [{"instrument_id": str(r["instrument_id"]), "status": "SETTLED"} for r in rows]
+        # Dev only: NGCH_DEV_STUB_RETURNS="<instrument_id>:<reason_code>,..." makes those instruments come back RETURNED,
+        # so reconciliation, return recording, the RRF and re-presentation can be exercised without a real NGCH.
+        simulated = dict(
+            pair.split(":", 1) for pair in os.environ.get("NGCH_DEV_STUB_RETURNS", "").split(",") if ":" in pair
+        )
+        out = []
+        for r in rows:
+            iid = str(r["instrument_id"])
+            if iid in simulated:
+                out.append({"instrument_id": iid, "status": "RETURNED", "reason_code": simulated[iid].strip()})
+            else:
+                out.append({"instrument_id": iid, "status": "SETTLED"})
+        return out
 
     async def submit_representation(self, instrument_id: str, bank_ifsc: str,
                                      return_reason_code: str, original_session_id: str) -> str:
