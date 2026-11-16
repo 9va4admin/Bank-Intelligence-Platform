@@ -143,9 +143,8 @@ except asyncio.TimeoutError:
 ```
 
 Already used this way in `hold_escalation_workflow.py`, `human_review_workflow.py`,
-`iet_watchdog_workflow.py`. **Two other workflows still use the broken `workflow.sleep()` call and
-have never been verified to run past it: `feedback_workflow.py`, `platform_health_check_workflow.py`
-— open, not yet fixed.**
+`iet_watchdog_workflow.py`, `feedback_workflow.py`, `platform_health_check_workflow.py`, `postdated_hold_workflow.py`.
+No workflow in `modules/cts/workflows/` calls `workflow.sleep()` any more (checked 2026-11-03).
 
 ## Forbidden Patterns
 - `asyncio.sleep()` inside a workflow, **and `workflow.sleep()` — it does not exist in this SDK
