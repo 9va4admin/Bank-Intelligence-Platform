@@ -190,6 +190,8 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "platform_health.disk_max_percent": 90.0,         # disk usage at which the disk probe fails
     "platform_health.memory_max_percent": 90.0,       # memory usage at which the memory probe fails
     "alerts.whatsapp_min_priority": "P0",             # lowest priority also sent to WhatsApp (P0 only by default)
+    "alerting.audit_collection_pattern": "cts_{bank_id}",   # Immudb collection for alert audit events when written directly
+    "alerting.audit_max_error_chars": 200,                  # longest failure reason kept in an audit record
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

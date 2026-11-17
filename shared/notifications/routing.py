@@ -240,6 +240,9 @@ def _build_routing_table() -> dict[AuditEventType, RoutingSpec]:
                 E.PU_CREATED, E.PU_UPDATED, E.PU_DEACTIVATED, E.PU_BRANCH_ASSIGNED, E.PU_BRANCH_REASSIGNED,
                 E.CONFIG_L2_CHANGE_REQUESTED,        # visible in the maker-checker queue; same policy as CONFIG_CHANGE
                 E.SESSION_REPORT_GENERATED,
+                E.ALERT_RAISED, E.ALERT_UPDATED, E.ALERT_RESOLVED, E.ALERT_SUPPRESSED, E.ALERT_DISPATCH_INTENDED,   # audit-only: the alert engine
+                E.ALERT_DELIVERY_SUCCEEDED, E.ALERT_DELIVERY_FAILED, E.ALERT_ACKNOWLEDGED, E.ALERT_ESCALATED, E.ALERT_COMMENTED,   # notifies through its own policy, not this table
+                E.ALERT_ROUTING_POLICY_CHANGED, E.ALERT_SILENCE_CHANGED, E.ALERT_CONTACT_CHANGED, E.ALERT_TEMPLATE_CHANGED,
             )
         },
 

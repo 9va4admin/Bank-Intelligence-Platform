@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import uuid
 from typing import Any, Optional
 
 import structlog
@@ -23,6 +24,7 @@ from temporalio import activity
 
 from modules.cts.health.probes import build_specs, run_probe
 from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
+from shared.alerting.audit import scrub_error
 from shared.notifications.dispatcher import NotificationRequest
 
 from shared.observability.otel_setup import get_tracer
@@ -79,6 +81,7 @@ class DispatchAlertInput(BaseModel):
     component: str = ""                          # which platform component (infrastructure alerts)
     template: str = "PLATFORM_HEALTH_ALERT"      # PLATFORM_HEALTH_ALERT | PLATFORM_HEALTH_RECOVERED
     down_for: str = ""                           # recovery mails: how long it was down
+    incident_id: str = ""                        # the incident this alert belongs to (audit correlation); empty = a fresh correlation id
 
 
 class DispatchAlertResult(BaseModel):
@@ -272,9 +275,11 @@ async def dispatch_platform_alert(
     inp: DispatchAlertInput,
     dispatcher=None,
     config_service=None,
+    alert_auditor=None,
 ) -> DispatchAlertResult:
     """
-    Send an alert via NotificationDispatcher (email), one mail per configured recipient.
+    Send an alert via NotificationDispatcher (email), one mail per configured recipient. With an auditor, an intent record is written before each send
+    and an outcome record after it; an audit problem never stops or delays the alert.
     P0 alerts bypass the debouncer. Degrades (sent=False) when there is no dispatcher or no recipient is configured; one recipient failing
     never stops the others.
     """
@@ -291,9 +296,17 @@ async def dispatch_platform_alert(
 
         context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
                    "component": inp.component, "down_for": inp.down_for}
+        correlation_id = inp.incident_id or f"adhoc-{uuid.uuid4().hex}"
         delivered = 0
         for channel, targets in (("email", recipients), ("whatsapp", phones)):
             for recipient in targets:
+                delivery_id = uuid.uuid4().hex
+                intent_ref = None
+                if alert_auditor is not None:
+                    intent_ref = await alert_auditor.intent(
+                        bank_id=inp.bank_id, incident_id=correlation_id, delivery_id=delivery_id, channel=channel, recipient=recipient, level=0,
+                        template_id=inp.template, severity=inp.priority, component=inp.component)
+                error = ""
                 try:
                     await dispatcher.send(NotificationRequest(
                         channel=channel, recipient=recipient, template_id=inp.template, context=context,
@@ -301,7 +314,12 @@ async def dispatch_platform_alert(
                     ))
                     delivered += 1
                 except Exception as exc:
-                    log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, channel=channel, error=str(exc))
+                    error = str(exc) or type(exc).__name__
+                    log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, channel=channel,
+                                error=scrub_error(error, 200))
+                if alert_auditor is not None:
+                    await alert_auditor.outcome(bank_id=inp.bank_id, incident_id=correlation_id, delivery_id=delivery_id, channel=channel,
+                                                succeeded=not error, attempt=1, intent_ref=intent_ref, error=error)
         if delivered:
             log.info("dispatch_platform_alert.sent", bank_id=inp.bank_id, event_type=inp.event_type, severity=inp.severity,
                      priority=inp.priority, recipients=delivered)

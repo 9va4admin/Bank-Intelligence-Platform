@@ -114,6 +114,22 @@ class AuditEventType(str, Enum):
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
     BANK_ONBOARDED = "BANK_ONBOARDED"
 
+    # ── Alerting (docs/design/alerting-blueprint.md, section 6) ───────────────────
+    ALERT_RAISED = "ALERT_RAISED"
+    ALERT_UPDATED = "ALERT_UPDATED"
+    ALERT_RESOLVED = "ALERT_RESOLVED"
+    ALERT_SUPPRESSED = "ALERT_SUPPRESSED"
+    ALERT_DISPATCH_INTENDED = "ALERT_DISPATCH_INTENDED"       # written BEFORE a notification is sent
+    ALERT_DELIVERY_SUCCEEDED = "ALERT_DELIVERY_SUCCEEDED"     # written AFTER: the provider accepted it
+    ALERT_DELIVERY_FAILED = "ALERT_DELIVERY_FAILED"           # written AFTER: the attempt failed
+    ALERT_ACKNOWLEDGED = "ALERT_ACKNOWLEDGED"
+    ALERT_ESCALATED = "ALERT_ESCALATED"
+    ALERT_COMMENTED = "ALERT_COMMENTED"
+    ALERT_ROUTING_POLICY_CHANGED = "ALERT_ROUTING_POLICY_CHANGED"
+    ALERT_SILENCE_CHANGED = "ALERT_SILENCE_CHANGED"
+    ALERT_CONTACT_CHANGED = "ALERT_CONTACT_CHANGED"
+    ALERT_TEMPLATE_CHANGED = "ALERT_TEMPLATE_CHANGED"
+
     # ── Session reports ────────────────────────────────────────────────────────
     SESSION_REPORT_GENERATED = "SESSION_REPORT_GENERATED"  # outward clearing session digest stored
 
