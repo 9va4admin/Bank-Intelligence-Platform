@@ -54116,3 +54116,24 @@ CTS_LINE_IMAGE_NOT_FOUND:
   variables: [line_no, rec]
   en: "line {line_no}: image not found: {rec}"
   hi: ""
+
+HEALTH_MONITOR_NO_TICK_YET:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: []
+  en: "The health monitor has not completed a check yet."
+  hi: ""
+
+HEALTH_MONITOR_STALE_REASON:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [age_seconds]
+  en: "The health monitor last completed a check {age_seconds} seconds ago; the worker may be down."
+  hi: ""
+
+HEALTH_MONITOR_NO_TEMPORAL:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: []
+  en: "The health monitor cannot be reached: there is no connection to the workflow engine."
+  hi: ""

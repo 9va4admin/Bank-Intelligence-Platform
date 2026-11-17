@@ -6,6 +6,7 @@ sets these and restarts; the password is a secret.
     SMTP_SECURITY      starttls (default) | ssl | none
     SMTP_USERNAME      login; omit for an unauthenticated relay
     SMTP_FROM_ADDRESS  default: the username
+    SMTP_CA_FILE       optional PEM file of an extra trusted CA (a bank's private CA); certificates are always verified
     secret smtp.password   ASTRA_SECRET_SMTP_PASSWORD in dev, Vault at secret/astra/{bank_id}/smtp/password in production.
                            For Gmail this is an app password (2-step verification must be on), never the account password.
 """
@@ -31,6 +32,7 @@ class SmtpSettings:
     username: Optional[str]
     password: Optional[str]
     from_address: str
+    ca_file: Optional[str] = None
 
 
 def _platform(config_service: Any, key: str) -> Optional[str]:
@@ -57,7 +59,8 @@ async def read_smtp_settings(config_service: Any) -> Optional[SmtpSettings]:
         except Exception as exc:
             log.warning("smtp.password_unavailable", error=str(exc))
     return SmtpSettings(host=host, port=port, security=security, username=username, password=password,
-                        from_address=_platform(config_service, "smtp.from_address") or username or f"astra@{host}")
+                        from_address=_platform(config_service, "smtp.from_address") or username or f"astra@{host}",
+                        ca_file=_platform(config_service, "smtp.ca_file"))
 
 
 async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
@@ -73,7 +76,8 @@ async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
     from shared.notifications.dispatcher import NotificationDispatcher
     from shared.notifications.email_channel import EmailChannel
     channel = EmailChannel(settings.host, settings.port, settings.from_address, bank_id,
-                           username=settings.username, password=settings.password, security=settings.security)
+                           username=settings.username, password=settings.password, security=settings.security,
+                           ca_file=settings.ca_file)
     try:
         channel.connect()
     except Exception as exc:

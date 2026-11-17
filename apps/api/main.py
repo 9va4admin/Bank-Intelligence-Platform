@@ -328,6 +328,26 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("api_gateway.outward_sweep_failed_to_start", error=str(exc))
 
+    # The health monitor runs in the worker; if the worker dies nobody mails about it, so the API watches the monitor and mails when it stops.
+    watchdog_task = None
+    try:
+        from modules.cts.health.state_machine import Thresholds
+        from modules.cts.health.watchdog import MonitorWatchdog, run_watchdog
+        from modules.cts.workflows.activities.platform_health_activities import DispatchAlertInput, dispatch_platform_alert
+        from shared.notifications.factory import build_dispatcher
+
+        _wd_dispatcher = await build_dispatcher(config_service, config_service.bank_id)
+
+        async def _wd_send(alert: DispatchAlertInput) -> None:
+            await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service)
+
+        watchdog_task = asyncio.create_task(run_watchdog(
+            lambda: getattr(app.state, "temporal_client", None),
+            MonitorWatchdog(config_service.bank_id, thresholds=Thresholds(), stale_after=180.0, send=_wd_send),
+        ))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("api_gateway.monitor_watchdog_failed_to_start", error=str(exc))
+
     # --- Mount microservice sub-applications --------------------------------
     # Each microservice is a standalone FastAPI app with its own lifespan.
     # Mounted here so the API gateway is the single public entry point (per
@@ -383,6 +403,13 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     log.info("api_gateway.shutting_down")
+
+    if watchdog_task:
+        watchdog_task.cancel()
+        try:
+            await asyncio.wait_for(watchdog_task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
 
     if outward_sweep_task:
         outward_sweep_task.cancel()

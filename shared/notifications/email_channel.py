@@ -6,6 +6,7 @@ SMTP credentials come from config_service (Vault) at runtime — never hardcoded
 """
 import asyncio
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any
@@ -68,6 +69,7 @@ class EmailChannel:
         password: str | None = None,
         security: str = "none",          # none | starttls | ssl  (Gmail: starttls on 587 with an app password)
         timeout: float = 15.0,
+        ca_file: str | None = None,      # extra trusted CA / the server's certificate (a bank's private CA); the system store is always used
     ) -> None:
         self._smtp_host = smtp_host
         self._smtp_port = smtp_port
@@ -77,18 +79,20 @@ class EmailChannel:
         self._password = password
         self._security = security
         self._timeout = timeout
+        self._ca_file = ca_file
         self._smtp = None
         self._ready = False
         self._opened_by_connect = False   # only then may a dropped connection be reopened
 
     def _open(self):
         """One authenticated, encrypted-if-configured SMTP session."""
+        context = ssl.create_default_context(cafile=self._ca_file)      # verifies the certificate chain and the host name
         if self._security == "ssl":
-            smtp = smtplib.SMTP_SSL(self._smtp_host, self._smtp_port, timeout=self._timeout)
+            smtp = smtplib.SMTP_SSL(self._smtp_host, self._smtp_port, timeout=self._timeout, context=context)
         else:
             smtp = smtplib.SMTP(self._smtp_host, self._smtp_port, timeout=self._timeout)
             if self._security == "starttls":
-                smtp.starttls()
+                smtp.starttls(context=context)
         if self._username:
             smtp.login(self._username, self._password or "")
         return smtp
