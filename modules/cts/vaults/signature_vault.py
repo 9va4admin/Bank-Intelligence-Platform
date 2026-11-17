@@ -48,6 +48,10 @@ log = structlog.get_logger()
 _DEFAULT_MANDATE = "ANY_ONE"
 
 
+# Every vector stored before embedder versions existed was made by the generic ImageNet embedder.
+LEGACY_EMBEDDER_VERSION = "resnet18-imagenet-generic"
+
+
 @dataclass(frozen=True)
 class VaultResult:
     outcome: str                       # "FOUND" | "HUMAN_REVIEW"
@@ -56,7 +60,9 @@ class VaultResult:
 
 
 class SignatureVault:
-    def __init__(self, bank_id: str, pepper: str, db_pool=None) -> None:
+    def __init__(self, bank_id: str, pepper: str, db_pool=None, embedder_version: str | None = None) -> None:
+        # embedder_version: which embedder's vectors this vault serves. None keeps the old behaviour (no model filter, original keys).
+        self._embedder_version = embedder_version
         self._bank_id = bank_id
         self._pepper = pepper
         self._redis = None
@@ -85,7 +91,9 @@ class SignatureVault:
 
     def _make_key(self, account_number: str, signatory_id: str = "PRIMARY") -> str:
         """Redis key: sig:{bank_id}:{hmac}:{signatory_id}"""
-        return f"sig:{self._bank_id}:{self._account_hash(account_number)}:{signatory_id}"
+        key = f"sig:{self._bank_id}:{self._account_hash(account_number)}:{signatory_id}"
+        # A versioned vault never reads another model's cached vectors: the version is part of the key.
+        return f"{key}:v:{self._embedder_version}" if self._embedder_version else key
 
     def _assert_ready(self) -> None:
         if not self._ready:
@@ -338,12 +346,13 @@ class SignatureVault:
                                 """
                                 INSERT INTO cts.signature_embeddings
                                     (bank_id, account_hash, signatory_id, specimen_index,
-                                     embedding, source)
-                                VALUES ($1, $2, $3, $4, $5, $6)
+                                     embedding, source, embedding_model)
+                                VALUES ($1, $2, $3, $4, $5, $6, $7)
                                 ON CONFLICT (bank_id, account_hash, signatory_id, specimen_index)
                                 DO UPDATE SET
                                     embedding  = EXCLUDED.embedding,
                                     source     = EXCLUDED.source,
+                                    embedding_model = EXCLUDED.embedding_model,
                                     updated_at = now()
                                 """,
                                 self._bank_id,
@@ -352,6 +361,7 @@ class SignatureVault:
                                 idx,
                                 pack_embedding(emb),
                                 source,
+                                self._embedder_version or LEGACY_EMBEDDER_VERSION,
                             )
             except Exception as exc:
                 log.error(
@@ -407,16 +417,30 @@ class SignatureVault:
     ) -> list[list[float]]:
         """Load all specimens for one signatory from YugabyteDB, ordered by specimen_index."""
         async with self._db_pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT embedding FROM cts.signature_embeddings
-                WHERE bank_id = $1 AND account_hash = $2 AND signatory_id = $3
-                ORDER BY specimen_index
-                """,
-                self._bank_id,
-                account_hash,
-                signatory_id,
-            )
+            if self._embedder_version:
+                # Only vectors made by the running embedder; rows from another model are a miss (re-embedded from CBS), never compared.
+                rows = await conn.fetch(
+                    """
+                    SELECT embedding FROM cts.signature_embeddings
+                    WHERE bank_id = $1 AND account_hash = $2 AND signatory_id = $3 AND embedding_model = $4
+                    ORDER BY specimen_index
+                    """,
+                    self._bank_id,
+                    account_hash,
+                    signatory_id,
+                    self._embedder_version,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT embedding FROM cts.signature_embeddings
+                    WHERE bank_id = $1 AND account_hash = $2 AND signatory_id = $3
+                    ORDER BY specimen_index
+                    """,
+                    self._bank_id,
+                    account_hash,
+                    signatory_id,
+                )
         return [unpack_embedding(bytes(row["embedding"])) for row in rows]
 
     async def _backfill_redis(self, key: str, embeddings: list[list[float]]) -> None:

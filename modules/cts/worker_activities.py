@@ -882,7 +882,10 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         await ensure_required_buckets(minio_client)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
-    signature_vault = _build_signature_vault(bank_id, pepper, redis_client, db_pool)
+    # The embedder is built first: the vault must serve vectors made by THIS embedder (a different one's are never compared).
+    embedding_model = await _build_embedding_model(config_service)
+    signature_vault = _build_signature_vault(bank_id, pepper, redis_client, db_pool,
+                                             embedder_version=getattr(embedding_model, "version_id", None))
     pps_vault = _build_pps_vault(bank_id, pepper, redis_client, db_pool)
     account_vault = _build_account_vault(bank_id, pepper, redis_client, db_pool)
     bloom_client = await _build_bloom_client(redis_client, bank_id, config_service)
@@ -900,7 +903,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         opa_client=opa_client,
         signature_vault=signature_vault,
         account_vault=account_vault,
-        embedding_model=await _build_embedding_model(config_service),
+        embedding_model=embedding_model,
         pps_vault=pps_vault,
         bloom_client=bloom_client,
         orchestrator=orchestrator,
@@ -1178,15 +1181,15 @@ async def _get_pii_pepper(config_service: Any, bank_id: str) -> str:
         return ""
 
 
-def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None) -> Any:
+def _build_signature_vault(bank_id: str, pepper: str, redis_client: Any, db_pool: Any = None, embedder_version: Any = None) -> Any:
     if not pepper:
         log.warning("worker_activities.signature_vault_skipped_no_pepper", bank_id=bank_id)
         return None
     try:
         from modules.cts.vaults.signature_vault import SignatureVault
-        vault = SignatureVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool)
+        vault = SignatureVault(bank_id=bank_id, pepper=pepper, db_pool=db_pool, embedder_version=embedder_version)
         vault.connect(redis_client=redis_client)  # sync
-        log.info("worker_activities.signature_vault_ready")
+        log.info("worker_activities.signature_vault_ready", embedder_version=embedder_version)
         return vault
     except Exception as exc:
         log.warning("worker_activities.signature_vault_unavailable", bank_id=bank_id, error=str(exc))

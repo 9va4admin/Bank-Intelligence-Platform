@@ -1308,3 +1308,23 @@ parse -> upload images -> insert instruments -> audit -> fan-out of one `ChequeP
 (the earlier STP_CONFIRM run did, in the workflow input, for the run only).
 
 **NOT covered:** a real NGCH-produced PXF/CXF/CIBF (the files here come from the repo's builders: the spec's real files, signatures and image formats are untested); a trained signature verifier; the NGCH adapter that deposits the batch into MinIO.
+
+## 2026-11-16 — Signature vault knows which embedder made each vector (dev Yugabyte + Redis)
+
+Vectors from different embedders cannot be compared, and the vault stores vectors only. Before: nothing recorded the producing model, so swapping the embedder
+(for example to the on-prem trained one) would have compared new-model vectors against old-model ones, silently.
+
+New: `cts.signature_embeddings.embedding_model` (migration `20261116_039`; every existing row is by definition the generic model, which is the default);
+`SignatureVault(embedder_version=...)` keys Redis by the version and reads only DB rows made by that model, so stale rows are a miss and `verify_signature` falls
+through to its existing CBS re-fetch (which re-embeds with the active model and stores under the new version); both embedders expose `version_id`
+(generic: the legacy tag; trained: label + hash of the checkpoint, so retraining changes it); the worker builds the embedder first and passes its version to the vault.
+Bulk path: `modules/cts/vaults/revectorize.py::revectorize_accounts` (re-fetch from CBS, re-embed, store; skips accounts already current; one failure never stops the run).
+
+**Live:** migration applied to the dev database (`20261116_038` -> `20261116_039`); the 1 existing row carries the generic tag. A vector stored under `modelA@111` read back under
+`modelB@222` returned nothing (a miss, not a wrong comparison); after a store under B, B returns its vector and A's is untouched; Redis keys are per version.
+
+**Defect found by the live run:** `cts.signature_embeddings.source` has `CHECK (source IN ('CBS', 'CBS_FALLBACK'))`; the first version of re-vectorize wrote `REVECTORIZE` and the database rejected it
+(mocked tests cannot see check constraints). It now writes `CBS` (the specimens do come from CBS); a test pins the value.
+
+**NOT covered / open:** re-vectorization against a real CBS (the run used the vault directly); old-version Redis keys are never read by the new model but are not cleaned up (no TTL on vault entries);
+a bulk run needs the bank's account list (the vault holds only hashed account numbers); the script wrapper for the bulk run is not written.
