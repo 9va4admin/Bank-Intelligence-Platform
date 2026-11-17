@@ -13,6 +13,7 @@ import ShapExplainer from './ShapExplainer'
 import ChequeImageViewer from './ChequeImageViewer'
 import { getReturnReasons, getReasonByLabel } from '../data/returnReasons'
 import { msg } from '../../../shared/messages'
+import SignatureAdvisory from './SignatureAdvisory'
 
 const RECENT_KEY = 'astra-recent-return-reasons'
 const getRecentReasons = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] } }
@@ -151,6 +152,7 @@ function SigPanel({ item, isDark }) {
           <div className="text-[10px] text-slate-500">{item.sig_specimen_label}</div>
         </div>
       </div>
+      <SignatureAdvisory isDark={isDark} />
     </div>
   )
 }

@@ -28416,6 +28416,20 @@ CTS_TRAINING_NEEDS_AT_LEAST_TWO_SIGNATURES:
   en: "Training needs at least two signatures."
   hi: ""
 
+UI_SIGNATURE_ADVISORY_REVIEWER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Advisory only: a similarity score, not forgery detection. Compare the signatures yourself."
+  hi: ""
+
+UI_SIGNATURE_ADVISORY_THRESHOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This is a similarity score, not a forgery test. Below it the cheque goes to a reviewer; above it does not mean the signature is genuine. Automatic confirmation also needs a promoted signature model."
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]

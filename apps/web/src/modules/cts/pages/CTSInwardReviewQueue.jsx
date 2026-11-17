@@ -23,6 +23,7 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { msg } from '../../../shared/messages'
 import { INWARD_BUCKETS, bucketLabel } from '../bucketLabels'
+import SignatureAdvisory from '../components/SignatureAdvisory'
 
 function _viewerProps(item) {
   return {
@@ -394,6 +395,7 @@ function ExpandedPanel({ item, isDark }) {
             <div className="space-y-2">
               <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_OCR_CONFIDENCE', { value: ai.ocr_model ?? msg('UI_INWARDREVIEWQUEUE_OCR') })} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
               <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_SIGNATURE_MATCH', { value: ai.signature_model ?? msg('UI_INWARDREVIEWQUEUE_SIGNET') })} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
+              <SignatureAdvisory isDark={isDark} />
               <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_FRAUD_SCORE', { value: ai.fraud_model ?? msg('UI_INWARDREVIEWQUEUE_XGBOOST') })} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
               <ScoreBar label={msg('UI_INWARDREVIEWQUEUE_ALTERATION_RISK')} value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
             </div>

@@ -84,4 +84,10 @@ describe('CTSThresholds', () => {
     renderPage()
     expect(screen.getByText(/hot-reload within 30 seconds/i)).toBeInTheDocument()
   })
+
+  it('tells the bank the signature minimum is a similarity setting, not a forgery test', () => {
+    renderPage()
+    expect(screen.getByText(/not a forgery test/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not mean the signature is genuine/i)).toBeInTheDocument()
+  })
 })

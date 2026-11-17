@@ -78,6 +78,7 @@ const CONFIG_META = {
     label: msg('UI_OPERATIONSCONFIG_SIGNATURE_MATCH_MINIMUM'), unit: 'score (0–1)', type: 'float',
     min: 0.75, max: 0.99, defaultVal: '0.87', category: msg('UI_OPERATIONSCONFIG_AI_CONFIDENCE'),
     desc: msg('UI_OPERATIONSCONFIG_SIAMESE_NETWORK_MATCH_SCORE_BELOW'),
+    advisory: msg('UI_SIGNATURE_ADVISORY_THRESHOLD'),
     warn: false, editable: true,
   },
   high_value_amount_threshold: {
@@ -478,6 +479,7 @@ export default function OperationsConfig() {
             </div>
 
             <p className={`text-xs mb-4 leading-relaxed ${th.muted}`}>{editing.desc}</p>
+            {editing.advisory && <p role="note" className="text-xs mb-4 leading-relaxed text-amber-500">{editing.advisory}</p>}
 
             {editing.type === 'enum' ? (
               <div className="space-y-2 mb-4">
