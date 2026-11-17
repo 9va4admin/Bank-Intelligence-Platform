@@ -751,3 +751,69 @@ async def get_system_health(
         temporal=temporal_panel,
         degraded=degraded,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/ops/components - what the infrastructure health monitor knows
+# ---------------------------------------------------------------------------
+
+_MONITOR_STALE_AFTER_SECONDS = 180.0      # 3 ticks of the 60 s monitor loop
+_STATUS_ORDER = {"DOWN": 0, "SLOW": 1, "UNKNOWN": 2, "OK": 3}
+
+
+class ComponentStatus(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    component: str
+    status: str                          # OK | SLOW | DOWN | UNKNOWN
+    critical: bool = True
+    since: Optional[float] = None        # epoch seconds: when it entered this status
+    last_checked: Optional[float] = None
+    latency_ms: Optional[float] = None
+    last_error: Optional[str] = None
+    consecutive_failures: int = 0
+
+
+class ComponentsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    as_of: str
+    monitor: str                         # RUNNING | STALE | NOT_RUNNING | UNAVAILABLE
+    tick: int = 0
+    last_tick_age_seconds: Optional[float] = None
+    components: list[ComponentStatus] = []
+
+
+@router_v1.get("/components", response_model=ComponentsResponse)
+async def get_components(
+    request: Request,
+    user: dict = Depends(get_current_user),
+) -> ComponentsResponse:
+    role = user["role"] if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    if role not in _OPS_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+
+    client = getattr(request.app.state, "temporal_client", None)
+    if client is None:
+        return ComponentsResponse(bank_id=bank_id, as_of=_now_iso(), monitor="UNAVAILABLE")
+    try:
+        snapshot = await client.get_workflow_handle(f"cts-platform-health-{bank_id}").query("component_states")
+    except Exception as exc:
+        log.warning("ops.components.query_failed", bank_id=bank_id, error=str(exc)[:160])
+        return ComponentsResponse(bank_id=bank_id, as_of=_now_iso(), monitor="NOT_RUNNING")
+
+    last = snapshot.get("last_tick_at")
+    age = (datetime.now(timezone.utc).timestamp() - float(last)) if last else None
+    stale = age is None or age > _MONITOR_STALE_AFTER_SECONDS
+    components = sorted(
+        (ComponentStatus(
+            component=name, status=st.get("status", "UNKNOWN"), critical=bool(st.get("critical", True)), since=st.get("since"),
+            last_checked=st.get("last_checked"), latency_ms=st.get("last_latency_ms"), last_error=st.get("last_error"),
+            consecutive_failures=int(st.get("consecutive_failures", 0)),
+        ) for name, st in (snapshot.get("states") or {}).items()),
+        key=lambda c: (_STATUS_ORDER.get(c.status, 2), c.component),
+    )
+    return ComponentsResponse(
+        bank_id=bank_id, as_of=_now_iso(), monitor="STALE" if stale else "RUNNING", tick=int(snapshot.get("tick", 0)),
+        last_tick_age_seconds=round(age, 1) if age is not None else None, components=components,
+    )

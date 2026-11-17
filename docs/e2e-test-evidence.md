@@ -1328,3 +1328,28 @@ Bulk path: `modules/cts/vaults/revectorize.py::revectorize_accounts` (re-fetch f
 
 **NOT covered / open:** re-vectorization against a real CBS (the run used the vault directly); old-version Redis keys are never read by the new model but are not cleaned up (no TTL on vault entries);
 a bulk run needs the bank's account list (the vault holds only hashed account numbers); the script wrapper for the bulk run is not written.
+
+## 2026-11-17 — Infrastructure health monitor with alert email (dev stack; mail goes to a local sink, NOT to Gmail)
+
+**What was built:** `PlatformHealthCheckWorkflow` now probes every configured dependency each minute (Yugabyte, Redis, Temporal, Kafka, Immudb, Vault, MinIO, vLLM, signature detector,
+Indic OCR, CBS, NGCH) with latency; a pure state machine (`modules/cts/health/state_machine.py`) turns results into OK / SLOW / DOWN with flap control (3 failures to go down, 2 successes to recover,
+reminders every 30 min); alerts go out by email to `alerts.email_recipients`; `GET /v1/ops/components` and a Platform components table on System Health show the states and whether the monitor itself is stale. SMTP is
+configured by deployment settings (`SMTP_HOST/PORT/SECURITY/USERNAME/FROM_ADDRESS`, secret `smtp.password`); STARTTLS/SSL + login + reconnect + non-blocking send. See `docs/ops/health-monitoring.md`.
+
+**Live run (real worker, Temporal, Yugabyte, Redis, Kafka, MinIO, Immudb, Vault; a local SMTP sink):** the monitor started with the worker and reported 11 components. Stopping the Vault container produced
+`ASTRA CRITICAL - vault (kbl): vault is not responding (2 failed checks in a row): ConnectError` about 1.5 minutes later; starting it again produced `ASTRA - vault recovered (kbl): ... after 2m down` about 2 minutes later.
+Slow components produced `COMPONENT_SLOW` warnings; recoveries after an earlier mis-timed outage produced recovery mails ("recovered after 10m").
+
+**Defects found by running it (all fixed with tests):**
+1. `check_scanner_fleet_for_alert` was called by the existing workflow but **never registered on the worker**: that step retried forever and the whole monitor stopped ticking (very likely the "stuck activity" noted in the old
+   2026-09-23 entry). A guard test now checks every activity the workflow calls is registered; the tick also uses bounded retries and survives a failing check.
+2. The existing alerts had no repeat limit (an IET near-breach would have been mailed every minute) and recipients were a hardcoded fake address. Repeats are now rate-limited; recipients come from configuration.
+3. `PLATFORM_HEALTH_ALERT` had no email template; the alert activity was never given a dispatcher on the worker (so nothing was ever sent). Both fixed.
+4. The first message lookup inside a workflow step takes ~6 s and trips the Temporal deadlock detector; the registry is now warmed at worker start (the new tests hung when run alone until warmed).
+5. A mistyped `SMTP_SECURITY` crashed the worker at start-up; it now disables email with an error log instead.
+6. The Redis probe had its own 3 s socket timeout, so it reported "timed out after 10s" after 3 s; probe timeouts are now one setting (`platform_health.probe_timeout_seconds`, default 3).
+
+**Environment note:** on this Windows/Docker Desktop machine every connection to a container port takes ~1.6-3.3 s, so most components read SLOW and the default 3 s timeout produced false DOWNs; the run used a 10 s timeout. That is this machine, not the code, but it shows the timeout must be tunable.
+
+**NOT covered:** delivery through a real provider (Gmail or the bank's Postal): STARTTLS and login are unit-tested against a fake SMTP object, never against a real server. WhatsApp alerts. A dead worker cannot email that it is dead (the dashboard shows the monitor as stale; an external watcher is needed).
+Kubernetes pod / host / disk / memory health. The Vault panel on the existing `/system` page still reads a client that is never set.

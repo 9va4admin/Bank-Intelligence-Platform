@@ -997,9 +997,15 @@ async def _fake_dispatch_alert(inp: DispatchAlertInput) -> DispatchAlertResult:
     raise AssertionError("no check should need_alert in this test — nothing should dispatch")
 
 
+@activity.defn(name="probe_components")
+async def _fake_probe_components(inp):
+    from modules.cts.workflows.activities.platform_health_activities import ProbeComponentsResult
+    return ProbeComponentsResult()
+
+
 _FAKE_HEALTH_ACTIVITIES = [
     _fake_check_iet, _fake_check_hr, _fake_check_vault,
-    _fake_check_scanner, _fake_sweep, _fake_dispatch_alert,
+    _fake_check_scanner, _fake_sweep, _fake_dispatch_alert, _fake_probe_components,
 ]
 
 

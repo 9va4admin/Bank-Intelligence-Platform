@@ -13,6 +13,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { msg } from '../../../shared/messages'
+import ComponentsPanel from '../components/ComponentsPanel'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const REFRESH_MS = 60_000
@@ -193,6 +194,8 @@ export default function SystemHealth() {
             {loading ? msg('UI_OPSDASHBOARD_REFRESHING') : msg('UI_COMMON_REFRESH')}
           </button>
         </div>
+
+        <ComponentsPanel isDark={isDark} enabled={!isDemo} />
 
         {error && (
           <div className={`text-sm px-4 py-3 rounded-xl mb-4 border

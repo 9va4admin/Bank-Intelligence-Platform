@@ -12,12 +12,17 @@ Human review threshold breaches → P1/WARN.
 """
 from __future__ import annotations
 
-from typing import Optional
+import asyncio
+import json
+import time
+from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from modules.cts.health.probes import build_specs, run_probe
+from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
 from shared.notifications.dispatcher import NotificationRequest
 
 from shared.observability.otel_setup import get_tracer
@@ -71,6 +76,9 @@ class DispatchAlertInput(BaseModel):
     severity: str      # "CRITICAL" | "WARN"
     priority: str      # "P0" | "P1" (P0 = never debounced)
     message: str
+    component: str = ""                          # which platform component (infrastructure alerts)
+    template: str = "PLATFORM_HEALTH_ALERT"      # PLATFORM_HEALTH_ALERT | PLATFORM_HEALTH_RECOVERED
+    down_for: str = ""                           # recovery mails: how long it was down
 
 
 class DispatchAlertResult(BaseModel):
@@ -222,58 +230,117 @@ async def check_human_review_for_alert(
             return HRCheckResult(bank_id=inp.bank_id, degraded=True)
 
 
+async def _recipients(config_service: Any, bank_id: str) -> list[str]:
+    """Alert recipients from hot-reloadable config (alerts.email_recipients: a JSON list or comma-separated). Without a config service
+    (older callers and tests) the former per-bank mailbox is kept."""
+    if config_service is None:
+        return [f"ops-alerts@{bank_id}.internal"]
+    try:
+        raw = await config_service.get("alerts.email_recipients")
+    except Exception:
+        return []
+    if isinstance(raw, list):
+        items = raw
+    else:
+        text = str(raw or "").strip()
+        try:
+            items = json.loads(text) if text.startswith("[") else text.split(",")
+        except ValueError:
+            items = text.split(",")
+    return [str(x).strip() for x in items if str(x).strip()]
+
+
 @activity.defn
 async def dispatch_platform_alert(
     inp: DispatchAlertInput,
     dispatcher=None,
+    config_service=None,
 ) -> DispatchAlertResult:
     """
-    Send an alert via NotificationDispatcher (email + WhatsApp).
-    P0 alerts bypass the debouncer — safe to fire even during notification storms.
-    Degrades gracefully when dispatcher is None (no notification infra available).
+    Send an alert via NotificationDispatcher (email), one mail per configured recipient.
+    P0 alerts bypass the debouncer. Degrades (sent=False) when there is no dispatcher or no recipient is configured; one recipient failing
+    never stops the others.
     """
     with tracer.start_as_current_span("activity.dispatch_platform_alert") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if dispatcher is None:
-            log.warning(
-                "dispatch_platform_alert.degraded",
-                bank_id=inp.bank_id,
-                event_type=inp.event_type,
-                reason="dispatcher_none",
-            )
+            log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="dispatcher_none")
+            return DispatchAlertResult(sent=False, degraded=True)
+        recipients = await _recipients(config_service, inp.bank_id)
+        if not recipients:
+            log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="no_recipients_configured")
             return DispatchAlertResult(sent=False, degraded=True)
 
-        try:
-            request = NotificationRequest(
-                channel="email",
-                recipient=f"ops-alerts@{inp.bank_id}.internal",
-                template_id="PLATFORM_HEALTH_ALERT",
-                context={
-                    "bank_id": inp.bank_id,
-                    "event_type": inp.event_type,
-                    "severity": inp.severity,
-                    "message": inp.message,
-                },
-                priority=inp.priority,
-                event_category="PLATFORM_HEALTH",
-            )
-            await dispatcher.send(request)
-            log.info(
-                "dispatch_platform_alert.sent",
-                bank_id=inp.bank_id,
-                event_type=inp.event_type,
-                severity=inp.severity,
-                priority=inp.priority,
-            )
-            return DispatchAlertResult(sent=True, degraded=False)
-        except Exception as exc:
-            log.warning(
-                "dispatch_platform_alert.error",
-                bank_id=inp.bank_id,
-                event_type=inp.event_type,
-                error=str(exc),
-            )
-            return DispatchAlertResult(sent=False, degraded=False)
+        delivered = 0
+        for recipient in recipients:
+            try:
+                await dispatcher.send(NotificationRequest(
+                    channel="email",
+                    recipient=recipient,
+                    template_id=inp.template,
+                    context={"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
+                             "component": inp.component, "down_for": inp.down_for},
+                    priority=inp.priority,
+                    event_category="PLATFORM_HEALTH",
+                ))
+                delivered += 1
+            except Exception as exc:
+                log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, error=str(exc))
+        if delivered:
+            log.info("dispatch_platform_alert.sent", bank_id=inp.bank_id, event_type=inp.event_type, severity=inp.severity,
+                     priority=inp.priority, recipients=delivered)
+        return DispatchAlertResult(sent=delivered > 0, degraded=False)
+
+
+# ---------------------------------------------------------------------------
+# Infrastructure probes
+# ---------------------------------------------------------------------------
+
+class ProbeComponentsInput(BaseModel):
+    bank_id: str
+    states: dict[str, ComponentState] = {}
+
+
+class ProbeComponentsResult(BaseModel):
+    states: dict[str, ComponentState] = {}
+    events: list[Event] = []
+    probes_run: int = 0
+    degraded: bool = False
+
+
+async def _threshold(config_service: Any, key: str, default):
+    try:
+        return type(default)(await config_service.get(key))
+    except Exception:
+        return default
+
+
+@activity.defn
+async def probe_components(inp: ProbeComponentsInput, config_service=None) -> ProbeComponentsResult:
+    """Probe every configured dependency once (concurrently), run each result through the state machine, and return the new states plus
+    the alert events. Thresholds are hot-reloadable config; a component removed from configuration drops out of the state."""
+    with tracer.start_as_current_span("activity.probe_components") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if config_service is None:
+            log.warning("probe_components.degraded", bank_id=inp.bank_id, reason="config_service_none")
+            return ProbeComponentsResult(degraded=True)
+        thresholds = Thresholds(
+            down_after_failures=await _threshold(config_service, "platform_health.down_after_failures", 3),
+            recover_after_successes=await _threshold(config_service, "platform_health.recover_after_successes", 2),
+            slow_after=await _threshold(config_service, "platform_health.slow_after", 3),
+            reminder_every_seconds=await _threshold(config_service, "platform_health.reminder_every_seconds", 1800.0),
+        )
+        specs = await build_specs(config_service)
+        results = await asyncio.gather(*[run_probe(spec) for spec in specs])
+        now = time.time()
+        states: dict[str, ComponentState] = {}
+        events: list[Event] = []
+        for probe in results:
+            prior = inp.states.get(probe.component)
+            prior = ComponentState.model_validate(prior) if isinstance(prior, dict) else (prior or ComponentState())
+            states[probe.component], new_events = step(prior, probe, now=now, thresholds=thresholds)
+            events.extend(new_events)
+        return ProbeComponentsResult(states=states, events=events, probes_run=len(results))
 
 
 @activity.defn
