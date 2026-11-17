@@ -37,7 +37,7 @@ def test_columns_exist_after_upgrade_and_migration_round_trips():
                                     capture_output=True, text=True, timeout=300)
     assert run("upgrade", REVISION).returncode == 0
     assert run("downgrade", "20261117_alerting_tables").returncode == 0
-    assert run("upgrade", REVISION).returncode == 0
+    assert run("upgrade", "head").returncode == 0           # always leave the shared dev database at head
 
     async def cols():
         import asyncpg

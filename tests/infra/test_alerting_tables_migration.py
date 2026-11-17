@@ -78,7 +78,7 @@ def test_migrates_up_down_and_up_again_against_the_real_database():
     assert up.returncode == 0, up.stdout + up.stderr
     down = _alembic("downgrade", "20261029_drop_clearing_zones")
     assert down.returncode == 0, down.stdout + down.stderr
-    again = _alembic("upgrade", REVISION)
+    again = _alembic("upgrade", "head")                      # always leave the shared dev database at head
     assert again.returncode == 0, again.stdout + again.stderr
 
 

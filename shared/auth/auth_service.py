@@ -111,6 +111,8 @@ class AuthService:
                 )
         except Exception:
             log.warning("auth.session.persist_failed", session_id=session.session_id)
+        from shared.alerting.directory import record_sign_in
+        await record_sign_in(self._db, session.claims.bank_id, session.claims.user_id, session.claims.role)
 
     async def _log_event(
         self,

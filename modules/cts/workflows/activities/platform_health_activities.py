@@ -280,6 +280,7 @@ async def _whatsapp_recipients(config_service: Any, bank_id: str, priority: str)
 DEFAULT_BELL_ROLES = ["ops_manager", "bank_it_admin"]
 DEFAULT_BELL_MIN_PRIORITY = "P3"
 DEFAULT_BELL_MAX_RECIPIENTS = 200
+DEFAULT_BELL_DIRECTORY_DAYS = 90
 
 
 async def _bell_users(config_service: Any, db_pool: Any, bank_id: str, priority: Optional[str] = None) -> list[str]:
@@ -307,7 +308,11 @@ async def _bell_users(config_service: Any, db_pool: Any, bank_id: str, priority:
     except Exception:
         limit = DEFAULT_BELL_MAX_RECIPIENTS
     try:
-        return await resolve_bell_users(db_pool, bank_id, roles=roles, limit=limit)
+        days = int(await config_service.get("alerting.bell_directory_days"))
+    except Exception:
+        days = DEFAULT_BELL_DIRECTORY_DAYS
+    try:
+        return await resolve_bell_users(db_pool, bank_id, roles=roles, limit=limit, seen_within_days=days)
     except Exception as exc:  # noqa: BLE001
         log.warning("bell_users.lookup_failed", bank_id=bank_id, error=scrub_error(str(exc), 200))
         return []

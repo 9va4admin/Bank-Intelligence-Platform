@@ -206,6 +206,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.subject_max_chars": 100,                      # longest summary placed in the subject line
     "alerting.bell_roles": '["ops_manager", "bank_it_admin"]',   # roles whose in-app bell rings for every alert (JSON list)
     "alerting.bell_min_priority": "P3",                     # lowest priority that reaches the bell (P3 = all)
+    "alerting.bell_directory_days": 90,                     # people who signed in within this many days are on the bell (0 = everyone ever)
     "alerting.bell_max_recipients": 200,                    # most people the bell lookup returns
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent

@@ -32,11 +32,17 @@ class BellChannel:
         return {"message_id": notification_id, "status": "sent"}
 
 
-async def resolve_bell_users(pool: Any, bank_id: str, *, roles: list[str], limit: int) -> list[str]:
-    """Active users of the given roles in this bank (locally managed accounts; users who sign in through an identity provider have no local row)."""
+async def resolve_bell_users(pool: Any, bank_id: str, *, roles: list[str], limit: int, seen_within_days: int = 0) -> list[str]:
+    """Active users of the given roles in this bank: locally managed accounts, plus everyone who has signed in (identity-provider users included, from
+    platform.user_directory) within `seen_within_days` (0 = no limit). Each person once."""
     if not roles:
         return []
     rows = await pool.fetch(
-        "SELECT user_id FROM platform.local_auth_accounts WHERE bank_id=$1 AND is_active = TRUE AND role = ANY($2::text[]) ORDER BY user_id LIMIT $3",
-        bank_id, list(roles), max(1, limit))
+        "SELECT user_id FROM ("
+        "  SELECT user_id FROM platform.local_auth_accounts WHERE bank_id=$1 AND is_active = TRUE AND role = ANY($2::text[]) "
+        "  UNION "
+        "  SELECT user_id FROM platform.user_directory WHERE bank_id=$1 AND is_active = TRUE AND role = ANY($2::text[]) "
+        "    AND ($4::int <= 0 OR last_seen > NOW() - make_interval(days => $4::int))"
+        ") people ORDER BY user_id LIMIT $3",
+        bank_id, list(roles), max(1, limit), int(seen_within_days))
     return [r["user_id"] for r in rows]

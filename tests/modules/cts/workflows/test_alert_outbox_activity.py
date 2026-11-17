@@ -116,7 +116,7 @@ class _Pool:
     def __init__(self, users=("u-a", "u-b")):
         self.users, self.asked = list(users), []
 
-    async def fetch(self, sql, bank, roles, limit):
+    async def fetch(self, sql, bank, roles, limit, days=0):
         self.asked.append((bank, roles, limit))
         return [{"user_id": u} for u in self.users][:limit]
 
