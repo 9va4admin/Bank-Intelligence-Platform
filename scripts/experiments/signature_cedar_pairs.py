@@ -10,6 +10,11 @@ Differences from signature_cedar_benchmark.py (which lost to the generic embedde
     effect of the forged negatives from the effect of the recipe;
   - to make this fast on a CPU the early layers stay frozen (their features are cached) and only the last ResNet block and the head train.
 Held-out writers are never trained on. Temporary public-benchmark evaluation; the data is never committed.
+
+CLEAN=1 removes the paper (background normalisation + Otsu binarisation to black strokes on white). This is REQUIRED for a valid CEDAR result:
+in CEDAR the median grey level alone separates every genuine image from every forged one (AUC 1.0), so a model can "detect forgeries" from paper
+tone without looking at the signature. SYNTHETIC variant: negatives are distorted copies of the training writers' GENUINE signatures; no real forgery
+is used in training.
 """
 from __future__ import annotations
 
@@ -24,6 +29,8 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import cv2
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
@@ -32,6 +39,7 @@ from PIL import Image
 from modules.cts.evaluation.signature_eval import GENUINE, SKILLED, SigSample, evaluate
 from modules.cts.signature_training.loss import supcon_loss
 from modules.cts.signature_training.model import preprocess
+from modules.cts.signature_training.synthetic_forgery import synthetic_forgery
 from shared.ai.local_signature_embedder import LocalSignatureEmbedder
 
 ROOT = Path(os.environ["CEDAR_DIR"]) / "signatures"
@@ -39,6 +47,7 @@ STEPS = int(sys.argv[1]) if len(sys.argv) > 1 else 600
 SIZE = 224
 N_HELD, K_ENROL = 15, 5
 WRITERS_PER_BATCH, GEN_PER, FORG_PER = 8, 4, 4
+CLEAN = os.environ.get("CLEAN") == "1"
 OUT = Path(os.environ.get("OUT_DIR", "."))
 torch.manual_seed(0)
 
@@ -59,19 +68,53 @@ for p_ in frozen.parameters():
     p_.requires_grad_(False)
 
 
-def features(paths):
+def clean(img: Image.Image) -> Image.Image:
+    """Paper removed: divide by an estimate of the page, then Otsu: black strokes on white. Same treatment for every image."""
+    a = np.asarray(img.convert("L"))
+    bg = cv2.GaussianBlur(cv2.dilate(a, np.ones((15, 15), np.uint8)), (0, 0), 15)
+    norm = np.clip(a.astype("float32") / np.maximum(bg, 1).astype("float32") * 255.0, 0, 255).astype("uint8")
+    _, bw = cv2.threshold(norm, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return Image.fromarray(bw)
+
+
+def load_img(p) -> Image.Image:
+    img = Image.open(p).convert("L")
+    return clean(img) if CLEAN else img
+
+
+def features_of(imgs):
     out = []
     with torch.no_grad():
-        for i in range(0, len(paths), 32):
-            x = torch.stack([preprocess(Image.open(p).convert("L"), SIZE) for p in paths[i:i + 32]])
-            out.append(frozen(x))
+        for i in range(0, len(imgs), 32):
+            out.append(frozen(torch.stack([preprocess(im, SIZE) for im in imgs[i:i + 32]])))
     return torch.cat(out)
+
+
+def features(paths):
+    return features_of([load_img(p) for p in paths])
 
 
 t0 = time.time()
 all_paths = [p for w in writers for p in orig[w] + forg[w]]
 feat = dict(zip(all_paths, features(all_paths).split(1)))
-print(f"cached layer3 features for {len(all_paths)} images in {time.time()-t0:.0f}s")
+print(f"cached layer3 features for {len(all_paths)} images in {time.time()-t0:.0f}s (CLEAN={CLEAN})")
+
+# residual shortcut check: how well do simple global statistics still separate genuine from forged (all 55 writers)?
+def _auc(pos, neg):
+    from scipy.stats import rankdata                    # average ranks: ties (e.g. every cleaned background exactly white) count as 0.5
+    r = rankdata(np.concatenate([pos, neg]))
+    return (r[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg))
+_g = [np.asarray(load_img(p)) for w in writers for p in orig[w][:6]]
+_f = [np.asarray(load_img(p)) for w in writers for p in forg[w][:6]]
+for _name, _fn in (("median grey", np.median), ("ink fraction", lambda a: (a < 128).mean())):
+    print(f"   residual check, {_name}: AUC genuine>forged = {_auc(np.array([_fn(a) for a in _g]), np.array([_fn(a) for a in _f])):.3f}  (0.5 = no leak)")
+
+rng_syn = random.Random(11)
+synth_feat = {}
+for w in train_w:
+    bases = [load_img(p) for p in orig[w]]
+    synth_feat[w] = list(features_of([synthetic_forgery(b, rng_syn, strength=rng_syn.uniform(0.4, 1.4)) for b in bases]).split(1))
+print("synthetic forgeries made from the training writers' genuine signatures only")
 
 
 class Tail(nn.Module):
@@ -90,7 +133,7 @@ class Tail(nn.Module):
         return nn.functional.normalize(self.head(self.pool(self.layer4(f)).flatten(1)), dim=1)
 
 
-def train_tail(use_forgeries: bool, steps: int, seed=0):
+def train_tail(mode: str, steps: int, seed=0):          # mode: none | real | synthetic
     rng = random.Random(seed)
     torch.manual_seed(seed)
     tail = Tail()
@@ -104,9 +147,12 @@ def train_tail(use_forgeries: bool, steps: int, seed=0):
         for w in rng.sample(train_w, WRITERS_PER_BATCH):
             for p in rng.sample(orig[w], GEN_PER):
                 fs.append(feat[p]); labels.append(label_of[w])
-            if use_forgeries:
+            if mode == "real":
                 for p in rng.sample(forg[w], FORG_PER):
                     fs.append(feat[p]); labels.append(next_unique); next_unique += 1   # a forgery is its own class: a pure negative
+            elif mode == "synthetic":
+                for f_ in rng.sample(synth_feat[w], FORG_PER):
+                    fs.append(f_); labels.append(next_unique); next_unique += 1
         z = tail(torch.cat(fs))
         loss = supcon_loss(z, torch.tensor(labels), 0.1)
         opt.zero_grad(); loss.backward(); opt.step()
@@ -133,9 +179,13 @@ def report(name, embed_path):
     return r
 
 
+def _png(im):
+    b = io.BytesIO(); im.save(b, format="PNG"); return b.getvalue()
+
+
 results = {}
 generic = LocalSignatureEmbedder()
-results["generic"] = report("generic ImageNet ResNet-18", lambda p: generic._embed_sync(Path(p).read_bytes()))
+results["generic"] = report("generic ImageNet ResNet-18", lambda p: generic._embed_sync(_png(load_img(p))))
 
 
 def tail_embed(tail):
@@ -145,11 +195,13 @@ def tail_embed(tail):
     return f
 
 
-for name, use_f in (("224px layer4, genuine specimens only", False), ("224px layer4, + same-writer forgeries as negatives", True)):
+for name, mode in (("224px layer4, genuine specimens only", "none"),
+                   ("224px layer4, + REAL same-writer forgeries as negatives", "real"),
+                   ("224px layer4, + SYNTHETIC forgeries as negatives", "synthetic")):
     t0 = time.time()
     print(f"-- training: {name}, {STEPS} steps")
-    tail = train_tail(use_f, STEPS)
+    tail = train_tail(mode, STEPS)
     print(f"   {time.time()-t0:.0f}s")
     results[name] = report(name, tail_embed(tail))
 
-(OUT / f"cedar_pairs_result_split{SPLIT_SEED}.json").write_text(json.dumps(results, indent=2))
+(OUT / f"cedar_pairs_result_split{SPLIT_SEED}{'_clean' if CLEAN else ''}.json").write_text(json.dumps(results, indent=2))

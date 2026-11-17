@@ -119,57 +119,41 @@ skilled-forgery risk is carried by the other controls above for the value band c
 `promoted` flag is set by that recorded decision, never by training). Reviewer decisions collected in shadow mode can add evidence over time,
 but genuine skilled forgeries are rare, so they will not by themselves prove a skilled-forgery rate.
 
-## Public benchmark with real skilled forgeries: CEDAR (2026-11-17) - it contradicts the optimistic reading above
+## Public benchmark with real forgeries: CEDAR (2026-11-17) - and a retraction
 
-CEDAR (55 writers, 24 genuine + 24 forgeries each; from the CEDAR group's own server, used for a temporary evaluation, never committed or shipped).
-Writer-disjoint: trained on 40 writers, scored on 15 held-out writers (5 specimens enrolled per writer, 360 skilled-forgery and 750
-random-forgery trials). Script: `scripts/experiments/signature_cedar_benchmark.py`. BHSig260 (Hindi/Bengali) could not be obtained from an open, trustworthy source
-(the original short link is dead; the Hugging Face copies are access-gated or third-party mirrors of gated data), so it was not used.
+CEDAR (55 writers, 24 genuine + 24 forgeries each; from the CEDAR group's own server, used for a temporary evaluation, never committed or shipped). Writer-disjoint: trained on 40
+writers, scored on 15 held-out writers, two independent splits (A, B), 5 specimens enrolled per writer, 360 forgery trials per split. Scripts: `scripts/experiments/signature_cedar_benchmark.py`
+and `scripts/experiments/signature_cedar_pairs.py`. BHSig260 (Hindi/Bengali) could not be obtained from an open, trustworthy source (the original short link is dead; the Hugging Face copies
+are access-gated or third-party mirrors of gated data), so it was not used.
 
-| model (held-out writers) | skilled-forgery EER | random-forgery EER | skilled-forgery FAR at 0.85 | genuine rejected at 0.85 |
+### RETRACTION: an earlier version of this section said forged examples make a trained embedder clearly beat the generic one (skilled-forgery EER 0.8-1.4% against 2.5-7.4%). That was wrong.
+
+In CEDAR the **paper tone alone separates every genuine image from every forged one** (median grey level: genuine mean 239.8, forged mean 253.5; AUC 1.000 over all 2,640 images). Genuine
+signatures were scanned on grey paper, forgeries on white. Any model that is sensitive to paper brightness "detects forgeries" perfectly without looking at the signature, and a model trained
+with forged negatives learns exactly that shortcut. The earlier numbers measured paper colour. They were found by looking at the images, not by the metrics.
+
+### Valid result: paper removed (background normalised, Otsu-binarised to black strokes on white; the same treatment for every image)
+
+After cleaning, ink fraction no longer separates the classes (AUC 0.47; 0.5 = no leak). Skilled-forgery EER, held-out writers, split A / split B (lower is better):
+
+| model | skilled-forgery EER (A / B) | skilled forgeries accepted at 0.85 (A / B) | genuine rejected to hold forgeries at 3% (A / B) | other-writer EER (A / B) |
 |---|---|---|---|---|
-| generic ImageNet ResNet-18 (224 px) | **2.5%** | 9.5% | 72.5% | 0% |
-| contrastive, genuine signatures only (128 px, 8 epochs) | **21.4%** | **3.9%** | 16.1% | 33.3% |
-| contrastive, genuine + forgeries as extra negatives (128 px, 8 epochs) | **20.3%** | **1.8%** | 21.4% | 19.3% |
+| generic ImageNet ResNet-18 | 22.2% / 23.9% | 99.2% / 99.7% | 73% / 76% | 5.2% / 5.2% |
+| trained, genuine specimens only (224 px, no augmentation) | 18.9% / 22.2% | 50.3% / 55.6% | 78% / 81% | 2.1% / 3.2% |
+| trained + real same-writer forgeries as negatives | 15.8% / 21.1% | 27.5% / 38.1% | 79% / 75% | 2.1% / 2.8% |
+| trained + synthetic forgeries (distorted genuine) as negatives | 20.3% / 22.5% | 33.1% / 61.1% | 88% / 77% | 2.8% / 4.9% |
 
-(Zero-shot, all 55 writers: the model trained only on KBL cheque crops scored skilled-forgery EER 15.3% against the generic model's 4.7%, random-forgery EER 2.3% against 5.4%.)
+### What this actually shows
 
-### What this changes
+- **No tested method is usable against skilled forgeries.** Every skilled-forgery EER is 16-24%; holding forgeries to 3% would reject three quarters or more of genuine signatures.
+- **Training on genuine signatures helps against *other customers* (EER 5.2% -> 2-3%), barely against forgeries** (22-24% -> 19-22%). The earlier cheque experiment (other writers only) stands as an other-writer result and nothing more.
+- **Real forged negatives help a little** (about 1-3 points of EER); **synthetic forgeries made by distorting genuine signatures help not at all** (20.3% / 22.5% against 18.9% / 22.2% for genuine-only). With no forged examples there is no demonstrated way, here, to learn skilled-forgery detection.
+- **Shape-only is a harsh test and a fair one for this question,** but it also discards ink darkness and pressure cues that a real pen-and-scanner pipeline retains; I cannot say whether those are real signals or more dataset artefacts.
+- Limits: one benchmark, two splits of 15 writers, 360 forgery trials per split, a small fine-tuned last block (300 steps), experiment scripts rather than the production trainer. Different methods (full pair training at higher
+  resolution, stroke-level features, a pretrained signature model) were not tried. These results do not say skilled forgery is undetectable, only that none of what was tried detects it.
 
-- **The genuine-only embedder separates different people better, and separates skilled forgeries WORSE than the generic one on this benchmark.** That is the opposite of
-  what the cheque experiment above could suggest. Random-forgery evidence alone must never be read as protection against forgery.
-- **Forged negatives did not fix it in this setup.** EER stayed about 20%. Untested confounds: the trained models ran at 128 px against 224 for the generic one; only 8 epochs;
-  only 40 training writers; and the training augmentation (crop, blur, thickness, noise) teaches invariance to exactly the small differences that give a forgery away.
-  A recipe without those (higher resolution, gentler augmentation, pair training as in SigNet) is the obvious next experiment; none of it has been run.
-- **The generic embedder looks strong on CEDAR ranking (EER 2.5-4.7%) while accepting 72% of forgeries at the production threshold 0.85.** CEDAR is known to be easy and its
-  genuine and forged images differ in ways a model can exploit that a real forger would not leave; and it is pen-on-paper, not cheques. Do not read 2.5% as a bank-ready number either.
-- **Promotion rule, tightened.** A trained embedder must not be promoted on random-forgery evidence. It must also be scored on skilled forgeries (this benchmark is the minimum; the bank's own
-  confirmed forgeries are the real test) and must not be worse than the model it replaces on them. Until a recipe clears that, the confirm gate stays on and signature similarity remains a
-  review-routing signal only.
+### Consequences
 
-### Follow-up: a recipe aimed at skilled forgeries works on CEDAR (2026-11-17, `scripts/experiments/signature_cedar_pairs.py`)
-
-Changes against the run above: full 224 px; no augmentation (a writer's 24 real specimens are the positives, so nothing teaches the model to ignore small differences);
-every batch contains the same writers' forgeries as hard negatives (each forgery its own class); early layers frozen with their features cached and only the last ResNet block
-and the head trained (300 steps, a few minutes on a CPU). Held-out writers never trained on; two independent splits of 15 writers each (360 skilled-forgery and 750 random-forgery trials per split).
-
-| model | split | skilled-forgery EER | skilled forgeries accepted at 0.85 | genuine rejected at 0.85 | random-forgery EER |
-|---|---|---|---|---|---|
-| generic ImageNet ResNet-18 | A | 2.5% | 72.5% | 0.0% | 9.5% |
-| | B | 7.4% | 84.4% | 0.0% | 5.2% |
-| same recipe, genuine specimens only | A | 7.0% | 13.9% | 1.4% | 2.9% |
-| | B | 12.3% | 28.9% | 4.2% | 3.1% |
-| **same recipe + same-writer forgeries as negatives** | A | **1.4%** | **2.5%** | 0.4% | 2.8% |
-| | B | **0.8%** | **1.1%** | 0.4% | 2.1% |
-
-- **The forged negatives are the ingredient that matters.** Genuine-only training, even with the better recipe, did not beat the generic model on skilled forgeries (7.0% / 12.3% against 2.5% / 7.4%).
-  With forgeries as negatives it did, on both splits, and the 0.85 operating point became usable (about 1-2.5% of forgeries accepted, 0.4% of genuine rejected, against 72-84% accepted by the generic model).
-  So the answer to "can we avoid forged examples" is **no, not for skilled-forgery protection** (on this benchmark).
-- **Why this is still not evidence for the bank's cheques:**
-  - Training and test forgeries come from the same collection (the same forgers, paper and scanner), so the model may have learned that collection's artefacts rather than what forgery looks like in general.
-    Cross-dataset generalisation is known to be the weak point for these methods; it was not tested (no second dataset could be obtained).
-  - CEDAR is pen-on-paper in clean boxes, not signatures over printed cheque backgrounds.
-  - 15 writers per split; 9/360 forgeries accepted is roughly a 1.3-4.7% interval, so read the rates as ranges. Two splits, one benchmark, one run each.
-  - This is an experiment script, not the production trainer: `modules/cts/signature_training` does not yet do forged negatives, specimen positives without augmentation, or frozen-layer training.
-- **Where forged examples would come from for a bank that has none:** public datasets (licensing to be settled before any model trained on them ships), or synthetic forgeries made by distorting genuine signatures
-  (untested: whether synthetic negatives give the same gain is the obvious next experiment), or the bank's own confirmed forgeries over time.
+- Signature similarity cannot be what protects the bank against a careful forger. Positive Pay, the cheque-leaf vault, stop-payment and balance checks, the fraud score, alteration detection and the high-value rule remain the controls; signature similarity routes cheques to review.
+- **Promotion rule:** an embedder is promoted to support `STP_CONFIRM` only if it clears a skilled-forgery test **after paper-tone and other dataset artefacts are removed**, on data the bank accepts, and is not worse than the one it replaces; plus the bank's written acceptance of the residual risk. No embedder here comes close.
+- Any future public-dataset result must first be checked for this kind of leak (a simple classifier on global statistics such as paper tone, ink fraction, image size); `signature_cedar_pairs.py` prints that check.
