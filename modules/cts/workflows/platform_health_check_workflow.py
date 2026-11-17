@@ -32,7 +32,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from temporalio.exceptions import CancelledError
+from temporalio.exceptions import ActivityError, CancelledError
 
 from modules.cts.health.state_machine import ComponentState, Event, human_duration
 from modules.cts.workflows.activities.platform_health_activities import (
@@ -49,6 +49,7 @@ from modules.cts.workflows.activities.platform_health_activities import (
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,
+    record_alert_incident,
     sweep_stuck_workflows,
 )
 with workflow.unsafe.imports_passed_through():       # the workflow sandbox restricts imports; the message registry is read-only wording
@@ -131,6 +132,17 @@ class PlatformHealthCheckWorkflow:
         if last is not None and now - last < interval:
             return
         self._last_sent[alert.event_type] = now
+        await self._notify(alert)
+
+    async def _notify(self, alert: DispatchAlertInput) -> None:
+        """Open, update or resolve the incident this alert belongs to, then send it carrying the incident id. An incident store that is down
+        or slow must never keep an alert from going out, so a failed record only means the alert has no incident id."""
+        try:
+            recorded = await workflow.execute_activity(record_alert_incident, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
+            if recorded.incident_id:
+                alert = alert.model_copy(update={"incident_id": recorded.incident_id})
+        except ActivityError:
+            pass
         await workflow.execute_activity(dispatch_platform_alert, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
 
     async def _tick_once(self, inp: PlatformHealthInput, now: float) -> None:
@@ -143,7 +155,7 @@ class PlatformHealthCheckWorkflow:
         )
         self._states = probed.states
         for alert in alerts_for_events(inp.bank_id, probed.events):      # the state machine already limits how often these happen
-            await workflow.execute_activity(dispatch_platform_alert, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
+            await self._notify(alert)
 
         # ── 1. IET near-breach risk ───────────────────────────────────
         iet_result = await workflow.execute_activity(

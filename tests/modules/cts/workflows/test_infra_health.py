@@ -16,7 +16,7 @@ from modules.cts.health.state_machine import ComponentState, Event, Probe
 from modules.cts.workflows.activities.platform_health_activities import (
     CheckHRInput, CheckIETInput, CheckScannerFleetInput, CheckVaultCoverageInput, DispatchAlertInput, DispatchAlertResult,
     HRCheckResult, IETCheckResult, ProbeComponentsInput, ProbeComponentsResult, ScannerFleetCheckResult, StuckWorkflowSweepInput,
-    StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components,
+    StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components, IncidentRecordResult,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput, alerts_for_events
 from shared.messages import get_message
@@ -172,6 +172,16 @@ async def _dispatch(inp: DispatchAlertInput) -> DispatchAlertResult:
     return DispatchAlertResult(sent=True)
 
 
+RECORDED: list[DispatchAlertInput] = []
+
+
+@activity.defn(name="record_alert_incident")
+async def _record(inp: DispatchAlertInput) -> IncidentRecordResult:
+    from shared.alerting.incidents import dedup_key_for
+    RECORDED.append(inp)
+    return IncidentRecordResult(incident_id=f"inc:{dedup_key_for(inp.event_type, inp.component)}")
+
+
 @activity.defn(name="probe_components")
 async def _probe(inp: ProbeComponentsInput) -> ProbeComponentsResult:
     PROBE_CALLS["n"] += 1
@@ -182,7 +192,7 @@ async def _probe(inp: ProbeComponentsInput) -> ProbeComponentsResult:
     return ProbeComponentsResult(states=states, events=[], probes_run=1)
 
 
-_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe]
+_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe, _record]
 
 
 @pytest_asyncio.fixture
@@ -193,6 +203,7 @@ async def env():
 
 async def _start(env, inp):
     DISPATCHED.clear()
+    RECORDED.clear()
     PROBE_CALLS["n"] = 0
     tq = f"tq-infra-{uuid.uuid4().hex[:8]}"
     worker = Worker(env.client, task_queue=tq, workflows=[PlatformHealthCheckWorkflow], activities=_ACTIVITIES,
@@ -214,6 +225,20 @@ async def test_a_component_going_down_sends_one_alert_with_its_name_and_a_persis
     assert first_window.count(("COMPONENT_DOWN", "yugabyte")) == 1
     assert [e for e, _ in first_window].count("IET_BREACH_RISK") == 1          # the same IET condition on every tick: sent once, not four times
     assert later.count("IET_BREACH_RISK") >= 2 and later.count("COMPONENT_DOWN") == 1      # repeated only after the interval
+
+
+@pytest.mark.asyncio
+async def test_every_alert_is_recorded_as_an_incident_first_and_dispatched_with_that_incident_id(env):
+    inp = PlatformHealthInput(bank_id="kbl", repeat_alert_seconds=1800, iet_repeat_seconds=300)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=f"h-{uuid.uuid4().hex[:6]}", task_queue=tq)
+        await env.sleep(200)
+        await h.cancel()
+    assert DISPATCHED, "nothing was dispatched"
+    for d in DISPATCHED:
+        assert d.incident_id == f"inc:{__import__('shared.alerting.incidents', fromlist=['x']).dedup_key_for(d.event_type, d.component)}"
+    assert {r.event_type for r in RECORDED} >= {"COMPONENT_DOWN", "IET_BREACH_RISK"}
 
 
 @pytest.mark.asyncio

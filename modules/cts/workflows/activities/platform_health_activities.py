@@ -24,7 +24,9 @@ from temporalio import activity
 
 from modules.cts.health.probes import build_specs, run_probe
 from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
-from shared.alerting.audit import scrub_error
+from shared.alerting.audit import SYSTEM_ACTOR, scrub_error
+from shared.alerting.incidents import IncidentStore, dedup_key_for, is_resolution
+from shared.audit.audit_event import AuditEventType
 from shared.notifications.dispatcher import NotificationRequest
 
 from shared.observability.otel_setup import get_tracer
@@ -327,6 +329,72 @@ async def dispatch_platform_alert(
 
 
 # ---------------------------------------------------------------------------
+# Incidents: an alert opens, updates or resolves one
+# ---------------------------------------------------------------------------
+
+class IncidentRecordResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    incident_id: str = ""         # empty: no incident (nothing was open to resolve, or the incident store was unavailable)
+    created: bool = False
+    resolved: bool = False
+    degraded: bool = False
+
+
+@activity.defn
+async def record_alert_incident(inp: DispatchAlertInput, db_pool=None, alert_auditor=None, store=None) -> IncidentRecordResult:
+    """Open, update or resolve the incident this alert belongs to, and audit it. Never raises: the incident store being down must not stop an alert."""
+    with tracer.start_as_current_span("activity.record_alert_incident") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if store is None:
+            if db_pool is None:
+                log.warning("record_alert_incident.degraded", bank_id=inp.bank_id, reason="db_pool_none")
+                return IncidentRecordResult(degraded=True)
+            store = IncidentStore(db_pool)
+        key = dedup_key_for(inp.event_type, inp.component)
+        try:
+            if is_resolution(inp.event_type):
+                closed = await store.resolve(inp.bank_id, key, SYSTEM_ACTOR)
+                if closed is None:
+                    return IncidentRecordResult()
+                if alert_auditor is not None:
+                    await alert_auditor.lifecycle(AuditEventType.ALERT_RESOLVED, bank_id=inp.bank_id, incident_id=closed.incident_id,
+                                                  actor=SYSTEM_ACTOR, detail={"component": closed.component, "severity": closed.severity,
+                                                                              "duration_seconds": closed.duration_seconds})
+                return IncidentRecordResult(incident_id=closed.incident_id, resolved=True)
+            opened = await store.open_or_update(bank_id=inp.bank_id, dedup_key=key, alert_id=inp.event_type, component=inp.component,
+                                                severity=inp.priority, summary=inp.message)
+            if alert_auditor is not None and (opened.created or opened.severity_raised):
+                event = AuditEventType.ALERT_RAISED if opened.created else AuditEventType.ALERT_UPDATED
+                await alert_auditor.lifecycle(event, bank_id=inp.bank_id, incident_id=opened.incident_id, actor=SYSTEM_ACTOR,
+                                              detail={"component": inp.component, "severity": opened.severity, "alert_id": inp.event_type})
+            return IncidentRecordResult(incident_id=opened.incident_id, created=opened.created)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("record_alert_incident.error", bank_id=inp.bank_id, event_type=inp.event_type, error=scrub_error(str(exc), 200))
+            return IncidentRecordResult(degraded=True)
+
+
+class StatusChange(BaseModel):
+    component: str
+    from_status: str
+    to_status: str
+    latency_ms: Optional[float] = None
+    error: Optional[str] = None
+
+
+def status_changes(prior: dict, new: dict) -> list[StatusChange]:
+    """Components whose status differs from the previous tick (a first reading counts: UNKNOWN to its status)."""
+    out: list[StatusChange] = []
+    for component, state in new.items():
+        before = prior.get(component)
+        before = ComponentState.model_validate(before) if isinstance(before, dict) else before
+        from_status = before.status if before is not None else "UNKNOWN"
+        if from_status != state.status:
+            out.append(StatusChange(component=component, from_status=from_status, to_status=state.status,
+                                    latency_ms=state.last_latency_ms, error=state.last_error))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Infrastructure probes
 # ---------------------------------------------------------------------------
 
@@ -350,7 +418,7 @@ async def _threshold(config_service: Any, key: str, default):
 
 
 @activity.defn
-async def probe_components(inp: ProbeComponentsInput, config_service=None) -> ProbeComponentsResult:
+async def probe_components(inp: ProbeComponentsInput, config_service=None, db_pool=None) -> ProbeComponentsResult:
     """Probe every configured dependency once (concurrently), run each result through the state machine, and return the new states plus
     the alert events. Thresholds are hot-reloadable config; a component removed from configuration drops out of the state."""
     with tracer.start_as_current_span("activity.probe_components") as span:
@@ -374,6 +442,14 @@ async def probe_components(inp: ProbeComponentsInput, config_service=None) -> Pr
             prior = ComponentState.model_validate(prior) if isinstance(prior, dict) else (prior or ComponentState())
             states[probe.component], new_events = step(prior, probe, now=now, thresholds=thresholds)
             events.extend(new_events)
+        if db_pool is not None:                                  # history is best-effort: it never affects probing or alerting
+            try:
+                store = IncidentStore(db_pool)
+                for change in status_changes(inp.states, states):
+                    await store.record_state_change(inp.bank_id, change.component, change.from_status, change.to_status,
+                                                    latency_ms=change.latency_ms, error=scrub_error(change.error or "", 200) or None, incident_id=None)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("probe_components.history_failed", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
         return ProbeComponentsResult(states=states, events=events, probes_run=len(results))
 
 

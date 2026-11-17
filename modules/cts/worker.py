@@ -192,6 +192,7 @@ from modules.cts.workflows.activities.platform_health_activities import (
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,
+    record_alert_incident,
     sweep_stuck_workflows,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput
@@ -339,6 +340,7 @@ ALL_ACTIVITIES = [
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,
+    record_alert_incident,
     sweep_stuck_workflows,
     send_hold_reminder,
     send_hold_critical_alert,
@@ -387,6 +389,7 @@ NO_DI_ACTIVITIES = [
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,       # infrastructure probes (config_service injected by the generic DI binder)
+    record_alert_incident,  # opens/updates/resolves the incident an alert belongs to (db_pool, alert_auditor injected)
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,

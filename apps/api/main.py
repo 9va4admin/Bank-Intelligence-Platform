@@ -345,7 +345,12 @@ async def lifespan(app: FastAPI):
         _wd_auditor = await build_alert_auditor(config_service, config_service.bank_id, redis=getattr(app.state, "redis_cts", None),
                                                 immudb_writer=_wd_writer)
 
+        from modules.cts.workflows.activities.platform_health_activities import record_alert_incident
+
         async def _wd_send(alert: DispatchAlertInput) -> None:
+            recorded = await record_alert_incident(alert, db_pool=getattr(app.state, "db_pool_cts", None), alert_auditor=_wd_auditor)
+            if recorded.incident_id:
+                alert = alert.model_copy(update={"incident_id": recorded.incident_id})
             await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor)
 
         watchdog_task = asyncio.create_task(run_watchdog(
