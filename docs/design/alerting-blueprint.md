@@ -1,6 +1,6 @@
 # ASTRA Alerting and Notification: Blueprint
 
-Status: proposal for sign-off. Nothing in sections 3 to 12 is built unless marked **[built]**.
+Status: decisions in section 13 resolved 2026-11-17; sections 15 to 21 added the same day. Nothing in sections 3 to 12 is built unless marked **[built]**.
 Scope: platform health, IET/queue/vault/scanner alerts, and any future operational alert. Not customer notifications.
 
 ## 1. What an alert is, and the rules it must obey
@@ -157,7 +157,7 @@ RBAC: `ops_manager` proposes, `bank_it_admin` approves (existing maker-checker);
 - New API under `/v1/ops/alerts/...`; Kafka event `platform.alerts` carries `schema_version`; workflow inputs versioned (`InputV1`); migrations backwards compatible for one version, run as pre-deploy jobs.
 - The flat `alerts.email_recipients` and `alerts.whatsapp_*` keys keep working: on first start they become the **default rule** of the matrix, so nothing changes for a bank that does nothing.
 
-### Phases (each ends with live evidence in `docs/e2e-test-evidence.md`)
+### Phases (original; superseded by section 21)
 
 | Phase | Contents | Exit criteria |
 |---|---|---|
@@ -166,16 +166,112 @@ RBAC: `ops_manager` proposes, `bank_it_admin` approves (existing maker-checker);
 | **3. Scale and integration** | Grouping, digests, quiet hours, SMS, webhook/ITSM, SIEM syslog, regulatory timers, heartbeat and fire drills | Storm of 20 failures yields one incident and one summary; ITSM ticket created and closed by webhook |
 | **4. Insight** | MTTA/MTTR and noise reports, tuning suggestions | Monthly report generated from the delivery log |
 
-## 13. Decisions needed from the bank owner
+## 13. Decisions (bank owner, resolved)
 
-1. **One matrix per bank, or per processing unit / SMB as well?** Recommendation: per bank with optional per-PU and per-SMB overrides (matches the SB/SMB model).
-2. **Is acknowledgement and escalation in the first release?** Recommendation: yes; it is what makes P0 trustworthy, and it is Phase 2, right after the core.
-3. **Which channels are mandatory for go-live?** Recommendation: email and in-app bell mandatory, WhatsApp optional (needs Meta approval), SMS if the bank already has DLT, webhook if they run an ITSM.
-4. **Who owns the incident taxonomy defaults** (`owning_team` to people)? Recommendation: bank IT admin at onboarding, from a template we ship.
-5. **Reporting windows for regulatory incidents**: from the bank's compliance officer, entered as configuration.
-6. **Gmail exception**: confirm it is pilot-only and set its end date.
-7. **Timezone and holiday calendar** source for schedules.
+| # | Decision | How the design applies it |
+|---|---|---|
+| 1 | Scope order is **Bank, then PU, then SMB, highest to lower priority** | Three policy levels. **Reading adopted (please confirm):** the bank-level policy is a floor that nothing below can remove. Targets **accumulate** (bank + PU + SMB all get the alert); on any conflict (quiet hours, escalation timing, severity handling) the higher level wins; a PU or SMB may add people, channels, or earlier escalation but may not remove or mute a bank-mandated target. An SMB alert also reaches the sponsor bank's targets (SB sees all); an SMB admin sees and edits only the SMB level. |
+| 2 | Ack and escalation are in the first release | Moved into Phase 1b (right after the audited core), not Phase 2. |
+| 3 | Mandatory channels: email and the on-screen bell. No mobile app | The bell becomes a real, per-user, persistent inbox (section 16). WhatsApp, SMS, webhook stay optional per bank. |
+| 4 | The bank admin configures routing as part of the **Go-Live checklist** | Alerting readiness items are added to the existing Go-Live readiness API and screen; go-live stays blocked until they pass (section 19). |
+| 5 | Audit trail must be available **now**, before the regulatory windows are known | Audit is the first thing built (Phase 1a). Any incident can be exported as a signed **evidence pack** (timeline, who was told, when, delivery outcomes, acks, config changes) from day one. The reporting windows themselves are configuration the compliance officer fills in later; nothing waits on them. |
+| 6 | Gmail end date unknown | A pilot-exception mechanism that does not need a date (section 19): while mail goes through a public provider the System Health page and the Go-Live checklist show a persistent notice and a weekly reminder; setting the end date is optional, and the notice disappears only when the bank's own relay is configured. |
 
 ## 14. Test plan (TDD, real systems where possible)
 
 Unit: matching, escalation timing (time-skipping Temporal), dedup and grouping, silences, template rendering and escaping, policy validation invariants. Integration against real stand-ins that speak the protocol: SMTP with TLS and login (exists), WhatsApp HTTP stub (exists), webhook receiver, Immudb (never mocked). Live: outage and recovery drill on the dev stack, mail server kill, Immudb kill, worker kill with the watchdog, alert storm, acknowledgement through the UI in the browser pane. Coverage targets follow the project rules (95% on workflow activities).
+
+## 15. Findings that change the plan (found by reading the code, 2026-11-17)
+
+1. **The bell icon is fake.** `apps/web/src/shared/layout/AppShell.jsx` renders a hard-coded `MOCK_NOTIFICATIONS` list ("IET risk, 22 minutes remaining", "stop payment detected" ...) to every user. A reviewer can be shown an invented critical alert, and a real one never appears. This must be replaced before anything else is pointed at the bell.
+2. **A second routing system already exists**: `shared/notifications/routing.py` (`NotificationRoutingTable`, audit event type to roles to channels, P0 to P3). The alert path I built bypasses it. One policy engine must serve both, or banks will configure two places. Plan: the new matrix supersedes it; its 18 event routes seed the matrix defaults.
+3. **A Go-Live readiness API exists** (`apps/api/routers/platform.py`, page `/admin/smoke-test`). Alerting readiness is added there, not as a new checklist.
+4. **No failure history is stored**: monitor state lives in workflow memory, so a restart or a continue-as-new loses everything except the current status.
+
+## 16. The bell (in-app notifications): real, per user, persistent
+
+- Table `platform.user_notifications` (bank_id, user_id, incident_id, severity, title, body, action link, created_at, read_at, acked_at). Written by the bell channel at dispatch time and audited exactly like email (intent before, outcome after).
+- API: `GET /v1/notifications` (cursor, unread count, filter by severity), `POST .../read`, `POST .../read-all`, `POST .../{id}/ack`. Scoped by the user's bank, PU and SMB.
+- UI: badge with real unread count; drawer lists real items; clicking opens the incident or the item. **Unread P0 stays pinned** at the top of every page (not dismissible except by acknowledging) with a configurable sound. Refresh by polling every 15 seconds for P0/P1 users (React Query `refetchInterval`), upgradeable to server-sent events.
+- Bell delivery is the **fallback of last resort**: it always works when the web app does, so every alert targeted at a person also lands here regardless of email or WhatsApp outcome.
+- No mock data in production builds; demo mode, if kept, is labelled and compiled out (existing SB/SMB demo-toggle rule).
+- Also carries non-alert events the routing table already defines (reviewer assignment, escalations) so the bell has one source.
+
+## 17. Failures: where historical data is visible
+
+**What is stored (durable, queryable, not workflow memory):**
+- `platform.alert_incidents`: one row per incident (opened, acked, resolved, severity, component, scope PU/SMB, dedup key, impact summary, root-cause category, linked change).
+- `platform.component_state_history`: every state transition (OK, SLOW, DOWN) with timestamps, so uptime and downtime are computed from facts, not estimated.
+- `platform.alert_deliveries`: every notification attempt (also the delivery log of section 9).
+- `platform.change_events`: deployments, config changes (with the maker-checker audit id), kill-switch changes, certificate rotations, so failures can be lined up against what changed.
+- Business impact counters during an incident: how many items fell to human review because of the degradation, IET-at-risk count, instruments delayed (counts and buckets only, never account or amount detail).
+- Partitioned by month on `opened_at`, indexed on (bank_id, opened_at); hot for 2 years, Immudb copy of the lifecycle events is the 10-year legal record; each history row can be **verified against Immudb** from the UI ("verify integrity").
+
+**Where it is seen (Ops, new "Reliability" area):**
+1. **Incident history**: filter by date range, component, severity, PU, SMB, status, owner, root-cause category, free text; open any incident to see the full timeline (detected, notified, acknowledged, escalated, resolved) and who did what.
+2. **Component timeline**: a strip per component over 24 hours / 7 / 30 / 90 days, down and slow periods shaded, **change events overlaid**, uptime percentage against the NFR (99.999% clearing hours, 99.99% off-hours).
+3. **Analytics**: top failing components, recurring failures (same cause more than N times in 90 days), by hour of day, MTTA, MTTR, noisiest alerts, share caught by probes versus reported by a human (detection gap).
+4. **Availability report**: monthly, per bank / PU / SMB, CSV and print-ready PDF, for the bank's operations committee, board and RBI examiner (read-only, date-scoped role already exists).
+5. **Evidence pack** per incident: signed export for compliance and regulators.
+- RBAC and scope: ops roles see their PU/SMB scope; sponsor bank sees all its SMBs; an SMB sees only its own; compliance officer and examiner read-only; fraud analyst and ML engineer see only their own domain.
+- Backfill: what exists today (current component states) is the first history row; nothing earlier can be reconstructed and the UI says so.
+
+## 18. Risk mitigation: how and when it is updated
+
+**Principle:** the system records facts automatically; **only a person declares a risk mitigated**, and a second person verifies it. The system never marks a risk closed on its own.
+
+**Objects**
+- **Risk register entry**: id, description, category (availability, capacity, security, vendor, process), likelihood, impact, rating, existing controls, residual risk, owner, next review date, mapped RBI IT framework control (`compliance/rbi-it-framework/control-mapping.yaml`).
+- **Post-incident review (PIR)** per incident: root cause (category and narrative), contributing factors, detection gap, customer/IET impact, linked risk entry.
+- **Mitigation action**: corrective or preventive, owner, due date, status (OPEN, IN_PROGRESS, DONE, VERIFIED, WONT_FIX with reason), evidence (link, config-change audit id, test result), verification note.
+
+**When things update**
+| Trigger | What happens |
+|---|---|
+| Incident resolved (P0/P1) | PIR task created for the owning team; due in `pir_due_days` (config: P0 3, P1 7). Overdue PIR raises its own alert through the routing matrix. |
+| PIR submitted | Actions created with owners and due dates; linked to a risk entry (new or existing); risk rating can be raised, never lowered, by the PIR author. |
+| Action owner finishes | Owner sets DONE with evidence. A **different** person (verifier: ops manager or compliance, never the owner) sets VERIFIED or sends it back. Both audited. |
+| A config threshold, probe, or routing change is the mitigation | The change's maker-checker audit id attaches to the action automatically as evidence. |
+| Quiet period after DONE | System schedules an **effectiveness check**: no recurrence of the same dedup key for `effectiveness_days` (default 30), or a stated measure met (for example disk below 70% for 14 days). Result is recorded as "evidence suggests effective" or "recurred"; a person still confirms. |
+| Same failure recurs | Incident auto-links to the earlier PIR and risk; the action is reopened; the risk is flagged "mitigation ineffective"; escalated to the risk owner. |
+| Action due date passes | Reminder, then escalation per routing matrix; shown on the risk owner's bell and dashboard. |
+| Periodic review | Each risk has a review date (default quarterly); reminder to the owner; the review is recorded even when nothing changes. |
+| Every change | Written to Immudb with actor, old and new value, time. |
+
+**Where it is seen**: Risk register page (heat map, filter by owner/status/overdue), action tracker (my actions, overdue, awaiting verification), PIR inside each incident, quarterly risk report (export). The incident history shows, for each failure, which risk it belongs to and whether its mitigations are verified.
+
+## 19. Go-Live checklist: alerting readiness (added to the existing readiness API)
+
+Each item is machine-checked where possible; go-live is blocked until all pass.
+1. Bank-level routing has at least one P0 target on two channels (email and bell), and the escalation chain ends at a human.
+2. On-call rota covers 24 x 7 with no gap (or a fallback group exists); PU and SMB levels configured or explicitly inheriting.
+3. Every target's email is verified; WhatsApp opt-in recorded where used.
+4. **Test-send succeeded in the last 7 days** on each enabled channel; the bell test reached each administrator.
+5. **Audit path proven**: a sentinel alert wrote its intent and outcome events and both were read back from Immudb.
+6. Fire drill run: a synthetic P0 was acknowledged by a human within the target time.
+7. Mail relay: either the bank's own relay, or the **pilot exception** is acknowledged (notice stays visible and reminds weekly until the bank relay is set; end date optional, entered when known).
+8. SPF/DKIM/DMARC check passes for the sending domain (or is recorded as accepted risk).
+9. Routing simulator run for one P0, one P1 and one P2 per component class, results saved.
+10. Regulatory reporting windows entered by the compliance officer, or marked "pending", which keeps a visible amber item (it does not block).
+11. Risk register seeded from the shipped template; every risk has an owner.
+12. No stale silences; no open incident older than its policy limit.
+
+## 20. Other holistic items
+
+- **Disaster recovery**: incident and outbox tables live in Yugabyte (active-active); one incident workflow per incident ID guarantees a single escalation timer even across a DC failover; the watchdog and delivery worker run in both DCs.
+- **Time**: stored UTC, displayed in the bank timezone; schedules and holidays in bank timezone.
+- **Languages**: all wording through the message taxonomy so Hindi can be added without code.
+- **Accessibility**: severity never by colour alone (label and icon); keyboard-operable inbox.
+- **Performance**: history queries are partition-pruned and paginated by cursor; the bell endpoint is cached for 15 seconds per user.
+- **Privacy**: contact details are PII (encrypted column, masked in logs); alert bodies carry no customer data.
+- **Testing**: adds a bell end-to-end test in the browser pane (real notification appears, unread count, ack), history and verification tests against real Yugabyte and Immudb, and a risk-lifecycle test (PIR, action, verify, recurrence reopen).
+
+## 21. Revised phases
+
+| Phase | Contents | Exit evidence |
+|---|---|---|
+| **1a. Audited core** | Incident, state-history and delivery tables; audit before/after on every send; outbox with retry and fallback; dedup; richer templates; delivery log API; **real bell inbox replacing the mock** | Kill SMTP mid-incident: falls back to bell, audit shows each attempt; kill Immudb: P0 still sent, backlog drains; bell shows real unread count in browser |
+| **1b. Routing and ack** | Bank, PU, SMB policy levels with accumulate-and-floor rules, on-call, ack and escalation workflow, routing simulator, migration of `routing.py` routes and flat keys | Unacknowledged P0 reaches level 2 on time; ack stops it; a PU rule cannot remove a bank target |
+| **2. Screens** | Alert inbox, routing, on-call, contacts, templates, silences, delivery log, Go-Live alerting checks | Admin completes the checklist in the UI; non-admin cannot change routing without a checker |
+| **3. Reliability and risk** | Incident history, component timeline, analytics, availability report, evidence pack, PIR, risk register, action tracker, effectiveness checks | A failure is traced from alert to PIR to verified mitigation; recurrence reopens it |
+| **4. Scale and integration** | Grouping, digests, quiet hours, SMS, webhook/ITSM, SIEM syslog, regulatory timers, heartbeat and fire drills | Storm of 20 failures gives one incident; ITSM ticket opened and closed by webhook |
