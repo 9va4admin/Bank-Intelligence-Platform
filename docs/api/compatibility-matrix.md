@@ -56,6 +56,11 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | GET | `/audit/events` | CURRENT | — | — | — | — |
 | GET | `/admin/config` | CURRENT | — | — | — | — |
 | POST | `/admin/config` | CURRENT | — | — | — | — |
+| GET | `/v1/ops/components` | CURRENT | — | — | — | — |
+| GET | `/v1/ops/alerts/incidents` | CURRENT | — | — | — | — |
+| GET | `/v1/ops/alerts/incidents/{incident_id}` | CURRENT | — | — | — | — |
+| GET | `/v1/ops/alerts/deliveries` | CURRENT | — | — | — | — |
+| POST | `/v1/ops/alerts/incidents/{incident_id}/acknowledge` | CURRENT | — | — | — | — |
 
 ---
 

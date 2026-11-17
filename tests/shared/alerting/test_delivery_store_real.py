@@ -141,3 +141,34 @@ def test_the_incident_view_lists_masked_deliveries_only_for_that_bank_and_incide
         assert {r["recipient_ref"] for r in rows} == {"n***@gmail.com", "******0001"}
         assert await store.list_for_incident("another-bank", "inc1", limit=50) == []
     _run(go)
+
+
+def test_a_read_only_store_needs_no_keys_but_cannot_queue_or_claim():
+    async def go(store, bank, pool):
+        r = await _enq(store, bank)
+        reader = DeliveryStore(pool)
+        rows = (await reader.list_deliveries(bank, limit=10)).items
+        assert [x["recipient_ref"] for x in rows] == ["n***@gmail.com"] and "recipient" not in rows[0]
+        with pytest.raises(ValueError):
+            await reader.claim(bank, r.delivery_id, lease_seconds=60)
+    _run(go)
+
+
+def test_deliveries_can_be_listed_filtered_and_paged():
+    async def go(store, bank, pool):
+        a = await _enq(store, bank, occasion="a")
+        b = await _enq(store, bank, occasion="b", channel="whatsapp", recipient="+919800000001")
+        c = await _enq(store, bank, occasion="c", incident="other")
+        for i, r in enumerate((a, b, c)):
+            await pool.execute("UPDATE platform.alert_deliveries SET created_at = NOW() - make_interval(secs => $2) WHERE delivery_id=$1", r.delivery_id, float(100 - i))
+        await store.claim(bank, a.delivery_id, lease_seconds=60)
+        await store.mark_sent(bank, a.delivery_id, provider_class="accepted")
+        p1 = await store.list_deliveries(bank, limit=2)
+        assert [x["delivery_id"] for x in p1.items] == [c.delivery_id, b.delivery_id] and p1.next_cursor
+        p2 = await store.list_deliveries(bank, limit=2, cursor=p1.next_cursor)
+        assert [x["delivery_id"] for x in p2.items] == [a.delivery_id] and p2.next_cursor is None
+        assert [x["delivery_id"] for x in (await store.list_deliveries(bank, limit=10, status="SENT")).items] == [a.delivery_id]
+        assert [x["channel"] for x in (await store.list_deliveries(bank, limit=10, channel="whatsapp")).items] == ["whatsapp"]
+        assert len((await store.list_deliveries(bank, limit=10, incident_id="inc1")).items) == 2
+        assert (await store.list_deliveries("another-bank", limit=10)).items == []
+    _run(go)

@@ -12,6 +12,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from shared.alerting.paging import Page, decode_cursor, page_of
 from shared.messages import get_message
 
 _RECOVERY_EVENTS = ("COMPONENT_RECOVERED", "COMPONENT_SLOW_CLEARED")
@@ -139,3 +140,30 @@ class IncidentStore:
         await self._pool.execute(
             "INSERT INTO platform.component_state_history (bank_id, component, from_status, to_status, latency_ms, error, incident_id) "
             "VALUES ($1,$2,$3,$4,$5,$6,$7)", bank_id, component, from_status, to_status, latency_ms, error, incident_id)
+
+    async def get(self, bank_id: str, incident_id: str) -> Optional[dict]:
+        row = await self._pool.fetchrow(
+            "SELECT incident_id, dedup_key, alert_id, component, category, severity, state, scope_level, pu_id, smb_id, summary, impact, "
+            "root_cause_category, opened_at, acked_at, acked_by, resolved_at, resolved_by, last_notified_at, notification_count, escalation_level "
+            "FROM platform.alert_incidents WHERE bank_id=$1 AND incident_id=$2", bank_id, incident_id)
+        return dict(row) if row else None
+
+    async def list_incidents(self, bank_id: str, *, limit: int, cursor: Optional[str] = None, state: Optional[str] = None,
+                             severity: Optional[str] = None, component: Optional[str] = None) -> Page:
+        """Newest first. Raises ValueError for a bad cursor."""
+        limit = min(max(limit, 1), MAX_LIST)
+        clauses, args = ["bank_id = $1"], [bank_id]
+        for column, value in (("state", state), ("severity", severity), ("component", component)):
+            if value:
+                args.append(value)
+                clauses.append(f"{column} = ${len(args)}")
+        if cursor:
+            moment, row_id = decode_cursor(cursor)
+            args += [moment, row_id]
+            clauses.append(f"(opened_at, incident_id) < (${len(args) - 1}, ${len(args)})")
+        args.append(limit + 1)
+        rows = await self._pool.fetch(
+            "SELECT incident_id, dedup_key, alert_id, component, severity, state, scope_level, summary, opened_at, acked_at, acked_by, resolved_at, "
+            "notification_count FROM platform.alert_incidents WHERE " + " AND ".join(clauses)
+            + f" ORDER BY opened_at DESC, incident_id DESC LIMIT ${len(args)}", *args)
+        return page_of(rows, limit, "opened_at", "incident_id")

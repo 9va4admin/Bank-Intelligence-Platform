@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from shared.alerting.audit import mask_recipient
 from shared.messages import get_message
 from shared.alerting.incidents import MAX_LIST, _is_conflict
+from shared.alerting.paging import Page, decode_cursor, page_of
 from shared.utils.pii_crypto import hash_account_number     # the platform's one HMAC; the name is historical, it hashes any identifier
 
 _COLUMNS = ("delivery_id, bank_id, incident_id, idempotency_key, escalation_level, channel, recipient_ref, template_id, status, attempt, "
@@ -46,9 +47,9 @@ class DeliveryRow(BaseModel):
 
 
 class DeliveryStore:
-    def __init__(self, pool: Any, *, pii_key: str, pepper: str, max_attempts: int = 6, retry_backoff_seconds: float = 0.03) -> None:
-        if not pii_key or not pepper:
-            raise ValueError(get_message("ALERT_DELIVERY_KEYS_REQUIRED"))
+    def __init__(self, pool: Any, *, pii_key: Optional[str] = None, pepper: Optional[str] = None, max_attempts: int = 6,
+                 retry_backoff_seconds: float = 0.03) -> None:
+        """Without the keys the store can only read (the delivery log); queueing and claiming need them."""
         self._pool, self._key, self._pepper = pool, pii_key, pepper
         self._max_attempts, self._backoff = max(1, max_attempts), retry_backoff_seconds
 
@@ -61,7 +62,12 @@ class DeliveryStore:
                     raise
                 await asyncio.sleep(self._backoff * attempt * (0.5 + random.random()))
 
+    def _require_keys(self) -> None:
+        if not self._key or not self._pepper:
+            raise ValueError(get_message("ALERT_DELIVERY_KEYS_REQUIRED"))
+
     def idempotency_key(self, bank_id: str, incident_id: str, occasion: str, level: int, channel: str, recipient: str) -> str:
+        self._require_keys()
         return f"{incident_id}:{occasion}:{level}:{channel}:{hash_account_number(recipient, bank_id, self._pepper)[:16]}"
 
     async def enqueue(self, *, bank_id: str, incident_id: str, occasion: str, level: int, channel: str, recipient: str, template_id: str,
@@ -85,6 +91,7 @@ class DeliveryStore:
 
     async def claim(self, bank_id: str, delivery_id: str, *, lease_seconds: float) -> Optional[DeliveryRow]:
         """Take a delivery that is due (or whose sender's lease has expired). At most one caller wins."""
+        self._require_keys()
         async def go():
             row = await self._pool.fetchrow(
                 "UPDATE platform.alert_deliveries SET status='SENDING', attempt=attempt+1, claimed_until=NOW() + make_interval(secs => $3) "
@@ -133,3 +140,23 @@ class DeliveryStore:
             "created_at, completed_at FROM platform.alert_deliveries WHERE bank_id=$1 AND incident_id=$2 ORDER BY created_at LIMIT $3",
             bank_id, incident_id, min(max(limit, 1), MAX_LIST))
         return [dict(r) for r in rows]
+
+    async def list_deliveries(self, bank_id: str, *, limit: int, cursor: Optional[str] = None, status: Optional[str] = None,
+                              channel: Optional[str] = None, incident_id: Optional[str] = None) -> Page:
+        """The delivery log, newest first, masked recipients only. Raises ValueError for a bad cursor."""
+        limit = min(max(limit, 1), MAX_LIST)
+        clauses, args = ["bank_id = $1"], [bank_id]
+        for column, value in (("status", status), ("channel", channel), ("incident_id", incident_id)):
+            if value:
+                args.append(value)
+                clauses.append(f"{column} = ${len(args)}")
+        if cursor:
+            moment, row_id = decode_cursor(cursor)
+            args += [moment, row_id]
+            clauses.append(f"(created_at, delivery_id) < (${len(args) - 1}, ${len(args)})")
+        args.append(limit + 1)
+        rows = await self._pool.fetch(
+            "SELECT delivery_id, incident_id, escalation_level, channel, recipient_ref, template_id, status, attempt, next_attempt_at, provider_class, "
+            "error, fallback_of, created_at, completed_at FROM platform.alert_deliveries WHERE " + " AND ".join(clauses)
+            + f" ORDER BY created_at DESC, delivery_id DESC LIMIT ${len(args)}", *args)
+        return page_of(rows, limit, "created_at", "delivery_id")

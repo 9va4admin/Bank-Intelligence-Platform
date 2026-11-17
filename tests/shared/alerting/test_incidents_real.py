@@ -119,3 +119,34 @@ def test_state_changes_are_recorded_for_history():
         rows = await pool.fetch("SELECT from_status, to_status FROM platform.component_state_history WHERE bank_id=$1 ORDER BY id", bank)
         assert [(r["from_status"], r["to_status"]) for r in rows] == [("OK", "DOWN"), ("DOWN", "OK")]
     _run(go)
+
+
+def test_incidents_can_be_listed_filtered_and_paged_newest_first():
+    async def go(store, bank, pool):
+        ids = []
+        for i, sev in enumerate(["P0", "P1", "P2", "P0", "P1"]):
+            r = await store.open_or_update(bank_id=bank, dedup_key=f"k{i}", alert_id="COMPONENT_DOWN", component="redis" if i % 2 == 0 else "kafka",
+                                           severity=sev, summary=f"s{i}")
+            ids.append(r.incident_id)
+            await pool.execute("UPDATE platform.alert_incidents SET opened_at = NOW() - make_interval(secs => $2) WHERE incident_id=$1", r.incident_id, float(100 - i))
+        await store.resolve(bank, "k4", "u")
+        page1 = await store.list_incidents(bank, limit=2)
+        assert [r["summary"] for r in page1.items] == ["s4", "s3"] and page1.next_cursor is not None
+        page2 = await store.list_incidents(bank, limit=2, cursor=page1.next_cursor)
+        assert [r["summary"] for r in page2.items] == ["s2", "s1"]
+        page3 = await store.list_incidents(bank, limit=2, cursor=page2.next_cursor)
+        assert [r["summary"] for r in page3.items] == ["s0"] and page3.next_cursor is None
+        assert {r["summary"] for r in (await store.list_incidents(bank, limit=50, state="OPEN")).items} == {"s0", "s1", "s2", "s3"}
+        assert {r["severity"] for r in (await store.list_incidents(bank, limit=50, severity="P0")).items} == {"P0"}
+        assert {r["component"] for r in (await store.list_incidents(bank, limit=50, component="kafka")).items} == {"kafka"}
+        assert (await store.list_incidents("another-bank", limit=50)).items == []
+    _run(go)
+
+
+def test_one_incident_can_be_fetched_only_within_its_bank():
+    async def go(store, bank, pool):
+        r = await _raise(store, bank)
+        got = await store.get(bank, r.incident_id)
+        assert got["incident_id"] == r.incident_id and got["component"] == "redis" and got["state"] == "OPEN"
+        assert await store.get("another-bank", r.incident_id) is None and await store.get(bank, "nope") is None
+    _run(go)

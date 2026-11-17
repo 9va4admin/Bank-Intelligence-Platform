@@ -54484,3 +54484,52 @@ ALERT_IMPACT_EVENT_STUCK_WORKFLOWS_TERMINATED:
   variables: []
   en: "Some cheque workflows were stopped for running too long; check that those cheques were handled."
   hi: ""
+
+ALERT_API_ROLE_CANNOT_READ:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot view alerts."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_ACK:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot acknowledge alerts."
+  hi: ""
+
+ALERT_API_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That alert incident was not found."
+  hi: ""
+
+ALERT_API_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Alert records are temporarily unavailable."
+  hi: ""
+
+ALERT_API_ALREADY_ACKNOWLEDGED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That incident is already acknowledged or resolved."
+  hi: ""
+
+ALERT_API_BAD_CURSOR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The page cursor is not valid."
+  hi: ""
+
+ALERT_PAGING_INVALID_CURSOR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The page cursor is not valid."
+  hi: ""
