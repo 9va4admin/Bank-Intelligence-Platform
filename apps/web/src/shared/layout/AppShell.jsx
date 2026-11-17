@@ -1,63 +1,17 @@
 import { useState, useContext, useEffect, useCallback } from 'react'
-import { NavLink, Link, useLocation } from 'react-router-dom'
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
 import { BANK_CONFIG } from '../config/bank.config'
-import CommandPalette from './CommandPalette'import { msg } from '../messages'
+import CommandPalette from './CommandPalette'
+import NotificationDrawer from './NotificationDrawer'
+import PinnedAlerts from './PinnedAlerts'
+import { useInbox } from '../hooks/useInbox'
+import { msg } from '../messages'
 import { msg as uiMsg } from '../messages'
 
-
-// ── Notification data ────────────────────────────────────────────────────────
-
-const _ago = (mins) => Date.now() - mins * 60000
-
-const MOCK_NOTIFICATIONS = [
-  { id: 'n1', severity: 'CRITICAL', read: false, ts: _ago(3),
-    title: uiMsg('UI_APPSHELL_IET_RISK_22_MIN_REMAINING'),
-    body: uiMsg('UI_APPSHELL_INS_20260812_00144_VERY_HIGH'),
-    action: '/cts/inward/review-queue' },
-  { id: 'n2', severity: 'CRITICAL', read: false, ts: _ago(9),
-    title: uiMsg('UI_APPSHELL_STOP_PAYMENT_DETECTED'),
-    body: uiMsg('UI_APPSHELL_ACTIVE_STOP_PAYMENT_ON_INS'),
-    action: '/cts/inward/review-queue' },
-  { id: 'n3', severity: 'WARN', read: false, ts: _ago(16),
-    title: uiMsg('UI_APPSHELL_VAULT_MISS_3_ACCOUNTS'),
-    body: uiMsg('UI_APPSHELL_SIGNATURE_VAULT_RETURNED_NO_MATCH'),
-    action: '/cts/vault/gaps' },
-  { id: 'n4', severity: 'WARN', read: true, ts: _ago(34),
-    title: uiMsg('UI_APPSHELL_OCR_CONFIDENCE_DEGRADED'),
-    body: uiMsg('UI_APPSHELL_GOT_OCR2_0_RETURNED_CONFIDENCE'),
-    action: '/cts/decisions' },
-  { id: 'n5', severity: 'INFO', read: true, ts: _ago(52),
-    title: uiMsg('UI_APPSHELL_VAULT_SYNC_COMPLETED'),
-    body: uiMsg('UI_APPSHELL_2_847_SIGNATURE_RECORDS_REFRESHED'),
-    action: '/cts/vault/status' },
-  { id: 'n6', severity: 'INFO', read: true, ts: _ago(94),
-    title: uiMsg('UI_APPSHELL_MORNING_SESSION_CLEARED'),
-    body: uiMsg('UI_APPSHELL_CLEARING_SESSION_2026_08_12'),
-    action: null },
-]
-
-function fmtNotifTs(ts) {
-  const mins = Math.floor((Date.now() - ts) / 60000)
-  if (mins < 1)  return uiMsg('UI_APPSHELL_JUST_NOW')
-  if (mins < 60) return uiMsg('UI_APPSHELL_M_AGO', { mins })
-  const hrs = Math.floor(mins / 60)
-  return uiMsg('UI_APPSHELL_H_AGO', { hrs })
-}
-
-const SEV_D = {
-  CRITICAL: { dot: 'bg-red-500',    badge: uiMsg('UI_APPSHELL_BG_RED_900_50_TEXT'),    ring: 'border-red-700/30' },
-  WARN:     { dot: 'bg-amber-400',  badge: uiMsg('UI_APPSHELL_BG_AMBER_900_40_TEXT'), ring: 'border-amber-700/20' },
-  INFO:     { dot: 'bg-blue-400',   badge: uiMsg('UI_APPSHELL_BG_BLUE_900_40_TEXT'),  ring: 'border-white/8' },
-}
-const SEV_L = {
-  CRITICAL: { dot: 'bg-red-500',    badge: uiMsg('UI_APPSHELL_BG_RED_50_TEXT_RED'),     ring: 'border-red-200' },
-  WARN:     { dot: 'bg-amber-400',  badge: uiMsg('UI_APPSHELL_BG_AMBER_50_TEXT_AMBER'), ring: 'border-amber-100' },
-  INFO:     { dot: 'bg-blue-400',   badge: uiMsg('UI_APPSHELL_BG_BLUE_50_TEXT_BLUE'),   ring: 'border-slate-200' },
-}
 
 // Nav item visibility is controlled by two independent gates:
 //   1. sbOnly: true  — SB bank type required (structural — SMB never sees SB management pages)
@@ -369,10 +323,11 @@ export default function AppShell({ children }) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS)
+  const navigate = useNavigate()
+  const inbox = useInbox()
   const { bankType, bankName, bankIfsc, isSB, isSMB, userRole, userName, hasPermission, bankMode } = useBankContext()
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = inbox.unread.total
 
   // Ctrl+K — open command palette
   useEffect(() => {
@@ -386,9 +341,12 @@ export default function AppShell({ children }) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const markAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-  }, [])
+  // Open a notification: mark it read, close the drawer, and go to the incident or page it points at.
+  const openNotification = useCallback((n) => {
+    if (!n.read_at) inbox.markRead(n.notification_id)
+    setNotifOpen(false)
+    if (n.action_link) navigate(n.action_link)
+  }, [inbox, navigate])
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -548,7 +506,7 @@ export default function AppShell({ children }) {
               </button>
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5 pointer-events-none">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {unreadCount > 9 ? uiMsg('UI_INBOX_BADGE_MANY') : unreadCount}
                 </span>
               )}
             </div>
@@ -605,96 +563,25 @@ export default function AppShell({ children }) {
 
         {/* Content */}
         <div className={`flex-1 min-h-0 overflow-y-auto ${th.content}`}>
+          <PinnedAlerts items={inbox.pinned} isDark={isDark} onAcknowledge={inbox.acknowledge} onOpen={openNotification} />
           {children}
         </div>
       </div>
 
-      {/* ── Notification drawer ──────────────────────────────────────────────── */}
-      {notifOpen && (
-        <>
-          {/* backdrop */}
-          <div className="fixed inset-0 z-[200]" onClick={() => setNotifOpen(false)} />
-          <div
-            className={`fixed top-0 right-0 bottom-0 z-[201] flex flex-col border-l shadow-2xl transition-all ${isDark ? 'bg-[#06102a] border-white/10' : 'bg-white border-slate-200'}`}
-            style={{ width: 380 }}
-          >
-            {/* Header */}
-            <div className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
-              <div>
-                <h2 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{uiMsg('UI_APPSHELL_NOTIFICATIONS')}</h2>
-                <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {unreadCount > 0 ? uiMsg('UI_APPSHELL_UNREAD', { unreadCount }) : uiMsg('UI_APPSHELL_ALL_CAUGHT_UP')}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllRead}
-                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                  >
-                   {uiMsg('UI_APPSHELL_MARK_ALL_READ')}
-                  </button>
-                )}
-                <button
-                  onClick={() => setNotifOpen(false)}
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                    <path strokeLinecap="round" d="M4 4l8 8M12 4l-8 8" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Notification list */}
-            <div className="flex-1 overflow-y-auto">
-              {notifications.map((n) => {
-                const SEV = isDark ? SEV_D : SEV_L
-                const s = SEV[n.severity] ?? SEV.INFO
-                return (
-                  <div
-                    key={n.id}
-                    className={`relative px-5 py-4 border-b cursor-pointer transition-colors ${isDark ? 'border-white/5 hover:bg-white/3' : 'border-slate-100 hover:bg-slate-50'} ${!n.read ? (isDark ? 'bg-white/2' : 'bg-blue-50/40') : ''}`}
-                    onClick={() => {
-                      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
-                      if (n.action) window.location.href = n.action
-                    }}
-                  >
-                    {/* Unread indicator */}
-                    {!n.read && (
-                      <span className={`absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${s.dot}`} />
-                    )}
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${s.badge}`}>
-                            {n.severity}
-                          </span>
-                          <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{fmtNotifTs(n.ts)}</span>
-                        </div>
-                        <p className={`text-xs font-semibold leading-snug mb-1 ${isDark ? (n.read ? 'text-slate-300' : 'text-white') : (n.read ? 'text-slate-600' : 'text-slate-900')}`}>{n.title}</p>
-                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{n.body}</p>
-                      </div>
-                      {n.action && (
-                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5 shrink-0 mt-1" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
-                          <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Footer */}
-            <div className={`px-5 py-3 border-t shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
-              <p className={`text-[10px] text-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-               {uiMsg('UI_APPSHELL_POWERED_BY_PLATFORMHEALTHCHECKWORKFL')}
-              </p>
-            </div>
-          </div>
-        </>
-      )}
+      {/* ── Notification drawer (the signed-in user's real notifications) ───── */}
+      <NotificationDrawer
+        open={notifOpen}
+        isDark={isDark}
+        items={inbox.items}
+        unread={inbox.unread}
+        error={inbox.error}
+        hasMore={inbox.hasMore}
+        onClose={() => setNotifOpen(false)}
+        onOpenItem={openNotification}
+        onReadAll={inbox.markAllRead}
+        onRetry={inbox.refresh}
+        onLoadMore={inbox.loadMore}
+      />
 
       {/* ── Command palette ──────────────────────────────────────────────────── */}
       <CommandPalette

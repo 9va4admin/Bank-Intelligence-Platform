@@ -54547,3 +54547,94 @@ ALERT_API_NOTIFICATION_NOT_FOUND:
   variables: []
   en: "That notification was not found."
   hi: ""
+
+UI_INBOX_SEV_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Critical"
+  hi: ""
+
+UI_INBOX_SEV_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Major"
+  hi: ""
+
+UI_INBOX_SEV_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Warning"
+  hi: ""
+
+UI_INBOX_SEV_P3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Info"
+  hi: ""
+
+UI_INBOX_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No notifications yet."
+  hi: ""
+
+UI_INBOX_ERROR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Notifications could not be loaded."
+  hi: ""
+
+UI_INBOX_RETRY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Try again"
+  hi: ""
+
+UI_INBOX_ACK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Acknowledge"
+  hi: ""
+
+UI_INBOX_ACK_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Could not acknowledge. Try again."
+  hi: ""
+
+UI_INBOX_PINNED_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} critical alert(s) waiting for acknowledgement"
+  hi: ""
+
+UI_INBOX_LOAD_MORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Load more"
+  hi: ""
+
+UI_INBOX_UNREAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unread"
+  hi: ""
+
+UI_INBOX_BADGE_MANY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "9+"
+  hi: ""
