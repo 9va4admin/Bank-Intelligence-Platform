@@ -30,8 +30,8 @@ def _run(fn):
         try:
             return await fn(pool, bank)
         finally:
-            await pool.execute("DELETE FROM platform.user_directory WHERE bank_id=$1", bank)
             await pool.execute("DELETE FROM platform.local_auth_accounts WHERE bank_id=$1", bank)
+            await pool.execute("DELETE FROM platform.user_directory WHERE bank_id=$1", bank)
             await pool.close()
     return asyncio.run(go())
 
@@ -65,13 +65,14 @@ async def _local(pool, bank, user, role):
 
 def test_the_bell_reaches_identity_provider_users_as_well_as_local_ones_without_duplicates():
     async def go(pool, bank):
-        await _local(pool, bank, "local-1", "ops_manager")
+        local = f"{bank}-local"                                                         # account ids are unique across banks
+        await _local(pool, bank, local, "ops_manager")
         await record_sign_in(pool, bank, "idp-1", "ops_manager")
         await record_sign_in(pool, bank, "idp-2", "bank_it_admin")
-        await record_sign_in(pool, bank, "local-1", "ops_manager")                      # also signed in: still one entry
+        await record_sign_in(pool, bank, local, "ops_manager")                          # also signed in: still one entry
         await record_sign_in(pool, bank, "idp-3", "ops_reviewer")                       # not a configured role
         users = await resolve_bell_users(pool, bank, roles=["ops_manager", "bank_it_admin"], limit=50, seen_within_days=90)
-        assert users == ["idp-1", "idp-2", "local-1"]
+        assert users == sorted(["idp-1", "idp-2", local])
     _run(go)
 
 

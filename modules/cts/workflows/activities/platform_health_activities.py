@@ -28,6 +28,7 @@ from shared.alerting.audit import SYSTEM_ACTOR, scrub_error
 from shared.alerting.bell import resolve_bell_users
 from shared.alerting.engine import Target
 from shared.alerting.incidents import IncidentStore, dedup_key_for, is_resolution
+from shared.alerting.retention import load_retention_policy, prune_alert_history
 from shared.audit.audit_event import AuditEventType
 from shared.notifications.dispatcher import NotificationRequest
 
@@ -430,6 +431,35 @@ async def process_alert_outbox(inp: ProcessOutboxInput, delivery_engine=None, co
             log.warning("process_alert_outbox.error", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
             return ProcessOutboxResult(degraded=True)
         return ProcessOutboxResult(attempted=res.attempted, sent=res.sent, retrying=res.retrying, undelivered=res.undelivered)
+
+
+class RunRetentionInput(BaseModel):
+    bank_id: str
+
+
+class RunRetentionResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    incidents: int = 0
+    deliveries: int = 0
+    state_changes: int = 0
+    notifications: int = 0
+    degraded: bool = False
+
+
+@activity.defn
+async def run_alert_retention(inp: RunRetentionInput, db_pool=None, config_service=None) -> RunRetentionResult:
+    """Prune old alert history (docs/design/alerting-blueprint.md). Run daily by the monitor; never raises."""
+    with tracer.start_as_current_span("activity.run_alert_retention") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None or config_service is None:
+            return RunRetentionResult(degraded=True)
+        try:
+            res = await prune_alert_history(db_pool, inp.bank_id, await load_retention_policy(config_service))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("run_alert_retention.error", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
+            return RunRetentionResult(degraded=True)
+        log.info("run_alert_retention.done", bank_id=inp.bank_id, **res.model_dump())
+        return RunRetentionResult(**res.model_dump())
 
 
 # ---------------------------------------------------------------------------

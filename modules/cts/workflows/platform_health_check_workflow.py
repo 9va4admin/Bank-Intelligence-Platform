@@ -49,9 +49,11 @@ from modules.cts.workflows.activities.platform_health_activities import (
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     ProcessOutboxInput,
+    RunRetentionInput,
     probe_components,
     process_alert_outbox,
     record_alert_incident,
+    run_alert_retention,
     sweep_stuck_workflows,
 )
 with workflow.unsafe.imports_passed_through():       # the workflow sandbox restricts imports; the message registry is read-only wording
@@ -79,6 +81,7 @@ class PlatformHealthInput(BaseModel):
     repeat_alert_seconds: float = 1800.0   # the same standing condition is mailed again no sooner than this
     iet_repeat_seconds: float = 300.0      # IET near-breach is time-critical: repeat sooner
     max_ticks_before_restart: int = 1000   # continue-as-new after this many ticks (history stays small)
+    prune_every_ticks: int = 1440          # old alert history is pruned on the first tick and then every this many ticks (1440 = daily at 60 s)
     # carried across continue-as-new:
     states: dict[str, ComponentState] = {}
     last_sent: dict[str, float] = {}
@@ -217,6 +220,11 @@ class PlatformHealthCheckWorkflow:
         # ── 6. Alert outbox: retry what failed to send, recover what a dead sender left behind ─────
         await workflow.execute_activity(
             process_alert_outbox, ProcessOutboxInput(bank_id=inp.bank_id), start_to_close_timeout=timedelta(seconds=45), retry_policy=_CHECK_RETRY)
+
+        # ── 7. Retention: prune old alert history ────────────────────────────────────────────────
+        if inp.prune_every_ticks > 0 and (self._tick - 1) % inp.prune_every_ticks == 0:
+            await workflow.execute_activity(
+                run_alert_retention, RunRetentionInput(bank_id=inp.bank_id), start_to_close_timeout=timedelta(seconds=120), retry_policy=_CHECK_RETRY)
 
     @workflow.run
     async def run(self, inp: PlatformHealthInput) -> None:

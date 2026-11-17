@@ -141,8 +141,11 @@ class DeliveryStore:
             bank_id, incident_id, min(max(limit, 1), MAX_LIST))
         return [dict(r) for r in rows]
 
+    async def count_deliveries(self, bank_id: str) -> int:
+        return int(await self._pool.fetchval("SELECT COUNT(*) FROM platform.alert_deliveries WHERE bank_id=$1", bank_id))
+
     async def list_deliveries(self, bank_id: str, *, limit: int, cursor: Optional[str] = None, status: Optional[str] = None,
-                              channel: Optional[str] = None, incident_id: Optional[str] = None) -> Page:
+                              channel: Optional[str] = None, incident_id: Optional[str] = None, statuses: Optional[list[str]] = None) -> Page:
         """The delivery log, newest first, masked recipients only. Raises ValueError for a bad cursor."""
         limit = min(max(limit, 1), MAX_LIST)
         clauses, args = ["bank_id = $1"], [bank_id]
@@ -150,6 +153,9 @@ class DeliveryStore:
             if value:
                 args.append(value)
                 clauses.append(f"{column} = ${len(args)}")
+        if statuses:
+            args.append(list(statuses))
+            clauses.append(f"status = ANY(${len(args)}::text[])")
         if cursor:
             moment, row_id = decode_cursor(cursor)
             args += [moment, row_id]
@@ -160,3 +166,16 @@ class DeliveryStore:
             "error, fallback_of, created_at, completed_at FROM platform.alert_deliveries WHERE " + " AND ".join(clauses)
             + f" ORDER BY created_at DESC, delivery_id DESC LIMIT ${len(args)}", *args)
         return page_of(rows, limit, "created_at", "delivery_id")
+
+    async def get_delivery(self, bank_id: str, delivery_id: str) -> Optional[dict]:
+        row = await self._pool.fetchrow(
+            "SELECT delivery_id, incident_id, escalation_level, channel, recipient_ref, template_id, status, attempt, next_attempt_at, provider_class, "
+            "error, fallback_of, created_at, completed_at FROM platform.alert_deliveries WHERE bank_id=$1 AND delivery_id=$2", bank_id, delivery_id)
+        return dict(row) if row else None
+
+    async def retry_now(self, bank_id: str, delivery_id: str) -> bool:
+        """Make a failed or given-up delivery due immediately (the next outbox run sends it). False if it is not in such a state."""
+        row = await self._retrying(lambda: self._pool.fetchrow(
+            "UPDATE platform.alert_deliveries SET status='FAILED', next_attempt_at=NOW(), completed_at=NULL, claimed_until=NULL "
+            "WHERE bank_id=$1 AND delivery_id=$2 AND status IN ('FAILED','UNDELIVERED') RETURNING delivery_id", bank_id, delivery_id))
+        return row is not None

@@ -208,6 +208,10 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.bell_min_priority": "P3",                     # lowest priority that reaches the bell (P3 = all)
     "alerting.bell_directory_days": 90,                     # people who signed in within this many days are on the bell (0 = everyone ever)
     "alerting.bell_max_recipients": 200,                    # most people the bell lookup returns
+    "alerting.retention_days": 730,                         # resolved incidents and finished deliveries are kept this long in the database (0 = keep)
+    "alerting.history_retention_days": 730,                 # component state history is kept this long (0 = keep)
+    "alerting.inbox_retention_days": 90,                    # bell notifications are kept this long, except unacknowledged critical ones (0 = keep)
+    "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

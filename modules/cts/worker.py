@@ -194,6 +194,7 @@ from modules.cts.workflows.activities.platform_health_activities import (
     probe_components,
     process_alert_outbox,
     record_alert_incident,
+    run_alert_retention,
     sweep_stuck_workflows,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput
@@ -343,6 +344,7 @@ ALL_ACTIVITIES = [
     probe_components,
     process_alert_outbox,
     record_alert_incident,
+    run_alert_retention,
     sweep_stuck_workflows,
     send_hold_reminder,
     send_hold_critical_alert,
@@ -392,6 +394,7 @@ NO_DI_ACTIVITIES = [
     dispatch_platform_alert,
     probe_components,       # infrastructure probes (config_service injected by the generic DI binder)
     process_alert_outbox,   # retries due alert deliveries (delivery_engine, config_service injected)
+    run_alert_retention,    # prunes old alert history (db_pool, config_service injected)
     record_alert_incident,  # opens/updates/resolves the incident an alert belongs to (db_pool, alert_auditor injected)
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
