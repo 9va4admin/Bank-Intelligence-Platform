@@ -63,8 +63,48 @@ async def read_smtp_settings(config_service: Any) -> Optional[SmtpSettings]:
                         ca_file=_platform(config_service, "smtp.ca_file"))
 
 
+@dataclass(frozen=True)
+class WhatsAppSettings:
+    api_url: str
+    phone_number_id: str
+    access_token: str
+
+
+async def read_whatsapp_settings(config_service: Any) -> Optional[WhatsAppSettings]:
+    """WhatsApp is on only when the API URL, the phone number id and the access token (secret whatsapp.access_token) are all set."""
+    api_url, phone_id = _platform(config_service, "whatsapp.api_url"), _platform(config_service, "whatsapp.phone_number_id")
+    if not api_url or not phone_id:
+        return None
+    try:
+        token = await config_service.get_secret("whatsapp.access_token")
+    except Exception as exc:
+        log.warning("whatsapp.access_token_unavailable", error=str(exc))
+        return None
+    return WhatsAppSettings(api_url.rstrip("/"), phone_id, token) if token else None
+
+
 async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
-    """A connected NotificationDispatcher with the email channel, or None when email is not configured."""
+    """A connected NotificationDispatcher with whichever channels are configured (email, WhatsApp), or None when neither is."""
+    from shared.notifications.dispatcher import NotificationDispatcher
+    email_channel = await _build_email_channel(config_service, bank_id)
+    whatsapp_channel = None
+    try:
+        wa = await read_whatsapp_settings(config_service)
+        if wa is not None:
+            from shared.notifications.whatsapp_channel import WhatsAppChannel
+            whatsapp_channel = WhatsAppChannel(wa.api_url, wa.phone_number_id, bank_id)
+            whatsapp_channel.connect(wa.access_token)
+    except Exception as exc:        # never stops the worker
+        log.error("notifications.whatsapp_settings_invalid", bank_id=bank_id, error=str(exc))
+        whatsapp_channel = None
+    if email_channel is None and whatsapp_channel is None:
+        return None
+    dispatcher = NotificationDispatcher(bank_id)
+    dispatcher.connect(email_channel=email_channel, whatsapp_channel=whatsapp_channel)
+    return dispatcher
+
+
+async def _build_email_channel(config_service: Any, bank_id: str) -> Any:
     try:
         settings = await read_smtp_settings(config_service)
     except Exception as exc:        # a mistyped email setting must never stop the worker: no email, loudly
@@ -73,7 +113,6 @@ async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
     if settings is None:
         log.warning("notifications.email_not_configured", bank_id=bank_id)
         return None
-    from shared.notifications.dispatcher import NotificationDispatcher
     from shared.notifications.email_channel import EmailChannel
     channel = EmailChannel(settings.host, settings.port, settings.from_address, bank_id,
                            username=settings.username, password=settings.password, security=settings.security,
@@ -85,6 +124,4 @@ async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
         log.warning("notifications.email_connect_failed", bank_id=bank_id, host=settings.host, error=str(exc))
         channel._ready = True
         channel._opened_by_connect = True
-    dispatcher = NotificationDispatcher(bank_id)
-    dispatcher.connect(email_channel=channel)
-    return dispatcher
+    return channel

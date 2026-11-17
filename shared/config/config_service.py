@@ -186,6 +186,10 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "platform_health.slow_after": 3,                  # consecutive slow probes before it is SLOW
     "platform_health.reminder_every_seconds": 1800.0,  # a standing outage is mentioned again this often, not every minute
     "platform_health.probe_timeout_seconds": 3.0,     # how long one probe may take before it counts as a failure
+    "platform_health.host_probes_enabled": True,      # disk and memory of the machine the monitor runs on
+    "platform_health.disk_max_percent": 90.0,         # disk usage at which the disk probe fails
+    "platform_health.memory_max_percent": 90.0,       # memory usage at which the memory probe fails
+    "alerts.whatsapp_min_priority": "P0",             # lowest priority also sent to WhatsApp (P0 only by default)
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

@@ -179,7 +179,7 @@ def test_extra_probes_can_be_added_from_hot_reloadable_config():
 
 
 def test_a_malformed_extra_probes_value_is_ignored_not_fatal():
-    assert _specs(_Cfg(layer3={"platform_health.extra_probes": "{not json"})) == {}
+    assert set(_specs(_Cfg(layer3={"platform_health.extra_probes": "{not json"}))) == {"disk", "memory"}      # only the host probes remain
 
 
 def test_the_probe_timeout_is_configurable_and_an_extra_probe_can_override_it():
@@ -203,3 +203,37 @@ def test_the_redis_client_uses_the_probes_timeout_not_a_hardcoded_one():
     with patch("modules.cts.health.probes._redis_from_url", return_value=fake) as factory:
         _run(ProbeSpec(component="redis", kind="redis", target="redis://x", timeout_s=7.0))
     assert factory.call_args.args == ("redis://x", 7.0)
+
+
+# ---------------- host probes: disk and memory -----------------
+
+def test_disk_probe_passes_below_the_limit_and_fails_above_it():
+    from collections import namedtuple
+    usage = namedtuple("usage", "total used free percent")
+    with patch("modules.cts.health.probes._disk_usage", return_value=usage(100, 50, 50, 50.0)):
+        assert _run(ProbeSpec(component="disk", kind="disk", target="/", limit=90)).ok
+    with patch("modules.cts.health.probes._disk_usage", return_value=usage(100, 95, 5, 95.0)):
+        r = _run(ProbeSpec(component="disk", kind="disk", target="/data", limit=90))
+    assert not r.ok and "95" in r.error and "/data" in r.error
+
+
+def test_memory_probe_fails_above_the_limit():
+    from collections import namedtuple
+    mem = namedtuple("mem", "percent")
+    with patch("modules.cts.health.probes._memory_percent", return_value=97.0):
+        r = _run(ProbeSpec(component="memory", kind="memory", target="host", limit=90))
+    assert not r.ok and "97" in r.error
+    with patch("modules.cts.health.probes._memory_percent", return_value=40.0):
+        assert _run(ProbeSpec(component="memory", kind="memory", target="host", limit=90)).ok
+
+
+def test_real_disk_and_memory_probes_run_on_this_machine():
+    assert _run(ProbeSpec(component="disk", kind="disk", target=".", limit=100)).ok
+    assert _run(ProbeSpec(component="memory", kind="memory", target="host", limit=100)).ok
+
+
+def test_host_probes_are_built_by_default_with_configurable_limits_and_can_be_switched_off():
+    s = _specs(_Cfg(layer3={"platform_health.disk_max_percent": 80, "platform_health.memory_max_percent": 85}))
+    assert s["disk"].limit == 80 and s["memory"].limit == 85 and s["disk"].critical is False
+    off = _specs(_Cfg(layer3={"platform_health.host_probes_enabled": False}))
+    assert "disk" not in off and "memory" not in off

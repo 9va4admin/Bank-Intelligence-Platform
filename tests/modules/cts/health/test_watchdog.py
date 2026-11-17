@@ -73,3 +73,21 @@ def test_a_missing_temporal_client_counts_as_not_running():
     asyncio.run(wd.check(None, now=1.0))
     asyncio.run(wd.check(None, now=61.0))
     assert len(sent) == 1
+
+
+def test_against_a_real_temporal_server_a_missing_monitor_is_reported():
+    """Real Temporal client, real query: with no monitor workflow the watchdog reports it."""
+    from shared.temporal.converter import pydantic_data_converter
+    from temporalio.testing import WorkflowEnvironment
+
+    async def go():
+        sent = []
+
+        async def send(alert):
+            sent.append(alert)
+        wd = MonitorWatchdog("kbl", thresholds=Thresholds(down_after_failures=1, recover_after_successes=1), stale_after=180, send=send)
+        async with await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter) as env:
+            await wd.check(env.client, now=time.time())
+            assert len(sent) == 1 and sent[0].priority == "P0" and sent[0].component == "health_monitor"
+            return True
+    assert asyncio.run(go())

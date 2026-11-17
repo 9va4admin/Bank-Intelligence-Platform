@@ -1353,3 +1353,15 @@ Slow components produced `COMPONENT_SLOW` warnings; recoveries after an earlier 
 
 **NOT covered:** delivery through a real provider (Gmail or the bank's Postal): STARTTLS and login are unit-tested against a fake SMTP object, never against a real server. WhatsApp alerts. A dead worker cannot email that it is dead (the dashboard shows the monitor as stale; an external watcher is needed).
 Kubernetes pod / host / disk / memory health. The Vault panel on the existing `/system` page still reads a client that is never set.
+
+## 2026-11-17 - Health monitor gaps closed (branch claude/health-gaps)
+
+What was built and how each was exercised:
+- **Dead-monitor watchdog** (API process, `modules/cts/health/watchdog.py`): unit-tested for RUNNING/STALE/NOT_RUNNING, repeat control and a failing mail server; run against a real Temporal server (time-skipping test environment) where a missing monitor is reported as a P0 `health_monitor` alert.
+- **Verified SMTP**: certificate verification on STARTTLS/SSL (`SMTP_CA_FILE` for a private CA). Tested against the dev SMTP sink in its new secure mode (real STARTTLS with a generated self-signed certificate, AUTH PLAIN/LOGIN): delivery over verified TLS with login succeeds; an untrusted certificate and a wrong password are both refused.
+- **`scripts/send_test_alert.py`**: one command that sends a test mail with the worker's settings and explains failures; run end to end against the sink (success, unreachable server, nothing configured).
+- **WhatsApp alerts**: channel exercised against a local HTTP server standing in for Meta (request path, bearer token, template name, ordered parameters); P0-only routing by default (`alerts.whatsapp_min_priority`), email and WhatsApp independent of each other's failures.
+- **Disk and memory probes** (psutil, non-critical, configurable limits): run for real on this machine and with stubbed readings above/below the limit.
+- **Vault panel** on `/v1/ops/system`: falls back to Vault's own health endpoint when no client is wired (200/429 unsealed, 503 sealed, unreachable degraded), tested against a local server.
+
+**NOT covered:** delivery to a real Gmail inbox (needs the owner's app password; run `scripts/send_test_alert.py`), real WhatsApp (needs the bank's approved Meta templates and token), Kubernetes pod/node health (platform team tooling). The dev stack was down during this work, so the watchdog was not run against the live worker; its real-Temporal test uses the test environment.

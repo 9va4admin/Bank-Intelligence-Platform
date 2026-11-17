@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Optional
+from shared.config.config_service import config_service
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -522,9 +523,28 @@ async def _fetch_redis_panel(redis_client: Any, label: str, bank_id: str) -> Red
         return RedisPanel(degraded=True)
 
 
-async def _fetch_vault_panel(vault_client: Any, bank_id: str) -> VaultPanel:
-    if vault_client is None:
+async def _vault_panel_from_health_endpoint(vault_addr: Optional[str], bank_id: str) -> VaultPanel:
+    """No Vault client in this process (the env secret backend, a dev stack): ask Vault's own health endpoint. 200/429 = unsealed (active or
+    standby), 503 = sealed, anything else or no answer = degraded."""
+    if not vault_addr:
         return VaultPanel(degraded=True)
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(vault_addr.rstrip("/") + "/v1/sys/health?standbyok=true")
+    except Exception as exc:
+        log.warning("ops.system.vault_unreachable", bank_id=bank_id, error=str(exc)[:120])
+        return VaultPanel(degraded=True)
+    if resp.status_code in (200, 429, 472, 473):
+        return VaultPanel(connected=True, seal_status="unsealed")
+    if resp.status_code == 503:
+        return VaultPanel(connected=True, seal_status="sealed")
+    return VaultPanel(degraded=True)
+
+
+async def _fetch_vault_panel(vault_client: Any, bank_id: str, vault_addr: Optional[str] = None) -> VaultPanel:
+    if vault_client is None:
+        return await _vault_panel_from_health_endpoint(vault_addr, bank_id)
     try:
         health = vault_client.sys.read_health_status(method="GET")
         sealed = health.get("sealed", True)
@@ -604,7 +624,11 @@ async def _fetch_system_health(
             log.warning("ops.system.yugabyte_error", bank_id=bank_id, error=str(exc))
             yb_panel = YugabytePanel(degraded=True)
 
-    vault_panel    = await _fetch_vault_panel(vault_client, bank_id)
+    try:
+        vault_addr = config_service.get_platform("vault.addr")
+    except Exception:
+        vault_addr = None
+    vault_panel    = await _fetch_vault_panel(vault_client, bank_id, vault_addr)
     kafka_panel    = await _fetch_kafka_panel(kafka_admin, bank_id)
     temporal_panel = await _fetch_temporal_panel(temporal_client, bank_id)
 

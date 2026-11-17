@@ -230,13 +230,13 @@ async def check_human_review_for_alert(
             return HRCheckResult(bank_id=inp.bank_id, degraded=True)
 
 
-async def _recipients(config_service: Any, bank_id: str) -> list[str]:
-    """Alert recipients from hot-reloadable config (alerts.email_recipients: a JSON list or comma-separated). Without a config service
-    (older callers and tests) the former per-bank mailbox is kept."""
+async def _recipients(config_service: Any, bank_id: str, key: str = "alerts.email_recipients") -> list[str]:
+    """Alert recipients from hot-reloadable config (a JSON list or comma-separated). Without a config service (older callers and tests) the former
+    per-bank mailbox is kept for email."""
     if config_service is None:
-        return [f"ops-alerts@{bank_id}.internal"]
+        return [f"ops-alerts@{bank_id}.internal"] if key == "alerts.email_recipients" else []
     try:
-        raw = await config_service.get("alerts.email_recipients")
+        raw = await config_service.get(key)
     except Exception:
         return []
     if isinstance(raw, list):
@@ -248,6 +248,23 @@ async def _recipients(config_service: Any, bank_id: str) -> list[str]:
         except ValueError:
             items = text.split(",")
     return [str(x).strip() for x in items if str(x).strip()]
+
+
+_PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+
+
+async def _whatsapp_recipients(config_service: Any, bank_id: str, priority: str) -> list[str]:
+    """Phones to message: only alerts at or above alerts.whatsapp_min_priority (default P0, so recoveries and slow warnings stay on email)."""
+    if config_service is None:
+        return []
+    floor = "P0"
+    try:
+        floor = str(await config_service.get("alerts.whatsapp_min_priority")).strip().upper() or "P0"
+    except Exception:
+        pass
+    if _PRIORITY_RANK.get(priority, 9) > _PRIORITY_RANK.get(floor, 0):
+        return []
+    return await _recipients(config_service, bank_id, "alerts.whatsapp_recipients")
 
 
 @activity.defn
@@ -267,25 +284,24 @@ async def dispatch_platform_alert(
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="dispatcher_none")
             return DispatchAlertResult(sent=False, degraded=True)
         recipients = await _recipients(config_service, inp.bank_id)
-        if not recipients:
+        phones = await _whatsapp_recipients(config_service, inp.bank_id, inp.priority)
+        if not recipients and not phones:
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="no_recipients_configured")
             return DispatchAlertResult(sent=False, degraded=True)
 
+        context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
+                   "component": inp.component, "down_for": inp.down_for}
         delivered = 0
-        for recipient in recipients:
-            try:
-                await dispatcher.send(NotificationRequest(
-                    channel="email",
-                    recipient=recipient,
-                    template_id=inp.template,
-                    context={"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
-                             "component": inp.component, "down_for": inp.down_for},
-                    priority=inp.priority,
-                    event_category="PLATFORM_HEALTH",
-                ))
-                delivered += 1
-            except Exception as exc:
-                log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, error=str(exc))
+        for channel, targets in (("email", recipients), ("whatsapp", phones)):
+            for recipient in targets:
+                try:
+                    await dispatcher.send(NotificationRequest(
+                        channel=channel, recipient=recipient, template_id=inp.template, context=context,
+                        priority=inp.priority, event_category="PLATFORM_HEALTH",
+                    ))
+                    delivered += 1
+                except Exception as exc:
+                    log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, channel=channel, error=str(exc))
         if delivered:
             log.info("dispatch_platform_alert.sent", bank_id=inp.bank_id, event_type=inp.event_type, severity=inp.severity,
                      priority=inp.priority, recipients=delivered)

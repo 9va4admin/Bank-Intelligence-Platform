@@ -54137,3 +54137,35 @@ HEALTH_MONITOR_NO_TEMPORAL:
   variables: []
   en: "The health monitor cannot be reached: there is no connection to the workflow engine."
   hi: ""
+
+HEALTH_PROBE_DISK_FULL:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [path, used, limit]
+  en: "Disk {path} is {used}% full (limit {limit}%)."
+  hi: ""
+
+HEALTH_PROBE_MEMORY_HIGH:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [used, limit]
+  en: "Memory is {used}% in use (limit {limit}%)."
+  hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+CTS_HTTP:
+  severity: INFO
+  surface: [UI]
+  variables: [status_code]
+  en: "HTTP {status_code}"
+  hi: ""
+
+CTS_UNKNOWN_PROBE_KIND:
+  severity: INFO
+  surface: [UI]
+  variables: [kind]
+  en: "unknown probe kind {kind}"
+  hi: ""
