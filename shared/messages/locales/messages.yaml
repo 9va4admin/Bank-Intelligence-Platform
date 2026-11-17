@@ -54169,3 +54169,17 @@ CTS_UNKNOWN_PROBE_KIND:
   variables: [kind]
   en: "unknown probe kind {kind}"
   hi: ""
+
+ALERT_DELIVERY_KEYS_REQUIRED:
+  severity: ERROR
+  surface: [AUDIT]
+  variables: []
+  en: "The alert delivery outbox needs the bank's PII encryption key and hash pepper."
+  hi: ""
+
+ALERT_INCIDENT_OPEN_FAILED:
+  severity: ERROR
+  surface: [AUDIT]
+  variables: []
+  en: "The incident could not be opened or updated after repeated attempts."
+  hi: ""

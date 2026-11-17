@@ -48,7 +48,9 @@ from modules.cts.workflows.activities.platform_health_activities import (
     check_scanner_fleet_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    ProcessOutboxInput,
     probe_components,
+    process_alert_outbox,
     record_alert_incident,
     sweep_stuck_workflows,
 )
@@ -137,6 +139,7 @@ class PlatformHealthCheckWorkflow:
     async def _notify(self, alert: DispatchAlertInput) -> None:
         """Open, update or resolve the incident this alert belongs to, then send it carrying the incident id. An incident store that is down
         or slow must never keep an alert from going out, so a failed record only means the alert has no incident id."""
+        alert = alert.model_copy(update={"occasion": f"t{self._tick}"})      # one notification per tick per alert; an activity retry repeats it, so nothing is sent twice
         try:
             recorded = await workflow.execute_activity(record_alert_incident, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
             if recorded.incident_id:
@@ -210,6 +213,10 @@ class PlatformHealthCheckWorkflow:
                 bank_id=inp.bank_id, event_type="STUCK_WORKFLOWS_TERMINATED", severity="WARN", priority="P1",
                 message=get_message("CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS", terminated=sweep_result.terminated, found=sweep_result.found),
             ), now, inp.repeat_alert_seconds)
+
+        # ── 6. Alert outbox: retry what failed to send, recover what a dead sender left behind ─────
+        await workflow.execute_activity(
+            process_alert_outbox, ProcessOutboxInput(bank_id=inp.bank_id), start_to_close_timeout=timedelta(seconds=45), retry_policy=_CHECK_RETRY)
 
     @workflow.run
     async def run(self, inp: PlatformHealthInput) -> None:

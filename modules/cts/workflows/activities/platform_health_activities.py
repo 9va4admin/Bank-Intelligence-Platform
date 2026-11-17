@@ -25,6 +25,7 @@ from temporalio import activity
 from modules.cts.health.probes import build_specs, run_probe
 from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
 from shared.alerting.audit import SYSTEM_ACTOR, scrub_error
+from shared.alerting.engine import Target
 from shared.alerting.incidents import IncidentStore, dedup_key_for, is_resolution
 from shared.audit.audit_event import AuditEventType
 from shared.notifications.dispatcher import NotificationRequest
@@ -84,12 +85,14 @@ class DispatchAlertInput(BaseModel):
     template: str = "PLATFORM_HEALTH_ALERT"      # PLATFORM_HEALTH_ALERT | PLATFORM_HEALTH_RECOVERED
     down_for: str = ""                           # recovery mails: how long it was down
     incident_id: str = ""                        # the incident this alert belongs to (audit correlation); empty = a fresh correlation id
+    occasion: str = ""                           # identifies this notification (a reminder is a new occasion); a retried activity repeats it, so nothing is sent twice
 
 
 class DispatchAlertResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     sent: bool = False
     degraded: bool = False
+    queued_for_retry: int = 0     # deliveries that failed their first attempt and will be retried by the outbox
 
 
 class CheckVaultCoverageInput(BaseModel):
@@ -278,6 +281,7 @@ async def dispatch_platform_alert(
     dispatcher=None,
     config_service=None,
     alert_auditor=None,
+    delivery_engine=None,
 ) -> DispatchAlertResult:
     """
     Send an alert via NotificationDispatcher (email), one mail per configured recipient. With an auditor, an intent record is written before each send
@@ -299,6 +303,21 @@ async def dispatch_platform_alert(
         context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
                    "component": inp.component, "down_for": inp.down_for}
         correlation_id = inp.incident_id or f"adhoc-{uuid.uuid4().hex}"
+        if delivery_engine is not None:
+            async def resolve_targets(channel: str) -> list[Target]:
+                """Who a fallback channel reaches: that channel's configured recipients, whatever their priority floor (a failed delivery is itself serious)."""
+                if channel == "email":
+                    return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
+                if channel == "whatsapp":
+                    return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+                return []
+            submitted = await delivery_engine.submit(
+                bank_id=inp.bank_id, incident_id=correlation_id, occasion=inp.occasion or uuid.uuid4().hex,
+                targets=[Target("email", r) for r in recipients] + [Target("whatsapp", r) for r in phones],
+                template_id=inp.template, context=context, priority=inp.priority, component=inp.component, resolve_targets=resolve_targets)
+            log.info("dispatch_platform_alert.submitted", bank_id=inp.bank_id, event_type=inp.event_type, priority=inp.priority,
+                     sent=submitted.sent, retrying=submitted.retrying, undelivered=submitted.undelivered)
+            return DispatchAlertResult(sent=submitted.sent > 0, queued_for_retry=submitted.retrying)
         delivered = 0
         for channel, targets in (("email", recipients), ("whatsapp", phones)):
             for recipient in targets:
@@ -326,6 +345,41 @@ async def dispatch_platform_alert(
             log.info("dispatch_platform_alert.sent", bank_id=inp.bank_id, event_type=inp.event_type, severity=inp.severity,
                      priority=inp.priority, recipients=delivered)
         return DispatchAlertResult(sent=delivered > 0, degraded=False)
+
+
+class ProcessOutboxInput(BaseModel):
+    bank_id: str
+
+
+class ProcessOutboxResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    attempted: int = 0
+    sent: int = 0
+    retrying: int = 0
+    undelivered: int = 0
+    degraded: bool = False
+
+
+@activity.defn
+async def process_alert_outbox(inp: ProcessOutboxInput, delivery_engine=None, config_service=None) -> ProcessOutboxResult:
+    """Retry the deliveries that are due and recover ones whose sender died. Run every monitor tick; never raises."""
+    with tracer.start_as_current_span("activity.process_alert_outbox") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if delivery_engine is None:
+            return ProcessOutboxResult(degraded=True)
+
+        async def resolve_targets(channel: str) -> list[Target]:
+            if channel == "email":
+                return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
+            if channel == "whatsapp":
+                return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+            return []
+        try:
+            res = await delivery_engine.process_due(inp.bank_id, resolve_targets=resolve_targets)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("process_alert_outbox.error", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
+            return ProcessOutboxResult(degraded=True)
+        return ProcessOutboxResult(attempted=res.attempted, sent=res.sent, retrying=res.retrying, undelivered=res.undelivered)
 
 
 # ---------------------------------------------------------------------------

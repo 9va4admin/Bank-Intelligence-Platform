@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 from shared.alerting.audit import AlertAuditor, Sink
+from shared.alerting.delivery import DeliveryStore
+from shared.alerting.engine import DeliveryEngine, load_policy
 from shared.audit.stream_buffer import buffer_audit_event
 
 ENTITY_TYPE = "alert_incident"
@@ -51,3 +53,19 @@ async def build_alert_auditor(config_service: Any, bank_id: str, *, redis: Any =
     if sink is None and fallback is not None:           # no stream configured: the direct write is the primary
         sink, fallback = fallback, None
     return AlertAuditor(sink, fallback=fallback, on_failure=on_failure, max_error_chars=max_error)
+
+
+async def build_delivery_engine(config_service: Any, bank_id: str, *, db_pool: Any, dispatcher: Any, auditor: Optional[AlertAuditor]) -> Optional[DeliveryEngine]:
+    """The outbox delivery engine, or None when it cannot work (no database, no dispatcher, or the bank's PII key / pepper is not available):
+    the caller then sends directly, as before."""
+    if db_pool is None or dispatcher is None:
+        return None
+    try:
+        key = await config_service.get_secret(f"banks.{bank_id}.pii_enc_key")
+        pepper = await config_service.get_secret(f"banks.{bank_id}.pii_hash_pepper")
+    except Exception:  # noqa: BLE001
+        return None
+    if not key or not pepper:
+        return None
+    policy = await load_policy(config_service)
+    return DeliveryEngine(DeliveryStore(db_pool, pii_key=key, pepper=pepper), dispatcher, auditor, policy)

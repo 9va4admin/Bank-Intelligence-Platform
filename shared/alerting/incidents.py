@@ -12,6 +12,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from shared.messages import get_message
+
 _RECOVERY_EVENTS = ("COMPONENT_RECOVERED", "COMPONENT_SLOW_CLEARED")
 _SLOW_EVENTS = ("COMPONENT_SLOW", "COMPONENT_SLOW_CLEARED")
 _COMPONENT_EVENTS = ("COMPONENT_DOWN", "COMPONENT_REMINDER", "COMPONENT_RECOVERED") + _SLOW_EVENTS
@@ -92,7 +94,7 @@ class IncidentStore:
                 "UPDATE platform.alert_incidents SET severity=$3, summary=$4, impact=CASE WHEN $5 = '' THEN impact ELSE $5 END "
                 "WHERE bank_id=$1 AND incident_id=$2", bank_id, row["incident_id"], new_severity, summary, impact)
             return OpenResult(incident_id=row["incident_id"], created=False, severity=new_severity, state=row["state"], severity_raised=raised)
-        raise RuntimeError("could not open or update the incident")
+        raise RuntimeError(get_message("ALERT_INCIDENT_OPEN_FAILED"))
 
     async def acknowledge(self, bank_id: str, incident_id: str, user: str) -> bool:
         return await self._retrying(lambda: self._acknowledge(bank_id, incident_id, user))

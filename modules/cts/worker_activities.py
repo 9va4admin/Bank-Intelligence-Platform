@@ -143,7 +143,9 @@ class BoundCTSActivities:
         lot_store: Any = None,
         dispatcher: Any = None,
         alert_auditor: Any = None,
+        delivery_engine: Any = None,
     ) -> None:
+        self._delivery_engine = delivery_engine   # outbox DeliveryEngine; None -> alerts are sent directly
         self._alert_auditor = alert_auditor   # AlertAuditor: intent/outcome records around every alert send
         self._dispatcher = dispatcher     # NotificationDispatcher (email); None when SMTP is not configured
         self._bank_id = bank_id
@@ -772,6 +774,7 @@ class BoundCTSActivities:
             "account_vault": getattr(self, "_account_vault", None),
             "dispatcher": getattr(self, "_dispatcher", None),
             "alert_auditor": getattr(self, "_alert_auditor", None),
+            "delivery_engine": getattr(self, "_delivery_engine", None),
         }
 
     @property
@@ -902,6 +905,8 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     dispatcher = await build_dispatcher(config_service, bank_id)   # None (with a warning) until SMTP_HOST is configured
     from shared.alerting.factory import build_alert_auditor
     alert_auditor = await build_alert_auditor(config_service, bank_id, redis=redis_client, immudb_writer=immudb_client)
+    from shared.alerting.factory import build_delivery_engine
+    delivery_engine = await build_delivery_engine(config_service, bank_id, db_pool=db_pool, dispatcher=dispatcher, auditor=alert_auditor)
 
     return BoundCTSActivities(
         bank_id=bank_id,
@@ -929,6 +934,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         lot_store=lot_store,
         dispatcher=dispatcher,
         alert_auditor=alert_auditor,
+        delivery_engine=delivery_engine,
     )
 
 

@@ -192,6 +192,11 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerts.whatsapp_min_priority": "P0",             # lowest priority also sent to WhatsApp (P0 only by default)
     "alerting.audit_collection_pattern": "cts_{bank_id}",   # Immudb collection for alert audit events when written directly
     "alerting.audit_max_error_chars": 200,                  # longest failure reason kept in an audit record
+    "alerting.delivery_max_attempts": 4,                    # attempts per delivery before it is declared undelivered and a fallback is tried
+    "alerting.delivery_backoff_seconds": "[60, 300, 900]",  # wait before attempt 2, 3, 4 ... (JSON list; the last value repeats)
+    "alerting.delivery_lease_seconds": 120.0,               # how long a sender holds a delivery before another may take it over
+    "alerting.delivery_fallbacks": '{"email": ["whatsapp"], "whatsapp": ["email"]}',   # channel to try when a channel gives up (JSON)
+    "alerting.delivery_batch_size": 20,                     # deliveries worked per monitor tick
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

@@ -41,7 +41,8 @@ def test_the_migration_exists_chains_from_the_current_head_and_leaves_one_head()
     referenced = set()
     for down, _, _ in revs.values():
         referenced |= set(re.findall(r"""["']([^"']+)["']""", down))
-    assert [r for r in revs if r not in referenced] == [REVISION]
+    heads = [r for r in revs if r not in referenced]
+    assert len(heads) == 1, heads                      # one head; later alerting migrations build on this one
 
 
 def test_the_migration_is_reversible():

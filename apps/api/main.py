@@ -12,6 +12,7 @@ Lifespan wiring:
 All state stored on app.state — accessible to route handlers via Request.
 """
 import asyncio
+import time
 import os
 from contextlib import asynccontextmanager
 
@@ -347,11 +348,17 @@ async def lifespan(app: FastAPI):
 
         from modules.cts.workflows.activities.platform_health_activities import record_alert_incident
 
+        from shared.alerting.factory import build_delivery_engine
+        _wd_engine = await build_delivery_engine(config_service, config_service.bank_id, db_pool=getattr(app.state, "db_pool_cts", None),
+                                                 dispatcher=_wd_dispatcher, auditor=_wd_auditor)
+
         async def _wd_send(alert: DispatchAlertInput) -> None:
             recorded = await record_alert_incident(alert, db_pool=getattr(app.state, "db_pool_cts", None), alert_auditor=_wd_auditor)
             if recorded.incident_id:
                 alert = alert.model_copy(update={"incident_id": recorded.incident_id})
-            await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor)
+            alert = alert.model_copy(update={"occasion": f"w{int(time.time())}"})
+            await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
+                                          delivery_engine=_wd_engine)
 
         watchdog_task = asyncio.create_task(run_watchdog(
             lambda: getattr(app.state, "temporal_client", None),

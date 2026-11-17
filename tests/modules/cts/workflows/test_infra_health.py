@@ -16,7 +16,7 @@ from modules.cts.health.state_machine import ComponentState, Event, Probe
 from modules.cts.workflows.activities.platform_health_activities import (
     CheckHRInput, CheckIETInput, CheckScannerFleetInput, CheckVaultCoverageInput, DispatchAlertInput, DispatchAlertResult,
     HRCheckResult, IETCheckResult, ProbeComponentsInput, ProbeComponentsResult, ScannerFleetCheckResult, StuckWorkflowSweepInput,
-    StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components, IncidentRecordResult,
+    StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components, IncidentRecordResult, ProcessOutboxInput, ProcessOutboxResult,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput, alerts_for_events
 from shared.messages import get_message
@@ -173,6 +173,13 @@ async def _dispatch(inp: DispatchAlertInput) -> DispatchAlertResult:
 
 
 RECORDED: list[DispatchAlertInput] = []
+OUTBOX_RUNS = {"n": 0}
+
+
+@activity.defn(name="process_alert_outbox")
+async def _outbox(inp: ProcessOutboxInput) -> ProcessOutboxResult:
+    OUTBOX_RUNS["n"] += 1
+    return ProcessOutboxResult()
 
 
 @activity.defn(name="record_alert_incident")
@@ -192,7 +199,7 @@ async def _probe(inp: ProbeComponentsInput) -> ProbeComponentsResult:
     return ProbeComponentsResult(states=states, events=[], probes_run=1)
 
 
-_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe, _record]
+_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe, _record, _outbox]
 
 
 @pytest_asyncio.fixture
@@ -204,6 +211,7 @@ async def env():
 async def _start(env, inp):
     DISPATCHED.clear()
     RECORDED.clear()
+    OUTBOX_RUNS["n"] = 0
     PROBE_CALLS["n"] = 0
     tq = f"tq-infra-{uuid.uuid4().hex[:8]}"
     worker = Worker(env.client, task_queue=tq, workflows=[PlatformHealthCheckWorkflow], activities=_ACTIVITIES,
@@ -239,6 +247,19 @@ async def test_every_alert_is_recorded_as_an_incident_first_and_dispatched_with_
     for d in DISPATCHED:
         assert d.incident_id == f"inc:{__import__('shared.alerting.incidents', fromlist=['x']).dedup_key_for(d.event_type, d.component)}"
     assert {r.event_type for r in RECORDED} >= {"COMPONENT_DOWN", "IET_BREACH_RISK"}
+
+
+@pytest.mark.asyncio
+async def test_the_outbox_is_worked_every_tick_and_each_tick_is_its_own_occasion(env):
+    inp = PlatformHealthInput(bank_id="kbl", repeat_alert_seconds=1800, iet_repeat_seconds=60)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=f"h-{uuid.uuid4().hex[:6]}", task_queue=tq)
+        await env.sleep(400)
+        await h.cancel()
+    assert OUTBOX_RUNS["n"] >= 3
+    iet = [d for d in DISPATCHED if d.event_type == "IET_BREACH_RISK"]
+    assert len(iet) >= 2 and all(d.occasion for d in iet) and len({d.occasion for d in iet}) == len(iet)     # a reminder is a new occasion; none repeats
 
 
 @pytest.mark.asyncio
