@@ -91,6 +91,7 @@ def test_the_mail_server_dies_mid_incident_and_nothing_is_lost_or_duplicated(tmp
     from modules.cts.workflows.activities.platform_health_activities import (
         DispatchAlertInput, ProcessOutboxInput, dispatch_platform_alert, process_alert_outbox)
     from shared.alerting.factory import build_alert_auditor, build_delivery_engine
+    from shared.alerting.templates import TemplateSettings
     from shared.audit.immudb_client import ImmudbClient
     from shared.notifications.dispatcher import NotificationDispatcher
     from shared.notifications.email_channel import EmailChannel
@@ -121,7 +122,8 @@ def test_the_mail_server_dies_mid_incident_and_nothing_is_lost_or_duplicated(tmp
         imm = ImmudbClient()
         imm.connect("localhost", 13322, bank, username=os.environ.get("IMMUDB_DEV_USER", "immudb"), password=os.environ.get("IMMUDB_DEV_PASSWORD", "immudb"))
         cfg = _Cfg(bank)
-        channel = EmailChannel("127.0.0.1", port, "astra@local.test", bank, username="astra", password="s3cret", security="starttls", ca_file=str(cert[0]))
+        channel = EmailChannel("127.0.0.1", port, "astra@local.test", bank, username="astra", password="s3cret", security="starttls", ca_file=str(cert[0]),
+                              template_settings=TemplateSettings(ui_base_url="https://astra.bank.example", timezone="Asia/Kolkata"))
         channel.connect()
         dispatcher = NotificationDispatcher(bank)
         dispatcher.connect(email_channel=channel)
@@ -157,6 +159,12 @@ def test_the_mail_server_dies_mid_incident_and_nothing_is_lost_or_duplicated(tmp
             mails = [json.loads(line) for line in out.read_text().splitlines()]
             assert len(mails) == 2 and all(m["tls"] and m["auth_user"] == "astra" for m in mails)       # exactly two mails: no loss, no duplicate
             assert any("still down" in m["data"] for m in mails)
+            import email as _email
+            for m in mails:
+                msg = _email.message_from_string(m["data"])
+                bodies = {p.get_content_type(): p.get_payload(decode=True).decode() for p in msg.walk() if p.get_content_type().startswith("text/")}
+                assert msg["Subject"].startswith("[ASTRA][P0][") and set(bodies) == {"text/plain", "text/html"}          # the full template
+                assert "https://astra.bank.example/ops/incidents/inc-live" in bodies["text/html"]
 
             kinds = [k for k, *_ in keys]
             assert kinds == ["ALERT_DISPATCH_INTENDED", "ALERT_DELIVERY_SUCCEEDED",

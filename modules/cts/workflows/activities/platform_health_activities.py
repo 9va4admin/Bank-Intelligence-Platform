@@ -85,6 +85,7 @@ class DispatchAlertInput(BaseModel):
     template: str = "PLATFORM_HEALTH_ALERT"      # PLATFORM_HEALTH_ALERT | PLATFORM_HEALTH_RECOVERED
     down_for: str = ""                           # recovery mails: how long it was down
     incident_id: str = ""                        # the incident this alert belongs to (audit correlation); empty = a fresh correlation id
+    occurred_at: float = 0.0                     # when it happened (epoch seconds); 0 = now
     occasion: str = ""                           # identifies this notification (a reminder is a new occasion); a retried activity repeats it, so nothing is sent twice
 
 
@@ -300,9 +301,10 @@ async def dispatch_platform_alert(
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="no_recipients_configured")
             return DispatchAlertResult(sent=False, degraded=True)
 
-        context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
-                   "component": inp.component, "down_for": inp.down_for}
         correlation_id = inp.incident_id or f"adhoc-{uuid.uuid4().hex}"
+        context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
+                   "component": inp.component, "down_for": inp.down_for, "incident_id": inp.incident_id, "occurred_at": inp.occurred_at or time.time(),
+                   "priority": inp.priority}
         if delivery_engine is not None:
             async def resolve_targets(channel: str) -> list[Target]:
                 """Who a fallback channel reaches: that channel's configured recipients, whatever their priority floor (a failed delivery is itself serious)."""

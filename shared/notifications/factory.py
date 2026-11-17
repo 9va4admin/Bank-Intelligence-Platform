@@ -105,6 +105,8 @@ async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
 
 
 async def _build_email_channel(config_service: Any, bank_id: str) -> Any:
+    from shared.alerting.templates import load_template_settings
+    template_settings = await load_template_settings(config_service)
     try:
         settings = await read_smtp_settings(config_service)
     except Exception as exc:        # a mistyped email setting must never stop the worker: no email, loudly
@@ -116,7 +118,7 @@ async def _build_email_channel(config_service: Any, bank_id: str) -> Any:
     from shared.notifications.email_channel import EmailChannel
     channel = EmailChannel(settings.host, settings.port, settings.from_address, bank_id,
                            username=settings.username, password=settings.password, security=settings.security,
-                           ca_file=settings.ca_file)
+                           ca_file=settings.ca_file, template_settings=template_settings)
     try:
         channel.connect()
     except Exception as exc:

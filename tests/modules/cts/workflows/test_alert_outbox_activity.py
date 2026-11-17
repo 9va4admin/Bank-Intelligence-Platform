@@ -56,6 +56,13 @@ def test_a_p0_alert_is_submitted_to_every_email_and_phone_with_the_incident_and_
     assert res.sent is True
 
 
+def test_the_context_carries_what_the_email_template_needs():
+    engine = _Engine()
+    _run(_alert(occurred_at=1234.0), engine)
+    ctx = engine.submits[0]["context"]
+    assert ctx["incident_id"] == "inc-9" and ctx["occurred_at"] == 1234.0 and ctx["priority"] == "P0"
+
+
 def test_below_the_whatsapp_floor_only_email_targets_are_submitted_but_a_fallback_may_still_reach_the_phones():
     engine = _Engine()
     _run(_alert(priority="P1"), engine)

@@ -197,6 +197,13 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.delivery_lease_seconds": 120.0,               # how long a sender holds a delivery before another may take it over
     "alerting.delivery_fallbacks": '{"email": ["whatsapp"], "whatsapp": ["email"]}',   # channel to try when a channel gives up (JSON)
     "alerting.delivery_batch_size": 20,                     # deliveries worked per monitor tick
+    "alerting.ui_base_url": "",                             # the ASTRA web address used in alert links (empty: no link in the mail)
+    "alerting.incident_path": "/ops/incidents/{incident_id}",   # path of an incident page under the web address
+    "alerting.runbook_base_url": "",                        # where runbooks are published (empty: no runbook link)
+    "alerting.runbook_map": '{"COMPONENT_DOWN": "component-down", "COMPONENT_REMINDER": "component-down"}',   # alert type -> runbook page (JSON)
+    "alerting.timezone": "Asia/Kolkata",                    # timezone alert times are shown in (UTC is always shown too)
+    "alerting.message_max_chars": 500,                      # longest alert message kept in a mail
+    "alerting.subject_max_chars": 100,                      # longest summary placed in the subject line
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

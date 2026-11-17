@@ -139,7 +139,7 @@ class PlatformHealthCheckWorkflow:
     async def _notify(self, alert: DispatchAlertInput) -> None:
         """Open, update or resolve the incident this alert belongs to, then send it carrying the incident id. An incident store that is down
         or slow must never keep an alert from going out, so a failed record only means the alert has no incident id."""
-        alert = alert.model_copy(update={"occasion": f"t{self._tick}"})      # one notification per tick per alert; an activity retry repeats it, so nothing is sent twice
+        alert = alert.model_copy(update={"occasion": f"t{self._tick}", "occurred_at": workflow.now().timestamp()})      # one notification per tick per alert; an activity retry repeats it, so nothing is sent twice
         try:
             recorded = await workflow.execute_activity(record_alert_incident, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
             if recorded.incident_id:
