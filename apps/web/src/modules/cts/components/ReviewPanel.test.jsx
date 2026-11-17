@@ -183,3 +183,17 @@ describe('ReviewPanel — OCR fields', () => {
     expect(screen.getByText('✓ None')).toBeInTheDocument()
   })
 })
+
+
+describe('ReviewPanel — the signature score is advisory', () => {
+  it('says the score is a similarity, not forgery detection, and tells the reviewer to compare the signatures', () => {
+    render(<ReviewPanel item={baseItem} onDecision={() => {}} />)
+    expect(screen.getByRole('note')).toHaveTextContent(/not forgery detection/i)
+    expect(screen.getByRole('note')).toHaveTextContent(/compare the signatures yourself/i)
+  })
+
+  it('shows no advisory when there is no score to caveat (vault miss)', () => {
+    render(<ReviewPanel item={{ ...baseItem, sig_specimen_available: false, sig_match_score: null }} onDecision={() => {}} />)
+    expect(screen.queryByText(/not forgery detection/i)).not.toBeInTheDocument()
+  })
+})

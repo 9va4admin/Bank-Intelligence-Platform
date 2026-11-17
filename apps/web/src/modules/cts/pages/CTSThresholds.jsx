@@ -97,6 +97,7 @@ const THRESHOLD_SCHEMA = [
     editable: true,
     category: msg('UI_OPERATIONSCONFIG_AI_CONFIDENCE'),
     desc: msg('UI_THRESHOLDS_SIAMESE_NETWORK_MATCH_SCORE_BELOW'),
+    advisory: msg('UI_SIGNATURE_ADVISORY_THRESHOLD'),
   },
   {
     key: 'vault_miss_action',
@@ -290,6 +291,7 @@ export default function CTSThresholds() {
                         )}
                       </div>
                       <p className={`text-xs mt-1 ${th.muted}`}>{t.desc}</p>
+                      {t.advisory && <p role="note" className="text-xs mt-1 text-amber-500">{t.advisory}</p>}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
@@ -378,6 +380,7 @@ export default function CTSThresholds() {
                 <button onClick={() => setEditing(null)} className={th.muted}>✕</button>
               </div>
               <p className={`text-xs mb-4 ${th.muted}`}>{editing.desc}</p>
+              {editing.advisory && <p role="note" className="text-xs mb-4 text-amber-500">{editing.advisory}</p>}
 
               <div className="space-y-3">
                 <div>
