@@ -54533,3 +54533,17 @@ ALERT_PAGING_INVALID_CURSOR:
   variables: []
   en: "The page cursor is not valid."
   hi: ""
+
+ALERT_BELL_NOT_CONNECTED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The in-app notification channel is not connected to a store."
+  hi: ""
+
+ALERT_API_NOTIFICATION_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That notification was not found."
+  hi: ""

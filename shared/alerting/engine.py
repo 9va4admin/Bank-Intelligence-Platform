@@ -25,7 +25,7 @@ DEFAULT_MAX_ATTEMPTS = 4
 DEFAULT_BACKOFF_SECONDS = [60.0, 300.0, 900.0]
 DEFAULT_LEASE_SECONDS = 120.0
 DEFAULT_BATCH_SIZE = 20
-DEFAULT_FALLBACKS: dict[str, list[str]] = {"email": ["whatsapp"], "whatsapp": ["email"]}
+DEFAULT_FALLBACKS: dict[str, list[str]] = {"email": ["whatsapp", "bell"], "whatsapp": ["email", "bell"]}
 ERROR_MAX_CHARS = 200
 
 

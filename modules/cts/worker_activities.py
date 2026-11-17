@@ -902,7 +902,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
 
     lot_store = await _build_lot_store(db_pool, minio_client, config_service)
     from shared.notifications.factory import build_dispatcher
-    dispatcher = await build_dispatcher(config_service, bank_id)   # None (with a warning) until SMTP_HOST is configured
+    dispatcher = await build_dispatcher(config_service, bank_id, db_pool=db_pool)   # email/WhatsApp when configured, the bell whenever there is a database
     from shared.alerting.factory import build_alert_auditor
     alert_auditor = await build_alert_auditor(config_service, bank_id, redis=redis_client, immudb_writer=immudb_client)
     from shared.alerting.factory import build_delivery_engine

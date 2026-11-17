@@ -83,8 +83,9 @@ async def read_whatsapp_settings(config_service: Any) -> Optional[WhatsAppSettin
     return WhatsAppSettings(api_url.rstrip("/"), phone_id, token) if token else None
 
 
-async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
-    """A connected NotificationDispatcher with whichever channels are configured (email, WhatsApp), or None when neither is."""
+async def build_dispatcher(config_service: Any, bank_id: str, *, db_pool: Any = None) -> Any:
+    """A connected NotificationDispatcher with whichever channels are available: email and WhatsApp when configured, the in-app bell whenever there is a
+    database. None when there is none of them."""
     from shared.notifications.dispatcher import NotificationDispatcher
     email_channel = await _build_email_channel(config_service, bank_id)
     whatsapp_channel = None
@@ -97,10 +98,16 @@ async def build_dispatcher(config_service: Any, bank_id: str) -> Any:
     except Exception as exc:        # never stops the worker
         log.error("notifications.whatsapp_settings_invalid", bank_id=bank_id, error=str(exc))
         whatsapp_channel = None
-    if email_channel is None and whatsapp_channel is None:
+    bell_channel = None
+    if db_pool is not None:
+        from shared.alerting.bell import BellChannel
+        from shared.alerting.inbox import InboxStore
+        from shared.alerting.templates import load_template_settings
+        bell_channel = BellChannel(InboxStore(db_pool), await load_template_settings(config_service))
+    if email_channel is None and whatsapp_channel is None and bell_channel is None:
         return None
     dispatcher = NotificationDispatcher(bank_id)
-    dispatcher.connect(email_channel=email_channel, whatsapp_channel=whatsapp_channel)
+    dispatcher.connect(email_channel=email_channel, whatsapp_channel=whatsapp_channel, bell_channel=bell_channel)
     return dispatcher
 
 

@@ -25,6 +25,7 @@ from temporalio import activity
 from modules.cts.health.probes import build_specs, run_probe
 from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
 from shared.alerting.audit import SYSTEM_ACTOR, scrub_error
+from shared.alerting.bell import resolve_bell_users
 from shared.alerting.engine import Target
 from shared.alerting.incidents import IncidentStore, dedup_key_for, is_resolution
 from shared.audit.audit_event import AuditEventType
@@ -276,6 +277,42 @@ async def _whatsapp_recipients(config_service: Any, bank_id: str, priority: str)
     return await _recipients(config_service, bank_id, "alerts.whatsapp_recipients")
 
 
+DEFAULT_BELL_ROLES = ["ops_manager", "bank_it_admin"]
+DEFAULT_BELL_MIN_PRIORITY = "P3"
+DEFAULT_BELL_MAX_RECIPIENTS = 200
+
+
+async def _bell_users(config_service: Any, db_pool: Any, bank_id: str, priority: Optional[str] = None) -> list[str]:
+    """People whose bell should ring: the active users of the configured roles. With a priority, only if it reaches alerting.bell_min_priority
+    (default: everything). A failing lookup means no bell recipients, never a failed alert."""
+    if db_pool is None or config_service is None:
+        return []
+    if priority is not None:
+        try:
+            floor = str(await config_service.get("alerting.bell_min_priority")).strip().upper() or DEFAULT_BELL_MIN_PRIORITY
+        except Exception:
+            floor = DEFAULT_BELL_MIN_PRIORITY
+        if _PRIORITY_RANK.get(priority, 9) > _PRIORITY_RANK.get(floor, 3):
+            return []
+    roles: Any = DEFAULT_BELL_ROLES
+    try:
+        raw = await config_service.get("alerting.bell_roles")
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+        if isinstance(parsed, list):
+            roles = [str(r) for r in parsed]
+    except Exception:
+        pass
+    try:
+        limit = int(await config_service.get("alerting.bell_max_recipients"))
+    except Exception:
+        limit = DEFAULT_BELL_MAX_RECIPIENTS
+    try:
+        return await resolve_bell_users(db_pool, bank_id, roles=roles, limit=limit)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("bell_users.lookup_failed", bank_id=bank_id, error=scrub_error(str(exc), 200))
+        return []
+
+
 @activity.defn
 async def dispatch_platform_alert(
     inp: DispatchAlertInput,
@@ -283,6 +320,7 @@ async def dispatch_platform_alert(
     config_service=None,
     alert_auditor=None,
     delivery_engine=None,
+    db_pool=None,
 ) -> DispatchAlertResult:
     """
     Send an alert via NotificationDispatcher (email), one mail per configured recipient. With an auditor, an intent record is written before each send
@@ -297,7 +335,8 @@ async def dispatch_platform_alert(
             return DispatchAlertResult(sent=False, degraded=True)
         recipients = await _recipients(config_service, inp.bank_id)
         phones = await _whatsapp_recipients(config_service, inp.bank_id, inp.priority)
-        if not recipients and not phones:
+        bell_users = await _bell_users(config_service, db_pool, inp.bank_id, inp.priority) if delivery_engine is not None else []
+        if not recipients and not phones and not bell_users:
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="no_recipients_configured")
             return DispatchAlertResult(sent=False, degraded=True)
 
@@ -312,10 +351,12 @@ async def dispatch_platform_alert(
                     return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
                 if channel == "whatsapp":
                     return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+                if channel == "bell":
+                    return [Target("bell", u) for u in await _bell_users(config_service, db_pool, inp.bank_id)]
                 return []
             submitted = await delivery_engine.submit(
                 bank_id=inp.bank_id, incident_id=correlation_id, occasion=inp.occasion or uuid.uuid4().hex,
-                targets=[Target("email", r) for r in recipients] + [Target("whatsapp", r) for r in phones],
+                targets=[Target("email", r) for r in recipients] + [Target("whatsapp", r) for r in phones] + [Target("bell", u) for u in bell_users],
                 template_id=inp.template, context=context, priority=inp.priority, component=inp.component, resolve_targets=resolve_targets)
             log.info("dispatch_platform_alert.submitted", bank_id=inp.bank_id, event_type=inp.event_type, priority=inp.priority,
                      sent=submitted.sent, retrying=submitted.retrying, undelivered=submitted.undelivered)
@@ -363,7 +404,7 @@ class ProcessOutboxResult(BaseModel):
 
 
 @activity.defn
-async def process_alert_outbox(inp: ProcessOutboxInput, delivery_engine=None, config_service=None) -> ProcessOutboxResult:
+async def process_alert_outbox(inp: ProcessOutboxInput, delivery_engine=None, config_service=None, db_pool=None) -> ProcessOutboxResult:
     """Retry the deliveries that are due and recover ones whose sender died. Run every monitor tick; never raises."""
     with tracer.start_as_current_span("activity.process_alert_outbox") as span:
         span.set_attribute("bank_id", inp.bank_id)
@@ -375,6 +416,8 @@ async def process_alert_outbox(inp: ProcessOutboxInput, delivery_engine=None, co
                 return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
             if channel == "whatsapp":
                 return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+            if channel == "bell":
+                return [Target("bell", u) for u in await _bell_users(config_service, db_pool, inp.bank_id)]
             return []
         try:
             res = await delivery_engine.process_due(inp.bank_id, resolve_targets=resolve_targets)

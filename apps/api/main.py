@@ -29,7 +29,7 @@ from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
-from apps.api.routers import alerts, observability
+from apps.api.routers import alerts, inbox, observability
 from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
@@ -339,7 +339,7 @@ async def lifespan(app: FastAPI):
 
         from shared.alerting.factory import build_alert_auditor
 
-        _wd_dispatcher = await build_dispatcher(config_service, config_service.bank_id)
+        _wd_dispatcher = await build_dispatcher(config_service, config_service.bank_id, db_pool=getattr(app.state, "db_pool_cts", None))
         from shared.audit.immudb_writer import AsyncImmudbWriter
         _wd_sync = getattr(app.state, "immudb_client", None)
         _wd_writer = AsyncImmudbWriter(_wd_sync) if _wd_sync is not None else None
@@ -359,7 +359,7 @@ async def lifespan(app: FastAPI):
                 alert = alert.model_copy(update={"incident_id": recorded.incident_id})
             alert = alert.model_copy(update={"occasion": f"w{int(time.time())}"})
             await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
-                                          delivery_engine=_wd_engine)
+                                          delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None))
 
         watchdog_task = asyncio.create_task(run_watchdog(
             lambda: getattr(app.state, "temporal_client", None),
@@ -531,6 +531,7 @@ app.include_router(cts_outward_queue.router_v1)
 app.include_router(demo_cloud_extract.router_v1)
 app.include_router(observability.router_v1)
 app.include_router(alerts.router_v1)
+app.include_router(inbox.router_v1)
 app.include_router(branches.router_v1)
 app.include_router(processing_units.router_v1)
 app.include_router(platform_router.router_v1)

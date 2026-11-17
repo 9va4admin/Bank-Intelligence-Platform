@@ -107,3 +107,62 @@ def test_the_outbox_activity_retries_what_is_due_using_the_configured_recipients
 def test_the_outbox_activity_degrades_without_an_engine():
     res = asyncio.run(process_alert_outbox(ProcessOutboxInput(bank_id="kbl"), delivery_engine=None, config_service=_cfg()))
     assert res.degraded and res.attempted == 0
+
+
+# ---------------- the bell -----------------
+
+class _Pool:
+    """Stands in for the database: answers the bell-recipient lookup."""
+    def __init__(self, users=("u-a", "u-b")):
+        self.users, self.asked = list(users), []
+
+    async def fetch(self, sql, bank, roles, limit):
+        self.asked.append((bank, roles, limit))
+        return [{"user_id": u} for u in self.users][:limit]
+
+
+def _run_bell(alert, engine, cfg, pool):
+    return asyncio.run(dispatch_platform_alert(alert, dispatcher=object(), config_service=cfg, delivery_engine=engine, db_pool=pool))
+
+
+def test_every_alert_also_goes_to_the_bell_of_the_configured_roles():
+    engine, pool = _Engine(), _Pool()
+    _run_bell(_alert(priority="P1"), engine, _cfg(**{"alerting.bell_roles": '["ops_manager"]'}), pool)
+    targets = {(t.channel, t.recipient) for t in engine.submits[0]["targets"]}
+    assert {("bell", "u-a"), ("bell", "u-b")} <= targets and ("email", "ops@x.in") in targets
+    assert pool.asked[0][1] == ["ops_manager"]
+
+
+def test_the_bell_roles_and_recipient_limit_come_from_configuration_with_defaults():
+    engine, pool = _Engine(), _Pool(users=["a", "b", "c"])
+    _run_bell(_alert(), engine, _cfg(**{"alerting.bell_max_recipients": 2}), pool)
+    assert pool.asked[0][1] == ["ops_manager", "bank_it_admin"] and pool.asked[0][2] == 2
+    assert len([t for t in engine.submits[0]["targets"] if t.channel == "bell"]) == 2
+
+
+def test_the_bell_has_its_own_priority_floor():
+    engine, pool = _Engine(), _Pool()
+    _run_bell(_alert(priority="P3"), engine, _cfg(**{"alerting.bell_min_priority": "P1"}), pool)
+    assert not [t for t in engine.submits[0]["targets"] if t.channel == "bell"] and pool.asked == []
+
+
+def test_the_bell_works_even_when_nobody_has_email_or_whatsapp_configured():
+    engine, pool = _Engine(), _Pool()
+    res = asyncio.run(dispatch_platform_alert(_alert(), dispatcher=object(), config_service=_Cfg(), delivery_engine=engine, db_pool=pool))
+    assert not res.degraded and [t.channel for t in engine.submits[0]["targets"]] == ["bell", "bell"]
+
+
+def test_a_failing_lookup_never_stops_the_alert():
+    class Broken:
+        async def fetch(self, *a):
+            raise ConnectionError("db down")
+    engine = _Engine()
+    res = _run_bell(_alert(), engine, _cfg(), Broken())
+    assert res.sent and {t.channel for t in engine.submits[0]["targets"]} == {"email", "whatsapp"}
+
+
+def test_a_fallback_can_reach_the_bell():
+    engine, pool = _Engine(), _Pool()
+    _run_bell(_alert(), engine, _cfg(), pool)
+    bell = asyncio.run(engine.submits[0]["resolve_targets"]("bell"))
+    assert [(t.channel, t.recipient) for t in bell] == [("bell", "u-a"), ("bell", "u-b")]
