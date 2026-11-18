@@ -204,7 +204,11 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.timezone": "Asia/Kolkata",                    # timezone alert times are shown in (UTC is always shown too)
     "alerting.business_hours": '{"days": [0, 1, 2, 3, 4], "start": "09:30", "end": "18:00"}',   # working hours for routing rules (Monday = 0; bank timezone)
     "alerting.holidays": "[]",                              # holiday dates, JSON list of ISO dates (YYYY-MM-DD), treated as off hours
+    "alerting.oncall_gap_days": 7,                          # how far ahead the on-call coverage check looks (days)
+    "alerting.oncall_gap_step_minutes": 30,                 # resolution of the coverage check (minutes)
+    "alerting.oncall_override_days": 14,                    # how far ahead overrides are listed (days)
     "alerting.component_teams": "{}",                      # component -> owning team (JSON map), for routing rules that match on team
+    "alerting.public_mail_hosts": '["smtp.gmail.com", "smtp.office365.com", "smtp-mail.outlook.com", "smtp.mail.yahoo.com", "smtp.sendgrid.net"]',   # mail hosts treated as a public provider (shown as a pilot-only notice)
     "alerting.message_max_chars": 500,                      # longest alert message kept in a mail
     "alerting.subject_max_chars": 100,                      # longest summary placed in the subject line
     "alerting.bell_roles": '["ops_manager", "bank_it_admin"]',   # roles whose in-app bell rings for every alert (JSON list)

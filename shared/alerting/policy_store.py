@@ -171,3 +171,23 @@ class PolicyStore:
             if policy is not None:
                 out[level] = [policy]
         return out
+
+    async def get_record(self, bank_id: str, policy_id: str) -> Optional[PolicyRecord]:
+        """A policy record in any status (None if it does not exist in this bank)."""
+        row = await self._pool.fetchrow(f"SELECT {_COLUMNS} FROM platform.alert_routing_policies WHERE bank_id=$1 AND policy_id=$2", bank_id, policy_id)
+        return _record(row) if row else None
+
+    async def active_record(self, bank_id: str, level: str, scope_id: Optional[str]) -> Optional[PolicyRecord]:
+        row = await self._pool.fetchrow(
+            f"SELECT {_COLUMNS} FROM platform.alert_routing_policies WHERE bank_id=$1 AND scope_level=$2 AND scope_id=$3 AND status='ACTIVE'", bank_id, level, scope_id or "")
+        return _record(row) if row else None
+
+    async def list_active(self, bank_id: str) -> list[PolicyRecord]:
+        rows = await self._pool.fetch(f"SELECT {_COLUMNS} FROM platform.alert_routing_policies WHERE bank_id=$1 AND status='ACTIVE' ORDER BY scope_level, scope_id LIMIT $2",
+                                      bank_id, MAX_LIST)
+        return [_record(r) for r in rows]
+
+    async def list_pending(self, bank_id: str) -> list[PolicyRecord]:
+        rows = await self._pool.fetch(f"SELECT {_COLUMNS} FROM platform.alert_routing_policies WHERE bank_id=$1 AND status='PENDING' ORDER BY created_at DESC LIMIT $2",
+                                      bank_id, MAX_LIST)
+        return [_record(r) for r in rows]

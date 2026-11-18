@@ -54652,3 +54652,87 @@ ALERT_ESCALATION_MESSAGE:
   variables: [level, summary]
   en: "Escalation level {level}: nobody has acknowledged this yet. {summary}"
   hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_ROUTING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot propose changes to alert routing."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_APPROVE_ROUTING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot approve or reject alert routing changes."
+  hi: ""
+
+ALERT_API_POLICY_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The routing policy is not acceptable. See the reasons."
+  hi: ""
+
+ALERT_API_SAME_USER:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The person who proposed a change cannot approve it. Another person must."
+  hi: ""
+
+ALERT_API_POLICY_NOT_PENDING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That proposal has already been decided."
+  hi: ""
+
+ALERT_API_POLICY_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That routing policy was not found."
+  hi: ""
+
+ALERT_API_POLICY_STORE_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Routing policies cannot be stored: the encryption key for this bank is not available."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_ONCALL:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change the on-call rota."
+  hi: ""
+
+ALERT_API_ROTA_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That on-call rota was not found."
+  hi: ""
+
+ALERT_API_ROTA_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The on-call rota is not acceptable. See the reasons."
+  hi: ""
+
+ALERT_API_OVERRIDE_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The on-call override is not acceptable. See the reasons."
+  hi: ""
+
+ALERT_API_OVERRIDE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That override was not found."
+  hi: ""
