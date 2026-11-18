@@ -29,7 +29,7 @@ from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
-from apps.api.routers import alert_contacts, alert_risks, alert_routing, alert_silences, alerts, inbox, observability, oncall
+from apps.api.routers import alert_contacts, alert_reviews, alert_risks, alert_routing, alert_silences, alerts, inbox, observability, oncall
 from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
@@ -547,6 +547,7 @@ app.include_router(oncall.router_v1)
 app.include_router(alert_contacts.router_v1)
 app.include_router(alert_silences.router_v1)
 app.include_router(alert_risks.router_v1)
+app.include_router(alert_reviews.router_v1)
 app.include_router(branches.router_v1)
 app.include_router(processing_units.router_v1)
 app.include_router(platform_router.router_v1)

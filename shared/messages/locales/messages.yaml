@@ -57788,3 +57788,94 @@ UI_ALERTING_RK_COL_REVIEW:
   variables: []
   en: "Next review"
   hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_REVIEWS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change post-incident reviews or actions."
+  hi: ""
+
+ALERT_API_REVIEW_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "There is no such review or action."
+  hi: ""
+
+ALERT_API_REVIEW_CATEGORY:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Choose a root cause from the list."
+  hi: ""
+
+ALERT_API_REVIEW_NARRATIVE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Write what happened in the narrative, in at least a few sentences."
+  hi: ""
+
+ALERT_API_REVIEW_RISK:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The risk you linked is not in the risk register."
+  hi: ""
+
+ALERT_API_REVIEW_SUBMITTED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "This review was already submitted."
+  hi: ""
+
+ALERT_API_REVIEW_NOT_SUBMITTED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Submit the review before adding actions to it."
+  hi: ""
+
+ALERT_API_ACTION_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "An action needs a kind, a description and an owner of up to 80 characters."
+  hi: ""
+
+ALERT_API_ACTION_DUE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The due date cannot be in the past."
+  hi: ""
+
+ALERT_API_ACTION_TRANSITION:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The action cannot move to that state from where it is now."
+  hi: ""
+
+ALERT_API_ACTION_EVIDENCE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Give evidence that the action is done: a link, a change number or a test result."
+  hi: ""
+
+ALERT_API_ACTION_NOTE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Give a short reason."
+  hi: ""
+
+ALERT_API_ACTION_SAME_PERSON:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "A different person must verify the action. The person who finished it cannot."
+  hi: ""
