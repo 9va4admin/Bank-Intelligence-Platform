@@ -141,7 +141,9 @@ class BoundCTSActivities:
         minio_client: Any = None,
         cheque_leaf_vault: Any = None,
         lot_store: Any = None,
+        dispatcher: Any = None,
     ) -> None:
+        self._dispatcher = dispatcher     # NotificationDispatcher (email); None when SMTP is not configured
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
         self._redis_client = redis_client
@@ -766,6 +768,7 @@ class BoundCTSActivities:
             "orchestrator": self._orchestrator, "config_service": self._config_service,
             "cbs_connector": self._cbs_connector, "minio_client": self._minio_client,
             "account_vault": getattr(self, "_account_vault", None),
+            "dispatcher": getattr(self, "_dispatcher", None),
         }
 
     @property
@@ -892,6 +895,8 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     cheque_leaf_vault = _build_cheque_leaf_vault(bank_id, pepper, db_pool, bloom_client, redis_client)
 
     lot_store = await _build_lot_store(db_pool, minio_client, config_service)
+    from shared.notifications.factory import build_dispatcher
+    dispatcher = await build_dispatcher(config_service, bank_id)   # None (with a warning) until SMTP_HOST is configured
 
     return BoundCTSActivities(
         bank_id=bank_id,
@@ -917,6 +922,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         minio_client=minio_client,
         cheque_leaf_vault=cheque_leaf_vault,
         lot_store=lot_store,
+        dispatcher=dispatcher,
     )
 
 

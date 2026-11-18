@@ -188,11 +188,13 @@ from modules.cts.workflows.activities.smb_vault_push_activities import (
 from modules.cts.workflows.activities.platform_health_activities import (
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_scanner_fleet_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    probe_components,
     sweep_stuck_workflows,
 )
-from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
+from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput
 from modules.cts.worker_activities import build_bound_activities
 from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
 from modules.cts.workflows.feedback_workflow import (
@@ -333,8 +335,10 @@ ALL_ACTIVITIES = [
     archive_drop_file,
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_scanner_fleet_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    probe_components,
     sweep_stuck_workflows,
     send_hold_reminder,
     send_hold_critical_alert,
@@ -379,8 +383,10 @@ NO_DI_ACTIVITIES = [
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_scanner_fleet_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    probe_components,       # infrastructure probes (config_service injected by the generic DI binder)
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
@@ -443,6 +449,29 @@ def _maybe_apply_load_test_stubs(bound_activities, config_service):
     log.warning("worker.load_test_ai_stubs_active", note="AI activities are STUBS — pipeline load test only")
     return apply_load_test_stubs(bound_activities)
 
+
+
+async def _start_platform_health(client, bank_id: str) -> None:
+    """Start the per-bank health monitor (a singleton, id cts-platform-health-{bank_id}). Already running is the normal case after a restart."""
+    from shared.messages import get_message
+    get_message("CTS_IET_BREACH_RISK_CHEQUES_WITHIN", near_breach_count=0)    # warm the registry (~6 s) before any workflow step needs it:
+    #                                                                            a cold load inside a workflow trips the SDK's deadlock detector
+    try:
+        from temporalio.common import WorkflowIDReusePolicy
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+        await client.start_workflow(
+            PlatformHealthCheckWorkflow.run,
+            PlatformHealthInput(bank_id=bank_id),
+            id=f"cts-platform-health-{bank_id}",
+            task_queue=f"cts-processing-{bank_id}",
+            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
+        )
+        log.info("worker.platform_health_started", bank_id=bank_id)
+    except Exception as exc:
+        if type(exc).__name__ == "WorkflowAlreadyStartedError":
+            log.info("worker.platform_health_already_running", bank_id=bank_id)
+        else:
+            log.warning("worker.platform_health_start_failed", bank_id=bank_id, error=str(exc))     # never stop the worker over the monitor
 
 async def run_worker(bank_id: str, config_service: Optional[ConfigService] = None) -> None:
     if not _TEMPORAL_AVAILABLE:
@@ -749,6 +778,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         _t = asyncio.create_task(_w.run())
         _t.add_done_callback(_make_done_cb(_name))
         _worker_run_tasks.append(_t)
+    await _start_platform_health(client, bank_id)
     try:
         if trigger is not None:
             trigger_task = asyncio.create_task(trigger.run())

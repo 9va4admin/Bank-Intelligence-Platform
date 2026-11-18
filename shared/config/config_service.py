@@ -181,6 +181,13 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "platform_health_check.cadence_seconds": 60,
     "platform_health_check.max_human_review_queue_depth": 50,
     "platform_health_check.max_human_review_wait_minutes": 45.0,
+    "platform_health.down_after_failures": 3,         # consecutive failed probes before a component is DOWN (one blip is not an outage)
+    "platform_health.recover_after_successes": 2,      # consecutive good probes before it is OK again
+    "platform_health.slow_after": 3,                  # consecutive slow probes before it is SLOW
+    "platform_health.reminder_every_seconds": 1800.0,  # a standing outage is mentioned again this often, not every minute
+    "platform_health.probe_timeout_seconds": 3.0,     # how long one probe may take before it counts as a failure
+    "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
+    "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────
     "cts.ocr_feedback_retrain_threshold": 500,
     "cts.ocr_promote_min_improvement": 0.02,

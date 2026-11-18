@@ -114,6 +114,34 @@ spec:
         description: 'Revoked session token presented for user {user_id} at bank {bank_id}
           — session {session_display}. Possible session hijack. Force-re-authenticate
           this user. Runbook: runbooks/auth/token-replay-detected.md'
+    - alert: HEALTHCOMPONENTDOWN
+      expr: increase(astra_incident_signal_total{message_key="HEALTH_COMPONENT_DOWN"}[5m])
+        > 0
+      for: 0s
+      labels:
+        severity: critical
+        module: platform
+        owning_team: bank_infra
+        incident_class: STRUCTURAL
+      annotations:
+        summary: HEALTH_COMPONENT_DOWN — incident signal fired for bank {{ $labels.bank_id
+          }}
+        description: '{component} is not responding ({failures} failed checks in a
+          row): {error} Runbook: runbooks/platform/component-down.md'
+    - alert: HEALTHCOMPONENTSTILLDOWN
+      expr: increase(astra_incident_signal_total{message_key="HEALTH_COMPONENT_STILL_DOWN"}[5m])
+        > 0
+      for: 0s
+      labels:
+        severity: critical
+        module: platform
+        owning_team: bank_infra
+        incident_class: STRUCTURAL
+      annotations:
+        summary: HEALTH_COMPONENT_STILL_DOWN — incident signal fired for bank {{ $labels.bank_id
+          }}
+        description: '{component} is still down after {down_for}: {error} Runbook:
+          runbooks/platform/component-down.md'
   - name: compliance_review
     rules:
     - alert: PLATFORMAUDITWRITEFAILED

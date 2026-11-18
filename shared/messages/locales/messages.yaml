@@ -28430,6 +28430,197 @@ UI_SIGNATURE_ADVISORY_THRESHOLD:
   en: "This is a similarity score, not a forgery test. Below it the cheque goes to a reviewer; above it does not mean the signature is genuine. Automatic confirmation also needs a promoted signature model."
   hi: ""
 
+PLATFORM_EMAIL_HEALTH_ALERT_SUBJECT:
+  severity: WARN
+  surface: [UI]
+  variables: [bank_id, severity, component]
+  en: "ASTRA {severity} - {component} ({bank_id})"
+  hi: ""
+
+PLATFORM_EMAIL_HEALTH_ALERT_BODY:
+  severity: WARN
+  surface: [UI]
+  variables: [bank_id, severity, component, event_type, message]
+  en: "ASTRA platform health alert for {bank_id}.\nSeverity: {severity}\nComponent: {component}\nEvent: {event_type}\n{message}"
+  hi: ""
+
+PLATFORM_EMAIL_HEALTH_RECOVERED_SUBJECT:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id, component]
+  en: "ASTRA - {component} recovered ({bank_id})"
+  hi: ""
+
+PLATFORM_EMAIL_HEALTH_RECOVERED_BODY:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id, component, down_for, message]
+  en: "ASTRA platform health for {bank_id}.\n{component} has recovered after {down_for}.\n{message}"
+  hi: ""
+
+PLATFORM_SMTP_SECURITY_UNKNOWN:
+  severity: ERROR
+  surface: [UI]
+  variables: [value]
+  en: "SMTP_SECURITY must be starttls, ssl or none, not {value}."
+  hi: ""
+
+HEALTH_COMPONENT_DOWN:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [component, failures, error]
+  en: "{component} is not responding ({failures} failed checks in a row): {error}"
+  hi: ""
+  incident:
+    incident_class: STRUCTURAL
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/platform/component-down.md"
+
+HEALTH_COMPONENT_STILL_DOWN:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [component, down_for, error]
+  en: "{component} is still down after {down_for}: {error}"
+  hi: ""
+  incident:
+    incident_class: STRUCTURAL
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/platform/component-down.md"
+
+HEALTH_COMPONENT_RECOVERED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [component, down_for]
+  en: "{component} is responding again after {down_for} down."
+  hi: ""
+
+HEALTH_COMPONENT_SLOW:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [component, latency_ms, slow_ms]
+  en: "{component} is slow: {latency_ms} ms against a limit of {slow_ms} ms, several checks in a row."
+  hi: ""
+
+HEALTH_COMPONENT_SLOW_CLEARED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [component]
+  en: "{component} is back to normal speed."
+  hi: ""
+
+UI_COMPONENTS_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Platform components"
+  hi: ""
+
+UI_COMPONENTS_COL_COMPONENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Component"
+  hi: ""
+
+UI_COMPONENTS_COL_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Status"
+  hi: ""
+
+UI_COMPONENTS_COL_LATENCY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Latency"
+  hi: ""
+
+UI_COMPONENTS_COL_SINCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "In this state for"
+  hi: ""
+
+UI_COMPONENTS_COL_ERROR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Last error"
+  hi: ""
+
+UI_COMPONENTS_STATUS_OK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "OK"
+  hi: ""
+
+UI_COMPONENTS_STATUS_SLOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Slow"
+  hi: ""
+
+UI_COMPONENTS_STATUS_DOWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Down"
+  hi: ""
+
+UI_COMPONENTS_STATUS_UNKNOWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unknown"
+  hi: ""
+
+UI_COMPONENTS_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No components are being monitored yet."
+  hi: ""
+
+UI_COMPONENTS_MONITOR_NOT_RUNNING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The health monitor is not running. Nothing below is being updated."
+  hi: ""
+
+UI_COMPONENTS_MONITOR_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The health monitor cannot be reached (the workflow engine is unavailable)."
+  hi: ""
+
+UI_COMPONENTS_MONITOR_STALE:
+  severity: ERROR
+  surface: [UI]
+  variables: [minutes]
+  en: "The health monitor has not reported for {minutes} minutes. The states below may be out of date."
+  hi: ""
+
+UI_COMPONENTS_LATENCY_MS:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "{value} ms"
+  hi: ""
+
 CTS_NO_CRL_ENTRY:
   severity: INFO
   surface: [UI]
