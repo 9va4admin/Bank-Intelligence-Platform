@@ -1434,3 +1434,25 @@ Built test-first on the real dev YugabyteDB, with the real dev Immudb for the au
 - Silences are checked when a notification is sent; the escalation workflow's reminders do not check them yet.
 - Not built: regulatory reporting windows and the risk register (blueprint phase 3); the per-component-class simulator rule (one run per severity is checked instead).
 - Two readiness migrations (proofs, contacts) were written alongside their tests rather than after a failing run.
+
+## 2026-11-19 - Alerting Phase 1d: silences in escalation, regulatory windows, risk register; browser check
+
+Built test-first on the real dev YugabyteDB:
+- **Escalation reminders respect silences**: a held reminder is audited, the escalation level still moves on, a failed lookup never holds one back (2 tests added to the escalation activity suite).
+- **Regulatory reporting windows**: bank settings entered by the compliance officer, or marked pending; an amber Go-Live item that never blocks.
+- **Risk register**: a shipped template of 10 risks to alerting, owners, one person declares mitigated and a different person verifies (the store refuses the same person), changing the mitigation after a declaration reopens the risk, audit without the free text; API, Admin screen and a Go-Live item (seeded, every risk owned, overdue reviews).
+- Web: alerting and shared web tests pass (256 in the last run), message guards pass.
+
+**Seen in the browser pane** (signed in as an ops manager, real API and database, demo data removed afterwards):
+- Silences: created a silence on the screen, saw it under "In force now", cancelled it and saw it under "Recently ended".
+- Risk Register: seeded from the template and saw all 10 risks with ratings, "No owner yet" and the summary line.
+- Alert Settings: the proof cards (audit trail, mail domain, fire drill) render; running the audit proof as an ops manager is refused in words ("Insufficient role"), as designed (IT admin only).
+- Go-Live readiness: the real endpoint returned all 13 alerting items, with plain-words details and a link to fix each.
+
+**Found in the check**: the Alert Contacts screen answered 503 because the dev environment had no bank-specific hash secret (`banks.kbl.pii_hash_pepper`). It is now set in the git-ignored dev env file; the contacts screen was not re-checked after that.
+
+**NOT covered:**
+- Alert Contacts: not seen working in the browser (see above). Verification codes were tested only with a stand-in dispatcher; WhatsApp needs its own approved template.
+- The audit proof, mail domain check and fire drill were not run from the browser: they need an IT admin sign-in, and the fire drill needs a real delivery path.
+- Post-incident reviews, the action tracker and automatic effectiveness checks from the blueprint (section 18) are not built.
+- Per-component-class simulator rule (one run per severity is checked instead).
