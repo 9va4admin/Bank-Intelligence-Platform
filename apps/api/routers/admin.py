@@ -29,6 +29,7 @@ from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.event_bus.topics import PLATFORM_CONFIG_CHANGED, PLATFORM_NOTIFICATIONS
+from shared.utils.redis_keys import count_keys
 from shared.messages import get_message
 
 log = structlog.get_logger()
@@ -1398,7 +1399,7 @@ async def get_vault_sig_sync_status(
     last_sync_at = last_sync_at_row.isoformat() if last_sync_at_row else None
 
     # Redis key count — scan for sig:{bank_id}:* keys only
-    redis_sig_keys = sum(1 for _ in redis_client.scan_iter(match=f"sig:{bank_id}:*", count=1000))
+    redis_sig_keys = await count_keys(redis_client, f"sig:{bank_id}:*")
 
     coverage_pct = round(
         min(100.0, (redis_sig_keys / yugabyte_accounts * 100)) if yugabyte_accounts > 0 else 100.0,

@@ -26,6 +26,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.messages import get_message
+from shared.utils.redis_keys import count_keys, first_key
 from shared.auth.rbac import UserContext
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
@@ -181,7 +182,7 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
                 bank_id,
             )
         db_total = int(row["total"] or 0)
-        redis_count = sum(1 for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000))
+        redis_count = await count_keys(redis_cts, f"sig:{bank_id}:*")
         if db_total == 0:
             return ReadinessItem(
                 check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
@@ -215,7 +216,7 @@ async def _check_pps_vault(bank_id: str, redis_cts: Any) -> ReadinessItem:
             status="WARN", detail=get_message("API_REDIS_CTS_UNAVAILABLE"),
         )
     try:
-        count = sum(1 for _ in redis_cts.scan_iter(match=f"pps:{bank_id}:*", count=1000))
+        count = await count_keys(redis_cts, f"pps:{bank_id}:*")
         if count == 0:
             return ReadinessItem(
                 check_id="pps_vault_seeded", label=get_message("UI_SMOKETEST_PPS_VAULT_SEEDED"),
@@ -242,7 +243,7 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT COUNT(*) AS cnt FROM cts.micr_prefixes WHERE bank_id = $1",
+                "SELECT COUNT(*) AS cnt FROM cts.micr_prefix_routing WHERE bank_id = $1 AND effective_from <= CURRENT_DATE AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)",
                 bank_id,
             )
         count = int(row["cnt"] or 0)
@@ -278,7 +279,7 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
                 SELECT
                   COUNT(*) FILTER (WHERE role = 'ops_reviewer') AS reviewers,
                   COUNT(*) FILTER (WHERE role = 'ops_manager')  AS managers
-                FROM users
+                FROM platform.local_auth_accounts
                 WHERE bank_id = $1 AND is_active = true
                 """,
                 bank_id,
@@ -427,7 +428,7 @@ async def _run_test_signature_vault(state: Any, bank_id: str) -> SmokeTestResult
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
         # Sample: check one vault key pattern exists
-        sample = next(redis.scan_iter(match=f"sig:{bank_id}:*", count=1), None)
+        sample = await first_key(redis, f"sig:{bank_id}:*")
         if sample is None:
             return SmokeTestResult(test_id="test_signature_vault", status="WARN",
                                    message=get_message("API_REDIS_PING_OK_MS_BUT", ms=ms),
@@ -451,7 +452,7 @@ async def _run_test_pps_vault(state: Any, bank_id: str) -> SmokeTestResult:
     try:
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
-        count = sum(1 for _ in redis.scan_iter(match=f"pps:{bank_id}:*", count=500))
+        count = await count_keys(redis, f"pps:{bank_id}:*", batch=500)
         detail = f"{count} PPS entries seeded" if count > 0 else get_message("API_NO_PPS_ENTRIES_SEEDED_SEED")
         st = "PASS" if count > 0 else "WARN"
         return SmokeTestResult(test_id="test_pps_vault", status=st,
@@ -511,7 +512,7 @@ async def _run_test_vault_seeded(state: Any, bank_id: str) -> SmokeTestResult:
         return SmokeTestResult(test_id="test_vault_seeded", status="FAIL",
                                message=get_message("API_REDIS_CTS_NOT_CONNECTED"))
     try:
-        count = sum(1 for _ in redis.scan_iter(match=f"sig:{bank_id}:*", count=2000))
+        count = await count_keys(redis, f"sig:{bank_id}:*", batch=2000)
         if count == 0:
             return SmokeTestResult(test_id="test_vault_seeded", status="WARN",
                                    message=get_message("API_NO_SIGNATURE_KEYS_FOUND_FOR"))
