@@ -689,29 +689,31 @@ async def get_micr_prefixes(
         return MICRPrefixesResponse(bank_id=bank_id, items=[], total=0)
 
     try:
-        search_clause = "AND (micr_prefix LIKE $2 OR bank_name ILIKE $2)" if search else ""
+        search_clause = "AND (m.micr_prefix LIKE $2 OR s.bank_name ILIKE $2)" if search else ""
         params: list = [bank_id]
         if search:
             params.append(f"%{search}%")
         rows = await db.fetch(
             f"""
-            SELECT prefix_id, micr_prefix, bank_name, bank_ifsc,
-                   active, updated_at::text
-            FROM cts.micr_prefix_routing
-            WHERE bank_id = $1
+            SELECT m.prefix_id, m.micr_prefix, s.bank_name, s.ifsc_prefix AS bank_ifsc,
+                   (m.effective_from <= CURRENT_DATE AND (m.effective_to IS NULL OR m.effective_to >= CURRENT_DATE)) AS active,
+                   m.created_at AS updated_at
+            FROM cts.micr_prefix_routing m
+            JOIN cts.sub_member_banks s ON s.sub_member_id = m.sub_member_id
+            WHERE m.bank_id = $1
               {search_clause}
-            ORDER BY micr_prefix
+            ORDER BY m.micr_prefix, m.effective_from
             LIMIT {_MICR_PREFIX_MAX_ROWS}
             """,
             *params,
         )
     except Exception as exc:
-        log.warning("cts.micr_prefixes.query_failed", bank_id=bank_id, error=str(exc))
-        return MICRPrefixesResponse(bank_id=bank_id, items=[], total=0)
+        log.warning("cts.micr_prefixes.query_failed", bank_id=bank_id, error_type=type(exc).__name__)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
 
     items = [
         MICRPrefixItem(
-            prefix_id=r["prefix_id"],
+            prefix_id=str(r["prefix_id"]),
             micr_prefix=r["micr_prefix"],
             bank_name=r["bank_name"],
             bank_ifsc=r["bank_ifsc"] or "",
