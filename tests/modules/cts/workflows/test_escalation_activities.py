@@ -151,3 +151,37 @@ def test_an_engine_failure_is_reported_as_degraded_never_raised():
 
 def test_without_an_engine_the_step_degrades():
     assert _step("ESCALATE", 1, store=_Store(_incident()), routing=_Routing(_steps()), engine=None).degraded is True
+
+
+# ---------------- silences -----------------
+
+class _Silences:
+    def __init__(self, silence_id=None, fail=False):
+        self.silence_id, self.fail, self.asked = silence_id, fail, []
+
+    async def in_force(self, bank_id, component, priority):
+        self.asked.append((component, priority))
+        if self.fail:
+            raise RuntimeError("db down")
+        return self.silence_id
+
+
+def _step_s(silences, **kw):
+    engine, (auditor, events), store = kw.pop("engine", None) or _Engine(), _auditor(), _Store(_incident())
+    result = asyncio.run(run_escalation_step(EscalationStepInput(bank_id="kbl", incident_id="inc1", level=1, kind="ESCALATE", sequence=0), db_pool=object(), config_service=_Cfg(),
+                                             delivery_engine=engine, alert_auditor=auditor, store=store, routing=_Routing(_steps()), silences=silences))
+    return result, engine, events, store
+
+
+def test_an_escalation_step_during_a_silence_notifies_nobody_says_so_in_the_audit_trail_and_still_moves_the_level_on():
+    result, engine, events, store = _step_s(_Silences("sil-1"))
+    assert result.notified == 0 and engine.submits == [] and store.levels == [1]
+    held = [e for e in events if e[0] == "ALERT_SUPPRESSED"]
+    assert held and held[0][2]["silence_id"] == "sil-1" and held[0][2]["level"] == 1
+
+
+def test_without_a_silence_or_when_the_lookup_fails_the_step_notifies_as_before():
+    for silences in (_Silences(None), _Silences(fail=True)):
+        result, engine, events, store = _step_s(silences)
+        assert result.notified == 2 and len(engine.submits) == 1
+    assert _Silences(None).asked == []

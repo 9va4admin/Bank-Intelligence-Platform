@@ -89,9 +89,24 @@ async def plan_escalation(inp: PlanInput, db_pool=None, config_service=None, sto
                               max_reminders=await _int_setting(config_service, "alerting.escalation_max_reminders", DEFAULT_MAX_REMINDERS))
 
 
+async def _silence_in_force(silences: Any, db_pool: Any, bank_id: str, component: str, priority: str) -> Optional[str]:
+    """The id of a silence in force for this component and priority, or None. A failed lookup never holds a reminder back."""
+    try:
+        if silences is None:
+            if db_pool is None:
+                return None
+            from shared.alerting.silences import SilenceStore
+            silences = SilenceStore(db_pool, max_hours=0, allow_p0=True, min_reason_chars=0)
+            return await silences.is_silenced(bank_id, component, priority)
+        return await silences.in_force(bank_id, component, priority)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("run_escalation_step.silence_lookup_failed", bank_id=bank_id, error_type=type(exc).__name__)
+        return None
+
+
 @activity.defn
 async def run_escalation_step(inp: EscalationStepInput, db_pool=None, config_service=None, delivery_engine=None, alert_auditor=None, store=None,
-                              routing=None) -> EscalationStepResult:
+                              routing=None, silences=None) -> EscalationStepResult:
     with tracer.start_as_current_span("activity.run_escalation_step") as span:
         span.set_attribute("bank_id", inp.bank_id)
         if delivery_engine is None or (store is None and db_pool is None):
@@ -106,6 +121,14 @@ async def run_escalation_step(inp: EscalationStepInput, db_pool=None, config_ser
             wanted = [s for s in routed.routing.steps if (s.level == inp.level if inp.kind == "ESCALATE" else s.level <= inp.level)]
             targets, warnings = await deliverable_targets([t for s in wanted for t in s.targets], pool=db_pool, config_service=config_service, bank_id=inp.bank_id)
             warnings = list(routed.routing.warnings) + [w for w in warnings if w not in routed.routing.warnings]
+            silence_id = await _silence_in_force(silences, db_pool, inp.bank_id, incident.get("component", ""), incident["severity"])
+            if silence_id and targets:
+                if alert_auditor is not None:
+                    await alert_auditor.lifecycle(AuditEventType.ALERT_SUPPRESSED, bank_id=inp.bank_id, incident_id=inp.incident_id, actor=SYSTEM_ACTOR,
+                                                  detail={"silence_id": silence_id, "component": incident.get("component", ""), "priority": incident["severity"], "level": inp.level, "kind": inp.kind})
+                if inp.kind == "ESCALATE":
+                    await store.set_escalation_level(inp.bank_id, inp.incident_id, inp.level)
+                return EscalationStepResult(notified=0)
             if targets:
                 opened = incident.get("opened_at")
                 context = {"bank_id": inp.bank_id, "event_type": f"ESCALATION_L{inp.level}", "severity": incident["severity"], "priority": incident["severity"],

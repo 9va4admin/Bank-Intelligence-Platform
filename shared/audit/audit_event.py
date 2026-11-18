@@ -129,6 +129,7 @@ class AuditEventType(str, Enum):
     ALERT_SILENCE_CHANGED = "ALERT_SILENCE_CHANGED"
     ALERT_CONTACT_CHANGED = "ALERT_CONTACT_CHANGED"
     ALERT_TEMPLATE_CHANGED = "ALERT_TEMPLATE_CHANGED"
+    ALERT_RISK_CHANGED = "ALERT_RISK_CHANGED"                 # a risk seeded, updated, declared mitigated, verified or reopened
     ALERT_ONCALL_CHANGED = "ALERT_ONCALL_CHANGED"             # a rota saved, an override added or removed
 
     # ── Session reports ────────────────────────────────────────────────────────

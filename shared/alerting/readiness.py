@@ -301,9 +301,53 @@ async def _silences(bank_id: str, pool: Any, now: datetime) -> ReadinessCheck:
     return _item("alert_silences", label, "PASS", get_message("UI_GOLIVE_ALERT_SL_NONE"), url)
 
 
+async def _regulatory(config: Any) -> ReadinessCheck:
+    """Amber, never blocking: the windows are entered by the compliance officer, or marked pending."""
+    label, url = "UI_GOLIVE_ALERT_REG_LABEL", _SETTINGS_URL
+    try:
+        raw = await config.get("alerting.regulatory_windows")
+        pending = await config.get("alerting.regulatory_windows_pending")
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_regulatory", label, url, exc)
+    try:
+        windows = json.loads(raw) if isinstance(raw, str) else (raw or [])
+    except ValueError:
+        windows = None
+    if windows is None:
+        return _item("alert_regulatory", label, "WARN", get_message("UI_GOLIVE_ALERT_REG_INCOMPLETE", count=1), url)
+    if not windows:
+        key = "UI_GOLIVE_ALERT_REG_PENDING" if pending is True or str(pending).strip().lower() in ("true", "1", "yes") else "UI_GOLIVE_ALERT_REG_NONE"
+        return _item("alert_regulatory", label, "WARN", get_message(key), url)
+    def complete(w: Any) -> bool:
+        try:
+            return isinstance(w, dict) and bool(str(w.get("name", "")).strip()) and float(w.get("hours", 0)) > 0
+        except (TypeError, ValueError):
+            return False
+    incomplete = sum(1 for w in windows if not complete(w))
+    if incomplete:
+        return _item("alert_regulatory", label, "WARN", get_message("UI_GOLIVE_ALERT_REG_INCOMPLETE", count=incomplete), url)
+    return _item("alert_regulatory", label, "PASS", get_message("UI_GOLIVE_ALERT_REG_OK", count=len(windows)), url)
+
+
+async def _risks(bank_id: str, pool: Any) -> ReadinessCheck:
+    label, url = "UI_GOLIVE_ALERT_RK_LABEL", "/admin/alert-risks"
+    try:
+        from shared.alerting.risks import RiskStore
+        summary = await RiskStore(pool, review_days=0).summary(bank_id)
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_risks", label, url, exc)
+    if summary.total == 0:
+        return _item("alert_risks", label, "FAIL", get_message("UI_GOLIVE_ALERT_RK_NONE"), url)
+    if summary.without_owner:
+        return _item("alert_risks", label, "FAIL", get_message("UI_GOLIVE_ALERT_RK_NO_OWNER", count=summary.without_owner, total=summary.total), url)
+    if summary.review_overdue:
+        return _item("alert_risks", label, "WARN", get_message("UI_GOLIVE_ALERT_RK_OVERDUE", count=summary.review_overdue), url)
+    return _item("alert_risks", label, "PASS", get_message("UI_GOLIVE_ALERT_RK_OK", total=summary.total, verified=summary.verified), url)
+
+
 async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None, contact_store: Any = None,
                              now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _contacts(config, bank_id, policy_store, contact_store), await _silences(bank_id, pool, moment), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _contacts(config, bank_id, policy_store, contact_store), await _silences(bank_id, pool, moment), await _regulatory(config), await _risks(bank_id, pool), await _open_incidents(config, bank_id, pool, moment)]
