@@ -16,6 +16,7 @@ import asyncio
 import json
 import time
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import structlog
@@ -26,8 +27,11 @@ from modules.cts.health.probes import build_specs, run_probe
 from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
 from shared.alerting.audit import SYSTEM_ACTOR, scrub_error
 from shared.alerting.bell import resolve_bell_users
+from shared.alerting.audience import deliverable_targets
 from shared.alerting.engine import Target
 from shared.alerting.incidents import IncidentStore, dedup_key_for, is_resolution
+from shared.alerting.policy_defaults import load_calendar
+from shared.alerting.routing_policy import IncidentFacts, next_business_start
 from shared.alerting.retention import load_retention_policy, prune_alert_history
 from shared.audit.audit_event import AuditEventType
 from shared.notifications.dispatcher import NotificationRequest
@@ -96,6 +100,7 @@ class DispatchAlertResult(BaseModel):
     sent: bool = False
     degraded: bool = False
     queued_for_retry: int = 0     # deliveries that failed their first attempt and will be retried by the outbox
+    routed: bool = False          # the audience came from the routing policy (False: the original flat settings were used)
 
 
 class CheckVaultCoverageInput(BaseModel):
@@ -319,6 +324,33 @@ async def _bell_users(config_service: Any, db_pool: Any, bank_id: str, priority:
         return []
 
 
+async def _routed_audience(routing_service: Any, inp: "DispatchAlertInput", db_pool: Any, config_service: Any) -> Optional[tuple[list[Target], float]]:
+    """(deliveries for the first notification, seconds to hold them) from the routing policy; None means "use the original flat settings" (no routing service, no
+    rule matched, the routing could not be read, or it named nobody who can be reached). A routing problem never leaves an alert without an audience."""
+    if routing_service is None:
+        return None
+    try:
+        now = datetime.fromtimestamp(inp.occurred_at, timezone.utc) if inp.occurred_at else datetime.now(timezone.utc)      # the schedule is judged at the alert's own time
+        routed = await routing_service.route_facts(IncidentFacts(severity=inp.priority, component=inp.component), now)
+        first = next((s for s in routed.routing.steps if s.level == 0), None)
+        if first is None or "no_rule_matched" in routed.routing.warnings:
+            return None
+        targets, warnings = await deliverable_targets(first.targets, pool=db_pool, config_service=config_service, bank_id=inp.bank_id)
+        if warnings:
+            log.info("dispatch_platform_alert.audience_warnings", bank_id=inp.bank_id, warnings=warnings[:5])
+        if not targets:
+            log.warning("dispatch_platform_alert.routing_no_audience", bank_id=inp.bank_id, event_type=inp.event_type)
+            return None
+        delay = 0.0
+        if routed.routing.held:
+            opens = next_business_start(now, await load_calendar(config_service))
+            delay = max(0.0, (opens - now).total_seconds()) if opens else 0.0          # no working hours ahead: send now rather than lose it
+        return targets, delay
+    except Exception as exc:  # noqa: BLE001
+        log.warning("dispatch_platform_alert.routing_failed", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
+        return None
+
+
 @activity.defn
 async def dispatch_platform_alert(
     inp: DispatchAlertInput,
@@ -327,6 +359,7 @@ async def dispatch_platform_alert(
     alert_auditor=None,
     delivery_engine=None,
     db_pool=None,
+    routing_service=None,
 ) -> DispatchAlertResult:
     """
     Send an alert via NotificationDispatcher (email), one mail per configured recipient. With an auditor, an intent record is written before each send
@@ -339,6 +372,25 @@ async def dispatch_platform_alert(
         if dispatcher is None:
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="dispatcher_none")
             return DispatchAlertResult(sent=False, degraded=True)
+        routed_targets = await _routed_audience(routing_service, inp, db_pool, config_service) if delivery_engine is not None else None
+        if routed_targets is not None:
+            targets, delay_seconds = routed_targets
+            correlation = inp.incident_id or f"adhoc-{uuid.uuid4().hex}"
+            context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message, "component": inp.component,
+                       "down_for": inp.down_for, "incident_id": inp.incident_id, "occurred_at": inp.occurred_at or time.time(), "priority": inp.priority}
+
+            async def routed_fallback(channel: str) -> list[Target]:
+                if channel == "email":
+                    return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
+                if channel == "whatsapp":
+                    return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+                return []
+            submitted = await delivery_engine.submit(
+                bank_id=inp.bank_id, incident_id=correlation, occasion=inp.occasion or uuid.uuid4().hex, targets=targets, template_id=inp.template, context=context,
+                priority=inp.priority, component=inp.component, resolve_targets=routed_fallback, delay_seconds=delay_seconds)
+            log.info("dispatch_platform_alert.routed", bank_id=inp.bank_id, event_type=inp.event_type, priority=inp.priority, sent=submitted.sent,
+                     retrying=submitted.retrying, queued=submitted.queued, delayed=delay_seconds > 0)
+            return DispatchAlertResult(sent=submitted.sent > 0, queued_for_retry=submitted.retrying + submitted.queued, routed=True)
         recipients = await _recipients(config_service, inp.bank_id)
         phones = await _whatsapp_recipients(config_service, inp.bank_id, inp.priority)
         bell_users = await _bell_users(config_service, db_pool, inp.bank_id, inp.priority) if delivery_engine is not None else []

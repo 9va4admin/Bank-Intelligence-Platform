@@ -9,7 +9,7 @@ never remove what a higher level requires; on a conflict (timing of the same esc
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from fnmatch import fnmatchcase
 from typing import Literal, Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -117,6 +117,19 @@ def is_business_time(now: datetime, calendar: Calendar) -> bool:
     if local.date().isoformat() in calendar.holidays or local.weekday() not in calendar.business.days:
         return False
     return _clock(calendar.business.start) <= local.time().replace(second=0, microsecond=0) < _clock(calendar.business.end)
+
+
+def next_business_start(now: datetime, calendar: Calendar, *, horizon_days: int = 14) -> Optional[datetime]:
+    """When working hours next begin: now if they are on, else the next opening (holidays and non-working days skipped). None if they never open within `horizon_days`."""
+    local = _local(now, calendar)
+    if is_business_time(local, calendar):
+        return local
+    opening = _clock(calendar.business.start)
+    for offset in range(horizon_days + 1):
+        day = (local + timedelta(days=offset)).replace(hour=opening.hour, minute=opening.minute, second=0, microsecond=0)
+        if day > local and is_business_time(day, calendar):
+            return day
+    return None
 
 
 # ---------------------------------------------------------------- matching

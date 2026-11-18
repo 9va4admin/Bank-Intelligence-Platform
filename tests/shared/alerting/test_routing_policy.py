@@ -218,3 +218,19 @@ def test_the_escalation_chain_must_end_with_a_person_not_only_a_group_or_nothing
 
 def test_the_quiet_hold_flag_is_refused_on_p0_and_p1_rules():
     assert "quiet_hold_not_allowed" in validate_policy(Policy(rules=[_ok_p0_rule(quiet_hold=True)]), level="BANK")
+
+
+# ---------------- when do working hours next start (for held alerts) -----------------
+
+def test_the_next_business_start_is_now_during_hours_and_the_next_opening_otherwise():
+    from shared.alerting.routing_policy import next_business_start
+    assert next_business_start(WED_NOON, CAL) == WED_NOON
+    # Thursday 19th is a holiday in CAL, so after hours on Wednesday it opens on Friday 20th at 09:30
+    assert next_business_start(WED_NIGHT, CAL) == datetime(2026, 11, 20, 9, 30, tzinfo=IST)
+    assert next_business_start(SAT_NOON, CAL) == datetime(2026, 11, 23, 9, 30, tzinfo=IST)      # Saturday: Monday morning
+    assert next_business_start(datetime(2026, 11, 18, 7, 0, tzinfo=IST), CAL) == datetime(2026, 11, 18, 9, 30, tzinfo=IST)    # before opening: today
+
+
+def test_there_is_no_next_business_start_when_the_calendar_never_opens():
+    from shared.alerting.routing_policy import next_business_start
+    assert next_business_start(WED_NOON, Calendar(timezone="Asia/Kolkata", business=BusinessHours(days=[]))) is None

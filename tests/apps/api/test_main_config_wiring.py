@@ -31,3 +31,11 @@ def test_the_api_watchdog_starts_and_stops_escalation_for_the_incidents_it_raise
     """The watchdog raises incidents from the API process (the worker may be the thing that is down), so it must start their escalation itself and stop it on recovery."""
     src = MAIN.read_text(encoding="utf-8")
     assert "start_escalation" in src and "stop_escalation" in src
+
+
+def test_the_alert_send_paths_are_given_the_routing_service():
+    """The worker (monitor alerts) and the API watchdog both send alerts; without the routing service they would silently keep using only the flat settings."""
+    root = MAIN.parents[2]
+    assert "routing_service=_wd_routing" in MAIN.read_text(encoding="utf-8")
+    worker = (root / "modules" / "cts" / "worker_activities.py").read_text(encoding="utf-8")
+    assert '"routing_service": getattr(self, "_routing_service", None)' in worker and "routing_service=routing_service" in worker

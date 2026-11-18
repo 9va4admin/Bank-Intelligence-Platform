@@ -50,6 +50,8 @@ class RoutingService:
         return await self.route_facts(await self.facts_for(incident), now)
 
     async def route_facts(self, facts: IncidentFacts, now: datetime) -> RoutedIncident:
+        if not facts.owning_team and facts.component:
+            facts = facts.model_copy(update={"owning_team": (await self._teams()).get(facts.component, "")})
         warnings: list[str] = []
         policies: dict = {}
         if self._policies is not None:

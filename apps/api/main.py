@@ -351,6 +351,8 @@ async def lifespan(app: FastAPI):
 
         app.state.alert_auditor = _wd_auditor          # the alerts API audits acknowledgements through the same trail
         from shared.alerting.factory import build_delivery_engine
+        from shared.alerting.factory import build_routing_service
+        _wd_routing = build_routing_service(config_service, config_service.bank_id, getattr(app.state, "db_pool_cts", None)) if getattr(app.state, "db_pool_cts", None) is not None else None
         _wd_engine = await build_delivery_engine(config_service, config_service.bank_id, db_pool=getattr(app.state, "db_pool_cts", None),
                                                  dispatcher=_wd_dispatcher, auditor=_wd_auditor)
 
@@ -365,7 +367,7 @@ async def lifespan(app: FastAPI):
                 alert = alert.model_copy(update={"incident_id": recorded.incident_id})
             alert = alert.model_copy(update={"occasion": f"w{int(time.time())}"})
             await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
-                                          delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None))
+                                          delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None), routing_service=_wd_routing)
 
         watchdog_task = asyncio.create_task(run_watchdog(
             lambda: getattr(app.state, "temporal_client", None),
