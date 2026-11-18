@@ -17,3 +17,11 @@ def test_lifespan_exposes_the_config_service_on_app_state():
         for n in ast.walk(tree)
     )
     assert found, "main.py must set app.state.config_service = config_service during startup"
+
+
+def test_the_authentication_service_is_given_the_database_so_sign_ins_are_recorded():
+    """AuthService was built without db_pool, so no login event, no session row and (the user directory the alert bell reads) no sign-in was ever
+    recorded: users who sign in through the identity provider could never be found by role. Found on the live bell check."""
+    tree = ast.parse(MAIN.read_text(encoding="utf-8"))
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", getattr(n.func, "attr", "")) == "AuthService"]
+    assert calls and all(any(k.arg == "db_pool" for k in c.keywords) for c in calls), "AuthService(...) in main.py must be passed db_pool="

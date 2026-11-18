@@ -280,6 +280,7 @@ async def lifespan(app: FastAPI):
             session_service=app.state.session_service,
             account_store=_enrollment_store,
             dev_mode=_dev_mode,
+            db_pool=getattr(app.state, "db_pool_cts", None),   # records sessions, login events and the user directory (the alert bell reads it)
         )
         log.info("api_gateway.auth_service_ready", bank_id=_bank_id)
     except Exception as exc:
