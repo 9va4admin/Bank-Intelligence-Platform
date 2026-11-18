@@ -54116,3 +54116,532 @@ CTS_LINE_IMAGE_NOT_FOUND:
   variables: [line_no, rec]
   en: "line {line_no}: image not found: {rec}"
   hi: ""
+
+HEALTH_MONITOR_NO_TICK_YET:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: []
+  en: "The health monitor has not completed a check yet."
+  hi: ""
+
+HEALTH_MONITOR_STALE_REASON:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [age_seconds]
+  en: "The health monitor last completed a check {age_seconds} seconds ago; the worker may be down."
+  hi: ""
+
+HEALTH_MONITOR_NO_TEMPORAL:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: []
+  en: "The health monitor cannot be reached: there is no connection to the workflow engine."
+  hi: ""
+
+HEALTH_PROBE_DISK_FULL:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [path, used, limit]
+  en: "Disk {path} is {used}% full (limit {limit}%)."
+  hi: ""
+
+HEALTH_PROBE_MEMORY_HIGH:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [used, limit]
+  en: "Memory is {used}% in use (limit {limit}%)."
+  hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+CTS_HTTP:
+  severity: INFO
+  surface: [UI]
+  variables: [status_code]
+  en: "HTTP {status_code}"
+  hi: ""
+
+CTS_UNKNOWN_PROBE_KIND:
+  severity: INFO
+  surface: [UI]
+  variables: [kind]
+  en: "unknown probe kind {kind}"
+  hi: ""
+
+ALERT_DELIVERY_KEYS_REQUIRED:
+  severity: ERROR
+  surface: [AUDIT]
+  variables: []
+  en: "The alert delivery outbox needs the bank's PII encryption key and hash pepper."
+  hi: ""
+
+ALERT_INCIDENT_OPEN_FAILED:
+  severity: ERROR
+  surface: [AUDIT]
+  variables: []
+  en: "The incident could not be opened or updated after repeated attempts."
+  hi: ""
+
+ALERT_MAIL_SUBJECT:
+  severity: INFO
+  surface: [UI]
+  variables: [severity, bank_id, component, summary]
+  en: "[ASTRA][{severity}][{bank_id}][{component}] {summary}"
+  hi: ""
+
+ALERT_MAIL_SUBJECT_RESOLVED:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id, component, summary]
+  en: "[ASTRA][RESOLVED][{bank_id}][{component}] {summary}"
+  hi: ""
+
+ALERT_MAIL_SEVERITY_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "CRITICAL - immediate action needed"
+  hi: ""
+
+ALERT_MAIL_SEVERITY_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "MAJOR - act within hours"
+  hi: ""
+
+ALERT_MAIL_SEVERITY_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "WARNING - keep an eye on it"
+  hi: ""
+
+ALERT_MAIL_SEVERITY_P3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "INFORMATION - no action needed"
+  hi: ""
+
+ALERT_MAIL_SEVERITY_RESOLVED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "RESOLVED - back to normal"
+  hi: ""
+
+ALERT_MAIL_HEADLINE:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id]
+  en: "ASTRA alert for {bank_id}"
+  hi: ""
+
+ALERT_MAIL_HEADLINE_RESOLVED:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id]
+  en: "ASTRA: resolved for {bank_id}"
+  hi: ""
+
+ALERT_MAIL_LABEL_INCIDENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Incident"
+  hi: ""
+
+ALERT_MAIL_LABEL_SEVERITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Severity"
+  hi: ""
+
+ALERT_MAIL_LABEL_COMPONENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Component"
+  hi: ""
+
+ALERT_MAIL_LABEL_WHEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "When"
+  hi: ""
+
+ALERT_MAIL_LABEL_DOWN_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Duration"
+  hi: ""
+
+ALERT_MAIL_LABEL_IMPACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Impact"
+  hi: ""
+
+ALERT_MAIL_LABEL_RUNBOOK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What to do"
+  hi: ""
+
+ALERT_MAIL_LABEL_INCIDENT_LINK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Open the incident"
+  hi: ""
+
+ALERT_MAIL_WHEN_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: [local_time, local_zone, utc_time]
+  en: "{local_time} {local_zone} / {utc_time} UTC"
+  hi: ""
+
+ALERT_MAIL_ACK_HINT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "To acknowledge, open the incident in ASTRA and press Acknowledge. A critical alert nobody acknowledges is escalated."
+  hi: ""
+
+ALERT_MAIL_FOOTER:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id]
+  en: "Sent by ASTRA for {bank_id}. This message contains no customer data."
+  hi: ""
+
+ALERT_SHORT_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: [severity, component]
+  en: "{severity} {component}"
+  hi: ""
+
+ALERT_SHORT_TITLE_RESOLVED:
+  severity: INFO
+  surface: [UI]
+  variables: [component]
+  en: "Resolved: {component}"
+  hi: ""
+
+ALERT_IMPACT_GENERIC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Some ASTRA functions may be degraded or unavailable."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_YUGABYTE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque decisions, the review queue and configuration stop or slow down; nothing new can be saved."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_REDIS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque decisions and the review queue slow down or stop; signature and PPS lookups fall back to the database."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_TEMPORAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No cheque workflow can start or progress; the IET watchdog cannot run."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_KAFKA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Inward cheques are not distributed for processing and events are not delivered."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_MINIO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheque images cannot be read or stored."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_IMMUDB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The audit trail cannot be written; records are held and written when it returns."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_VAULT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Secrets cannot be refreshed; services keep running on cached values for a limited time."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_VLLM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques that need the AI model go to human review instead of being decided automatically."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_SIG_DETECTOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature detection is unavailable; affected cheques go to human review."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_INDIC_OCR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Regional-language fields cannot be read automatically; affected cheques go to human review."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_CBS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Account checks cannot be made; cheques are processed on the image only and more go to human review."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_NGCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Decisions cannot be filed to NGCH; they are queued and filed on reconnection, so watch the IET clock."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_DISK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "If the disk fills, writes fail and services stop."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_MEMORY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "If memory runs out, services are killed and restarted."
+  hi: ""
+
+ALERT_IMPACT_COMPONENT_HEALTH_MONITOR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Failures in other components may not be reported until the health monitor is running again."
+  hi: ""
+
+ALERT_IMPACT_EVENT_IET_BREACH_RISK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques are close to their IET deadline; an unprocessed cheque is deemed approved."
+  hi: ""
+
+ALERT_IMPACT_EVENT_HUMAN_REVIEW_QUEUE_DEEP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cheques are waiting for a reviewer longer than planned; IET deadlines are at risk."
+  hi: ""
+
+ALERT_IMPACT_EVENT_VAULT_REDIS_COLD_DETECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Signature lookups are slower and more cheques go to human review until the cache is rebuilt."
+  hi: ""
+
+ALERT_IMPACT_EVENT_SCANNER_BRANCH_OFFLINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Branches with an offline scanner cannot capture outward cheques."
+  hi: ""
+
+ALERT_IMPACT_EVENT_STUCK_WORKFLOWS_TERMINATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Some cheque workflows were stopped for running too long; check that those cheques were handled."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_READ:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot view alerts."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_ACK:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot acknowledge alerts."
+  hi: ""
+
+ALERT_API_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That alert incident was not found."
+  hi: ""
+
+ALERT_API_DB_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Alert records are temporarily unavailable."
+  hi: ""
+
+ALERT_API_ALREADY_ACKNOWLEDGED:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That incident is already acknowledged or resolved."
+  hi: ""
+
+ALERT_API_BAD_CURSOR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The page cursor is not valid."
+  hi: ""
+
+ALERT_PAGING_INVALID_CURSOR:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The page cursor is not valid."
+  hi: ""
+
+ALERT_BELL_NOT_CONNECTED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The in-app notification channel is not connected to a store."
+  hi: ""
+
+ALERT_API_NOTIFICATION_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That notification was not found."
+  hi: ""
+
+UI_INBOX_SEV_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Critical"
+  hi: ""
+
+UI_INBOX_SEV_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Major"
+  hi: ""
+
+UI_INBOX_SEV_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Warning"
+  hi: ""
+
+UI_INBOX_SEV_P3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Info"
+  hi: ""
+
+UI_INBOX_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No notifications yet."
+  hi: ""
+
+UI_INBOX_ERROR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Notifications could not be loaded."
+  hi: ""
+
+UI_INBOX_RETRY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Try again"
+  hi: ""
+
+UI_INBOX_ACK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Acknowledge"
+  hi: ""
+
+UI_INBOX_ACK_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Could not acknowledge. Try again."
+  hi: ""
+
+UI_INBOX_PINNED_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} critical alert(s) waiting for acknowledgement"
+  hi: ""
+
+UI_INBOX_LOAD_MORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Load more"
+  hi: ""
+
+UI_INBOX_UNREAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Unread"
+  hi: ""
+
+UI_INBOX_BADGE_MANY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "9+"
+  hi: ""
+
+PLATFORM_NOTIFICATION_GENERIC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "ASTRA notification"
+  hi: ""

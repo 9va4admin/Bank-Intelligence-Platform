@@ -6,6 +6,8 @@ SMTP credentials come from config_service (Vault) at runtime — never hardcoded
 """
 import asyncio
 import smtplib
+import ssl
+from email.charset import QP, Charset
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any
@@ -68,6 +70,8 @@ class EmailChannel:
         password: str | None = None,
         security: str = "none",          # none | starttls | ssl  (Gmail: starttls on 587 with an app password)
         timeout: float = 15.0,
+        template_settings: Any = None,     # TemplateSettings: with it, platform alerts get the full text + HTML message
+        ca_file: str | None = None,      # extra trusted CA / the server's certificate (a bank's private CA); the system store is always used
     ) -> None:
         self._smtp_host = smtp_host
         self._smtp_port = smtp_port
@@ -77,18 +81,21 @@ class EmailChannel:
         self._password = password
         self._security = security
         self._timeout = timeout
+        self._ca_file = ca_file
+        self._template_settings = template_settings
         self._smtp = None
         self._ready = False
         self._opened_by_connect = False   # only then may a dropped connection be reopened
 
     def _open(self):
         """One authenticated, encrypted-if-configured SMTP session."""
+        context = ssl.create_default_context(cafile=self._ca_file)      # verifies the certificate chain and the host name
         if self._security == "ssl":
-            smtp = smtplib.SMTP_SSL(self._smtp_host, self._smtp_port, timeout=self._timeout)
+            smtp = smtplib.SMTP_SSL(self._smtp_host, self._smtp_port, timeout=self._timeout, context=context)
         else:
             smtp = smtplib.SMTP(self._smtp_host, self._smtp_port, timeout=self._timeout)
             if self._security == "starttls":
-                smtp.starttls()
+                smtp.starttls(context=context)
         if self._username:
             smtp.login(self._username, self._password or "")
         return smtp
@@ -103,13 +110,17 @@ class EmailChannel:
 
     async def send(self, request) -> dict[str, Any]:
         self._assert_ready()
-        subject, body = self._render(request.template_id, request.context)
+        subject, body, html_body = self._render_full(request)
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = self._from_address
         msg["To"] = request.recipient
-        msg.attach(MIMEText(body, "plain"))
+        charset = Charset("utf-8")
+        charset.body_encoding = QP                  # readable in the raw message and friendlier to mail filters than base64
+        msg.attach(MIMEText(body, "plain", charset))
+        if html_body:
+            msg.attach(MIMEText(html_body, "html", charset))
 
         try:
             await asyncio.to_thread(self._send_sync, request.recipient, msg.as_string())    # smtplib blocks: keep the event loop free
@@ -128,6 +139,19 @@ class EmailChannel:
                 raise
             self._smtp = self._open()                        # the server dropped an idle session: reopen once and resend
             self._smtp.sendmail(self._from_address, recipient, text)
+
+    def _render_full(self, request) -> tuple[str, str, str | None]:
+        """Subject, plain text and (for platform alerts when template settings exist) HTML."""
+        if self._template_settings is not None and request.template_id in _MESSAGE_TEMPLATES:
+            from shared.alerting.templates import AlertContent, render_email
+            ctx = request.context
+            rendered = render_email(AlertContent(
+                bank_id=str(ctx.get("bank_id", self._bank_id)), severity=str(getattr(request, "priority", "") or "P2"), component=str(ctx.get("component", "")),
+                event_type=str(ctx.get("event_type", "")), message=str(ctx.get("message", "")), incident_id=str(ctx.get("incident_id", "")),
+                occurred_at=float(ctx.get("occurred_at") or 0.0), down_for=str(ctx.get("down_for", ""))), self._template_settings)
+            return rendered.subject, rendered.text, rendered.html
+        subject, body = self._render(request.template_id, request.context)
+        return subject, body, None
 
     def _render(self, template_id: str, context: dict[str, Any]) -> tuple[str, str]:
         ctx = {**context, "bank_id": context.get("bank_id", self._bank_id)}

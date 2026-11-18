@@ -16,7 +16,7 @@ from modules.cts.health.state_machine import ComponentState, Event, Probe
 from modules.cts.workflows.activities.platform_health_activities import (
     CheckHRInput, CheckIETInput, CheckScannerFleetInput, CheckVaultCoverageInput, DispatchAlertInput, DispatchAlertResult,
     HRCheckResult, IETCheckResult, ProbeComponentsInput, ProbeComponentsResult, ScannerFleetCheckResult, StuckWorkflowSweepInput,
-    StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components,
+    StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components, IncidentRecordResult, ProcessOutboxInput, ProcessOutboxResult, RunRetentionInput, RunRetentionResult,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput, alerts_for_events
 from shared.messages import get_message
@@ -172,6 +172,32 @@ async def _dispatch(inp: DispatchAlertInput) -> DispatchAlertResult:
     return DispatchAlertResult(sent=True)
 
 
+RECORDED: list[DispatchAlertInput] = []
+RETENTION_RUNS = {"n": 0}
+
+
+@activity.defn(name="run_alert_retention")
+async def _retention(inp: RunRetentionInput) -> RunRetentionResult:
+    RETENTION_RUNS["n"] += 1
+    return RunRetentionResult()
+
+
+OUTBOX_RUNS = {"n": 0}
+
+
+@activity.defn(name="process_alert_outbox")
+async def _outbox(inp: ProcessOutboxInput) -> ProcessOutboxResult:
+    OUTBOX_RUNS["n"] += 1
+    return ProcessOutboxResult()
+
+
+@activity.defn(name="record_alert_incident")
+async def _record(inp: DispatchAlertInput) -> IncidentRecordResult:
+    from shared.alerting.incidents import dedup_key_for
+    RECORDED.append(inp)
+    return IncidentRecordResult(incident_id=f"inc:{dedup_key_for(inp.event_type, inp.component)}")
+
+
 @activity.defn(name="probe_components")
 async def _probe(inp: ProbeComponentsInput) -> ProbeComponentsResult:
     PROBE_CALLS["n"] += 1
@@ -182,7 +208,7 @@ async def _probe(inp: ProbeComponentsInput) -> ProbeComponentsResult:
     return ProbeComponentsResult(states=states, events=[], probes_run=1)
 
 
-_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe]
+_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe, _record, _outbox, _retention]
 
 
 @pytest_asyncio.fixture
@@ -193,6 +219,9 @@ async def env():
 
 async def _start(env, inp):
     DISPATCHED.clear()
+    RECORDED.clear()
+    OUTBOX_RUNS["n"] = 0
+    RETENTION_RUNS["n"] = 0
     PROBE_CALLS["n"] = 0
     tq = f"tq-infra-{uuid.uuid4().hex[:8]}"
     worker = Worker(env.client, task_queue=tq, workflows=[PlatformHealthCheckWorkflow], activities=_ACTIVITIES,
@@ -214,6 +243,65 @@ async def test_a_component_going_down_sends_one_alert_with_its_name_and_a_persis
     assert first_window.count(("COMPONENT_DOWN", "yugabyte")) == 1
     assert [e for e, _ in first_window].count("IET_BREACH_RISK") == 1          # the same IET condition on every tick: sent once, not four times
     assert later.count("IET_BREACH_RISK") >= 2 and later.count("COMPONENT_DOWN") == 1      # repeated only after the interval
+
+
+@pytest.mark.asyncio
+async def test_every_alert_is_recorded_as_an_incident_first_and_dispatched_with_that_incident_id(env):
+    inp = PlatformHealthInput(bank_id="kbl", repeat_alert_seconds=1800, iet_repeat_seconds=300)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=f"h-{uuid.uuid4().hex[:6]}", task_queue=tq)
+        await env.sleep(200)
+        await h.cancel()
+    assert DISPATCHED, "nothing was dispatched"
+    for d in DISPATCHED:
+        assert d.incident_id == f"inc:{__import__('shared.alerting.incidents', fromlist=['x']).dedup_key_for(d.event_type, d.component)}"
+    assert {r.event_type for r in RECORDED} >= {"COMPONENT_DOWN", "IET_BREACH_RISK"}
+
+
+@pytest.mark.asyncio
+async def test_the_outbox_is_worked_every_tick_and_each_tick_is_its_own_occasion(env):
+    inp = PlatformHealthInput(bank_id="kbl", repeat_alert_seconds=1800, iet_repeat_seconds=60)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=f"h-{uuid.uuid4().hex[:6]}", task_queue=tq)
+        await env.sleep(400)
+        await h.cancel()
+    assert OUTBOX_RUNS["n"] >= 3
+    iet = [d for d in DISPATCHED if d.event_type == "IET_BREACH_RISK"]
+    assert len(iet) >= 2 and all(d.occasion for d in iet) and len({d.occasion for d in iet}) == len(iet)     # a reminder is a new occasion; none repeats
+
+
+@pytest.mark.asyncio
+async def test_old_history_is_pruned_on_the_first_tick_and_then_only_at_the_configured_interval(env):
+    inp = PlatformHealthInput(bank_id="kbl", prune_every_ticks=4)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=f"h-{uuid.uuid4().hex[:6]}", task_queue=tq)
+        await env.sleep(560)                       # about 9 ticks: pruned on ticks 1, 5 and 9
+        await h.cancel()
+    assert 2 <= RETENTION_RUNS["n"] <= 3 and OUTBOX_RUNS["n"] > RETENTION_RUNS["n"]
+
+
+@pytest.mark.asyncio
+async def test_a_restart_request_makes_the_monitor_roll_over_at_the_next_tick_and_keep_what_it_knew(env):
+    """After an upgrade a monitor that was already running keeps its old code path until it restarts; the worker asks it to restart at once."""
+    inp = PlatformHealthInput(bank_id="kbl", max_ticks_before_restart=1000)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        wid = f"h-{uuid.uuid4().hex[:6]}"
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=wid, task_queue=tq)
+        first_run = h.result_run_id
+        await env.sleep(100)
+        await h.signal(PlatformHealthCheckWorkflow.request_restart)
+        await env.sleep(150)
+        latest = env.client.get_workflow_handle(wid)
+        desc = await latest.describe()
+        snap = await latest.query(PlatformHealthCheckWorkflow.component_states)
+        await latest.cancel()
+    assert desc.run_id != first_run
+    assert snap["states"]["yugabyte"]["status"] == "DOWN"                       # state carried across the rollover
+    assert [d.event_type for d in DISPATCHED].count("COMPONENT_DOWN") == 1       # and the outage was not announced a second time
 
 
 @pytest.mark.asyncio

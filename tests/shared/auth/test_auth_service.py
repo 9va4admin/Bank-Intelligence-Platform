@@ -449,3 +449,24 @@ def test_persistence_is_fire_and_forget_on_db_error():
     svc, _, _, _ = _service(enrolled=[], dev_mode=True, db_pool=_BrokenPool())
     result = asyncio.run(svc.login("ops1", "pw"))
     assert result.outcome == LoginOutcome.DEV_BYPASS
+
+
+def test_every_successful_sign_in_is_recorded_in_the_user_directory_with_the_role():
+    """So role-based lookups (the alert bell) can find users who sign in through the identity provider."""
+    class Pool(_FakeDBPool):
+        async def execute(self, sql, *args):
+            self.queries.append((sql, args))
+    db = Pool()
+    svc, _, _, _ = _service(enrolled=[], dev_mode=True, db_pool=db)
+    asyncio.run(svc.login("ops1", "pw"))
+    rows = [args for sql, args in db.queries if "platform.user_directory" in sql]
+    assert len(rows) == 1 and rows[0][0] and rows[0][2]            # bank_id and role were recorded
+
+
+def test_a_directory_failure_never_stops_a_sign_in():
+    class Pool(_FakeDBPool):
+        async def execute(self, sql, *args):
+            if "user_directory" in sql:
+                raise ConnectionError("db down")
+    svc, _, _, _ = _service(enrolled=[], dev_mode=True, db_pool=Pool())
+    assert asyncio.run(svc.login("ops1", "pw")).outcome == LoginOutcome.DEV_BYPASS

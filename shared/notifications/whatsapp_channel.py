@@ -29,6 +29,15 @@ _TEMPLATE_MAP: dict[str, str] = {
     "ej.dispute_escalated":       "astra_ej_dispute_escalated",
 }
 
+_TEMPLATE_MAP["PLATFORM_HEALTH_ALERT"] = "astra_platform_health_alert"
+_TEMPLATE_MAP["PLATFORM_HEALTH_RECOVERED"] = "astra_platform_health_recovered"
+
+# Templates whose body parameters are a fixed, ordered list of context keys (Meta templates bind parameters by position).
+_PARAM_KEYS: dict[str, tuple[str, ...]] = {
+    "PLATFORM_HEALTH_ALERT": ("severity", "component", "message"),
+    "PLATFORM_HEALTH_RECOVERED": ("component", "down_for", "message"),
+}
+
 _GENERIC_TEMPLATE = "astra_generic_notification"
 _DEFAULT_COUNTRY_CODE = "91"  # India
 
@@ -73,7 +82,7 @@ class WhatsAppChannel:
                         "type": "body",
                         "parameters": [
                             {"type": "text", "text": str(v)}
-                            for v in request.context.values()
+                            for v in self._params(request)
                         ],
                     }
                 ],
@@ -94,6 +103,11 @@ class WhatsAppChannel:
         message_id = messages[0].get("id", "") if messages else ""
         log.info("whatsapp.sent", recipient=phone, template=meta_template, message_id=message_id)
         return {"message_id": message_id, "status": "sent"}
+
+    @staticmethod
+    def _params(request):
+        keys = _PARAM_KEYS.get(request.template_id)
+        return [request.context.get(k, "") for k in keys] if keys else list(request.context.values())
 
     def _normalise_phone(self, phone: str) -> str:
         digits = re.sub(r"[^\d]", "", phone)

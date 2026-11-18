@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import uuid
 from typing import Any, Optional
 
 import structlog
@@ -23,6 +24,12 @@ from temporalio import activity
 
 from modules.cts.health.probes import build_specs, run_probe
 from modules.cts.health.state_machine import ComponentState, Event, Thresholds, step
+from shared.alerting.audit import SYSTEM_ACTOR, scrub_error
+from shared.alerting.bell import resolve_bell_users
+from shared.alerting.engine import Target
+from shared.alerting.incidents import IncidentStore, dedup_key_for, is_resolution
+from shared.alerting.retention import load_retention_policy, prune_alert_history
+from shared.audit.audit_event import AuditEventType
 from shared.notifications.dispatcher import NotificationRequest
 
 from shared.observability.otel_setup import get_tracer
@@ -79,12 +86,16 @@ class DispatchAlertInput(BaseModel):
     component: str = ""                          # which platform component (infrastructure alerts)
     template: str = "PLATFORM_HEALTH_ALERT"      # PLATFORM_HEALTH_ALERT | PLATFORM_HEALTH_RECOVERED
     down_for: str = ""                           # recovery mails: how long it was down
+    incident_id: str = ""                        # the incident this alert belongs to (audit correlation); empty = a fresh correlation id
+    occurred_at: float = 0.0                     # when it happened (epoch seconds); 0 = now
+    occasion: str = ""                           # identifies this notification (a reminder is a new occasion); a retried activity repeats it, so nothing is sent twice
 
 
 class DispatchAlertResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     sent: bool = False
     degraded: bool = False
+    queued_for_retry: int = 0     # deliveries that failed their first attempt and will be retried by the outbox
 
 
 class CheckVaultCoverageInput(BaseModel):
@@ -230,13 +241,13 @@ async def check_human_review_for_alert(
             return HRCheckResult(bank_id=inp.bank_id, degraded=True)
 
 
-async def _recipients(config_service: Any, bank_id: str) -> list[str]:
-    """Alert recipients from hot-reloadable config (alerts.email_recipients: a JSON list or comma-separated). Without a config service
-    (older callers and tests) the former per-bank mailbox is kept."""
+async def _recipients(config_service: Any, bank_id: str, key: str = "alerts.email_recipients") -> list[str]:
+    """Alert recipients from hot-reloadable config (a JSON list or comma-separated). Without a config service (older callers and tests) the former
+    per-bank mailbox is kept for email."""
     if config_service is None:
-        return [f"ops-alerts@{bank_id}.internal"]
+        return [f"ops-alerts@{bank_id}.internal"] if key == "alerts.email_recipients" else []
     try:
-        raw = await config_service.get("alerts.email_recipients")
+        raw = await config_service.get(key)
     except Exception:
         return []
     if isinstance(raw, list):
@@ -250,14 +261,76 @@ async def _recipients(config_service: Any, bank_id: str) -> list[str]:
     return [str(x).strip() for x in items if str(x).strip()]
 
 
+_PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+
+
+async def _whatsapp_recipients(config_service: Any, bank_id: str, priority: str) -> list[str]:
+    """Phones to message: only alerts at or above alerts.whatsapp_min_priority (default P0, so recoveries and slow warnings stay on email)."""
+    if config_service is None:
+        return []
+    floor = "P0"
+    try:
+        floor = str(await config_service.get("alerts.whatsapp_min_priority")).strip().upper() or "P0"
+    except Exception:
+        pass
+    if _PRIORITY_RANK.get(priority, 9) > _PRIORITY_RANK.get(floor, 0):
+        return []
+    return await _recipients(config_service, bank_id, "alerts.whatsapp_recipients")
+
+
+DEFAULT_BELL_ROLES = ["ops_manager", "bank_it_admin"]
+DEFAULT_BELL_MIN_PRIORITY = "P3"
+DEFAULT_BELL_MAX_RECIPIENTS = 200
+DEFAULT_BELL_DIRECTORY_DAYS = 90
+
+
+async def _bell_users(config_service: Any, db_pool: Any, bank_id: str, priority: Optional[str] = None) -> list[str]:
+    """People whose bell should ring: the active users of the configured roles. With a priority, only if it reaches alerting.bell_min_priority
+    (default: everything). A failing lookup means no bell recipients, never a failed alert."""
+    if db_pool is None or config_service is None:
+        return []
+    if priority is not None:
+        try:
+            floor = str(await config_service.get("alerting.bell_min_priority")).strip().upper() or DEFAULT_BELL_MIN_PRIORITY
+        except Exception:
+            floor = DEFAULT_BELL_MIN_PRIORITY
+        if _PRIORITY_RANK.get(priority, 9) > _PRIORITY_RANK.get(floor, 3):
+            return []
+    roles: Any = DEFAULT_BELL_ROLES
+    try:
+        raw = await config_service.get("alerting.bell_roles")
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+        if isinstance(parsed, list):
+            roles = [str(r) for r in parsed]
+    except Exception:
+        pass
+    try:
+        limit = int(await config_service.get("alerting.bell_max_recipients"))
+    except Exception:
+        limit = DEFAULT_BELL_MAX_RECIPIENTS
+    try:
+        days = int(await config_service.get("alerting.bell_directory_days"))
+    except Exception:
+        days = DEFAULT_BELL_DIRECTORY_DAYS
+    try:
+        return await resolve_bell_users(db_pool, bank_id, roles=roles, limit=limit, seen_within_days=days)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("bell_users.lookup_failed", bank_id=bank_id, error=scrub_error(str(exc), 200))
+        return []
+
+
 @activity.defn
 async def dispatch_platform_alert(
     inp: DispatchAlertInput,
     dispatcher=None,
     config_service=None,
+    alert_auditor=None,
+    delivery_engine=None,
+    db_pool=None,
 ) -> DispatchAlertResult:
     """
-    Send an alert via NotificationDispatcher (email), one mail per configured recipient.
+    Send an alert via NotificationDispatcher (email), one mail per configured recipient. With an auditor, an intent record is written before each send
+    and an outcome record after it; an audit problem never stops or delays the alert.
     P0 alerts bypass the debouncer. Degrades (sent=False) when there is no dispatcher or no recipient is configured; one recipient failing
     never stops the others.
     """
@@ -267,29 +340,192 @@ async def dispatch_platform_alert(
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="dispatcher_none")
             return DispatchAlertResult(sent=False, degraded=True)
         recipients = await _recipients(config_service, inp.bank_id)
-        if not recipients:
+        phones = await _whatsapp_recipients(config_service, inp.bank_id, inp.priority)
+        bell_users = await _bell_users(config_service, db_pool, inp.bank_id, inp.priority) if delivery_engine is not None else []
+        if not recipients and not phones and not bell_users:
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="no_recipients_configured")
             return DispatchAlertResult(sent=False, degraded=True)
 
+        correlation_id = inp.incident_id or f"adhoc-{uuid.uuid4().hex}"
+        context = {"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
+                   "component": inp.component, "down_for": inp.down_for, "incident_id": inp.incident_id, "occurred_at": inp.occurred_at or time.time(),
+                   "priority": inp.priority}
+        if delivery_engine is not None:
+            async def resolve_targets(channel: str) -> list[Target]:
+                """Who a fallback channel reaches: that channel's configured recipients, whatever their priority floor (a failed delivery is itself serious)."""
+                if channel == "email":
+                    return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
+                if channel == "whatsapp":
+                    return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+                if channel == "bell":
+                    return [Target("bell", u) for u in await _bell_users(config_service, db_pool, inp.bank_id)]
+                return []
+            submitted = await delivery_engine.submit(
+                bank_id=inp.bank_id, incident_id=correlation_id, occasion=inp.occasion or uuid.uuid4().hex,
+                targets=[Target("email", r) for r in recipients] + [Target("whatsapp", r) for r in phones] + [Target("bell", u) for u in bell_users],
+                template_id=inp.template, context=context, priority=inp.priority, component=inp.component, resolve_targets=resolve_targets)
+            log.info("dispatch_platform_alert.submitted", bank_id=inp.bank_id, event_type=inp.event_type, priority=inp.priority,
+                     sent=submitted.sent, retrying=submitted.retrying, undelivered=submitted.undelivered)
+            return DispatchAlertResult(sent=submitted.sent > 0, queued_for_retry=submitted.retrying)
         delivered = 0
-        for recipient in recipients:
-            try:
-                await dispatcher.send(NotificationRequest(
-                    channel="email",
-                    recipient=recipient,
-                    template_id=inp.template,
-                    context={"bank_id": inp.bank_id, "event_type": inp.event_type, "severity": inp.severity, "message": inp.message,
-                             "component": inp.component, "down_for": inp.down_for},
-                    priority=inp.priority,
-                    event_category="PLATFORM_HEALTH",
-                ))
-                delivered += 1
-            except Exception as exc:
-                log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, error=str(exc))
+        for channel, targets in (("email", recipients), ("whatsapp", phones)):
+            for recipient in targets:
+                delivery_id = uuid.uuid4().hex
+                intent_ref = None
+                if alert_auditor is not None:
+                    intent_ref = await alert_auditor.intent(
+                        bank_id=inp.bank_id, incident_id=correlation_id, delivery_id=delivery_id, channel=channel, recipient=recipient, level=0,
+                        template_id=inp.template, severity=inp.priority, component=inp.component)
+                error = ""
+                try:
+                    await dispatcher.send(NotificationRequest(
+                        channel=channel, recipient=recipient, template_id=inp.template, context=context,
+                        priority=inp.priority, event_category="PLATFORM_HEALTH",
+                    ))
+                    delivered += 1
+                except Exception as exc:
+                    error = str(exc) or type(exc).__name__
+                    log.warning("dispatch_platform_alert.error", bank_id=inp.bank_id, event_type=inp.event_type, channel=channel,
+                                error=scrub_error(error, 200))
+                if alert_auditor is not None:
+                    await alert_auditor.outcome(bank_id=inp.bank_id, incident_id=correlation_id, delivery_id=delivery_id, channel=channel,
+                                                succeeded=not error, attempt=1, intent_ref=intent_ref, error=error)
         if delivered:
             log.info("dispatch_platform_alert.sent", bank_id=inp.bank_id, event_type=inp.event_type, severity=inp.severity,
                      priority=inp.priority, recipients=delivered)
         return DispatchAlertResult(sent=delivered > 0, degraded=False)
+
+
+class ProcessOutboxInput(BaseModel):
+    bank_id: str
+
+
+class ProcessOutboxResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    attempted: int = 0
+    sent: int = 0
+    retrying: int = 0
+    undelivered: int = 0
+    degraded: bool = False
+
+
+@activity.defn
+async def process_alert_outbox(inp: ProcessOutboxInput, delivery_engine=None, config_service=None, db_pool=None) -> ProcessOutboxResult:
+    """Retry the deliveries that are due and recover ones whose sender died. Run every monitor tick; never raises."""
+    with tracer.start_as_current_span("activity.process_alert_outbox") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if delivery_engine is None:
+            return ProcessOutboxResult(degraded=True)
+
+        async def resolve_targets(channel: str) -> list[Target]:
+            if channel == "email":
+                return [Target("email", r) for r in await _recipients(config_service, inp.bank_id)]
+            if channel == "whatsapp":
+                return [Target("whatsapp", r) for r in await _recipients(config_service, inp.bank_id, "alerts.whatsapp_recipients")]
+            if channel == "bell":
+                return [Target("bell", u) for u in await _bell_users(config_service, db_pool, inp.bank_id)]
+            return []
+        try:
+            res = await delivery_engine.process_due(inp.bank_id, resolve_targets=resolve_targets)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("process_alert_outbox.error", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
+            return ProcessOutboxResult(degraded=True)
+        return ProcessOutboxResult(attempted=res.attempted, sent=res.sent, retrying=res.retrying, undelivered=res.undelivered)
+
+
+class RunRetentionInput(BaseModel):
+    bank_id: str
+
+
+class RunRetentionResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    incidents: int = 0
+    deliveries: int = 0
+    state_changes: int = 0
+    notifications: int = 0
+    degraded: bool = False
+
+
+@activity.defn
+async def run_alert_retention(inp: RunRetentionInput, db_pool=None, config_service=None) -> RunRetentionResult:
+    """Prune old alert history (docs/design/alerting-blueprint.md). Run daily by the monitor; never raises."""
+    with tracer.start_as_current_span("activity.run_alert_retention") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None or config_service is None:
+            return RunRetentionResult(degraded=True)
+        try:
+            res = await prune_alert_history(db_pool, inp.bank_id, await load_retention_policy(config_service))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("run_alert_retention.error", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
+            return RunRetentionResult(degraded=True)
+        log.info("run_alert_retention.done", bank_id=inp.bank_id, **res.model_dump())
+        return RunRetentionResult(**res.model_dump())
+
+
+# ---------------------------------------------------------------------------
+# Incidents: an alert opens, updates or resolves one
+# ---------------------------------------------------------------------------
+
+class IncidentRecordResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    incident_id: str = ""         # empty: no incident (nothing was open to resolve, or the incident store was unavailable)
+    created: bool = False
+    resolved: bool = False
+    degraded: bool = False
+
+
+@activity.defn
+async def record_alert_incident(inp: DispatchAlertInput, db_pool=None, alert_auditor=None, store=None) -> IncidentRecordResult:
+    """Open, update or resolve the incident this alert belongs to, and audit it. Never raises: the incident store being down must not stop an alert."""
+    with tracer.start_as_current_span("activity.record_alert_incident") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if store is None:
+            if db_pool is None:
+                log.warning("record_alert_incident.degraded", bank_id=inp.bank_id, reason="db_pool_none")
+                return IncidentRecordResult(degraded=True)
+            store = IncidentStore(db_pool)
+        key = dedup_key_for(inp.event_type, inp.component)
+        try:
+            if is_resolution(inp.event_type):
+                closed = await store.resolve(inp.bank_id, key, SYSTEM_ACTOR)
+                if closed is None:
+                    return IncidentRecordResult()
+                if alert_auditor is not None:
+                    await alert_auditor.lifecycle(AuditEventType.ALERT_RESOLVED, bank_id=inp.bank_id, incident_id=closed.incident_id,
+                                                  actor=SYSTEM_ACTOR, detail={"component": closed.component, "severity": closed.severity,
+                                                                              "duration_seconds": closed.duration_seconds})
+                return IncidentRecordResult(incident_id=closed.incident_id, resolved=True)
+            opened = await store.open_or_update(bank_id=inp.bank_id, dedup_key=key, alert_id=inp.event_type, component=inp.component,
+                                                severity=inp.priority, summary=inp.message)
+            if alert_auditor is not None and (opened.created or opened.severity_raised):
+                event = AuditEventType.ALERT_RAISED if opened.created else AuditEventType.ALERT_UPDATED
+                await alert_auditor.lifecycle(event, bank_id=inp.bank_id, incident_id=opened.incident_id, actor=SYSTEM_ACTOR,
+                                              detail={"component": inp.component, "severity": opened.severity, "alert_id": inp.event_type})
+            return IncidentRecordResult(incident_id=opened.incident_id, created=opened.created)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("record_alert_incident.error", bank_id=inp.bank_id, event_type=inp.event_type, error=scrub_error(str(exc), 200))
+            return IncidentRecordResult(degraded=True)
+
+
+class StatusChange(BaseModel):
+    component: str
+    from_status: str
+    to_status: str
+    latency_ms: Optional[float] = None
+    error: Optional[str] = None
+
+
+def status_changes(prior: dict, new: dict) -> list[StatusChange]:
+    """Components whose status differs from the previous tick (a first reading counts: UNKNOWN to its status)."""
+    out: list[StatusChange] = []
+    for component, state in new.items():
+        before = prior.get(component)
+        before = ComponentState.model_validate(before) if isinstance(before, dict) else before
+        from_status = before.status if before is not None else "UNKNOWN"
+        if from_status != state.status:
+            out.append(StatusChange(component=component, from_status=from_status, to_status=state.status,
+                                    latency_ms=state.last_latency_ms, error=state.last_error))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +552,7 @@ async def _threshold(config_service: Any, key: str, default):
 
 
 @activity.defn
-async def probe_components(inp: ProbeComponentsInput, config_service=None) -> ProbeComponentsResult:
+async def probe_components(inp: ProbeComponentsInput, config_service=None, db_pool=None) -> ProbeComponentsResult:
     """Probe every configured dependency once (concurrently), run each result through the state machine, and return the new states plus
     the alert events. Thresholds are hot-reloadable config; a component removed from configuration drops out of the state."""
     with tracer.start_as_current_span("activity.probe_components") as span:
@@ -340,6 +576,14 @@ async def probe_components(inp: ProbeComponentsInput, config_service=None) -> Pr
             prior = ComponentState.model_validate(prior) if isinstance(prior, dict) else (prior or ComponentState())
             states[probe.component], new_events = step(prior, probe, now=now, thresholds=thresholds)
             events.extend(new_events)
+        if db_pool is not None:                                  # history is best-effort: it never affects probing or alerting
+            try:
+                store = IncidentStore(db_pool)
+                for change in status_changes(inp.states, states):
+                    await store.record_state_change(inp.bank_id, change.component, change.from_status, change.to_status,
+                                                    latency_ms=change.latency_ms, error=scrub_error(change.error or "", 200) or None, incident_id=None)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("probe_components.history_failed", bank_id=inp.bank_id, error=scrub_error(str(exc), 200))
         return ProbeComponentsResult(states=states, events=events, probes_run=len(results))
 
 

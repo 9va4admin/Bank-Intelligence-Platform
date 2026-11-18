@@ -12,6 +12,7 @@ Lifespan wiring:
 All state stored on app.state — accessible to route handlers via Request.
 """
 import asyncio
+import time
 import os
 from contextlib import asynccontextmanager
 
@@ -28,7 +29,7 @@ from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
-from apps.api.routers import observability
+from apps.api.routers import alerts, inbox, observability
 from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
@@ -328,6 +329,45 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("api_gateway.outward_sweep_failed_to_start", error=str(exc))
 
+    # The health monitor runs in the worker; if the worker dies nobody mails about it, so the API watches the monitor and mails when it stops.
+    watchdog_task = None
+    try:
+        from modules.cts.health.state_machine import Thresholds
+        from modules.cts.health.watchdog import MonitorWatchdog, run_watchdog
+        from modules.cts.workflows.activities.platform_health_activities import DispatchAlertInput, dispatch_platform_alert
+        from shared.notifications.factory import build_dispatcher
+
+        from shared.alerting.factory import build_alert_auditor
+
+        _wd_dispatcher = await build_dispatcher(config_service, config_service.bank_id, db_pool=getattr(app.state, "db_pool_cts", None))
+        from shared.audit.immudb_writer import AsyncImmudbWriter
+        _wd_sync = getattr(app.state, "immudb_client", None)
+        _wd_writer = AsyncImmudbWriter(_wd_sync) if _wd_sync is not None else None
+        _wd_auditor = await build_alert_auditor(config_service, config_service.bank_id, redis=getattr(app.state, "redis_cts", None),
+                                                immudb_writer=_wd_writer)
+
+        from modules.cts.workflows.activities.platform_health_activities import record_alert_incident
+
+        app.state.alert_auditor = _wd_auditor          # the alerts API audits acknowledgements through the same trail
+        from shared.alerting.factory import build_delivery_engine
+        _wd_engine = await build_delivery_engine(config_service, config_service.bank_id, db_pool=getattr(app.state, "db_pool_cts", None),
+                                                 dispatcher=_wd_dispatcher, auditor=_wd_auditor)
+
+        async def _wd_send(alert: DispatchAlertInput) -> None:
+            recorded = await record_alert_incident(alert, db_pool=getattr(app.state, "db_pool_cts", None), alert_auditor=_wd_auditor)
+            if recorded.incident_id:
+                alert = alert.model_copy(update={"incident_id": recorded.incident_id})
+            alert = alert.model_copy(update={"occasion": f"w{int(time.time())}"})
+            await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
+                                          delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None))
+
+        watchdog_task = asyncio.create_task(run_watchdog(
+            lambda: getattr(app.state, "temporal_client", None),
+            MonitorWatchdog(config_service.bank_id, thresholds=Thresholds(), stale_after=180.0, send=_wd_send),
+        ))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("api_gateway.monitor_watchdog_failed_to_start", error=str(exc))
+
     # --- Mount microservice sub-applications --------------------------------
     # Each microservice is a standalone FastAPI app with its own lifespan.
     # Mounted here so the API gateway is the single public entry point (per
@@ -383,6 +423,13 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     log.info("api_gateway.shutting_down")
+
+    if watchdog_task:
+        watchdog_task.cancel()
+        try:
+            await asyncio.wait_for(watchdog_task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
 
     if outward_sweep_task:
         outward_sweep_task.cancel()
@@ -483,6 +530,8 @@ app.include_router(mcp_connections.router_v1)
 app.include_router(cts_outward_queue.router_v1)
 app.include_router(demo_cloud_extract.router_v1)
 app.include_router(observability.router_v1)
+app.include_router(alerts.router_v1)
+app.include_router(inbox.router_v1)
 app.include_router(branches.router_v1)
 app.include_router(processing_units.router_v1)
 app.include_router(platform_router.router_v1)

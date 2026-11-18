@@ -1,162 +1,91 @@
 """
 Tests for apps/notification_service/main.py.
 
-Covers:
-  - _resolve_recipient: all four resolution paths
-  - _record_delivery: DB write + graceful degradation when pool=None
-  - _consume_loop: dispatch, DB record, commit per message; failure isolation
-  - readiness probe: operational / degraded states
-  - liveness probe: always 200
+The service drains platform.notifications (security violations, config changes, MCP events, manual sends ...) and delivers every event through the
+same delivery engine and outbox as the alert system, so there is ONE delivery log (platform.alert_deliveries), one retry policy, one audit trail.
+
+Covers: who an event is for (resolve_targets), the consume loop (submit, unresolved recipients, failure isolation, other banks, bad JSON), and the probes.
 """
-import asyncio
 import json
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from apps.notification_service.main import (
-    _record_delivery,
-    _resolve_recipient,
-    _consume_loop,
-    app,
-    SERVICE_NAME,
-)
-from shared.notifications.dispatcher import NotificationDispatcher
+from apps.notification_service.main import SERVICE_NAME, _consume_loop, app, resolve_targets
+from shared.alerting.engine import SubmitResult, Target
 
 
-# ── _resolve_recipient ────────────────────────────────────────────────────────
+class _Pool:
+    """Answers the role lookup (bell users of a role)."""
+    def __init__(self, users=("u-a", "u-b")):
+        self.users, self.asked = list(users), []
 
-class TestResolveRecipient:
-    def test_direct_recipient_field(self):
-        event = {"recipient": "ops@bank.com", "channel": "email"}
-        addr, channel = _resolve_recipient(event)
-        assert addr == "ops@bank.com"
-        assert channel == "email"
-
-    def test_recipient_ref_with_at_sign(self):
-        event = {"recipient_ref": "it-admin@saraswat.bank", "channel": "email"}
-        addr, channel = _resolve_recipient(event)
-        assert addr == "it-admin@saraswat.bank"
-        assert channel == "email"
-
-    def test_recipient_role_returns_none(self):
-        event = {
-            "recipient_role": "bank_it_admin",
-            "channel": "whatsapp",
-        }
-        addr, channel = _resolve_recipient(event)
-        assert addr is None
-        assert channel == "whatsapp"
-
-    def test_opaque_user_id_returns_none(self):
-        event = {"recipient_ref": "user-uuid-without-at-sign", "channel": "email"}
-        addr, channel = _resolve_recipient(event)
-        assert addr is None
-
-    def test_no_recipient_returns_none(self):
-        event = {"channel": "email", "template_id": "cts.alert"}
-        addr, channel = _resolve_recipient(event)
-        assert addr is None
-
-    def test_unknown_channel_defaults_to_email(self):
-        event = {"recipient": "x@y.com", "channel": "sms"}  # sms not supported
-        addr, channel = _resolve_recipient(event)
-        assert channel == "email"
-
-    def test_whatsapp_channel_preserved(self):
-        event = {"recipient": "+919876543210", "channel": "whatsapp"}
-        addr, channel = _resolve_recipient(event)
-        assert channel == "whatsapp"
+    async def fetch(self, sql, bank, roles, limit, days=0):
+        self.asked.append((bank, roles))
+        return [{"user_id": u} for u in self.users][:limit]
 
 
-# ── _record_delivery ─────────────────────────────────────────────────────────
+class _Cfg:
+    def __init__(self, **v):
+        self.v = v
 
-@pytest.mark.asyncio
-async def test_record_delivery_no_pool_does_not_raise():
-    # Must not raise when DB pool is None
-    await _record_delivery(
-        pool=None,
-        notification_id=str(uuid.uuid4()),
-        bank_id="test-bank",
-        channel="email",
-        template_id_str="cts.alert",
-        event_type="CTS_ALERT",
-        module="CTS",
-        recipient_type="OPS_MANAGER",
-        status="SENT",
-        delivery_error=None,
-        kafka_offset=42,
-    )
+    async def get(self, key):
+        from shared.config.config_service import ConfigKeyNotFoundError
+        if key not in self.v:
+            raise ConfigKeyNotFoundError(key)
+        return self.v[key]
 
 
-@pytest.mark.asyncio
-async def test_record_delivery_writes_to_db():
-    conn = AsyncMock()
-    conn.execute = AsyncMock()
-    pool = AsyncMock()
-    pool.acquire = MagicMock(return_value=AsyncMock(
-        __aenter__=AsyncMock(return_value=conn),
-        __aexit__=AsyncMock(return_value=False),
-    ))
-
-    notif_id = str(uuid.uuid4())
-    await _record_delivery(
-        pool=pool,
-        notification_id=notif_id,
-        bank_id="test-bank",
-        channel="whatsapp",
-        template_id_str="security.isolation_violation",
-        event_type="SECURITY_VIOLATION",
-        module="PLATFORM",
-        recipient_type="BANK_IT_ADMIN",
-        status="SENT",
-        delivery_error=None,
-        kafka_offset=101,
-    )
-    conn.execute.assert_awaited_once()
-    # Verify bank_id is in the call args
-    args = conn.execute.await_args.args
-    assert "test-bank" in args
+async def _targets(event, pool=None, cfg=None):
+    return await resolve_targets(event, pool=pool, config_service=cfg or _Cfg(), bank_id="test-bank")
 
 
-@pytest.mark.asyncio
-async def test_record_delivery_db_failure_does_not_raise():
-    pool = AsyncMock()
-    pool.acquire = MagicMock(side_effect=RuntimeError("db down"))
+# ── who an event is for ──────────────────────────────────────────────────────
 
-    # Must not propagate the exception
-    await _record_delivery(
-        pool=pool,
-        notification_id=str(uuid.uuid4()),
-        bank_id="b1",
-        channel="email",
-        template_id_str="cts.alert",
-        event_type="CTS_ALERT",
-        module="CTS",
-        recipient_type="OPS_MANAGER",
-        status="FAILED",
-        delivery_error="RECIPIENT_UNRESOLVED",
-        kafka_offset=0,
-    )
+class TestResolveTargets:
+    @pytest.mark.asyncio
+    async def test_a_direct_address_is_used_on_the_events_channel(self):
+        assert await _targets({"recipient": "admin@x.bank", "channel": "email"}) == [Target("email", "admin@x.bank")]
+        assert await _targets({"recipient": "+919800000001", "channel": "whatsapp"}) == [Target("whatsapp", "+919800000001")]
+
+    @pytest.mark.asyncio
+    async def test_a_reference_that_is_an_email_address_is_delivered_by_email(self):
+        assert await _targets({"recipient_ref": "a@b.in"}) == [Target("email", "a@b.in")]
+
+    @pytest.mark.asyncio
+    async def test_a_role_reaches_every_active_user_of_that_role_on_the_bell(self):
+        pool = _Pool(["u1", "u2"])
+        got = await _targets({"recipient_role": "bank_it_admin"}, pool=pool)
+        assert got == [Target("bell", "u1"), Target("bell", "u2")] and pool.asked[0] == ("test-bank", ["bank_it_admin"])
+
+    @pytest.mark.asyncio
+    async def test_an_opaque_user_id_is_a_bell_recipient(self):
+        assert await _targets({"recipient_ref": "usr-ops-kbl"}) == [Target("bell", "usr-ops-kbl")]
+
+    @pytest.mark.asyncio
+    async def test_nothing_to_go_on_is_empty_and_a_role_without_a_database_is_empty(self):
+        assert await _targets({}) == []
+        assert await _targets({"recipient_role": "bank_it_admin"}, pool=None) == []
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_channel_defaults_to_email(self):
+        assert await _targets({"recipient": "a@b.in", "channel": "carrier-pigeon"}) == [Target("email", "a@b.in")]
 
 
-# ── _consume_loop ─────────────────────────────────────────────────────────────
+# ── the consume loop ─────────────────────────────────────────────────────────
 
-def _make_kafka_msg(payload: dict, offset: int = 0):
-    msg = MagicMock()
-    msg.value = json.dumps(payload).encode()
-    msg.offset = offset
-    return msg
+def _msg(event, offset=0):
+    m = MagicMock()
+    m.value = json.dumps(event).encode()
+    m.offset = offset
+    return m
 
 
-class _FakeConsumer:
-    """Minimal async-iterable Kafka consumer stub."""
-
+class _Consumer:
     def __init__(self, *msgs):
-        self._msgs = list(msgs)
-        self.commit = AsyncMock()
+        self._msgs, self.commit = list(msgs), AsyncMock()
 
     def __aiter__(self):
         return self
@@ -167,131 +96,100 @@ class _FakeConsumer:
         return self._msgs.pop(0)
 
 
+class _Engine:
+    def __init__(self, fail=False):
+        self.submits, self.undeliverable, self.fail = [], [], fail
+
+    async def submit(self, **kw):
+        if self.fail:
+            raise RuntimeError("engine down")
+        self.submits.append(kw)
+        return SubmitResult(sent=1)
+
+    async def record_undeliverable(self, **kw):
+        self.undeliverable.append(kw)
+
+
+def _event(**over):
+    base = {"notification_id": str(uuid.uuid4()), "bank_id": "test-bank", "channel": "email", "recipient": "admin@test.bank",
+            "template_id": "cts.human_review_escalated", "context": {"instrument_id": "instr-001"}, "priority": "P1", "module": "CTS",
+            "event_type": "HUMAN_REVIEW_ESCALATED"}
+    base.update(over)
+    return base
+
+
+async def _run(consumer, engine, pool=None):
+    await _consume_loop(consumer, engine, pool, "test-bank", _Cfg())
+
+
 @pytest.mark.asyncio
-async def test_consume_loop_dispatches_and_commits():
-    event = {
-        "notification_id": str(uuid.uuid4()),
-        "bank_id": "test-bank",
-        "channel": "email",
-        "recipient": "admin@test.bank",
-        "template_id": "cts.human_review_escalated",
-        "context": {"instrument_id": "instr-001"},
-        "priority": "P1",
-        "module": "CTS",
-        "event_type": "HUMAN_REVIEW_ESCALATED",
-        "recipient_type": "OPS_MANAGER",
-    }
-
-    consumer = _FakeConsumer(_make_kafka_msg(event, offset=10))
-    dispatcher = AsyncMock(spec=NotificationDispatcher)
-    dispatcher.send = AsyncMock(return_value={"status": "sent"})
-
-    with patch("apps.notification_service.main._record_delivery", new=AsyncMock()):
-        await _consume_loop(consumer, dispatcher, None, "test-bank")
-
-    dispatcher.send.assert_awaited()
+async def test_an_event_is_submitted_to_the_engine_with_its_id_as_incident_and_occasion_and_the_offset_is_committed():
+    ev = _event()
+    engine, consumer = _Engine(), _Consumer(_msg(ev, 10))
+    await _run(consumer, engine)
+    kw = engine.submits[0]
+    assert kw["bank_id"] == "test-bank" and kw["incident_id"] == ev["notification_id"] and kw["occasion"] == ev["notification_id"]
+    assert kw["targets"] == [Target("email", "admin@test.bank")] and kw["template_id"] == "cts.human_review_escalated" and kw["priority"] == "P1"
+    assert kw["context"]["instrument_id"] == "instr-001" and kw["context"]["bank_id"] == "test-bank" and kw["context"]["event_type"] == "HUMAN_REVIEW_ESCALATED"
     consumer.commit.assert_awaited()
 
 
 @pytest.mark.asyncio
-async def test_consume_loop_handles_dispatch_failure():
-    """Dispatch failure → status FAILED in DB; consumer still commits; loop continues."""
-    event = {
-        "notification_id": str(uuid.uuid4()),
-        "bank_id": "test-bank",
-        "channel": "email",
-        "recipient": "admin@test.bank",
-        "template_id": "cts.alert",
-        "context": {},
-        "priority": "P1",
-        "module": "CTS",
-        "event_type": "CTS_ALERT",
-        "recipient_type": "OPS_MANAGER",
-    }
+async def test_the_bell_gets_readable_text_even_when_the_event_has_no_message():
+    engine = _Engine()
+    await _run(_Consumer(_msg(_event(context={}))), engine)
+    ctx = engine.submits[0]["context"]
+    assert ctx["message"] and ctx["component"]
 
-    consumer = _FakeConsumer(_make_kafka_msg(event, offset=5))
-    dispatcher = AsyncMock(spec=NotificationDispatcher)
-    dispatcher.send = AsyncMock(side_effect=RuntimeError("channel down"))
 
-    recorded_statuses = []
+@pytest.mark.asyncio
+async def test_an_events_own_message_is_kept():
+    engine = _Engine()
+    await _run(_Consumer(_msg(_event(message="Config change awaiting approval"))), engine)
+    assert engine.submits[0]["context"]["message"] == "Config change awaiting approval"
 
-    async def fake_record(pool, **kwargs):
-        recorded_statuses.append(kwargs.get("status"))
 
-    with patch("apps.notification_service.main._record_delivery", side_effect=fake_record):
-        await _consume_loop(consumer, dispatcher, None, "test-bank")
+@pytest.mark.asyncio
+async def test_a_role_event_goes_to_the_bell_users_of_that_role():
+    engine = _Engine()
+    await _run(_Consumer(_msg(_event(recipient=None, recipient_role="bank_it_admin"))), engine, pool=_Pool(["u1"]))
+    assert engine.submits[0]["targets"] == [Target("bell", "u1")]
 
-    assert "FAILED" in recorded_statuses
+
+@pytest.mark.asyncio
+async def test_an_event_nobody_can_be_found_for_is_recorded_as_undeliverable_not_silently_dropped():
+    engine, consumer = _Engine(), _Consumer(_msg(_event(recipient=None)))
+    await _run(consumer, engine)
+    assert engine.submits == [] and len(engine.undeliverable) == 1
+    assert engine.undeliverable[0]["reason"] and engine.undeliverable[0]["incident_id"]
     consumer.commit.assert_awaited()
 
 
 @pytest.mark.asyncio
-async def test_consume_loop_unresolvable_recipient_records_failed():
-    """Events with recipient_role (unresolvable) are recorded FAILED; consumer still commits."""
-    event = {
-        "notification_id": str(uuid.uuid4()),
-        "bank_id": "test-bank",
-        "channel": "whatsapp",
-        "recipient_role": "bank_it_admin",
-        "template_id": "security.isolation_violation",
-        "context": {},
-        "priority": "P0",
-        "module": "PLATFORM",
-        "event_type": "SECURITY_VIOLATION",
-    }
-
-    consumer = _FakeConsumer(_make_kafka_msg(event, offset=7))
-    dispatcher = AsyncMock(spec=NotificationDispatcher)
-    dispatcher.send = AsyncMock()
-
-    recorded_statuses = []
-
-    async def fake_record(pool, **kwargs):
-        recorded_statuses.append(kwargs.get("status"))
-        recorded_statuses.append(kwargs.get("delivery_error"))
-
-    with patch("apps.notification_service.main._record_delivery", side_effect=fake_record):
-        await _consume_loop(consumer, dispatcher, None, "test-bank")
-
-    # Dispatcher should NOT have been called — recipient unresolved
-    dispatcher.send.assert_not_awaited()
-    assert "FAILED" in recorded_statuses
-    assert "RECIPIENT_UNRESOLVED" in recorded_statuses
-    consumer.commit.assert_awaited()
+async def test_one_failing_event_never_stops_the_loop():
+    engine, consumer = _Engine(fail=True), _Consumer(_msg(_event(), 1), _msg(_event(), 2))
+    await _run(consumer, engine)
+    assert consumer.commit.await_count == 2
 
 
 @pytest.mark.asyncio
-async def test_consume_loop_skips_malformed_json():
-    """A message that isn't valid JSON is skipped; loop continues."""
-    bad_msg = MagicMock()
-    bad_msg.value = b"not-valid-json{"
-    bad_msg.offset = 3
-
-    consumer = _FakeConsumer(bad_msg)
-    dispatcher = AsyncMock(spec=NotificationDispatcher)
-    dispatcher.send = AsyncMock()
-
-    await _consume_loop(consumer, dispatcher, None, "test-bank")
-
-    dispatcher.send.assert_not_awaited()
-    consumer.commit.assert_awaited()
+async def test_other_banks_and_bad_json_are_skipped_and_committed():
+    bad = MagicMock()
+    bad.value, bad.offset = b"not-json{", 3
+    engine, consumer = _Engine(), _Consumer(bad, _msg(_event(bank_id="another-bank"), 4))
+    await _run(consumer, engine)
+    assert engine.submits == [] and consumer.commit.await_count == 2
 
 
 # ── health probes ────────────────────────────────────────────────────────────
 
 class TestHealthProbes:
     def test_liveness_always_200(self):
-        client = TestClient(app)
-        resp = client.get("/health/live")
-        assert resp.status_code == 200
-        assert resp.json()["service"] == SERVICE_NAME
+        resp = TestClient(app).get("/health/live")
+        assert resp.status_code == 200 and resp.json()["service"] == SERVICE_NAME
 
     def test_readiness_degraded_when_no_consumer(self):
-        # app.state is not set up (no lifespan in TestClient by default)
-        client = TestClient(app)
-        resp = client.get("/health/ready")
-        # Should be 503 — no kafka_consumer in state
+        resp = TestClient(app).get("/health/ready")
         assert resp.status_code == 503
         data = resp.json()
-        assert data["status"] == "degraded"
-        assert "kafka_consumer" in data["checks"]
+        assert data["status"] == "degraded" and "kafka_consumer" in data["checks"] and "engine" in data["checks"]

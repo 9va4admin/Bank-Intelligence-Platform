@@ -186,6 +186,32 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "platform_health.slow_after": 3,                  # consecutive slow probes before it is SLOW
     "platform_health.reminder_every_seconds": 1800.0,  # a standing outage is mentioned again this often, not every minute
     "platform_health.probe_timeout_seconds": 3.0,     # how long one probe may take before it counts as a failure
+    "platform_health.host_probes_enabled": True,      # disk and memory of the machine the monitor runs on
+    "platform_health.disk_max_percent": 90.0,         # disk usage at which the disk probe fails
+    "platform_health.memory_max_percent": 90.0,       # memory usage at which the memory probe fails
+    "alerts.whatsapp_min_priority": "P0",             # lowest priority also sent to WhatsApp (P0 only by default)
+    "alerting.audit_collection_pattern": "cts_{bank_id}",   # Immudb collection for alert audit events when written directly
+    "alerting.audit_max_error_chars": 200,                  # longest failure reason kept in an audit record
+    "alerting.delivery_max_attempts": 4,                    # attempts per delivery before it is declared undelivered and a fallback is tried
+    "alerting.delivery_backoff_seconds": "[60, 300, 900]",  # wait before attempt 2, 3, 4 ... (JSON list; the last value repeats)
+    "alerting.delivery_lease_seconds": 120.0,               # how long a sender holds a delivery before another may take it over
+    "alerting.delivery_fallbacks": '{"email": ["whatsapp", "bell"], "whatsapp": ["email", "bell"]}',   # channel to try when a channel gives up (JSON)
+    "alerting.delivery_batch_size": 20,                     # deliveries worked per monitor tick
+    "alerting.ui_base_url": "",                             # the ASTRA web address used in alert links (empty: no link in the mail)
+    "alerting.incident_path": "/ops/incidents/{incident_id}",   # path of an incident page under the web address
+    "alerting.runbook_base_url": "",                        # where runbooks are published (empty: no runbook link)
+    "alerting.runbook_map": '{"COMPONENT_DOWN": "component-down", "COMPONENT_REMINDER": "component-down"}',   # alert type -> runbook page (JSON)
+    "alerting.timezone": "Asia/Kolkata",                    # timezone alert times are shown in (UTC is always shown too)
+    "alerting.message_max_chars": 500,                      # longest alert message kept in a mail
+    "alerting.subject_max_chars": 100,                      # longest summary placed in the subject line
+    "alerting.bell_roles": '["ops_manager", "bank_it_admin"]',   # roles whose in-app bell rings for every alert (JSON list)
+    "alerting.bell_min_priority": "P3",                     # lowest priority that reaches the bell (P3 = all)
+    "alerting.bell_directory_days": 90,                     # people who signed in within this many days are on the bell (0 = everyone ever)
+    "alerting.bell_max_recipients": 200,                    # most people the bell lookup returns
+    "alerting.retention_days": 730,                         # resolved incidents and finished deliveries are kept this long in the database (0 = keep)
+    "alerting.history_retention_days": 730,                 # component state history is kept this long (0 = keep)
+    "alerting.inbox_retention_days": 90,                    # bell notifications are kept this long, except unacknowledged critical ones (0 = keep)
+    "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

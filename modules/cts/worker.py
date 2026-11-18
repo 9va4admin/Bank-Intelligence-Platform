@@ -192,6 +192,9 @@ from modules.cts.workflows.activities.platform_health_activities import (
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,
+    process_alert_outbox,
+    record_alert_incident,
+    run_alert_retention,
     sweep_stuck_workflows,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput
@@ -339,6 +342,9 @@ ALL_ACTIVITIES = [
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,
+    process_alert_outbox,
+    record_alert_incident,
+    run_alert_retention,
     sweep_stuck_workflows,
     send_hold_reminder,
     send_hold_critical_alert,
@@ -387,6 +393,9 @@ NO_DI_ACTIVITIES = [
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     probe_components,       # infrastructure probes (config_service injected by the generic DI binder)
+    process_alert_outbox,   # retries due alert deliveries (delivery_engine, config_service injected)
+    run_alert_retention,    # prunes old alert history (db_pool, config_service injected)
+    record_alert_incident,  # opens/updates/resolves the incident an alert belongs to (db_pool, alert_auditor injected)
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
@@ -470,6 +479,10 @@ async def _start_platform_health(client, bank_id: str) -> None:
     except Exception as exc:
         if type(exc).__name__ == "WorkflowAlreadyStartedError":
             log.info("worker.platform_health_already_running", bank_id=bank_id)
+            try:      # ask it to roll over so it runs the code this worker has (a monitor started before an upgrade keeps its old path otherwise)
+                await client.get_workflow_handle(f"cts-platform-health-{bank_id}").signal(PlatformHealthCheckWorkflow.request_restart)
+            except Exception as signal_exc:
+                log.warning("worker.platform_health_restart_signal_failed", bank_id=bank_id, error=str(signal_exc))
         else:
             log.warning("worker.platform_health_start_failed", bank_id=bank_id, error=str(exc))     # never stop the worker over the monitor
 

@@ -32,7 +32,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from temporalio.exceptions import CancelledError
+from temporalio.exceptions import ActivityError, CancelledError
 
 from modules.cts.health.state_machine import ComponentState, Event, human_duration
 from modules.cts.workflows.activities.platform_health_activities import (
@@ -48,7 +48,12 @@ from modules.cts.workflows.activities.platform_health_activities import (
     check_scanner_fleet_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    ProcessOutboxInput,
+    RunRetentionInput,
     probe_components,
+    process_alert_outbox,
+    record_alert_incident,
+    run_alert_retention,
     sweep_stuck_workflows,
 )
 with workflow.unsafe.imports_passed_through():       # the workflow sandbox restricts imports; the message registry is read-only wording
@@ -57,6 +62,10 @@ with workflow.unsafe.imports_passed_through():       # the workflow sandbox rest
 log = structlog.get_logger()
 
 _HEALTH_CHECK_INTERVAL_S = 60  # structural constant — not bank-configurable
+# Workflow patch ids (Temporal versioning). Never rename or remove one while a monitor started before it may still be running.
+_PATCH_INCIDENTS = "alerting-incidents-v1"
+_PATCH_OUTBOX = "alerting-outbox-v1"
+_PATCH_RETENTION = "alerting-retention-v1"
 _ACTIVITY_TIMEOUT = timedelta(seconds=30)
 # The default policy retries forever, so one broken check would hold the whole tick (and the infrastructure probes with it). Two attempts, then
 # the tick moves on and the failure is logged.
@@ -76,6 +85,7 @@ class PlatformHealthInput(BaseModel):
     repeat_alert_seconds: float = 1800.0   # the same standing condition is mailed again no sooner than this
     iet_repeat_seconds: float = 300.0      # IET near-breach is time-critical: repeat sooner
     max_ticks_before_restart: int = 1000   # continue-as-new after this many ticks (history stays small)
+    prune_every_ticks: int = 1440          # old alert history is pruned on the first tick and then every this many ticks (1440 = daily at 60 s)
     # carried across continue-as-new:
     states: dict[str, ComponentState] = {}
     last_sent: dict[str, float] = {}
@@ -118,6 +128,13 @@ class PlatformHealthCheckWorkflow:
         self._last_sent: dict[str, float] = {}
         self._tick = 0
         self._last_tick_at: Optional[float] = None
+        self._restart_requested = False
+
+    @workflow.signal
+    def request_restart(self) -> None:
+        """Roll over (continue-as-new) at the end of the current tick, carrying the state. Sent by the worker on start-up so a monitor that was already
+        running adopts upgraded code at once instead of keeping its old code path until its next scheduled restart."""
+        self._restart_requested = True
 
     @workflow.query
     def component_states(self) -> dict:
@@ -131,6 +148,20 @@ class PlatformHealthCheckWorkflow:
         if last is not None and now - last < interval:
             return
         self._last_sent[alert.event_type] = now
+        await self._notify(alert)
+
+    async def _notify(self, alert: DispatchAlertInput) -> None:
+        """Open, update or resolve the incident this alert belongs to, then send it carrying the incident id. An incident store that is down
+        or slow must never keep an alert from going out, so a failed record only means the alert has no incident id."""
+        alert = alert.model_copy(update={"occasion": f"t{self._tick}", "occurred_at": workflow.now().timestamp()})      # one notification per tick per alert; an activity retry repeats it, so nothing is sent twice
+        # Patch markers keep a monitor that was already running before an upgrade replayable: its recorded history has none of these steps.
+        if workflow.patched(_PATCH_INCIDENTS):
+            try:
+                recorded = await workflow.execute_activity(record_alert_incident, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
+                if recorded.incident_id:
+                    alert = alert.model_copy(update={"incident_id": recorded.incident_id})
+            except ActivityError:
+                pass
         await workflow.execute_activity(dispatch_platform_alert, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
 
     async def _tick_once(self, inp: PlatformHealthInput, now: float) -> None:
@@ -143,7 +174,7 @@ class PlatformHealthCheckWorkflow:
         )
         self._states = probed.states
         for alert in alerts_for_events(inp.bank_id, probed.events):      # the state machine already limits how often these happen
-            await workflow.execute_activity(dispatch_platform_alert, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
+            await self._notify(alert)
 
         # ── 1. IET near-breach risk ───────────────────────────────────
         iet_result = await workflow.execute_activity(
@@ -199,6 +230,16 @@ class PlatformHealthCheckWorkflow:
                 message=get_message("CTS_AUTO_TERMINATED_STUCK_CTS_WORKFLOWS", terminated=sweep_result.terminated, found=sweep_result.found),
             ), now, inp.repeat_alert_seconds)
 
+        # ── 6. Alert outbox: retry what failed to send, recover what a dead sender left behind ─────
+        if workflow.patched(_PATCH_OUTBOX):
+            await workflow.execute_activity(
+                process_alert_outbox, ProcessOutboxInput(bank_id=inp.bank_id), start_to_close_timeout=timedelta(seconds=45), retry_policy=_CHECK_RETRY)
+
+        # ── 7. Retention: prune old alert history ────────────────────────────────────────────────
+        if workflow.patched(_PATCH_RETENTION) and inp.prune_every_ticks > 0 and (self._tick - 1) % inp.prune_every_ticks == 0:
+            await workflow.execute_activity(
+                run_alert_retention, RunRetentionInput(bank_id=inp.bank_id), start_to_close_timeout=timedelta(seconds=120), retry_policy=_CHECK_RETRY)
+
     @workflow.run
     async def run(self, inp: PlatformHealthInput) -> None:
         self._states = {k: ComponentState.model_validate(v) if isinstance(v, dict) else v for k, v in inp.states.items()}
@@ -224,7 +265,7 @@ class PlatformHealthCheckWorkflow:
             except asyncio.TimeoutError:
                 pass
 
-            if ticks_this_run >= inp.max_ticks_before_restart:
+            if ticks_this_run >= inp.max_ticks_before_restart or self._restart_requested:
                 workflow.continue_as_new(inp.model_copy(update={"states": dict(self._states), "last_sent": dict(self._last_sent), "tick": self._tick}))
 
     # -----------------------------------------------------------------------

@@ -22,6 +22,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
+from shared.alerting.delivery import DeliveryStore
 from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
 from shared.messages import get_message
 
@@ -84,7 +85,7 @@ class NotificationSendResponse(BaseModel):
 class NotificationSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
     notification_id: str
-    channel: Literal["email", "whatsapp"]
+    channel: Literal["email", "whatsapp", "bell", "sms", "webhook", "syslog"]
     template_id: str
     recipient_ref: str          # user_id — never raw email/phone
     delivery_status: Literal["QUEUED", "SENT", "DELIVERED", "FAILED", "RETRYING"]
@@ -104,7 +105,7 @@ class NotificationsListResponse(BaseModel):
 class NotificationDetail(BaseModel):
     model_config = ConfigDict(frozen=True)
     notification_id: str
-    channel: Literal["email", "whatsapp"]
+    channel: Literal["email", "whatsapp", "bell", "sms", "webhook", "syslog"]
     template_id: str
     recipient_ref: str          # user_id — never raw email/phone
     delivery_status: Literal["QUEUED", "SENT", "DELIVERED", "FAILED", "RETRYING"]
@@ -185,6 +186,15 @@ def _decode_notif_cursor(cursor: str) -> Optional[dict]:
         return None
 
 
+# The one delivery log is platform.alert_deliveries (the outbox). Its statuses are shown with the names this API has always used.
+_STATUS_VIEW = {"PENDING": "QUEUED", "SENDING": "QUEUED", "SENT": "SENT", "FAILED": "RETRYING", "UNDELIVERED": "FAILED", "SKIPPED": "FAILED"}
+_STATUS_FILTER = {"QUEUED": ["PENDING", "SENDING"], "SENT": ["SENT"], "DELIVERED": ["SENT"], "RETRYING": ["FAILED"], "FAILED": ["UNDELIVERED", "SKIPPED"]}
+
+
+def _delivery_pool(request: Request) -> Any:
+    return getattr(request.app.state, "db_pool_cts", None) or getattr(request.app.state, "db_pool_platform", None)
+
+
 @router_v1.get("", response_model=NotificationsListResponse)
 async def list_notifications(
     request: Request,
@@ -196,70 +206,26 @@ async def list_notifications(
 ) -> NotificationsListResponse:
     bank_id = user["bank_id"]
     log.info("notifications.list", bank_id=bank_id, limit=limit, channel=channel)
-
-    pool = getattr(request.app.state, "db_pool_platform", None)
-    if pool is not None:
-        try:
-            cursor_data = _decode_notif_cursor(cursor) if cursor else None
-            params: list[Any] = [bank_id]
-            where = [get_message("API_BANK_ID_1")]
-            if channel:
-                params.append(channel)
-                where.append(f"channel = ${len(params)}")
-            if delivery_status:
-                params.append(delivery_status)
-                where.append(f"delivery_status = ${len(params)}")
-            if cursor_data:
-                params.append(cursor_data["created_at"])
-                params.append(cursor_data["notification_id"])
-                where.append(
-                    f"(created_at, notification_id::text) < (${len(params)-1}::timestamptz, ${len(params)})"
-                )
-            params.append(limit + 1)
-            query = f"""
-                SELECT notification_id, channel, template_id, recipient_ref,
-                       delivery_status, attempt_count, created_at
-                FROM platform.notification_records
-                WHERE {" AND ".join(where)}
-                ORDER BY created_at DESC, notification_id DESC
-                LIMIT ${len(params)}
-            """
-            async with pool.acquire() as conn:
-                rows = await conn.fetch(query, *params)
-            dicts = [dict(r) for r in rows]
-            has_more = len(dicts) > limit
-            page = dicts[:limit]
-            next_cursor = None
-            if has_more and page:
-                last = page[-1]
-                next_cursor = _encode_notif_cursor(last["created_at"], str(last["notification_id"]))
-            async with pool.acquire() as conn:
-                total_row = await conn.fetchrow(
-                    "SELECT COUNT(*) AS cnt FROM platform.notification_records WHERE bank_id = $1",
-                    bank_id,
-                )
-            total = int(total_row["cnt"]) if total_row else 0
-            return NotificationsListResponse(
-                notifications=[
-                    NotificationSummary(
-                        notification_id=str(r["notification_id"]),
-                        channel=r["channel"],
-                        template_id=r["template_id"],
-                        recipient_ref=r["recipient_ref"],
-                        delivery_status=r["delivery_status"],
-                        attempt_count=int(r["attempt_count"] or 0),
-                        created_at=str(r["created_at"]),
-                    )
-                    for r in page
-                ],
-                total=total,
-                limit=limit,
-                next_cursor=next_cursor,
-            )
-        except Exception:
-            log.warning("notifications.list.db_error", bank_id=bank_id)
-
-    return NotificationsListResponse(notifications=[], total=0, limit=limit, next_cursor=None)
+    pool = _delivery_pool(request)
+    if pool is None:
+        return NotificationsListResponse(notifications=[], total=0, limit=limit, next_cursor=None)
+    store = DeliveryStore(pool)
+    statuses = _STATUS_FILTER.get(delivery_status or "", None) if delivery_status else None
+    if delivery_status and statuses is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
+    try:
+        page = await store.list_deliveries(bank_id, limit=limit, cursor=cursor, statuses=statuses, channel=channel)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=get_message("ALERT_API_BAD_CURSOR"))
+    except Exception:
+        log.warning("notifications.list.db_error", bank_id=bank_id)
+        return NotificationsListResponse(notifications=[], total=0, limit=limit, next_cursor=None)
+    return NotificationsListResponse(
+        notifications=[
+            NotificationSummary(notification_id=r["delivery_id"], channel=r["channel"], template_id=r["template_id"] or "", recipient_ref=r["recipient_ref"],
+                                delivery_status=_STATUS_VIEW[r["status"]], attempt_count=int(r["attempt"] or 0), created_at=str(r["created_at"]))
+            for r in page.items],
+        total=await store.count_deliveries(bank_id), limit=limit, next_cursor=page.next_cursor)
 
 
 @router_v1.get("/{notification_id}", response_model=NotificationDetail)
@@ -270,39 +236,16 @@ async def get_notification(
 ) -> NotificationDetail:
     bank_id = user["bank_id"]
     log.info("notifications.get", bank_id=bank_id, notification_id=notification_id)
-
-    pool = getattr(request.app.state, "db_pool_platform", None)
-    if pool is not None:
-        try:
-            async with pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    """
-                    SELECT notification_id, channel, template_id, recipient_ref,
-                           delivery_status, attempt_count, last_attempt_at,
-                           delivered_at, error_code, created_at
-                    FROM platform.notification_records
-                    WHERE notification_id = $1::uuid AND bank_id = $2
-                    """,
-                    notification_id, bank_id,
-                )
-            if row:
-                r = dict(row)
-                return NotificationDetail(
-                    notification_id=str(r["notification_id"]),
-                    channel=r["channel"],
-                    template_id=r["template_id"],
-                    recipient_ref=r["recipient_ref"],
-                    delivery_status=r["delivery_status"],
-                    attempt_count=int(r["attempt_count"] or 0),
-                    last_attempt_at=str(r["last_attempt_at"]) if r.get("last_attempt_at") else None,
-                    delivered_at=str(r["delivered_at"]) if r.get("delivered_at") else None,
-                    error_code=r.get("error_code"),
-                    created_at=str(r["created_at"]),
-                )
-        except Exception:
-            log.warning("notifications.get.db_error", bank_id=bank_id)
-
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
+    pool = _delivery_pool(request)
+    r = await DeliveryStore(pool).get_delivery(bank_id, notification_id) if pool is not None else None
+    if r is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
+    return NotificationDetail(
+        notification_id=r["delivery_id"], channel=r["channel"], template_id=r["template_id"] or "", recipient_ref=r["recipient_ref"],
+        delivery_status=_STATUS_VIEW[r["status"]], attempt_count=int(r["attempt"] or 0),
+        last_attempt_at=str(r["completed_at"]) if r.get("completed_at") else None,
+        delivered_at=str(r["completed_at"]) if r["status"] == "SENT" and r.get("completed_at") else None,
+        error_code=r.get("provider_class"), created_at=str(r["created_at"]))
 
 
 @router_v1.post("/{notification_id}/retry", response_model=NotificationRetryResponse, status_code=202)
@@ -311,58 +254,14 @@ async def retry_notification(
     notification_id: str,
     user: dict = Depends(require_write_role),
 ) -> NotificationRetryResponse:
+    """Send a failed or given-up delivery again: it becomes due at once and the next outbox run (within a minute) sends it."""
     bank_id = user["bank_id"]
     log.info("notifications.retry", bank_id=bank_id, notification_id=notification_id)
-
-    retried_at = datetime.now(timezone.utc).isoformat()
-    producer = getattr(request.app.state, "kafka_producer", None)
-
-    pool = getattr(request.app.state, "db_pool_platform", None)
-    if pool is not None:
-        try:
-            async with pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    """
-                    SELECT notification_id, channel, template_id, recipient_ref,
-                           delivery_status, event_data
-                    FROM platform.notification_records
-                    WHERE notification_id = $1::uuid AND bank_id = $2
-                    """,
-                    notification_id, bank_id,
-                )
-            if not row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
-            if row["delivery_status"] not in ("FAILED", "RETRYING"):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=get_message("API_CANNOT_RETRY_NOTIFICATION_IN_STATUS", row=row['delivery_status']),
-                )
-            # Re-publish to Kafka for retry handling
-            if producer is not None:
-                event = {
-                    "notification_id": str(row["notification_id"]),
-                    "bank_id": bank_id,
-                    "channel": row["channel"],
-                    "recipient_ref": row["recipient_ref"],
-                    "template_id": row["template_id"],
-                    "context": row.get("event_data") or {},
-                    "queued_at": retried_at,
-                    "schema_version": "1.0",
-                    "is_retry": True,
-                }
-                await producer.send_and_wait(
-                    PLATFORM_NOTIFICATIONS,
-                    value=json.dumps(event).encode(),
-                    key=str(row["notification_id"]).encode(),
-                )
-            return NotificationRetryResponse(
-                notification_id=str(row["notification_id"]),
-                status="RETRYING",
-                retried_at=retried_at,
-            )
-        except HTTPException:
-            raise
-        except Exception:
-            log.warning("notifications.retry.db_error", bank_id=bank_id)
-
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
+    pool = _delivery_pool(request)
+    store = DeliveryStore(pool) if pool is not None else None
+    if store is None or await store.get_delivery(bank_id, notification_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("API_NOTIFICATION_NOT_FOUND"))
+    if not await store.retry_now(bank_id, notification_id):
+        current = (await store.get_delivery(bank_id, notification_id))["status"]
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("API_CANNOT_RETRY_NOTIFICATION_IN_STATUS", row=current))
+    return NotificationRetryResponse(notification_id=notification_id, status="RETRYING", retried_at=datetime.now(timezone.utc).isoformat())

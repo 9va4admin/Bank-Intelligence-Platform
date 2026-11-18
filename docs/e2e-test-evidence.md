@@ -1353,3 +1353,45 @@ Slow components produced `COMPONENT_SLOW` warnings; recoveries after an earlier 
 
 **NOT covered:** delivery through a real provider (Gmail or the bank's Postal): STARTTLS and login are unit-tested against a fake SMTP object, never against a real server. WhatsApp alerts. A dead worker cannot email that it is dead (the dashboard shows the monitor as stale; an external watcher is needed).
 Kubernetes pod / host / disk / memory health. The Vault panel on the existing `/system` page still reads a client that is never set.
+
+## 2026-11-17 - Health monitor gaps closed (branch claude/health-gaps)
+
+What was built and how each was exercised:
+- **Dead-monitor watchdog** (API process, `modules/cts/health/watchdog.py`): unit-tested for RUNNING/STALE/NOT_RUNNING, repeat control and a failing mail server; run against a real Temporal server (time-skipping test environment) where a missing monitor is reported as a P0 `health_monitor` alert.
+- **Verified SMTP**: certificate verification on STARTTLS/SSL (`SMTP_CA_FILE` for a private CA). Tested against the dev SMTP sink in its new secure mode (real STARTTLS with a generated self-signed certificate, AUTH PLAIN/LOGIN): delivery over verified TLS with login succeeds; an untrusted certificate and a wrong password are both refused.
+- **`scripts/send_test_alert.py`**: one command that sends a test mail with the worker's settings and explains failures; run end to end against the sink (success, unreachable server, nothing configured).
+- **WhatsApp alerts**: channel exercised against a local HTTP server standing in for Meta (request path, bearer token, template name, ordered parameters); P0-only routing by default (`alerts.whatsapp_min_priority`), email and WhatsApp independent of each other's failures.
+- **Disk and memory probes** (psutil, non-critical, configurable limits): run for real on this machine and with stubbed readings above/below the limit.
+- **Vault panel** on `/v1/ops/system`: falls back to Vault's own health endpoint when no client is wired (200/429 unsealed, 503 sealed, unreachable degraded), tested against a local server.
+
+**NOT covered:** delivery to a real Gmail inbox (needs the owner's app password; run `scripts/send_test_alert.py`), real WhatsApp (needs the bank's approved Meta templates and token), Kubernetes pod/node health (platform team tooling). The dev stack was down during this work, so the watchdog was not run against the live worker; its real-Temporal test uses the test environment.
+
+## 2026-11-17 - Alerting Phase 1a (docs/design/alerting-blueprint.md): audited core, incidents, outbox, template, API, real bell
+
+Built step by step, each test-first. What was exercised, and against what:
+- **Tables** (migrations 20261117_alerting_tables, 20261117_alert_outbox_cols): up/down/up and constraint behaviour on the real dev YugabyteDB.
+- **Audit around every send**: intent before, outcome after, written to the real dev Immudb; every record read back and cryptographically verified; no address, phone or secret stored (`tests/integration/test_alert_audit_real_immudb.py`).
+- **Incidents and dedup**: 20 simultaneous raises produce exactly one incident on real YugabyteDB; that run found real serialization conflicts, now retried.
+- **Delivery outbox and engine**: idempotent queueing, encrypted recipients, atomic claims with a lease, backoff retry, give-up and one-hop fallback, crash recovery; all on the real outbox table.
+- **Live drill** (`tests/integration/test_alert_delivery_live.py`): a real SMTP server with verified STARTTLS and login is killed mid-incident; the alert is queued, not lost; after the server returns it is sent once; exactly two mails arrive with the full template; the whole sequence is in Immudb, verified.
+- **Email template**: subject convention, incident id, local and UTC time, impact, runbook and incident links, escaped HTML with a text twin; sample at docs/design/alert-email-sample.html.
+- **Alerts API** and **inbox API**: run through real ASGI against real YugabyteDB (RBAC, paging, masking, acknowledge with audit, no cross-user access).
+- **The bell**: the hard-coded fake notification list is removed (a test now fails the build if fake data returns); the drawer and the pinned critical alerts read the signed-in user's own inbox; 536 web tests pass.
+
+**NOT covered:**
+- No run through the live Temporal worker: the worker was not restarted for this work; the monitor workflow is tested with Temporal's time-skipping environment and the activities against the real database.
+- The bell was not seen in the browser: the dev login needs an authenticator enrolment, which was left to the account owner. The components are tested, and the APIs they call are tested through real ASGI.
+- Bell recipients come from locally managed accounts only; users who sign in through an identity provider have no local row yet (contacts and recipients come in Phase 1b).
+- Incident tables are not partitioned by month yet (indexed on bank and time); do it when volume warrants.
+- `platform.notification_records` (written by apps/notification_service) overlaps with `platform.alert_deliveries`; to be reconciled so there is one delivery log.
+- Real Gmail inbox and real WhatsApp delivery, as before.
+
+## 2026-11-18 - Alerting gaps closed
+
+Closed from the Phase 1a open list, each test-first:
+- **Identity-provider users on the bell**: every successful sign-in is recorded in `platform.user_directory` (any identity source); the bell lookup unions local accounts and the directory, with a configurable recency window. Real-database tests.
+- **Retention** instead of partitioning (a unique open-incident rule cannot coexist with a partition key): daily, bounded pruning of old history; never touches open incidents, in-flight deliveries, or unacknowledged critical notifications. Real-database tests.
+- **One delivery log**: `/v1/notifications` previously queried columns that do not exist and always answered empty; it now reads `platform.alert_deliveries`, with a working retry. The legacy `notification_service` (still fed by security violations, admin config changes, MCP events and manual sends) now delivers through the same engine: outbox, retry, fallback, audit, one log. **Live**: a real event on the real Kafka topic was consumed by the real service and reached a real user's bell and the delivery log (`tests/integration/test_notification_service_live.py`). `platform.notification_records` is no longer written (left in place, empty).
+- **Found in the live worker run**: a monitor started before the upgrade kept failing on the new workflow code (non-determinism). Fixed with patch markers and proved by replaying a real recorded history (`tests/modules/cts/workflows/test_monitor_replay.py`); the worker now asks a running monitor to roll over so it adopts upgraded code.
+
+**NOT covered:** the complete "stop a service, alert, restore, recovery email" run through the live worker was interrupted (slow machine); its parts are covered separately (real alert mails and bell rows from the live worker, the mail-server-killed drill, the monitor replay). The bell in a browser (login needs an authenticator enrolment). Real Gmail and WhatsApp delivery (need the owner's credentials / the bank's approval). Role-based email (needs per-user contacts, planned with the routing screens).

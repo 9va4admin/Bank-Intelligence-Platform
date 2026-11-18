@@ -47,3 +47,43 @@ async def test_vault_coverage_counts_keys_from_the_async_scan():
     from apps.api.routers.observability import _fetch_vault_coverage
     panel = await _fetch_vault_coverage("kbl", _Pool(), _AsyncRedis())
     assert panel.degraded is False and panel.redis_sig_keys == 4 and panel.yugabyte_accounts == 10
+
+
+# ---------------- Vault panel without a Vault client: ask Vault's own health endpoint -----------------
+
+def _vault_server(status_code, body):
+    import json as _json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(_json.dumps(body).encode())
+
+        def log_message(self, *a):
+            pass
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, f"http://127.0.0.1:{srv.server_address[1]}"
+
+
+def test_vault_panel_falls_back_to_the_health_endpoint_when_there_is_no_client():
+    import asyncio
+    from apps.api.routers.observability import _fetch_vault_panel
+    for code, body, sealed in ((200, {"sealed": False}, "unsealed"), (429, {"sealed": False}, "unsealed"), (503, {"sealed": True}, "sealed")):
+        srv, url = _vault_server(code, body)
+        try:
+            p = asyncio.run(_fetch_vault_panel(None, "kbl", vault_addr=url))
+        finally:
+            srv.shutdown()
+        assert p.connected and p.seal_status == sealed and not p.degraded, (code, p)
+
+
+def test_vault_panel_is_degraded_when_the_endpoint_is_unreachable_or_unconfigured():
+    import asyncio
+    from apps.api.routers.observability import _fetch_vault_panel
+    assert asyncio.run(_fetch_vault_panel(None, "kbl")).degraded
+    assert asyncio.run(_fetch_vault_panel(None, "kbl", vault_addr="http://127.0.0.1:1")).degraded

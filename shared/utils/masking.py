@@ -38,3 +38,12 @@ def mask_phone(phone: str) -> str:
     if not phone:
         return "******"
     return f"******{phone[-4:]}"
+
+
+def mask_email(address: str) -> str:
+    """Return {first-letter}***@{domain}; an address without a domain becomes {first-letter}***."""
+    if not address or not address.strip():
+        return "***"
+    address = address.strip()
+    local, sep, domain = address.partition("@")
+    return f"{local[0]}***@{domain}" if sep and domain else f"{address[0]}***"
