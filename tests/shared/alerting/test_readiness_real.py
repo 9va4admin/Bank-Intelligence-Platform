@@ -51,7 +51,7 @@ class Cfg:
 
 
 BANKS: list[str] = []
-TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs", "alert_contacts")
+TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs", "alert_contacts", "alert_silences")
 
 
 def _bank():
@@ -103,7 +103,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -372,3 +372,16 @@ async def test_an_outside_address_named_in_the_approved_policy_counts_too(pool):
 @db
 async def test_without_a_contact_store_the_item_is_a_warning(pool):
     assert (await run(pool, _bank(), Cfg(), contact_store=None))["alert_contacts"].status == "WARN"
+
+
+@db
+async def test_a_silence_still_in_force_is_a_warning_and_none_is_a_pass(pool):
+    from shared.alerting.silences import SilenceStore
+    bank = _bank()
+    assert (await run(pool, bank, Cfg()))["alert_silences"].status == "PASS"
+    now = datetime.now(timezone.utc)
+    store = SilenceStore(pool, max_hours=24, allow_p0=False, min_reason_chars=5)
+    await store.create(bank, "redis", ["P1"], now - timedelta(minutes=5), now + timedelta(hours=1), "Redis maintenance", "admin-1")
+    await store.create(bank, "kafka", ["P2"], now + timedelta(hours=3), now + timedelta(hours=4), "Later work", "admin-1")          # not started: not counted
+    item = (await run(pool, bank, Cfg()))["alert_silences"]
+    assert item.status == "WARN" and "1" in item.detail and item.action_url == "/ops/silences"

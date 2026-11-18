@@ -290,9 +290,20 @@ async def _contacts(config: Any, bank_id: str, policy_store: Any, contact_store:
     return _item("alert_contacts", label, "PASS", get_message("UI_GOLIVE_ALERT_CT_OK", count=len(unique)), _CONTACTS_URL)
 
 
+async def _silences(bank_id: str, pool: Any, now: datetime) -> ReadinessCheck:
+    label, url = "UI_GOLIVE_ALERT_SL_LABEL", "/ops/silences"
+    try:
+        count = await pool.fetchval("SELECT COUNT(*) FROM platform.alert_silences WHERE bank_id=$1 AND cancelled_at IS NULL AND starts_at <= $2 AND ends_at > $2", bank_id, now)
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_silences", label, url, exc)
+    if count:
+        return _item("alert_silences", label, "WARN", get_message("UI_GOLIVE_ALERT_SL_ACTIVE", count=count), url)
+    return _item("alert_silences", label, "PASS", get_message("UI_GOLIVE_ALERT_SL_NONE"), url)
+
+
 async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None, contact_store: Any = None,
                              now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _contacts(config, bank_id, policy_store, contact_store), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _contacts(config, bank_id, policy_store, contact_store), await _silences(bank_id, pool, moment), await _open_incidents(config, bank_id, pool, moment)]

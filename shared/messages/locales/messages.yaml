@@ -57144,3 +57144,199 @@ UI_ALERTING_CT_EMPTY:
   variables: []
   en: "No contacts yet. Add an address above."
   hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_SILENCES:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change silences."
+  hi: ""
+
+ALERT_API_SILENCE_P0:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Critical alerts cannot be silenced at this bank."
+  hi: ""
+
+ALERT_API_SILENCE_TOO_LONG:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That silence is longer than this bank allows. Make it shorter."
+  hi: ""
+
+ALERT_API_SILENCE_REASON:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Give a reason for the silence, so the people who see it know why."
+  hi: ""
+
+ALERT_API_SILENCE_END:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The end of a silence must be after its start."
+  hi: ""
+
+ALERT_API_SILENCE_PRIORITY:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Choose at least one priority from P0 to P3."
+  hi: ""
+
+ALERT_API_SILENCE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "There is no such silence, or it was already cancelled."
+  hi: ""
+
+UI_GOLIVE_ALERT_SL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No silence is holding back alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_SL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No silence is in force."
+  hi: ""
+
+UI_GOLIVE_ALERT_SL_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} silence(s) are in force and are holding back alerts. Cancel them before go-live unless they are intended."
+  hi: ""
+
+UI_ALERTING_SL_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Silences"
+  hi: ""
+
+UI_ALERTING_SL_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Planned quiet periods so maintenance does not page people. Alerts are still recorded; only the notifications are held back."
+  hi: ""
+
+UI_ALERTING_SL_COMPONENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Component (empty = all)"
+  hi: ""
+
+UI_ALERTING_SL_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Critical (P0)"
+  hi: ""
+
+UI_ALERTING_SL_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Major (P1)"
+  hi: ""
+
+UI_ALERTING_SL_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Warning (P2)"
+  hi: ""
+
+UI_ALERTING_SL_P3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Info (P3)"
+  hi: ""
+
+UI_ALERTING_SL_HOURS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "For how many hours"
+  hi: ""
+
+UI_ALERTING_SL_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reason"
+  hi: ""
+
+UI_ALERTING_SL_CREATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Create silence"
+  hi: ""
+
+UI_ALERTING_SL_CREATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The silence was created."
+  hi: ""
+
+UI_ALERTING_SL_CANCEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cancel silence"
+  hi: ""
+
+UI_ALERTING_SL_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All components"
+  hi: ""
+
+UI_ALERTING_SL_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [who]
+  en: "by {who}"
+  hi: ""
+
+UI_ALERTING_SL_IN_FORCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "In force now"
+  hi: ""
+
+UI_ALERTING_SL_UPCOMING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Coming up"
+  hi: ""
+
+UI_ALERTING_SL_RECENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Recently ended"
+  hi: ""
+
+UI_ALERTING_SL_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nothing is silenced. Alerts reach people as the routing says."
+  hi: ""

@@ -73,6 +73,7 @@ import DeliveryLog from './modules/alerting/pages/DeliveryLog'
 import OnCall from './modules/alerting/pages/OnCall'
 import AlertRouting from './modules/alerting/pages/AlertRouting'
 import Contacts from './modules/alerting/pages/Contacts'
+import Silences from './modules/alerting/pages/Silences'
 import AlertSettings from './modules/alerting/pages/AlertSettings'
 import SystemHealth from './modules/observability/pages/SystemHealth'
 import UserManagement from './modules/admin/pages/UserManagement'
@@ -191,6 +192,7 @@ export default function App() {
         <Route path="/ops/oncall/:name"             element={<OnCall />} />
         <Route path="/admin/alert-routing"          element={<AlertRouting />} />
         <Route path="/admin/alert-contacts"         element={<Contacts />} />
+        <Route path="/ops/silences"                 element={<Silences />} />
         <Route path="/admin/alert-settings"         element={<AlertSettings />} />
         <Route path="/ops/system"       element={<SystemHealth />} />
         {/* AI model pages — ops_manager + bank_it_admin + ml_engineer only */}

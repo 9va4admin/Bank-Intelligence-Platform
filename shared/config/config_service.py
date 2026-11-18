@@ -225,6 +225,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.readiness_dns_proof_days": 30,                # the mail domain check must have passed within this many days
     "alerting.fire_drill_ack_minutes": 15,                  # a person must acknowledge the fire drill within this many minutes
     "alerting.contact_code_ttl_minutes": 15,                # a contact verification code stops working after this many minutes
+    "alerting.silence_max_hours": 24,                       # the longest a single silence may last
+    "alerting.silence_allow_p0": False,                     # whether critical (P0) alerts may be silenced
+    "alerting.silence_min_reason_chars": 10,                # shortest reason accepted for a silence
     "alerting.contact_code_max_attempts": 5,                # wrong tries allowed before a new code must be sent
     "alerting.readiness_drill_days": 90,                    # the last good fire drill must be no older than this many days
     "alerting.dkim_selectors": "",                         # DKIM selectors the bank publishes for the sending domain (JSON list or comma separated); empty = DKIM is not judged

@@ -76,7 +76,7 @@ def test_the_readiness_list_includes_the_alerting_items_with_words_and_a_link_to
         r = await client.get("/v1/platform/readiness")
         assert r.status_code == 200
         items = {i["check_id"]: i for i in r.json()["items"]}
-        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts"):
+        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences"):
             assert cid in items and items[cid]["label"] and items[cid]["detail"], cid
         assert items["alert_routing"]["status"] == "FAIL" and items["alert_routing"]["action_url"] == "/admin/alert-routing"
         assert r.json()["all_ready"] is False                                  # a failing alerting item blocks go-live like any other
