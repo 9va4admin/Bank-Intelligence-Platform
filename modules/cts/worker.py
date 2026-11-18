@@ -479,6 +479,10 @@ async def _start_platform_health(client, bank_id: str) -> None:
     except Exception as exc:
         if type(exc).__name__ == "WorkflowAlreadyStartedError":
             log.info("worker.platform_health_already_running", bank_id=bank_id)
+            try:      # ask it to roll over so it runs the code this worker has (a monitor started before an upgrade keeps its old path otherwise)
+                await client.get_workflow_handle(f"cts-platform-health-{bank_id}").signal(PlatformHealthCheckWorkflow.request_restart)
+            except Exception as signal_exc:
+                log.warning("worker.platform_health_restart_signal_failed", bank_id=bank_id, error=str(signal_exc))
         else:
             log.warning("worker.platform_health_start_failed", bank_id=bank_id, error=str(exc))     # never stop the worker over the monitor
 

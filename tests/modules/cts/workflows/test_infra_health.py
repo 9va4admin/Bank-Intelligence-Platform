@@ -284,6 +284,27 @@ async def test_old_history_is_pruned_on_the_first_tick_and_then_only_at_the_conf
 
 
 @pytest.mark.asyncio
+async def test_a_restart_request_makes_the_monitor_roll_over_at_the_next_tick_and_keep_what_it_knew(env):
+    """After an upgrade a monitor that was already running keeps its old code path until it restarts; the worker asks it to restart at once."""
+    inp = PlatformHealthInput(bank_id="kbl", max_ticks_before_restart=1000)
+    tq, worker = await _start(env, inp)
+    async with worker:
+        wid = f"h-{uuid.uuid4().hex[:6]}"
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=wid, task_queue=tq)
+        first_run = h.result_run_id
+        await env.sleep(100)
+        await h.signal(PlatformHealthCheckWorkflow.request_restart)
+        await env.sleep(150)
+        latest = env.client.get_workflow_handle(wid)
+        desc = await latest.describe()
+        snap = await latest.query(PlatformHealthCheckWorkflow.component_states)
+        await latest.cancel()
+    assert desc.run_id != first_run
+    assert snap["states"]["yugabyte"]["status"] == "DOWN"                       # state carried across the rollover
+    assert [d.event_type for d in DISPATCHED].count("COMPONENT_DOWN") == 1       # and the outage was not announced a second time
+
+
+@pytest.mark.asyncio
 async def test_the_dashboard_can_ask_the_workflow_for_component_states(env):
     inp = PlatformHealthInput(bank_id="kbl")
     tq, worker = await _start(env, inp)
