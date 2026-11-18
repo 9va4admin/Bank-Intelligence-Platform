@@ -50,6 +50,87 @@ function Channels({ isDark }) {
   )
 }
 
+// the reason a proof failed, in words (literal keys so the message bundle includes them)
+const PROOF_REASON = {
+  not_connected: 'UI_GOLIVE_ALERT_AUDIT_REASON_NOT_CONNECTED', write_failed: 'UI_GOLIVE_ALERT_AUDIT_REASON_WRITE_FAILED', verify_failed: 'UI_GOLIVE_ALERT_AUDIT_REASON_VERIFY_FAILED',
+  missing_records: 'UI_ALERTING_PF_DNS_REASON_MISSING', lookup_failed: 'UI_ALERTING_PF_DNS_REASON_LOOKUP',
+}
+
+function ProofLine({ isDark, last, loaded, onRun, text }) {
+  const th = useTh(isDark)
+  const [problem, setProblem] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true); setProblem(null)
+    try { await onRun() } catch (e) { setProblem(e.message) } finally { setBusy(false) }
+  }
+  const reason = last && !last.ok ? (PROOF_REASON[last.reason] ? msg(PROOF_REASON[last.reason]) : (last.reason ?? '')) : ''
+  return (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-semibold ${th.heading}`}>{text.title}</p>
+          <p className={`text-xs ${th.muted}`}>{text.help}</p>
+          {loaded && !last && <p className={`text-xs mt-1 ${th.body}`}>{text.never}</p>}
+          {last && last.ok && <p className={`text-xs mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{text.passed({ when: when(last.ran_at), who: last.ran_by })}</p>}
+          {last && !last.ok && <p className={`text-xs mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{text.failed({ when: when(last.ran_at), reason, who: last.ran_by })}</p>}
+        </div>
+        <Button isDark={isDark} kind="primary" disabled={busy} onClick={run}>{text.run}</Button>
+      </div>
+      {problem && <p role="alert" className="mt-2 text-xs text-red-500">{problem}</p>}
+    </div>
+  )
+}
+
+function DrillLine({ isDark, last, onStarted }) {
+  const th = useTh(isDark)
+  const [problem, setProblem] = useState(null)
+  const [started, setStarted] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true); setProblem(null)
+    try {
+      const r = await api('/v1/platform/alert-proofs/fire-drill', { method: 'POST' })
+      setStarted(msg('UI_ALERTING_PF_DRILL_STARTED', { minutes: r.ack_within_minutes }))
+      onStarted()
+    } catch (e) { setProblem(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_PF_DRILL_TITLE')}</p>
+          <p className={`text-xs ${th.muted}`}>{msg('UI_ALERTING_PF_DRILL_HELP')}</p>
+          {last && <p className={`text-xs mt-1 ${th.body}`}>{msg('UI_ALERTING_PF_DRILL_LAST', { when: when(last.ran_at), who: last.ran_by })}</p>}
+          {started && <p role="status" className={`text-xs mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{started}</p>}
+        </div>
+        <Button isDark={isDark} kind="primary" disabled={busy} onClick={run}>{msg('UI_ALERTING_PF_DRILL_RUN')}</Button>
+      </div>
+      {problem && <p role="alert" className="mt-2 text-xs text-red-500">{problem}</p>}
+    </div>
+  )
+}
+
+function Proofs({ isDark }) {
+  const th = useTh(isDark)
+  const { data, error, reload } = useLoad('/v1/platform/alert-proofs')
+  const post = (path) => async () => { await api(path, { method: 'POST' }); reload() }
+  return (
+    <Card isDark={isDark} className="p-4 space-y-4">
+      <ErrorNote isDark={isDark} error={error} onRetry={reload} />
+      <ProofLine isDark={isDark} loaded={!!data} last={data?.audit_path} onRun={post('/v1/platform/alert-proofs/audit-path')}
+        text={{ title: msg('UI_ALERTING_PF_AUDIT_TITLE'), help: msg('UI_ALERTING_PF_AUDIT_HELP'), never: msg('UI_ALERTING_PF_AUDIT_NEVER'), run: msg('UI_ALERTING_PF_AUDIT_RUN'),
+          passed: (v) => msg('UI_ALERTING_PF_AUDIT_PASSED', v), failed: (v) => msg('UI_ALERTING_PF_AUDIT_FAILED', v) }} />
+      <div className={`border-t ${th.divider}`} />
+      <ProofLine isDark={isDark} loaded={!!data} last={data?.mail_dns} onRun={post('/v1/platform/alert-proofs/mail-dns')}
+        text={{ title: msg('UI_ALERTING_PF_DNS_TITLE'), help: msg('UI_ALERTING_PF_DNS_HELP'), never: msg('UI_ALERTING_PF_DNS_NEVER'), run: msg('UI_ALERTING_PF_DNS_RUN'),
+          passed: (v) => msg('UI_ALERTING_PF_DNS_PASSED', v), failed: (v) => msg('UI_ALERTING_PF_DNS_FAILED', v) }} />
+      <div className={`border-t ${th.divider}`} />
+      <DrillLine isDark={isDark} last={data?.fire_drill} onStarted={reload} />
+    </Card>
+  )
+}
+
 function Row({ entry, isDark, onSubmitted }) {
   const th = useTh(isDark)
   const [editing, setEditing] = useState(false)
@@ -138,6 +219,8 @@ export default function AlertSettings() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         <PageTitle isDark={isDark} title={msg('UI_ALERTING_ST_TITLE')} subtitle={msg('UI_ALERTING_ST_SUBTITLE')} />
         <Channels isDark={isDark} />
+        <h2 className={`mt-6 mb-2 text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_PF_TITLE')}</h2>
+        <Proofs isDark={isDark} />
         <h2 className={`mt-6 mb-2 text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_ST_SETTINGS')}</h2>
         <ErrorNote isDark={isDark} error={settings.error} onRetry={settings.reload} />
         {notice && <p role="status" className={`mb-2 text-xs ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{notice}</p>}

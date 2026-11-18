@@ -66,7 +66,7 @@ def _scenario(fn, *, role="ops_manager", user="maker-1", config=None):
         try:
             return await fn(client, bank, pool, events, who)
         finally:
-            for t in ("alert_routing_policies", "alert_oncall_rotas", "alert_oncall_overrides", "local_auth_accounts"):
+            for t in ("alert_routing_policies", "alert_oncall_rotas", "alert_oncall_overrides", "local_auth_accounts", "alert_readiness_proofs"):
                 await pool.execute(f"DELETE FROM platform.{t} WHERE bank_id=$1", bank)
             await client.aclose()
             await pool.close()
@@ -253,4 +253,34 @@ def test_other_banks_proposals_cannot_be_read():
         await pool.execute("UPDATE platform.alert_routing_policies SET bank_id = $2 WHERE policy_id = $1", pid, bank + "-other")
         assert (await client.get(f"/v1/admin/alert-routing/policies/{pid}")).status_code == 404
         await pool.execute("DELETE FROM platform.alert_routing_policies WHERE bank_id = $1", bank + "-other")
+    _scenario(fn)
+
+
+def test_every_simulator_run_is_recorded_for_the_go_live_check_with_who_ran_it_and_whether_anyone_would_be_told():
+    async def fn(client, bank, pool, events, who):
+        await pool.execute("INSERT INTO platform.local_auth_accounts (user_id, bank_id, entity_type, entity_id, username, password_hash, role, email) VALUES ($1,$2,'BANK',$2,$1,'x','ops_manager','boss@bank.example')",
+                           f"{bank}-boss", bank)
+        pid = (await _propose(client)).json()["policy_id"]
+        who.update(user="checker-2", role="bank_it_admin")
+        await client.post(f"/v1/admin/alert-routing/policies/{pid}/approve")
+        assert (await client.post("/v1/admin/alert-routing/simulate", json={"severity": "P0", "component": "redis"})).status_code == 200
+        row = await pool.fetchrow("SELECT ok, ran_by, detail FROM platform.alert_readiness_proofs WHERE bank_id=$1 AND kind='simulation_P0'", bank)
+        assert row["ok"] is True and row["ran_by"] == "checker-2"
+        text = str(row["detail"])
+        assert "redis" in text and "p0" in text and "boss@bank.example" not in text and "ops@bank.example" not in text      # no address is stored
+    _scenario(fn)
+
+
+def test_a_simulation_that_would_tell_nobody_is_recorded_as_not_ok():
+    async def fn(client, bank, pool, events, who):
+        assert (await client.post("/v1/admin/alert-routing/simulate", json={"severity": "P1"})).status_code == 200       # default policy, nobody in the directory
+        row = await pool.fetchrow("SELECT ok FROM platform.alert_readiness_proofs WHERE bank_id=$1 AND kind='simulation_P1'", bank)
+        assert row["ok"] is False
+    _scenario(fn)
+
+
+def test_a_scoped_or_timed_simulation_still_answers_and_a_p3_run_is_not_one_of_the_go_live_severities():
+    async def fn(client, bank, pool, events, who):
+        assert (await client.post("/v1/admin/alert-routing/simulate", json={"severity": "P3"})).status_code == 200
+        assert await pool.fetchval("SELECT COUNT(*) FROM platform.alert_readiness_proofs WHERE bank_id=$1 AND kind='simulation_P3'", bank) == 0
     _scenario(fn)

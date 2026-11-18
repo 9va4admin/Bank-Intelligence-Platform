@@ -92,3 +92,6 @@ xhtml2pdf>=0.2.17
 xgboost>=3.0
 shap>=0.50
 scikit-learn>=1.5
+
+# DNS lookups for the Go-Live mail-domain check
+dnspython>=2.6

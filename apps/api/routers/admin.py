@@ -29,6 +29,7 @@ from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.event_bus.topics import PLATFORM_CONFIG_CHANGED, PLATFORM_NOTIFICATIONS
+from shared.utils.redis_keys import count_keys
 from shared.messages import get_message
 
 log = structlog.get_logger()
@@ -90,6 +91,8 @@ _LAYER3_SCHEMA = [
     {'config_key': 'alerts.email_recipients', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_EMAIL_RECIPIENTS")},
     {'config_key': 'alerts.whatsapp_recipients', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_WHATSAPP_RECIPIENTS")},
     {'config_key': 'alerts.whatsapp_min_priority', 'layer': 'LAYER_3', 'default': 'P0', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_WHATSAPP_MIN_PRIORITY"), 'allowed': ['P0', 'P1', 'P2', 'P3']},
+    {'config_key': 'alerting.dkim_selectors', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_DKIM_SELECTORS")},
+    {'config_key': 'alerting.mail_dns_risk_accepted', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': get_message("API_ALERTCFG_ALERTING_MAIL_DNS_RISK_ACCEPTED")},
     {'config_key': 'alerting.bell_roles', 'layer': 'LAYER_3', 'default': '["ops_manager", "bank_it_admin"]', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BELL_ROLES")},
     {'config_key': 'alerting.bell_min_priority', 'layer': 'LAYER_3', 'default': 'P3', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BELL_MIN_PRIORITY"), 'allowed': ['P0', 'P1', 'P2', 'P3']},
     {'config_key': 'alerting.timezone', 'layer': 'LAYER_3', 'default': 'Asia/Kolkata', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_TIMEZONE")},
@@ -1398,7 +1401,7 @@ async def get_vault_sig_sync_status(
     last_sync_at = last_sync_at_row.isoformat() if last_sync_at_row else None
 
     # Redis key count — scan for sig:{bank_id}:* keys only
-    redis_sig_keys = sum(1 for _ in redis_client.scan_iter(match=f"sig:{bank_id}:*", count=1000))
+    redis_sig_keys = await count_keys(redis_client, f"sig:{bank_id}:*")
 
     coverage_pct = round(
         min(100.0, (redis_sig_keys / yugabyte_accounts * 100)) if yugabyte_accounts > 0 else 100.0,

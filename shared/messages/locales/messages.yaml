@@ -56451,3 +56451,892 @@ UI_GOLIVE_ALERT_UNAVAILABLE:
   variables: []
   en: "This could not be checked right now."
   hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The audit trail has been proved end to end"
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The audit trail has never been proved. Run the audit proof on the Alert Settings screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Proved on {when} by {who}: a test alert's intent and outcome were written, read back and verified."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_OLD:
+  severity: INFO
+  surface: [UI]
+  variables: [days]
+  en: "The last successful proof was {days} days ago. Run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [reason]
+  en: "The last audit proof failed ({reason}). Fix the audit connection and run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_REASON_NOT_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the audit store is not connected"
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_REASON_WRITE_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "a record could not be written"
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_REASON_VERIFY_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "a record did not verify"
+  hi: ""
+
+UI_ALERTING_PF_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Go-Live proofs"
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Audit trail proof"
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Writes a test alert to the audit trail, reads it back and checks it. Run it before go-live and again when the audit connection changes."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_NEVER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This proof has never been run."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_PASSED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Passed on {when}, run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, reason, who]
+  en: "Failed on {when} ({reason}), run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Run the audit proof"
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The sending domain publishes SPF, DMARC and DKIM"
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_NO_ADDRESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "There is no sending address yet. Set up email first."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The sending domain has not been checked. Run the mail domain check on the Alert Settings screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: [domain, missing]
+  en: "Missing for {domain}: {missing}. Without them a receiving mail server may treat an alert as spam."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [domain]
+  en: "The lookup for {domain} could not be made. Check the network and run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_OLD:
+  severity: INFO
+  surface: [UI]
+  variables: [days, domain]
+  en: "The last good check of {domain} was {days} days ago. Run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [domain, dkim, when, who]
+  en: "{domain} publishes SPF and DMARC{dkim}. Checked on {when} by {who}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_ACCEPTED:
+  severity: INFO
+  surface: [UI]
+  variables: [domain]
+  en: "The bank has accepted the risk of not publishing these records for {domain}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_DKIM_PART:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: " and DKIM for {count} selector(s)"
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_DKIM_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: [selector]
+  en: "DKIM key for selector {selector}"
+  hi: ""
+
+UI_ALERTING_PF_DNS_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mail domain check"
+  hi: ""
+
+UI_ALERTING_PF_DNS_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Looks up SPF, DMARC and DKIM for the sending domain, so alerts are not treated as spam."
+  hi: ""
+
+UI_ALERTING_PF_DNS_NEVER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The mail domain has never been checked."
+  hi: ""
+
+UI_ALERTING_PF_DNS_PASSED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Passed on {when}, run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_DNS_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, reason, who]
+  en: "Failed on {when} ({reason}), run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_DNS_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Check the mail domain"
+  hi: ""
+
+UI_ALERTING_PF_DNS_REASON_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "records are missing"
+  hi: ""
+
+UI_ALERTING_PF_DNS_REASON_LOOKUP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the lookup could not be made"
+  hi: ""
+
+API_ALERTCFG_ALERTING_DKIM_SELECTORS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DKIM selectors published for the sending domain (comma separated). Empty means DKIM is not checked."
+  hi: ""
+
+API_ALERTCFG_ALERTING_MAIL_DNS_RISK_ACCEPTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The bank accepts the risk of not publishing SPF, DMARC and DKIM records (true or false)."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Routing has been simulated for critical, major and warning alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: [severities]
+  en: "Not simulated yet for: {severities}. Run the simulator on the Alert Routing screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_NOBODY:
+  severity: INFO
+  surface: [UI]
+  variables: [severities]
+  en: "The simulation for {severities} showed that nobody would be told. Fix the routing and simulate again."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_STALE:
+  severity: INFO
+  surface: [UI]
+  variables: [severities]
+  en: "The routing policy changed after the last simulation for: {severities}. Simulate again."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [severities, when]
+  en: "Simulated for {severities}, and people would be told. Last run {when}."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_SEV_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "critical (P0)"
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_SEV_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "major (P1)"
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_SEV_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "warning (P2)"
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A fire drill was acknowledged by a person in time"
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No fire drill has been run. Run one from the Alert Settings screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_WAITING:
+  severity: INFO
+  surface: [UI]
+  variables: [ago, target]
+  en: "Drill started {ago} minutes ago and is waiting for someone to acknowledge it (target {target} minutes)."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [who, minutes, target]
+  en: "Acknowledged by {who} after {minutes} minutes (target {target})."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_LATE:
+  severity: INFO
+  surface: [UI]
+  variables: [minutes, target]
+  en: "Acknowledged after {minutes} minutes, later than the {target} minute target. Run the drill again."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_MISSED:
+  severity: INFO
+  surface: [UI]
+  variables: [target]
+  en: "Nobody acknowledged the drill within {target} minutes. Check who is told and run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_OLD:
+  severity: INFO
+  surface: [UI]
+  variables: [days]
+  en: "The last good drill was {days} days ago. Run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_MESSAGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FIRE DRILL: this is a test, not a real incident. Please acknowledge it so the drill can be timed."
+  hi: ""
+
+UI_ALERTING_PF_DRILL_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fire drill"
+  hi: ""
+
+UI_ALERTING_PF_DRILL_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sends a test critical alert to the people your routing names. It passes when one of them acknowledges it in time. The result shows on the Go-Live screen."
+  hi: ""
+
+UI_ALERTING_PF_DRILL_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start a fire drill"
+  hi: ""
+
+UI_ALERTING_PF_DRILL_LAST:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "The last drill was started on {when} by {who}."
+  hi: ""
+
+UI_ALERTING_PF_DRILL_STARTED:
+  severity: INFO
+  surface: [UI]
+  variables: [minutes]
+  en: "The drill has started. Someone must acknowledge it within {minutes} minutes."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_CONTACTS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change alert contacts."
+  hi: ""
+
+ALERT_API_CONTACT_INVALID_EMAIL:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That is not a valid email address."
+  hi: ""
+
+ALERT_API_CONTACT_INVALID_PHONE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "A phone number must start with + and the country code, for example +919800000001."
+  hi: ""
+
+ALERT_API_CONTACT_INVALID_KIND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "A contact is either an email address or a phone number."
+  hi: ""
+
+ALERT_API_CONTACT_DUPLICATE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That address is already a contact."
+  hi: ""
+
+ALERT_API_CONTACT_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "There is no such contact."
+  hi: ""
+
+ALERT_CONTACT_CODE_MESSAGE:
+  severity: INFO
+  surface: [UI]
+  variables: [code, minutes]
+  en: "Your ASTRA alert verification code is {code}. It works once and expires in {minutes} minutes. If you did not expect this message, ignore it."
+  hi: ""
+
+UI_GOLIVE_ALERT_CT_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Every outside address used for alerts is a verified contact"
+  hi: ""
+
+UI_GOLIVE_ALERT_CT_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No outside address is used for alerts, so there is nothing to verify."
+  hi: ""
+
+UI_GOLIVE_ALERT_CT_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "All {count} outside addresses used for alerts are verified."
+  hi: ""
+
+UI_GOLIVE_ALERT_CT_UNVERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: [count, masked]
+  en: "{count} address(es) used for alerts are not verified yet: {masked}. Add them on the Alert Contacts screen and enter the code that is sent."
+  hi: ""
+
+UI_ALERTING_CT_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alert Contacts"
+  hi: ""
+
+UI_ALERTING_CT_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The outside email addresses and phone numbers alerts may go to. Each is verified with a code sent to it."
+  hi: ""
+
+UI_ALERTING_CT_KIND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kind"
+  hi: ""
+
+UI_ALERTING_CT_KIND_EMAIL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email"
+  hi: ""
+
+UI_ALERTING_CT_KIND_PHONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Phone (WhatsApp)"
+  hi: ""
+
+UI_ALERTING_CT_ADDRESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Address"
+  hi: ""
+
+UI_ALERTING_CT_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Label"
+  hi: ""
+
+UI_ALERTING_CT_ADD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add contact"
+  hi: ""
+
+UI_ALERTING_CT_EMAIL_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A code is sent to the address. Enter it here to verify the contact."
+  hi: ""
+
+UI_ALERTING_CT_PHONE_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start with + and the country code, for example +919800000001. A code is sent by WhatsApp. Entering it also records that the person agreed to receive alerts."
+  hi: ""
+
+UI_ALERTING_CT_ADDED_SENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The contact was added and a code was sent to it. Enter the code to verify it."
+  hi: ""
+
+UI_ALERTING_CT_ADDED_NOT_SENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The contact was added, but the code could not be sent. Check email and WhatsApp on the Alert Settings screen, then send a new code."
+  hi: ""
+
+UI_ALERTING_CT_COL_ADDRESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Address"
+  hi: ""
+
+UI_ALERTING_CT_COL_KIND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kind"
+  hi: ""
+
+UI_ALERTING_CT_COL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Label"
+  hi: ""
+
+UI_ALERTING_CT_COL_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Status"
+  hi: ""
+
+UI_ALERTING_CT_COL_WHO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Added or verified by"
+  hi: ""
+
+UI_ALERTING_CT_VERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verified"
+  hi: ""
+
+UI_ALERTING_CT_NOT_VERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not verified"
+  hi: ""
+
+UI_ALERTING_CT_ENTER_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Enter code"
+  hi: ""
+
+UI_ALERTING_CT_SEND_NEW_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Send a new code"
+  hi: ""
+
+UI_ALERTING_CT_REMOVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove"
+  hi: ""
+
+UI_ALERTING_CT_CODE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Code"
+  hi: ""
+
+UI_ALERTING_CT_VERIFY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verify"
+  hi: ""
+
+UI_ALERTING_CT_NOW_VERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: [address]
+  en: "{address} is now verified."
+  hi: ""
+
+UI_ALERTING_CT_NEW_CODE_SENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A new code was sent. The old one no longer works."
+  hi: ""
+
+UI_ALERTING_CT_NEW_CODE_NOT_SENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A new code was made, but it could not be sent. Check email and WhatsApp on the Alert Settings screen."
+  hi: ""
+
+UI_ALERTING_CT_VERIFY_WRONG:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "That code is not right. Check it and try again."
+  hi: ""
+
+UI_ALERTING_CT_VERIFY_EXPIRED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "That code has expired. Send a new code."
+  hi: ""
+
+UI_ALERTING_CT_VERIFY_TOO_MANY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Too many wrong tries. Send a new code."
+  hi: ""
+
+UI_ALERTING_CT_VERIFY_ALREADY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This contact is already verified."
+  hi: ""
+
+UI_ALERTING_CT_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No contacts yet. Add an address above."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_SILENCES:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change silences."
+  hi: ""
+
+ALERT_API_SILENCE_P0:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Critical alerts cannot be silenced at this bank."
+  hi: ""
+
+ALERT_API_SILENCE_TOO_LONG:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That silence is longer than this bank allows. Make it shorter."
+  hi: ""
+
+ALERT_API_SILENCE_REASON:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Give a reason for the silence, so the people who see it know why."
+  hi: ""
+
+ALERT_API_SILENCE_END:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The end of a silence must be after its start."
+  hi: ""
+
+ALERT_API_SILENCE_PRIORITY:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Choose at least one priority from P0 to P3."
+  hi: ""
+
+ALERT_API_SILENCE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "There is no such silence, or it was already cancelled."
+  hi: ""
+
+UI_GOLIVE_ALERT_SL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No silence is holding back alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_SL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No silence is in force."
+  hi: ""
+
+UI_GOLIVE_ALERT_SL_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} silence(s) are in force and are holding back alerts. Cancel them before go-live unless they are intended."
+  hi: ""
+
+UI_ALERTING_SL_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Silences"
+  hi: ""
+
+UI_ALERTING_SL_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Planned quiet periods so maintenance does not page people. Alerts are still recorded; only the notifications are held back."
+  hi: ""
+
+UI_ALERTING_SL_COMPONENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Component (empty = all)"
+  hi: ""
+
+UI_ALERTING_SL_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Critical (P0)"
+  hi: ""
+
+UI_ALERTING_SL_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Major (P1)"
+  hi: ""
+
+UI_ALERTING_SL_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Warning (P2)"
+  hi: ""
+
+UI_ALERTING_SL_P3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Info (P3)"
+  hi: ""
+
+UI_ALERTING_SL_HOURS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "For how many hours"
+  hi: ""
+
+UI_ALERTING_SL_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reason"
+  hi: ""
+
+UI_ALERTING_SL_CREATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Create silence"
+  hi: ""
+
+UI_ALERTING_SL_CREATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The silence was created."
+  hi: ""
+
+UI_ALERTING_SL_CANCEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cancel silence"
+  hi: ""
+
+UI_ALERTING_SL_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All components"
+  hi: ""
+
+UI_ALERTING_SL_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [who]
+  en: "by {who}"
+  hi: ""
+
+UI_ALERTING_SL_IN_FORCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "In force now"
+  hi: ""
+
+UI_ALERTING_SL_UPCOMING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Coming up"
+  hi: ""
+
+UI_ALERTING_SL_RECENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Recently ended"
+  hi: ""
+
+UI_ALERTING_SL_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nothing is silenced. Alerts reach people as the routing says."
+  hi: ""

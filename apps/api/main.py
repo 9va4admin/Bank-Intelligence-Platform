@@ -29,7 +29,7 @@ from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
-from apps.api.routers import alert_routing, alerts, inbox, observability, oncall
+from apps.api.routers import alert_contacts, alert_routing, alert_silences, alerts, inbox, observability, oncall
 from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
@@ -369,6 +369,8 @@ async def lifespan(app: FastAPI):
             await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
                                           delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None), routing_service=_wd_routing)
 
+        app.state.alert_dispatcher = _wd_dispatcher     # the contacts API sends verification codes through the same dispatcher
+        app.state.send_platform_alert = _wd_send       # the real alert path (incident, escalation, routed delivery); the fire drill uses it too
         watchdog_task = asyncio.create_task(run_watchdog(
             lambda: getattr(app.state, "temporal_client", None),
             MonitorWatchdog(config_service.bank_id, thresholds=Thresholds(), stale_after=180.0, send=_wd_send),
@@ -542,6 +544,8 @@ app.include_router(alerts.router_v1)
 app.include_router(inbox.router_v1)
 app.include_router(alert_routing.router_v1)
 app.include_router(oncall.router_v1)
+app.include_router(alert_contacts.router_v1)
+app.include_router(alert_silences.router_v1)
 app.include_router(branches.router_v1)
 app.include_router(processing_units.router_v1)
 app.include_router(platform_router.router_v1)

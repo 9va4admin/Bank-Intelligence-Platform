@@ -26,6 +26,7 @@ from apps.api.schemas.types import IsoTimestamp, OptIsoTimestamp
 
 from apps.api.dependencies import require_user_context
 from shared.messages import get_message
+from shared.utils.redis_keys import count_keys, first_key
 from shared.auth.rbac import UserContext
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
@@ -181,7 +182,7 @@ async def _check_signature_vault(bank_id: str, db_pool: Any, redis_cts: Any) -> 
                 bank_id,
             )
         db_total = int(row["total"] or 0)
-        redis_count = sum(1 for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000))
+        redis_count = await count_keys(redis_cts, f"sig:{bank_id}:*")
         if db_total == 0:
             return ReadinessItem(
                 check_id="sig_vault_seeded", label=get_message("UI_SMOKETEST_SIGNATURE_VAULT_SEEDED"),
@@ -215,7 +216,7 @@ async def _check_pps_vault(bank_id: str, redis_cts: Any) -> ReadinessItem:
             status="WARN", detail=get_message("API_REDIS_CTS_UNAVAILABLE"),
         )
     try:
-        count = sum(1 for _ in redis_cts.scan_iter(match=f"pps:{bank_id}:*", count=1000))
+        count = await count_keys(redis_cts, f"pps:{bank_id}:*")
         if count == 0:
             return ReadinessItem(
                 check_id="pps_vault_seeded", label=get_message("UI_SMOKETEST_PPS_VAULT_SEEDED"),
@@ -242,7 +243,7 @@ async def _check_micr_prefixes(bank_id: str, db_pool: Any) -> ReadinessItem:
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT COUNT(*) AS cnt FROM cts.micr_prefixes WHERE bank_id = $1",
+                "SELECT COUNT(*) AS cnt FROM cts.micr_prefix_routing WHERE bank_id = $1 AND effective_from <= CURRENT_DATE AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)",
                 bank_id,
             )
         count = int(row["cnt"] or 0)
@@ -278,7 +279,7 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
                 SELECT
                   COUNT(*) FILTER (WHERE role = 'ops_reviewer') AS reviewers,
                   COUNT(*) FILTER (WHERE role = 'ops_manager')  AS managers
-                FROM users
+                FROM platform.local_auth_accounts
                 WHERE bank_id = $1 AND is_active = true
                 """,
                 bank_id,
@@ -427,7 +428,7 @@ async def _run_test_signature_vault(state: Any, bank_id: str) -> SmokeTestResult
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
         # Sample: check one vault key pattern exists
-        sample = next(redis.scan_iter(match=f"sig:{bank_id}:*", count=1), None)
+        sample = await first_key(redis, f"sig:{bank_id}:*")
         if sample is None:
             return SmokeTestResult(test_id="test_signature_vault", status="WARN",
                                    message=get_message("API_REDIS_PING_OK_MS_BUT", ms=ms),
@@ -451,7 +452,7 @@ async def _run_test_pps_vault(state: Any, bank_id: str) -> SmokeTestResult:
     try:
         await asyncio.wait_for(redis.ping(), timeout=5)
         ms = int((time.monotonic() - t0) * 1000)
-        count = sum(1 for _ in redis.scan_iter(match=f"pps:{bank_id}:*", count=500))
+        count = await count_keys(redis, f"pps:{bank_id}:*", batch=500)
         detail = f"{count} PPS entries seeded" if count > 0 else get_message("API_NO_PPS_ENTRIES_SEEDED_SEED")
         st = "PASS" if count > 0 else "WARN"
         return SmokeTestResult(test_id="test_pps_vault", status=st,
@@ -511,7 +512,7 @@ async def _run_test_vault_seeded(state: Any, bank_id: str) -> SmokeTestResult:
         return SmokeTestResult(test_id="test_vault_seeded", status="FAIL",
                                message=get_message("API_REDIS_CTS_NOT_CONNECTED"))
     try:
-        count = sum(1 for _ in redis.scan_iter(match=f"sig:{bank_id}:*", count=2000))
+        count = await count_keys(redis, f"sig:{bank_id}:*", batch=2000)
         if count == 0:
             return SmokeTestResult(test_id="test_vault_seeded", status="WARN",
                                    message=get_message("API_NO_SIGNATURE_KEYS_FOUND_FOR"))
@@ -719,14 +720,145 @@ async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[
     if db_pool is None:
         return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
                 for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
-                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_fire_drill", "UI_GOLIVE_ALERT_FD_LABEL"), ("alert_contacts", "UI_GOLIVE_ALERT_CT_LABEL"), ("alert_silences", "UI_GOLIVE_ALERT_SL_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
     try:
         key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
     except Exception:  # noqa: BLE001
         key = None
     policies = PolicyStore(db_pool, pii_key=key) if key else _NoPolicyStore()
-    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool))
+    try:
+        pepper = await config.get_secret(f"banks.{bank_id}.pii_hash_pepper")
+    except Exception:  # noqa: BLE001
+        pepper = None
+    from shared.alerting.contacts import ContactStore
+    contacts = ContactStore(db_pool, pii_key=key, pepper=pepper) if key and pepper else None
+    from shared.alerting.proofs import ProofStore
+    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool), proof_store=ProofStore(db_pool), contact_store=contacts)
     return [ReadinessItem(check_id=c.check_id, label=c.label, status=c.status, detail=c.detail, action_url=c.action_url) for c in checks]
+
+
+class AuditProofResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ok: bool
+    reason: str
+
+
+class ProofView(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ok: bool
+    ran_by: str
+    ran_at: IsoTimestamp
+    reason: Optional[str] = None
+
+
+@router_v1.post("/alert-proofs/audit-path", response_model=AuditProofResponse)
+async def run_audit_path_proof(request: Request, user: UserContext = Depends(get_current_user)) -> AuditProofResponse:
+    """Write a sentinel alert to the audit trail, read it back and verify it; the result is recorded for the Go-Live check."""
+    from shared.alerting.proofs import AUDIT_PATH, ProofStore, prove_audit_path
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    who     = user["user_id"] if isinstance(user, dict) else user.user_id
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    config = getattr(request.app.state, "config_service", None) or config_service
+    try:
+        pattern = str(await config.get("alerting.audit_collection_pattern"))
+    except Exception:  # noqa: BLE001
+        pattern = "cts_{bank_id}"
+    proof = await prove_audit_path(getattr(request.app.state, "immudb_client", None), bank_id=bank_id, collection=pattern.format(bank_id=bank_id), actor=str(who))
+    await ProofStore(db_pool).record(bank_id, AUDIT_PATH, proof.ok, {"reason": proof.reason, **proof.detail}, str(who))
+    return AuditProofResponse(ok=proof.ok, reason=proof.reason)
+
+
+@router_v1.post("/alert-proofs/mail-dns", response_model=AuditProofResponse)
+async def run_mail_dns_check(request: Request, user: UserContext = Depends(get_current_user)) -> AuditProofResponse:
+    """Look up SPF, DMARC and the listed DKIM selectors for the sending domain; the result is recorded for the Go-Live check."""
+    import json as _json
+    from shared.alerting.dns_check import check_mail_domain, domain_of, txt_lookup
+    from shared.alerting.proofs import ProofStore
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    who     = user["user_id"] if isinstance(user, dict) else user.user_id
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    config = getattr(request.app.state, "config_service", None) or config_service
+
+    def platform(key: str) -> Optional[str]:
+        try:
+            value = config.get_platform(key)
+            return value.strip() if isinstance(value, str) and value.strip() else None
+        except Exception:  # noqa: BLE001
+            return None
+    domain = domain_of(platform("smtp.from_address") or platform("smtp.username"))
+    if domain is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("UI_GOLIVE_ALERT_DNS_NO_ADDRESS"))
+    try:
+        raw = await config.get("alerting.dkim_selectors")
+        parsed = _json.loads(raw) if isinstance(raw, str) and raw.strip().startswith("[") else raw
+        selectors = [str(x).strip() for x in (parsed if isinstance(parsed, list) else str(parsed or "").split(",")) if str(x).strip()]
+    except Exception:  # noqa: BLE001
+        selectors = []
+    lookup = getattr(request.app.state, "dns_lookup", None) or txt_lookup
+    finding = await check_mail_domain(domain, selectors, lookup)
+    await ProofStore(db_pool).record(bank_id, "mail_dns", finding.ok, finding.model_dump(), str(who))
+    return AuditProofResponse(ok=finding.ok, reason="ok" if finding.ok else (finding.error or "missing_records"))
+
+
+class FireDrillResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    incident_id: str
+    ack_within_minutes: int
+
+
+@router_v1.post("/alert-proofs/fire-drill", response_model=FireDrillResponse)
+async def start_fire_drill(request: Request, user: UserContext = Depends(get_current_user)) -> FireDrillResponse:
+    """Send a synthetic critical alert through the real path (incident, routing, delivery, escalation). The drill passes when a person acknowledges it in time."""
+    from modules.cts.workflows.activities.platform_health_activities import DispatchAlertInput
+    from shared.alerting.incidents import IncidentStore
+    from shared.alerting.proofs import ProofStore
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    who     = user["user_id"] if isinstance(user, dict) else user.user_id
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    send = getattr(request.app.state, "send_platform_alert", None)
+    if db_pool is None or send is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    config = getattr(request.app.state, "config_service", None) or config_service
+    try:
+        target = int(await config.get("alerting.fire_drill_ack_minutes"))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    incidents = IncidentStore(db_pool)
+    for row in await db_pool.fetch("SELECT dedup_key FROM platform.alert_incidents WHERE bank_id=$1 AND component='fire-drill' AND state <> 'RESOLVED' LIMIT 20", bank_id):
+        await incidents.resolve(bank_id, row["dedup_key"], str(who))          # an earlier drill still open would swallow this one as a repeat, and nobody would be told
+    await send(DispatchAlertInput(bank_id=bank_id, event_type="FIRE_DRILL", severity="CRITICAL", priority="P0", message=get_message("UI_GOLIVE_ALERT_FD_MESSAGE"), component="fire-drill"))
+    incident_id = await db_pool.fetchval("SELECT incident_id FROM platform.alert_incidents WHERE bank_id=$1 AND component='fire-drill' AND state <> 'RESOLVED' ORDER BY opened_at DESC LIMIT 1", bank_id)
+    if not incident_id:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    await ProofStore(db_pool).record(bank_id, "fire_drill", False, {"incident_id": incident_id, "target_minutes": target}, str(who))
+    return FireDrillResponse(incident_id=incident_id, ack_within_minutes=target)
+
+
+@router_v1.get("/alert-proofs", response_model=dict[str, ProofView])
+async def get_alert_proofs(request: Request, user: UserContext = Depends(get_current_user)) -> dict[str, ProofView]:
+    from shared.alerting.proofs import AUDIT_PATH, ProofStore
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    if role not in _READ_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    found = await ProofStore(db_pool).latest_many(bank_id, [AUDIT_PATH, "mail_dns", "fire_drill"])
+    return {k: ProofView(ok=p.ok, ran_by=p.ran_by, ran_at=p.ran_at, reason=p.detail.get("reason") or p.detail.get("error")) for k, p in found.items()}
 
 
 @router_v1.get("/readiness", response_model=ReadinessResponse)

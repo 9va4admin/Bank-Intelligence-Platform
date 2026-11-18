@@ -181,6 +181,7 @@ const SIDEBAR_MODULES = [
           { to: '/ops/incidents',    label: uiMsg('UI_ALERTING_INC_TITLE'),   perm: 'cts:view_analytics' },
           { to: '/ops/delivery-log', label: uiMsg('UI_ALERTING_DL_TITLE'),    perm: 'cts:view_analytics' },
           { to: '/ops/oncall',       label: uiMsg('UI_ALERTING_OC_TITLE'),    perm: 'cts:view_analytics' },
+          { to: '/ops/silences',     label: uiMsg('UI_ALERTING_SL_TITLE'),    perm: 'cts:view_analytics' },
         ],
       },
     ],
@@ -211,6 +212,7 @@ const SIDEBAR_MODULES = [
           { to: '/admin/config/buckets',        label: uiMsg('UI_APPSHELL_BUCKET_CONFIG'),     perm: 'config:layer3:submit' },
           { to: '/admin/security-violations',    label: uiMsg('UI_APPSHELL_SECURITY_ALERTS'),  perm: 'admin:console', sbOnly: true },
           { to: '/admin/alert-routing',         label: uiMsg('UI_ALERTING_RT_TITLE'),       perm: 'config:layer3:submit' },
+          { to: '/admin/alert-contacts',        label: uiMsg('UI_ALERTING_CT_TITLE'),       perm: 'config:layer3:submit' },
           { to: '/admin/alert-settings',        label: uiMsg('UI_ALERTING_ST_TITLE'),       perm: 'config:layer3:submit' },
           { to: '/admin/smoke-test',            label: uiMsg('UI_APPSHELL_GO_LIVE_TEST'),   perm: 'config:layer2:change' },
         ],
@@ -296,7 +298,9 @@ const ROUTE_LABELS = {
   '/ops/incidents':               [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_INC_TITLE')],
   '/ops/delivery-log':            [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_DL_TITLE')],
   '/ops/oncall':                  [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_OC_TITLE')],
+  '/ops/silences':                [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_SL_TITLE')],
   '/admin/alert-routing':         [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_RT_TITLE')],
+  '/admin/alert-contacts':        [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_CT_TITLE')],
   '/admin/alert-settings':        [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_ST_TITLE')],
 }
 

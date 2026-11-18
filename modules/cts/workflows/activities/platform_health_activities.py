@@ -101,6 +101,7 @@ class DispatchAlertResult(BaseModel):
     degraded: bool = False
     queued_for_retry: int = 0     # deliveries that failed their first attempt and will be retried by the outbox
     routed: bool = False          # the audience came from the routing policy (False: the original flat settings were used)
+    suppressed: bool = False      # a silence was in force, so nothing was sent (the audit trail says which silence)
 
 
 class CheckVaultCoverageInput(BaseModel):
@@ -351,6 +352,26 @@ async def _routed_audience(routing_service: Any, inp: "DispatchAlertInput", db_p
         return None
 
 
+async def _held_by_silence(inp: "DispatchAlertInput", db_pool: Any, alert_auditor: Any) -> bool:
+    """True when a silence is in force for this component and priority (the hold is written to the audit trail). A failed lookup never holds an alert back."""
+    if db_pool is None:
+        return False
+    try:
+        from shared.alerting.silences import SilenceStore
+        silence_id = await SilenceStore(db_pool, max_hours=0, allow_p0=True, min_reason_chars=0).is_silenced(inp.bank_id, inp.component, inp.priority)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("dispatch_platform_alert.silence_lookup_failed", bank_id=inp.bank_id, error_type=type(exc).__name__)
+        return False
+    if not silence_id:
+        return False
+    if alert_auditor is not None:
+        from shared.audit.audit_event import AuditEventType
+        await alert_auditor.lifecycle(AuditEventType.ALERT_SUPPRESSED, bank_id=inp.bank_id, incident_id=inp.incident_id or inp.component, actor="system",
+                                      detail={"silence_id": silence_id, "component": inp.component, "priority": inp.priority, "template": inp.template})
+    log.info("dispatch_platform_alert.silenced", bank_id=inp.bank_id, component=inp.component, priority=inp.priority)
+    return True
+
+
 @activity.defn
 async def dispatch_platform_alert(
     inp: DispatchAlertInput,
@@ -369,6 +390,8 @@ async def dispatch_platform_alert(
     """
     with tracer.start_as_current_span("activity.dispatch_platform_alert") as span:
         span.set_attribute("bank_id", inp.bank_id)
+        if await _held_by_silence(inp, db_pool, alert_auditor):
+            return DispatchAlertResult(sent=False, suppressed=True)
         if dispatcher is None:
             log.warning("dispatch_platform_alert.degraded", bank_id=inp.bank_id, event_type=inp.event_type, reason="dispatcher_none")
             return DispatchAlertResult(sent=False, degraded=True)
