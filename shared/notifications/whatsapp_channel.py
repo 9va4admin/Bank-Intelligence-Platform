@@ -48,7 +48,12 @@ class WhatsAppChannel:
         api_url: str,
         phone_number_id: str,
         bank_id: str,
+        max_param_chars: int | None = None,     # longest template parameter; default: the shared alert message length
     ) -> None:
+        if max_param_chars is None:
+            from shared.alerting.templates import DEFAULT_MESSAGE_MAX_CHARS
+            max_param_chars = DEFAULT_MESSAGE_MAX_CHARS
+        self._max_param_chars = max_param_chars
         self._api_url = api_url
         self._phone_number_id = phone_number_id
         self._bank_id = bank_id
@@ -81,7 +86,7 @@ class WhatsAppChannel:
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": str(v)}
+                            {"type": "text", "text": self._clean_param(v)}
                             for v in self._params(request)
                         ],
                     }
@@ -103,6 +108,11 @@ class WhatsAppChannel:
         message_id = messages[0].get("id", "") if messages else ""
         log.info("whatsapp.sent", recipient=phone, template=meta_template, message_id=message_id)
         return {"message_id": message_id, "status": "sent"}
+
+    def _clean_param(self, value: Any) -> str:
+        """Meta rejects a template parameter with line breaks, tabs or four-plus spaces in a row, and over-long text: one clean, bounded line."""
+        text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", str(value))
+        return re.sub(r"\s+", " ", text).strip()[: self._max_param_chars]
 
     @staticmethod
     def _params(request):

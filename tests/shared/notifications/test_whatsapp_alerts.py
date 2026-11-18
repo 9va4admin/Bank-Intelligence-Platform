@@ -36,10 +36,10 @@ def meta():
     srv.shutdown()
 
 
-def _req(template="PLATFORM_HEALTH_ALERT"):
-    return SimpleNamespace(recipient="+91 98765 43210", template_id=template, notification_id="n1",
-                           context={"bank_id": "kbl", "event_type": "COMPONENT_DOWN", "severity": "CRITICAL", "component": "redis",
-                                    "message": "redis is down", "down_for": ""})
+def _req(template="PLATFORM_HEALTH_ALERT", **over):
+    context = {"bank_id": "kbl", "event_type": "COMPONENT_DOWN", "severity": "CRITICAL", "component": "redis", "message": "redis is down", "down_for": ""}
+    context.update(over)
+    return SimpleNamespace(recipient="+91 98765 43210", template_id=template, notification_id="n1", context=context)
 
 
 def test_a_platform_alert_is_sent_to_the_phone_with_the_template_parameters_in_a_fixed_order(meta):
@@ -138,3 +138,24 @@ def test_factory_builds_the_channel_from_settings():
         def get_platform(self, key):
             raise KeyError(key)
     assert asyncio.run(read_whatsapp_settings(Empty())) is None
+
+
+# ---------------- Meta rejects parameters with line breaks, tabs or runs of spaces, and over-long text -----------------
+
+def test_template_parameters_are_one_clean_line_and_bounded(meta):
+    url, server = meta
+    ch = WhatsAppChannel(url, "P", "kbl", max_param_chars=40)
+    ch.connect("t")
+    asyncio.run(ch.send(_req(message="line one\r\nline two\t\tand     many   spaces " + "x" * 200, component="re\x00dis")))
+    texts = [p["text"] for p in server.received[0]["json"]["template"]["components"][0]["parameters"]]
+    assert all("\n" not in t and "\r" not in t and "\t" not in t and "  " not in t and "\x00" not in t for t in texts)
+    assert texts[1] == "redis" and len(texts[2]) <= 40 and texts[2].startswith("line one line two and many spaces")
+
+
+def test_the_default_limit_comes_from_the_shared_message_length_setting(meta):
+    from shared.alerting.templates import DEFAULT_MESSAGE_MAX_CHARS
+    url, server = meta
+    ch = WhatsAppChannel(url, "P", "kbl")
+    ch.connect("t")
+    asyncio.run(ch.send(_req(message="y" * (DEFAULT_MESSAGE_MAX_CHARS + 500))))
+    assert len(server.received[0]["json"]["template"]["components"][0]["parameters"][2]["text"]) == DEFAULT_MESSAGE_MAX_CHARS
