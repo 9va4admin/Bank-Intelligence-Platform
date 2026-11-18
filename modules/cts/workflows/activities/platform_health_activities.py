@@ -549,6 +549,17 @@ class IncidentRecordResult(BaseModel):
     degraded: bool = False
 
 
+async def _review_falls_due(db_pool: Any, bank_id: str, closed: Any, dedup_key: str) -> None:
+    """A resolved P0 or P1 incident gets a post-incident review (due dates are worked out later from the bank's settings). Never raises."""
+    if db_pool is None:
+        return
+    try:
+        from shared.alerting.reviews import ReviewStore
+        await ReviewStore(db_pool, due_days={}, effectiveness_days=0, min_narrative_chars=0).ensure_due(bank_id, closed.incident_id, closed.severity, closed.component, dedup_key)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("record_alert_incident.review_not_created", bank_id=bank_id, error_type=type(exc).__name__)
+
+
 @activity.defn
 async def record_alert_incident(inp: DispatchAlertInput, db_pool=None, alert_auditor=None, store=None) -> IncidentRecordResult:
     """Open, update or resolve the incident this alert belongs to, and audit it. Never raises: the incident store being down must not stop an alert."""
@@ -569,6 +580,7 @@ async def record_alert_incident(inp: DispatchAlertInput, db_pool=None, alert_aud
                     await alert_auditor.lifecycle(AuditEventType.ALERT_RESOLVED, bank_id=inp.bank_id, incident_id=closed.incident_id,
                                                   actor=SYSTEM_ACTOR, detail={"component": closed.component, "severity": closed.severity,
                                                                               "duration_seconds": closed.duration_seconds})
+                await _review_falls_due(db_pool, inp.bank_id, closed, key)
                 return IncidentRecordResult(incident_id=closed.incident_id, resolved=True)
             opened = await store.open_or_update(bank_id=inp.bank_id, dedup_key=key, alert_id=inp.event_type, component=inp.component,
                                                 severity=inp.priority, summary=inp.message)
