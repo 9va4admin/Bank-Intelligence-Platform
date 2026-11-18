@@ -57879,3 +57879,325 @@ ALERT_API_ACTION_SAME_PERSON:
   variables: []
   en: "A different person must verify the action. The person who finished it cannot."
   hi: ""
+
+UI_ALERTING_RV_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Post-incident reviews"
+  hi: ""
+
+UI_ALERTING_RV_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "After a critical or major incident is resolved, write down what happened and what will change. Actions are finished with evidence and verified by a different person."
+  hi: ""
+
+UI_ALERTING_RV_DUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Due for review"
+  hi: ""
+
+UI_ALERTING_RV_SUBMITTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reviewed"
+  hi: ""
+
+UI_ALERTING_RV_ACTIONS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Actions"
+  hi: ""
+
+UI_ALERTING_RV_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No reviews are due. One is created when a critical or major incident is resolved."
+  hi: ""
+
+UI_ALERTING_RV_OVERDUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Overdue"
+  hi: ""
+
+UI_ALERTING_RV_DUE_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [when]
+  en: "Due by {when}"
+  hi: ""
+
+UI_ALERTING_RV_WRITE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Write the review"
+  hi: ""
+
+UI_ALERTING_RV_ADD_ACTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add an action"
+  hi: ""
+
+UI_ALERTING_RV_SUBMIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submit review"
+  hi: ""
+
+UI_ALERTING_RV_SAVE_ACTION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save action"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Root cause"
+  hi: ""
+
+UI_ALERTING_RV_NARRATIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What happened"
+  hi: ""
+
+UI_ALERTING_RV_FACTORS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Contributing factors"
+  hi: ""
+
+UI_ALERTING_RV_GAP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Detection gap"
+  hi: ""
+
+UI_ALERTING_RV_IMPACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Impact"
+  hi: ""
+
+UI_ALERTING_RV_KIND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kind"
+  hi: ""
+
+UI_ALERTING_RV_KIND_PREVENTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Preventive"
+  hi: ""
+
+UI_ALERTING_RV_KIND_CORRECTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Corrective"
+  hi: ""
+
+UI_ALERTING_RV_WHAT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What will be done"
+  hi: ""
+
+UI_ALERTING_RV_OWNER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Owner"
+  hi: ""
+
+UI_ALERTING_RV_DUE_DATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Due date"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_CAPACITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Capacity"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_CONFIGURATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Configuration"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_SOFTWARE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Software defect"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_DEPENDENCY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A dependency failed"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_PROCESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Process"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_HARDWARE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Hardware"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_SECURITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Security"
+  hi: ""
+
+UI_ALERTING_RV_CAUSE_UNKNOWN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not known"
+  hi: ""
+
+UI_ALERTING_RV_ST_OPEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Open"
+  hi: ""
+
+UI_ALERTING_RV_ST_PROGRESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "In progress"
+  hi: ""
+
+UI_ALERTING_RV_ST_DONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Done, waiting for verification"
+  hi: ""
+
+UI_ALERTING_RV_ST_VERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Done and verified"
+  hi: ""
+
+UI_ALERTING_RV_ST_WONT_FIX:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Will not be done"
+  hi: ""
+
+UI_ALERTING_RV_EFF_EARLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Too early to tell if it worked."
+  hi: ""
+
+UI_ALERTING_RV_EFF_GOOD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The same failure has not come back since. It looks effective."
+  hi: ""
+
+UI_ALERTING_RV_EFF_RECURRED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The same failure came back after this was done."
+  hi: ""
+
+UI_ALERTING_RV_START:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start"
+  hi: ""
+
+UI_ALERTING_RV_MARK_DONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mark done"
+  hi: ""
+
+UI_ALERTING_RV_VERIFY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verify"
+  hi: ""
+
+UI_ALERTING_RV_SEND_BACK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Send back"
+  hi: ""
+
+UI_ALERTING_RV_EVIDENCE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Evidence"
+  hi: ""
+
+UI_ALERTING_RV_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reason"
+  hi: ""
+
+UI_ALERTING_RV_SAVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save"
+  hi: ""
