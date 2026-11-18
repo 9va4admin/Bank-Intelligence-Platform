@@ -25,7 +25,7 @@ class Cfg:
     def __init__(self, key="readiness-api-key-not-a-secret", platform=None):
         self.key, self.p = key, platform or {}
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.dkim_selectors": "google, s2", "alerting.audit_collection_pattern": "alert_events_{bank_id}", "alerting.readiness_open_incident_hours": 24, "alerting.public_mail_hosts": "[]",
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.fire_drill_ack_minutes": 15, "alerting.readiness_drill_days": 90, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.dkim_selectors": "google, s2", "alerting.audit_collection_pattern": "alert_events_{bank_id}", "alerting.readiness_open_incident_hours": 24, "alerting.public_mail_hosts": "[]",
                   "alerts.email_recipients": "", "alerting.bell_roles": '["ops_manager"]', "alerting.bell_min_priority": "P3"}
 
     async def get(self, key):
@@ -45,7 +45,7 @@ class Cfg:
         return self.p[key]
 
 
-def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None, dns=None):
+def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None, dns=None, sender=None):
     async def go():
         import asyncpg
         from apps.api.routers.platform import get_current_user, router_v1
@@ -58,6 +58,8 @@ def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None, dns=None):
         app.state.config_service = config or Cfg()
         app.state.immudb_client = immudb
         app.state.dns_lookup = dns
+        if sender is not None:
+            app.state.send_platform_alert = sender(pool)
         client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
         try:
             return await fn(client, bank, pool)
@@ -74,7 +76,7 @@ def test_the_readiness_list_includes_the_alerting_items_with_words_and_a_link_to
         r = await client.get("/v1/platform/readiness")
         assert r.status_code == 200
         items = {i["check_id"]: i for i in r.json()["items"]}
-        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated"):
+        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill"):
             assert cid in items and items[cid]["label"] and items[cid]["detail"], cid
         assert items["alert_routing"]["status"] == "FAIL" and items["alert_routing"]["action_url"] == "/admin/alert-routing"
         assert r.json()["all_ready"] is False                                  # a failing alerting item blocks go-live like any other
@@ -186,3 +188,53 @@ def test_only_an_it_admin_may_run_the_mail_domain_check():
     async def fn(client, bank, pool):
         assert (await client.post("/v1/platform/alert-proofs/mail-dns")).status_code == 403
     _scenario(fn, role="ops_manager", config=Cfg(platform=FROM), dns=_dns(GOOD_DNS))
+
+
+def _sender(sent):
+    """Stands in for the API's real alert path: opens the incident the way record_alert_incident does, and remembers what was sent."""
+    def build(pool):
+        async def send(alert):
+            from shared.alerting.incidents import IncidentStore, dedup_key_for
+            sent.append(alert)
+            await IncidentStore(pool).open_or_update(bank_id=alert.bank_id, dedup_key=dedup_key_for(alert.event_type, alert.component), alert_id="a", component=alert.component,
+                                                     severity=alert.priority, summary=alert.message)
+        return send
+    return build
+
+
+def test_starting_a_fire_drill_sends_a_critical_test_alert_records_it_and_passes_once_a_person_acknowledges():
+    sent = []
+
+    async def fn(client, bank, pool):
+        r = await client.post("/v1/platform/alert-proofs/fire-drill")
+        assert r.status_code == 200 and r.json()["ack_within_minutes"] == 15 and r.json()["incident_id"]
+        assert sent[0].priority == "P0" and sent[0].severity == "CRITICAL" and sent[0].component == "fire-drill" and "FIRE DRILL" in sent[0].message
+        item = lambda items: {i["check_id"]: i for i in items}["alert_fire_drill"]       # noqa: E731
+        waiting = item((await client.get("/v1/platform/readiness")).json()["items"])
+        assert waiting["status"] == "WARN"
+        from shared.alerting.incidents import IncidentStore
+        assert await IncidentStore(pool).acknowledge(bank, r.json()["incident_id"], "oncall-1")
+        assert item((await client.get("/v1/platform/readiness")).json()["items"])["status"] == "PASS"
+    _scenario(fn, sender=_sender(sent))
+
+
+def test_a_second_drill_closes_the_first_so_it_is_a_new_incident_that_really_notifies():
+    sent = []
+
+    async def fn(client, bank, pool):
+        first = (await client.post("/v1/platform/alert-proofs/fire-drill")).json()["incident_id"]
+        second = (await client.post("/v1/platform/alert-proofs/fire-drill")).json()["incident_id"]
+        assert first != second and len(sent) == 2
+        states = {r["incident_id"]: r["state"] for r in await pool.fetch("SELECT incident_id, state FROM platform.alert_incidents WHERE bank_id=$1", bank)}
+        assert states[first] == "RESOLVED" and states[second] == "OPEN"
+    _scenario(fn, sender=_sender(sent))
+
+
+def test_a_drill_cannot_start_without_the_alert_path_and_only_an_it_admin_may_start_one():
+    async def fn(client, bank, pool):
+        assert (await client.post("/v1/platform/alert-proofs/fire-drill")).status_code == 503
+    _scenario(fn)
+
+    async def fn2(client, bank, pool):
+        assert (await client.post("/v1/platform/alert-proofs/fire-drill")).status_code == 403
+    _scenario(fn2, role="ops_manager", sender=_sender([]))

@@ -56752,3 +56752,94 @@ UI_GOLIVE_ALERT_SIM_SEV_P2:
   variables: []
   en: "warning (P2)"
   hi: ""
+
+UI_GOLIVE_ALERT_FD_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A fire drill was acknowledged by a person in time"
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No fire drill has been run. Run one from the Alert Settings screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_WAITING:
+  severity: INFO
+  surface: [UI]
+  variables: [ago, target]
+  en: "Drill started {ago} minutes ago and is waiting for someone to acknowledge it (target {target} minutes)."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [who, minutes, target]
+  en: "Acknowledged by {who} after {minutes} minutes (target {target})."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_LATE:
+  severity: INFO
+  surface: [UI]
+  variables: [minutes, target]
+  en: "Acknowledged after {minutes} minutes, later than the {target} minute target. Run the drill again."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_MISSED:
+  severity: INFO
+  surface: [UI]
+  variables: [target]
+  en: "Nobody acknowledged the drill within {target} minutes. Check who is told and run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_OLD:
+  severity: INFO
+  surface: [UI]
+  variables: [days]
+  en: "The last good drill was {days} days ago. Run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_FD_MESSAGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "FIRE DRILL: this is a test, not a real incident. Please acknowledge it so the drill can be timed."
+  hi: ""
+
+UI_ALERTING_PF_DRILL_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fire drill"
+  hi: ""
+
+UI_ALERTING_PF_DRILL_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sends a test critical alert to the people your routing names. It passes when one of them acknowledges it in time. The result shows on the Go-Live screen."
+  hi: ""
+
+UI_ALERTING_PF_DRILL_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start a fire drill"
+  hi: ""
+
+UI_ALERTING_PF_DRILL_LAST:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "The last drill was started on {when} by {who}."
+  hi: ""
+
+UI_ALERTING_PF_DRILL_STARTED:
+  severity: INFO
+  surface: [UI]
+  variables: [minutes]
+  en: "The drill has started. Someone must acknowledge it within {minutes} minutes."
+  hi: ""

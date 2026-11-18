@@ -720,7 +720,7 @@ async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[
     if db_pool is None:
         return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
                 for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
-                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_fire_drill", "UI_GOLIVE_ALERT_FD_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
     try:
         key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
     except Exception:  # noqa: BLE001
@@ -804,6 +804,43 @@ async def run_mail_dns_check(request: Request, user: UserContext = Depends(get_c
     return AuditProofResponse(ok=finding.ok, reason="ok" if finding.ok else (finding.error or "missing_records"))
 
 
+class FireDrillResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    incident_id: str
+    ack_within_minutes: int
+
+
+@router_v1.post("/alert-proofs/fire-drill", response_model=FireDrillResponse)
+async def start_fire_drill(request: Request, user: UserContext = Depends(get_current_user)) -> FireDrillResponse:
+    """Send a synthetic critical alert through the real path (incident, routing, delivery, escalation). The drill passes when a person acknowledges it in time."""
+    from modules.cts.workflows.activities.platform_health_activities import DispatchAlertInput
+    from shared.alerting.incidents import IncidentStore
+    from shared.alerting.proofs import ProofStore
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    who     = user["user_id"] if isinstance(user, dict) else user.user_id
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    send = getattr(request.app.state, "send_platform_alert", None)
+    if db_pool is None or send is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    config = getattr(request.app.state, "config_service", None) or config_service
+    try:
+        target = int(await config.get("alerting.fire_drill_ack_minutes"))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    incidents = IncidentStore(db_pool)
+    for row in await db_pool.fetch("SELECT dedup_key FROM platform.alert_incidents WHERE bank_id=$1 AND component='fire-drill' AND state <> 'RESOLVED' LIMIT 20", bank_id):
+        await incidents.resolve(bank_id, row["dedup_key"], str(who))          # an earlier drill still open would swallow this one as a repeat, and nobody would be told
+    await send(DispatchAlertInput(bank_id=bank_id, event_type="FIRE_DRILL", severity="CRITICAL", priority="P0", message=get_message("UI_GOLIVE_ALERT_FD_MESSAGE"), component="fire-drill"))
+    incident_id = await db_pool.fetchval("SELECT incident_id FROM platform.alert_incidents WHERE bank_id=$1 AND component='fire-drill' AND state <> 'RESOLVED' ORDER BY opened_at DESC LIMIT 1", bank_id)
+    if not incident_id:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    await ProofStore(db_pool).record(bank_id, "fire_drill", False, {"incident_id": incident_id, "target_minutes": target}, str(who))
+    return FireDrillResponse(incident_id=incident_id, ack_within_minutes=target)
+
+
 @router_v1.get("/alert-proofs", response_model=dict[str, ProofView])
 async def get_alert_proofs(request: Request, user: UserContext = Depends(get_current_user)) -> dict[str, ProofView]:
     from shared.alerting.proofs import AUDIT_PATH, ProofStore
@@ -814,7 +851,7 @@ async def get_alert_proofs(request: Request, user: UserContext = Depends(get_cur
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     if db_pool is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
-    found = await ProofStore(db_pool).latest_many(bank_id, [AUDIT_PATH, "mail_dns"])
+    found = await ProofStore(db_pool).latest_many(bank_id, [AUDIT_PATH, "mail_dns", "fire_drill"])
     return {k: ProofView(ok=p.ok, ran_by=p.ran_by, ran_at=p.ran_at, reason=p.detail.get("reason") or p.detail.get("error")) for k, p in found.items()}
 
 

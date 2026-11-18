@@ -82,6 +82,35 @@ function ProofLine({ isDark, last, loaded, onRun, text }) {
   )
 }
 
+function DrillLine({ isDark, last, onStarted }) {
+  const th = useTh(isDark)
+  const [problem, setProblem] = useState(null)
+  const [started, setStarted] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true); setProblem(null)
+    try {
+      const r = await api('/v1/platform/alert-proofs/fire-drill', { method: 'POST' })
+      setStarted(msg('UI_ALERTING_PF_DRILL_STARTED', { minutes: r.ack_within_minutes }))
+      onStarted()
+    } catch (e) { setProblem(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_PF_DRILL_TITLE')}</p>
+          <p className={`text-xs ${th.muted}`}>{msg('UI_ALERTING_PF_DRILL_HELP')}</p>
+          {last && <p className={`text-xs mt-1 ${th.body}`}>{msg('UI_ALERTING_PF_DRILL_LAST', { when: when(last.ran_at), who: last.ran_by })}</p>}
+          {started && <p role="status" className={`text-xs mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{started}</p>}
+        </div>
+        <Button isDark={isDark} kind="primary" disabled={busy} onClick={run}>{msg('UI_ALERTING_PF_DRILL_RUN')}</Button>
+      </div>
+      {problem && <p role="alert" className="mt-2 text-xs text-red-500">{problem}</p>}
+    </div>
+  )
+}
+
 function Proofs({ isDark }) {
   const th = useTh(isDark)
   const { data, error, reload } = useLoad('/v1/platform/alert-proofs')
@@ -96,6 +125,8 @@ function Proofs({ isDark }) {
       <ProofLine isDark={isDark} loaded={!!data} last={data?.mail_dns} onRun={post('/v1/platform/alert-proofs/mail-dns')}
         text={{ title: msg('UI_ALERTING_PF_DNS_TITLE'), help: msg('UI_ALERTING_PF_DNS_HELP'), never: msg('UI_ALERTING_PF_DNS_NEVER'), run: msg('UI_ALERTING_PF_DNS_RUN'),
           passed: (v) => msg('UI_ALERTING_PF_DNS_PASSED', v), failed: (v) => msg('UI_ALERTING_PF_DNS_FAILED', v) }} />
+      <div className={`border-t ${th.divider}`} />
+      <DrillLine isDark={isDark} last={data?.fire_drill} onStarted={reload} />
     </Card>
   )
 }

@@ -32,7 +32,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.skipif(not _up(), reason="dev
 class Cfg:
     def __init__(self, platform=None, **v):
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.readiness_open_incident_hours": 24,
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.fire_drill_ack_minutes": 15, "alerting.readiness_drill_days": 90, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.readiness_open_incident_hours": 24,
                   "alerting.public_mail_hosts": '["smtp.gmail.com"]', "alerts.email_recipients": "", "alerts.whatsapp_recipients": "",
                   "alerting.bell_roles": '["ops_manager", "bank_it_admin"]', "alerting.bell_min_priority": "P3", **v}
         self.p = platform or {}
@@ -101,7 +101,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -280,3 +280,44 @@ async def test_a_policy_approved_after_the_simulations_makes_them_stale(pool):
     await approve_good(pool, bank)                                   # approved now: after the simulations
     item = (await run(pool, bank, Cfg()))["alert_simulated"]
     assert item.status == "FAIL" and "changed" in item.detail.lower()
+
+
+async def _drill(pool, bank, *, started_minutes_ago, acked_after_minutes=None, ran_by="admin-1"):
+    """A drill started so long ago, with its incident acknowledged (or not) so many minutes after it started."""
+    started = datetime.now(timezone.utc) - timedelta(minutes=started_minutes_ago)
+    incident = uuid.uuid4().hex
+    acked = started + timedelta(minutes=acked_after_minutes) if acked_after_minutes is not None else None
+    await pool.execute("INSERT INTO platform.alert_incidents (incident_id, bank_id, dedup_key, alert_id, component, severity, state, summary, opened_at, acked_at, acked_by) "
+                       "VALUES ($1,$2,$3,'a','fire-drill','P0',$4,'drill',$5,$6,$7)", incident, bank, f"d-{incident}", "ACKED" if acked else "OPEN", started, acked, "oncall-1" if acked else None)
+    await ProofStore(pool).record(bank, "fire_drill", False, {"incident_id": incident}, ran_by)
+    await pool.execute("UPDATE platform.alert_readiness_proofs SET ran_at = $2 WHERE bank_id = $1 AND kind = 'fire_drill'", bank, started)
+
+
+@db
+async def test_the_fire_drill_must_have_been_run_and_acknowledged_by_a_person_in_time(pool):
+    bank = _bank()
+    assert (await run(pool, bank, Cfg()))["alert_fire_drill"].status == "FAIL"                        # never run
+    await _drill(pool, bank, started_minutes_ago=3)
+    waiting = (await run(pool, bank, Cfg()))["alert_fire_drill"]
+    assert waiting.status == "WARN" and "waiting" in waiting.detail.lower()                            # within the window, nobody has acknowledged yet
+    ok = _bank()
+    await _drill(pool, ok, started_minutes_ago=30, acked_after_minutes=4)
+    done = (await run(pool, ok, Cfg()))["alert_fire_drill"]
+    assert done.status == "PASS" and "4" in done.detail and "oncall-1" in done.detail
+
+
+@db
+async def test_a_drill_acknowledged_too_late_or_never_acknowledged_in_time_fails(pool):
+    late, missed = _bank(), _bank()
+    await _drill(pool, late, started_minutes_ago=60, acked_after_minutes=40)
+    assert (await run(pool, late, Cfg()))["alert_fire_drill"].status == "FAIL"
+    await _drill(pool, missed, started_minutes_ago=60)
+    item = (await run(pool, missed, Cfg()))["alert_fire_drill"]
+    assert item.status == "FAIL" and "15" in item.detail
+
+
+@db
+async def test_an_old_successful_drill_is_a_warning(pool):
+    bank = _bank()
+    await _drill(pool, bank, started_minutes_ago=100 * 24 * 60, acked_after_minutes=3)
+    assert (await run(pool, bank, Cfg()))["alert_fire_drill"].status == "WARN"

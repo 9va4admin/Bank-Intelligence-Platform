@@ -369,6 +369,7 @@ async def lifespan(app: FastAPI):
             await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
                                           delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None), routing_service=_wd_routing)
 
+        app.state.send_platform_alert = _wd_send       # the real alert path (incident, escalation, routed delivery); the fire drill uses it too
         watchdog_task = asyncio.create_task(run_watchdog(
             lambda: getattr(app.state, "temporal_client", None),
             MonitorWatchdog(config_service.bank_id, thresholds=Thresholds(), stale_after=180.0, send=_wd_send),

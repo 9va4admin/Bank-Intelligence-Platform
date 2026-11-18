@@ -143,4 +143,22 @@ describe('AlertSettings', () => {
     fireEvent.click(screen.getByText('Check the mail domain'))
     await waitFor(() => expect(screen.getByText(/no sending address yet/i)).toBeInTheDocument())
   })
+
+  it('starts a fire drill and tells the person to acknowledge it within the target time', async () => {
+    const calls = base({ 'POST /v1/platform/alert-proofs/fire-drill': { incident_id: 'i-1', ack_within_minutes: 15 } })
+    view()
+    await waitFor(() => expect(screen.getByText('Start a fire drill')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Start a fire drill'))
+    await waitFor(() => expect(calls.some(c => c.method === 'POST' && c.url.endsWith('/v1/platform/alert-proofs/fire-drill'))).toBe(true))
+    await waitFor(() => expect(screen.getByText(/within 15 minutes/i)).toBeInTheDocument())
+  })
+
+  it('shows when the last drill was started and why a drill could not start', async () => {
+    base({ 'GET /v1/platform/alert-proofs': { fire_drill: { ok: false, ran_by: 'admin-1', ran_at: '2026-11-18T10:00:00Z', reason: null } },
+      'POST /v1/platform/alert-proofs/fire-drill': failing(503, { detail: 'The database is not available.' }) })
+    view()
+    await waitFor(() => expect(screen.getByText(/last drill was started/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Start a fire drill'))
+    await waitFor(() => expect(screen.getByText(/database is not available/i)).toBeInTheDocument())
+  })
 })

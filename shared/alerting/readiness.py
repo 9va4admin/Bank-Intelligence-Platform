@@ -222,9 +222,38 @@ async def _simulated(bank_id: str, policy_store: Any, proof_store: Any) -> Readi
     return _item("alert_simulated", label, "PASS", get_message("UI_GOLIVE_ALERT_SIM_OK", severities=words(_SIM_SEVERITIES), when=last.strftime("%d %b %Y, %H:%M UTC")), url)
 
 
+async def _fire_drill(config: Any, bank_id: str, pool: Any, proof_store: Any, now: datetime) -> ReadinessCheck:
+    label = "UI_GOLIVE_ALERT_FD_LABEL"
+    if proof_store is None:
+        return _item("alert_fire_drill", label, "WARN", get_message("UI_GOLIVE_ALERT_UNAVAILABLE"), _SETTINGS_URL)
+    try:
+        target = int(await _number(config, "alerting.fire_drill_ack_minutes"))
+        window_days = int(await _number(config, "alerting.readiness_drill_days"))
+        proof = await proof_store.latest(bank_id, "fire_drill")
+        incident = None
+        if proof is not None and proof.detail.get("incident_id"):
+            incident = await pool.fetchrow("SELECT acked_at, acked_by FROM platform.alert_incidents WHERE bank_id=$1 AND incident_id=$2", bank_id, proof.detail["incident_id"])
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_fire_drill", label, _SETTINGS_URL, exc)
+    if proof is None:
+        return _item("alert_fire_drill", label, "FAIL", get_message("UI_GOLIVE_ALERT_FD_NONE"), _SETTINGS_URL)
+    elapsed = (now - proof.ran_at).total_seconds() / 60
+    acked_at = incident["acked_at"] if incident else None
+    if acked_at is None:
+        if elapsed < target:
+            return _item("alert_fire_drill", label, "WARN", get_message("UI_GOLIVE_ALERT_FD_WAITING", ago=int(elapsed), target=target), _SETTINGS_URL)
+        return _item("alert_fire_drill", label, "FAIL", get_message("UI_GOLIVE_ALERT_FD_MISSED", target=target), _SETTINGS_URL)
+    minutes = max(0, round((acked_at - proof.ran_at).total_seconds() / 60))
+    if minutes > target:
+        return _item("alert_fire_drill", label, "FAIL", get_message("UI_GOLIVE_ALERT_FD_LATE", minutes=minutes, target=target), _SETTINGS_URL)
+    if (now - proof.ran_at).days > window_days:
+        return _item("alert_fire_drill", label, "WARN", get_message("UI_GOLIVE_ALERT_FD_OLD", days=(now - proof.ran_at).days), _SETTINGS_URL)
+    return _item("alert_fire_drill", label, "PASS", get_message("UI_GOLIVE_ALERT_FD_OK", who=incident["acked_by"] or "", minutes=minutes, target=target), _SETTINGS_URL)
+
+
 async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None,
                              now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _open_incidents(config, bank_id, pool, moment)]

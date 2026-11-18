@@ -223,6 +223,8 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.readiness_open_incident_hours": 24,           # an incident open longer than this raises a Go-Live warning
     "alerting.readiness_audit_proof_days": 30,              # the audit-path proof must have succeeded within this many days
     "alerting.readiness_dns_proof_days": 30,                # the mail domain check must have passed within this many days
+    "alerting.fire_drill_ack_minutes": 15,                  # a person must acknowledge the fire drill within this many minutes
+    "alerting.readiness_drill_days": 90,                    # the last good fire drill must be no older than this many days
     "alerting.dkim_selectors": "",                         # DKIM selectors the bank publishes for the sending domain (JSON list or comma separated); empty = DKIM is not judged
     "alerting.mail_dns_risk_accepted": False,              # the bank has accepted the risk of not publishing SPF/DMARC/DKIM (shown as a note, not a failure)
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
