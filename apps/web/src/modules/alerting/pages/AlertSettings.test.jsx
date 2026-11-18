@@ -9,7 +9,7 @@ const entry = (key, value, over = {}) => ({ config_key: key, current_value: valu
 const thresholds = () => ({ thresholds: [entry('stp_mode', 'SUPERVISED'), entry('alerts.email_recipients', 'ops@bank.example'), entry('alerting.retention_days', '730')], total: 3, bank_id: 'kbl' })
 const change = (id, key, over = {}) => ({ change_id: id, config_key: key, new_value: '365', reason: 'shorter retention', status: 'PENDING_APPROVAL', submitted_by: 'maker', submitted_at: '2026-11-18T10:00:00Z', ...over })
 
-const base = (extra = {}) => mockApi({ 'GET /v1/admin/alert-routing/channels': channels(), 'GET /v1/admin/config/thresholds/changes': { changes: [], total: 0, bank_id: 'kbl' },
+const base = (extra = {}) => mockApi({ 'GET /v1/platform/alert-proofs': {}, 'GET /v1/admin/alert-routing/channels': channels(), 'GET /v1/admin/config/thresholds/changes': { changes: [], total: 0, bank_id: 'kbl' },
   'GET /v1/admin/config/thresholds': thresholds(), ...extra })
 const view = (opts) => renderPage(<AlertSettings />, { route: '/admin/alert-settings', path: '/admin/alert-settings', ...opts })
 
@@ -102,5 +102,26 @@ describe('AlertSettings', () => {
     base()
     view({ isDark: true })
     await waitFor(() => expect(screen.getByText('alerts.email_recipients')).toBeInTheDocument())
+  })
+
+  it('says the audit trail was never proved, then runs the proof and shows the result in words', async () => {
+    let ran = false
+    const calls = base({ 'GET /v1/platform/alert-proofs': () => (ran ? { audit_path: { ok: true, ran_by: 'admin-1', ran_at: '2026-11-18T10:00:00Z', reason: 'ok' } } : {}),
+      'POST /v1/platform/alert-proofs/audit-path': () => { ran = true; return { ok: true, reason: 'ok' } } })
+    view()
+    await waitFor(() => expect(screen.getByText(/never been run/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Run the audit proof'))
+    await waitFor(() => expect(calls.some(c => c.method === 'POST' && c.url.endsWith('/v1/platform/alert-proofs/audit-path'))).toBe(true))
+    await waitFor(() => expect(screen.getAllByText(/Passed on/).length).toBeGreaterThan(0))
+    expect(screen.getByText(/admin-1/)).toBeInTheDocument()
+  })
+
+  it('shows a failed proof with the reason in words, and a refusal when the person may not run it', async () => {
+    base({ 'GET /v1/platform/alert-proofs': { audit_path: { ok: false, ran_by: 'admin-1', ran_at: '2026-11-18T10:00:00Z', reason: 'verify_failed' } },
+      'POST /v1/platform/alert-proofs/audit-path': failing(403, { detail: 'Your role cannot do this.' }) })
+    view()
+    await waitFor(() => expect(screen.getByText(/did not verify/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Run the audit proof'))
+    await waitFor(() => expect(screen.getByText(/cannot do this/)).toBeInTheDocument())
   })
 })

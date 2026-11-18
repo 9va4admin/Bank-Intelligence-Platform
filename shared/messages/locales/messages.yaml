@@ -56507,3 +56507,52 @@ UI_GOLIVE_ALERT_AUDIT_REASON_VERIFY_FAILED:
   variables: []
   en: "a record did not verify"
   hi: ""
+
+UI_ALERTING_PF_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Go-Live proofs"
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Audit trail proof"
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Writes a test alert to the audit trail, reads it back and checks it. Run it before go-live and again when the audit connection changes."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_NEVER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This proof has never been run."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_PASSED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Passed on {when}, run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, reason, who]
+  en: "Failed on {when} ({reason}), run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_AUDIT_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Run the audit proof"
+  hi: ""

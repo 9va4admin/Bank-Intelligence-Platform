@@ -50,6 +50,37 @@ function Channels({ isDark }) {
   )
 }
 
+// the reason a proof failed, in words (literal keys so the message bundle includes them)
+const PROOF_REASON = { not_connected: 'UI_GOLIVE_ALERT_AUDIT_REASON_NOT_CONNECTED', write_failed: 'UI_GOLIVE_ALERT_AUDIT_REASON_WRITE_FAILED', verify_failed: 'UI_GOLIVE_ALERT_AUDIT_REASON_VERIFY_FAILED' }
+
+function Proofs({ isDark }) {
+  const th = useTh(isDark)
+  const { data, error, reload } = useLoad('/v1/platform/alert-proofs')
+  const [problem, setProblem] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const last = data?.audit_path
+  const run = async () => {
+    setBusy(true); setProblem(null)
+    try { await api('/v1/platform/alert-proofs/audit-path', { method: 'POST' }); reload() } catch (e) { setProblem(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <Card isDark={isDark} className="p-4">
+      <ErrorNote isDark={isDark} error={error} onRetry={reload} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_PF_AUDIT_TITLE')}</p>
+          <p className={`text-xs ${th.muted}`}>{msg('UI_ALERTING_PF_AUDIT_HELP')}</p>
+          {data && !last && <p className={`text-xs mt-1 ${th.body}`}>{msg('UI_ALERTING_PF_AUDIT_NEVER')}</p>}
+          {last && last.ok && <p className={`text-xs mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{msg('UI_ALERTING_PF_AUDIT_PASSED', { when: when(last.ran_at), who: last.ran_by })}</p>}
+          {last && !last.ok && <p className={`text-xs mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{msg('UI_ALERTING_PF_AUDIT_FAILED', { when: when(last.ran_at), reason: PROOF_REASON[last.reason] ? msg(PROOF_REASON[last.reason]) : (last.reason ?? ''), who: last.ran_by })}</p>}
+        </div>
+        <Button isDark={isDark} kind="primary" disabled={busy} onClick={run}>{msg('UI_ALERTING_PF_AUDIT_RUN')}</Button>
+      </div>
+      {problem && <p role="alert" className="mt-2 text-xs text-red-500">{problem}</p>}
+    </Card>
+  )
+}
+
 function Row({ entry, isDark, onSubmitted }) {
   const th = useTh(isDark)
   const [editing, setEditing] = useState(false)
@@ -138,6 +169,8 @@ export default function AlertSettings() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         <PageTitle isDark={isDark} title={msg('UI_ALERTING_ST_TITLE')} subtitle={msg('UI_ALERTING_ST_SUBTITLE')} />
         <Channels isDark={isDark} />
+        <h2 className={`mt-6 mb-2 text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_PF_TITLE')}</h2>
+        <Proofs isDark={isDark} />
         <h2 className={`mt-6 mb-2 text-sm font-semibold ${th.heading}`}>{msg('UI_ALERTING_ST_SETTINGS')}</h2>
         <ErrorNote isDark={isDark} error={settings.error} onRetry={settings.reload} />
         {notice && <p role="status" className={`mb-2 text-xs ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{notice}</p>}
