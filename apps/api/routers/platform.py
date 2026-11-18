@@ -720,7 +720,7 @@ async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[
     if db_pool is None:
         return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
                 for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
-                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
     try:
         key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
     except Exception:  # noqa: BLE001
@@ -767,6 +767,43 @@ async def run_audit_path_proof(request: Request, user: UserContext = Depends(get
     return AuditProofResponse(ok=proof.ok, reason=proof.reason)
 
 
+@router_v1.post("/alert-proofs/mail-dns", response_model=AuditProofResponse)
+async def run_mail_dns_check(request: Request, user: UserContext = Depends(get_current_user)) -> AuditProofResponse:
+    """Look up SPF, DMARC and the listed DKIM selectors for the sending domain; the result is recorded for the Go-Live check."""
+    import json as _json
+    from shared.alerting.dns_check import check_mail_domain, domain_of, txt_lookup
+    from shared.alerting.proofs import ProofStore
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    who     = user["user_id"] if isinstance(user, dict) else user.user_id
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    config = getattr(request.app.state, "config_service", None) or config_service
+
+    def platform(key: str) -> Optional[str]:
+        try:
+            value = config.get_platform(key)
+            return value.strip() if isinstance(value, str) and value.strip() else None
+        except Exception:  # noqa: BLE001
+            return None
+    domain = domain_of(platform("smtp.from_address") or platform("smtp.username"))
+    if domain is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=get_message("UI_GOLIVE_ALERT_DNS_NO_ADDRESS"))
+    try:
+        raw = await config.get("alerting.dkim_selectors")
+        parsed = _json.loads(raw) if isinstance(raw, str) and raw.strip().startswith("[") else raw
+        selectors = [str(x).strip() for x in (parsed if isinstance(parsed, list) else str(parsed or "").split(",")) if str(x).strip()]
+    except Exception:  # noqa: BLE001
+        selectors = []
+    lookup = getattr(request.app.state, "dns_lookup", None) or txt_lookup
+    finding = await check_mail_domain(domain, selectors, lookup)
+    await ProofStore(db_pool).record(bank_id, "mail_dns", finding.ok, finding.model_dump(), str(who))
+    return AuditProofResponse(ok=finding.ok, reason="ok" if finding.ok else (finding.error or "missing_records"))
+
+
 @router_v1.get("/alert-proofs", response_model=dict[str, ProofView])
 async def get_alert_proofs(request: Request, user: UserContext = Depends(get_current_user)) -> dict[str, ProofView]:
     from shared.alerting.proofs import AUDIT_PATH, ProofStore
@@ -777,8 +814,8 @@ async def get_alert_proofs(request: Request, user: UserContext = Depends(get_cur
     db_pool = getattr(request.app.state, "db_pool_cts", None)
     if db_pool is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
-    found = await ProofStore(db_pool).latest_many(bank_id, [AUDIT_PATH])
-    return {k: ProofView(ok=p.ok, ran_by=p.ran_by, ran_at=p.ran_at, reason=p.detail.get("reason")) for k, p in found.items()}
+    found = await ProofStore(db_pool).latest_many(bank_id, [AUDIT_PATH, "mail_dns"])
+    return {k: ProofView(ok=p.ok, ran_by=p.ran_by, ran_at=p.ran_at, reason=p.detail.get("reason") or p.detail.get("error")) for k, p in found.items()}
 
 
 @router_v1.get("/readiness", response_model=ReadinessResponse)

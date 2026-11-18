@@ -13,6 +13,7 @@ from typing import Any, Literal, Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from shared.alerting.dns_check import domain_of
 from shared.alerting.policy_defaults import build_default_bank_policy, load_calendar
 from shared.alerting.routing_policy import validate_policy
 from shared.messages import get_message
@@ -161,9 +162,41 @@ async def _audit_path(config: Any, bank_id: str, proof_store: Any, now: datetime
     return _item("alert_audit_path", label, "PASS", get_message("UI_GOLIVE_ALERT_AUDIT_OK", when=proof.ran_at.strftime("%d %b %Y, %H:%M UTC"), who=proof.ran_by), _SETTINGS_URL)
 
 
+async def _mail_dns(config: Any, bank_id: str, proof_store: Any, now: datetime) -> ReadinessCheck:
+    label = "UI_GOLIVE_ALERT_DNS_LABEL"
+    domain = domain_of(_platform(config, "smtp.from_address") or _platform(config, "smtp.username"))
+    if domain is None:
+        return _item("alert_mail_dns", label, "SKIP", get_message("UI_GOLIVE_ALERT_DNS_NO_ADDRESS"), _SETTINGS_URL)
+    if proof_store is None:
+        return _item("alert_mail_dns", label, "WARN", get_message("UI_GOLIVE_ALERT_UNAVAILABLE"), _SETTINGS_URL)
+    try:
+        accepted = await config.get("alerting.mail_dns_risk_accepted")
+        days = int(await _number(config, "alerting.readiness_dns_proof_days"))
+        proof = await proof_store.latest(bank_id, "mail_dns")
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_mail_dns", label, _SETTINGS_URL, exc)
+    if accepted is True or str(accepted).strip().lower() in ("true", "1", "yes"):
+        return _item("alert_mail_dns", label, "PASS", get_message("UI_GOLIVE_ALERT_DNS_ACCEPTED", domain=domain), _SETTINGS_URL)
+    if proof is None:
+        return _item("alert_mail_dns", label, "FAIL", get_message("UI_GOLIVE_ALERT_DNS_NONE"), _SETTINGS_URL)
+    checked = proof.detail.get("domain") or domain
+    if proof.detail.get("error"):
+        return _item("alert_mail_dns", label, "FAIL", get_message("UI_GOLIVE_ALERT_DNS_FAILED", domain=checked), _SETTINGS_URL)
+    if not proof.ok:
+        missing = [name for name, found in (("SPF", proof.detail.get("spf")), ("DMARC", proof.detail.get("dmarc"))) if not found]
+        missing += [get_message("UI_GOLIVE_ALERT_DNS_DKIM_MISSING", selector=sel) for sel, found in (proof.detail.get("dkim") or {}).items() if not found]
+        return _item("alert_mail_dns", label, "FAIL", get_message("UI_GOLIVE_ALERT_DNS_MISSING", domain=checked, missing=", ".join(missing)), _SETTINGS_URL)
+    age_days = (now - proof.ran_at).days
+    if age_days > days:
+        return _item("alert_mail_dns", label, "WARN", get_message("UI_GOLIVE_ALERT_DNS_OLD", domain=checked, days=age_days), _SETTINGS_URL)
+    selectors = len(proof.detail.get("dkim") or {})
+    dkim = get_message("UI_GOLIVE_ALERT_DNS_DKIM_PART", count=selectors) if selectors else ""
+    return _item("alert_mail_dns", label, "PASS", get_message("UI_GOLIVE_ALERT_DNS_OK", domain=checked, dkim=dkim, when=proof.ran_at.strftime("%d %b %Y"), who=proof.ran_by), _SETTINGS_URL)
+
+
 async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None,
                              now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _open_incidents(config, bank_id, pool, moment)]

@@ -124,4 +124,23 @@ describe('AlertSettings', () => {
     fireEvent.click(screen.getByText('Run the audit proof'))
     await waitFor(() => expect(screen.getByText(/cannot do this/)).toBeInTheDocument())
   })
+
+  it('runs the mail domain check and shows what it found, or that no sending address exists yet', async () => {
+    let ran = false
+    const calls = base({ 'GET /v1/platform/alert-proofs': () => (ran ? { mail_dns: { ok: false, ran_by: 'admin-1', ran_at: '2026-11-18T10:00:00Z', reason: 'missing_records' } } : {}),
+      'POST /v1/platform/alert-proofs/mail-dns': () => { ran = true; return { ok: false, reason: 'missing_records' } } })
+    view()
+    await waitFor(() => expect(screen.getByText(/mail domain has never been checked/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Check the mail domain'))
+    await waitFor(() => expect(calls.some(c => c.method === 'POST' && c.url.endsWith('/v1/platform/alert-proofs/mail-dns'))).toBe(true))
+    await waitFor(() => expect(screen.getByText(/records are missing/i)).toBeInTheDocument())
+  })
+
+  it('tells the person when the mail domain check cannot run', async () => {
+    base({ 'POST /v1/platform/alert-proofs/mail-dns': failing(409, { detail: 'There is no sending address yet. Set up email first.' }) })
+    view()
+    await waitFor(() => expect(screen.getByText('Check the mail domain')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Check the mail domain'))
+    await waitFor(() => expect(screen.getByText(/no sending address yet/i)).toBeInTheDocument())
+  })
 })

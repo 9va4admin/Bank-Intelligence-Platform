@@ -91,6 +91,8 @@ _LAYER3_SCHEMA = [
     {'config_key': 'alerts.email_recipients', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_EMAIL_RECIPIENTS")},
     {'config_key': 'alerts.whatsapp_recipients', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_WHATSAPP_RECIPIENTS")},
     {'config_key': 'alerts.whatsapp_min_priority', 'layer': 'LAYER_3', 'default': 'P0', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_WHATSAPP_MIN_PRIORITY"), 'allowed': ['P0', 'P1', 'P2', 'P3']},
+    {'config_key': 'alerting.dkim_selectors', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_DKIM_SELECTORS")},
+    {'config_key': 'alerting.mail_dns_risk_accepted', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'bool', 'description': get_message("API_ALERTCFG_ALERTING_MAIL_DNS_RISK_ACCEPTED")},
     {'config_key': 'alerting.bell_roles', 'layer': 'LAYER_3', 'default': '["ops_manager", "bank_it_admin"]', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BELL_ROLES")},
     {'config_key': 'alerting.bell_min_priority', 'layer': 'LAYER_3', 'default': 'P3', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BELL_MIN_PRIORITY"), 'allowed': ['P0', 'P1', 'P2', 'P3']},
     {'config_key': 'alerting.timezone', 'layer': 'LAYER_3', 'default': 'Asia/Kolkata', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_TIMEZONE")},

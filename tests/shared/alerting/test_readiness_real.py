@@ -32,7 +32,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.skipif(not _up(), reason="dev
 class Cfg:
     def __init__(self, platform=None, **v):
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.readiness_open_incident_hours": 24,
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.readiness_open_incident_hours": 24,
                   "alerting.public_mail_hosts": '["smtp.gmail.com"]', "alerts.email_recipients": "", "alerts.whatsapp_recipients": "",
                   "alerting.bell_roles": '["ops_manager", "bank_it_admin"]', "alerting.bell_min_priority": "P3", **v}
         self.p = platform or {}
@@ -101,7 +101,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -204,3 +204,38 @@ async def test_a_proof_older_than_the_window_is_a_warning(pool):
 async def test_without_a_proof_store_the_audit_item_is_a_warning(pool):
     items = await run(pool, _bank(), Cfg(), proof_store=None)
     assert items["alert_audit_path"].status == "WARN"
+
+
+FROM = {"smtp.host": "mail.bank.example", "smtp.from_address": "Alerts <alerts@bank.example>"}
+
+
+@db
+async def test_mail_dns_is_skipped_until_a_sending_address_exists_then_must_have_been_checked(pool):
+    bank = _bank()
+    assert (await run(pool, bank, Cfg()))["alert_mail_dns"].status == "SKIP"
+    assert (await run(pool, bank, Cfg(platform=FROM)))["alert_mail_dns"].status == "FAIL"             # never checked
+
+
+@db
+async def test_a_good_mail_dns_check_passes_a_missing_record_fails_by_name_and_an_old_one_warns(pool):
+    bank = _bank()
+    store = ProofStore(pool)
+    await store.record(bank, "mail_dns", False, {"domain": "bank.example", "spf": True, "dmarc": False, "dkim": {"google": False}}, "admin-1")
+    bad = (await run(pool, bank, Cfg(platform=FROM)))["alert_mail_dns"]
+    assert bad.status == "FAIL" and "DMARC" in bad.detail and "SPF" not in bad.detail and "google" in bad.detail
+    await store.record(bank, "mail_dns", True, {"domain": "bank.example", "spf": True, "dmarc": True, "dkim": {}}, "admin-1")
+    good = (await run(pool, bank, Cfg(platform=FROM)))["alert_mail_dns"]
+    assert good.status == "PASS" and "bank.example" in good.detail
+    await pool.execute("UPDATE platform.alert_readiness_proofs SET ran_at = $2 WHERE bank_id = $1 AND ok", bank, datetime.now(timezone.utc) - timedelta(days=45))
+    await pool.execute("DELETE FROM platform.alert_readiness_proofs WHERE bank_id = $1 AND NOT ok", bank)
+    assert (await run(pool, bank, Cfg(platform=FROM)))["alert_mail_dns"].status == "WARN"
+
+
+@db
+async def test_a_lookup_that_could_not_be_made_says_so_and_an_accepted_risk_passes_with_a_note(pool):
+    bank = _bank()
+    await ProofStore(pool).record(bank, "mail_dns", False, {"domain": "bank.example", "error": "lookup_failed"}, "admin-1")
+    failed = (await run(pool, bank, Cfg(platform=FROM)))["alert_mail_dns"]
+    assert failed.status == "FAIL" and "could not be made" in failed.detail
+    accepted = (await run(pool, bank, Cfg(platform=FROM, **{"alerting.mail_dns_risk_accepted": True})))["alert_mail_dns"]
+    assert accepted.status == "PASS" and "accepted" in accepted.detail.lower()

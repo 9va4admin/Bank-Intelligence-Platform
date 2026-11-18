@@ -56556,3 +56556,143 @@ UI_ALERTING_PF_AUDIT_RUN:
   variables: []
   en: "Run the audit proof"
   hi: ""
+
+UI_GOLIVE_ALERT_DNS_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The sending domain publishes SPF, DMARC and DKIM"
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_NO_ADDRESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "There is no sending address yet. Set up email first."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The sending domain has not been checked. Run the mail domain check on the Alert Settings screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: [domain, missing]
+  en: "Missing for {domain}: {missing}. Without them a receiving mail server may treat an alert as spam."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [domain]
+  en: "The lookup for {domain} could not be made. Check the network and run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_OLD:
+  severity: INFO
+  surface: [UI]
+  variables: [days, domain]
+  en: "The last good check of {domain} was {days} days ago. Run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [domain, dkim, when, who]
+  en: "{domain} publishes SPF and DMARC{dkim}. Checked on {when} by {who}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_ACCEPTED:
+  severity: INFO
+  surface: [UI]
+  variables: [domain]
+  en: "The bank has accepted the risk of not publishing these records for {domain}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_DKIM_PART:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: " and DKIM for {count} selector(s)"
+  hi: ""
+
+UI_GOLIVE_ALERT_DNS_DKIM_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: [selector]
+  en: "DKIM key for selector {selector}"
+  hi: ""
+
+UI_ALERTING_PF_DNS_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mail domain check"
+  hi: ""
+
+UI_ALERTING_PF_DNS_HELP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Looks up SPF, DMARC and DKIM for the sending domain, so alerts are not treated as spam."
+  hi: ""
+
+UI_ALERTING_PF_DNS_NEVER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The mail domain has never been checked."
+  hi: ""
+
+UI_ALERTING_PF_DNS_PASSED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Passed on {when}, run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_DNS_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [when, reason, who]
+  en: "Failed on {when} ({reason}), run by {who}."
+  hi: ""
+
+UI_ALERTING_PF_DNS_RUN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Check the mail domain"
+  hi: ""
+
+UI_ALERTING_PF_DNS_REASON_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "records are missing"
+  hi: ""
+
+UI_ALERTING_PF_DNS_REASON_LOOKUP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the lookup could not be made"
+  hi: ""
+
+API_ALERTCFG_ALERTING_DKIM_SELECTORS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "DKIM selectors published for the sending domain (comma separated). Empty means DKIM is not checked."
+  hi: ""
+
+API_ALERTCFG_ALERTING_MAIL_DNS_RISK_ACCEPTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The bank accepts the risk of not publishing SPF, DMARC and DKIM records (true or false)."
+  hi: ""

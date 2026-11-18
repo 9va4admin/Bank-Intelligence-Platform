@@ -22,10 +22,10 @@ pytestmark = [pytest.mark.integration, pytest.mark.skipif(not _up(), reason="dev
 
 
 class Cfg:
-    def __init__(self, key="readiness-api-key-not-a-secret"):
-        self.key = key
+    def __init__(self, key="readiness-api-key-not-a-secret", platform=None):
+        self.key, self.p = key, platform or {}
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.audit_collection_pattern": "alert_events_{bank_id}", "alerting.readiness_open_incident_hours": 24, "alerting.public_mail_hosts": "[]",
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.dkim_selectors": "google, s2", "alerting.audit_collection_pattern": "alert_events_{bank_id}", "alerting.readiness_open_incident_hours": 24, "alerting.public_mail_hosts": "[]",
                   "alerts.email_recipients": "", "alerting.bell_roles": '["ops_manager"]', "alerting.bell_min_priority": "P3"}
 
     async def get(self, key):
@@ -40,10 +40,12 @@ class Cfg:
         return self.key
 
     def get_platform(self, key):
-        raise KeyError(key)
+        if key not in self.p:
+            raise KeyError(key)
+        return self.p[key]
 
 
-def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None):
+def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None, dns=None):
     async def go():
         import asyncpg
         from apps.api.routers.platform import get_current_user, router_v1
@@ -55,6 +57,7 @@ def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None):
         app.state.db_pool_cts = pool
         app.state.config_service = config or Cfg()
         app.state.immudb_client = immudb
+        app.state.dns_lookup = dns
         client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
         try:
             return await fn(client, bank, pool)
@@ -71,7 +74,7 @@ def test_the_readiness_list_includes_the_alerting_items_with_words_and_a_link_to
         r = await client.get("/v1/platform/readiness")
         assert r.status_code == 200
         items = {i["check_id"]: i for i in r.json()["items"]}
-        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path"):
+        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns"):
             assert cid in items and items[cid]["label"] and items[cid]["detail"], cid
         assert items["alert_routing"]["status"] == "FAIL" and items["alert_routing"]["action_url"] == "/admin/alert-routing"
         assert r.json()["all_ready"] is False                                  # a failing alerting item blocks go-live like any other
@@ -141,3 +144,45 @@ def test_only_an_it_admin_may_run_the_proof():
         assert (await client.post("/v1/platform/alert-proofs/audit-path")).status_code == 403
         assert (await client.get("/v1/platform/alert-proofs")).status_code == 200            # an ops manager may read the result
     _scenario(fn, role="ops_manager", immudb=FakeImmudb())
+
+
+def _dns(records):
+    async def lookup(name):
+        return records.get(name, [])
+    return lookup
+
+
+FROM = {"smtp.host": "mail.bank.example", "smtp.from_address": "alerts@bank.example"}
+GOOD_DNS = {"bank.example": ["v=spf1 -all"], "_dmarc.bank.example": ["v=DMARC1; p=none"], "google._domainkey.bank.example": ["v=DKIM1; p=abc"], "s2._domainkey.bank.example": ["v=DKIM1; p=def"]}
+
+
+def test_the_mail_domain_check_uses_the_sending_domain_and_the_listed_selectors_and_is_recorded():
+    async def fn(client, bank, pool):
+        r = await client.post("/v1/platform/alert-proofs/mail-dns")
+        assert r.status_code == 200 and r.json()["ok"] is True
+        item = {i["check_id"]: i for i in (await client.get("/v1/platform/readiness")).json()["items"]}["alert_mail_dns"]
+        assert item["status"] == "PASS" and "bank.example" in item["detail"]
+        assert (await client.get("/v1/platform/alert-proofs")).json()["mail_dns"]["ok"] is True
+    _scenario(fn, config=Cfg(platform=FROM), dns=_dns(GOOD_DNS))
+
+
+def test_a_missing_record_is_a_recorded_failure_that_names_what_is_missing():
+    async def fn(client, bank, pool):
+        r = await client.post("/v1/platform/alert-proofs/mail-dns")
+        assert r.status_code == 200 and r.json()["ok"] is False
+        item = {i["check_id"]: i for i in (await client.get("/v1/platform/readiness")).json()["items"]}["alert_mail_dns"]
+        assert item["status"] == "FAIL" and "DMARC" in item["detail"]
+    _scenario(fn, config=Cfg(platform=FROM), dns=_dns({k: v for k, v in GOOD_DNS.items() if not k.startswith("_dmarc")}))
+
+
+def test_without_a_sending_address_the_check_cannot_run_and_says_so():
+    async def fn(client, bank, pool):
+        r = await client.post("/v1/platform/alert-proofs/mail-dns")
+        assert r.status_code == 409 and r.json()["detail"]
+    _scenario(fn, dns=_dns({}))
+
+
+def test_only_an_it_admin_may_run_the_mail_domain_check():
+    async def fn(client, bank, pool):
+        assert (await client.post("/v1/platform/alert-proofs/mail-dns")).status_code == 403
+    _scenario(fn, role="ops_manager", config=Cfg(platform=FROM), dns=_dns(GOOD_DNS))
