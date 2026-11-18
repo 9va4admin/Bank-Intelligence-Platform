@@ -209,6 +209,20 @@ async def get_policies(request: Request, level: Level = "BANK", scope_id: Option
                       used_default=used_default, default_policy=default)
 
 
+class PolicyDetail(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    record: PolicyRecord
+    policy: Policy
+
+
+@router_v1.get("/policies/{policy_id}", response_model=PolicyDetail)
+async def get_policy(request: Request, policy_id: str, user: dict = Depends(require_read)) -> PolicyDetail:
+    found = await (await _store(request, user["bank_id"])).get_by_id(user["bank_id"], policy_id)
+    if found is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=get_message("ALERT_API_POLICY_NOT_FOUND"))
+    return PolicyDetail(record=found[0], policy=found[1])
+
+
 @router_v1.get("/pending", response_model=PendingResponse)
 async def get_pending(request: Request, user: dict = Depends(require_read)) -> PendingResponse:
     return PendingResponse(pending=await (await _store(request, user["bank_id"])).list_pending(user["bank_id"]))

@@ -232,3 +232,25 @@ def test_a_pu_policy_must_name_its_scope():
         r = await _propose(client, "PU", None, policy=good_policy())
         assert r.status_code == 422 and "scope_required" in r.json()["detail"]["codes"]
     _scenario(fn)
+
+
+def test_an_approver_can_read_the_content_of_a_proposal_before_deciding():
+    async def fn(client, bank, pool, events, who):
+        pid = (await _propose(client)).json()["policy_id"]
+        who.update(user="checker-2", role="bank_it_admin")
+        r = await client.get(f"/v1/admin/alert-routing/policies/{pid}")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["record"]["policy_id"] == pid and body["record"]["status"] == "PENDING"
+        assert [rule["id"] for rule in body["policy"]["rules"]] == ["p0", "rest"] and body["policy"]["rules"][0]["targets"][0]["ref"] == "ops@bank.example"
+        assert (await client.get("/v1/admin/alert-routing/policies/nope")).status_code == 404
+    _scenario(fn)
+
+
+def test_other_banks_proposals_cannot_be_read():
+    async def fn(client, bank, pool, events, who):
+        pid = (await _propose(client)).json()["policy_id"]
+        await pool.execute("UPDATE platform.alert_routing_policies SET bank_id = $2 WHERE policy_id = $1", pid, bank + "-other")
+        assert (await client.get(f"/v1/admin/alert-routing/policies/{pid}")).status_code == 404
+        await pool.execute("DELETE FROM platform.alert_routing_policies WHERE bank_id = $1", bank + "-other")
+    _scenario(fn)

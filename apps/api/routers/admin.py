@@ -87,7 +87,34 @@ _LAYER3_SCHEMA = [
     {'config_key': 'outward_dormant_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_DORMANT_NO_TXNS"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
     {'config_key': 'outward_npa_payee_action', 'layer': 'LAYER_3', 'default': 'HUMAN_REVIEW', 'value_type': 'string', 'description': get_message("API_PAYEE_ACCOUNT_NPA_ON_OUTWARD"), 'allowed': ['HUMAN_REVIEW', 'AUTO_RETURN']},
     {'config_key': 'rear_image_required', 'layer': 'LAYER_3', 'default': 'false', 'value_type': 'string', 'description': get_message("API_REQUIRE_REAR_BACK_CHEQUE_IMAGE"), 'allowed': ['true', 'false']},
+    {'config_key': 'alerts.email_recipients', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_EMAIL_RECIPIENTS")},
+    {'config_key': 'alerts.whatsapp_recipients', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_WHATSAPP_RECIPIENTS")},
+    {'config_key': 'alerts.whatsapp_min_priority', 'layer': 'LAYER_3', 'default': 'P0', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTS_WHATSAPP_MIN_PRIORITY"), 'allowed': ['P0', 'P1', 'P2', 'P3']},
+    {'config_key': 'alerting.bell_roles', 'layer': 'LAYER_3', 'default': '["ops_manager", "bank_it_admin"]', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BELL_ROLES")},
+    {'config_key': 'alerting.bell_min_priority', 'layer': 'LAYER_3', 'default': 'P3', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BELL_MIN_PRIORITY"), 'allowed': ['P0', 'P1', 'P2', 'P3']},
+    {'config_key': 'alerting.timezone', 'layer': 'LAYER_3', 'default': 'Asia/Kolkata', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_TIMEZONE")},
+    {'config_key': 'alerting.business_hours', 'layer': 'LAYER_3', 'default': '{"days": [0, 1, 2, 3, 4], "start": "09:30", "end": "18:00"}', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_BUSINESS_HOURS")},
+    {'config_key': 'alerting.holidays', 'layer': 'LAYER_3', 'default': '[]', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_HOLIDAYS")},
+    {'config_key': 'alerting.delivery_max_attempts', 'layer': 'LAYER_3', 'default': '4', 'value_type': 'int', 'description': get_message("API_ALERTCFG_ALERTING_DELIVERY_MAX_ATTEMPTS")},
+    {'config_key': 'alerting.delivery_backoff_seconds', 'layer': 'LAYER_3', 'default': '[60, 300, 900]', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_DELIVERY_BACKOFF_SECONDS")},
+    {'config_key': 'alerting.escalation_max_reminders', 'layer': 'LAYER_3', 'default': '48', 'value_type': 'int', 'description': get_message("API_ALERTCFG_ALERTING_ESCALATION_MAX_REMINDERS")},
+    {'config_key': 'alerting.retention_days', 'layer': 'LAYER_3', 'default': '730', 'value_type': 'int', 'description': get_message("API_ALERTCFG_ALERTING_RETENTION_DAYS")},
+    {'config_key': 'alerting.inbox_retention_days', 'layer': 'LAYER_3', 'default': '90', 'value_type': 'int', 'description': get_message("API_ALERTCFG_ALERTING_INBOX_RETENTION_DAYS")},
+    {'config_key': 'alerting.ui_base_url', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_UI_BASE_URL")},
+    {'config_key': 'alerting.runbook_base_url', 'layer': 'LAYER_3', 'default': '', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_RUNBOOK_BASE_URL")},
+    {'config_key': 'alerting.component_teams', 'layer': 'LAYER_3', 'default': '{}', 'value_type': 'string', 'description': get_message("API_ALERTCFG_ALERTING_COMPONENT_TEAMS")},
 ]
+
+def split_config_key(config_key: str) -> tuple[str, str]:
+    """(module, key) a setting is stored under. A plain key belongs to the cts module; a dotted key (alerts.email_recipients) uses its first part as the module,
+    the way config_service reads it."""
+    return tuple(config_key.split(".", 1)) if "." in config_key else ("cts", config_key)  # type: ignore[return-value]
+
+
+def live_value_key(module: str, config_key: str) -> str:
+    """The name the schema uses for a stored row: plain for the cts module, module.key for the others."""
+    return config_key if module == "cts" else f"{module}.{config_key}"
+
 
 _SCHEMA_BY_KEY = {e["config_key"]: e for e in _LAYER3_SCHEMA}
 _CLASS_BUCKETS = ("HVC", "CA", "IP", "FCC", "LVC")
@@ -426,14 +453,14 @@ async def list_thresholds(
             async with pool.acquire() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT config_key, config_value, updated_at, updated_by
+                    SELECT module, config_key, config_value, updated_at, updated_by
                     FROM platform.config_values
                     WHERE bank_id = $1
                     """,
                     bank_id,
                 )
             for r in rows:
-                live_values[r["config_key"]] = r["config_value"]
+                live_values[live_value_key(r["module"], r["config_key"])] = r["config_value"]
         except Exception:
             log.warning("admin.list_thresholds.db_unavailable", bank_id=bank_id)
 
@@ -615,8 +642,8 @@ async def approve_threshold_change(
                     submitted_by = result["submitted_by"]
                     actioned_at = str(result["actioned_at"])
                     old_row = await conn.fetchrow(
-                        "SELECT config_value FROM platform.config_values WHERE bank_id = $1 AND module = 'cts' AND config_key = $2",
-                        bank_id, config_key,
+                        "SELECT config_value FROM platform.config_values WHERE bank_id = $1 AND module = $2 AND config_key = $3",
+                        bank_id, split_config_key(config_key)[0], split_config_key(config_key)[1],
                     )
                     old_value = old_row["config_value"] if old_row else _SCHEMA_BY_KEY.get(config_key, {}).get("default")   # no row: the default was in force
                     # Apply the approved value where the services read it. Until now approval only marked the pending row and
@@ -630,7 +657,7 @@ async def approve_threshold_change(
                            SET config_value = EXCLUDED.config_value, value_type = EXCLUDED.value_type,
                                updated_by = EXCLUDED.updated_by, updated_at = now()
                         """,
-                        bank_id, "cts", config_key, new_value,
+                        bank_id, split_config_key(config_key)[0], split_config_key(config_key)[1], new_value,
                         _SCHEMA_BY_KEY.get(config_key, {}).get("value_type", "string"), user_id,
                     )
                     # Audited inside the transaction: if the audit trail cannot take it, the change is rolled back.

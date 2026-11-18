@@ -191,3 +191,9 @@ class PolicyStore:
         rows = await self._pool.fetch(f"SELECT {_COLUMNS} FROM platform.alert_routing_policies WHERE bank_id=$1 AND status='PENDING' ORDER BY created_at DESC LIMIT $2",
                                       bank_id, MAX_LIST)
         return [_record(r) for r in rows]
+
+    async def get_by_id(self, bank_id: str, policy_id: str) -> Optional[tuple[PolicyRecord, Policy]]:
+        """A policy and its record in any status, so an approver can read what they are deciding on."""
+        row = await self._pool.fetchrow(
+            f"SELECT {_COLUMNS}, pgp_sym_decrypt(policy_enc, $3) AS body FROM platform.alert_routing_policies WHERE bank_id=$1 AND policy_id=$2", bank_id, policy_id, self._key)
+        return (_record(row), Policy.model_validate_json(row["body"])) if row else None

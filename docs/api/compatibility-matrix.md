@@ -70,6 +70,7 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | POST | `/v1/admin/alert-routing/policies` | CURRENT | — | — | — | — |
 | POST | `/v1/admin/alert-routing/policies/{policy_id}/approve` | CURRENT | — | — | — | — |
 | POST | `/v1/admin/alert-routing/policies/{policy_id}/reject` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-routing/policies/{policy_id}` | CURRENT | — | — | — | — |
 | GET | `/v1/admin/alert-routing/pending` | CURRENT | — | — | — | — |
 | GET | `/v1/admin/alert-routing/scopes` | CURRENT | — | — | — | — |
 | POST | `/v1/admin/alert-routing/simulate` | CURRENT | — | — | — | — |
