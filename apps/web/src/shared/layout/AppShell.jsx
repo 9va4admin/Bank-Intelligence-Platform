@@ -213,6 +213,7 @@ const SIDEBAR_MODULES = [
           { to: '/admin/security-violations',    label: uiMsg('UI_APPSHELL_SECURITY_ALERTS'),  perm: 'admin:console', sbOnly: true },
           { to: '/admin/alert-routing',         label: uiMsg('UI_ALERTING_RT_TITLE'),       perm: 'config:layer3:submit' },
           { to: '/admin/alert-contacts',        label: uiMsg('UI_ALERTING_CT_TITLE'),       perm: 'config:layer3:submit' },
+          { to: '/admin/alert-risks',           label: uiMsg('UI_ALERTING_RK_TITLE'),       perm: 'config:layer3:submit' },
           { to: '/admin/alert-settings',        label: uiMsg('UI_ALERTING_ST_TITLE'),       perm: 'config:layer3:submit' },
           { to: '/admin/smoke-test',            label: uiMsg('UI_APPSHELL_GO_LIVE_TEST'),   perm: 'config:layer2:change' },
         ],
@@ -301,6 +302,7 @@ const ROUTE_LABELS = {
   '/ops/silences':                [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_SL_TITLE')],
   '/admin/alert-routing':         [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_RT_TITLE')],
   '/admin/alert-contacts':        [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_CT_TITLE')],
+  '/admin/alert-risks':           [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_RK_TITLE')],
   '/admin/alert-settings':        [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_ST_TITLE')],
 }
 

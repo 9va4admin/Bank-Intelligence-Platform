@@ -57620,3 +57620,171 @@ UI_GOLIVE_ALERT_RK_OK:
   variables: [total, verified]
   en: "{total} risks, all with an owner, {verified} verified."
   hi: ""
+
+UI_ALERTING_RK_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Risk Register"
+  hi: ""
+
+UI_ALERTING_RK_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The risks to alerting itself. Each needs an owner. One person declares a risk mitigated and a different person verifies it."
+  hi: ""
+
+UI_ALERTING_RK_SEED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Seed from the template"
+  hi: ""
+
+UI_ALERTING_RK_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The register is empty. Seed it from the template to start."
+  hi: ""
+
+UI_ALERTING_RK_SUMMARY:
+  severity: INFO
+  surface: [UI]
+  variables: [total, without, overdue, verified]
+  en: "{total} risks. {without} without an owner. {overdue} reviews overdue. {verified} verified."
+  hi: ""
+
+UI_ALERTING_RK_RATING:
+  severity: INFO
+  surface: [UI]
+  variables: [rating, likelihood, impact]
+  en: "Rating {rating} (likelihood {likelihood} x impact {impact})"
+  hi: ""
+
+UI_ALERTING_RK_NO_OWNER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No owner yet"
+  hi: ""
+
+UI_ALERTING_RK_STATUS_OPEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Open"
+  hi: ""
+
+UI_ALERTING_RK_STATUS_MITIGATED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mitigated, waiting for verification"
+  hi: ""
+
+UI_ALERTING_RK_STATUS_VERIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mitigated and verified"
+  hi: ""
+
+UI_ALERTING_RK_EDIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Edit"
+  hi: ""
+
+UI_ALERTING_RK_SAVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save"
+  hi: ""
+
+UI_ALERTING_RK_DECLARE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Declare mitigated"
+  hi: ""
+
+UI_ALERTING_RK_VERIFY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verify"
+  hi: ""
+
+UI_ALERTING_RK_REOPEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reopen"
+  hi: ""
+
+UI_ALERTING_RK_OWNER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Owner"
+  hi: ""
+
+UI_ALERTING_RK_MITIGATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What was done"
+  hi: ""
+
+UI_ALERTING_RK_LIKELIHOOD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Likelihood (1-5)"
+  hi: ""
+
+UI_ALERTING_RK_IMPACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Impact (1-5)"
+  hi: ""
+
+UI_ALERTING_RK_COL_RATING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rating"
+  hi: ""
+
+UI_ALERTING_RK_COL_RISK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Risk"
+  hi: ""
+
+UI_ALERTING_RK_COL_OWNER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Owner"
+  hi: ""
+
+UI_ALERTING_RK_COL_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Status"
+  hi: ""
+
+UI_ALERTING_RK_COL_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Next review"
+  hi: ""
