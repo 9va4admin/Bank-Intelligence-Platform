@@ -1413,3 +1413,24 @@ Built step by step, each test-first (steps 2 to 6 plus the screens and readiness
 - Readiness items not built: verified contacts, audit-path sentinel, fire drill, SPF/DKIM/DMARC, saved simulator runs, regulatory windows, risk register, stale silences (several need features that do not exist yet).
 - Real Gmail inbox and real WhatsApp delivery, as before. Hindi translations are still empty.
 - The dev authenticator secrets are kept in memory, so restarting the API forces a new enrolment.
+
+## 2026-11-19 - Alerting Phase 1c: Go-Live proofs, contacts, silences
+
+Built test-first on the real dev YugabyteDB, with the real dev Immudb for the audit proof:
+- **Repaired Go-Live checks**: the vault checks failed on the async Redis client ("async_generator is not iterable"); the MICR prefix and reviewer checks read tables that do not exist. All three now read the real ones (9 tests). The MICR prefix admin list had the same kind of fault and hid it behind an empty list; it now joins the sub-member bank, derives "active" from the effective dates, and fails loudly (3 real-database tests).
+- **Proofs table** (`platform.alert_readiness_proofs`): one row per run of a check that has to be run, not read.
+- **Audit-path proof**: a sentinel intent and outcome are written to the audit trail, read back and verified. Run against the real dev Immudb and passed.
+- **Mail domain check**: SPF, DMARC and the bank's listed DKIM selectors for the sending domain; tested with an injected lookup plus one real lookup of a non-existent name.
+- **Saved simulator runs**: each critical, major or warning run is recorded (no addresses); the Go-Live item needs all three, someone told, and after the latest policy approval.
+- **Fire drill**: a synthetic critical alert through the real alert path; passes when a person acknowledges it within the target (default 15 minutes).
+- **Contacts**: outside addresses verified by a code (encrypted, masked, single use, expiry, attempt limit); API, audit, screen, and a Go-Live item that every address alerts use is verified.
+- **Silences**: planned quiet periods (reason, maximum length, no critical alerts unless the bank allows it, cancel); a silence in force holds back the notification and says so in the audit trail; a failed lookup never holds an alert back; API, screen, and a Go-Live warning while one is in force.
+- Web: 603+ tests including the page smoke test and the no-literal-wording guard.
+
+**NOT covered:**
+- None of the new screens or buttons (Alert Settings proofs card, Alert Contacts, Silences) was opened in the browser pane in this phase; the API was not restarted for them. They are covered by web tests and by real-ASGI API tests.
+- The fire drill ran only with a stand-in for the API's alert path in tests; it has not been run end to end through the live worker, real email or WhatsApp.
+- Verification codes go out through the existing health-alert template; WhatsApp needs a Meta-approved template of its own before codes reach phones in production.
+- Silences are checked when a notification is sent; the escalation workflow's reminders do not check them yet.
+- Not built: regulatory reporting windows and the risk register (blueprint phase 3); the per-component-class simulator rule (one run per severity is checked instead).
+- Two readiness migrations (proofs, contacts) were written alongside their tests rather than after a failing run.
