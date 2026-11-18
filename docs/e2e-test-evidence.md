@@ -1385,3 +1385,13 @@ Built step by step, each test-first. What was exercised, and against what:
 - Incident tables are not partitioned by month yet (indexed on bank and time); do it when volume warrants.
 - `platform.notification_records` (written by apps/notification_service) overlaps with `platform.alert_deliveries`; to be reconciled so there is one delivery log.
 - Real Gmail inbox and real WhatsApp delivery, as before.
+
+## 2026-11-18 - Alerting gaps closed
+
+Closed from the Phase 1a open list, each test-first:
+- **Identity-provider users on the bell**: every successful sign-in is recorded in `platform.user_directory` (any identity source); the bell lookup unions local accounts and the directory, with a configurable recency window. Real-database tests.
+- **Retention** instead of partitioning (a unique open-incident rule cannot coexist with a partition key): daily, bounded pruning of old history; never touches open incidents, in-flight deliveries, or unacknowledged critical notifications. Real-database tests.
+- **One delivery log**: `/v1/notifications` previously queried columns that do not exist and always answered empty; it now reads `platform.alert_deliveries`, with a working retry. The legacy `notification_service` (still fed by security violations, admin config changes, MCP events and manual sends) now delivers through the same engine: outbox, retry, fallback, audit, one log. **Live**: a real event on the real Kafka topic was consumed by the real service and reached a real user's bell and the delivery log (`tests/integration/test_notification_service_live.py`). `platform.notification_records` is no longer written (left in place, empty).
+- **Found in the live worker run**: a monitor started before the upgrade kept failing on the new workflow code (non-determinism). Fixed with patch markers and proved by replaying a real recorded history (`tests/modules/cts/workflows/test_monitor_replay.py`); the worker now asks a running monitor to roll over so it adopts upgraded code.
+
+**NOT covered:** the complete "stop a service, alert, restore, recovery email" run through the live worker was interrupted (slow machine); its parts are covered separately (real alert mails and bell rows from the live worker, the mail-server-killed drill, the monitor replay). The bell in a browser (login needs an authenticator enrolment). Real Gmail and WhatsApp delivery (need the owner's credentials / the bank's approval). Role-based email (needs per-user contacts, planned with the routing screens).

@@ -83,7 +83,7 @@ async def read_whatsapp_settings(config_service: Any) -> Optional[WhatsAppSettin
     return WhatsAppSettings(api_url.rstrip("/"), phone_id, token) if token else None
 
 
-async def build_dispatcher(config_service: Any, bank_id: str, *, db_pool: Any = None) -> Any:
+async def build_dispatcher(config_service: Any, bank_id: str, *, db_pool: Any = None, debouncer: Any = None) -> Any:
     """A connected NotificationDispatcher with whichever channels are available: email and WhatsApp when configured, the in-app bell whenever there is a
     database. None when there is none of them."""
     from shared.notifications.dispatcher import NotificationDispatcher
@@ -107,7 +107,7 @@ async def build_dispatcher(config_service: Any, bank_id: str, *, db_pool: Any = 
     if email_channel is None and whatsapp_channel is None and bell_channel is None:
         return None
     dispatcher = NotificationDispatcher(bank_id)
-    dispatcher.connect(email_channel=email_channel, whatsapp_channel=whatsapp_channel, bell_channel=bell_channel)
+    dispatcher.connect(email_channel=email_channel, whatsapp_channel=whatsapp_channel, bell_channel=bell_channel, debouncer=debouncer)
     return dispatcher
 
 

@@ -5,15 +5,17 @@ Drains the platform.notifications topic and routes each event to the correct
 delivery channel (email via Postal SMTP, WhatsApp via Meta Business API).
 One instance per bank, matching ASTRA's per-bank K8s namespace isolation model.
 
-Recipient resolution:
-  - event.recipient       → use directly (email address or E.164 phone)
-  - event.recipient_ref with '@' → email address delivered directly
-  - event.recipient_ref (opaque user_id) → unresolved; logged, recorded as FAILED
-  - event.recipient_role  → unresolved; logged, recorded as FAILED
-    Both unresolved cases are honest gaps — the user directory (SAML/LDAP lookup)
-    needed for recipient resolution is not yet built. See CLAUDE.md §16 remaining work.
+Every event is delivered through the shared delivery engine (shared/alerting/engine.py): queued in the outbox first, retried with the configured
+backoff, falling back to another channel when one gives up, audited before and after every attempt, and recorded in ONE delivery log,
+platform.alert_deliveries (the same one the alert system uses). The kafka offset is committed per message.
 
-Delivery results are written to platform.notification_records.
+Who an event is for (resolve_targets):
+  - event.recipient                       → used directly (email address or E.164 phone) on the event's channel
+  - event.recipient_ref containing '@'    → that email address
+  - event.recipient_ref (a user id)       → that user's in-app bell
+  - event.recipient_role                  → the in-app bell of every active user of that role (local accounts and everyone who has signed in)
+  - nothing of the above                  → recorded as UNDELIVERED with the reason, never silently dropped
+Role-based email needs per-user contact details (planned with the alert routing screens); until then a role is reached on the bell.
 """
 import asyncio
 import json
@@ -26,9 +28,11 @@ import structlog
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from shared.alerting.bell import resolve_bell_users
+from shared.alerting.engine import Target
 from shared.config.config_service import config_service
 from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
-from shared.notifications.dispatcher import NotificationDispatcher, NotificationRequest
+from shared.messages import get_message
 from shared.observability.otel_setup import configure_otel
 
 log = structlog.get_logger()
@@ -36,6 +40,8 @@ log = structlog.get_logger()
 SERVICE_NAME = "notification-service"
 
 # ── dependency builders ─────────────────────────────────────────────────────
+
+_CHANNELS = ("email", "whatsapp", "bell")
 
 
 async def _build_kafka_consumer(bank_id: str) -> Optional[Any]:
@@ -60,300 +66,122 @@ async def _build_kafka_consumer(bank_id: str) -> Optional[Any]:
         return None
 
 
-async def _build_email_channel(cfg: Any, bank_id: str) -> Optional[Any]:
-    try:
-        from shared.notifications.email_channel import EmailChannel
-
-        smtp_host = cfg.get_platform("notifications.smtp_host")
-        smtp_port = int(cfg.get_platform("notifications.smtp_port"))
-        from_addr = cfg.get_platform("notifications.smtp_from_address")
-        channel = EmailChannel(
-            smtp_host=smtp_host,
-            smtp_port=smtp_port,
-            from_address=from_addr,
-            bank_id=bank_id,
-        )
-        channel.connect()
-        log.info("notification_service.email_channel_ready", bank_id=bank_id)
-        return channel
-    except Exception as exc:
-        log.warning("notification_service.email_channel_unavailable", bank_id=bank_id, error=str(exc))
-        return None
-
-
-async def _build_whatsapp_channel(cfg: Any, bank_id: str) -> Optional[Any]:
-    try:
-        from shared.notifications.whatsapp_channel import WhatsAppChannel
-
-        api_url = cfg.get_platform("notifications.whatsapp_api_url")
-        phone_number_id = cfg.get_platform("notifications.whatsapp_phone_number_id")
-        access_token = await cfg.get_secret("notifications.whatsapp_access_token")
-        channel = WhatsAppChannel(
-            api_url=api_url,
-            phone_number_id=phone_number_id,
-            bank_id=bank_id,
-        )
-        channel.connect(access_token=access_token)
-        log.info("notification_service.whatsapp_channel_ready", bank_id=bank_id)
-        return channel
-    except Exception as exc:
-        log.warning("notification_service.whatsapp_channel_unavailable", bank_id=bank_id, error=str(exc))
-        return None
-
-
 async def _build_db_pool(cfg: Any) -> Optional[Any]:
-    try:
-        import asyncpg
+    for key in ("db.platform.dsn", "db.cts.dsn"):       # the delivery log lives in the platform schema of the same database
+        try:
+            import asyncpg
 
-        dsn = await cfg.get_secret("db.platform.dsn")
-        pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
-        log.info("notification_service.db_pool_ready")
-        return pool
-    except Exception as exc:
-        log.warning("notification_service.db_pool_unavailable", error=str(exc))
-        return None
+            pool = await asyncpg.create_pool(await cfg.get_secret(key), min_size=1, max_size=5)
+            log.info("notification_service.db_pool_ready", dsn_key=key)
+            return pool
+        except Exception as exc:
+            log.warning("notification_service.db_pool_unavailable", dsn_key=key, error=str(exc))
+    return None
 
 
-def _build_debouncer(cfg: Any) -> Optional[Any]:
-    """Optional Redis-backed NotificationDebouncer. Skipped when Redis unavailable."""
+def _build_redis(cfg: Any) -> Optional[Any]:
     try:
         import redis.asyncio as aioredis
-        from shared.notifications.debouncer import NotificationDebouncer
 
-        redis_url = cfg.get_platform("redis.cts.url")
-        redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True)
-        return NotificationDebouncer(redis_client=redis_client)
+        return aioredis.from_url(cfg.get_platform("redis.cts.url"), encoding="utf-8", decode_responses=True)
     except Exception as exc:
-        log.warning("notification_service.debouncer_unavailable", error=str(exc))
+        log.warning("notification_service.redis_unavailable", error=str(exc))
         return None
 
 
-# ── recipient resolution ────────────────────────────────────────────────────
+# ── who an event is for ─────────────────────────────────────────────────────
 
 
-def _resolve_recipient(event: dict) -> tuple[Optional[str], str]:
-    """
-    Returns (recipient_address, normalised_channel) or (None, channel).
+async def _setting(cfg: Any, key: str, default: int) -> int:
+    try:
+        return int(await cfg.get(key))
+    except Exception:
+        return default
 
-    recipient_address is None when we cannot resolve to an actual delivery address
-    — this happens for opaque user_id refs and role-based routing because ASTRA
-    does not yet have a user directory service (SAML/LDAP lookup not built).
-    The caller logs the boundary and records a FAILED delivery rather than silently
-    dropping the event.
-    """
+
+async def _bell_users_of_role(pool: Any, cfg: Any, bank_id: str, role: str) -> list[Target]:
+    if pool is None or not role:
+        return []
+    try:
+        users = await resolve_bell_users(pool, bank_id, roles=[role], limit=await _setting(cfg, "alerting.bell_max_recipients", 200),
+                                         seen_within_days=await _setting(cfg, "alerting.bell_directory_days", 90))
+    except Exception as exc:
+        log.warning("notification_service.role_lookup_failed", bank_id=bank_id, role=role, error=str(exc))
+        return []
+    return [Target("bell", u) for u in users]
+
+
+async def resolve_targets(event: dict, *, pool: Any, config_service: Any, bank_id: str) -> list[Target]:
+    """The delivery targets for an event (see the module docstring). An empty list means nobody could be found."""
     channel = (event.get("channel") or "email").lower()
-    if channel not in ("email", "whatsapp"):
+    if channel not in _CHANNELS:
         channel = "email"
-
-    # Direct address already in the event
     if recipient := event.get("recipient"):
-        return str(recipient), channel
-
-    # recipient_ref that looks like an email address
+        return [Target(channel, str(recipient))]
     ref = str(event.get("recipient_ref") or "").strip()
     if ref and "@" in ref:
-        return ref, "email"
-
-    # Unresolvable — role-based or opaque user_id
+        return [Target("email", ref)]
     role = str(event.get("recipient_role") or "").strip()
-    log.warning(
-        "notification.recipient_unresolved",
-        recipient_ref=ref or None,
-        recipient_role=role or None,
-        template_id=event.get("template_id"),
-        bank_id=event.get("bank_id"),
-        reason=(
-            "recipient_role routing requires user directory (SAML/LDAP lookup not yet built)"
-            if role else
-            "recipient_ref is an opaque user_id; user directory resolution not yet built"
-        ),
-    )
-    return None, channel
-
-
-# ── DB recording ────────────────────────────────────────────────────────────
-
-
-async def _record_delivery(
-    pool: Any,
-    notification_id: str,
-    bank_id: str,
-    channel: str,
-    template_id_str: str,
-    event_type: str,
-    module: str,
-    recipient_type: str,
-    status: str,
-    delivery_error: Optional[str],
-    kafka_offset: Optional[int],
-) -> None:
-    if pool is None:
-        return
-    try:
-        async with pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO platform.notification_records (
-                    notification_id,
-                    bank_id,
-                    module,
-                    event_type,
-                    channel,
-                    recipient_type,
-                    status,
-                    sent_at,
-                    delivery_error,
-                    attempt_count,
-                    kafka_offset,
-                    created_at
-                ) VALUES (
-                    $1::uuid, $2, $3, $4, $5, $6, $7,
-                    CASE WHEN $7 = 'SENT' THEN NOW() ELSE NULL END,
-                    $8,
-                    1,
-                    $9,
-                    NOW()
-                )
-                ON CONFLICT (notification_id) DO UPDATE
-                    SET status = EXCLUDED.status,
-                        sent_at = EXCLUDED.sent_at,
-                        delivery_error = EXCLUDED.delivery_error,
-                        attempt_count = platform.notification_records.attempt_count + 1
-                """,
-                notification_id,
-                bank_id,
-                module.upper(),
-                event_type.upper() if event_type else "UNKNOWN",
-                channel.upper(),
-                recipient_type.upper() if recipient_type else "UNKNOWN",
-                status,
-                delivery_error,
-                kafka_offset,
-            )
-    except Exception as exc:
-        log.warning(
-            "notification_service.db_record_failed",
-            notification_id=notification_id,
-            error=str(exc),
-        )
+    if role:
+        return await _bell_users_of_role(pool, config_service, bank_id, role)
+    if ref:
+        return [Target("bell", ref)]
+    return []
 
 
 # ── consumer loop ────────────────────────────────────────────────────────────
 
 
-async def _consume_loop(
-    consumer: Any,
-    dispatcher: NotificationDispatcher,
-    pool: Optional[Any],
-    bank_id: str,
-) -> None:
+def _readable(event: dict, template_id: str, event_type: str) -> str:
+    return str(event.get("message") or (event.get("context") or {}).get("message") or event_type or template_id or get_message("PLATFORM_NOTIFICATION_GENERIC"))
+
+
+async def _consume_loop(consumer: Any, engine: Any, pool: Optional[Any], bank_id: str, cfg: Any) -> None:
     """
-    Main consumer loop. Polls platform.notifications, dispatches each event,
-    records result in DB. Per-message failure isolation: one bad message is
+    Main consumer loop. Polls platform.notifications and hands each event to the delivery engine. Per-message failure isolation: one bad message is
     committed and logged; the consumer never stops for a single delivery failure.
     """
     log.info("notification_service.consume_loop_started", bank_id=bank_id)
     try:
         async for msg in consumer:
-            notification_id = f"notif-{uuid.uuid4()}"
-            kafka_offset = msg.offset
-
             try:
                 event: dict = json.loads(msg.value.decode("utf-8"))
             except Exception as exc:
-                log.warning(
-                    "notification_service.message_parse_failed",
-                    offset=kafka_offset,
-                    error=str(exc),
-                )
+                log.warning("notification_service.message_parse_failed", offset=msg.offset, error=str(exc))
                 await consumer.commit()
                 continue
 
-            notification_id = str(event.get("notification_id") or notification_id)
+            notification_id = str(event.get("notification_id") or f"notif-{uuid.uuid4()}")
             event_bank_id = str(event.get("bank_id") or bank_id)
-
-            # Only process notifications for this bank
-            if event_bank_id and event_bank_id != bank_id and event_bank_id != "unknown":
+            if event_bank_id and event_bank_id != bank_id and event_bank_id != "unknown":     # only this bank's notifications
                 await consumer.commit()
                 continue
 
-            template_id_str = str(event.get("template_id") or "")
-            context = dict(event.get("context") or {})
-            priority = str(event.get("priority") or "P2")
-            smb_id = event.get("smb_id") or None
-            event_category = event.get("event_category") or None
+            template_id = str(event.get("template_id") or "")
             module = str(event.get("module") or "PLATFORM")
-            event_type = str(event.get("event_type") or template_id_str)
-            recipient_type = str(event.get("recipient_role") or event.get("recipient_type") or "UNKNOWN")
-
-            recipient, channel = _resolve_recipient(event)
-
-            if recipient is None:
-                # Unresolvable — record as FAILED so it's visible in the DB
-                await _record_delivery(
-                    pool,
-                    notification_id=notification_id,
-                    bank_id=event_bank_id,
-                    channel=channel,
-                    template_id_str=template_id_str,
-                    event_type=event_type,
-                    module=module,
-                    recipient_type=recipient_type,
-                    status="FAILED",
-                    delivery_error="RECIPIENT_UNRESOLVED",
-                    kafka_offset=kafka_offset,
-                )
-                await consumer.commit()
-                continue
-
-            # Dispatch
-            delivery_status = "SENT"
-            delivery_error: Optional[str] = None
+            event_type = str(event.get("event_type") or template_id)
+            priority = str(event.get("priority") or "P2")
+            channel = (event.get("channel") or "email").lower()
+            if channel not in _CHANNELS:
+                channel = "email"
+            context = {**dict(event.get("context") or {}), "bank_id": event_bank_id, "event_type": event_type,
+                       "component": str(event.get("component") or module.lower()), "message": _readable(event, template_id, event_type),
+                       "priority": priority, "incident_id": notification_id}
             try:
-                req = NotificationRequest(
-                    channel=channel,  # type: ignore[arg-type]
-                    recipient=recipient,
-                    template_id=template_id_str,
-                    context={**context, "bank_id": event_bank_id},
-                    notification_id=notification_id,
-                    priority=priority,
-                    smb_id=smb_id,
-                    event_category=event_category,
-                )
-                result = await dispatcher.send(req)
-                if result.get("status") == "suppressed":
-                    delivery_status = "SUPPRESSED"
-                log.info(
-                    "notification_service.dispatched",
-                    notification_id=notification_id,
-                    channel=channel,
-                    template_id=template_id_str,
-                    status=delivery_status,
-                )
+                targets = await resolve_targets(event, pool=pool, config_service=cfg, bank_id=event_bank_id)
+                if not targets:
+                    log.warning("notification.recipient_unresolved", notification_id=notification_id, template_id=template_id, bank_id=event_bank_id)
+                    await engine.record_undeliverable(bank_id=event_bank_id, incident_id=notification_id, occasion=notification_id, channel=channel,
+                                                      template_id=template_id, context=context, priority=priority, reason="RECIPIENT_UNRESOLVED")
+                else:
+                    async def fallback_targets(fallback_channel: str, _event=event, _bank=event_bank_id) -> list[Target]:
+                        return await _bell_users_of_role(pool, cfg, _bank, str(_event.get("recipient_role") or "")) if fallback_channel == "bell" else []
+                    result = await engine.submit(bank_id=event_bank_id, incident_id=notification_id, occasion=notification_id, targets=targets,
+                                                 template_id=template_id, context=context, priority=priority, component=context["component"],
+                                                 resolve_targets=fallback_targets)
+                    log.info("notification_service.submitted", notification_id=notification_id, sent=result.sent, retrying=result.retrying)
             except Exception as exc:
-                delivery_status = "FAILED"
-                delivery_error = str(exc)[:512]
-                log.error(
-                    "notification_service.dispatch_failed",
-                    notification_id=notification_id,
-                    channel=channel,
-                    template_id=template_id_str,
-                    error=delivery_error,
-                )
-
-            await _record_delivery(
-                pool,
-                notification_id=notification_id,
-                bank_id=event_bank_id,
-                channel=channel,
-                template_id_str=template_id_str,
-                event_type=event_type,
-                module=module,
-                recipient_type=recipient_type,
-                status=delivery_status if delivery_status != "SUPPRESSED" else "SENT",
-                delivery_error=delivery_error,
-                kafka_offset=kafka_offset,
-            )
+                log.error("notification_service.submit_failed", notification_id=notification_id, template_id=template_id, error=str(exc)[:200])
             await consumer.commit()
 
     except asyncio.CancelledError:
@@ -377,29 +205,32 @@ async def lifespan(app: FastAPI):
 
     bank_id = getattr(config_service, "bank_id", None) or "unknown"
 
+    from shared.alerting.factory import build_alert_auditor, build_delivery_engine
+    from shared.notifications.debouncer import NotificationDebouncer
+    from shared.notifications.factory import build_dispatcher
+
     app.state.kafka_consumer = await _build_kafka_consumer(bank_id)
-    app.state.email_channel = await _build_email_channel(config_service, bank_id)
-    app.state.whatsapp_channel = await _build_whatsapp_channel(config_service, bank_id)
     app.state.db_pool = await _build_db_pool(config_service)
-    app.state.debouncer = _build_debouncer(config_service)
+    app.state.redis = _build_redis(config_service)
     app.state.consume_task = None
 
-    # Build dispatcher — always created; channels may be None (graceful degradation)
-    dispatcher = NotificationDispatcher(bank_id=bank_id)
-    dispatcher.connect(
-        email_channel=app.state.email_channel,
-        whatsapp_channel=app.state.whatsapp_channel,
-        debouncer=app.state.debouncer,
-    )
+    # The same channels, settings (SMTP_* / WHATSAPP_*), outbox and audit trail as the alert system; any channel may be absent (graceful degradation).
+    debouncer = NotificationDebouncer(redis_client=app.state.redis) if app.state.redis is not None else None
+    dispatcher = await build_dispatcher(config_service, bank_id, db_pool=app.state.db_pool, debouncer=debouncer)
     app.state.dispatcher = dispatcher
+    app.state.email_channel = getattr(dispatcher, "_email", None)
+    app.state.whatsapp_channel = getattr(dispatcher, "_whatsapp", None)
+    auditor = await build_alert_auditor(config_service, bank_id, redis=app.state.redis, immudb_writer=None)
+    app.state.engine = await build_delivery_engine(config_service, bank_id, db_pool=app.state.db_pool, dispatcher=dispatcher, auditor=auditor)
 
-    if app.state.kafka_consumer is not None:
+    if app.state.kafka_consumer is not None and app.state.engine is not None:
         task = asyncio.create_task(
             _consume_loop(
                 consumer=app.state.kafka_consumer,
-                dispatcher=dispatcher,
+                engine=app.state.engine,
                 pool=app.state.db_pool,
                 bank_id=bank_id,
+                cfg=config_service,
             )
         )
         app.state.consume_task = task
@@ -408,7 +239,7 @@ async def lifespan(app: FastAPI):
         log.warning(
             "notification_service.consumer_not_started",
             bank_id=bank_id,
-            reason="kafka_consumer unavailable",
+            reason="kafka_consumer or delivery engine unavailable",
         )
 
     log.info("notification_service.ready", service=SERVICE_NAME, bank_id=bank_id)
@@ -429,6 +260,11 @@ async def lifespan(app: FastAPI):
 
     if app.state.db_pool is not None:
         await app.state.db_pool.close()
+    if getattr(app.state, "redis", None) is not None:
+        try:
+            await app.state.redis.aclose()
+        except Exception:
+            pass
 
     log.info("notification_service.shutdown_complete")
 
@@ -457,15 +293,12 @@ async def readiness():
             getattr(app.state, "consume_task", None) is not None
             and not app.state.consume_task.done()
         ),
+        "engine": getattr(app.state, "engine", None) is not None,
         "email_channel": getattr(app.state, "email_channel", None) is not None,
         "whatsapp_channel": getattr(app.state, "whatsapp_channel", None) is not None,
     }
-    # At least one delivery channel must be available; kafka must be running
-    operational = (
-        checks["kafka_consumer"]
-        and checks["consumer_running"]
-        and (checks["email_channel"] or checks["whatsapp_channel"])
-    )
+    # The delivery engine (outbox + at least one channel) must exist; kafka must be running
+    operational = checks["kafka_consumer"] and checks["consumer_running"] and checks["engine"]
     return JSONResponse(
         content={"status": "ready" if operational else "degraded", "checks": checks},
         status_code=200 if operational else 503,

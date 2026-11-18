@@ -205,3 +205,15 @@ def test_the_policy_comes_from_configuration_and_bad_values_fall_back_to_safe_de
     assert (p.max_attempts, p.backoff_seconds, p.lease_seconds) == (5, [10.0, 20.0], 30.0) and p.fallbacks == {"email": ["whatsapp", "bell"]}
     bad = asyncio.run(load_policy(Cfg(**{"alerting.delivery_backoff_seconds": "{nope", "alerting.delivery_fallbacks": "[1]", "alerting.delivery_max_attempts": "x"})))
     assert bad.max_attempts >= 1 and bad.backoff_seconds and isinstance(bad.fallbacks, dict)
+
+
+def test_an_event_nobody_can_be_found_for_is_recorded_as_undelivered_and_audited_never_dropped():
+    async def go(engine, store, bank, pool, disp, audit):
+        kw = dict(bank_id=bank, incident_id="n1", occasion="n1", channel="email", template_id="t", context={"message": "m"}, priority="P1",
+                  reason="RECIPIENT_UNRESOLVED")
+        await engine.record_undeliverable(**kw)
+        await engine.record_undeliverable(**kw)                                        # a Kafka redelivery: still one row
+        rows = await pool.fetch("SELECT channel, status, error, provider_class FROM platform.alert_deliveries WHERE bank_id=$1", bank)
+        assert [(r["channel"], r["status"], r["error"], r["provider_class"]) for r in rows] == [("email", "UNDELIVERED", "RECIPIENT_UNRESOLVED", "unresolved")]
+        assert disp.sent == [] and audit.kinds() == ["ALERT_DELIVERY_FAILED"]
+    _run(go)

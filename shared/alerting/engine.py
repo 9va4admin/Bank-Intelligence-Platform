@@ -27,6 +27,7 @@ DEFAULT_LEASE_SECONDS = 120.0
 DEFAULT_BATCH_SIZE = 20
 DEFAULT_FALLBACKS: dict[str, list[str]] = {"email": ["whatsapp", "bell"], "whatsapp": ["email", "bell"]}
 ERROR_MAX_CHARS = 200
+UNRESOLVED_RECIPIENT = "unresolved"      # placeholder recipient of a record kept for an event nobody could be found for
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,21 @@ class DeliveryEngine:
             outcome = await self._attempt(row, resolve_targets)
             out[outcome] += 1
         return SubmitResult(**out)
+
+    async def record_undeliverable(self, *, bank_id: str, incident_id: str, occasion: str, channel: str, template_id: str, context: dict[str, Any],
+                                   priority: str, reason: str) -> None:
+        """An event nobody could be found for: keep a visible record (UNDELIVERED, with the reason) and audit it, instead of dropping it silently."""
+        queued = await self._store.enqueue(bank_id=bank_id, incident_id=incident_id, occasion=occasion, level=0, channel=channel,
+                                           recipient=UNRESOLVED_RECIPIENT, template_id=template_id, payload=context, priority=priority)
+        if not queued.created:
+            return
+        row = await self._store.claim(bank_id, queued.delivery_id, lease_seconds=self._policy.lease_seconds)
+        if row is None:
+            return
+        await self._record(self._store.mark_undelivered(bank_id, queued.delivery_id, error=reason, provider_class="unresolved"), row)
+        if self._auditor is not None:
+            await self._auditor.outcome(bank_id=bank_id, incident_id=incident_id, delivery_id=queued.delivery_id, channel=channel, succeeded=False,
+                                        attempt=row.attempt, intent_ref=None, error=reason)
 
     async def process_due(self, bank_id: str, *, resolve_targets: ResolveTargets) -> ProcessResult:
         """Retry what is due and recover deliveries whose sender died."""
