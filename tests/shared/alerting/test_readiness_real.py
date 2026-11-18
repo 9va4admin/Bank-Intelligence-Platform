@@ -33,7 +33,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.skipif(not _up(), reason="dev
 class Cfg:
     def __init__(self, platform=None, **v):
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.fire_drill_ack_minutes": 15, "alerting.readiness_drill_days": 90, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.readiness_open_incident_hours": 24,
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.fire_drill_ack_minutes": 15, "alerting.readiness_drill_days": 90, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.regulatory_windows": "[]", "alerting.regulatory_windows_pending": False, "alerting.readiness_open_incident_hours": 24,
                   "alerting.public_mail_hosts": '["smtp.gmail.com"]', "alerts.email_recipients": "", "alerts.whatsapp_recipients": "",
                   "alerting.bell_roles": '["ops_manager", "bank_it_admin"]', "alerting.bell_min_priority": "P3", **v}
         self.p = platform or {}
@@ -103,7 +103,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences", "alert_regulatory"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -385,3 +385,27 @@ async def test_a_silence_still_in_force_is_a_warning_and_none_is_a_pass(pool):
     await store.create(bank, "kafka", ["P2"], now + timedelta(hours=3), now + timedelta(hours=4), "Later work", "admin-1")          # not started: not counted
     item = (await run(pool, bank, Cfg()))["alert_silences"]
     assert item.status == "WARN" and "1" in item.detail and item.action_url == "/ops/silences"
+
+
+import json as _json
+
+
+@db
+async def test_regulatory_windows_are_amber_until_entered_and_never_block(pool):
+    bank = _bank()
+    none = (await run(pool, bank, Cfg()))["alert_regulatory"]
+    assert none.status == "WARN" and "has been entered" in none.detail
+    pending = (await run(pool, bank, Cfg(**{"alerting.regulatory_windows_pending": True})))["alert_regulatory"]
+    assert pending.status == "WARN" and "pending" in pending.detail.lower()
+    windows = _json.dumps([{"name": "RBI cyber incident report", "authority": "RBI", "hours": 6, "reference": "Master Direction on IT Governance"}, {"name": "CERT-In report", "authority": "CERT-In", "hours": 6}])
+    ok = (await run(pool, bank, Cfg(**{"alerting.regulatory_windows": windows})))["alert_regulatory"]
+    assert ok.status == "PASS" and "2" in ok.detail
+
+
+@db
+async def test_a_window_without_a_name_or_a_positive_number_of_hours_is_incomplete(pool):
+    bad = _json.dumps([{"name": "RBI report", "hours": 0}, {"authority": "CERT-In", "hours": 6}])
+    item = (await run(pool, _bank(), Cfg(**{"alerting.regulatory_windows": bad})))["alert_regulatory"]
+    assert item.status == "WARN" and "incomplete" in item.detail.lower() and "2" in item.detail
+    broken = (await run(pool, _bank(), Cfg(**{"alerting.regulatory_windows": "not json"})))["alert_regulatory"]
+    assert broken.status == "WARN"

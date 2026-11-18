@@ -25,7 +25,7 @@ class Cfg:
     def __init__(self, key="readiness-api-key-not-a-secret", platform=None):
         self.key, self.p = key, platform or {}
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.fire_drill_ack_minutes": 15, "alerting.readiness_drill_days": 90, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.dkim_selectors": "google, s2", "alerting.audit_collection_pattern": "alert_events_{bank_id}", "alerting.readiness_open_incident_hours": 24, "alerting.public_mail_hosts": "[]",
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.regulatory_windows": "[]", "alerting.regulatory_windows_pending": False, "alerting.fire_drill_ack_minutes": 15, "alerting.readiness_drill_days": 90, "alerting.readiness_dns_proof_days": 30, "alerting.mail_dns_risk_accepted": False, "alerting.dkim_selectors": "google, s2", "alerting.audit_collection_pattern": "alert_events_{bank_id}", "alerting.readiness_open_incident_hours": 24, "alerting.public_mail_hosts": "[]",
                   "alerts.email_recipients": "", "alerting.bell_roles": '["ops_manager"]', "alerting.bell_min_priority": "P3"}
 
     async def get(self, key):
@@ -76,7 +76,7 @@ def test_the_readiness_list_includes_the_alerting_items_with_words_and_a_link_to
         r = await client.get("/v1/platform/readiness")
         assert r.status_code == 200
         items = {i["check_id"]: i for i in r.json()["items"]}
-        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences"):
+        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences", "alert_regulatory"):
             assert cid in items and items[cid]["label"] and items[cid]["detail"], cid
         assert items["alert_routing"]["status"] == "FAIL" and items["alert_routing"]["action_url"] == "/admin/alert-routing"
         assert r.json()["all_ready"] is False                                  # a failing alerting item blocks go-live like any other

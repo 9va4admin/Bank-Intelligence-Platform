@@ -57340,3 +57340,52 @@ UI_ALERTING_SL_EMPTY:
   variables: []
   en: "Nothing is silenced. Alerts reach people as the routing says."
   hi: ""
+
+UI_GOLIVE_ALERT_REG_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Regulatory reporting windows are recorded"
+  hi: ""
+
+UI_GOLIVE_ALERT_REG_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No regulatory reporting window has been entered. The compliance officer should enter them in the Alert Settings, or mark them as pending."
+  hi: ""
+
+UI_GOLIVE_ALERT_REG_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Regulatory reporting windows are marked as pending. They still need to be entered."
+  hi: ""
+
+UI_GOLIVE_ALERT_REG_INCOMPLETE:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} reporting window(s) are incomplete: each needs a name and a number of hours above zero."
+  hi: ""
+
+UI_GOLIVE_ALERT_REG_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} reporting window(s) are recorded."
+  hi: ""
+
+API_ALERTCFG_ALERTING_REGULATORY_WINDOWS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Regulatory reporting windows, as a list of name, authority, hours and reference (JSON). Entered by the compliance officer."
+  hi: ""
+
+API_ALERTCFG_ALERTING_REGULATORY_WINDOWS_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "True while the regulatory reporting windows are still to be entered. Keeps an amber item on the Go-Live screen."
+  hi: ""
