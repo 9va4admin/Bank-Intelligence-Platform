@@ -25,3 +25,9 @@ def test_the_authentication_service_is_given_the_database_so_sign_ins_are_record
     tree = ast.parse(MAIN.read_text(encoding="utf-8"))
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", getattr(n.func, "attr", "")) == "AuthService"]
     assert calls and all(any(k.arg == "db_pool" for k in c.keywords) for c in calls), "AuthService(...) in main.py must be passed db_pool="
+
+
+def test_the_api_watchdog_starts_and_stops_escalation_for_the_incidents_it_raises():
+    """The watchdog raises incidents from the API process (the worker may be the thing that is down), so it must start their escalation itself and stop it on recovery."""
+    src = MAIN.read_text(encoding="utf-8")
+    assert "start_escalation" in src and "stop_escalation" in src

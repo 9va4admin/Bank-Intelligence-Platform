@@ -356,6 +356,11 @@ async def lifespan(app: FastAPI):
 
         async def _wd_send(alert: DispatchAlertInput) -> None:
             recorded = await record_alert_incident(alert, db_pool=getattr(app.state, "db_pool_cts", None), alert_auditor=_wd_auditor)
+            from modules.cts.workflows.escalation_control import start_escalation, stop_escalation
+            if recorded.incident_id and recorded.created:
+                await start_escalation(getattr(app.state, "temporal_client", None), alert.bank_id, recorded.incident_id, started_at=time.time())
+            elif recorded.incident_id and recorded.resolved:
+                await stop_escalation(getattr(app.state, "temporal_client", None), alert.bank_id, recorded.incident_id, "resolved")
             if recorded.incident_id:
                 alert = alert.model_copy(update={"incident_id": recorded.incident_id})
             alert = alert.model_copy(update={"occasion": f"w{int(time.time())}"})

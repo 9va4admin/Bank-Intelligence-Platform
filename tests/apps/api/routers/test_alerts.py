@@ -42,6 +42,12 @@ def _scenario(fn, *, role="ops_manager", pool_present=True):
         app.dependency_overrides[get_current_user] = lambda: {"bank_id": bank, "user_id": "user-7", "role": role}
         app.state.db_pool_cts = pool if pool_present else None
         app.state.alert_auditor = AlertAuditor(sink)
+        from unittest.mock import AsyncMock, MagicMock
+        handle = MagicMock()
+        handle.signal = AsyncMock(side_effect=lambda wf, reason: events.append(("ESCALATION_STOP", handle.wf_id, reason)))
+        tclient = MagicMock()
+        tclient.get_workflow_handle = MagicMock(side_effect=lambda wf_id: setattr(handle, "wf_id", wf_id) or handle)
+        app.state.temporal_client = tclient
         client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
         try:
             return await fn(client, bank, pool, events)
@@ -128,10 +134,12 @@ def test_acknowledge_records_who_audits_it_and_a_second_ack_is_a_409():
         ids = await _seed(pool, bank, 1)
         r = await client.post(f"/v1/ops/alerts/incidents/{ids[0]}/acknowledge")
         assert r.status_code == 200 and r.json() == {"incident_id": ids[0], "state": "ACKED", "acknowledged_by": "user-7"}
-        assert events[-1][0] == "ALERT_ACKNOWLEDGED" and events[-1][1] == ids[0] and events[-1][2] == "user-7"
+        ack = [e for e in events if e[0] == "ALERT_ACKNOWLEDGED"][0]
+        assert ack[1] == ids[0] and ack[2] == "user-7"
         assert (await client.post(f"/v1/ops/alerts/incidents/{ids[0]}/acknowledge")).status_code == 409
         assert (await client.post("/v1/ops/alerts/incidents/nope/acknowledge")).status_code == 404
         assert [e[0] for e in events].count("ALERT_ACKNOWLEDGED") == 1
+        assert ("ESCALATION_STOP", f"cts-alert-{bank}-{ids[0]}", "acknowledged") in events          # its escalation is told to stop
     _scenario(fn)
 
 

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
+from modules.cts.workflows.escalation_control import stop_escalation
 from shared.alerting.delivery import DeliveryStore
 from shared.alerting.incidents import MAX_LIST, IncidentStore
 from shared.audit.audit_event import AuditEventType
@@ -192,5 +193,6 @@ async def acknowledge_incident(request: Request, incident_id: str, user: dict = 
     auditor = getattr(request.app.state, "alert_auditor", None)
     if auditor is not None:
         await auditor.lifecycle(AuditEventType.ALERT_ACKNOWLEDGED, bank_id=bank_id, incident_id=incident_id, actor=who, detail={})
+    await stop_escalation(getattr(request.app.state, "temporal_client", None), bank_id, incident_id, "acknowledged")      # best effort: it also stops by itself at its next step
     log.info("alerts.acknowledged", bank_id=bank_id, incident_id=incident_id)
     return AcknowledgeResponse(incident_id=incident_id, state="ACKED", acknowledged_by=who)

@@ -18,6 +18,8 @@ from modules.cts.workflows.activities.platform_health_activities import (
     HRCheckResult, IETCheckResult, ProbeComponentsInput, ProbeComponentsResult, ScannerFleetCheckResult, StuckWorkflowSweepInput,
     StuckWorkflowSweepResult, VaultCoverageCheckResult, dispatch_platform_alert, probe_components, IncidentRecordResult, ProcessOutboxInput, ProcessOutboxResult, RunRetentionInput, RunRetentionResult,
 )
+from modules.cts.workflows.activities.alert_escalation_activities import EscalationPlan, EscalationStepResult, PlanStep
+from modules.cts.workflows.alert_escalation_workflow import AlertEscalationWorkflow
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput, alerts_for_events
 from shared.messages import get_message
 from shared.temporal.converter import pydantic_data_converter
@@ -172,6 +174,21 @@ async def _dispatch(inp: DispatchAlertInput) -> DispatchAlertResult:
     return DispatchAlertResult(sent=True)
 
 
+ESCALATION_STEPS: list = []
+RECOVER = {"on": False}          # a test can ask the fake monitor to see yugabyte recover on its third tick
+
+
+@activity.defn(name="plan_escalation")
+async def _plan_esc(inp) -> EscalationPlan:
+    return EscalationPlan(state="OPEN", steps=[PlanStep(level=1, after_minutes=60)])        # far in the future: the escalation is waiting when the incident resolves
+
+
+@activity.defn(name="run_escalation_step")
+async def _run_esc(inp) -> EscalationStepResult:
+    ESCALATION_STEPS.append((inp.incident_id, inp.level))
+    return EscalationStepResult()
+
+
 RECORDED: list[DispatchAlertInput] = []
 RETENTION_RUNS = {"n": 0}
 
@@ -194,8 +211,10 @@ async def _outbox(inp: ProcessOutboxInput) -> ProcessOutboxResult:
 @activity.defn(name="record_alert_incident")
 async def _record(inp: DispatchAlertInput) -> IncidentRecordResult:
     from shared.alerting.incidents import dedup_key_for
+    from shared.alerting.incidents import is_resolution
     RECORDED.append(inp)
-    return IncidentRecordResult(incident_id=f"inc:{dedup_key_for(inp.event_type, inp.component)}")
+    resolved = is_resolution(inp.event_type)
+    return IncidentRecordResult(incident_id=f"inc:{dedup_key_for(inp.event_type, inp.component)}", created=not resolved, resolved=resolved)
 
 
 @activity.defn(name="probe_components")
@@ -205,10 +224,13 @@ async def _probe(inp: ProbeComponentsInput) -> ProbeComponentsResult:
     if PROBE_CALLS["n"] == 1:
         states["yugabyte"] = ComponentState(status="DOWN", since=1.0, consecutive_failures=3, last_error="refused")
         return ProbeComponentsResult(states=states, events=[Event(kind="DOWN", component="yugabyte", severity="P0", message="yugabyte is not responding")], probes_run=1)
+    if RECOVER["on"] and PROBE_CALLS["n"] == 3:
+        states["yugabyte"] = ComponentState(status="OK", since=1.0)
+        return ProbeComponentsResult(states=states, events=[Event(kind="RECOVERED", component="yugabyte", severity="P3", message="yugabyte is responding again", down_for_seconds=120.0)], probes_run=1)
     return ProbeComponentsResult(states=states, events=[], probes_run=1)
 
 
-_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe, _record, _outbox, _retention]
+_ACTIVITIES = [_iet, _hr, _vault, _fleet, _sweep, _dispatch, _probe, _record, _outbox, _retention, _plan_esc, _run_esc]
 
 
 @pytest_asyncio.fixture
@@ -222,9 +244,11 @@ async def _start(env, inp):
     RECORDED.clear()
     OUTBOX_RUNS["n"] = 0
     RETENTION_RUNS["n"] = 0
+    ESCALATION_STEPS.clear()
+    RECOVER["on"] = False
     PROBE_CALLS["n"] = 0
     tq = f"tq-infra-{uuid.uuid4().hex[:8]}"
-    worker = Worker(env.client, task_queue=tq, workflows=[PlatformHealthCheckWorkflow], activities=_ACTIVITIES,
+    worker = Worker(env.client, task_queue=tq, workflows=[PlatformHealthCheckWorkflow, AlertEscalationWorkflow], activities=_ACTIVITIES,
                     workflow_runner=UnsandboxedWorkflowRunner())
     return tq, worker
 
@@ -302,6 +326,22 @@ async def test_a_restart_request_makes_the_monitor_roll_over_at_the_next_tick_an
     assert desc.run_id != first_run
     assert snap["states"]["yugabyte"]["status"] == "DOWN"                       # state carried across the rollover
     assert [d.event_type for d in DISPATCHED].count("COMPONENT_DOWN") == 1       # and the outage was not announced a second time
+
+
+@pytest.mark.asyncio
+async def test_a_new_incident_gets_an_escalation_workflow_and_its_resolution_stops_it(env):
+    inp = PlatformHealthInput(bank_id="kbl", repeat_alert_seconds=1800, iet_repeat_seconds=100000)
+    tq, worker = await _start(env, inp)
+    RECOVER["on"] = True
+    async with worker:
+        h = await env.client.start_workflow(PlatformHealthCheckWorkflow.run, inp, id=f"h-{uuid.uuid4().hex[:6]}", task_queue=tq)
+        await env.sleep(30)                                                   # the first tick: yugabyte goes down, an incident opens
+        child = env.client.get_workflow_handle("cts-alert-kbl-inc:component:yugabyte:down")
+        assert (await child.describe()).status is not None                    # it exists, and is waiting for its first step
+        await env.sleep(240)                                                  # the third tick: yugabyte recovers, the incident resolves
+        assert await child.result() == "STOPPED:resolved"
+        await h.cancel()
+    assert ESCALATION_STEPS == []                                             # it never escalated: it was resolved first
 
 
 @pytest.mark.asyncio

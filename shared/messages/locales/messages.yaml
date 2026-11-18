@@ -54645,3 +54645,10 @@ PLATFORM_NOTIFICATION_GENERIC:
   variables: []
   en: "ASTRA notification"
   hi: ""
+
+ALERT_ESCALATION_MESSAGE:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [level, summary]
+  en: "Escalation level {level}: nobody has acknowledged this yet. {summary}"
+  hi: ""

@@ -41,6 +41,12 @@ def _scenario(fn, *, role="ops_manager", user="user-7", pool_present=True):
         app.dependency_overrides[get_current_user] = lambda: {"bank_id": bank, "user_id": user, "role": role}
         app.state.db_pool_cts = pool if pool_present else None
         app.state.alert_auditor = AlertAuditor(sink)
+        from unittest.mock import AsyncMock, MagicMock
+        handle = MagicMock()
+        handle.signal = AsyncMock(side_effect=lambda wf, reason: events.append(("ESCALATION_STOP", handle.wf_id, reason)))
+        tclient = MagicMock()
+        tclient.get_workflow_handle = MagicMock(side_effect=lambda wf_id: setattr(handle, "wf_id", wf_id) or handle)
+        app.state.temporal_client = tclient
         client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
         try:
             return await fn(client, bank, pool, events)
@@ -113,6 +119,7 @@ def test_acknowledging_a_critical_notification_also_acknowledges_the_incident_fo
         assert r.status_code == 200 and r.json() == {"notification_id": n, "incident_acknowledged": True}
         assert (await IncidentStore(pool).get(bank, inc.incident_id))["state"] == "ACKED"
         assert ("ALERT_ACKNOWLEDGED", inc.incident_id, "user-7") in events
+        assert ("ESCALATION_STOP", f"cts-alert-{bank}-{inc.incident_id}", "acknowledged") in events
         assert (await client.get("/v1/inbox/summary")).json()["pinned"] == []                     # no longer pinned
         assert (await client.post(f"/v1/inbox/{n}/acknowledge")).status_code == 409
     _scenario(fn)
@@ -124,7 +131,7 @@ def test_a_role_that_may_not_acknowledge_incidents_can_still_dismiss_its_own_not
         n = await _add(pool, bank, incident_id=inc.incident_id)
         r = await client.post(f"/v1/inbox/{n}/acknowledge")
         assert r.status_code == 200 and r.json()["incident_acknowledged"] is False
-        assert (await IncidentStore(pool).get(bank, inc.incident_id))["state"] == "OPEN" and events == []
+        assert (await IncidentStore(pool).get(bank, inc.incident_id))["state"] == "OPEN" and events == []          # nothing audited, no escalation stopped
     _scenario(fn, role="ops_reviewer")
 
 

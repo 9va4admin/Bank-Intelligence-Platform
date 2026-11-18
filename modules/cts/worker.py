@@ -197,6 +197,8 @@ from modules.cts.workflows.activities.platform_health_activities import (
     run_alert_retention,
     sweep_stuck_workflows,
 )
+from modules.cts.workflows.alert_escalation_workflow import AlertEscalationWorkflow
+from modules.cts.workflows.activities.alert_escalation_activities import plan_escalation, run_escalation_step
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow, PlatformHealthInput
 from modules.cts.worker_activities import build_bound_activities
 from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
@@ -251,6 +253,7 @@ ALL_WORKFLOWS = [
     SMBVaultPushWorkflow,
     AgencyCCWorkflow,
     PlatformHealthCheckWorkflow,
+    AlertEscalationWorkflow,
     HoldEscalationWorkflow,
     PostDatedHoldWorkflow,
     # OCR feedback loop
@@ -394,6 +397,8 @@ NO_DI_ACTIVITIES = [
     dispatch_platform_alert,
     probe_components,       # infrastructure probes (config_service injected by the generic DI binder)
     process_alert_outbox,   # retries due alert deliveries (delivery_engine, config_service injected)
+    plan_escalation,        # alert escalation: when each step fires (db_pool, config_service injected)
+    run_escalation_step,    # alert escalation: notify one step (delivery_engine, alert_auditor, db_pool injected)
     run_alert_retention,    # prunes old alert history (db_pool, config_service injected)
     record_alert_incident,  # opens/updates/resolves the incident an alert belongs to (db_pool, alert_auditor injected)
     sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
