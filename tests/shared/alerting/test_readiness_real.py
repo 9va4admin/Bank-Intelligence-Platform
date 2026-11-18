@@ -51,7 +51,7 @@ class Cfg:
 
 
 BANKS: list[str] = []
-TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs", "alert_contacts", "alert_silences")
+TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs", "alert_contacts", "alert_silences", "alert_risks")
 
 
 def _bank():
@@ -103,7 +103,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences", "alert_regulatory"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences", "alert_regulatory", "alert_risks"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -409,3 +409,31 @@ async def test_a_window_without_a_name_or_a_positive_number_of_hours_is_incomple
     assert item.status == "WARN" and "incomplete" in item.detail.lower() and "2" in item.detail
     broken = (await run(pool, _bank(), Cfg(**{"alerting.regulatory_windows": "not json"})))["alert_regulatory"]
     assert broken.status == "WARN"
+
+
+@db
+async def test_the_risk_register_must_be_seeded_and_every_risk_must_have_an_owner(pool):
+    from shared.alerting.risks import RiskStore
+    bank = _bank()
+    store = RiskStore(pool, review_days=90)
+    assert (await run(pool, bank, Cfg()))["alert_risks"].status == "FAIL"                          # never seeded
+    await store.seed(bank, "admin-1")
+    unowned = (await run(pool, bank, Cfg()))["alert_risks"]
+    assert unowned.status == "FAIL" and "owner" in unowned.detail.lower() and unowned.action_url == "/admin/alert-risks"
+    for r in await store.list(bank):
+        await store.update(bank, r.risk_id, "admin-1", owner="Duty manager")
+    ok = (await run(pool, bank, Cfg()))["alert_risks"]
+    assert ok.status == "PASS" and "0 verified" in ok.detail
+
+
+@db
+async def test_an_overdue_review_is_a_warning(pool):
+    from shared.alerting.risks import RiskStore
+    bank = _bank()
+    store = RiskStore(pool, review_days=90)
+    await store.seed(bank, "admin-1")
+    for r in await store.list(bank):
+        await store.update(bank, r.risk_id, "admin-1", owner="Duty manager")
+    await pool.execute("UPDATE platform.alert_risks SET next_review_on = CURRENT_DATE - 5 WHERE bank_id = $1", bank)
+    item = (await run(pool, bank, Cfg()))["alert_risks"]
+    assert item.status == "WARN" and "overdue" in item.detail.lower()

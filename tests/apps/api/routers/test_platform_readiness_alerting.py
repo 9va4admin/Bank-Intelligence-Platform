@@ -64,7 +64,7 @@ def _scenario(fn, *, role="bank_it_admin", config=None, immudb=None, dns=None, s
         try:
             return await fn(client, bank, pool)
         finally:
-            for t in ("alert_routing_policies", "alert_oncall_rotas", "alert_deliveries", "alert_incidents", "alert_readiness_proofs", "alert_contacts"):
+            for t in ("alert_routing_policies", "alert_oncall_rotas", "alert_deliveries", "alert_incidents", "alert_readiness_proofs", "alert_contacts", "alert_risks"):
                 await pool.execute(f"DELETE FROM platform.{t} WHERE bank_id=$1", bank)
             await client.aclose()
             await pool.close()
@@ -76,7 +76,7 @@ def test_the_readiness_list_includes_the_alerting_items_with_words_and_a_link_to
         r = await client.get("/v1/platform/readiness")
         assert r.status_code == 200
         items = {i["check_id"]: i for i in r.json()["items"]}
-        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences", "alert_regulatory"):
+        for cid in ("alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts", "alert_silences", "alert_regulatory", "alert_risks"):
             assert cid in items and items[cid]["label"] and items[cid]["detail"], cid
         assert items["alert_routing"]["status"] == "FAIL" and items["alert_routing"]["action_url"] == "/admin/alert-routing"
         assert r.json()["all_ready"] is False                                  # a failing alerting item blocks go-live like any other

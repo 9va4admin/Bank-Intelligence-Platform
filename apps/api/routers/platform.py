@@ -720,7 +720,7 @@ async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[
     if db_pool is None:
         return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
                 for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
-                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_fire_drill", "UI_GOLIVE_ALERT_FD_LABEL"), ("alert_contacts", "UI_GOLIVE_ALERT_CT_LABEL"), ("alert_silences", "UI_GOLIVE_ALERT_SL_LABEL"), ("alert_regulatory", "UI_GOLIVE_ALERT_REG_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_fire_drill", "UI_GOLIVE_ALERT_FD_LABEL"), ("alert_contacts", "UI_GOLIVE_ALERT_CT_LABEL"), ("alert_silences", "UI_GOLIVE_ALERT_SL_LABEL"), ("alert_regulatory", "UI_GOLIVE_ALERT_REG_LABEL"), ("alert_risks", "UI_GOLIVE_ALERT_RK_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
     try:
         key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
     except Exception:  # noqa: BLE001

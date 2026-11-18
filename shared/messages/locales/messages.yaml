@@ -57389,3 +57389,234 @@ API_ALERTCFG_ALERTING_REGULATORY_WINDOWS_PENDING:
   variables: []
   en: "True while the regulatory reporting windows are still to be entered. Keeps an amber item on the Go-Live screen."
   hi: ""
+
+ALERT_RISK_EMAIL_OUTAGE_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email delivery stops"
+  hi: ""
+
+ALERT_RISK_EMAIL_OUTAGE_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The mail server or the provider is down, so alert emails are not delivered while an incident is open."
+  hi: ""
+
+ALERT_RISK_WHATSAPP_TEMPLATE_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "WhatsApp alerts are not approved or stop working"
+  hi: ""
+
+ALERT_RISK_WHATSAPP_TEMPLATE_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The WhatsApp message template is not approved by Meta, or the token expires, so critical alerts do not reach phones."
+  hi: ""
+
+ALERT_RISK_ONCALL_GAP_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nobody is on call"
+  hi: ""
+
+ALERT_RISK_ONCALL_GAP_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A gap in the on-call rota means a critical alert reaches only the fallback, or nobody."
+  hi: ""
+
+ALERT_RISK_AUDIT_DOWN_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The audit trail is unavailable"
+  hi: ""
+
+ALERT_RISK_AUDIT_DOWN_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "If the audit store is down, alerts still send but their record is not kept, which is a compliance failure."
+  hi: ""
+
+ALERT_RISK_SILENCE_LEFT_ON_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A silence is left on"
+  hi: ""
+
+ALERT_RISK_SILENCE_LEFT_ON_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A maintenance silence is forgotten and hides real alerts after the work is done."
+  hi: ""
+
+ALERT_RISK_ESCALATION_NOBODY_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Escalation ends with nobody"
+  hi: ""
+
+ALERT_RISK_ESCALATION_NOBODY_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "An escalation chain that stops before a person means a critical alert can go unanswered."
+  hi: ""
+
+ALERT_RISK_PUBLIC_MAIL_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alerts go through a public mail provider"
+  hi: ""
+
+ALERT_RISK_PUBLIC_MAIL_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A public provider has limits and may mark alerts as spam. It is for the pilot only."
+  hi: ""
+
+ALERT_RISK_ALERT_FATIGUE_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Too many alerts, so people stop reading them"
+  hi: ""
+
+ALERT_RISK_ALERT_FATIGUE_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Noisy or repeated alerts train people to ignore them, including the one that matters."
+  hi: ""
+
+ALERT_RISK_MONITOR_DEAD_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The health monitor stops"
+  hi: ""
+
+ALERT_RISK_MONITOR_DEAD_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "If the monitor stops, no component alert is raised. The API watchdog is the only safety net."
+  hi: ""
+
+ALERT_RISK_CONTACT_STALE_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Contact details are out of date"
+  hi: ""
+
+ALERT_RISK_CONTACT_STALE_DESC:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A changed phone number or a left employee means the alert reaches the wrong person."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_RISKS:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change the risk register."
+  hi: ""
+
+ALERT_API_RISK_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "There is no such risk."
+  hi: ""
+
+ALERT_API_RISK_RATING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Likelihood and impact are whole numbers from 1 to 5."
+  hi: ""
+
+ALERT_API_RISK_OWNER:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "A risk needs an owner: a name or role of up to 80 characters."
+  hi: ""
+
+ALERT_API_RISK_REVIEW_DATE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The next review date cannot be in the past."
+  hi: ""
+
+ALERT_API_RISK_NEEDS_OWNER:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Give the risk an owner and write what was done before declaring it mitigated."
+  hi: ""
+
+ALERT_API_RISK_SAME_PERSON:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "A different person must verify the mitigation. The person who declared it cannot."
+  hi: ""
+
+ALERT_API_RISK_NOT_MITIGATED:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Only a risk that someone has declared mitigated can be verified."
+  hi: ""
+
+UI_GOLIVE_ALERT_RK_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The risk register is seeded and every risk has an owner"
+  hi: ""
+
+UI_GOLIVE_ALERT_RK_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The risk register has not been seeded. Seed it from the template on the Risk Register screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_RK_NO_OWNER:
+  severity: INFO
+  surface: [UI]
+  variables: [count, total]
+  en: "{count} of {total} risks have no owner yet."
+  hi: ""
+
+UI_GOLIVE_ALERT_RK_OVERDUE:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} risk review(s) are overdue."
+  hi: ""
+
+UI_GOLIVE_ALERT_RK_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [total, verified]
+  en: "{total} risks, all with an owner, {verified} verified."
+  hi: ""

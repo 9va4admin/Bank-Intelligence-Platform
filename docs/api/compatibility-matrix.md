@@ -85,6 +85,15 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | POST | `/v1/admin/alert-contacts/{contact_id}/send-code` | CURRENT | — | — | — | — |
 | POST | `/v1/admin/alert-contacts/{contact_id}/verify` | CURRENT | — | — | — | — |
 | DELETE | `/v1/admin/alert-contacts/{contact_id}` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-silences` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-silences` | CURRENT | — | — | — | — |
+| DELETE | `/v1/admin/alert-silences/{silence_id}` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-risks` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-risks/seed` | CURRENT | — | — | — | — |
+| PATCH | `/v1/admin/alert-risks/{risk_id}` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-risks/{risk_id}/declare-mitigated` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-risks/{risk_id}/verify` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-risks/{risk_id}/reopen` | CURRENT | — | — | — | — |
 | POST | `/v1/platform/alert-proofs/audit-path` | CURRENT | — | — | — | — |
 | POST | `/v1/platform/alert-proofs/mail-dns` | CURRENT | — | — | — | — |
 | POST | `/v1/platform/alert-proofs/fire-drill` | CURRENT | — | — | — | — |
