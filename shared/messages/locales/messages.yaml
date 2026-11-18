@@ -56696,3 +56696,59 @@ API_ALERTCFG_ALERTING_MAIL_DNS_RISK_ACCEPTED:
   variables: []
   en: "The bank accepts the risk of not publishing SPF, DMARC and DKIM records (true or false)."
   hi: ""
+
+UI_GOLIVE_ALERT_SIM_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Routing has been simulated for critical, major and warning alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: [severities]
+  en: "Not simulated yet for: {severities}. Run the simulator on the Alert Routing screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_NOBODY:
+  severity: INFO
+  surface: [UI]
+  variables: [severities]
+  en: "The simulation for {severities} showed that nobody would be told. Fix the routing and simulate again."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_STALE:
+  severity: INFO
+  surface: [UI]
+  variables: [severities]
+  en: "The routing policy changed after the last simulation for: {severities}. Simulate again."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [severities, when]
+  en: "Simulated for {severities}, and people would be told. Last run {when}."
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_SEV_P0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "critical (P0)"
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_SEV_P1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "major (P1)"
+  hi: ""
+
+UI_GOLIVE_ALERT_SIM_SEV_P2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "warning (P2)"
+  hi: ""

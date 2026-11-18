@@ -17,6 +17,7 @@ from shared.alerting.audience import deliverable_targets
 from shared.alerting.audit import mask_recipient
 from shared.alerting.factory import build_routing_service
 from shared.alerting.policy_defaults import build_default_bank_policy
+from shared.alerting.proofs import ProofStore
 from shared.alerting.policy_store import PolicyInvalid, PolicyNotPending, PolicyRecord, PolicyStore, SameUserError
 from shared.alerting.routing_policy import LEVELS, IncidentFacts, Policy
 from shared.auth.rbac import UserContext
@@ -281,8 +282,25 @@ async def simulate(request: Request, body: SimulateRequest, user: dict = Depends
         steps.append(SimStep(level=step.level, after_minutes=step.after_minutes,
                              targets=[SimTarget(kind=t.kind, ref=_mask(t.ref), channels=t.channels) for t in step.targets],
                              deliveries=[SimDelivery(channel=d.channel, recipient_ref=mask_recipient(d.recipient, d.channel)) for d in deliveries]))
-    return SimulationResponse(matched=[SimMatched(level=m.level, rule_id=m.rule_id) for m in routed.routing.matched], steps=steps, repeat_minutes=routed.routing.repeat_minutes,
-                              held=routed.routing.held, warnings=routed.routing.warnings, used_default=routed.used_default)
+    response = SimulationResponse(matched=[SimMatched(level=m.level, rule_id=m.rule_id) for m in routed.routing.matched], steps=steps, repeat_minutes=routed.routing.repeat_minutes,
+                                  held=routed.routing.held, warnings=routed.routing.warnings, used_default=routed.used_default)
+    await _record_simulation(pool, bank_id, user, body, response)
+    return response
+
+
+async def _record_simulation(pool: Any, bank_id: str, user: dict, body: SimulateRequest, response: SimulationResponse) -> None:
+    """Keep a record of the run for the Go-Live check: what was asked, which rules matched, how many people would be told at once. No address or phone is stored.
+    A problem recording it never stops the answer."""
+    if body.severity not in ("P0", "P1", "P2"):
+        return
+    first_step = len(response.steps[0].deliveries) if response.steps else 0
+    try:
+        await ProofStore(pool).record(bank_id, f"simulation_{body.severity}", first_step > 0 or response.held,
+                                      {"severity": body.severity, "component": body.component, "pu_id": body.pu_id, "smb_id": body.smb_id,
+                                       "matched": [m.rule_id for m in response.matched], "recipients": first_step, "held": response.held, "used_default": response.used_default},
+                                      str(user.get("user_id", "")))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alert_routing.simulation_not_recorded", bank_id=bank_id, error_type=type(exc).__name__)
 
 
 # ── Channel status ───────────────────────────────────────────────────────────

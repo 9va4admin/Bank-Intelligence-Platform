@@ -194,9 +194,37 @@ async def _mail_dns(config: Any, bank_id: str, proof_store: Any, now: datetime) 
     return _item("alert_mail_dns", label, "PASS", get_message("UI_GOLIVE_ALERT_DNS_OK", domain=checked, dkim=dkim, when=proof.ran_at.strftime("%d %b %Y"), who=proof.ran_by), _SETTINGS_URL)
 
 
+_SIM_SEVERITIES = ("P0", "P1", "P2")
+_SIM_KEYS = {"P0": "UI_GOLIVE_ALERT_SIM_SEV_P0", "P1": "UI_GOLIVE_ALERT_SIM_SEV_P1", "P2": "UI_GOLIVE_ALERT_SIM_SEV_P2"}
+
+
+async def _simulated(bank_id: str, policy_store: Any, proof_store: Any) -> ReadinessCheck:
+    label, url = "UI_GOLIVE_ALERT_SIM_LABEL", _ROUTING_URL
+    if proof_store is None:
+        return _item("alert_simulated", label, "WARN", get_message("UI_GOLIVE_ALERT_UNAVAILABLE"), url)
+    try:
+        found = await proof_store.latest_many(bank_id, [f"simulation_{s}" for s in _SIM_SEVERITIES])
+        record = await policy_store.active_record(bank_id, "BANK", None) if hasattr(policy_store, "active_record") else None
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_simulated", label, url, exc)
+    words = lambda sevs: ", ".join(get_message(_SIM_KEYS[s]) for s in sevs)  # noqa: E731
+    missing = [s for s in _SIM_SEVERITIES if f"simulation_{s}" not in found]
+    if missing:
+        return _item("alert_simulated", label, "FAIL", get_message("UI_GOLIVE_ALERT_SIM_NONE", severities=words(missing)), url)
+    nobody = [s for s in _SIM_SEVERITIES if not found[f"simulation_{s}"].ok]
+    if nobody:
+        return _item("alert_simulated", label, "FAIL", get_message("UI_GOLIVE_ALERT_SIM_NOBODY", severities=words(nobody)), url)
+    approved = getattr(record, "approved_at", None)
+    stale = [s for s in _SIM_SEVERITIES if approved is not None and found[f"simulation_{s}"].ran_at < approved]
+    if stale:
+        return _item("alert_simulated", label, "FAIL", get_message("UI_GOLIVE_ALERT_SIM_STALE", severities=words(stale)), url)
+    last = max(found[f"simulation_{s}"].ran_at for s in _SIM_SEVERITIES)
+    return _item("alert_simulated", label, "PASS", get_message("UI_GOLIVE_ALERT_SIM_OK", severities=words(_SIM_SEVERITIES), when=last.strftime("%d %b %Y, %H:%M UTC")), url)
+
+
 async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None,
                              now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _open_incidents(config, bank_id, pool, moment)]

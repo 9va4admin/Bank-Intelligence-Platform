@@ -101,7 +101,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -239,3 +239,44 @@ async def test_a_lookup_that_could_not_be_made_says_so_and_an_accepted_risk_pass
     assert failed.status == "FAIL" and "could not be made" in failed.detail
     accepted = (await run(pool, bank, Cfg(platform=FROM, **{"alerting.mail_dns_risk_accepted": True})))["alert_mail_dns"]
     assert accepted.status == "PASS" and "accepted" in accepted.detail.lower()
+
+
+async def _sim(store, bank, sev, ok=True, **detail):
+    await store.record(bank, f"simulation_{sev}", ok, {"severity": sev, "recipients": 2 if ok else 0, **detail}, "admin-1")
+
+
+@db
+async def test_each_of_critical_major_and_warning_must_have_been_simulated_with_someone_told(pool):
+    bank = _bank()
+    store = ProofStore(pool)
+    none = (await run(pool, bank, Cfg()))["alert_simulated"]
+    assert none.status == "FAIL" and "P0" in none.detail and "P1" in none.detail and "P2" in none.detail and none.action_url == "/admin/alert-routing"
+    await _sim(store, bank, "P0")
+    await _sim(store, bank, "P1")
+    partly = (await run(pool, bank, Cfg()))["alert_simulated"]
+    assert partly.status == "FAIL" and "P2" in partly.detail and "P0" not in partly.detail
+    await _sim(store, bank, "P2")
+    assert (await run(pool, bank, Cfg()))["alert_simulated"].status == "PASS"
+
+
+@db
+async def test_a_simulation_that_would_tell_nobody_fails_and_names_the_severity(pool):
+    bank = _bank()
+    store = ProofStore(pool)
+    await _sim(store, bank, "P0")
+    await _sim(store, bank, "P1", ok=False)
+    await _sim(store, bank, "P2")
+    item = (await run(pool, bank, Cfg()))["alert_simulated"]
+    assert item.status == "FAIL" and "P1" in item.detail and "nobody" in item.detail.lower()
+
+
+@db
+async def test_a_policy_approved_after_the_simulations_makes_them_stale(pool):
+    bank = _bank()
+    store = ProofStore(pool)
+    for sev in ("P0", "P1", "P2"):
+        await _sim(store, bank, sev)
+    await pool.execute("UPDATE platform.alert_readiness_proofs SET ran_at = $2 WHERE bank_id = $1", bank, datetime.now(timezone.utc) - timedelta(hours=1))
+    await approve_good(pool, bank)                                   # approved now: after the simulations
+    item = (await run(pool, bank, Cfg()))["alert_simulated"]
+    assert item.status == "FAIL" and "changed" in item.detail.lower()
