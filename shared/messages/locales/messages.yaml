@@ -56325,3 +56325,129 @@ UI_ALERTING_ST_REJECT_REASON:
   variables: []
   en: "Rejected from the Alert Settings screen"
   hi: ""
+
+UI_GOLIVE_ALERT_ROUTING_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alert routing covers critical alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_ROUTING_OK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The routing policy tells people on at least two channels about a critical alert and escalates to a person."
+  hi: ""
+
+UI_GOLIVE_ALERT_ROUTING_OWN:
+  severity: INFO
+  surface: [UI]
+  variables: [problems]
+  en: "Not ready. {problems} Propose and approve a routing policy for the bank."
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "On-call rota covers every hour"
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No on-call rota is set up. Alerts will reach the people named in the routing policy only."
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [days, rotas]
+  en: "Someone is on call at every hour of the next {days} days ({rotas} rota(s) checked)."
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_GAPS:
+  severity: INFO
+  surface: [UI]
+  variables: [gaps, days, rota]
+  en: "Nobody is on call for {gaps} stretch(es) in the next {days} days, in rota {rota}."
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email is set up for alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email is not set up. The mail server is set in the deployment settings."
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_PUBLIC:
+  severity: INFO
+  surface: [UI]
+  variables: [host]
+  en: "Alerts go through a public mail provider ({host}). This is for the pilot only. Set the bank's own mail relay before go-live."
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [host]
+  en: "Alerts are sent through {host}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DELIVERY_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alerts were delivered recently on each channel"
+  hi: ""
+
+UI_GOLIVE_ALERT_DELIVERY_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [days, channels]
+  en: "Delivered in the last {days} days on: {channels}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DELIVERY_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: [days, channels]
+  en: "Nothing was delivered in the last {days} days on: {channels}. Send a test alert on each."
+  hi: ""
+
+UI_GOLIVE_ALERT_OPEN_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No incident has been open too long"
+  hi: ""
+
+UI_GOLIVE_ALERT_OPEN_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [hours]
+  en: "No incident has been open longer than {hours} hours."
+  hi: ""
+
+UI_GOLIVE_ALERT_OPEN_STALE:
+  severity: INFO
+  surface: [UI]
+  variables: [count, hours]
+  en: "{count} incident(s) have been open longer than {hours} hours."
+  hi: ""
+
+UI_GOLIVE_ALERT_UNAVAILABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This could not be checked right now."
+  hi: ""

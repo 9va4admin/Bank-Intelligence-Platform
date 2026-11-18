@@ -705,6 +705,30 @@ async def _start_single(service_id: str) -> ServiceStartResponse:
 # Routes
 # ---------------------------------------------------------------------------
 
+async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[ReadinessItem]:
+    """The alerting readiness items. With no database the alerting checks cannot run, and that is said once per item rather than hidden."""
+    from shared.alerting.oncall_store import OnCallStore
+    from shared.alerting.policy_store import PolicyStore
+    from shared.alerting.readiness import alerting_readiness
+
+    class _NoPolicyStore:
+        async def get_active(self, *args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError(get_message("ALERT_API_POLICY_STORE_UNAVAILABLE"))
+
+    config = getattr(request.app.state, "config_service", None) or config_service
+    if db_pool is None:
+        return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
+                for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+    try:
+        key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
+    except Exception:  # noqa: BLE001
+        key = None
+    policies = PolicyStore(db_pool, pii_key=key) if key else _NoPolicyStore()
+    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool))
+    return [ReadinessItem(check_id=c.check_id, label=c.label, status=c.status, detail=c.detail, action_url=c.action_url) for c in checks]
+
+
 @router_v1.get("/readiness", response_model=ReadinessResponse)
 async def get_readiness(
     request: Request,
@@ -735,7 +759,8 @@ async def get_readiness(
     outward_item = _check_outward_folder()
 
     items = [branches_item, sig_vault_item, pps_vault_item,
-             micr_item, users_item, inward_item, outward_item]
+             micr_item, users_item, inward_item, outward_item,
+             *await _alerting_items(request, bank_id, db_pool)]
 
     blocking_statuses = {"FAIL"}
     all_ready = all(item.status not in blocking_statuses for item in items)

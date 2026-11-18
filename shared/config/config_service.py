@@ -218,7 +218,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.retention_days": 730,                         # resolved incidents and finished deliveries are kept this long in the database (0 = keep)
     "alerting.history_retention_days": 730,                 # component state history is kept this long (0 = keep)
     "alerting.inbox_retention_days": 90,                    # bell notifications are kept this long, except unacknowledged critical ones (0 = keep)
-    "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
+    "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
+    "alerting.readiness_test_send_days": 7,                 # a delivery must have succeeded on each channel within this many days for the Go-Live check to pass
+    "alerting.readiness_open_incident_hours": 24,           # an incident open longer than this raises a Go-Live warning
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────
