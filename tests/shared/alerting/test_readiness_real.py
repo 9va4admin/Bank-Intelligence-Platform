@@ -11,6 +11,7 @@ import pytest
 from shared.alerting.oncall import Fallback, Rota, Shift
 from shared.alerting.oncall_store import OnCallStore
 from shared.alerting.policy_store import PolicyStore
+from shared.alerting.proofs import ProofStore
 from shared.alerting.readiness import alerting_readiness
 from shared.alerting.routing_policy import EscalationStep, Policy, Rule, TargetSpec
 
@@ -31,7 +32,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.skipif(not _up(), reason="dev
 class Cfg:
     def __init__(self, platform=None, **v):
         self.v = {"alerting.timezone": "Asia/Kolkata", "alerting.oncall_gap_days": 7, "alerting.oncall_gap_step_minutes": 30,
-                  "alerting.readiness_test_send_days": 7, "alerting.readiness_open_incident_hours": 24,
+                  "alerting.readiness_test_send_days": 7, "alerting.readiness_audit_proof_days": 30, "alerting.readiness_open_incident_hours": 24,
                   "alerting.public_mail_hosts": '["smtp.gmail.com"]', "alerts.email_recipients": "", "alerts.whatsapp_recipients": "",
                   "alerting.bell_roles": '["ops_manager", "bank_it_admin"]', "alerting.bell_min_priority": "P3", **v}
         self.p = platform or {}
@@ -49,7 +50,7 @@ class Cfg:
 
 
 BANKS: list[str] = []
-TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas")
+TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs")
 
 
 def _bank():
@@ -86,7 +87,7 @@ def good_policy():
 
 
 async def run(pool, bank, cfg, **kw):
-    stores = dict(policy_store=PolicyStore(pool, pii_key="readiness-key-not-a-secret"), oncall_store=OnCallStore(pool))
+    stores = dict(policy_store=PolicyStore(pool, pii_key="readiness-key-not-a-secret"), oncall_store=OnCallStore(pool), proof_store=ProofStore(pool))
     items = await alerting_readiness(config=cfg, bank_id=bank, pool=pool, **{**stores, **kw})
     return {i.check_id: i for i in items}
 
@@ -100,7 +101,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -176,3 +177,30 @@ async def test_a_failing_store_gives_a_warning_for_that_item_and_never_breaks_th
     items = await run(pool, _bank(), Cfg(), policy_store=Broken(), oncall_store=Broken())
     assert items["alert_routing"].status == "WARN" and items["alert_oncall"].status == "WARN"
     assert items["alert_email"].status == "FAIL"
+
+
+@db
+async def test_the_audit_path_must_have_been_proved_recently_and_successfully(pool):
+    bank = _bank()
+    store = ProofStore(pool)
+    assert (await run(pool, bank, Cfg()))["alert_audit_path"].status == "FAIL"              # never proved
+    await store.record(bank, "audit_path", False, {"reason": "write_failed"}, "admin-1")
+    failed = (await run(pool, bank, Cfg()))["alert_audit_path"]
+    assert failed.status == "FAIL" and failed.action_url == "/admin/alert-settings"
+    await store.record(bank, "audit_path", True, {"reason": "ok"}, "admin-1")
+    ok = (await run(pool, bank, Cfg()))["alert_audit_path"]
+    assert ok.status == "PASS" and "admin-1" in ok.detail
+
+
+@db
+async def test_a_proof_older_than_the_window_is_a_warning(pool):
+    bank = _bank()
+    await ProofStore(pool).record(bank, "audit_path", True, {"reason": "ok"}, "admin-1")
+    await pool.execute("UPDATE platform.alert_readiness_proofs SET ran_at = $2 WHERE bank_id = $1", bank, datetime.now(timezone.utc) - timedelta(days=45))
+    assert (await run(pool, bank, Cfg()))["alert_audit_path"].status == "WARN"
+
+
+@db
+async def test_without_a_proof_store_the_audit_item_is_a_warning(pool):
+    items = await run(pool, _bank(), Cfg(), proof_store=None)
+    assert items["alert_audit_path"].status == "WARN"

@@ -56451,3 +56451,59 @@ UI_GOLIVE_ALERT_UNAVAILABLE:
   variables: []
   en: "This could not be checked right now."
   hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The audit trail has been proved end to end"
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The audit trail has never been proved. Run the audit proof on the Alert Settings screen."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Proved on {when} by {who}: a test alert's intent and outcome were written, read back and verified."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_OLD:
+  severity: INFO
+  surface: [UI]
+  variables: [days]
+  en: "The last successful proof was {days} days ago. Run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: [reason]
+  en: "The last audit proof failed ({reason}). Fix the audit connection and run it again."
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_REASON_NOT_CONNECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the audit store is not connected"
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_REASON_WRITE_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "a record could not be written"
+  hi: ""
+
+UI_GOLIVE_ALERT_AUDIT_REASON_VERIFY_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "a record did not verify"
+  hi: ""

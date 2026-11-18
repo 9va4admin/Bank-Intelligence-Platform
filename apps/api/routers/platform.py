@@ -720,14 +720,65 @@ async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[
     if db_pool is None:
         return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
                 for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
-                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
     try:
         key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
     except Exception:  # noqa: BLE001
         key = None
     policies = PolicyStore(db_pool, pii_key=key) if key else _NoPolicyStore()
-    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool))
+    from shared.alerting.proofs import ProofStore
+    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool), proof_store=ProofStore(db_pool))
     return [ReadinessItem(check_id=c.check_id, label=c.label, status=c.status, detail=c.detail, action_url=c.action_url) for c in checks]
+
+
+class AuditProofResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ok: bool
+    reason: str
+
+
+class ProofView(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ok: bool
+    ran_by: str
+    ran_at: IsoTimestamp
+    reason: Optional[str] = None
+
+
+@router_v1.post("/alert-proofs/audit-path", response_model=AuditProofResponse)
+async def run_audit_path_proof(request: Request, user: UserContext = Depends(get_current_user)) -> AuditProofResponse:
+    """Write a sentinel alert to the audit trail, read it back and verify it; the result is recorded for the Go-Live check."""
+    from shared.alerting.proofs import AUDIT_PATH, ProofStore, prove_audit_path
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    who     = user["user_id"] if isinstance(user, dict) else user.user_id
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    config = getattr(request.app.state, "config_service", None) or config_service
+    try:
+        pattern = str(await config.get("alerting.audit_collection_pattern"))
+    except Exception:  # noqa: BLE001
+        pattern = "cts_{bank_id}"
+    proof = await prove_audit_path(getattr(request.app.state, "immudb_client", None), bank_id=bank_id, collection=pattern.format(bank_id=bank_id), actor=str(who))
+    await ProofStore(db_pool).record(bank_id, AUDIT_PATH, proof.ok, {"reason": proof.reason, **proof.detail}, str(who))
+    return AuditProofResponse(ok=proof.ok, reason=proof.reason)
+
+
+@router_v1.get("/alert-proofs", response_model=dict[str, ProofView])
+async def get_alert_proofs(request: Request, user: UserContext = Depends(get_current_user)) -> dict[str, ProofView]:
+    from shared.alerting.proofs import AUDIT_PATH, ProofStore
+    role    = user["role"]    if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    if role not in _READ_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=get_message("AUTH_INSUFFICIENT_ROLE"))
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=get_message("PLATFORM_DB_UNAVAILABLE"))
+    found = await ProofStore(db_pool).latest_many(bank_id, [AUDIT_PATH])
+    return {k: ProofView(ok=p.ok, ran_by=p.ran_by, ran_at=p.ran_at, reason=p.detail.get("reason")) for k, p in found.items()}
 
 
 @router_v1.get("/readiness", response_model=ReadinessResponse)

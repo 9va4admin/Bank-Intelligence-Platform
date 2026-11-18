@@ -221,6 +221,7 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
     "alerting.readiness_test_send_days": 7,                 # a delivery must have succeeded on each channel within this many days for the Go-Live check to pass
     "alerting.readiness_open_incident_hours": 24,           # an incident open longer than this raises a Go-Live warning
+    "alerting.readiness_audit_proof_days": 30,              # the audit-path proof must have succeeded within this many days
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

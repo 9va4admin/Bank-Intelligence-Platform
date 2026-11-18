@@ -138,8 +138,32 @@ async def _open_incidents(config: Any, bank_id: str, pool: Any, now: datetime) -
     return _item("alert_open_incidents", label, "PASS", get_message("UI_GOLIVE_ALERT_OPEN_OK", hours=hours), "/ops/incidents")
 
 
-async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, now: Optional[datetime] = None) -> list[ReadinessCheck]:
+_AUDIT_REASON_KEYS = {"not_connected": "UI_GOLIVE_ALERT_AUDIT_REASON_NOT_CONNECTED", "write_failed": "UI_GOLIVE_ALERT_AUDIT_REASON_WRITE_FAILED", "verify_failed": "UI_GOLIVE_ALERT_AUDIT_REASON_VERIFY_FAILED"}
+
+
+async def _audit_path(config: Any, bank_id: str, proof_store: Any, now: datetime) -> ReadinessCheck:
+    label = "UI_GOLIVE_ALERT_AUDIT_LABEL"
+    if proof_store is None:
+        return _item("alert_audit_path", label, "WARN", get_message("UI_GOLIVE_ALERT_UNAVAILABLE"), _SETTINGS_URL)
+    try:
+        days = int(await _number(config, "alerting.readiness_audit_proof_days"))
+        proof = await proof_store.latest(bank_id, "audit_path")
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_audit_path", label, _SETTINGS_URL, exc)
+    if proof is None:
+        return _item("alert_audit_path", label, "FAIL", get_message("UI_GOLIVE_ALERT_AUDIT_NONE"), _SETTINGS_URL)
+    if not proof.ok:
+        reason = get_message(_AUDIT_REASON_KEYS[proof.detail.get("reason")]) if proof.detail.get("reason") in _AUDIT_REASON_KEYS else str(proof.detail.get("reason", ""))
+        return _item("alert_audit_path", label, "FAIL", get_message("UI_GOLIVE_ALERT_AUDIT_FAILED", reason=reason), _SETTINGS_URL)
+    age_days = (now - proof.ran_at).days
+    if age_days > days:
+        return _item("alert_audit_path", label, "WARN", get_message("UI_GOLIVE_ALERT_AUDIT_OLD", days=age_days), _SETTINGS_URL)
+    return _item("alert_audit_path", label, "PASS", get_message("UI_GOLIVE_ALERT_AUDIT_OK", when=proof.ran_at.strftime("%d %b %Y, %H:%M UTC"), who=proof.ran_by), _SETTINGS_URL)
+
+
+async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None,
+                             now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _open_incidents(config, bank_id, pool, moment)]
