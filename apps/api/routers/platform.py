@@ -720,14 +720,20 @@ async def _alerting_items(request: Request, bank_id: str, db_pool: Any) -> list[
     if db_pool is None:
         return [ReadinessItem(check_id=cid, label=get_message(label), status="WARN", detail=get_message("PLATFORM_DB_UNAVAILABLE"), action_url="/admin/alert-settings")
                 for cid, label in (("alert_routing", "UI_GOLIVE_ALERT_ROUTING_LABEL"), ("alert_oncall", "UI_GOLIVE_ALERT_ONCALL_LABEL"), ("alert_email", "UI_GOLIVE_ALERT_EMAIL_LABEL"),
-                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_fire_drill", "UI_GOLIVE_ALERT_FD_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
+                                   ("alert_recent_delivery", "UI_GOLIVE_ALERT_DELIVERY_LABEL"), ("alert_audit_path", "UI_GOLIVE_ALERT_AUDIT_LABEL"), ("alert_mail_dns", "UI_GOLIVE_ALERT_DNS_LABEL"), ("alert_simulated", "UI_GOLIVE_ALERT_SIM_LABEL"), ("alert_fire_drill", "UI_GOLIVE_ALERT_FD_LABEL"), ("alert_contacts", "UI_GOLIVE_ALERT_CT_LABEL"), ("alert_open_incidents", "UI_GOLIVE_ALERT_OPEN_LABEL"))]
     try:
         key = await config.get_secret(f"banks.{bank_id}.pii_enc_key")
     except Exception:  # noqa: BLE001
         key = None
     policies = PolicyStore(db_pool, pii_key=key) if key else _NoPolicyStore()
+    try:
+        pepper = await config.get_secret(f"banks.{bank_id}.pii_hash_pepper")
+    except Exception:  # noqa: BLE001
+        pepper = None
+    from shared.alerting.contacts import ContactStore
+    contacts = ContactStore(db_pool, pii_key=key, pepper=pepper) if key and pepper else None
     from shared.alerting.proofs import ProofStore
-    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool), proof_store=ProofStore(db_pool))
+    checks = await alerting_readiness(config=config, bank_id=bank_id, pool=db_pool, policy_store=policies, oncall_store=OnCallStore(db_pool), proof_store=ProofStore(db_pool), contact_store=contacts)
     return [ReadinessItem(check_id=c.check_id, label=c.label, status=c.status, detail=c.detail, action_url=c.action_url) for c in checks]
 
 

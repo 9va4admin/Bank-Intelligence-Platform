@@ -17,6 +17,7 @@ from shared.alerting.dns_check import domain_of
 from shared.alerting.policy_defaults import build_default_bank_policy, load_calendar
 from shared.alerting.routing_policy import validate_policy
 from shared.messages import get_message
+from shared.utils.masking import mask_email, mask_phone
 
 log = structlog.get_logger()
 
@@ -28,7 +29,7 @@ _PROBLEM_KEYS = {
     "duplicate_rule_id": "UI_ALERTING_RT_CODE_DUPLICATE", "unknown_channel": "UI_ALERTING_RT_CODE_CHANNEL", "escalation_not_increasing": "UI_ALERTING_RT_CODE_ESCALATION_ORDER",
     "negative_minutes": "UI_ALERTING_RT_CODE_NEGATIVE", "quiet_hold_not_allowed": "UI_ALERTING_RT_CODE_HOLD", "escalation_must_end_with_a_person": "UI_ALERTING_RT_CODE_ESCALATION_PERSON",
 }
-_ROUTING_URL, _ONCALL_URL, _SETTINGS_URL = "/admin/alert-routing", "/ops/oncall", "/admin/alert-settings"
+_ROUTING_URL, _ONCALL_URL, _SETTINGS_URL, _CONTACTS_URL = "/admin/alert-routing", "/ops/oncall", "/admin/alert-settings", "/admin/alert-contacts"
 
 
 class ReadinessCheck(BaseModel):
@@ -251,9 +252,47 @@ async def _fire_drill(config: Any, bank_id: str, pool: Any, proof_store: Any, no
     return _item("alert_fire_drill", label, "PASS", get_message("UI_GOLIVE_ALERT_FD_OK", who=incident["acked_by"] or "", minutes=minutes, target=target), _SETTINGS_URL)
 
 
-async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None,
+def _split(raw: Any) -> list[str]:
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) and raw.strip().startswith("[") else raw
+    except ValueError:
+        parsed = raw
+    items = parsed if isinstance(parsed, list) else (str(parsed).split(",") if parsed else [])
+    return [str(x).strip() for x in items if str(x).strip()]
+
+
+async def _contacts(config: Any, bank_id: str, policy_store: Any, contact_store: Any) -> ReadinessCheck:
+    label = "UI_GOLIVE_ALERT_CT_LABEL"
+    if contact_store is None:
+        return _item("alert_contacts", label, "WARN", get_message("UI_GOLIVE_ALERT_UNAVAILABLE"), _CONTACTS_URL)
+    try:
+        addresses: list[str] = []
+        for key in ("alerts.email_recipients", "alerts.whatsapp_recipients"):
+            try:
+                addresses += _split(await config.get(key))
+            except Exception:  # noqa: BLE001
+                pass
+        policy = await policy_store.get_active(bank_id, "BANK", None)
+        if policy is not None:
+            for rule in policy.rules:
+                for target in list(rule.targets) + [t for step in rule.escalation for t in step.targets]:
+                    if target.kind == "external":
+                        addresses.append(target.ref)
+        unique = list(dict.fromkeys(a.strip().lower() if "@" in a else a.strip() for a in addresses if a.strip()))
+        missing = await contact_store.unverified(bank_id, unique) if unique else []
+    except Exception as exc:  # noqa: BLE001
+        return _unavailable("alert_contacts", label, _CONTACTS_URL, exc)
+    if not unique:
+        return _item("alert_contacts", label, "PASS", get_message("UI_GOLIVE_ALERT_CT_NONE"), _CONTACTS_URL)
+    if missing:
+        masked = ", ".join(mask_email(a) if "@" in a else mask_phone(a) for a in missing[:3]) + (" ..." if len(missing) > 3 else "")
+        return _item("alert_contacts", label, "FAIL", get_message("UI_GOLIVE_ALERT_CT_UNVERIFIED", count=len(missing), masked=masked), _CONTACTS_URL)
+    return _item("alert_contacts", label, "PASS", get_message("UI_GOLIVE_ALERT_CT_OK", count=len(unique)), _CONTACTS_URL)
+
+
+async def alerting_readiness(*, config: Any, bank_id: str, pool: Any, policy_store: Any, oncall_store: Any, proof_store: Any = None, contact_store: Any = None,
                              now: Optional[datetime] = None) -> list[ReadinessCheck]:
     """The alerting items for the Go-Live screen. `policy_store` and `oncall_store` are the same stores the routing screens use."""
     moment = now or datetime.now(timezone.utc)
     return [await _routing(config, bank_id, policy_store), await _oncall(config, bank_id, oncall_store, moment), await _email(config),
-            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _open_incidents(config, bank_id, pool, moment)]
+            await _recent_delivery(config, bank_id, pool, moment), await _audit_path(config, bank_id, proof_store, moment), await _mail_dns(config, bank_id, proof_store, moment), await _simulated(bank_id, policy_store, proof_store), await _fire_drill(config, bank_id, pool, proof_store, moment), await _contacts(config, bank_id, policy_store, contact_store), await _open_incidents(config, bank_id, pool, moment)]

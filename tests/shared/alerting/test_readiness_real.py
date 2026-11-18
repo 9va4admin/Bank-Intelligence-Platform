@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 import pytest
 
+from shared.alerting.contacts import ContactStore
 from shared.alerting.oncall import Fallback, Rota, Shift
 from shared.alerting.oncall_store import OnCallStore
 from shared.alerting.policy_store import PolicyStore
@@ -50,7 +51,7 @@ class Cfg:
 
 
 BANKS: list[str] = []
-TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs")
+TABLES = ("alert_deliveries", "alert_incidents", "alert_routing_policies", "alert_oncall_rotas", "alert_readiness_proofs", "alert_contacts")
 
 
 def _bank():
@@ -87,7 +88,8 @@ def good_policy():
 
 
 async def run(pool, bank, cfg, **kw):
-    stores = dict(policy_store=PolicyStore(pool, pii_key="readiness-key-not-a-secret"), oncall_store=OnCallStore(pool), proof_store=ProofStore(pool))
+    stores = dict(policy_store=PolicyStore(pool, pii_key="readiness-key-not-a-secret"), oncall_store=OnCallStore(pool), proof_store=ProofStore(pool),
+                  contact_store=ContactStore(pool, pii_key="readiness-contacts-key", pepper="readiness-contacts-pepper"))
     items = await alerting_readiness(config=cfg, bank_id=bank, pool=pool, **{**stores, **kw})
     return {i.check_id: i for i in items}
 
@@ -101,7 +103,7 @@ async def approve_good(pool, bank):
 @db
 async def test_every_check_is_reported_with_a_label_and_an_action(pool):
     items = await run(pool, _bank(), Cfg())
-    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill"} <= set(items)
+    assert {"alert_routing", "alert_oncall", "alert_email", "alert_recent_delivery", "alert_open_incidents", "alert_audit_path", "alert_mail_dns", "alert_simulated", "alert_fire_drill", "alert_contacts"} <= set(items)
     for i in items.values():
         assert i.label and i.status in {"PASS", "WARN", "FAIL", "SKIP"} and i.detail
 
@@ -321,3 +323,52 @@ async def test_an_old_successful_drill_is_a_warning(pool):
     bank = _bank()
     await _drill(pool, bank, started_minutes_ago=100 * 24 * 60, acked_after_minutes=3)
     assert (await run(pool, bank, Cfg()))["alert_fire_drill"].status == "WARN"
+
+
+def _contacts(pool):
+    return ContactStore(pool, pii_key="readiness-contacts-key", pepper="readiness-contacts-pepper")
+
+
+@db
+async def test_with_no_outside_address_in_use_there_is_nothing_to_verify(pool):
+    assert (await run(pool, _bank(), Cfg()))["alert_contacts"].status == "PASS"
+
+
+@db
+async def test_every_address_alerts_use_must_be_a_verified_contact(pool):
+    bank = _bank()
+    cfg = Cfg(**{"alerts.email_recipients": "duty@bank.example, boss@bank.example", "alerts.whatsapp_recipients": "+919800000001"})
+    bad = (await run(pool, bank, cfg))["alert_contacts"]
+    assert bad.status == "FAIL" and "3" in bad.detail and "duty@bank.example" not in bad.detail and bad.action_url == "/admin/alert-contacts"
+    store = _contacts(pool)
+    for kind, addr in (("email", "duty@bank.example"), ("email", "boss@bank.example"), ("phone", "+919800000001")):
+        contact, code = await store.add(bank, kind, addr, "", "admin-1")
+        if addr != "boss@bank.example":
+            await store.verify(bank, contact.contact_id, code, "admin-1")
+    partly = (await run(pool, bank, cfg))["alert_contacts"]
+    assert partly.status == "FAIL" and "1" in partly.detail and "boss@bank.example" not in partly.detail
+    only = await store.list(bank)
+    boss = next(c for c in only if c.status == "UNVERIFIED")
+    code = await store.issue_code(bank, boss.contact_id)
+    await store.verify(bank, boss.contact_id, code, "admin-1")
+    assert (await run(pool, bank, cfg))["alert_contacts"].status == "PASS"
+
+
+@db
+async def test_an_outside_address_named_in_the_approved_policy_counts_too(pool):
+    bank = _bank()
+    store = PolicyStore(pool, pii_key="readiness-key-not-a-secret")
+    policy = Policy(rules=[Rule(id="p0", severities=["P0"], hours="always", targets=[T("external", "ops@bank.example", "email"), T("role", "ops_manager", "bell")],
+                                escalation=[EscalationStep(level=1, after_minutes=10, targets=[T("role", "bank_it_admin", "email", "bell")])]),
+                           Rule(id="rest", severities=[], hours="always", targets=[T("role", "ops_manager", "bell")])])
+    rec = await store.propose(bank, "BANK", None, policy, proposed_by="maker")
+    await store.approve(bank, rec.policy_id, approved_by="checker")
+    assert (await run(pool, bank, Cfg()))["alert_contacts"].status == "FAIL"
+    contact, code = await _contacts(pool).add(bank, "email", "ops@bank.example", "", "admin-1")
+    await _contacts(pool).verify(bank, contact.contact_id, code, "admin-1")
+    assert (await run(pool, bank, Cfg()))["alert_contacts"].status == "PASS"
+
+
+@db
+async def test_without_a_contact_store_the_item_is_a_warning(pool):
+    assert (await run(pool, _bank(), Cfg(), contact_store=None))["alert_contacts"].status == "WARN"

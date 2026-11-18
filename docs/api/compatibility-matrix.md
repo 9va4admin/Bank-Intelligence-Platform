@@ -80,6 +80,15 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | PUT | `/v1/ops/oncall/rotas/{name}` | CURRENT | — | — | — | — |
 | POST | `/v1/ops/oncall/rotas/{name}/overrides` | CURRENT | — | — | — | — |
 | DELETE | `/v1/ops/oncall/rotas/{name}/overrides/{override_id}` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-contacts` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-contacts` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-contacts/{contact_id}/send-code` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-contacts/{contact_id}/verify` | CURRENT | — | — | — | — |
+| DELETE | `/v1/admin/alert-contacts/{contact_id}` | CURRENT | — | — | — | — |
+| POST | `/v1/platform/alert-proofs/audit-path` | CURRENT | — | — | — | — |
+| POST | `/v1/platform/alert-proofs/mail-dns` | CURRENT | — | — | — | — |
+| POST | `/v1/platform/alert-proofs/fire-drill` | CURRENT | — | — | — | — |
+| GET | `/v1/platform/alert-proofs` | CURRENT | — | — | — | — |
 
 ---
 
