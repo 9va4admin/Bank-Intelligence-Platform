@@ -167,3 +167,7 @@ class IncidentStore:
             "notification_count FROM platform.alert_incidents WHERE " + " AND ".join(clauses)
             + f" ORDER BY opened_at DESC, incident_id DESC LIMIT ${len(args)}", *args)
         return page_of(rows, limit, "opened_at", "incident_id")
+
+    async def set_escalation_level(self, bank_id: str, incident_id: str, level: int) -> None:
+        await self._retrying(lambda: self._pool.execute(
+            "UPDATE platform.alert_incidents SET escalation_level = GREATEST(escalation_level, $3) WHERE bank_id=$1 AND incident_id=$2", bank_id, incident_id, level))

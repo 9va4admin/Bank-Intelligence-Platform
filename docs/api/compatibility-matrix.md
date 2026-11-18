@@ -66,6 +66,20 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | POST | `/v1/inbox/read-all` | CURRENT | — | — | — | — |
 | POST | `/v1/inbox/{notification_id}/read` | CURRENT | — | — | — | — |
 | POST | `/v1/inbox/{notification_id}/acknowledge` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-routing/policies` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-routing/policies` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-routing/policies/{policy_id}/approve` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-routing/policies/{policy_id}/reject` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-routing/policies/{policy_id}` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-routing/pending` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-routing/scopes` | CURRENT | — | — | — | — |
+| POST | `/v1/admin/alert-routing/simulate` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-routing/channels` | CURRENT | — | — | — | — |
+| GET | `/v1/ops/oncall/rotas` | CURRENT | — | — | — | — |
+| GET | `/v1/ops/oncall/rotas/{name}` | CURRENT | — | — | — | — |
+| PUT | `/v1/ops/oncall/rotas/{name}` | CURRENT | — | — | — | — |
+| POST | `/v1/ops/oncall/rotas/{name}/overrides` | CURRENT | — | — | — | — |
+| DELETE | `/v1/ops/oncall/rotas/{name}/overrides/{override_id}` | CURRENT | — | — | — | — |
 
 ---
 

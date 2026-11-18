@@ -129,6 +129,7 @@ class AuditEventType(str, Enum):
     ALERT_SILENCE_CHANGED = "ALERT_SILENCE_CHANGED"
     ALERT_CONTACT_CHANGED = "ALERT_CONTACT_CHANGED"
     ALERT_TEMPLATE_CHANGED = "ALERT_TEMPLATE_CHANGED"
+    ALERT_ONCALL_CHANGED = "ALERT_ONCALL_CHANGED"             # a rota saved, an override added or removed
 
     # ── Session reports ────────────────────────────────────────────────────────
     SESSION_REPORT_GENERATED = "SESSION_REPORT_GENERATED"  # outward clearing session digest stored

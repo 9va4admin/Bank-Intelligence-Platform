@@ -29,7 +29,7 @@ from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
-from apps.api.routers import alerts, inbox, observability
+from apps.api.routers import alert_routing, alerts, inbox, observability, oncall
 from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
@@ -351,16 +351,23 @@ async def lifespan(app: FastAPI):
 
         app.state.alert_auditor = _wd_auditor          # the alerts API audits acknowledgements through the same trail
         from shared.alerting.factory import build_delivery_engine
+        from shared.alerting.factory import build_routing_service
+        _wd_routing = build_routing_service(config_service, config_service.bank_id, getattr(app.state, "db_pool_cts", None)) if getattr(app.state, "db_pool_cts", None) is not None else None
         _wd_engine = await build_delivery_engine(config_service, config_service.bank_id, db_pool=getattr(app.state, "db_pool_cts", None),
                                                  dispatcher=_wd_dispatcher, auditor=_wd_auditor)
 
         async def _wd_send(alert: DispatchAlertInput) -> None:
             recorded = await record_alert_incident(alert, db_pool=getattr(app.state, "db_pool_cts", None), alert_auditor=_wd_auditor)
+            from modules.cts.workflows.escalation_control import start_escalation, stop_escalation
+            if recorded.incident_id and recorded.created:
+                await start_escalation(getattr(app.state, "temporal_client", None), alert.bank_id, recorded.incident_id, started_at=time.time())
+            elif recorded.incident_id and recorded.resolved:
+                await stop_escalation(getattr(app.state, "temporal_client", None), alert.bank_id, recorded.incident_id, "resolved")
             if recorded.incident_id:
                 alert = alert.model_copy(update={"incident_id": recorded.incident_id})
             alert = alert.model_copy(update={"occasion": f"w{int(time.time())}"})
             await dispatch_platform_alert(alert, dispatcher=_wd_dispatcher, config_service=config_service, alert_auditor=_wd_auditor,
-                                          delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None))
+                                          delivery_engine=_wd_engine, db_pool=getattr(app.state, "db_pool_cts", None), routing_service=_wd_routing)
 
         watchdog_task = asyncio.create_task(run_watchdog(
             lambda: getattr(app.state, "temporal_client", None),
@@ -533,6 +540,8 @@ app.include_router(demo_cloud_extract.router_v1)
 app.include_router(observability.router_v1)
 app.include_router(alerts.router_v1)
 app.include_router(inbox.router_v1)
+app.include_router(alert_routing.router_v1)
+app.include_router(oncall.router_v1)
 app.include_router(branches.router_v1)
 app.include_router(processing_units.router_v1)
 app.include_router(platform_router.router_v1)

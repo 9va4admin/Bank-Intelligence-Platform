@@ -217,3 +217,16 @@ def test_an_event_nobody_can_be_found_for_is_recorded_as_undelivered_and_audited
         assert [(r["channel"], r["status"], r["error"], r["provider_class"]) for r in rows] == [("email", "UNDELIVERED", "RECIPIENT_UNRESOLVED", "unresolved")]
         assert disp.sent == [] and audit.kinds() == ["ALERT_DELIVERY_FAILED"]
     _run(go)
+
+
+def test_a_notification_queued_for_later_is_not_sent_now_and_goes_out_when_it_falls_due():
+    async def go(engine, store, bank, pool, disp, audit):
+        res = await engine.submit(bank_id=bank, incident_id="inc1", occasion="t1", targets=[Target("email", "ops@bank.example")], template_id="PLATFORM_HEALTH_ALERT",
+                                  context={"message": "m", "component": "redis"}, priority="P2", component="redis", resolve_targets=lambda c: _none(), delay_seconds=3600)
+        assert res.sent == 0 and res.queued == 1 and disp.sent == []
+        assert [(r["status"], r["attempt"]) for r in await _status(pool, bank)] == [("PENDING", 0)]
+        assert (await engine.process_due(bank, resolve_targets=lambda c: _none())).attempted == 0              # not due yet
+        await pool.execute("UPDATE platform.alert_deliveries SET next_attempt_at = NOW() - INTERVAL '1 second' WHERE bank_id=$1", bank)
+        res2 = await engine.process_due(bank, resolve_targets=lambda c: _none())
+        assert res2.sent == 1 and disp.sent == [("email", "ops@bank.example")]
+    _run(go)

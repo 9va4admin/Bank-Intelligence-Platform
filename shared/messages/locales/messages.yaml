@@ -54645,3 +54645,1809 @@ PLATFORM_NOTIFICATION_GENERIC:
   variables: []
   en: "ASTRA notification"
   hi: ""
+
+ALERT_ESCALATION_MESSAGE:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [level, summary]
+  en: "Escalation level {level}: nobody has acknowledged this yet. {summary}"
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_ROUTING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot propose changes to alert routing."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_APPROVE_ROUTING:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot approve or reject alert routing changes."
+  hi: ""
+
+ALERT_API_POLICY_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The routing policy is not acceptable. See the reasons."
+  hi: ""
+
+ALERT_API_SAME_USER:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The person who proposed a change cannot approve it. Another person must."
+  hi: ""
+
+ALERT_API_POLICY_NOT_PENDING:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "That proposal has already been decided."
+  hi: ""
+
+ALERT_API_POLICY_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That routing policy was not found."
+  hi: ""
+
+ALERT_API_POLICY_STORE_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Routing policies cannot be stored: the encryption key for this bank is not available."
+  hi: ""
+
+ALERT_API_ROLE_CANNOT_CHANGE_ONCALL:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "Your role cannot change the on-call rota."
+  hi: ""
+
+ALERT_API_ROTA_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That on-call rota was not found."
+  hi: ""
+
+ALERT_API_ROTA_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The on-call rota is not acceptable. See the reasons."
+  hi: ""
+
+ALERT_API_OVERRIDE_INVALID:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "The on-call override is not acceptable. See the reasons."
+  hi: ""
+
+ALERT_API_OVERRIDE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI]
+  variables: []
+  en: "That override was not found."
+  hi: ""
+
+API_ALERTCFG_ALERTS_EMAIL_RECIPIENTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email addresses that receive alerts (comma separated)."
+  hi: ""
+
+API_ALERTCFG_ALERTS_WHATSAPP_RECIPIENTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Phone numbers that receive critical alerts on WhatsApp (comma separated, international format)."
+  hi: ""
+
+API_ALERTCFG_ALERTS_WHATSAPP_MIN_PRIORITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Lowest alert priority also sent to WhatsApp (P0 = critical only)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_BELL_ROLES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Roles whose in-app bell rings for every alert (JSON list)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_BELL_MIN_PRIORITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Lowest alert priority that reaches the in-app bell (P3 = all)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_TIMEZONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Timezone alert times and working hours are judged in."
+  hi: ""
+
+API_ALERTCFG_ALERTING_BUSINESS_HOURS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Working hours for alert routing rules (JSON; Monday is day 0)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_HOLIDAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Holiday dates treated as off hours (JSON list of YYYY-MM-DD)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_DELIVERY_MAX_ATTEMPTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Attempts to deliver one notification before it is declared undelivered."
+  hi: ""
+
+API_ALERTCFG_ALERTING_DELIVERY_BACKOFF_SECONDS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Seconds to wait before each further delivery attempt (JSON list; the last value repeats)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_ESCALATION_MAX_REMINDERS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Most reminders sent for an incident nobody acknowledges."
+  hi: ""
+
+API_ALERTCFG_ALERTING_RETENTION_DAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Days resolved incidents and finished deliveries are kept (0 = keep for ever)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_INBOX_RETENTION_DAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Days bell notifications are kept, except unacknowledged critical ones (0 = keep for ever)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_UI_BASE_URL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The ASTRA web address used in alert emails (empty = no link)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_RUNBOOK_BASE_URL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Where runbooks are published, used in alert emails (empty = no link)."
+  hi: ""
+
+API_ALERTCFG_ALERTING_COMPONENT_TEAMS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Which team owns which component, for routing rules that match on team (JSON map)."
+  hi: ""
+
+UI_ALERTING_ALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "All"
+  hi: ""
+
+UI_ALERTING_CANCEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Cancel"
+  hi: ""
+
+UI_ALERTING_REFRESH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Refresh"
+  hi: ""
+
+UI_ALERTING_LOAD_ERROR:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This could not be loaded."
+  hi: ""
+
+UI_ALERTING_ATTEMPT:
+  severity: INFO
+  surface: [UI]
+  variables: [attempt]
+  en: "attempt {attempt}"
+  hi: ""
+
+UI_ALERTING_COL_COMPONENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Component"
+  hi: ""
+
+UI_ALERTING_COL_NOTIFIED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Notified"
+  hi: ""
+
+UI_ALERTING_COL_OPENED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Opened"
+  hi: ""
+
+UI_ALERTING_COL_SEVERITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Severity"
+  hi: ""
+
+UI_ALERTING_COL_STATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "State"
+  hi: ""
+
+UI_ALERTING_COL_SUMMARY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What happened"
+  hi: ""
+
+UI_ALERTING_FILTER_SEVERITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Severity"
+  hi: ""
+
+UI_ALERTING_FILTER_STATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "State"
+  hi: ""
+
+UI_ALERTING_DAY_0:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Mon"
+  hi: ""
+
+UI_ALERTING_DAY_1:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Tue"
+  hi: ""
+
+UI_ALERTING_DAY_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Wed"
+  hi: ""
+
+UI_ALERTING_DAY_3:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Thu"
+  hi: ""
+
+UI_ALERTING_DAY_4:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fri"
+  hi: ""
+
+UI_ALERTING_DAY_5:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sat"
+  hi: ""
+
+UI_ALERTING_DAY_6:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sun"
+  hi: ""
+
+UI_ALERTING_STATE_OPEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Open"
+  hi: ""
+
+UI_ALERTING_STATE_ACKED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Acknowledged"
+  hi: ""
+
+UI_ALERTING_STATE_RESOLVED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Resolved"
+  hi: ""
+
+UI_ALERTING_STATE_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Pending"
+  hi: ""
+
+UI_ALERTING_STATE_SENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sending"
+  hi: ""
+
+UI_ALERTING_STATE_SENT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sent"
+  hi: ""
+
+UI_ALERTING_STATE_FAILED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Failed"
+  hi: ""
+
+UI_ALERTING_STATE_UNDELIVERED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Undelivered"
+  hi: ""
+
+UI_ALERTING_STATE_SKIPPED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Skipped"
+  hi: ""
+
+UI_ALERTING_STATE_ACTIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Active"
+  hi: ""
+
+UI_ALERTING_STATE_SUPERSEDED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Superseded"
+  hi: ""
+
+UI_ALERTING_STATE_REJECTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rejected"
+  hi: ""
+
+UI_ALERTING_INC_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Incidents"
+  hi: ""
+
+UI_ALERTING_INC_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Every alert incident: who was told, how it went, who acknowledged it, and whether it escalated."
+  hi: ""
+
+UI_ALERTING_INC_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No incidents match."
+  hi: ""
+
+UI_ALERTING_INC_ESCALATION_LEVEL:
+  severity: INFO
+  surface: [UI]
+  variables: [level]
+  en: "Escalation level {level}"
+  hi: ""
+
+UI_ALERTING_INC_IMPACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Impact"
+  hi: ""
+
+UI_ALERTING_INC_TIMELINE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Timeline"
+  hi: ""
+
+UI_ALERTING_INC_TL_OPENED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Incident opened"
+  hi: ""
+
+UI_ALERTING_INC_TL_ACKED:
+  severity: INFO
+  surface: [UI]
+  variables: [who]
+  en: "Acknowledged by {who}"
+  hi: ""
+
+UI_ALERTING_INC_TL_RESOLVED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Incident resolved"
+  hi: ""
+
+UI_ALERTING_INC_TL_SENT:
+  severity: INFO
+  surface: [UI]
+  variables: [channel, to]
+  en: "Notification on {channel} to {to}"
+  hi: ""
+
+UI_ALERTING_DL_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Delivery Log"
+  hi: ""
+
+UI_ALERTING_DL_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Every notification attempt on every channel, with the recipient masked. Failed ones can be retried."
+  hi: ""
+
+UI_ALERTING_DL_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No deliveries match."
+  hi: ""
+
+UI_ALERTING_DL_FILTER_CHANNEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Channel"
+  hi: ""
+
+UI_ALERTING_DL_FILTER_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Status"
+  hi: ""
+
+UI_ALERTING_DL_RETRY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Retry now"
+  hi: ""
+
+UI_ALERTING_DL_RETRY_QUEUED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Queued to retry."
+  hi: ""
+
+UI_ALERTING_DL_STATUS_QUEUED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Queued"
+  hi: ""
+
+UI_ALERTING_DL_STATUS_RETRYING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Will retry"
+  hi: ""
+
+UI_ALERTING_DL_COL_ATTEMPTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Attempts"
+  hi: ""
+
+UI_ALERTING_DL_COL_CHANNEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Channel"
+  hi: ""
+
+UI_ALERTING_DL_COL_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Status"
+  hi: ""
+
+UI_ALERTING_DL_COL_TO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "To"
+  hi: ""
+
+UI_ALERTING_DL_COL_WHAT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Message"
+  hi: ""
+
+UI_ALERTING_DL_COL_WHEN:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "When"
+  hi: ""
+
+UI_ALERTING_OC_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "On-Call"
+  hi: ""
+
+UI_ALERTING_OC_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who is on call now, the rotas, swaps and cover, and any time nobody is covered."
+  hi: ""
+
+UI_ALERTING_OC_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No on-call rotas yet."
+  hi: ""
+
+UI_ALERTING_OC_NEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "New rota"
+  hi: ""
+
+UI_ALERTING_OC_NEW_NAME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rota name"
+  hi: ""
+
+UI_ALERTING_OC_NOBODY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nobody"
+  hi: ""
+
+UI_ALERTING_OC_NOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "On call now"
+  hi: ""
+
+UI_ALERTING_OC_SRC_SHIFT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "From the shift"
+  hi: ""
+
+UI_ALERTING_OC_SRC_OVERRIDE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "From an override"
+  hi: ""
+
+UI_ALERTING_OC_SRC_FALLBACK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "From the fallback"
+  hi: ""
+
+UI_ALERTING_OC_SRC_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nobody is covering"
+  hi: ""
+
+UI_ALERTING_OC_GAPS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nobody is on call during these periods:"
+  hi: ""
+
+UI_ALERTING_OC_NO_GAPS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Covered for the whole look-ahead period."
+  hi: ""
+
+UI_ALERTING_OC_SHIFTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Shifts"
+  hi: ""
+
+UI_ALERTING_OC_FALLBACK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fallback"
+  hi: ""
+
+UI_ALERTING_OC_EDIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Edit rota"
+  hi: ""
+
+UI_ALERTING_OC_SAVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save rota"
+  hi: ""
+
+UI_ALERTING_OC_ADD_SHIFT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add shift"
+  hi: ""
+
+UI_ALERTING_OC_REMOVE_SHIFT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove shift"
+  hi: ""
+
+UI_ALERTING_OC_START:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Start"
+  hi: ""
+
+UI_ALERTING_OC_END:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "End"
+  hi: ""
+
+UI_ALERTING_OC_PEOPLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "People (comma separated)"
+  hi: ""
+
+UI_ALERTING_OC_ROTATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rotation"
+  hi: ""
+
+UI_ALERTING_OC_ROT_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Everyone together"
+  hi: ""
+
+UI_ALERTING_OC_ROT_WEEKLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "One person a week"
+  hi: ""
+
+UI_ALERTING_OC_ROT_DAILY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "One person a day"
+  hi: ""
+
+UI_ALERTING_OC_HOLIDAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Holidays"
+  hi: ""
+
+UI_ALERTING_OC_HOL_INCLUDE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Works on holidays"
+  hi: ""
+
+UI_ALERTING_OC_HOL_EXCLUDE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not on holidays"
+  hi: ""
+
+UI_ALERTING_OC_HOL_ONLY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only on holidays"
+  hi: ""
+
+UI_ALERTING_OC_FALLBACK_PEOPLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Fallback people (comma separated)"
+  hi: ""
+
+UI_ALERTING_OC_OVERRIDES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Swaps and cover"
+  hi: ""
+
+UI_ALERTING_OC_NO_OVERRIDES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No swaps or cover in the coming days."
+  hi: ""
+
+UI_ALERTING_OC_PERSON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Person"
+  hi: ""
+
+UI_ALERTING_OC_FROM:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "From"
+  hi: ""
+
+UI_ALERTING_OC_UNTIL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Until"
+  hi: ""
+
+UI_ALERTING_OC_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reason"
+  hi: ""
+
+UI_ALERTING_OC_ADD_OVERRIDE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add override"
+  hi: ""
+
+UI_ALERTING_OC_REMOVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove"
+  hi: ""
+
+UI_ALERTING_OC_CODE_BAD_TIME:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A shift needs a valid start and end time."
+  hi: ""
+
+UI_ALERTING_OC_CODE_BAD_DAY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A shift needs at least one valid day."
+  hi: ""
+
+UI_ALERTING_OC_CODE_NEEDS_PEOPLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Every shift needs at least one person."
+  hi: ""
+
+UI_ALERTING_OC_CODE_ROTATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "That rotation is not known."
+  hi: ""
+
+UI_ALERTING_OC_CODE_HOLIDAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "That holiday setting is not known."
+  hi: ""
+
+UI_ALERTING_OC_CODE_NO_ONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The rota has no shifts and no fallback."
+  hi: ""
+
+UI_ALERTING_OC_CODE_ENDS_BEFORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The override must end after it starts."
+  hi: ""
+
+UI_ALERTING_OC_CODE_UNKNOWN_ROTA:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Save the rota before adding an override."
+  hi: ""
+
+UI_ALERTING_RT_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alert Routing"
+  hi: ""
+
+UI_ALERTING_RT_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who is told about an alert, on which channels, and when it escalates. Changes need a second person's approval."
+  hi: ""
+
+UI_ALERTING_RT_LEVEL_BANK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Bank"
+  hi: ""
+
+UI_ALERTING_RT_LEVEL_PU:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Processing unit"
+  hi: ""
+
+UI_ALERTING_RT_LEVEL_SMB:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sub-member bank"
+  hi: ""
+
+UI_ALERTING_RT_PU_ID_FULL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Processing unit ID"
+  hi: ""
+
+UI_ALERTING_RT_SMB_ID_FULL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Sub-member bank ID"
+  hi: ""
+
+UI_ALERTING_RT_LOAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Load"
+  hi: ""
+
+UI_ALERTING_RT_NO_POLICY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This bank has no routing policy of its own. The default built from the alert settings is in force."
+  hi: ""
+
+UI_ALERTING_RT_NO_SCOPE_POLICY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No policy has been approved for this scope yet. The bank's policy applies."
+  hi: ""
+
+UI_ALERTING_RT_NO_RULES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No rules."
+  hi: ""
+
+UI_ALERTING_RT_VERSION:
+  severity: INFO
+  surface: [UI]
+  variables: [version]
+  en: "Version {version}"
+  hi: ""
+
+UI_ALERTING_RT_APPROVED_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [when, who]
+  en: "Approved by {who} on {when}"
+  hi: ""
+
+UI_ALERTING_RT_PROPOSE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Propose a change"
+  hi: ""
+
+UI_ALERTING_RT_SUBMITTED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Your proposal was submitted. A different person must approve it before it takes effect."
+  hi: ""
+
+UI_ALERTING_RT_ANY_SEVERITY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Any severity"
+  hi: ""
+
+UI_ALERTING_RT_COMPONENTS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Components"
+  hi: ""
+
+UI_ALERTING_RT_TEAMS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Teams"
+  hi: ""
+
+UI_ALERTING_RT_QUIET_HOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Hold low-priority alerts until working hours"
+  hi: ""
+
+UI_ALERTING_RT_REPEAT:
+  severity: INFO
+  surface: [UI]
+  variables: [minutes]
+  en: "Repeats every {minutes} min"
+  hi: ""
+
+UI_ALERTING_RT_AFTER:
+  severity: INFO
+  surface: [UI]
+  variables: [minutes]
+  en: "After {minutes} min"
+  hi: ""
+
+UI_ALERTING_RT_NOW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Now"
+  hi: ""
+
+UI_ALERTING_RT_HOURS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Hours"
+  hi: ""
+
+UI_ALERTING_RT_HOURS_ALWAYS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Always"
+  hi: ""
+
+UI_ALERTING_RT_HOURS_BUSINESS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Working hours only"
+  hi: ""
+
+UI_ALERTING_RT_HOURS_OFF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Outside working hours only"
+  hi: ""
+
+UI_ALERTING_RT_KIND:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Kind"
+  hi: ""
+
+UI_ALERTING_RT_KIND_ROLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Role"
+  hi: ""
+
+UI_ALERTING_RT_KIND_USER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "User"
+  hi: ""
+
+UI_ALERTING_RT_KIND_EXTERNAL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Address or phone"
+  hi: ""
+
+UI_ALERTING_RT_KIND_ONCALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "On-call rota"
+  hi: ""
+
+UI_ALERTING_RT_KIND_GROUP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Group"
+  hi: ""
+
+UI_ALERTING_RT_REF:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who"
+  hi: ""
+
+UI_ALERTING_RT_REMOVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove"
+  hi: ""
+
+UI_ALERTING_RT_ADD_TARGET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add person"
+  hi: ""
+
+UI_ALERTING_RT_ADD_RULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add rule"
+  hi: ""
+
+UI_ALERTING_RT_REMOVE_RULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove rule"
+  hi: ""
+
+UI_ALERTING_RT_ADD_STEP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Add escalation step"
+  hi: ""
+
+UI_ALERTING_RT_REMOVE_STEP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Remove step"
+  hi: ""
+
+UI_ALERTING_RT_STEP_AFTER:
+  severity: INFO
+  surface: [UI]
+  variables: [level]
+  en: "Escalation {level}: after (minutes)"
+  hi: ""
+
+UI_ALERTING_RT_RULE_ID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rule name"
+  hi: ""
+
+UI_ALERTING_RT_SEVERITIES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Severities"
+  hi: ""
+
+UI_ALERTING_RT_COMPONENTS_CSV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Components (comma separated)"
+  hi: ""
+
+UI_ALERTING_RT_TEAMS_CSV:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Teams (comma separated)"
+  hi: ""
+
+UI_ALERTING_RT_REPEAT_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Repeat every (minutes)"
+  hi: ""
+
+UI_ALERTING_RT_TOLD_FIRST:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Told first"
+  hi: ""
+
+UI_ALERTING_RT_NOTE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Note for the approver"
+  hi: ""
+
+UI_ALERTING_RT_SUBMIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submit proposal"
+  hi: ""
+
+UI_ALERTING_RT_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Waiting for approval"
+  hi: ""
+
+UI_ALERTING_RT_NO_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Nothing is waiting for approval."
+  hi: ""
+
+UI_ALERTING_RT_PENDING_LINE:
+  severity: INFO
+  surface: [UI]
+  variables: [level, scope, version, when, who]
+  en: "{level} {scope} version {version}, proposed by {who} on {when}"
+  hi: ""
+
+UI_ALERTING_RT_PROPOSED_BY:
+  severity: INFO
+  surface: [UI]
+  variables: [who]
+  en: "Proposed by {who}"
+  hi: ""
+
+UI_ALERTING_RT_READ:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Read"
+  hi: ""
+
+UI_ALERTING_RT_APPROVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Approve"
+  hi: ""
+
+UI_ALERTING_RT_REJECT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Reject"
+  hi: ""
+
+UI_ALERTING_RT_HISTORY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "History"
+  hi: ""
+
+UI_ALERTING_RT_NO_HISTORY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No earlier versions."
+  hi: ""
+
+UI_ALERTING_RT_SIM_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Who would be told?"
+  hi: ""
+
+UI_ALERTING_RT_SIMULATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Simulate"
+  hi: ""
+
+UI_ALERTING_RT_PU_ID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "PU"
+  hi: ""
+
+UI_ALERTING_RT_SMB_ID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "SMB"
+  hi: ""
+
+UI_ALERTING_RT_AT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "At (optional)"
+  hi: ""
+
+UI_ALERTING_RT_MATCHED:
+  severity: INFO
+  surface: [UI]
+  variables: [level, rule]
+  en: "Rule {rule} ({level})"
+  hi: ""
+
+UI_ALERTING_RT_USED_DEFAULT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Using the default policy."
+  hi: ""
+
+UI_ALERTING_RT_HELD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Held until working hours."
+  hi: ""
+
+UI_ALERTING_RT_WARN_NO_RULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No rule matches this incident, so the original alert settings would be used."
+  hi: ""
+
+UI_ALERTING_RT_WARN_NO_BANK_RULE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The bank policy has no rule for this incident."
+  hi: ""
+
+UI_ALERTING_RT_WARN_STORE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Routing policies could not be read; the default is shown."
+  hi: ""
+
+UI_ALERTING_RT_WARN_ONCALL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The on-call rota could not be read."
+  hi: ""
+
+UI_ALERTING_RT_WARN_UNFILLED:
+  severity: INFO
+  surface: [UI]
+  variables: [rota]
+  en: "Nobody is on call for the rota \"{rota}\"."
+  hi: ""
+
+UI_ALERTING_RT_CODE_P0_NOT_COVERED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No rule covers critical (P0) alerts."
+  hi: ""
+
+UI_ALERTING_RT_CODE_P0_TARGET:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The rule for critical (P0) alerts names nobody."
+  hi: ""
+
+UI_ALERTING_RT_CODE_P0_CHANNELS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A critical (P0) rule must reach people on at least two channels."
+  hi: ""
+
+UI_ALERTING_RT_CODE_DUPLICATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Two rules have the same name."
+  hi: ""
+
+UI_ALERTING_RT_CODE_CHANNEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A channel is not known."
+  hi: ""
+
+UI_ALERTING_RT_CODE_ESCALATION_ORDER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Escalation steps must come later and later."
+  hi: ""
+
+UI_ALERTING_RT_CODE_NEGATIVE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Times cannot be negative."
+  hi: ""
+
+UI_ALERTING_RT_CODE_HOLD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Only warning and information alerts can be held for working hours."
+  hi: ""
+
+UI_ALERTING_RT_CODE_ESCALATION_PERSON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "A critical rule's escalation must end with a person, not only a group."
+  hi: ""
+
+UI_ALERTING_RT_CODE_SCOPE_REQUIRED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Name the processing unit or sub-member bank this policy is for."
+  hi: ""
+
+UI_ALERTING_RT_CODE_SCOPE_MISMATCH:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The policy names a different scope from the one selected."
+  hi: ""
+
+UI_ALERTING_RT_CODE_LEVEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "That level is not known."
+  hi: ""
+
+UI_ALERTING_ST_TITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alert Settings"
+  hi: ""
+
+UI_ALERTING_ST_SUBTITLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What can carry an alert, and the alert settings your bank controls. Changes need a second person's approval."
+  hi: ""
+
+UI_ALERTING_ST_EMAIL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email"
+  hi: ""
+
+UI_ALERTING_ST_WHATSAPP:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "WhatsApp"
+  hi: ""
+
+UI_ALERTING_ST_BELL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "In-app bell"
+  hi: ""
+
+UI_ALERTING_ST_CONFIGURED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Configured"
+  hi: ""
+
+UI_ALERTING_ST_NOT_CONFIGURED:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Not configured"
+  hi: ""
+
+UI_ALERTING_ST_EMAIL_HOWTO:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email is not set up. Ask your IT administrator to set the mail server in the deployment settings."
+  hi: ""
+
+UI_ALERTING_ST_RECIPIENTS:
+  severity: INFO
+  surface: [UI]
+  variables: [count]
+  en: "{count} recipients"
+  hi: ""
+
+UI_ALERTING_ST_PUBLIC_PROVIDER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alert email is going through a public mail provider. That is acceptable for a pilot only; set up the bank's own mail server before go-live."
+  hi: ""
+
+UI_ALERTING_ST_SETTINGS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Settings"
+  hi: ""
+
+UI_ALERTING_ST_EMPTY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No alert settings are available."
+  hi: ""
+
+UI_ALERTING_ST_COL_SETTING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Setting"
+  hi: ""
+
+UI_ALERTING_ST_COL_MEANING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What it does"
+  hi: ""
+
+UI_ALERTING_ST_COL_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Value"
+  hi: ""
+
+UI_ALERTING_ST_EMPTY_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "(empty)"
+  hi: ""
+
+UI_ALERTING_ST_CHANGE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Change"
+  hi: ""
+
+UI_ALERTING_ST_NEW_VALUE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "New value"
+  hi: ""
+
+UI_ALERTING_ST_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: [min]
+  en: "Reason (at least {min} characters)"
+  hi: ""
+
+UI_ALERTING_ST_SUBMIT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Submit for approval"
+  hi: ""
+
+UI_ALERTING_ST_REASON_SHORT:
+  severity: INFO
+  surface: [UI]
+  variables: [min]
+  en: "Give a reason of at least {min} characters."
+  hi: ""
+
+UI_ALERTING_ST_SUBMITTED:
+  severity: INFO
+  surface: [UI]
+  variables: [key]
+  en: "Change to {key} was submitted for approval."
+  hi: ""
+
+UI_ALERTING_ST_NO_PENDING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No changes are waiting for approval."
+  hi: ""
+
+UI_ALERTING_ST_TO:
+  severity: INFO
+  surface: [UI]
+  variables: [value]
+  en: "to {value}"
+  hi: ""
+
+UI_ALERTING_ST_REJECT_REASON:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rejected from the Alert Settings screen"
+  hi: ""
+
+UI_GOLIVE_ALERT_ROUTING_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alert routing covers critical alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_ROUTING_OK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "The routing policy tells people on at least two channels about a critical alert and escalates to a person."
+  hi: ""
+
+UI_GOLIVE_ALERT_ROUTING_OWN:
+  severity: INFO
+  surface: [UI]
+  variables: [problems]
+  en: "Not ready. {problems} Propose and approve a routing policy for the bank."
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "On-call rota covers every hour"
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No on-call rota is set up. Alerts will reach the people named in the routing policy only."
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [days, rotas]
+  en: "Someone is on call at every hour of the next {days} days ({rotas} rota(s) checked)."
+  hi: ""
+
+UI_GOLIVE_ALERT_ONCALL_GAPS:
+  severity: INFO
+  surface: [UI]
+  variables: [gaps, days, rota]
+  en: "Nobody is on call for {gaps} stretch(es) in the next {days} days, in rota {rota}."
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email is set up for alerts"
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_NONE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Email is not set up. The mail server is set in the deployment settings."
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_PUBLIC:
+  severity: INFO
+  surface: [UI]
+  variables: [host]
+  en: "Alerts go through a public mail provider ({host}). This is for the pilot only. Set the bank's own mail relay before go-live."
+  hi: ""
+
+UI_GOLIVE_ALERT_EMAIL_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [host]
+  en: "Alerts are sent through {host}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DELIVERY_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Alerts were delivered recently on each channel"
+  hi: ""
+
+UI_GOLIVE_ALERT_DELIVERY_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [days, channels]
+  en: "Delivered in the last {days} days on: {channels}."
+  hi: ""
+
+UI_GOLIVE_ALERT_DELIVERY_MISSING:
+  severity: INFO
+  surface: [UI]
+  variables: [days, channels]
+  en: "Nothing was delivered in the last {days} days on: {channels}. Send a test alert on each."
+  hi: ""
+
+UI_GOLIVE_ALERT_OPEN_LABEL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "No incident has been open too long"
+  hi: ""
+
+UI_GOLIVE_ALERT_OPEN_OK:
+  severity: INFO
+  surface: [UI]
+  variables: [hours]
+  en: "No incident has been open longer than {hours} hours."
+  hi: ""
+
+UI_GOLIVE_ALERT_OPEN_STALE:
+  severity: INFO
+  surface: [UI]
+  variables: [count, hours]
+  en: "{count} incident(s) have been open longer than {hours} hours."
+  hi: ""
+
+UI_GOLIVE_ALERT_UNAVAILABLE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "This could not be checked right now."
+  hi: ""

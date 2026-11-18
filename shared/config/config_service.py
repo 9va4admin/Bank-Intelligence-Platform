@@ -202,6 +202,13 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.runbook_base_url": "",                        # where runbooks are published (empty: no runbook link)
     "alerting.runbook_map": '{"COMPONENT_DOWN": "component-down", "COMPONENT_REMINDER": "component-down"}',   # alert type -> runbook page (JSON)
     "alerting.timezone": "Asia/Kolkata",                    # timezone alert times are shown in (UTC is always shown too)
+    "alerting.business_hours": '{"days": [0, 1, 2, 3, 4], "start": "09:30", "end": "18:00"}',   # working hours for routing rules (Monday = 0; bank timezone)
+    "alerting.holidays": "[]",                              # holiday dates, JSON list of ISO dates (YYYY-MM-DD), treated as off hours
+    "alerting.oncall_gap_days": 7,                          # how far ahead the on-call coverage check looks (days)
+    "alerting.oncall_gap_step_minutes": 30,                 # resolution of the coverage check (minutes)
+    "alerting.oncall_override_days": 14,                    # how far ahead overrides are listed (days)
+    "alerting.component_teams": "{}",                      # component -> owning team (JSON map), for routing rules that match on team
+    "alerting.public_mail_hosts": '["smtp.gmail.com", "smtp.office365.com", "smtp-mail.outlook.com", "smtp.mail.yahoo.com", "smtp.sendgrid.net"]',   # mail hosts treated as a public provider (shown as a pilot-only notice)
     "alerting.message_max_chars": 500,                      # longest alert message kept in a mail
     "alerting.subject_max_chars": 100,                      # longest summary placed in the subject line
     "alerting.bell_roles": '["ops_manager", "bank_it_admin"]',   # roles whose in-app bell rings for every alert (JSON list)
@@ -211,7 +218,9 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.retention_days": 730,                         # resolved incidents and finished deliveries are kept this long in the database (0 = keep)
     "alerting.history_retention_days": 730,                 # component state history is kept this long (0 = keep)
     "alerting.inbox_retention_days": 90,                    # bell notifications are kept this long, except unacknowledged critical ones (0 = keep)
-    "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
+    "alerting.prune_batch_size": 5000,                      # most rows of each kind removed in one pruning run
+    "alerting.readiness_test_send_days": 7,                 # a delivery must have succeeded on each channel within this many days for the Go-Live check to pass
+    "alerting.readiness_open_incident_hours": 24,           # an incident open longer than this raises a Go-Live warning
     "platform_health.extra_probes": "",               # JSON list of extra probes (component, kind, target, critical, slow_ms)
     "alerts.email_recipients": "",                    # who gets platform alerts: JSON list or comma-separated; empty = no mail is sent
     # ── Vault / feedback ────────────────────────────────────────────────────────

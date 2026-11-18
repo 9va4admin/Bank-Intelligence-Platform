@@ -68,6 +68,11 @@ import OpsDashboard from './modules/observability/pages/OpsDashboard'
 import ModelHealth from './modules/observability/pages/ModelHealth'
 import CTSOCRFeedback from './modules/observability/pages/CTSOCRFeedback'
 import AlertLog from './modules/observability/pages/AlertLog'
+import Incidents from './modules/alerting/pages/Incidents'
+import DeliveryLog from './modules/alerting/pages/DeliveryLog'
+import OnCall from './modules/alerting/pages/OnCall'
+import AlertRouting from './modules/alerting/pages/AlertRouting'
+import AlertSettings from './modules/alerting/pages/AlertSettings'
 import SystemHealth from './modules/observability/pages/SystemHealth'
 import UserManagement from './modules/admin/pages/UserManagement'
 import ScannerSetupGuide from './modules/admin/pages/ScannerSetupGuide'
@@ -178,6 +183,13 @@ export default function App() {
         {/* ASTRA Ops Dashboard — ops_manager + bank_it_admin (analytics) */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />
+        <Route path="/ops/incidents"                element={<Incidents />} />
+        <Route path="/ops/incidents/:incidentId"    element={<Incidents />} />
+        <Route path="/ops/delivery-log"             element={<DeliveryLog />} />
+        <Route path="/ops/oncall"                   element={<OnCall />} />
+        <Route path="/ops/oncall/:name"             element={<OnCall />} />
+        <Route path="/admin/alert-routing"          element={<AlertRouting />} />
+        <Route path="/admin/alert-settings"         element={<AlertSettings />} />
         <Route path="/ops/system"       element={<SystemHealth />} />
         {/* AI model pages — ops_manager + bank_it_admin + ml_engineer only */}
         <Route element={<RequirePermission permission="ai:model_metrics" />}>

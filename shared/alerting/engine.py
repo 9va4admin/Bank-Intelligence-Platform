@@ -47,6 +47,7 @@ class DeliveryPolicy(BaseModel):
 
 class SubmitResult(BaseModel):
     model_config = ConfigDict(frozen=True)
+    queued: int = 0               # accepted for later (a delayed submission); not tried yet
     sent: int = 0
     retrying: int = 0
     undelivered: int = 0
@@ -129,14 +130,18 @@ class DeliveryEngine:
         self._store, self._dispatcher, self._auditor, self._policy = store, dispatcher, auditor, policy
 
     async def submit(self, *, bank_id: str, incident_id: str, occasion: str, targets: list[Target], template_id: str, context: dict[str, Any],
-                     priority: str, component: str, resolve_targets: ResolveTargets, level: int = 0) -> SubmitResult:
-        """Queue every target, then try each one now. Identical calls (an activity retry) queue nothing new."""
-        out = {"sent": 0, "retrying": 0, "undelivered": 0, "skipped": 0}
+                     priority: str, component: str, resolve_targets: ResolveTargets, level: int = 0, delay_seconds: float = 0.0) -> SubmitResult:
+        """Queue every target, then try each one now (or leave it queued until `delay_seconds` have passed). Identical calls (an activity retry) queue nothing new."""
+        out = {"sent": 0, "retrying": 0, "undelivered": 0, "skipped": 0, "queued": 0}
         for target in targets:
             queued = await self._store.enqueue(bank_id=bank_id, incident_id=incident_id, occasion=occasion, level=level, channel=target.channel,
-                                               recipient=target.recipient, template_id=template_id, payload=context, priority=priority)
+                                               recipient=target.recipient, template_id=template_id, payload=context, priority=priority,
+                                               delay_seconds=delay_seconds)
             if not queued.created:
                 out["skipped"] += 1
+                continue
+            if delay_seconds > 0:
+                out["queued"] += 1
                 continue
             row = await self._store.claim(bank_id, queued.delivery_id, lease_seconds=self._policy.lease_seconds)
             if row is None:

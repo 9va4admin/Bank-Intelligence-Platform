@@ -178,6 +178,9 @@ const SIDEBAR_MODULES = [
           { to: '/ops/ocr-feedback',   label: uiMsg('UI_OCRFEEDBACK_OCR_FEEDBACK'),   perm: 'ai:model_metrics' },
           { to: '/ops/alerts',       label: uiMsg('UI_COMMON_ALERT_LOG'),     perm: 'cts:view_analytics' },
           { to: '/ops/system',       label: uiMsg('UI_COMMON_SYSTEM_HEALTH'), perm: 'cts:view_analytics' },
+          { to: '/ops/incidents',    label: uiMsg('UI_ALERTING_INC_TITLE'),   perm: 'cts:view_analytics' },
+          { to: '/ops/delivery-log', label: uiMsg('UI_ALERTING_DL_TITLE'),    perm: 'cts:view_analytics' },
+          { to: '/ops/oncall',       label: uiMsg('UI_ALERTING_OC_TITLE'),    perm: 'cts:view_analytics' },
         ],
       },
     ],
@@ -207,6 +210,8 @@ const SIDEBAR_MODULES = [
           { to: '/admin/allocation',            label: uiMsg('UI_APPSHELL_ALLOCATION_PANEL'),  perm: 'config:layer3:submit' },
           { to: '/admin/config/buckets',        label: uiMsg('UI_APPSHELL_BUCKET_CONFIG'),     perm: 'config:layer3:submit' },
           { to: '/admin/security-violations',    label: uiMsg('UI_APPSHELL_SECURITY_ALERTS'),  perm: 'admin:console', sbOnly: true },
+          { to: '/admin/alert-routing',         label: uiMsg('UI_ALERTING_RT_TITLE'),       perm: 'config:layer3:submit' },
+          { to: '/admin/alert-settings',        label: uiMsg('UI_ALERTING_ST_TITLE'),       perm: 'config:layer3:submit' },
           { to: '/admin/smoke-test',            label: uiMsg('UI_APPSHELL_GO_LIVE_TEST'),   perm: 'config:layer2:change' },
         ],
       },
@@ -288,6 +293,11 @@ const ROUTE_LABELS = {
   '/ops/model-health':            [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_APPSHELL_AI_MODEL_HEALTH_7_DAY')],
   '/ops/alerts':                  [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_APPSHELL_ALERT_LOG_CRITICAL_ERROR_24H')],
   '/ops/system':                  [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_APPSHELL_SYSTEM_HEALTH_INFRASTRUCTURE_CONNECT')],
+  '/ops/incidents':               [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_INC_TITLE')],
+  '/ops/delivery-log':            [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_DL_TITLE')],
+  '/ops/oncall':                  [uiMsg('UI_APPSHELL_PLATFORM_OPS'), uiMsg('UI_ALERTING_OC_TITLE')],
+  '/admin/alert-routing':         [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_RT_TITLE')],
+  '/admin/alert-settings':        [uiMsg('UI_APPSHELL_ADMIN_2'), uiMsg('UI_ALERTING_ST_TITLE')],
 }
 
 // Mirrors NavLink's `end` prop: when end=true, only exact match is active.

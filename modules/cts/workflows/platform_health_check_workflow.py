@@ -32,8 +32,11 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.workflow import ParentClosePolicy
 from temporalio.exceptions import ActivityError, CancelledError
 
+from modules.cts.workflows.alert_escalation_workflow import AlertEscalationInput, AlertEscalationWorkflow
+from modules.cts.workflows.escalation_control import escalation_workflow_id
 from modules.cts.health.state_machine import ComponentState, Event, human_duration
 from modules.cts.workflows.activities.platform_health_activities import (
     CheckHRInput,
@@ -66,6 +69,7 @@ _HEALTH_CHECK_INTERVAL_S = 60  # structural constant — not bank-configurable
 _PATCH_INCIDENTS = "alerting-incidents-v1"
 _PATCH_OUTBOX = "alerting-outbox-v1"
 _PATCH_RETENTION = "alerting-retention-v1"
+_PATCH_ESCALATION = "alerting-escalation-v1"
 _ACTIVITY_TIMEOUT = timedelta(seconds=30)
 # The default policy retries forever, so one broken check would hold the whole tick (and the infrastructure probes with it). Two attempts, then
 # the tick moves on and the failure is logged.
@@ -150,6 +154,21 @@ class PlatformHealthCheckWorkflow:
         self._last_sent[alert.event_type] = now
         await self._notify(alert)
 
+    async def _manage_escalation(self, *, inp_bank_id: str, recorded) -> None:
+        """A new incident gets its escalation workflow; a resolved one has its escalation stopped. Neither may ever hold up an alert."""
+        if not recorded.incident_id:
+            return
+        escalation_id = escalation_workflow_id(inp_bank_id, recorded.incident_id)
+        try:
+            if recorded.created:
+                await workflow.start_child_workflow(AlertEscalationWorkflow.run, AlertEscalationInput(bank_id=inp_bank_id, incident_id=recorded.incident_id,
+                                                                                                    started_at=workflow.now().timestamp()),
+                                                    id=escalation_id, parent_close_policy=ParentClosePolicy.ABANDON)
+            elif recorded.resolved:
+                await workflow.get_external_workflow_handle(escalation_id).signal(AlertEscalationWorkflow.stop, "resolved")
+        except Exception:  # noqa: BLE001  - the escalation also ends by itself when the database says the incident is closed
+            pass
+
     async def _notify(self, alert: DispatchAlertInput) -> None:
         """Open, update or resolve the incident this alert belongs to, then send it carrying the incident id. An incident store that is down
         or slow must never keep an alert from going out, so a failed record only means the alert has no incident id."""
@@ -160,6 +179,8 @@ class PlatformHealthCheckWorkflow:
                 recorded = await workflow.execute_activity(record_alert_incident, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)
                 if recorded.incident_id:
                     alert = alert.model_copy(update={"incident_id": recorded.incident_id})
+                if workflow.patched(_PATCH_ESCALATION):
+                    await self._manage_escalation(inp_bank_id=alert.bank_id, recorded=recorded)
             except ActivityError:
                 pass
         await workflow.execute_activity(dispatch_platform_alert, alert, start_to_close_timeout=_ACTIVITY_TIMEOUT, retry_policy=_CHECK_RETRY)

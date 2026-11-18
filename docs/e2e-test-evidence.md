@@ -1395,3 +1395,21 @@ Closed from the Phase 1a open list, each test-first:
 - **Found in the live worker run**: a monitor started before the upgrade kept failing on the new workflow code (non-determinism). Fixed with patch markers and proved by replaying a real recorded history (`tests/modules/cts/workflows/test_monitor_replay.py`); the worker now asks a running monitor to roll over so it adopts upgraded code.
 
 **NOT covered:** the complete "stop a service, alert, restore, recovery email" run through the live worker was interrupted (slow machine); its parts are covered separately (real alert mails and bell rows from the live worker, the mail-server-killed drill, the monitor replay). The bell in a browser (login needs an authenticator enrolment). Real Gmail and WhatsApp delivery (need the owner's credentials / the bank's approval). Role-based email (needs per-user contacts, planned with the routing screens).
+
+## 2026-11-18 - Alerting Phase 1b: routing policies, on-call, escalation, screens, Go-Live readiness
+
+Built step by step, each test-first (steps 2 to 6 plus the screens and readiness):
+- **Routing policies** (versioned, maker-checker, encrypted body, one active per scope) and **on-call rotas** (shifts, rotation, holidays, swaps and cover, gap detection): tested on the real dev YugabyteDB, with audit events.
+- **Escalation workflow**: one per open incident, stopped on acknowledge or resolve; run on a real Temporal server. The monitor was upgraded with patch markers and proved by replaying a real recorded history.
+- **The first notification uses the routing** (stored policies, on-call, schedules; held low-priority alerts wait for the next working morning; the original flat settings stay as the safety net): tested end to end on the real database.
+- **Routing and on-call APIs**: real ASGI on real YugabyteDB, including the "who would be told" simulator with masked addresses.
+- **Screens** (Incidents, Delivery Log, On-Call, Alert Routing, Alert Settings): 588 web tests pass, including the page smoke test and the no-literal-wording guard. **Seen in the browser pane** against the real API and database with seeded incidents, a rota and a pending policy: the incident list, the rota detail, the pending proposal opened with Read, the simulator naming the rule and the real people, the empty delivery log, the settings table. Demo data was deleted afterwards.
+- **Go-Live alerting readiness** (`shared/alerting/readiness.py`, on the existing `/v1/platform/readiness`): routing covers critical alerts, on-call coverage, email set up (public provider = pilot warning), a recent delivery on each channel, no stale incidents. 11 tests on the real database; the real endpoint was called from the signed-in browser session and returned the five items.
+- **Found on the way**: the dev setup had no policy encryption key (so proposing a policy would have failed; a local key was added to the git-ignored env file); several existing Go-Live checks already report "Check failed" (vault checks, MICR prefixes, ops reviewers), unrelated to this work.
+
+**NOT covered:**
+- Approve and reject were not clicked in the browser (the approval step was left to a person); they are covered by mocked-response web tests and real-ASGI API tests.
+- The Go-Live screen was not seen with real data: the web app runs in DEMO mode (`VITE_DEMO_MODE=true`) and shows canned items. The real API response was checked directly.
+- Readiness items not built: verified contacts, audit-path sentinel, fire drill, SPF/DKIM/DMARC, saved simulator runs, regulatory windows, risk register, stale silences (several need features that do not exist yet).
+- Real Gmail inbox and real WhatsApp delivery, as before. Hindi translations are still empty.
+- The dev authenticator secrets are kept in memory, so restarting the API forces a new enrolment.

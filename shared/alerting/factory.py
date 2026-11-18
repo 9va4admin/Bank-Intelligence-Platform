@@ -69,3 +69,23 @@ async def build_delivery_engine(config_service: Any, bank_id: str, *, db_pool: A
         return None
     policy = await load_policy(config_service)
     return DeliveryEngine(DeliveryStore(db_pool, pii_key=key, pepper=pepper), dispatcher, auditor, policy)
+
+
+def build_routing_service(config_service: Any, bank_id: str, db_pool: Any) -> Any:
+    """The routing service over the stored policies and rotas. The policy body is encrypted with the bank's PII key (a secret); if that key is not available
+    the service still routes, using the default policy."""
+    from shared.alerting.oncall_store import OnCallStore
+    from shared.alerting.policy_store import PolicyStore
+    from shared.alerting.routing_service import RoutingService
+
+    class _LazyPolicies:
+        """Reads the encryption key on first use (it is a secret, fetched asynchronously)."""
+        def __init__(self) -> None:
+            self._store = None
+
+        async def effective(self, bank: str, facts: Any) -> dict:
+            if self._store is None:
+                key = await config_service.get_secret(f"banks.{bank_id}.pii_enc_key")
+                self._store = PolicyStore(db_pool, pii_key=key)
+            return await self._store.effective(bank, facts)
+    return RoutingService(config_service=config_service, bank_id=bank_id, policy_store=_LazyPolicies(), oncall_store=OnCallStore(db_pool))
