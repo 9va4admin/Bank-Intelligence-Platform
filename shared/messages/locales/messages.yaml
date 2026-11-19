@@ -56771,14 +56771,14 @@ UI_GOLIVE_ALERT_FD_WAITING:
   severity: INFO
   surface: [UI]
   variables: [ago, target]
-  en: "Drill started {ago} minutes ago and is waiting for someone to acknowledge it (target {target} minutes)."
+  en: "Drill started {ago} minute(s) ago and is waiting for someone to acknowledge it (target {target} minutes)."
   hi: ""
 
 UI_GOLIVE_ALERT_FD_OK:
   severity: INFO
   surface: [UI]
   variables: [who, minutes, target]
-  en: "Acknowledged by {who} after {minutes} minutes (target {target})."
+  en: "Acknowledged by {who} after {minutes} minute(s) (target {target})."
   hi: ""
 
 UI_GOLIVE_ALERT_FD_LATE:

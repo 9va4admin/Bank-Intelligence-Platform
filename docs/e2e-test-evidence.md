@@ -1456,3 +1456,24 @@ Built test-first on the real dev YugabyteDB:
 - The audit proof, mail domain check and fire drill were not run from the browser: they need an IT admin sign-in, and the fire drill needs a real delivery path.
 - Post-incident reviews, the action tracker and automatic effectiveness checks from the blueprint (section 18) are not built.
 - Per-component-class simulator rule (one run per severity is checked instead).
+
+## 2026-11-20 - Alerting Phase 1e: post-incident reviews and actions; admin browser check
+
+Built test-first on the real dev YugabyteDB:
+- **Post-incident reviews** (`platform.alert_reviews`): a review falls due when a P0 or P1 incident is resolved (one per incident; lower severities get none); due dates come from bank settings by severity and overdue is worked out when read; submit with root cause, narrative, contributing factors, detection gap, impact and an optional linked risk. 6 store tests and 2 tests of the hook in the incident path (a failure creating the review never breaks the alert path).
+- **Mitigation actions** (`platform.alert_actions`): owner, due date, evidence required to finish, a DIFFERENT person verifies (or sends it back with a reason), "will not be done" needs a reason; overdue and an effectiveness hint (too early / looks effective / the same failure came back) are computed from recurrence when read; nothing is closed or reopened by the system. Audit events without the free text.
+- API (`/v1/ops/alert-reviews/...`) and the "Post-incident reviews" screen (Ops menu). 4 API tests; 264 alerting and shared web tests pass.
+
+**Seen in the browser pane, signed in as the IT admin** (real API, real database, real Immudb; all demo data removed afterwards):
+- Alert Contacts: added a contact (shown masked and "Not verified"); the screen said the code could not be sent, which is true (no mail server in dev). It no longer returns 503 now that the dev secret is set.
+- Audit proof, run from the Alert Settings screen: passed against the real Immudb; the Go-Live item shows it as proved.
+- Mail domain check: refused in words because there is no sending address yet (as designed).
+- Fire drill: started from the screen; the drill alert reached the admin's bell as a P0 and the pinned alerts; acknowledged from the incident page; the Go-Live item went to PASS ("Acknowledged by the admin after 1 minute, target 15"). Starting a second drill closed the first one automatically.
+- Reviews screen: loads, shows its empty state, API answers 200.
+- Also seen: the API's dead-monitor watchdog raised real P0 reminders for "health_monitor" because no worker was running; they reached the bell as designed.
+
+**NOT covered:**
+- A review was not seen created from a real resolved incident in the browser (no incident resolved through the monitor path during the check); the hook is covered by real-database tests.
+- Verification codes were not received anywhere (dev has no mail server or WhatsApp); a contact was not verified on screen.
+- The mail domain check was not run against a real domain.
+- Automatic reminders for overdue reviews and actions (through the routing) and the quarterly risk report export are not built.
