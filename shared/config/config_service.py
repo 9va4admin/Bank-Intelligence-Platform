@@ -227,6 +227,10 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.contact_code_ttl_minutes": 15,                # a contact verification code stops working after this many minutes
     "alerting.silence_max_hours": 24,                       # the longest a single silence may last
     "alerting.risk_review_days": 90,                         # days until a risk in the register is due for review
+    "alerting.pir_due_days_p0": 3,                           # days after a critical incident resolves that its post-incident review is due
+    "alerting.pir_due_days_p1": 7,                           # the same for a major incident
+    "alerting.effectiveness_days": 30,                       # quiet days after an action is done before the system suggests it worked
+    "alerting.review_min_narrative_chars": 20,               # shortest narrative accepted for a post-incident review
     "alerting.regulatory_windows": "[]",                    # regulatory reporting windows (JSON list of name, authority, hours, reference), entered by the compliance officer
     "alerting.regulatory_windows_pending": False,           # true while the windows are still to be entered (keeps an amber Go-Live item)
     "alerting.silence_allow_p0": False,                     # whether critical (P0) alerts may be silenced
