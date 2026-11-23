@@ -19,7 +19,7 @@ export function mockApi(routes) {
     let out = key === undefined ? {} : routes[key]
     if (typeof out === 'function') out = out()
     if (out && out.__status) return { ok: out.__status < 400, status: out.__status, json: async () => out.body ?? {} }
-    return { ok: true, status: 200, json: async () => out }
+    return { ok: true, status: 200, json: async () => out, blob: async () => new Blob([typeof out === 'string' ? out : JSON.stringify(out)]), headers: { get: () => null } }
   })
   return calls
 }

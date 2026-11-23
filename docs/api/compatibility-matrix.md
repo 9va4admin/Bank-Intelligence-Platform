@@ -94,6 +94,7 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | POST | `/v1/admin/alert-risks/{risk_id}/declare-mitigated` | CURRENT | — | — | — | — |
 | POST | `/v1/admin/alert-risks/{risk_id}/verify` | CURRENT | — | — | — | — |
 | POST | `/v1/admin/alert-risks/{risk_id}/reopen` | CURRENT | — | — | — | — |
+| GET | `/v1/admin/alert-risks/export` | CURRENT | — | — | — | — |
 | GET | `/v1/ops/alert-reviews/reviews` | CURRENT | — | — | — | — |
 | POST | `/v1/ops/alert-reviews/reviews/{review_id}/submit` | CURRENT | — | — | — | — |
 | POST | `/v1/ops/alert-reviews/reviews/{review_id}/actions` | CURRENT | — | — | — | — |
