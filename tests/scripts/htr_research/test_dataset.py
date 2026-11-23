@@ -90,3 +90,55 @@ def test_validating_a_folder_without_labels_or_without_a_train_and_test_split_is
     root = make_root(tmp_path, labels={"train": [(1, 0)]})                           # no test split
     with pytest.raises(LabelError):
         validate(root)
+
+
+# ---------------------------------------------------------------- the layout where each row is `<path> <word>` and folders are per writer (the Hindi set)
+
+from htr_research.dataset import TextLabelDataset, validate_text_layout  # noqa: E402
+
+
+def make_text_root(tmp_path, rows=None):
+    rows = rows or {"train": [("HindiSeg/train/8/1/1.jpg", "नमक"), ("HindiSeg/train/8/1/2.jpg", "राजू"), ("HindiSeg/train/10/2/1.jpg", "नमक")],
+                    "val": [("HindiSeg/val/9/1/1.jpg", "राजू")], "test": [("HindiSeg/test/11/1/1.jpg", "नमक"), ("HindiSeg/test/12/1/1.jpg", "पंडित")]}
+    for split, items in rows.items():
+        for rel, _ in items:
+            p = tmp_path / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("L", (50, 20), 255).save(p)
+        (tmp_path / f"{split}.txt").write_text("".join(f"{rel} {word}\n" for rel, word in items), encoding="utf-8")
+    return tmp_path
+
+
+def test_a_text_label_dataset_reads_the_word_after_the_first_space_and_knows_the_writer_of_each_image(tmp_path):
+    root = make_text_root(tmp_path)
+    ds = TextLabelDataset(root, "train")
+    assert len(ds) == 3 and ds.samples[1].text == "राजू" and ds.samples[1].path == root / "HindiSeg/train/8/1/2.jpg"
+    assert ds.writers == {"8", "10"}
+    assert TextLabelDataset(root, "test").writers == {"11", "12"}
+    with pytest.raises(LabelError):
+        TextLabelDataset(root, "nope")
+
+
+def test_a_text_label_row_with_no_word_is_an_error(tmp_path):
+    (tmp_path / "train.txt").write_text("HindiSeg/train/8/1/1.jpg\n", encoding="utf-8")
+    with pytest.raises(LabelError):
+        TextLabelDataset(tmp_path, "train")
+
+
+def test_validating_the_text_layout_reports_writers_overlap_and_unseen_words(tmp_path):
+    root = make_text_root(tmp_path)
+    report = validate_text_layout(root, expected_counts={"train": 3, "val": 1, "test": 2})
+    assert report.counts == {"train": 3, "val": 1, "test": 2} and report.counts_match is True and report.ok is True
+    assert report.writers == {"train": 2, "val": 1, "test": 2}
+    assert report.writer_overlap == {"train&val": 0, "train&test": 0, "val&test": 0}
+    assert report.test_unseen_word_share == pytest.approx(0.5)                        # "पंडित" never appears in train
+    assert report.charset_size == len(set("नमकराजूपंडित"))
+
+
+def test_the_text_layout_flags_a_writer_who_appears_in_two_splits_and_missing_images(tmp_path):
+    rows = {"train": [("HindiSeg/train/8/1/1.jpg", "नमक")], "val": [("HindiSeg/val/8/1/1.jpg", "नमक")], "test": [("HindiSeg/test/9/1/1.jpg", "नमक")]}
+    root = make_text_root(tmp_path, rows)
+    assert validate_text_layout(root).writer_overlap["train&val"] == 1
+    (root / "HindiSeg/test/9/1/1.jpg").unlink()
+    broken = validate_text_layout(root)
+    assert broken.ok is False and broken.missing["test"] == ["HindiSeg/test/9/1/1.jpg"]

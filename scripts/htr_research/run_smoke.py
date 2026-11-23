@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from htr_research.dataset import LabelError, WordDataset, build_charset, validate  # noqa: E402
+from htr_research.dataset import LabelError, TextLabelDataset, WordDataset, build_charset, validate, validate_text_layout  # noqa: E402
 from htr_research.train import evaluate, train  # noqa: E402
 
 NOTE = "pipeline check on a subset and a short schedule; not a reproduction of the published results"
@@ -29,6 +29,7 @@ def parse_counts(text):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", required=True)
+    ap.add_argument("--layout", choices=["ids", "text"], default="ids", help="ids: rows `path, vocab id` (Kannada and the other 7 scripts); text: rows `path word`, folders per writer (Hindi)")
     ap.add_argument("--expected-counts", default=None)
     ap.add_argument("--train-samples", type=int, required=True)
     ap.add_argument("--val-samples", type=int, required=True)
@@ -44,20 +45,30 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     try:
-        report = validate(a.root, expected_counts=parse_counts(a.expected_counts))
-        train_ds, val_ds = WordDataset(a.root, "train"), WordDataset(a.root, "val")
+        if a.layout == "text":
+            report = validate_text_layout(a.root, expected_counts=parse_counts(a.expected_counts))
+            train_ds, val_ds = TextLabelDataset(a.root, "train"), TextLabelDataset(a.root, "val")
+        else:
+            report = validate(a.root, expected_counts=parse_counts(a.expected_counts))
+            train_ds, val_ds = WordDataset(a.root, "train"), WordDataset(a.root, "val")
     except (LabelError, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    print(f"counts {report.counts}; vocabulary {report.vocab_size} words; charset {report.charset_size} characters; missing images "
-          f"{ {k: len(v) for k, v in report.missing.items()} }; test images with a word not seen in training {report.test_unseen_word_share:.1%}", flush=True)
+    extra = ""
+    if a.layout == "text":
+        extra = f"; writers per split {report.writers}, writers shared between splits {report.writer_overlap}"
+    print(f"counts {report.counts}; charset {report.charset_size} characters; missing images {{ {', '.join(f'{k}: {len(v)}' for k, v in report.missing.items())} }}; "
+          f"test images with a word not seen in training {report.test_unseen_word_share:.1%}{extra}", flush=True)
     if report.counts_match is False:
         print(f"error: the counts {report.counts} do not match what was expected {a.expected_counts}", file=sys.stderr)
+        return 2
+    if a.layout == "text" and any(report.writer_overlap.values()):
+        print(f"error: a writer appears in more than one split ({report.writer_overlap}); the test would not measure unseen writers", file=sys.stderr)
         return 2
     if not report.ok:
         print("error: the data is not ok (missing images or empty labels)", file=sys.stderr)
         return 2
-    charset = build_charset(train_ds.vocab)
+    charset = build_charset([x.text for x in train_ds.samples] + [x.text for x in val_ds.samples] if a.layout == "text" else train_ds.vocab)
     rng = random.Random(a.seed)
     train_samples = rng.sample(train_ds.samples, min(a.train_samples, len(train_ds)))
     val_samples = rng.sample(val_ds.samples, min(a.val_samples, len(val_ds)))
@@ -66,8 +77,9 @@ def main() -> int:
     scores = evaluate(result.model, val_samples, charset, height=a.height, max_width=a.max_width, batch_size=a.batch_size, device=a.device)
     print(f"validation on {scores['n']} images: character error {scores['cer']:.3f}, word error {scores['wer']:.3f}; {result.images_per_second:.1f} images/s training", flush=True)
     payload = {"note": NOTE, "config": {k: getattr(a, k) for k in ("train_samples", "val_samples", "steps", "batch_size", "lr", "seed", "height", "max_width", "workers", "device")},
-               "validation": {"ok": report.ok, "counts": report.counts, "vocab_size": report.vocab_size, "charset_size": report.charset_size,
-                              "test_unseen_word_share": report.test_unseen_word_share, "missing": {k: len(v) for k, v in report.missing.items()}},
+               "validation": {"ok": report.ok, "counts": report.counts, "charset_size": report.charset_size, "test_unseen_word_share": report.test_unseen_word_share,
+                              "missing": {k: len(v) for k, v in report.missing.items()},
+                              **({"writers": report.writers, "writer_overlap": report.writer_overlap} if a.layout == "text" else {"vocab_size": report.vocab_size})},
                "train": {"losses": result.losses, "seconds": result.seconds, "images_per_second": result.images_per_second}, "val": scores}
     Path(a.out).write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0

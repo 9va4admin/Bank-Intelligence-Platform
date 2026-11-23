@@ -114,3 +114,65 @@ def validate(root: Path | str, *, expected_counts: Optional[dict] = None, missin
     unseen = sum(1 for x in test if x.word_id not in train_ids) / len(test) if test else 0.0
     return ValidationReport(counts=counts, counts_match=None if expected_counts is None else counts == expected_counts, missing=missing, vocab_size=len(vocab),
                             charset_size=len(set("".join(vocab))), test_unseen_word_share=unseen, empty_labels=sum(1 for w in vocab if not w))
+
+
+# -------------------------------------------------------------------------- the layout where each row is `<path> <word>` and the folders are per writer (the Hindi set)
+
+class TextLabelDataset:
+    """Rows of `<split>/<writer>/<page>/<n>.jpg <word>`: the word follows the first space, and the third path part is the writer."""
+
+    def __init__(self, root: Path | str, split: str) -> None:
+        self.root = Path(root)
+        label_file = self.root / f"{split}.txt"
+        if split not in SPLITS or not label_file.exists():
+            raise LabelError(f"no labels for the split {split!r} in {self.root}")
+        self.samples: list[Sample] = []
+        self.writers: set[str] = set()
+        for line in label_file.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rel, _, word = line.strip().partition(" ")
+            if not rel or not word.strip():
+                raise LabelError(f"not a label row: {line!r}")
+            parts = rel.replace("\\", "/").split("/")
+            if len(parts) >= 3:
+                self.writers.add(parts[2])
+            self.samples.append(Sample(self.root / rel, word.strip(), -1))
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+
+@dataclass(frozen=True)
+class TextValidationReport:
+    counts: dict
+    counts_match: Optional[bool]
+    missing: dict
+    writers: dict                        # number of distinct writers per split
+    writer_overlap: dict                 # writers that appear in two splits: 0 everywhere means the test measures unseen writers
+    charset_size: int
+    test_unseen_word_share: float
+    empty_labels: int
+
+    @property
+    def ok(self) -> bool:
+        return not any(self.missing.values()) and self.counts_match is not False and self.empty_labels == 0
+
+
+def validate_text_layout(root: Path | str, *, expected_counts: Optional[dict] = None, missing_limit: int = 10) -> TextValidationReport:
+    """The same checks as `validate`, for the text-label layout, plus the writers per split and any writer shared between splits."""
+    root = Path(root)
+    datasets = {s: TextLabelDataset(root, s) for s in SPLITS if (root / f"{s}.txt").exists()}
+    if "train" not in datasets or "test" not in datasets:
+        raise LabelError(f"{root} needs at least train.txt and test.txt to be checked")
+    counts = {s: len(d) for s, d in datasets.items()}
+    missing = {s: [str(x.path.relative_to(root)).replace("\\", "/") for x in d.samples if not x.path.exists()][:missing_limit] for s, d in datasets.items()}
+    writers = {s: d.writers for s, d in datasets.items()}
+    overlap = {f"{a}&{b}": len(writers[a] & writers[b]) for a, b in (("train", "val"), ("train", "test"), ("val", "test")) if a in writers and b in writers}
+    train_words = {x.text for x in datasets["train"].samples}
+    test = datasets["test"].samples
+    unseen = sum(1 for x in test if x.text not in train_words) / len(test) if test else 0.0
+    all_words = {x.text for d in datasets.values() for x in d.samples}
+    return TextValidationReport(counts=counts, counts_match=None if expected_counts is None else counts == expected_counts, missing=missing,
+                                writers={s: len(w) for s, w in writers.items()}, writer_overlap=overlap, charset_size=len(set("".join(all_words))),
+                                test_unseen_word_share=unseen, empty_labels=0)

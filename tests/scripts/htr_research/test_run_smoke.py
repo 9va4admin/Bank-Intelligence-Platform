@@ -60,3 +60,47 @@ def test_it_stops_with_a_message_when_the_folder_is_not_a_dataset(tmp_path):
     done = run("--root", str(tmp_path / "nothing"), "--train-samples", "8", "--val-samples", "4", "--steps", "5", "--batch-size", "4", "--lr", "0.002", "--seed", "1", "--height", "32",
                "--max-width", "160", "--workers", "0", "--out", str(tmp_path / "r.json"))
     assert done.returncode == 2 and done.stderr.strip()
+
+
+def make_text_dataset(root, n_train=24, n_val=8, n_test=8):
+    font = ImageFont.load_default(size=26)
+    words = [f"{a}{b}" for a in "0123" for b in "0123"]
+    for split, n, writers in (("train", n_train, (1, 2, 3)), ("val", n_val, (4,)), ("test", n_test, (5, 6))):
+        rows = []
+        for k in range(1, n + 1):
+            w = writers[k % len(writers)]
+            rel = f"HindiSeg/{split}/{w}/1/{k}.jpg"
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            word = words[(k * 5) % len(words)]
+            img = Image.new("L", (80, 40), 255)
+            ImageDraw.Draw(img).text((8, 4), word, fill=0, font=font)
+            img.save(root / rel)
+            rows.append(f"{rel} {word}")
+        (root / f"{split}.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def test_the_text_layout_with_writer_folders_is_validated_and_reports_the_writers(tmp_path):
+    root = tmp_path / "hi"
+    root.mkdir()
+    make_text_dataset(root)
+    out = tmp_path / "report.json"
+    done = run("--layout", "text", "--root", str(root), "--expected-counts", "train=24,val=8,test=8", "--train-samples", "24", "--val-samples", "8", "--steps", "10", "--batch-size", "8",
+               "--lr", "0.002", "--seed", "1", "--height", "32", "--max-width", "160", "--workers", "0", "--out", str(out))
+    assert done.returncode == 0, done.stdout + done.stderr
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert report["validation"]["ok"] is True and report["validation"]["writers"] == {"train": 3, "val": 1, "test": 2}
+    assert report["validation"]["writer_overlap"] == {"train&val": 0, "train&test": 0, "val&test": 0}
+    assert report["val"]["n"] == 8 and "writers" in done.stdout
+
+
+def test_the_text_layout_run_stops_when_a_writer_appears_in_two_splits(tmp_path):
+    root = tmp_path / "hi"
+    root.mkdir()
+    make_text_dataset(root)
+    leak = root / "HindiSeg/val/1/1/99.jpg"                                            # writer 1 is a training writer
+    leak.parent.mkdir(parents=True)
+    Image.new("L", (80, 40), 255).save(leak)
+    (root / "val.txt").write_text((root / "val.txt").read_text(encoding="utf-8") + "HindiSeg/val/1/1/99.jpg 00\n", encoding="utf-8")
+    done = run("--layout", "text", "--root", str(root), "--train-samples", "8", "--val-samples", "4", "--steps", "5", "--batch-size", "4", "--lr", "0.002", "--seed", "1", "--height", "32",
+               "--max-width", "160", "--workers", "0", "--out", str(tmp_path / "r.json"))
+    assert done.returncode == 2 and "writer" in done.stderr.lower()
