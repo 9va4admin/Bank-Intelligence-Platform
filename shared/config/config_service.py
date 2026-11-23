@@ -230,6 +230,8 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "alerting.pir_due_days_p0": 3,                           # days after a critical incident resolves that its post-incident review is due
     "alerting.pir_due_days_p1": 7,                           # the same for a major incident
     "alerting.effectiveness_days": 30,                       # quiet days after an action is done before the system suggests it worked
+    "alerting.review_reminder_hours": 24,                    # an overdue review or action is reminded at most once in this many hours
+    "alerting.review_sweep_seconds": 900,                    # how often the API looks for overdue reviews and actions (0 = never)
     "alerting.review_min_narrative_chars": 20,               # shortest narrative accepted for a post-incident review
     "alerting.regulatory_windows": "[]",                    # regulatory reporting windows (JSON list of name, authority, hours, reference), entered by the compliance officer
     "alerting.regulatory_windows_pending": False,           # true while the windows are still to be entered (keeps an amber Go-Live item)

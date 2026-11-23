@@ -58201,3 +58201,17 @@ UI_ALERTING_RV_SAVE:
   variables: []
   en: "Save"
   hi: ""
+
+ALERT_REVIEW_OVERDUE_MESSAGE:
+  severity: WARN
+  surface: [UI]
+  variables: [reviews, actions]
+  en: "{reviews} post-incident review(s) and {actions} action(s) are overdue. Open Post-incident reviews to see them."
+  hi: ""
+
+ALERT_REVIEW_CAUGHT_UP_MESSAGE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "No post-incident reviews or actions are overdue any more."
+  hi: ""
