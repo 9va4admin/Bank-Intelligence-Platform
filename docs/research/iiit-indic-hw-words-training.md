@@ -10,11 +10,20 @@ Sources read for this brief (primary): the [dataset page](https://cvit.iiit.ac.i
 | Size, Kannada | **73,517 train, 13,752 validation, 15,730 test** word images; average word length 9 characters; 83 distinct characters; lexicon about 11,766 words; about 103K instances in total. The Kannada zip is **5.19 GB**. |
 | How it was made | Writers wrote a chosen vocabulary in a coded grid on A4 paper; pages were **scanned at 600 dpi** on a flatbed scanner; word images and labels were cut out automatically; about 4% (wrongly cut, printed text, QR codes, box borders) were removed. Average image about 288 x 1120 pixels. Almost no other pre-processing. |
 | Writers | 135 writers aged 18 to 70 across the 8 scripts. **Per script the 2024 paper lists about 8 to 27 writers; Kannada has 11.** |
-| Split | About 70% / 15% / 15% of the **instances**. The papers state 9 to 12% of test labels are out-of-vocabulary. **I found no statement that writers are held out of the training set.** |
+| Split | About 70% / 15% / 15% of the **instances**. **I found no statement that writers are held out of the training set, and the files confirm no writer can be identified** (see section 1a). |
 | File format | Zip per script with train, val and test image folders; label files `train.txt`, `val.txt`, `test.txt` with rows `<FileName>, <VocabId>`; `vocab.txt` maps each id (line number from 0) to the Unicode string. |
 | Licence | **Not stated** on the page, the README or the paper (they say it is "available publicly"). Must be confirmed with the authors before any use inside a bank product. The page asks users to cite the paper. |
 
 Code that works with it: [sanny26/indic-htr](https://github.com/sanny26/indic-htr) (MIT; the 2021 baseline: spatial transformer + CNN + BLSTM + CTC), [LalithaEvani/Indic-HTR-CVIP-2024](https://github.com/LalithaEvani/Indic-HTR-CVIP-2024) (Apache-2.0; a fork of the PARSeq code; says trained models and code are public), [iitb-research-code/indic-trocr](https://github.com/iitb-research-code/indic-trocr) (Apache-2.0; TrOCR for Indic words; needs a language-specific text decoder).
+
+## 1a. Verified directly from the Kannada files (2026-11-23)
+
+Read from the dataset server with HTTP range requests (3 MB of the 5.19 GB), no download of the images:
+- The Kannada zip contains `train.zip`, `val.zip`, `test.zip` (nested), `train.txt`, `val.txt`, `test.txt` and `vocab.txt`. **No licence or README file is inside the zip.**
+- Label files have 73,517 / 13,752 / 15,730 rows: exactly the published counts. Rows look like `train/1.jpg, 5172` (image, word id).
+- **Image names are plain running numbers (`1.jpg`, `2.jpg` ...): no writer identifier.** A writer-disjoint split cannot be rebuilt from the data; the only way to measure unseen writers is on the bank's own cheques.
+- The vocabulary has **11,767 distinct words**. **41.4% of the test images (6,516 of 15,730) show a word that never appears in the training set**, and the same number appear in neither training nor validation. So the test set does check unseen words, which is encouraging: it softens the "closed vocabulary" worry in section 3, point 4. The earlier line "9 to 12% out-of-vocabulary" refers to distinct test labels in the paper's wording, not to the share of test images.
+- Writers cannot be checked, so the "few writers" worry (Kannada: 11) stands.
 
 ## 2. What published models achieve on it (verified from the papers)
 
@@ -36,7 +45,7 @@ Training the 2024 model, per its repository: **4 GPUs, about 160,000 iterations,
 1. **Isolated words on clean forms** versus **fields on cheques**: payee names are several words, amounts in words are phrases, and the field sits on a printed form with ruled lines, stamps, and different pens.
 2. **600 dpi flatbed scans** versus cheque captures at about 96 to 200 dpi. ASTRA's own test showed resolution is not the main bottleneck, but real capture quality is far below this data.
 3. **Few writers** (Kannada: 11). Handwriting from many unseen people is the real task. With no stated writer hold-out, the 1% character error rate may be writer-dependent.
-4. **A small closed vocabulary** (about 12K Kannada words). Models can lean on it; 9 to 12% out-of-vocabulary in the test labels is the only check. Payee names are open vocabulary.
+4. **A small vocabulary** (about 12K Kannada words), but 41.4% of the Kannada test images carry words absent from training (verified, section 1a), so unseen words are tested. Payee names are open vocabulary and still differ from this list.
 5. **No cheque content**: no amounts in words, no dates, no signatures, no personal names as written on a cheque.
 
 So a model trained on this set is a **starting point for a handwriting reader**, not evidence that cheque handwriting is solved. The only number that counts is the model's error on real cheque crops.
