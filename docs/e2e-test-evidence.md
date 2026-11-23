@@ -1477,3 +1477,14 @@ Built test-first on the real dev YugabyteDB:
 - Verification codes were not received anywhere (dev has no mail server or WhatsApp); a contact was not verified on screen.
 - The mail domain check was not run against a real domain.
 - Automatic reminders for overdue reviews and actions (through the routing) and the quarterly risk report export are not built.
+
+## 2026-11-23 - Alerting Phase 1f: overdue reminders and the risk report export
+
+Built test-first on the real dev YugabyteDB:
+- **Reminders for overdue reviews and actions**: a sweep (`modules/cts/health/review_reminders.py`) claims overdue items that were not reminded within `alerting.review_reminder_hours`, sends ONE alert through the real alert path (an incident for the component "alert-reviews": routed, delivered and escalated like any other; the message names counts only), and sends one recovery notice when nothing is overdue any more. A failed send undoes the claim so the next sweep retries. 5 real-database tests (once per interval, reviews and actions together, nothing overdue sends nothing, recovery once, failing send retried). Additive migration `20261123_review_reminders` (one column on each table). The API runs the sweep on `alerting.review_sweep_seconds` (default 900; 0 = off) and stops it on shutdown (guard test).
+- **Risk register export**: `GET /v1/admin/alert-risks/export` returns a CSV (headers in words from the message registry; free text made safe so a spreadsheet does not run it as a formula; readable by the same roles as the register); a "Download report" button on the Risk Register. 2 API tests, 1 web test; 265 alerting and shared web tests pass.
+
+**NOT covered:**
+- The sweep has not been run inside the live API process: it fires every 15 minutes by default and nothing overdue exists in the dev database. The sweep logic, the real incident table and the wiring (guard test) are covered; the delivery of a reminder to a real inbox is not (no mail server in dev).
+- The download button was not used in the browser; the endpoint and the button are covered by tests.
+- Reminders go through the routing like any P2 alert; whether the overdue reminder should instead go to the review's owner is a design choice not made here.

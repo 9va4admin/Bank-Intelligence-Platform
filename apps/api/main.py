@@ -330,6 +330,31 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("api_gateway.outward_sweep_failed_to_start", error=str(exc))
 
+    # Overdue post-incident reviews and actions are reminded through the same alert path the watchdog uses (one alert, rate-limited, with a recovery notice).
+    review_sweep_task = None
+    try:
+        from modules.cts.health.review_reminders import sweep_overdue_reviews
+
+        async def _review_sweep_loop() -> None:
+            while True:
+                try:
+                    interval = int(await config_service.get("alerting.review_sweep_seconds"))
+                except Exception:  # noqa: BLE001
+                    interval = 900
+                await asyncio.sleep(interval if interval > 0 else 3600)
+                send = getattr(app.state, "send_platform_alert", None)
+                pool = getattr(app.state, "db_pool_cts", None)
+                if interval <= 0 or send is None or pool is None:
+                    continue
+                try:
+                    await sweep_overdue_reviews(pool, config_service.bank_id, config_service, send)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("api_gateway.review_sweep_failed", error_type=type(exc).__name__)
+
+        review_sweep_task = asyncio.create_task(_review_sweep_loop())
+    except Exception as exc:  # noqa: BLE001
+        log.warning("api_gateway.review_sweep_failed_to_start", error=str(exc))
+
     # The health monitor runs in the worker; if the worker dies nobody mails about it, so the API watches the monitor and mails when it stops.
     watchdog_task = None
     try:
@@ -438,6 +463,13 @@ async def lifespan(app: FastAPI):
         watchdog_task.cancel()
         try:
             await asyncio.wait_for(watchdog_task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
+
+    if review_sweep_task:
+        review_sweep_task.cancel()
+        try:
+            await asyncio.wait_for(review_sweep_task, timeout=5.0)
         except (asyncio.CancelledError, asyncio.TimeoutError):
             pass
 

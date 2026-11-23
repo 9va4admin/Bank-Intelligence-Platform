@@ -3,11 +3,13 @@ Alert risk register API: the risks to alerting itself. All routes under /v1/admi
 Read: ops_manager, bank_it_admin, compliance_officer, rbi_examiner. Change (seed, owner, mitigation, declare, verify, reopen): ops_manager, bank_it_admin, compliance_officer.
 Only a person declares a risk mitigated and a DIFFERENT person verifies it; the system never closes a risk by itself.
 """
+import csv
+import io
 from datetime import date
 from typing import Any, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.dependencies import require_user_context
@@ -85,6 +87,28 @@ def _view(risk: Risk) -> dict[str, Any]:
 async def list_risks(request: Request, user: dict = Depends(require_read)) -> RisksResponse:
     store = await _store(request)
     return RisksResponse(risks=[_view(r) for r in await store.list(user["bank_id"])], summary=await store.summary(user["bank_id"]))
+
+
+_EXPORT_COLUMNS = ("ALERT_RISK_EXPORT_COL_RISK", "ALERT_RISK_EXPORT_COL_CATEGORY", "ALERT_RISK_EXPORT_COL_RATING", "ALERT_RISK_EXPORT_COL_LIKELIHOOD", "ALERT_RISK_EXPORT_COL_IMPACT",
+                   "ALERT_RISK_EXPORT_COL_OWNER", "ALERT_RISK_EXPORT_COL_STATUS", "ALERT_RISK_EXPORT_COL_REVIEW", "ALERT_RISK_EXPORT_COL_MITIGATION", "ALERT_RISK_EXPORT_COL_VERIFIED_BY")
+
+
+def _safe_cell(value: Any) -> str:
+    """Free text a person typed must not run as a formula when the file is opened in a spreadsheet."""
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+@router_v1.get("/export")
+async def export_risks(request: Request, user: dict = Depends(require_read)) -> Response:
+    """The register as a CSV file, for the periodic risk report."""
+    risks = await (await _store(request)).list(user["bank_id"])
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([get_message(k) for k in _EXPORT_COLUMNS])
+    for r in risks:
+        writer.writerow([_safe_cell(x) for x in (r.title, r.category, r.rating, r.likelihood, r.impact, r.owner, r.status, r.next_review_on, r.mitigation, r.verified_by)])
+    return Response(content=buffer.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="alert-risk-register-{date.today().isoformat()}.csv"'})
 
 
 @router_v1.post("/seed", response_model=SeededResponse)

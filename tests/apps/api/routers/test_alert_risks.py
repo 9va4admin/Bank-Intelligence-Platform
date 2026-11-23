@@ -116,3 +116,33 @@ def test_roles_a_reviewer_cannot_read_and_an_unrelated_role_cannot_change():
     async def fn2(client, bank, pool, events, who):
         assert (await client.get("/v1/admin/alert-risks")).status_code == 403
     _scenario(fn2, role="ops_reviewer")
+
+
+def test_the_register_can_be_exported_as_a_csv_with_headers_in_words_and_free_text_made_safe_for_spreadsheets():
+    import csv
+    import io
+
+    async def fn(client, bank, pool, events, who):
+        await client.post("/v1/admin/alert-risks/seed")
+        rid = (await client.get("/v1/admin/alert-risks")).json()["risks"][0]["risk_id"]
+        await client.patch(f"/v1/admin/alert-risks/{rid}", json={"owner": "=HYPERLINK(\"http://x\")", "mitigation": "+cmd|calc"})
+        r = await client.get("/v1/admin/alert-risks/export")
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+        assert "attachment" in r.headers["content-disposition"] and "alert-risk-register-" in r.headers["content-disposition"]
+        rows = list(csv.reader(io.StringIO(r.text)))
+        assert len(rows) == len(RISK_TEMPLATE) + 1 and rows[0][0] == "Risk" and "Owner" in rows[0] and "Rating" in rows[0]
+        owner_col, mit_col = rows[0].index("Owner"), rows[0].index("What was done")
+        first = rows[1]
+        assert first[owner_col].startswith("'=") and first[mit_col].startswith("'+")               # a spreadsheet would otherwise run these as formulas
+        assert all(row[owner_col] == "" or row[owner_col].startswith("'=") for row in rows[1:])
+    _scenario(fn)
+
+
+def test_an_examiner_may_export_and_a_reviewer_may_not():
+    async def fn(client, bank, pool, events, who):
+        assert (await client.get("/v1/admin/alert-risks/export")).status_code == 200
+    _scenario(fn, role="rbi_examiner")
+
+    async def fn2(client, bank, pool, events, who):
+        assert (await client.get("/v1/admin/alert-risks/export")).status_code == 403
+    _scenario(fn2, role="ops_reviewer")

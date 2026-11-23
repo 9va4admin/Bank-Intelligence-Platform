@@ -67,4 +67,19 @@ describe('RiskRegister', () => {
     view({ isDark: true })
     await waitFor(() => expect(screen.getByText('Nobody is on call')).toBeInTheDocument())
   })
+
+  it('downloads the register as a file, and says why when that is refused', async () => {
+    const created = []
+    globalThis.URL.createObjectURL = (b) => { created.push(b); return 'blob:risk' }
+    globalThis.URL.revokeObjectURL = () => {}
+    const calls = base(data([risk('a')]), { 'GET /v1/admin/alert-risks/export': 'Risk,Category\n' })
+    view()
+    await waitFor(() => expect(screen.getByText('Download report')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Download report'))
+    await waitFor(() => expect(calls.some(c => c.url.endsWith('/v1/admin/alert-risks/export'))).toBe(true))
+    await waitFor(() => expect(created.length).toBe(1))
+    mockApi({ 'GET /v1/admin/alert-risks/export': failing(403, { detail: 'Your role cannot read alerts here.' }), 'GET /v1/admin/alert-risks': data([risk('a')]) })
+    fireEvent.click(screen.getByText('Download report'))
+    await waitFor(() => expect(screen.getByText(/cannot read alerts/)).toBeInTheDocument())
+  })
 })

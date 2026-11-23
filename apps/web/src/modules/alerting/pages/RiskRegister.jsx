@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { msg } from '../../../shared/messages'
-import { api } from '../api'
+import { api, download } from '../api'
 import { useLoad } from '../hooks'
 import { Button, Card, Empty, ErrorNote, Field, PageTitle, useTh } from '../ui'
 
@@ -72,6 +72,10 @@ export default function RiskRegister() {
   const [problem, setProblem] = useState(null)
   const risks = data?.risks ?? []
   const s = data?.summary
+  const report = async () => {
+    setProblem(null)
+    try { await download('/v1/admin/alert-risks/export', 'alert-risk-register.csv') } catch (e) { setProblem(e.message) }
+  }
   const seed = async () => {
     setProblem(null)
     try { await api('/v1/admin/alert-risks/seed', { method: 'POST' }); reload() } catch (e) { setProblem(e.message) }
@@ -81,6 +85,7 @@ export default function RiskRegister() {
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         <PageTitle isDark={isDark} title={msg('UI_ALERTING_RK_TITLE')} subtitle={msg('UI_ALERTING_RK_SUBTITLE')}>
           {data && risks.length === 0 && <Button isDark={isDark} kind="primary" onClick={seed}>{msg('UI_ALERTING_RK_SEED')}</Button>}
+          {data && risks.length > 0 && <Button isDark={isDark} onClick={report}>{msg('UI_ALERTING_RK_DOWNLOAD')}</Button>}
         </PageTitle>
         <ErrorNote isDark={isDark} error={error} onRetry={reload} />
         {problem && <p role="alert" className="mb-2 text-xs text-red-500">{problem}</p>}

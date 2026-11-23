@@ -58201,3 +58201,94 @@ UI_ALERTING_RV_SAVE:
   variables: []
   en: "Save"
   hi: ""
+
+ALERT_REVIEW_OVERDUE_MESSAGE:
+  severity: WARN
+  surface: [UI]
+  variables: [reviews, actions]
+  en: "{reviews} post-incident review(s) and {actions} action(s) are overdue. Open Post-incident reviews to see them."
+  hi: ""
+
+ALERT_REVIEW_CAUGHT_UP_MESSAGE:
+  severity: WARN
+  surface: [UI]
+  variables: []
+  en: "No post-incident reviews or actions are overdue any more."
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_RISK:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Risk"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_CATEGORY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Category"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_RATING:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Rating"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_LIKELIHOOD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Likelihood"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_IMPACT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Impact"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_OWNER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Owner"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Status"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_REVIEW:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Next review"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_MITIGATION:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "What was done"
+  hi: ""
+
+ALERT_RISK_EXPORT_COL_VERIFIED_BY:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Verified by"
+  hi: ""
+
+UI_ALERTING_RK_DOWNLOAD:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "Download report"
+  hi: ""
