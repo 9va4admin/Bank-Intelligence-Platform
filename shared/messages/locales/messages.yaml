@@ -58292,3 +58292,105 @@ UI_ALERTING_RK_DOWNLOAD:
   variables: []
   en: "Download report"
   hi: ""
+
+# ══════════════════════════════════════════════════════════════════
+# API / SERVICE WORDING — generated from Python code by scripts/i18n_convert_py.py
+# ══════════════════════════════════════════════════════════════════
+
+CTS_NOT_AN_HTTP_S_URL:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "not an http(s) URL with a host"
+  hi: ""
+
+CTS_IS_NOT_A_LOCAL_OR:
+  severity: INFO
+  surface: [UI]
+  variables: [host]
+  en: "{host} is not a local or private address"
+  hi: ""
+
+CTS_THE_PAYEE_NAME_WRITTEN_AFTER:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the payee name written after the word Pay"
+  hi: ""
+
+CTS_THE_AMOUNT_WRITTEN_IN_WORDS_2:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the amount written in words"
+  hi: ""
+
+CTS_THE_AMOUNT_WRITTEN_IN_FIGURES:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the amount written in figures"
+  hi: ""
+
+CTS_THE_DATE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the date"
+  hi: ""
+
+CTS_THE_MICR_NUMBER_LINE_AT:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the MICR number line at the bottom of the cheque"
+  hi: ""
+
+CTS_UNKNOWN_FIELD:
+  severity: INFO
+  surface: [UI]
+  variables: [field]
+  en: "unknown field {field}"
+  hi: ""
+
+CTS_UNKNOWN_PROMPT_VARIANT:
+  severity: INFO
+  surface: [UI]
+  variables: [variant]
+  en: "unknown prompt variant {variant}"
+  hi: ""
+
+CTS_THE_MANIFEST_IS_NOT_VALID:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the manifest is not valid JSON"
+  hi: ""
+
+CTS_THE_MANIFEST_MUST_BE_A:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "the manifest must be a list of entries"
+  hi: ""
+
+CTS_AN_ENTRY_IS_MISSING:
+  severity: WARN
+  surface: [UI]
+  variables: [value]
+  en: "an entry is missing: {value}"
+  hi: ""
+
+CTS_DUPLICATE_ENTRY_FOR:
+  severity: INFO
+  surface: [UI]
+  variables: [key_value, key_value2]
+  en: "duplicate entry for {key_value} / {key_value2}"
+  hi: ""
+
+CTS_A_AND_B_MUST_BE:
+  severity: INFO
+  surface: [UI]
+  variables: []
+  en: "a and b must be the same non-zero length"
+  hi: ""
