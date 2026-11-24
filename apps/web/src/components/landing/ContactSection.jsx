@@ -26,7 +26,7 @@ export default function ContactSection() {
 
             <div className="space-y-5">
               {[
-                { icon: '👤', label: msg('UI_CONTACTSECTION_EXPERT_LED_DEMO'), detail: msg('UI_CONTACTSECTION_WITH_NILESH_SHAH_EX_NPCI') },
+                { icon: '👤', label: msg('UI_CONTACTSECTION_EXPERT_LED_DEMO'), detail: 'Led by a banking domain expert' },
                 { icon: '🏦', label: msg('UI_CONTACTSECTION_BANK_SPECIFIC_WALKTHROUGH'), detail: msg('UI_CONTACTSECTION_WE_MAP_ASTRA_TO_YOUR') },
                 { icon: '📋', label: msg('UI_CONTACTSECTION_RBI_COMPLIANCE_MAPPING'), detail: msg('UI_CONTACTSECTION_WE_SHOW_THE_EXACT_CONTROL') },
               ].map(({ icon, label, detail }) => (

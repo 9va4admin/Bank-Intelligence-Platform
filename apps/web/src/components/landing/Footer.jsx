@@ -23,10 +23,6 @@ export default function Footer() {
             <p className="text-slate-400 text-xs leading-relaxed mb-3">
              {msg('UI_FOOTER_AUTOMATED_SETTLEMENT_AND_TRANSACTION')}
             </p>
-            <p className="text-slate-500 text-xs">
-             {msg('UI_FOOTER_DOMAIN_EXPERTISE_NILESH_SHAH')}<br />
-             {msg('UI_FOOTER_EX_NPCI_PIRAMAL_FULLERTON_SMFG')}
-            </p>
           </div>
 
           {/* Platform */}
