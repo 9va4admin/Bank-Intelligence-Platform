@@ -1,6 +1,8 @@
 import Navbar from '../components/landing/Navbar'
 import Hero from '../components/landing/Hero'
-import ProblemStatement from '../components/landing/ProblemStatement'
+import Buckets from '../components/landing/Buckets'
+import PlatformLayers from '../components/landing/PlatformLayers'
+import Products from '../components/landing/Products'
 import CTSModule from '../components/landing/CTSModule'
 import SecuritySection from '../components/landing/SecuritySection'
 import Architecture from '../components/landing/Architecture'
@@ -14,7 +16,9 @@ export default function LandingPage() {
       <Navbar />
       <main>
         <Hero />
-        <ProblemStatement />
+        <Buckets />
+        <PlatformLayers />
+        <Products />
         <CTSModule />
         <SecuritySection />
         <Architecture />
