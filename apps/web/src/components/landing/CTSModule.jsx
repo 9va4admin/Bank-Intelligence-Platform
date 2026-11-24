@@ -18,7 +18,7 @@ export default function CTSModule() {
             <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">{msg('UI_MODULE_MODULE_1_CTS')}</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
              {msg('UI_MODULE_ONE_AI_AGENT')}<br />{msg('UI_MODULE_ONE_CHEQUE')}<br />
-              <span className="text-teal-500">{msg('UI_MODULE_UNDER_600_MILLISECONDS')}</span>
+              <span className="text-teal-500">Designed for under 600 ms</span>
             </h2>
             <p className="text-slate-500 leading-relaxed mb-4">
              {msg('UI_MODULE_500_INWARD_CHEQUES_ARRIVE_ASTRA')}
@@ -77,8 +77,8 @@ export default function CTSModule() {
         {/* Key guarantees */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
           {[
-            { val: '0.000%', label: msg('UI_MODULE_IET_BREACH_RATE'), color: 'text-teal-500' },
-            { val: '<600ms', label: msg('UI_MODULE_ANY_BATCH_SIZE_P99'), color: 'text-sky-500' },
+            { val: '0.000%', label: 'IET breach rate (design goal)', color: 'text-teal-500' },
+            { val: '<600ms', label: 'Design target, p99', color: 'text-sky-500' },
             { val: '500+', label: msg('UI_MODULE_PARALLEL_AGENTS'), color: 'text-violet-500' },
             { val: '100%', label: msg('UI_MODULE_ON_PREMISES_NO_CLOUD'), color: 'text-slate-700' },
           ].map(({ val, label, color }) => (

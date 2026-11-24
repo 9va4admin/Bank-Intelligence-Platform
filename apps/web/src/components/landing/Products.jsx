@@ -13,7 +13,7 @@ const PRAMAAN_POINTS = ['A clock per regulator, on one calendar', 'Filings pre-f
 
 export default function Products() {
   return (
-    <section id="products" className="bg-cream-50 py-20 px-6">
+    <section id="products" className="bg-white py-20 px-6">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Products on ASTRA</span>
@@ -30,10 +30,10 @@ export default function Products() {
             </div>
             <h3 className="text-2xl font-bold text-slate-900 mb-3">CTS: cheque clearing, inward and outward</h3>
             <p className="text-slate-600 text-sm leading-relaxed mb-5">
-              One AI agent per cheque, decided in under 600 milliseconds, with a watchdog that files before the RBI window closes. Handwriting, signature and fraud checks, with a person reviewing anything uncertain.
+              One AI agent per cheque, designed to decide in under 600 milliseconds, with a watchdog that files before the RBI window closes. Handwriting, signature and fraud checks, with a person reviewing anything uncertain.
             </p>
             <div className="grid grid-cols-3 gap-3 mb-6 text-center">
-              {[['0.000%', 'item-expiry breach rate', 'teal'], ['<600ms', 'any batch size, p99', 'sky'], ['100%', 'on premises', 'violet']].map(([v, l, a]) => (
+              {[['0.000%', 'item-expiry breach goal', 'teal'], ['<600ms', 'design target, p99', 'sky'], ['100%', 'on premises', 'violet']].map(([v, l, a]) => (
                 <div key={l} className="rounded-xl bg-cream-50 border border-slate-200 py-3">
                   <div className="text-lg font-bold" style={{ color: ACCENTS[a] }}>{v}</div>
                   <div className="text-[11px] text-slate-500 px-1">{l}</div>

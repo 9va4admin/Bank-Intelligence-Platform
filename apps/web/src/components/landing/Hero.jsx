@@ -4,7 +4,7 @@ import { msg } from '../../shared/messages'
 const STATS = [
   { value: '₹71.1L Cr', label: msg('UI_HERO_CLEARED_VIA_CTS'), sub: 'FY2024–25' },
   { value: '609M', label: msg('UI_HERO_CHEQUES_PROCESSED'), sub: 'India, per year' },
-  { value: '<600ms', label: msg('UI_HERO_AI_DECISION_WALL_CLOCK'), sub: 'Any batch size, p99' },
+  { value: '<600ms', label: msg('UI_HERO_AI_DECISION_WALL_CLOCK'), sub: 'Design target, p99' },
   { value: '18 mo', label: msg('UI_HERO_FIRST_MOVER_WINDOW'), sub: 'Before incumbents catch up' },
 ]
 
@@ -75,7 +75,7 @@ export default function Hero() {
             className="anim text-sm text-slate-400 max-w-xl mx-auto mb-10"
             style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.5s ease' }}
           >
-           {msg('UI_HERO_BUILT_FOR_URBAN_CO_OPERATIVE')}
+           Built for Urban Co-operative Banks, RRBs and mid-tier private banks. Deployed inside your own data centre.
           </p>
 
           {/* CTAs */}

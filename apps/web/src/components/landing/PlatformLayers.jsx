@@ -41,7 +41,7 @@ function Connector({ label }) {
 
 export default function PlatformLayers() {
   return (
-    <section id="platform-layers" className="bg-white py-20 px-6">
+    <section id="platform-layers" className="bg-cream-50 py-20 px-6">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">The platform</span>

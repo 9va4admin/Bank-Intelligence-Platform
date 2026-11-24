@@ -1,6 +1,9 @@
 import Navbar from '../components/landing/Navbar'
 import Hero from '../components/landing/Hero'
 import Buckets from '../components/landing/Buckets'
+import WhyNow from '../components/landing/WhyNow'
+import AIByDesign from '../components/landing/AIByDesign'
+import ScaleNoHype from '../components/landing/ScaleNoHype'
 import PlatformLayers from '../components/landing/PlatformLayers'
 import Products from '../components/landing/Products'
 import CTSModule from '../components/landing/CTSModule'
@@ -17,11 +20,17 @@ export default function LandingPage() {
       <main>
         <Hero />
         <Buckets />
-        <DashedDivider className="bg-cream-50 pb-1" />
+        <DashedDivider className="bg-white pb-1" />
+        <WhyNow />
+        <DashedDivider className="bg-white pb-1" />
+        <AIByDesign />
+        <DashedDivider className="bg-white pb-1" />
+        <ScaleNoHype />
+        <DashedDivider className="bg-white pb-1" />
         <PlatformLayers />
         <DashedDivider className="bg-white pb-1" />
         <Products />
-        <DashedDivider className="bg-cream-50 pb-1" />
+        <DashedDivider className="bg-white pb-1" />
         <CTSModule />
         <DashedDivider className="bg-white pb-1" />
         <SecuritySection />

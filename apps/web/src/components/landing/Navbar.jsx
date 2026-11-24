@@ -4,6 +4,7 @@ import { msg } from '../../shared/messages'
 
 const NAV_LINKS = [
   { label: msg('UI_FOOTER_PLATFORM'), href: '#platform' },
+  { label: 'AI by design', href: '#ai-by-design' },
   { label: 'Products', href: '#products' },
   { label: 'CTS', href: '#cts' },
   { label: 'PRAMAAN', href: '#pramaan' },
