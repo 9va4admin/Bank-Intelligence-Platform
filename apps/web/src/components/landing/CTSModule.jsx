@@ -2,7 +2,7 @@ import { msg } from '../../shared/messages'
 const PIPELINE = [
   { step: '01', name: 'Image + MICR OCR', model: 'GOT-OCR2.0', detail: msg('UI_MODULE_MICR_LINE_AMOUNT_IN_FIGURES') },
   { step: '02', name: 'Alteration Detection', model: 'Qwen2-VL 72B', detail: msg('UI_MODULE_OVERWRITING_ERASURE_CORRECTION_FLUID') },
-  { step: '03', name: 'Signature Verification', model: 'Siamese Network', detail: msg('UI_MODULE_VS_CBS_STORED_SPECIMEN_VAULT') },
+  { step: '03', name: 'Signature Verification', model: 'Siamese Network', detail: 'Checked against the specimen on record, in milliseconds' },
   { step: '04', name: 'Positive Pay Check', model: 'PPS Vault', detail: msg('UI_MODULE_ISSUER_SUBMITTED_CHEQUE_DETAILS_MATC') },
   { step: '05', name: 'Fraud Scoring', model: 'XGBoost + SHAP', detail: msg('UI_MODULE_SCORE_HUMAN_READABLE_RATIONALE_NO') },
   { step: '06', name: 'Decision + NGCH Filing', model: 'Temporal Agent', detail: msg('UI_MODULE_STP_CONFIRM_STP_RETURN_HUMAN') },
@@ -67,7 +67,6 @@ export default function CTSModule() {
                 <span className="text-xs font-mono text-teal-500 font-bold pt-0.5">{step}</span>
                 <div>
                   <div className="font-medium text-slate-900 text-sm">{name}</div>
-                  <div className="text-xs text-teal-600 mb-1">{model}</div>
                   <div className="text-xs text-slate-400">{detail}</div>
                 </div>
               </div>

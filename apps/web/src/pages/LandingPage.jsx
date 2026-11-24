@@ -5,8 +5,8 @@ import PlatformLayers from '../components/landing/PlatformLayers'
 import Products from '../components/landing/Products'
 import CTSModule from '../components/landing/CTSModule'
 import SecuritySection from '../components/landing/SecuritySection'
-import Architecture from '../components/landing/Architecture'
 import TechStack from '../components/landing/TechStack'
+import { DashedDivider } from '../components/landing/ui'
 import ContactSection from '../components/landing/ContactSection'
 import Footer from '../components/landing/Footer'
 
@@ -17,11 +17,15 @@ export default function LandingPage() {
       <main>
         <Hero />
         <Buckets />
+        <DashedDivider className="bg-cream-50 pb-1" />
         <PlatformLayers />
+        <DashedDivider className="bg-white pb-1" />
         <Products />
+        <DashedDivider className="bg-cream-50 pb-1" />
         <CTSModule />
+        <DashedDivider className="bg-white pb-1" />
         <SecuritySection />
-        <Architecture />
+        <DashedDivider className="bg-white pb-1" />
         <TechStack />
         <ContactSection />
       </main>
