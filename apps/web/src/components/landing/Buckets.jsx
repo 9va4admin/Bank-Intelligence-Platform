@@ -75,9 +75,9 @@ export default function Buckets() {
   const c = ACCENTS[b.accent]
 
   return (
-    <section id="platform" className="bg-cream-50 py-20 px-6">
+    <section id="platform" className="bg-cream-50 py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">What ASTRA can do for a bank</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             Pick a problem. <span className="text-teal-500">See what becomes possible.</span>

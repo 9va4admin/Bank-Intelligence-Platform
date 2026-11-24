@@ -35,9 +35,9 @@ function Timeline() {
 
 export default function WhyNow() {
   return (
-    <section id="why-now" className="bg-white py-20 px-6">
+    <section id="why-now" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Why this matters now</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             The clock is now <span className="text-teal-500">written into the rules.</span>

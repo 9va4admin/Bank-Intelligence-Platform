@@ -56,9 +56,9 @@ const NORTH_STAR = [
 
 export default function TechStack() {
   return (
-    <section id="commercial" className="bg-white py-20 px-6">
+    <section id="commercial" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-slate-400 tracking-widest uppercase mb-3">{msg('UI_FOOTER_COMMERCIAL_MODEL')}</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
            Ways to work with ASTRA,<br />

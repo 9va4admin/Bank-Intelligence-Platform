@@ -10,10 +10,10 @@ const PIPELINE = [
 
 export default function CTSModule() {
   return (
-    <section id="cts" className="bg-white py-20 px-6">
+    <section id="cts" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row gap-12 mb-14">
+        <div className="flex flex-col lg:flex-row gap-8 mb-8">
           <div className="lg:w-1/2">
             <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">{msg('UI_MODULE_MODULE_1_CTS')}</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">

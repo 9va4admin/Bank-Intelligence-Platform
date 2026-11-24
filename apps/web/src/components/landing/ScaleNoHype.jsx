@@ -62,9 +62,9 @@ function Column({ title, accent, items }) {
 
 export default function ScaleNoHype() {
   return (
-    <section id="scale-speed" className="bg-white py-20 px-6">
+    <section id="scale-speed" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Scale and speed</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             Faster because of the design. <span className="text-teal-500">Not because of a claim.</span>

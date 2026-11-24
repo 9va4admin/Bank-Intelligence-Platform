@@ -18,12 +18,12 @@ const STRIP = [
 
 export default function SecuritySection() {
   return (
-    <section id="security" className="bg-white py-20 px-6">
+    <section id="security" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Security and compliance</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-            Built for the RBI. <span className="text-teal-500">Owned by the bank.</span>
+            Designed to be examined. <span className="text-teal-500">Owned by the bank.</span>
           </h2>
           <p className="text-slate-500 max-w-2xl mx-auto text-sm leading-relaxed">
             Banking-grade security is not an add-on. It is how the platform is designed, from the first line.

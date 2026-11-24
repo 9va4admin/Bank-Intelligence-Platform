@@ -19,30 +19,31 @@ const BARS = [
 ]
 
 function CatchChart() {
-  const unit = 40
   return (
-    <svg viewBox="0 0 470 170" className="w-full h-auto" role="img" aria-label="Wrong reads caught by the second reader: cheque number 3 of 3, sort code 4 of 4, amount 4 of 5">
-      {BARS.map((b, i) => {
-        const y = 14 + i * 50
-        return (
-          <g key={b.name}>
-            <text x="0" y={y + 14} fontSize="11.5" fill="#334155" fontWeight="600">{b.name}</text>
-            <rect x="130" y={y} width={b.wrong * unit} height="22" rx="5" fill="#e2e8f0" />
-            <rect x="130" y={y} width={b.caught * unit} height="22" rx="5" fill={ACCENTS.teal} />
-            <text x={136 + b.wrong * unit} y={y + 15} fontSize="12" fill="#0f172a" fontWeight="700">{b.caught} of {b.wrong} caught</text>
-          </g>
-        )
-      })}
-      <text x="130" y="166" fontSize="10" fill="#94a3b8">each bar is the number of wrong reads in the test</text>
-    </svg>
+    <div className="space-y-4" role="img" aria-label="Wrong reads caught by the second reader: cheque number 3 of 3, sort code 4 of 4, amount 4 of 5">
+      {BARS.map((b) => (
+        <div key={b.name} className="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr] items-center gap-3">
+          <div className="text-xs sm:text-sm font-semibold text-slate-700">{b.name}</div>
+          <div>
+            <div className="flex gap-1">
+              {Array.from({ length: b.wrong }).map((_, i) => (
+                <span key={i} className="h-5 flex-1 rounded-md" style={{ background: i < b.caught ? ACCENTS.teal : '#e2e8f0' }} />
+              ))}
+            </div>
+            <div className="text-xs font-bold text-slate-900 mt-1">{b.caught} of {b.wrong} wrong reads caught</div>
+          </div>
+        </div>
+      ))}
+      <div className="text-[10px] text-slate-400">each block is one wrong read in the test</div>
+    </div>
   )
 }
 
 export default function AIByDesign() {
   return (
-    <section id="ai-by-design" className="bg-cream-50 py-20 px-6">
+    <section id="ai-by-design" className="bg-cream-50 py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">AI by design</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             Not retrofitted. <span className="text-teal-500">Designed in from the first line.</span>

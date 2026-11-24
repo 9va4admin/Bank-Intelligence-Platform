@@ -57,7 +57,7 @@ export function DoubleBullet({ accent = 'teal', size = 16 }) {
 export function DashedDivider({ className = '' }) {
   const id = useId().replace(/:/g, '')
   return (
-    <div className={`max-w-6xl mx-auto px-6 ${className}`} role="separator">
+    <div className={`px-6 ${className}`} role="separator"><div className="max-w-6xl mx-auto">
       <svg width="100%" height="4" aria-hidden="true">
         <defs>
           <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
@@ -69,6 +69,6 @@ export function DashedDivider({ className = '' }) {
         </defs>
         <line x1="0" y1="2" x2="100%" y2="2" stroke={`url(#${id})`} strokeWidth="2" strokeDasharray="10 8" strokeLinecap="round" />
       </svg>
-    </div>
+    </div></div>
   )
 }

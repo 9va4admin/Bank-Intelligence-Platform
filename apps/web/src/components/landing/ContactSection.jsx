@@ -11,7 +11,7 @@ export default function ContactSection() {
   }
 
   return (
-    <section id="contact" className="bg-cream-100 py-20 px-6">
+    <section id="contact" className="bg-cream-100 py-12 sm:py-14 px-6">
       <div className="max-w-5xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           {/* Left */}

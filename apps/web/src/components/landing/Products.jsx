@@ -13,9 +13,9 @@ const PRAMAAN_POINTS = ['A clock per regulator, on one calendar', 'Filings pre-f
 
 export default function Products() {
   return (
-    <section id="products" className="bg-white py-20 px-6">
+    <section id="products" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Products on ASTRA</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             Start with the deadline. <span className="text-teal-500">Grow from there.</span>
