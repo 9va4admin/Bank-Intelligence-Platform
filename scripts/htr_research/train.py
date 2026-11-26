@@ -15,8 +15,9 @@ from htr_research.preprocess import collate, prepare_image
 
 
 class WordImages(Dataset):
-    def __init__(self, samples: list[Sample], charset: Charset, *, height: int, max_width: int) -> None:
-        self.samples, self.charset, self.height, self.max_width = samples, charset, height, max_width
+    def __init__(self, samples: list[Sample], charset: Charset, *, height: int, max_width: int, augment=None) -> None:
+        """`augment`, when given, is called as augment(image, index) on each image before it is prepared (training images only)."""
+        self.samples, self.charset, self.height, self.max_width, self.augment = samples, charset, height, max_width, augment
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -24,6 +25,8 @@ class WordImages(Dataset):
     def __getitem__(self, i: int):
         s = self.samples[i]
         with Image.open(s.path) as img:
+            if self.augment is not None:
+                img = self.augment(img, i)
             tensor = prepare_image(img, height=self.height, max_width=self.max_width)
         return tensor, self.charset.encode(s.text)
 
@@ -72,11 +75,11 @@ def train(samples: list[Sample], charset: Charset, *, steps: int, batch_size: in
 
 
 @torch.no_grad()
-def evaluate(model: CRNN, samples: list[Sample], charset: Charset, *, height: int, max_width: int, batch_size: int, device: str = "cpu", known_words=None) -> dict:
+def evaluate(model: CRNN, samples: list[Sample], charset: Charset, *, height: int, max_width: int, batch_size: int, device: str = "cpu", known_words=None, workers: int = 0, return_predictions: bool = False) -> dict:
     """Greedy-decoded character and word error rates over the samples. Also the error on words seen versus never seen in training (when `known_words` is given)
     and the accuracy at each confidence level."""
     model.eval().to(device)
-    loader = DataLoader(WordImages(samples, charset, height=height, max_width=max_width), batch_size=batch_size, shuffle=False, collate_fn=collate, num_workers=0)
+    loader = DataLoader(WordImages(samples, charset, height=height, max_width=max_width), batch_size=batch_size, shuffle=False, collate_fn=collate, num_workers=workers)
     predictions: list[str] = []
     confidences: list[float] = []
     for images, _, _, _ in loader:
@@ -89,4 +92,6 @@ def evaluate(model: CRNN, samples: list[Sample], charset: Charset, *, height: in
     result["coverage"] = coverage_table(confidences, [p == r for p, r in zip(predictions, references)], [0.0, 0.5, 0.7, 0.8, 0.9, 0.95])
     if known_words is not None:
         result["split"] = split_scores(predictions, references, known_words)
+    if return_predictions:
+        result["predictions"] = [{"path": str(x.path), "reference": r, "prediction": p, "confidence": c} for x, r, p, c in zip(samples, references, predictions, confidences)]
     return result

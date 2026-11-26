@@ -229,3 +229,17 @@ def validate_gt_layout(root: Path | str, *, expected_counts: Optional[dict] = No
     all_words = {x.text for d in datasets.values() for x in d.samples}
     return GtValidationReport(counts=counts, counts_match=None if expected_counts is None else counts == expected_counts, missing=missing,
                               charset_size=len(set("".join(all_words))), test_unseen_word_share=unseen, empty_labels=0)
+
+
+def load_splits(root: Path | str, layout: str) -> dict:
+    """Every split that exists, as {split: [Sample]}, for the layouts `ids`, `text` and `gt`."""
+    root = Path(root)
+    kinds = {"ids": (WordDataset, lambda s: root / f"{s}.txt"), "text": (TextLabelDataset, lambda s: root / f"{s}.txt"),
+             "gt": (TabGtDataset, lambda s: root / s / f"{s}_gt.txt")}
+    if layout not in kinds:
+        raise LabelError(f"unknown layout {layout!r}")
+    cls, label_path = kinds[layout]
+    out = {s: cls(root, s).samples for s in SPLITS if label_path(s).exists()}
+    if "train" not in out:
+        raise LabelError(f"no training labels found in {root} for the layout {layout!r}")
+    return out
