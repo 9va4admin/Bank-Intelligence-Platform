@@ -2,7 +2,7 @@ import { msg } from '../../shared/messages'
 const PIPELINE = [
   { step: '01', name: 'Image + MICR OCR', model: 'GOT-OCR2.0', detail: msg('UI_MODULE_MICR_LINE_AMOUNT_IN_FIGURES') },
   { step: '02', name: 'Alteration Detection', model: 'Qwen2-VL 72B', detail: msg('UI_MODULE_OVERWRITING_ERASURE_CORRECTION_FLUID') },
-  { step: '03', name: 'Signature Verification', model: 'Siamese Network', detail: msg('UI_MODULE_VS_CBS_STORED_SPECIMEN_VAULT') },
+  { step: '03', name: 'Signature Verification', model: 'Siamese Network', detail: 'Checked against the specimen on record, in milliseconds' },
   { step: '04', name: 'Positive Pay Check', model: 'PPS Vault', detail: msg('UI_MODULE_ISSUER_SUBMITTED_CHEQUE_DETAILS_MATC') },
   { step: '05', name: 'Fraud Scoring', model: 'XGBoost + SHAP', detail: msg('UI_MODULE_SCORE_HUMAN_READABLE_RATIONALE_NO') },
   { step: '06', name: 'Decision + NGCH Filing', model: 'Temporal Agent', detail: msg('UI_MODULE_STP_CONFIRM_STP_RETURN_HUMAN') },
@@ -10,15 +10,15 @@ const PIPELINE = [
 
 export default function CTSModule() {
   return (
-    <section id="cts" className="bg-white py-20 px-6">
+    <section id="cts" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row gap-12 mb-14">
+        <div className="flex flex-col lg:flex-row gap-8 mb-8">
           <div className="lg:w-1/2">
             <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">{msg('UI_MODULE_MODULE_1_CTS')}</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
              {msg('UI_MODULE_ONE_AI_AGENT')}<br />{msg('UI_MODULE_ONE_CHEQUE')}<br />
-              <span className="text-teal-500">{msg('UI_MODULE_UNDER_600_MILLISECONDS')}</span>
+              <span className="text-teal-500">Designed for under 600 ms</span>
             </h2>
             <p className="text-slate-500 leading-relaxed mb-4">
              {msg('UI_MODULE_500_INWARD_CHEQUES_ARRIVE_ASTRA')}
@@ -67,7 +67,6 @@ export default function CTSModule() {
                 <span className="text-xs font-mono text-teal-500 font-bold pt-0.5">{step}</span>
                 <div>
                   <div className="font-medium text-slate-900 text-sm">{name}</div>
-                  <div className="text-xs text-teal-600 mb-1">{model}</div>
                   <div className="text-xs text-slate-400">{detail}</div>
                 </div>
               </div>
@@ -78,8 +77,8 @@ export default function CTSModule() {
         {/* Key guarantees */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
           {[
-            { val: '0.000%', label: msg('UI_MODULE_IET_BREACH_RATE'), color: 'text-teal-500' },
-            { val: '<600ms', label: msg('UI_MODULE_ANY_BATCH_SIZE_P99'), color: 'text-sky-500' },
+            { val: '0.000%', label: 'IET breach rate (design goal)', color: 'text-teal-500' },
+            { val: '<600ms', label: 'Design target, p99', color: 'text-sky-500' },
             { val: '500+', label: msg('UI_MODULE_PARALLEL_AGENTS'), color: 'text-violet-500' },
             { val: '100%', label: msg('UI_MODULE_ON_PREMISES_NO_CLOUD'), color: 'text-slate-700' },
           ].map(({ val, label, color }) => (

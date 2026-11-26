@@ -1,10 +1,15 @@
 import Navbar from '../components/landing/Navbar'
 import Hero from '../components/landing/Hero'
-import ProblemStatement from '../components/landing/ProblemStatement'
+import Buckets from '../components/landing/Buckets'
+import WhyNow from '../components/landing/WhyNow'
+import AIByDesign from '../components/landing/AIByDesign'
+import ScaleNoHype from '../components/landing/ScaleNoHype'
+import PlatformLayers from '../components/landing/PlatformLayers'
+import Products from '../components/landing/Products'
 import CTSModule from '../components/landing/CTSModule'
 import SecuritySection from '../components/landing/SecuritySection'
-import Architecture from '../components/landing/Architecture'
 import TechStack from '../components/landing/TechStack'
+import { DashedDivider } from '../components/landing/ui'
 import ContactSection from '../components/landing/ContactSection'
 import Footer from '../components/landing/Footer'
 
@@ -14,10 +19,22 @@ export default function LandingPage() {
       <Navbar />
       <main>
         <Hero />
-        <ProblemStatement />
+        <Buckets />
+        <DashedDivider className="bg-white pb-1" />
+        <WhyNow />
+        <DashedDivider className="bg-white pb-1" />
+        <AIByDesign />
+        <DashedDivider className="bg-white pb-1" />
+        <ScaleNoHype />
+        <DashedDivider className="bg-white pb-1" />
+        <PlatformLayers />
+        <DashedDivider className="bg-white pb-1" />
+        <Products />
+        <DashedDivider className="bg-white pb-1" />
         <CTSModule />
+        <DashedDivider className="bg-white pb-1" />
         <SecuritySection />
-        <Architecture />
+        <DashedDivider className="bg-white pb-1" />
         <TechStack />
         <ContactSection />
       </main>

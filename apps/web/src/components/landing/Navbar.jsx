@@ -4,11 +4,11 @@ import { msg } from '../../shared/messages'
 
 const NAV_LINKS = [
   { label: msg('UI_FOOTER_PLATFORM'), href: '#platform' },
+  { label: 'AI by design', href: '#ai-by-design' },
+  { label: 'Products', href: '#products' },
   { label: 'CTS', href: '#cts' },
-  { label: msg('UI_NAVBAR_EJ_INTELLIGENCE'), href: '#ej' },
-  { label: msg('UI_NAVBAR_COMMERCIAL'), href: '#commercial' },
+  { label: 'PRAMAAN', href: '#pramaan' },
   { label: msg('UI_NAVBAR_SECURITY'), href: '#security' },
-  { label: msg('UI_FOOTER_CTS_FAQ'), href: 'CTS_FAQ.html', external: true },
 ]
 
 export default function Navbar() {
@@ -73,15 +73,9 @@ export default function Navbar() {
           >
            {msg('UI_NAVBAR_CTS_DEMO')}
           </Link>
-          <Link
-            to="/ej"
-            className="text-sm font-medium bg-teal-400 hover:bg-teal-500 text-forest-900 px-5 py-2 rounded-lg transition-colors"
-          >
-           {msg('UI_NAVBAR_EJ_DASHBOARD')}
-          </Link>
           <a
             href="#contact"
-            className="text-sm font-medium bg-sky-400 hover:bg-sky-500 text-white px-5 py-2 rounded-lg transition-colors"
+            className="text-sm font-medium bg-teal-400 hover:bg-teal-500 text-forest-900 px-5 py-2 rounded-lg transition-colors"
           >
            {msg('UI_NAVBAR_REQUEST_DEMO')}
           </a>
@@ -114,16 +108,9 @@ export default function Navbar() {
               {label}
             </a>
           ))}
-          <Link
-            to="/ej"
-            className="mt-1 text-sm font-medium bg-teal-400 text-forest-900 px-5 py-2.5 rounded-lg text-center"
-            onClick={() => setMenuOpen(false)}
-          >
-           {msg('UI_NAVBAR_EJ_DASHBOARD')}
-          </Link>
           <a
             href="#contact"
-            className="text-sm font-medium bg-sky-400 text-white px-5 py-2.5 rounded-lg text-center"
+            className="mt-1 text-sm font-medium bg-teal-400 text-forest-900 px-5 py-2.5 rounded-lg text-center"
             onClick={() => setMenuOpen(false)}
           >
            {msg('UI_NAVBAR_REQUEST_DEMO')}

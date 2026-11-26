@@ -23,10 +23,6 @@ export default function Footer() {
             <p className="text-slate-400 text-xs leading-relaxed mb-3">
              {msg('UI_FOOTER_AUTOMATED_SETTLEMENT_AND_TRANSACTION')}
             </p>
-            <p className="text-slate-500 text-xs">
-             {msg('UI_FOOTER_DOMAIN_EXPERTISE_NILESH_SHAH')}<br />
-             {msg('UI_FOOTER_EX_NPCI_PIRAMAL_FULLERTON_SMFG')}
-            </p>
           </div>
 
           {/* Platform */}
@@ -36,7 +32,6 @@ export default function Footer() {
               {[
                 { label: msg('UI_FOOTER_CTS_MODULE'), href: '#cts' },
                 { label: msg('UI_FOOTER_SECURITY_COMPLIANCE'), href: '#security' },
-                { label: msg('UI_ARCHITECTURE_ARCHITECTURE'), href: '#architecture' },
                 { label: msg('UI_FOOTER_COMMERCIAL_MODEL'), href: '#commercial' },
                 { label: msg('UI_FOOTER_CTS_FAQ'), href: 'CTS_FAQ.html', external: true },
               ].map(({ label, href, external }) => (

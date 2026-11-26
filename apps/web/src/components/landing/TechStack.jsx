@@ -1,9 +1,9 @@
 import { msg } from '../../shared/messages'
+import { DoubleBullet } from './ui'
 const TIERS = [
   {
     name: 'Starter SaaS',
     tagline: msg('UI_TECHSTACK_FOR_UCBS_AND_RRBS_WITH'),
-    pricing: '₹0.12–0.18 / cheque',
     features: [
       'CTS module only',
       'Shared managed infrastructure (bank-isolated namespace)',
@@ -18,7 +18,6 @@ const TIERS = [
   {
     name: 'Growth Licence',
     tagline: msg('UI_TECHSTACK_FOR_MID_TIER_BANKS_DEPLOYING'),
-    pricing: '₹50L–1.2Cr + 18% AMC',
     features: [
       'CTS module — on-premises deployment',
       'On-premises deployment in bank\'s DC',
@@ -34,7 +33,6 @@ const TIERS = [
   {
     name: 'Enterprise Managed',
     tagline: msg('UI_TECHSTACK_FOR_LARGE_BANKS_WITH_ACTIVE'),
-    pricing: '₹12–25L / month',
     features: [
       'CTS + full observability stack',
       'Active-active across 2 DCs (RPO = 0)',
@@ -58,36 +56,36 @@ const NORTH_STAR = [
 
 export default function TechStack() {
   return (
-    <section id="commercial" className="bg-white py-20 px-6">
+    <section id="commercial" className="bg-white py-12 sm:py-14 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-8">
           <span className="inline-block text-xs font-semibold text-slate-400 tracking-widest uppercase mb-3">{msg('UI_FOOTER_COMMERCIAL_MODEL')}</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-           {msg('UI_TECHSTACK_PRICED_FOR_INDIAN_BANKS')}<br />
-            <span className="text-teal-500">{msg('UI_TECHSTACK_NOT_SILICON_VALLEY_SAAS')}</span>
+           Ways to work with ASTRA,<br />
+            <span className="text-teal-500">fitted to how your bank runs</span>
           </h2>
           <p className="text-slate-500 max-w-xl mx-auto text-sm">
-           {msg('UI_TECHSTACK_THREE_TIERS_FROM_FIRST_TIME')}
+           Three ways to engage, from a first pilot to a fully managed deployment. We start by mapping your needs.
           </p>
         </div>
 
         <div className="grid sm:grid-cols-3 gap-5 mb-14">
-          {TIERS.map(({ name, tagline, pricing, features, color, badgeColor, highlight }) => (
+          {TIERS.map(({ name, tagline, features, color, badgeColor, highlight }) => (
             <div key={name} className={`rounded-2xl border-2 p-7 ${color} ${highlight ? 'shadow-lg shadow-teal-400/10' : ''}`}>
               <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-4 ${badgeColor}`}>{name}</span>
               <p className="text-xs text-slate-400 mb-2">{tagline}</p>
-              <div className="text-xl font-bold text-slate-900 mb-5">{pricing}</div>
+              <div className="mb-4" />
               <ul className="space-y-2.5">
                 {features.map(f => (
                   <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
-                    <span className={`text-xs mt-0.5 ${highlight ? 'text-teal-500' : 'text-slate-400'}`}>✓</span>
+                    <DoubleBullet accent={highlight ? 'teal' : '#94a3b8'} size={14} />
                     {f}
                   </li>
                 ))}
               </ul>
               {highlight && (
                 <a href="#contact" className="mt-6 block text-center text-sm font-medium bg-teal-400 hover:bg-teal-500 text-forest-900 px-5 py-2.5 rounded-xl transition-colors">
-                 {msg('UI_TECHSTACK_GET_PRICING')}
+                 Talk to us
                 </a>
               )}
             </div>
