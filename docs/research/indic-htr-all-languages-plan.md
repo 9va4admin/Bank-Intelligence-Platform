@@ -27,7 +27,7 @@ Two facts shape everything below:
 1. **Few writers.** Eight to twenty-seven per language. A model trained on this learns a handful of hands.
 2. **The writer of each image is not named** in the tab layout (Gujarati and most others). The Hindi set is the exception, with a folder per writer. Where writers are unnamed we cannot confirm that the test set uses writers the model never saw, so those scores are optimistic by an unknown amount.
 
-Printed text ("scanned text", assumed to mean the Printed modality): the Mozhi sets are line images cropped from scanned book pages, for 13 languages including Marathi, plus synthetic sets (names starting IIIT-Synthetic) that are computer-generated. Scene text (photos of signs) is left out: it is far from a cheque.
+Scene text ("scanned text", confirmed by the bank owner to mean the Scene Text modality): IndicSTR12 has real photographed text for 12 languages, Hindi, Gujarati and Marathi among them, and the IIIT-Synthetic-IndicSTR sets are computer-generated. Sizes and licences have not been read yet. Printed text (the Mozhi sets, scanned book lines) is a lower priority and stays as an optional sanity check.
 
 ## 2. Phases
 
@@ -41,9 +41,9 @@ Printed text ("scanned text", assumed to mean the Printed modality): the Mozhi s
 
 **Phase 4: language families.** Languages that share a script can borrow from each other: Hindi to Marathi, Bengali to Assamese and Manipuri, and so on. Test whether a model trained on one improves the other with few samples. This is where Marathi benefits, since it has no handwriting data of its own.
 
-## 3. Printed text plan
+## 3. Scene text plan
 
-Train the same model on Mozhi lines for each language and report character error. Printed text should be far easier. A weak printed result would point to a pipeline fault, not a handwriting problem. Low priority: run it for Hindi, Gujarati and Marathi first.
+After the handwritten baselines, read the IndicSTR12 detail pages (sizes, licence, layout) and run the same small model on the real-photo set for Hindi, Gujarati and Marathi first, then the rest. Report character and word error next to the handwritten result for the same language. Scene text is photographed signs and boards, so it tests reading under blur, perspective and lighting, not handwriting. Keep the synthetic sets separate from the real ones in every table, since a score on generated text says little about real photos. Marathi is the one language where scene-text data exists and handwriting data does not.
 
 ## 4. What a good result would and would not mean
 
@@ -51,6 +51,6 @@ These are public clean word images, not cheque crops. Even a low error here does
 
 ## 5. Decisions needed
 
-- Whether "scanned text" means Printed (assumed here) or something else.
+- Decided: "scanned text" means Scene Text. Decided: download and test one language after another, with the next language downloading while the current one trains.
 - A GPU host for Phase 3, and a server or keep-awake setting for Phase 1.
 - Licence confirmation per dataset before any use beyond research.
