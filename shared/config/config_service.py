@@ -87,6 +87,14 @@ _LAYER3_DEFAULTS: dict[str, Any] = {
     "cts.payee_reread_min_similarity": 0.99,      # handwritten payee: letters of the two reads must match this closely
     "cts.payee_reference_min_similarity": 0.97,   # payee read vs reference payee from presentment/PPS
     "cts.field_reread_model": "qwen3-vl-32b",    # independent second-read model for the MICR band and the amount box
+    "cts.bakeoff_length_guard_multiple": 3,        # bake-off: an answer longer than this many times the expected length (or the minimum below) is a runaway output, withheld
+    "cts.bakeoff_length_guard_min_chars": 20,      # bake-off: the shortest length the guard ever allows
+    "cts.bakeoff_bootstrap_resamples": 2000,      # bake-off: resamples for the paired bootstrap interval
+    "cts.bakeoff_seed": 7,                         # bake-off: random seed, so a report can be reproduced
+    "cts.bakeoff_wrong_shown_target": 0.01,        # bake-off: the wrong-value-shown rate a model has to show it is below
+    "cts.bakeoff_request_timeout_seconds": 120,    # bake-off: how long one model call may take
+    "cts.bakeoff_max_output_tokens": 256,          # bake-off: longest answer asked for from a model
+    "cts.bakeoff_alpha": 0.05,                     # bake-off: significance level for calling one model better or worse than the baseline
     "cts.payee_reread_model": "qwen3-vl-32b",     # independent second-opinion model for the payee re-read
     "cts.micr_branch_master": [],                 # valid 9-digit sort codes for this bank; [] = check disabled
     "cts.signature_absent_action": "HUMAN_REVIEW",  # signature not detected: HUMAN_REVIEW (default) or AUTO_RETURN (opt-in)
