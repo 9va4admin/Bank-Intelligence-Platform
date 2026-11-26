@@ -176,3 +176,56 @@ def validate_text_layout(root: Path | str, *, expected_counts: Optional[dict] = 
     return TextValidationReport(counts=counts, counts_match=None if expected_counts is None else counts == expected_counts, missing=missing,
                                 writers={s: len(w) for s, w in writers.items()}, writer_overlap=overlap, charset_size=len(set("".join(all_words))),
                                 test_unseen_word_share=unseen, empty_labels=0)
+
+
+# -------------------------------------------------------------------------- the tab layout of the other IIIT-Indic-HW-Words sets (Gujarati and the rest)
+
+class TabGtDataset:
+    """Rows of `images/<n>.jpg<TAB><word>` in `<root>/<split>/<split>_gt.txt`; image paths are relative to the split folder."""
+
+    def __init__(self, root: Path | str, split: str) -> None:
+        self.root = Path(root)
+        label_file = self.root / split / f"{split}_gt.txt"
+        if split not in SPLITS or not label_file.exists():
+            raise LabelError(f"no labels for the split {split!r} in {self.root}")
+        self.samples: list[Sample] = []
+        for line in label_file.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rel, sep, word = line.partition("\t")
+            if not sep or not rel.strip() or not word.strip():
+                raise LabelError(f"not a label row: {line!r}")
+            self.samples.append(Sample(self.root / split / rel.strip(), word.strip(), -1))
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+
+@dataclass(frozen=True)
+class GtValidationReport:
+    counts: dict
+    counts_match: Optional[bool]
+    missing: dict
+    charset_size: int
+    test_unseen_word_share: float
+    empty_labels: int
+    writers_known: bool = False          # these sets name no writer per image, so unseen writers cannot be verified
+
+    @property
+    def ok(self) -> bool:
+        return not any(self.missing.values()) and self.counts_match is not False and self.empty_labels == 0
+
+
+def validate_gt_layout(root: Path | str, *, expected_counts: Optional[dict] = None, missing_limit: int = 10) -> GtValidationReport:
+    root = Path(root)
+    datasets = {s: TabGtDataset(root, s) for s in SPLITS if (root / s / f"{s}_gt.txt").exists()}
+    if "train" not in datasets or "test" not in datasets:
+        raise LabelError(f"{root} needs at least train and test folders with their _gt.txt files to be checked")
+    counts = {s: len(d) for s, d in datasets.items()}
+    missing = {s: [str(x.path.relative_to(root)).replace("\\", "/") for x in d.samples if not x.path.exists()][:missing_limit] for s, d in datasets.items()}
+    train_words = {x.text for x in datasets["train"].samples}
+    test = datasets["test"].samples
+    unseen = sum(1 for x in test if x.text not in train_words) / len(test) if test else 0.0
+    all_words = {x.text for d in datasets.values() for x in d.samples}
+    return GtValidationReport(counts=counts, counts_match=None if expected_counts is None else counts == expected_counts, missing=missing,
+                              charset_size=len(set("".join(all_words))), test_unseen_word_share=unseen, empty_labels=0)
