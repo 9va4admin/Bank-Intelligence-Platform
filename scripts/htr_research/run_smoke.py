@@ -42,6 +42,7 @@ def main() -> int:
     ap.add_argument("--workers", type=int, required=True)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--log-every", type=int, default=50)
+    ap.add_argument("--save-model", default=None, help="where to write the trained weights and character set so the model can be scored again later (default: next to --out, with the extension .pt)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     try:
@@ -79,8 +80,17 @@ def main() -> int:
     val_samples = rng.sample(val_ds.samples, min(a.val_samples, len(val_ds)))
     result = train(train_samples, charset, steps=a.steps, batch_size=a.batch_size, lr=a.lr, seed=a.seed, height=a.height, max_width=a.max_width, device=a.device,
                    workers=a.workers, log_every=a.log_every, verbose=True)
-    scores = evaluate(result.model, val_samples, charset, height=a.height, max_width=a.max_width, batch_size=a.batch_size, device=a.device)
+    known = {x.text for x in train_ds.samples}   # every word seen in training, so the score can separate new words from known ones
+    scores = evaluate(result.model, val_samples, charset, height=a.height, max_width=a.max_width, batch_size=a.batch_size, device=a.device, known_words=known)
+    import torch
+    torch.save({"state_dict": result.model.state_dict(), "chars": list(charset.chars), "height": a.height, "max_width": a.max_width},
+               a.save_model or str(Path(a.out).with_suffix(".pt")))
     print(f"validation on {scores['n']} images: character error {scores['cer']:.3f}, word error {scores['wer']:.3f}; {result.images_per_second:.1f} images/s training", flush=True)
+    for name, grp in scores.get("split", {}).items():
+        if grp:
+            print(f"  {name} words ({grp['n']}): character error {grp['cer']:.3f}, word error {grp['wer']:.3f}", flush=True)
+    for row in scores["coverage"]:
+        print(f"  confidence >= {row['threshold']}: answers {row['coverage']:.0%} of words, {('%.0f%%' % (100 * row['accuracy'])) if row['accuracy'] is not None else 'n/a'} of those exactly right", flush=True)
     payload = {"note": NOTE, "config": {k: getattr(a, k) for k in ("train_samples", "val_samples", "steps", "batch_size", "lr", "seed", "height", "max_width", "workers", "device")},
                "validation": {"ok": report.ok, "counts": report.counts, "charset_size": report.charset_size, "test_unseen_word_share": report.test_unseen_word_share,
                               "missing": {k: len(v) for k, v in report.missing.items()},

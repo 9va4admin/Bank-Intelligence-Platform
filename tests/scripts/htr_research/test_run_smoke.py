@@ -44,6 +44,12 @@ def test_it_validates_trains_on_a_subset_and_writes_an_honest_report(tmp_path):
     assert 0.0 <= report["val"]["cer"] <= 1.5 and report["val"]["n"] == 8
     assert "not a reproduction" in report["note"]
     assert "images/s" in done.stdout
+    # the breakdowns: new words versus known words, and accuracy against confidence
+    assert set(report["val"]["split"]) == {"seen", "unseen"}
+    assert report["val"]["coverage"][0]["threshold"] == 0.0 and report["val"]["coverage"][0]["coverage"] == 1.0
+    assert "confidence >=" in done.stdout
+    # the weights are kept next to the report so the model can be scored again
+    assert (tmp_path / "report.pt").exists()
 
 
 def test_it_stops_before_training_when_the_data_does_not_match_what_was_expected(tmp_path):

@@ -9,7 +9,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from htr_research.crnn import CRNN, cer_wer, ctc_greedy_decode
+from htr_research.crnn import CRNN, cer_wer, coverage_table, ctc_greedy_decode, split_scores, word_confidence
 from htr_research.dataset import Charset, Sample
 from htr_research.preprocess import collate, prepare_image
 
@@ -72,12 +72,21 @@ def train(samples: list[Sample], charset: Charset, *, steps: int, batch_size: in
 
 
 @torch.no_grad()
-def evaluate(model: CRNN, samples: list[Sample], charset: Charset, *, height: int, max_width: int, batch_size: int, device: str = "cpu") -> dict:
-    """Greedy-decoded character and word error rates over the samples."""
+def evaluate(model: CRNN, samples: list[Sample], charset: Charset, *, height: int, max_width: int, batch_size: int, device: str = "cpu", known_words=None) -> dict:
+    """Greedy-decoded character and word error rates over the samples. Also the error on words seen versus never seen in training (when `known_words` is given)
+    and the accuracy at each confidence level."""
     model.eval().to(device)
     loader = DataLoader(WordImages(samples, charset, height=height, max_width=max_width), batch_size=batch_size, shuffle=False, collate_fn=collate, num_workers=0)
     predictions: list[str] = []
+    confidences: list[float] = []
     for images, _, _, _ in loader:
-        predictions += [charset.decode(ids) for ids in ctc_greedy_decode(model(images.to(device)))]
-    cer, wer = cer_wer(predictions, [s.text for s in samples])
-    return {"cer": cer, "wer": wer, "n": len(samples)}
+        logits = model(images.to(device))
+        predictions += [charset.decode(ids) for ids in ctc_greedy_decode(logits)]
+        confidences += word_confidence(logits)
+    references = [s.text for s in samples]
+    cer, wer = cer_wer(predictions, references)
+    result = {"cer": cer, "wer": wer, "n": len(samples)}
+    result["coverage"] = coverage_table(confidences, [p == r for p, r in zip(predictions, references)], [0.0, 0.5, 0.7, 0.8, 0.9, 0.95])
+    if known_words is not None:
+        result["split"] = split_scores(predictions, references, known_words)
+    return result

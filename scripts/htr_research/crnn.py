@@ -64,3 +64,39 @@ def cer_wer(predictions: list[str], references: list[str]) -> tuple[float, float
     edits = sum(edit_distance(p, r) for p, r in zip(predictions, references))
     wrong = sum(p != r for p, r in zip(predictions, references))
     return (edits / chars if chars else 0.0), wrong / len(references)
+
+
+# -------------------------------------------------------------------------- breakdowns: new words, and accuracy against the model's own confidence
+
+def word_confidence(logits: torch.Tensor, blank: int = 0) -> list[float]:
+    """One confidence per image: the geometric mean of the model's top probability at the steps where it writes a character. 0.0 if it writes nothing."""
+    probs = logits.softmax(dim=2)
+    top, best = probs.max(dim=2)                 # (T, B)
+    out = []
+    for b in range(top.shape[1]):
+        emitted = top[:, b][best[:, b] != blank]
+        out.append(float(emitted.clamp_min(1e-9).log().mean().exp()) if emitted.numel() else 0.0)
+    return out
+
+
+def split_scores(predictions: list[str], references: list[str], known_words) -> dict:
+    """Character and word error for words seen in training and for words never seen. A group with no words is None."""
+    out = {}
+    for name, keep in (("seen", True), ("unseen", False)):
+        idx = [i for i, r in enumerate(references) if (r in known_words) == keep]
+        if not idx:
+            out[name] = None
+            continue
+        cer, wer = cer_wer([predictions[i] for i in idx], [references[i] for i in idx])
+        out[name] = {"cer": cer, "wer": wer, "n": len(idx)}
+    return out
+
+
+def coverage_table(confidences: list[float], correct: list[bool], thresholds: list[float]) -> list[dict]:
+    """For each confidence threshold: the share of words the model would answer (coverage) and how many of those it reads exactly right (accuracy)."""
+    n = len(confidences)
+    rows = []
+    for t in thresholds:
+        kept = [ok for c, ok in zip(confidences, correct) if c >= t]
+        rows.append({"threshold": t, "coverage": len(kept) / n if n else 0.0, "accuracy": sum(kept) / len(kept) if kept else None, "n": len(kept)})
+    return rows
