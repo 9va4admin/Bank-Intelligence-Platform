@@ -116,3 +116,10 @@ def test_the_command_refuses_when_the_counts_do_not_match(tmp_path):
                            "--max-epochs", "1", "--patience", "1", "--lr", "0.003", "--batch-size", "8", "--seed", "1", "--height", "32", "--max-width", "160", "--workers", "0"],
                           cwd=ROOT, capture_output=True, text=True, timeout=120)
     assert done.returncode == 2 and "counts" in done.stderr.lower()
+
+
+def test_it_trains_with_worker_processes_and_augmentation_as_a_real_run_does(tmp_path, data):
+    """On Windows the loader's worker processes must be able to receive the augmentation step; a closure cannot be sent."""
+    splits, charset = data
+    out = fit(splits["train"], splits["val"], charset, out_dir=tmp_path / "run", cfg=cfg(max_epochs=1, workers=2, augment=True))
+    assert out["history"][0]["train_images"] == 21 and out["history"][0]["val_n"] == 9

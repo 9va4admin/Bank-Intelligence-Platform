@@ -50,10 +50,18 @@ def _save(obj, path: Path) -> None:
     os.replace(tmp, path)
 
 
+class _Augmenter:
+    """A named class, not a closure, so the loader's worker processes can receive it (Windows starts them by pickling)."""
+
+    def __init__(self, seed: int, epoch: int, strength: float) -> None:
+        self.seed, self.epoch, self.strength = seed, epoch, strength
+
+    def __call__(self, img, i):
+        return augment_image(img, random.Random(self.seed * 1_000_003 + self.epoch * 10_007 + i), strength=self.strength)
+
+
 def _augmenter(cfg: FitConfig, epoch: int):
-    if not cfg.augment:
-        return None
-    return lambda img, i: augment_image(img, random.Random(cfg.seed * 1_000_003 + epoch * 10_007 + i), strength=cfg.augment_strength)
+    return _Augmenter(cfg.seed, epoch, cfg.augment_strength) if cfg.augment else None
 
 
 def fit(train_samples: list[Sample], val_samples: list[Sample], charset: Charset, *, out_dir: Path | str, cfg: FitConfig, resume: bool = False, verbose: bool = False) -> dict:
