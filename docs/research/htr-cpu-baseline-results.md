@@ -29,9 +29,25 @@ The earlier quick check on Gujarati had given 12.9% character error and 52.4% wo
 
 **Caveat.** The Gujarati files do not name the writer of each image, so we cannot confirm that the test writers are absent from training. The test score may be optimistic by an unknown amount.
 
-### Kannada and Hindi
+### Kannada (finished)
 
-Kannada is training on the proper method; its result will be added when it finishes. Hindi follows. The Hindi folder was found damaged on 2026-11-27 (all test images and most validation images missing, cause unknown) and was re-extracted from the original archive, verified complete, before use.
+Best epoch 17 of 17 trained. Stopped by hand after epoch 17, because validation character error had been flat at 1.1% to 1.2% since epoch 13 (the learning rate had been halved twice). 73,517 training, 13,752 validation and 15,730 test images.
+
+| Test split, all 15,730 images | Character error | Word error |
+|---|---|---|
+| Overall | **1.3%** (95% interval 1.2% to 1.4%) | **8.3%** (7.9% to 8.7%) |
+| Words seen in training (9,214) | 1.1% | 6.9% |
+| Words never seen in training (6,516) | 1.6% | 10.3% |
+
+If the model answers only when its confidence is at least 0.95, it answers 67% of words and reads 94% of those exactly right (92% of all words are exactly right without that filter).
+
+The earlier quick check on Kannada had given 5.0% character error and 28.3% word error.
+
+**Caveat.** The Kannada files do not name writers, so the test score may be optimistic by an unknown amount. 41.4% of test words never appear in training, which makes this a fairly demanding test of new words, and the model handled them well (10.3% word error).
+
+### Hindi
+
+Hindi is training on the proper method; its result will be added when it finishes. The Hindi folder was found damaged on 2026-11-27 (all test images and most validation images missing, cause unknown) and was re-extracted from the original archive, verified complete, before use. Hindi is the one language where writers are identifiable (7 train, 2 validation, 3 test, none shared), so its test measures new handwriting and is the strictest.
 
 ### Other languages
 
