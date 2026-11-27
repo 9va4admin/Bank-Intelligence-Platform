@@ -1,66 +1,75 @@
-# Handwriting recognition: CPU baseline results (Kannada and Hindi)
+# Handwriting recognition on CPU: results for Gujarati, Kannada and Hindi
 
-Run on 2026-11-23 and 2026-11-24 with the tools in `scripts/htr_research/`. **Research use only.** The IIIT-Indic-HW-Words data has no stated licence, and the authors' permission is needed before any use in a bank product. No customer or bank data was used.
+Research use only. The IIIT-Indic-HW-Words data has no stated licence, and the authors' permission is needed before any use in a bank product. No customer or bank data was used. Tools: `scripts/htr_research/`.
 
-## What was run
+> **Correction (2026-11-27).** The first version of this document, written 2026-11-24, reported Kannada and Hindi figures from quick pipeline checks as if they were results. They were not: a fixed 3,000-step schedule (about one pass over the data), scored on a 1,000-image sample of the validation split, with the test split never scored. Those numbers are kept below for the record, marked **superseded**. The proper runs, described next, replace them.
 
-A small CRNN with CTC loss, trained from scratch on a CPU, then scored on 1,000 validation word images. The same settings were used for both languages.
+## Proper runs (current)
 
-| Setting | Value |
-|---|---|
-| Model | small CRNN + CTC (`scripts/htr_research/crnn.py`) |
-| Steps, batch | 3,000 steps of 32 images, about 96,000 images, roughly 1.3 passes over the training set |
-| Learning rate, seed | 0.001, seed 1 |
-| Image size | height 64, maximum width 320 |
-| Hardware | one CPU, no GPU |
-| Scored on | 1,000 images sampled from the **validation** split (not the held-out test split) |
+Method, from `scripts/htr_research/train_full.py`:
 
-## Results
+- every training image in every epoch, with small random changes to training images only (tilt, slant, width, blur, contrast);
+- the **whole validation split** scored after every epoch, the best checkpoint by validation character error kept, the learning rate halved when validation stalls, early stopping after 4 epochs without improvement (or 30 epochs);
+- the **whole test split scored once**, at the end, with the best checkpoint, with 95% intervals from resampling the test images;
+- the same small CRNN with CTC loss, one CPU, seed 1.
 
-| Run | Training images | Characters | Test setting | Character error | Word error | Training loss, first to last | Wall time |
-|---|---|---|---|---|---|---|---|
-| Kannada, short check (400 steps, 8,000 images) | 73,517 | 83 | unseen words | 90.9% | 100% | 7.14 to 3.28 | 11 min |
-| **Kannada, 3,000 steps** | 73,517 | 83 | unseen words | **5.0%** | **28.3%** | 4.58 to 0.20 | 17.9 h (see note) |
-| **Hindi, 3,000 steps** | 69,853 | 108 | unseen writers | **21.1%** | **63.4%** | 4.85 to 0.36 | 1.0 h |
+### Gujarati (finished)
 
-Note on Kannada's time: the run started at about 23 images per second, then fell to about 1.4 for most of it. The likely cause is the computer going to sleep. Hindi ran at about 27 images per second throughout. The Kannada accuracy is not affected, only the time.
+Best epoch 17 of 19 trained. Stopped by hand after epoch 19, because validation had been flat since epoch 17 and the saved best checkpoint is what the test score uses. 82,563 training, 17,643 validation and 16,490 test images.
 
-## What the two tests measure
+| Test split, all 16,490 images | Character error | Word error |
+|---|---|---|
+| Overall | **3.4%** (95% interval 3.2% to 3.5%) | **16.6%** (16.0% to 17.2%) |
+| Words seen in training (12,105) | 2.6% | 13.1% |
+| Words never seen in training (4,385) | 5.5% | 26.3% |
 
-The two numbers are **not comparable**, because the test setting differs.
+If the model answers only when its confidence is at least 0.95, it answers 65% of words and reads 91% of those exactly right (83% of all words are exactly right without that filter).
 
-- **Kannada:** the label files do not identify writers, so unseen writers cannot be tested. About 41% of test words never appear in training, so the model has to read words it has not memorised. The validation split probably shares many words with training.
-- **Hindi:** writers are identifiable. Training uses 7 writers, validation 2 and test 3, and no writer appears in more than one split (checked by the tool, which stops if one does). Every test word appears in training, so this measures **new handwriting**, not new words.
+The earlier quick check on Gujarati had given 12.9% character error and 52.4% word error, a large difference caused by the method, not the model.
 
-## What this shows
+**Caveat.** The Gujarati files do not name the writer of each image, so we cannot confirm that the test writers are absent from training. The test score may be optimistic by an unknown amount.
 
-1. **The pipeline works.** Data loads, the model learns, and real handwriting can be read. Character error fell from 90.9% to 5.0% on Kannada in one short CPU run.
-2. **A model trained on few writers reads new handwriting poorly.** Hindi ended training at loss 0.36 but reads unseen writers at 21.1% character error and 63.4% word error. With only 7 training writers, the model has little handwriting variety to learn from.
-3. **A word error of 28% to 63% is far too high to show names unchecked.** This supports the existing design: two independent readers, withholding a name when they disagree, and human review.
+### Kannada and Hindi
 
-## What this does not show
+Kannada is training on the proper method; its result will be added when it finishes. Hindi follows. The Hindi folder was found damaged on 2026-11-27 (all test images and most validation images missing, cause unknown) and was re-extracted from the original archive, verified complete, before use.
 
-- **Not a reproduction** of any published result. Those use full schedules and GPUs.
-- **One seed, one short schedule, one validation sample.** No confidence intervals; the differences between runs are indicative only.
-- **Clean word images, not cheque crops.** Cheques have stamps, ruled lines, mixed ink and varied scans.
-- **No other languages.** Tamil, Malayalam, Gujarati and Telugu are downloaded and validated, but not trained.
-- **No comparison with large vision models.** That is the bake-off in `docs/research/ocr-bakeoff-plan.md` (on the `claude/research-extraction-models` branch), which needs a GPU host.
+### Other languages
+
+Bengali, Punjabi, Malayalam, Tamil, Telugu, Oriya and Urdu are downloaded and queued. Two data problems were found and fixed on the way: Oriya's validation and test images had unpacked one folder too deep, and about 15 Urdu label rows use a space instead of a tab.
+
+## Superseded: quick pipeline checks (2026-11-23 and 2026-11-24)
+
+Same small CRNN, 3,000 steps of 32 images (about 1.3 passes), scored on 1,000 validation images only. Do not quote these figures.
+
+| Run | Character error | Word error | Test setting |
+|---|---|---|---|
+| Kannada, 3,000 steps | 5.0% | 28.3% | unseen words (writers not identifiable) |
+| Hindi, 3,000 steps | 21.1% | 63.4% | unseen writers (7 train, 2 val, 3 test writers; no writer in two splits) |
+
+The Hindi figure is the only one that measured new handwriting, and it was poor: a model trained on 7 writers reads new writers badly. That conclusion is likely to stand for Hindi until the proper Hindi run reports.
+
+## What these results do and do not show
+
+- **The pipeline works** and, trained properly, reads held-out word images far better than the quick checks suggested.
+- **New words are about twice as hard as known words** (Gujarati: 26.3% against 13.1% word error), so more varied words and writers would help most.
+- **Not cheque accuracy.** These are clean word images from a few writers, not cheque crops with stamps, ruled lines, mixed ink and varied scans. A person must still read names the model is unsure of.
+- **One seed.** No repeat runs yet.
+- **No comparison with large vision models.** That is the bake-off (`docs/research/ocr-bakeoff-plan.md`), which needs a GPU host.
 
 ## Next steps
 
-1. Get the authors' permission to use the data in a product, or keep it to research.
-2. Train on a GPU with longer schedules, and compare against the bake-off candidates on the same words.
-3. Collect handwriting from many writers. For cheque payee fields the number of writers matters more than the number of images.
-4. Marathi has no open handwritten-word dataset, so it needs bank cheques or synthetic words.
-5. Repeat with several seeds before quoting any figure.
+1. Finish the proper runs for all ten languages (`docs/research/indic-htr-all-languages-plan.md`). On this CPU a language takes about 10 to 20 hours.
+2. Move to a GPU host for longer runs and the model comparison; the pipeline already takes a device setting.
+3. Get the authors' permission to use the data in a product, or keep it to research.
+4. Marathi: the IIIT camera-captured dataset (IIIT-Indic-HW-UC) includes Marathi, but no working download was found (its project page is gone and the ICDAR 2025 download links return 404); an email to the authors is drafted. Collecting writing sheets from real writers is the fallback.
+5. Collect cheque-style handwriting from many writers: for payee names the number of writers matters more than the number of images.
+6. Repeat with several seeds before quoting any figure.
 
 ## Reproduce
 
 ```
-python scripts/htr_research/run_smoke.py --layout ids --root <kn_data> \
-  --train-samples 100000 --val-samples 1000 --steps 3000 --batch-size 32 --lr 0.001 \
-  --seed 1 --height 64 --max-width 320 --workers 6 --log-every 100 --out kn_long1.json
-python scripts/htr_research/run_smoke.py --layout text --root <hi_data> ...same options... --out hi_long1.json
+python scripts/htr_research/train_full.py --root <dataset> --layout <ids|text|gt> --out-dir <run folder> \
+  --max-epochs 30 --patience 4 --lr 0.001 --batch-size 32 --seed 1 --height 64 --max-width 320 --workers 6
 ```
 
-Result files are kept outside the repository, in the scratch folder `htr_runs`.
+A run resumes from its last finished epoch if interrupted (`--fresh` starts over). Result files are kept outside the repository.
