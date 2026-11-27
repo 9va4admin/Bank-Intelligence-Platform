@@ -193,7 +193,9 @@ class TabGtDataset:
             if not line.strip():
                 continue
             rel, sep, word = line.partition("\t")
-            if not sep or not rel.strip() or not word.strip():
+            if not sep:   # a few rows (Urdu) use a space instead of the tab; the image name never contains one
+                rel, _, word = line.strip().partition(" ")
+            if not rel.strip() or not word.strip():
                 raise LabelError(f"not a label row: {line!r}")
             self.samples.append(Sample(self.root / split / rel.strip(), word.strip(), -1))
 

@@ -62,3 +62,12 @@ def test_validate_flags_count_mismatch(tmp_path):
 def test_writers_are_reported_as_unknown(tmp_path):
     report = validate_gt_layout(make(tmp_path, ROWS))
     assert report.writers_known is False
+
+
+def test_a_row_separated_by_a_space_instead_of_a_tab_is_still_read(tmp_path):
+    """Urdu has a few rows (about 15 in 71,207) where the name and the word are separated by a space, not a tab."""
+    root = make(tmp_path, ROWS)
+    (root / "train" / "train_gt.txt").write_text("images/1.jpg\tنمسته\nimages/2.jpg ٓبھینسیں\nimages/3.jpg\tبے شبد\n", encoding="utf-8")
+    samples = TabGtDataset(root, "train").samples
+    assert [s.text for s in samples] == ["نمسته", "ٓبھینسیں", "بے شبد"]
+    assert samples[1].path == root / "train" / "images" / "2.jpg"
