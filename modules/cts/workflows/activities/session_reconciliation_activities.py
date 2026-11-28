@@ -110,23 +110,15 @@ async def match_submitted_vs_settled(
     Exceptions are: a submitted instrument whose row is not SETTLED, a submitted instrument that has NO row in the report
     (MISSING_FROM_SETTLEMENT), and a row for an instrument we did not submit. A session is RECONCILED only when every
     submitted instrument was settled; an unavailable report never reconciles a session that submitted anything.
+
+    With the instrument list, each missing one is named. With only a count (submitted_count), a report holding fewer
+    distinct instruments than were submitted still flags the gap, by number. No database is needed, and none is passed.
     """
     with tracer.start_as_current_span("activity.match_submitted_vs_settled") as span:
         span.set_attribute("bank_id", inp.bank_id)
+        # No database is needed to match a report against what was submitted. This activity is registered on the worker
+        # without a db_pool, so an early exit on "no db_pool" used to return RECONCILED without reading the report at all.
         have_ids = bool(inp.submitted_instrument_ids)
-        if db_pool is None and not have_ids and not inp.report_unavailable:
-            log.warning(
-                "match_submitted_vs_settled.db_unavailable",
-                session_id=inp.session_id,
-                bank_id=inp.bank_id,
-            )
-            return MatchResult(
-                matched_count=0,
-                exception_count=0,
-                outcome="RECONCILED",
-                exception_instruments=[],
-            )
-
         rows = inp.settlement_rows
         if have_ids:
             submitted = set(inp.submitted_instrument_ids)
@@ -140,9 +132,14 @@ async def match_submitted_vs_settled(
             ]
             exception_count = len(exceptions)
         else:
-            settled = [r for r in rows if r.get("status") == "SETTLED"]
+            # Only a count of what was submitted, not which instruments. A report with fewer distinct instruments than were
+            # submitted is missing some of them: we can say how many, not which. A repeated row does not count twice.
+            settled_ids = {r.get("instrument_id") for r in rows if r.get("status") == "SETTLED"}
+            settled = list(settled_ids)
             exceptions = [r for r in rows if r.get("status") != "SETTLED"]
-            exception_count = len(exceptions)
+            in_report = {r.get("instrument_id") for r in rows}
+            absent = max(0, inp.submitted_count - len(in_report))
+            exception_count = len(exceptions) + absent
             if inp.report_unavailable and inp.submitted_count > 0:
                 exception_count = max(exception_count, inp.submitted_count)   # we only know how many, not which
 

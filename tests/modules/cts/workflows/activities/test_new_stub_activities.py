@@ -45,7 +45,7 @@ class TestSealAllLotsModule:
 
 class TestSealAllLotsDegraded:
     @pytest.mark.asyncio
-    async def test_no_db_pool_returns_degraded(self):
+    async def test_no_db_pool_and_an_empty_report_for_submitted_items_is_not_reconciled(self):
         from modules.cts.workflows.activities.clearing_session_activities import (
             seal_all_lots, SealAllLotsInput,
         )
@@ -193,7 +193,7 @@ class TestFetchNGCHSettlementReport:
 
 class TestMatchSubmittedVsSettled:
     @pytest.mark.asyncio
-    async def test_no_db_pool_returns_degraded(self):
+    async def test_no_db_pool_and_an_empty_report_for_submitted_items_is_not_reconciled(self):
         from modules.cts.workflows.activities.session_reconciliation_activities import (
             match_submitted_vs_settled, MatchInput,
         )
@@ -205,7 +205,8 @@ class TestMatchSubmittedVsSettled:
         )
         result = await match_submitted_vs_settled(inp, db_pool=None)
         assert result.matched_count == 0
-        assert result.exception_count == 0
+        assert result.exception_count == 10        # ten submitted, none in the report: all ten are missing
+        assert result.outcome == "EXCEPTIONS_FLAGGED"
 
     @pytest.mark.asyncio
     async def test_all_matched(self):
@@ -548,7 +549,7 @@ class TestParseAndValidateSMBPush:
         )
 
     @pytest.mark.asyncio
-    async def test_no_db_pool_returns_degraded(self):
+    async def test_no_db_pool_and_an_empty_report_for_submitted_items_is_not_reconciled(self):
         from modules.cts.workflows.activities.smb_vault_push_activities import (
             parse_and_validate_smb_push, ParseSMBPushInput,
         )
