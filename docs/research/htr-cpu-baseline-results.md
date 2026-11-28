@@ -45,9 +45,21 @@ The earlier quick check on Kannada had given 5.0% character error and 28.3% word
 
 **Caveat.** The Kannada files do not name writers, so the test score may be optimistic by an unknown amount. 41.4% of test words never appear in training, which makes this a fairly demanding test of new words, and the model handled them well (10.3% word error).
 
-### Hindi
+### Hindi (finished)
 
-Hindi is training on the proper method; its result will be added when it finishes. The Hindi folder was found damaged on 2026-11-27 (all test images and most validation images missing, cause unknown) and was re-extracted from the original archive, verified complete, before use. Hindi is the one language where writers are identifiable (7 train, 2 validation, 3 test, none shared), so its test measures new handwriting and is the strictest.
+Best epoch 15 of 16 trained. Stopped by hand after epoch 16, because validation character error had been flat at 8.1% to 8.4% since epoch 13 and epoch 16 was worse than epoch 15. 69,853 training, 12,708 validation and 12,869 test images.
+
+| Test split, all 12,869 images | Character error | Word error |
+|---|---|---|
+| Overall | **6.8%** (95% interval 6.6% to 7.0%) | **26.7%** (26.0% to 27.5%) |
+
+If the model answers only when its confidence is at least 0.95, it answers 53% of words and reads 86% of those exactly right (73% of all words are exactly right without that filter).
+
+The earlier quick check on Hindi had given 21.1% character error and 63.4% word error.
+
+**This is the strictest test of the three.** Hindi is the one language where writers are identifiable (7 train, 2 validation, 3 test, none shared between splits), so the test measures reading **new handwriting**. Every test word also appears in training (0% unseen words), so the seen/unseen split does not apply. Even so, Hindi's error is about twice Gujarati's and five times Kannada's, which fits the explanation that only 7 training writers limit how well the model generalises to new hands. The test score (6.8%) is better than the validation score (8.1%) because the 3 test writers happen to be easier than the 2 validation writers; with so few writers, scores swing with who is in the split.
+
+The Hindi folder was found damaged on 2026-11-27 (all test images and most validation images missing, cause unknown) and was re-extracted from the original archive, verified complete, before use.
 
 ### Other languages
 
