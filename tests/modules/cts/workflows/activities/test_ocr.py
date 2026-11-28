@@ -1508,6 +1508,111 @@ class TestPayeeAgreementIgnoresUnclearLetterPlaceholders:
         assert not _payee_names_agree("Gurupada Maity", "gurupada maitra", 0.99)
 
 
+# One name per Indic script (and Urdu), written as it would be read off a cheque.
+_INDIC_NAMES = {
+    "devanagari": "सुमति शेट्टी",
+    "tamil": "சுமதி செட்டி",
+    "kannada": "ಸುಮತಿ ಶೆಟ್ಟಿ",
+    "telugu": "సుమతి శెట్టి",
+    "bengali": "সুমতি শেঠ",
+    "gujarati": "સુમતિ શેઠ",
+    "gurmukhi": "ਸੁਮਤੀ ਸ਼ੇਠ",
+    "odia": "ସୁମତି ଶେଠ",
+    "malayalam": "സുമതി ഷെട്ടി",
+    "urdu": "سمیتی شیٹی",
+}
+
+
+class TestPayeeAgreementIndicScripts:
+    """The agreement check used to keep only A-Z and 0-9, so an Indic name reduced to nothing and every
+    Indic payee 'disagreed' with itself and was withheld. Letters AND the vowel signs / marks that
+    belong to them must be compared, in any script."""
+
+    @pytest.mark.parametrize("script", sorted(_INDIC_NAMES))
+    def test_the_same_name_in_any_indic_script_agrees_with_itself(self, script):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        name = _INDIC_NAMES[script]
+        assert _payee_names_agree(name, name, 0.99)
+
+    def test_spacing_and_punctuation_are_ignored_in_indic_names(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("सुमति शेट्टी", "सुमतिशेट्टी", 0.99)
+        assert _payee_names_agree("राहुल देशमुख", "राहुल-देशमुख.", 0.99)
+        assert _payee_names_agree("राहुल देशमुख", "  राहुल   देशमुख ", 0.99)
+
+    @pytest.mark.parametrize("a,b", [
+        ("सुनील पाटील", "सुमित पाटील"),       # a different letter
+        ("पाटील", "पाटिल"),                    # only a vowel sign differs
+        ("கார்த்திக்", "கார்த்திகா"),           # a final mark replaced by a vowel sign
+        ("ಸುಮತಿ", "ಸುಮತೆ"),                   # Kannada vowel sign
+        ("రాహుల్", "రాహులు"),                  # Telugu ending
+    ])
+    def test_a_different_name_or_a_single_changed_letter_or_vowel_sign_disagrees(self, a, b):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert not _payee_names_agree(a, b, 0.99)
+
+    def test_equivalent_unicode_spellings_agree(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("क़", "क़", 0.99)                         # precomposed vs decomposed nukta
+        assert _payee_names_agree("क्‍ष", "क्ष", 0.99)   # a joiner inside a conjunct
+        assert _payee_names_agree("क्‌ष", "क्ष", 0.99)   # a non-joiner inside a conjunct
+
+    def test_a_mixed_script_name_still_compares_both_parts(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("Dr. राहुल Patil", "dr राहुल patil", 0.99)
+        assert not _payee_names_agree("Dr. राहुल Patil", "dr राहुल Patel", 0.99)
+
+    def test_unclear_letter_placeholders_are_ignored_in_indic_names(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("सुमति शेट्टी", "सुमतिnullशेट्टी", 0.99)
+        assert not _payee_names_agree("सुनील पाटील", "सुमित null पाटील", 0.99)
+
+    def test_nothing_comparable_is_never_agreement(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert not _payee_names_agree("सुमति शेट्टी", "", 0.99)
+        assert not _payee_names_agree("", "सुमति शेट्टी", 0.99)
+        assert not _payee_names_agree("...", "---", 0.99)
+        assert not _payee_names_agree("सुमति शेट्टी", "null", 0.99)
+
+    def test_a_latin_reading_never_agrees_with_an_indic_one(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert not _payee_names_agree("सुमति शेट्टी", "Sumati Shetty", 0.99)
+
+    def test_indic_digits_compare_like_ascii_digits(self):
+        from modules.cts.workflows.activities.ocr import _payee_names_agree
+        assert _payee_names_agree("राहुल २", "राहुल 2", 0.99)       # Devanagari 2 is the digit 2
+        assert _payee_names_agree("রাহুল ২", "রাহুল 2", 0.99)       # so is Bengali 2
+        assert not _payee_names_agree("राहुल २", "राहुल 3", 0.99)   # a different digit still disagrees
+
+
+class TestOCRPayeeRereadGateIndic:
+    """Through the whole OCR activity: an Indic payee both readings agree on is kept, not withheld."""
+
+    async def _run(self, reread, payee):
+        from unittest.mock import patch
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        s1 = _make_vllm_response()
+        s1["payee"] = _f(payee)
+        s1["instrument_category"] = _f("CHEQUE")
+        cs = _mock_config()
+        with patch("modules.cts.workflows.activities.ocr._payee_reread", new=AsyncMock(return_value=reread)), \
+             patch(_HDR, new=AsyncMock(return_value=None)):
+            return await ocr_extract(_make_input(), orchestrator=_mock_orchestrator(s1), config_service=cs)
+
+    @pytest.mark.asyncio
+    async def test_agreeing_devanagari_reads_keep_the_payee(self):
+        r = await self._run("सुमति  शेट्टी", "सुमति शेट्टी")
+        assert r.payee == "सुमति शेट्टी" and r.payee_reread_status == "AGREE"
+        assert r.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_disagreeing_devanagari_reads_are_withheld_for_review(self):
+        r = await self._run("सुमित पाटील", "सुनील पाटील")
+        assert r.payee is None and r.payee_reread_status == "DISAGREE"
+        assert r.outcome == "HUMAN_REVIEW" and "payee" in r.low_confidence_fields
+        assert set(r.payee_candidates) == {"सुनील पाटील", "सुमित पाटील"}
+
+
 class TestPayeeRereadUsesIndependentModel:
     """The re-read must be an independent second opinion: a different model from the primary read
     (Qwen3-VL-32B vs Qwen2.5-VL-72B), configurable, falling back to the primary model if the

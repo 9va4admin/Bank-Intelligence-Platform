@@ -455,12 +455,30 @@ _PAYEE_REREAD_PROMPT = (
 )
 
 
+def _name_letters(text: str) -> str:
+    """The letters of a name, in any script, for comparing two reads of it.
+
+    Keeps letters (Unicode categories L*), the marks that belong to them (M*: Indic vowel signs, viramas, nuktas, Arabic-script
+    diacritics) and digits (Nd, mapped to 0-9). Drops spaces, punctuation and the invisible joiners (ZWJ/ZWNJ) that readers add or
+    omit inside conjuncts. Case-folded and NFKC-normalised, so precomposed and decomposed spellings of the same letter match.
+    (This used to keep only A-Z and 0-9, which reduced every Indic name to nothing.)"""
+    import unicodedata
+    out = []
+    for ch in unicodedata.normalize("NFKC", (text or "").casefold()):
+        cat = unicodedata.category(ch)
+        if cat[0] in ("L", "M"):
+            out.append(ch)
+        elif cat == "Nd":
+            out.append(str(unicodedata.digit(ch)))
+    return "".join(out)
+
+
 def _payee_names_agree(a: str, b: str, min_similarity: float) -> bool:
-    """Case, spacing, hyphens and punctuation are ignored; the letters themselves must match."""
+    """Case, spacing, hyphens and punctuation are ignored; the letters themselves must match, in any script."""
     import difflib
-    na = re.sub(r"[^A-Z0-9]", "", (a or "").upper())
+    na = _name_letters(a)
     # The re-read prompt asks for null where a letter is unclear: those tokens are placeholders, not letters.
-    nb = re.sub(r"[^A-Z0-9]", "", re.sub(r"null", "", (b or ""), flags=re.IGNORECASE).upper())
+    nb = _name_letters(re.sub(r"null", "", (b or ""), flags=re.IGNORECASE))
     if not na or not nb:
         return False
     return difflib.SequenceMatcher(None, na, nb).ratio() >= min_similarity
